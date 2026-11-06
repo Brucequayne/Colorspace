@@ -1,392 +1,676 @@
-/* Flughafen – ein kleines Aufbauspiel für Soy and Soul.
-   Einbindung: <script src="flughafen.js"></script>, dann Flughafen.mount(element, "de" | "en")
+/* Flughafen 0.2 – ein Aufbauspiel für Soy and Soul.
+   Einbindung: flughafen.js per script-Tag laden, dann Flughafen.mount(element, "de" | "en")
    und Flughafen.unmount() beim Verlassen der Seite. Der Spielstand liegt nur lokal im Browser. */
 (function () {
   "use strict";
 
-  var KEY = "flughafen-v2";
-  var MAXC = 14;                 // maximale Anzahl Parkpositionen
-  var COLW = 60, LEFT = 150, RIGHT = 40, X0 = 40;
-  var Y = { r2: 78, r1: 140, twy: 195, stand: 252, termTop: 288, termBot: 330, rd1: 348, rd2: 370, land: 388, H: 444 };
-  var DIVERT = 55;               // Sekunden in der Warteschleife bis zum Ausweichen
-  var SITE = {
-    hangar: { x: 8, y: 208, w: 78, h: 56 },
-    fire: { x: 94, y: 208, w: 48, h: 36 },
-    deck: { x: 8, y: 274, w: 78, h: 40 },
-    tower: { x: 118, y: 286 }
-  };
+  var KEY = "flughafen-v3";
+  var VERSION = "0.2";
+  var RW_W = 22, TW_W = 14, RD_W = 16;
+  var DIVERT = 60;
+  var SIZE = { stand: [64, 66], term: [124, 46], tower: [30, 30], fire: [52, 38], hangar: [84, 62], deck: [72, 38], park: [72, 48], bus: [44, 22] };
+  var DEG = Math.PI / 180, STEP = 15 * DEG;
 
   // ---------- Texte ----------
+  function L2(de, en) { return { de: de, en: en }; }
   var TX = {
-    title: { de: "Flughafen", en: "Airport" },
-    intro: { de: "Bau deinen eigenen Flughafen. Die Flugzeuge kommen von selbst, jede Landung und jeder Start bringt Geld. Je größer und besser dein Flughafen, desto mehr Verkehr zieht er an. Wer aber zu lange in der Warteschleife kreist, fliegt woandershin.",
-             en: "Build your own airport. Aircraft arrive on their own, and every landing and take-off earns money. The bigger and better your airport, the more traffic it attracts. But anyone left circling too long flies somewhere else." },
-    money: { de: "Kasse", en: "Cash" }, rep: { de: "Ruf", en: "Reputation" },
-    moves: { de: "Bewegungen", en: "Movements" }, pax: { de: "Passagiere", en: "Passengers" },
-    hold: { de: "Warteschleife", en: "Holding" },
-    build: { de: "Ausbauen", en: "Build" },
-    pause: { de: "Pause", en: "Pause" }, play: { de: "Weiter", en: "Resume" }, speed: { de: "Tempo", en: "Speed" },
-    ranks: { de: ["Flugplatz", "Regionalflughafen", "Verkehrsflughafen", "Internationales Drehkreuz"],
-             en: ["Airfield", "Regional airport", "Commercial airport", "International hub"] },
-    built: { de: "gebaut", en: "built" },
-    poor: { de: "Dafür reicht das Geld noch nicht.", en: "Not enough cash yet." },
-    divert: { de: "weicht aus: zu lange in der Warteschleife.", en: "diverts: held too long." },
-    welcome: { de: "Der erste Flieger ist im Anflug.", en: "The first aircraft is on approach." },
-    maint: { de: "Wartung", en: "Maintenance" },
-    tip: { de: "Tipp: Ist die Piste der Engpass, helfen Tower, Schnellabrollwege und Instrumentenlandesystem.", en: "Tip: if the runway is the bottleneck, a tower, rapid exits and an ILS help." },
-    howH: { de: "So funktioniert’s", en: "How it works" },
-    how1: { de: "Flugzeuge kreisen links oben, bis die Piste frei ist und eine passende Parkposition wartet. Bei Landung und Start kassierst du eine Gebühr, nach der Abfertigung kommen die Ticketeinnahmen dazu.",
-            en: "Aircraft circle at the top left until the runway is clear and a suitable stand is free. You collect a fee on landing and take-off, and the ticket revenue after the turnaround." },
-    how2: { de: "Positionen ohne Gate werden per Bus abgefertigt: langsamer und weniger Einnahmen. Ein Gate braucht ein Terminalmodul dahinter, jedes Modul hat Platz für zwei Gates. Tower, Instrumentenlandesystem, Schnellabrollwege und eine zweite Piste lösen Engpässe auf der Piste. Ab der fünften Position verlangt die Luftaufsicht eine Feuerwehr, Langstreckenjets brauchen eine größere.",
-            en: "Stands without a gate are served by bus: slower and less revenue. A gate needs a terminal module behind it, and each module has room for two gates. Tower, instrument landing system, rapid exit taxiways and a second runway ease runway bottlenecks. From the fifth stand the authority requires a fire station, and widebodies need a bigger one." },
-    how3: { de: "Der Spielstand wird nur in deinem Browser gespeichert.", en: "Your progress is saved only in your browser." },
-    reset: { de: "Neues Spiel", en: "New game" }, resetQ: { de: "Wirklich alles löschen?", en: "Really delete everything?" },
-    done: { de: "Ausgebaut", en: "Complete" }, maxed: { de: "Kein Platz mehr", en: "No space left" },
-    lvl: { de: "Stufe", en: "Level" },
-    needFire: { de: "Braucht eine Feuerwehr", en: "Needs a fire station" },
-    needFire2: { de: "Braucht Feuerwehr Stufe 2", en: "Needs fire station level 2" },
-    needRwy: { de: "Braucht die Pistenverlängerung", en: "Needs the runway extension" },
-    needStand: { de: "Erst eine neue Parkposition bauen", en: "Build a new stand first" },
-    needTerm: { de: "Braucht ein weiteres Terminalmodul", en: "Needs another terminal module" },
-    needRoad: { de: "Braucht die getrennte Vorfahrt", en: "Needs the split forecourt road" },
-    needTower: { de: "Braucht einen Tower", en: "Needs a control tower" },
-    needTower2: { de: "Braucht Tower Stufe 2", en: "Needs tower level 2" },
-    need6: { de: "Ab 6 Parkpositionen", en: "From 6 stands" },
-    dep: { de: "ABFLUG", en: "DEPARTURES" }, arr: { de: "ANKUNFT", en: "ARRIVALS" },
-    grp: { air: { de: "Rollfeld", en: "Airside" }, term: { de: "Terminal", en: "Terminal" },
-           land: { de: "Landseite", en: "Landside" }, ops: { de: "Betrieb", en: "Operations" } }
+    title: L2("Flughafen", "Airport"),
+    intro: L2("Bau deinen Flughafen von Grund auf. Leg zuerst die Piste, zieh Rollwege, setz Parkpositionen und Terminals daran. Die Flugzeuge kommen von selbst, jede Landung und jeder Start bringt Geld.",
+              "Build your airport from scratch. Lay down the runway first, draw taxiways, then add stands and terminals. Aircraft arrive on their own, and every landing and take-off earns money."),
+    money: L2("Kasse", "Cash"), rep: L2("Ruf", "Reputation"), moves: L2("Bewegungen", "Movements"),
+    pax: L2("Passagiere", "Passengers"), hold: L2("Warteschleife", "Holding"),
+    pause: L2("Pause", "Pause"), play: L2("Weiter", "Resume"), speed: L2("Tempo", "Speed"),
+    ranks: { de: ["Grüne Wiese", "Flugplatz", "Regionalflughafen", "Verkehrsflughafen", "Internationales Drehkreuz"],
+             en: ["Empty field", "Airfield", "Regional airport", "Commercial airport", "International hub"] },
+    conn: L2("{a} von {b} Positionen angebunden", "{a} of {b} stands connected"),
+    built: L2("gebaut", "built"), poor: L2("Dafür reicht das Geld noch nicht.", "Not enough cash yet."),
+    blocked: L2("Hier ist kein Platz.", "There is no room here."),
+    divert: L2("weicht aus: zu lange in der Warteschleife.", "diverts: held too long."),
+    tip: L2("Tipp: Ist die Piste der Engpass, helfen Tower, Instrumentenlandesystem, schräge Abrollwege und eine zweite Piste.", "Tip: if the runway is the bottleneck, a tower, an ILS, angled exits and a second runway help."),
+    welcome: L2("Leg los: Wähle rechts „Piste“ und setz sie auf die Wiese.", "Get started: pick “Runway” on the right and place it on the field."),
+    maint: L2("Wartung", "Maintenance"),
+    howH: L2("So funktioniert’s", "How it works"),
+    how1: L2("Bauen: Werkzeug rechts wählen, mit der Maus platzieren, Klick zum Bauen. Q und E drehen stufenlos, mit gedrückter Umschalttaste in 15°-Schritten. Rollwege und Straßen zieht man Stück für Stück mit Klicks, Rechtsklick oder Esc beendet. Module rasten an passenden Kanten ein, Parkpositionen richten sich zum Rollweg aus.",
+              "Building: pick a tool on the right, move it with the mouse, click to build. Q and E rotate freely, with Shift in 15° steps. Taxiways and roads are drawn piece by piece with clicks; right-click or Esc ends the line. Modules snap to matching edges, and stands turn to face the taxiway."),
+    how2: L2("Karte: Ziehen auf freier Fläche oder mit rechter Maustaste verschiebt, das Mausrad zoomt, WASD und Pfeiltasten gehen auch. Ein Klick auf etwas Gebautes zeigt Infos, Ausbaustufen und „Abreißen“.",
+              "Map: drag on open ground or with the right mouse button to pan, the mouse wheel zooms, WASD and arrow keys work too. Click anything you built for details, upgrades and “Demolish”."),
+    how3: L2("Flugzeuge landen in Pfeilrichtung und verlassen die Piste über deine Rollwege. Eine Parkposition wird nur angeflogen, wenn ein Rollweg direkt davor liegt und mit der Piste verbunden ist. Steht sie mit dem Rücken an einem Terminal, kann sie ein Gate bekommen.",
+              "Aircraft land in the direction of the arrow and leave the runway via your taxiways. A stand is only used when a taxiway runs right in front of it and connects to the runway. If its back touches a terminal, it can get a gate."),
+    how4: L2("Der Spielstand wird nur in deinem Browser gespeichert.", "Your progress is saved only in your browser."),
+    reset: L2("Neues Spiel", "New game"), resetQ: L2("Wirklich alles löschen?", "Really delete everything?"),
+    done: L2("Ausgebaut", "Complete"), maxed: L2("Maximum erreicht", "Maximum reached"), lvl: L2("Stufe", "Level"),
+    needRw: L2("Erst eine Piste bauen", "Build a runway first"),
+    needFire: L2("Braucht eine Feuerwehr", "Needs a fire station"),
+    needFire2: L2("Braucht Feuerwehr Stufe 2", "Needs fire station level 2"),
+    needExt: L2("Braucht die Pistenverlängerung", "Needs the runway extension"),
+    needTower: L2("Braucht einen Tower", "Needs a control tower"),
+    needTower2: L2("Braucht Tower Stufe 2", "Needs tower level 2"),
+    need6: L2("Ab 6 angebundenen Positionen", "From 6 connected stands"),
+    needRoad: L2("Braucht eine Straße am Terminal", "Needs a road at the terminal"),
+    needGateTerm: L2("Die Position muss mit dem Rücken an einem Terminal stehen.", "The stand's back must touch a terminal."),
+    once: L2("Schon gebaut", "Already built"),
+    grp: { air: L2("Rollfeld", "Airside"), term: L2("Terminal", "Terminal"), land: L2("Landseite", "Landside"), ops: L2("Betrieb", "Operations"), up: L2("Ausbau", "Upgrades") },
+    perM: L2("{p} pro 10 m", "{p} per 10 m"),
+    selNone: L2("Klick auf etwas Gebautes, um es auszuwählen.", "Click something you built to select it."),
+    flip: L2("Landerichtung umkehren", "Reverse landing direction"),
+    del: L2("Abreißen", "Demolish"), delQ: L2("Wirklich abreißen? (+{p})", "Really demolish? (+{p})"),
+    delBusy: L2("Das wird gerade benutzt. Warte, bis es frei ist.", "That is in use right now. Wait until it is free."),
+    gate: L2("Gate bauen", "Build gate"), heavy: L2("Großraum-Position", "Widebody stand"),
+    up2: L2("Auf Stufe {n} ausbauen", "Upgrade to level {n}"),
+    stConn: L2("Mit der Piste verbunden", "Connected to the runway"),
+    stNoConn: L2("Nicht angebunden: Rollweg direkt davor ziehen und mit der Piste verbinden.", "Not connected: draw a taxiway right in front of it and link it to the runway."),
+    stGate: L2("Mit Gate", "With gate"), stBus: L2("Busabfertigung", "Served by bus"),
+    stRoad: L2("An der Straße", "On the road"), stNoRoad: L2("Noch ohne Straßenanschluss", "Not on a road yet"),
+    rwArr: L2("Landungen", "Landings"), rwDep: L2("Starts", "Take-offs"), rwBoth: L2("Landungen und Starts", "Landings and take-offs"),
+    zoomIn: L2("Hineinzoomen", "Zoom in"), zoomOut: L2("Herauszoomen", "Zoom out"),
+    rotL: L2("Nach links drehen (Q)", "Rotate left (Q)"), rotR: L2("Nach rechts drehen (E)", "Rotate right (E)"),
+    hint: {
+      none: L2("Ziehen verschiebt die Karte, Mausrad zoomt.", "Drag to pan, mouse wheel to zoom."),
+      rect: L2("Klick baut · Q/E drehen, Umschalt für 15° · Esc beendet", "Click to build · Q/E rotate, Shift for 15° · Esc to stop"),
+      line0: L2("Klick setzt den Anfang · rastet an Piste und Rollwegen ein", "Click to start · snaps to runway and taxiways"),
+      line1: L2("Klick setzt das Ende und zieht weiter · Umschalt für 15° · Rechtsklick oder Esc beendet", "Click to end and continue · Shift for 15° · right-click or Esc to stop"),
+      road0: L2("Klick setzt den Anfang der Straße", "Click to start the road"),
+      apply: L2("Klick auf eine Parkposition · Esc beendet", "Click a stand · Esc to stop")
+    }
   };
 
   var TYPES = {
-    p: { pax: 60, fee: 80, turn: 18, len: 17, span: 22, sweep: 0.01, roll: 100 },
-    n: { pax: 160, fee: 200, turn: 26, len: 25, span: 25, sweep: 0.13, roll: 150 },
-    w: { pax: 300, fee: 450, turn: 40, len: 36, span: 37, sweep: 0.16, roll: 210, heavy: true }
+    p: { pax: 60, fee: 80, turn: 18, len: 17, span: 22, sweep: 0.01, roll: 90 },
+    n: { pax: 160, fee: 200, turn: 26, len: 25, span: 25, sweep: 0.13, roll: 140 },
+    w: { pax: 300, fee: 450, turn: 40, len: 36, span: 37, sweep: 0.16, roll: 200, heavy: true }
   };
-  // Erfundene Airlines (keine echten Marken)
-  var AIRLINES = [
+  var AIRLINES = [ // erfundene Airlines
     { c: "SOY", col: "#B5651D" }, { c: "WOK", col: "#C2412D" }, { c: "TFU", col: "#2F6F8F" },
     { c: "MSO", col: "#4F7A35" }, { c: "UMA", col: "#7A4E9A" }, { c: "KOI", col: "#D9A21B" }, { c: "NRI", col: "#1F5C4F" }
   ];
 
   // ---------- Zustand ----------
-  var G = null, R = null, V = null, lang = "de";
+  var G = null, R = null, V = null, NET = null, lang = "de";
 
   function fresh() {
-    return { v: 2, money: 1500, rep: 50, cols: [{ gate: true, heavy: false }], term: 1, bus: 0, park: 0,
-      up: { rwy: 0, ils: 0, r2: 0, gh: 0, exit: 0, ext: 0, road: 1, tower: 0, fire: 0, hangar: 0, deck: 0 },
-      st: { moves: 0, pax: 0, earned: 0, div: 0 } };
+    return { v: 3, money: 6000, rep: 50, nid: 1, mods: [],
+      up: { rwy: 0, ils: 0, gh: 0, ext: 0 }, st: { moves: 0, pax: 0, earned: 0, div: 0 } };
   }
   function load() {
-    try {
-      var s = JSON.parse(localStorage.getItem(KEY) || "null");
-      if (s && s.v === 2 && s.cols && s.cols.length) return s;
-    } catch (e) {}
+    try { var s = JSON.parse(localStorage.getItem(KEY) || "null"); if (s && s.v === 3 && s.mods) return s; } catch (e) {}
     return fresh();
   }
   function save() { try { if (G) localStorage.setItem(KEY, JSON.stringify(G)); } catch (e) {} }
   function runtime() {
-    return { planes: [], holdQ: [], depQ: [], occ: [], rw: [{ busy: null, next: null, cool: 0, last: "" }, { busy: null, next: null, cool: 0, last: "" }],
-      spawnT: 3, fx: [], cars: [], carT: 0, buses: [], busT: 4, speed: 1, paused: false, id: 0, saveT: 0, msgT: 0,
-      first: true, hangarT: 0, hangarType: "n", visitors: 0, clock: 0 };
+    return { planes: [], holdQ: [], q: {}, occ: {}, rw: {}, spawnT: 4, fx: [], cars: [], carT: 1, speed: 1, paused: false,
+      id: 0, saveT: 0, msgT: 0, first: true, hangarT: 0, hangarType: "n", visitors: 0, clock: 0 };
   }
 
   function t(k) { return TX[k][lang]; }
-  function nS() { return G.cols.length; }
-  function nGates() { return G.cols.filter(function (c) { return c.gate; }).length; }
-  function nH() { return G.cols.filter(function (c) { return c.heavy; }).length; }
-  function rl() { return G.up.rwy ? 600 : 440; }
-  function worldW() { return Math.max(LEFT + nS() * COLW + RIGHT, LEFT + G.park * 74 + RIGHT, X0 + rl() + 70, 620); }
-  function cx(i) { return LEFT + i * COLW + COLW / 2; }
+  function fmt(s, o) { return s.replace(/\{(\w+)\}/g, function (_, k) { return o[k]; }); }
   function loc() { return lang === "de" ? "de-DE" : "en-GB"; }
   function eur(v) { var n = Math.round(v).toLocaleString(loc()); return lang === "de" ? n + " €" : "€" + n; }
-  function rank() { var n = nS(); return t("ranks")[n < 3 ? 0 : n < 6 ? 1 : n < 10 ? 2 : 3]; }
   function round(v) { return Math.round(v / 50) * 50; }
-  function gateSlot() {
-    for (var i = 0; i < G.cols.length; i++) if (!G.cols[i].gate && Math.floor(i / 2) < G.term) return i;
-    return -1;
+  function mods(type) { return G.mods.filter(function (m) { return m.t === type; }); }
+  function one(type) { return mods(type)[0] || null; }
+  function byId(id) { for (var i = 0; i < G.mods.length; i++) if (G.mods[i].id === id) return G.mods[i]; return null; }
+  function rwLen() { return G.up.rwy ? 600 : 440; }
+
+  // ---------- Geometrie ----------
+  function dist(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
+  function size(m) { return m.t === "runway" ? [rwLen(), RW_W] : SIZE[m.t]; }
+  function axes(a) { return { ux: Math.cos(a), uy: Math.sin(a), vx: -Math.sin(a), vy: Math.cos(a) }; }
+  // Rechteck: Mitte, Winkel, halbe Breite/Tiefe
+  function foot(m) {
+    if (m.t === "taxi" || m.t === "road") {
+      var l = Math.hypot(m.x2 - m.x1, m.y2 - m.y1);
+      return { x: (m.x1 + m.x2) / 2, y: (m.y1 + m.y2) / 2, a: Math.atan2(m.y2 - m.y1, m.x2 - m.x1), hw: l / 2 + (m.t === "taxi" ? TW_W : RD_W) / 2, hh: (m.t === "taxi" ? TW_W : RD_W) / 2 };
+    }
+    var s = size(m);
+    return { x: m.x, y: m.y, a: m.a, hw: s[0] / 2, hh: s[1] / 2 + (m.t === "runway" ? 6 : 0) };
   }
-  function lv(n, max) { return t("lvl") + " " + n + "/" + max; }
+  function corners(f) {
+    var A = axes(f.a), out = [];
+    [[-1, -1], [1, -1], [1, 1], [-1, 1]].forEach(function (k) {
+      out.push({ x: f.x + A.ux * f.hw * k[0] + A.vx * f.hh * k[1], y: f.y + A.uy * f.hw * k[0] + A.vy * f.hh * k[1] });
+    });
+    return out;
+  }
+  function overlap(f1, f2, shrink) {
+    var a = { x: f1.x, y: f1.y, a: f1.a, hw: f1.hw - shrink, hh: f1.hh - shrink };
+    var b = { x: f2.x, y: f2.y, a: f2.a, hw: f2.hw - shrink, hh: f2.hh - shrink };
+    if (a.hw <= 0 || a.hh <= 0 || b.hw <= 0 || b.hh <= 0) return false;
+    var ca = corners(a), cb = corners(b), ax = [a.a, a.a + Math.PI / 2, b.a, b.a + Math.PI / 2];
+    for (var i = 0; i < 4; i++) {
+      var nx = Math.cos(ax[i]), ny = Math.sin(ax[i]);
+      var p1 = ca.map(function (p) { return p.x * nx + p.y * ny; }), p2 = cb.map(function (p) { return p.x * nx + p.y * ny; });
+      if (Math.max.apply(null, p1) < Math.min.apply(null, p2) || Math.max.apply(null, p2) < Math.min.apply(null, p1)) return false;
+    }
+    return true;
+  }
+  function toLocal(f, p) {
+    var A = axes(f.a), dx = p.x - f.x, dy = p.y - f.y;
+    return { x: dx * A.ux + dy * A.uy, y: dx * A.vx + dy * A.vy };
+  }
+  function inFoot(f, p, pad) { var l = toLocal(f, p); return Math.abs(l.x) <= f.hw + (pad || 0) && Math.abs(l.y) <= f.hh + (pad || 0); }
+  function dPointFoot(f, p) {
+    var l = toLocal(f, p), dx = Math.max(0, Math.abs(l.x) - f.hw), dy = Math.max(0, Math.abs(l.y) - f.hh);
+    return Math.hypot(dx, dy);
+  }
+  function segProj(p, a, b) {
+    var dx = b.x - a.x, dy = b.y - a.y, l2 = dx * dx + dy * dy || 1;
+    var tt = Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / l2));
+    var q = { x: a.x + dx * tt, y: a.y + dy * tt };
+    return { t: tt, q: q, d: dist(p, q) };
+  }
+  function segFootDist(a, b, f) {
+    var d = Infinity;
+    for (var i = 0; i <= 12; i++) d = Math.min(d, dPointFoot(f, { x: a.x + (b.x - a.x) * i / 12, y: a.y + (b.y - a.y) * i / 12 }));
+    corners(f).forEach(function (c) { d = Math.min(d, segProj(c, a, b).d); });
+    return d;
+  }
+  function rwEnds(m) {
+    var L = rwLen(), A = axes(m.a);
+    return { A: { x: m.x - A.ux * L / 2, y: m.y - A.uy * L / 2 }, B: { x: m.x + A.ux * L / 2, y: m.y + A.uy * L / 2 }, dx: A.ux, dy: A.uy, L: L };
+  }
+  function segEnds(m) { return m.t === "runway" ? (function (e) { return [e.A, e.B]; })(rwEnds(m)) : [{ x: m.x1, y: m.y1 }, { x: m.x2, y: m.y2 }]; }
+  // Parkposition: Vorderseite zeigt in lokale -y-Richtung (zum Rollweg), Rücken +y (zum Terminal)
+  function standDirs(m) { var A = axes(m.a); return { fx: -A.vx, fy: -A.vy, bx: A.vx, by: A.vy }; }
 
-  // ---------- Ausbau ----------
-  function L2(de, en) { return { de: de, en: en }; }
+  // ---------- Wegenetz ----------
+  function rebuild() {
+    var N = [], E = [], adj = [];
+    function node(x, y) {
+      for (var i = 0; i < N.length; i++) if (Math.abs(N[i].x - x) < 1.5 && Math.abs(N[i].y - y) < 1.5) return i;
+      N.push({ x: x, y: y }); adj.push([]); return N.length - 1;
+    }
+    function edge(a, b, type) {
+      if (a === b) return;
+      var e = { a: a, b: b, len: dist(N[a], N[b]), type: type };
+      E.push(e); adj[a].push(e); adj[b].push(e);
+    }
+    var segs = [];
+    G.mods.forEach(function (m) {
+      if (m.t !== "runway" && m.t !== "taxi") return;
+      var e = segEnds(m);
+      segs.push({ m: m, a: e[0], b: e[1], pts: [{ t: 0, x: e[0].x, y: e[0].y }, { t: 1, x: e[1].x, y: e[1].y }] });
+    });
+    // Rollweg-Enden auf anderen Linien = Kreuzungen
+    segs.forEach(function (s) {
+      if (s.m.t !== "taxi") return;
+      [s.a, s.b].forEach(function (p) {
+        segs.forEach(function (o) {
+          if (o === s) return;
+          var pr = segProj(p, o.a, o.b);
+          if (pr.d < 1.5) o.pts.push({ t: pr.t, x: pr.q.x, y: pr.q.y });
+        });
+      });
+    });
+    // Parkpositionen: Rollweg direkt vor der Nase?
+    mods("stand").forEach(function (m) {
+      var d = standDirs(m), h = SIZE.stand[1] / 2;
+      var F = { x: m.x + d.fx * h, y: m.y + d.fy * h };
+      var best = null;
+      segs.forEach(function (s) {
+        if (s.m.t !== "taxi") return;
+        // Schnitt Strahl F + k*f mit Segment
+        var rx = s.b.x - s.a.x, ry = s.b.y - s.a.y, den = d.fx * ry - d.fy * rx;
+        if (Math.abs(den) < 1e-6) return;
+        var qx = s.a.x - F.x, qy = s.a.y - F.y;
+        var k = (qx * ry - qy * rx) / den, u = (qx * d.fy - qy * d.fx) / den;
+        if (k >= -3 && k <= 26 && u >= -0.001 && u <= 1.001 && (!best || k < best.k)) best = { k: k, s: s, u: u };
+      });
+      m._en = m._pn = null;
+      if (best) {
+        var ex = F.x + d.fx * best.k, ey = F.y + d.fy * best.k;
+        best.s.pts.push({ t: best.u, x: ex, y: ey });
+        m._entry = { x: ex, y: ey };
+      } else m._entry = null;
+    });
+    segs.forEach(function (s) {
+      s.pts.sort(function (p, q) { return p.t - q.t; });
+      var prev = -1;
+      s.pts.forEach(function (p) { var n = node(p.x, p.y); if (prev >= 0) edge(prev, n, s.m.t === "runway" ? "rwy" : "taxi"); prev = n; });
+      if (s.m.t === "runway") {
+        var e = rwEnds(s.m);
+        s.m._nodes = s.pts.map(function (p) { return { n: node(p.x, p.y), d: p.t * e.L }; });
+      }
+    });
+    mods("stand").forEach(function (m) {
+      if (m._entry) { m._en = node(m._entry.x, m._entry.y); m._pn = node(m.x, m.y); edge(m._en, m._pn, "lead"); }
+    });
+    var rws = mods("runway");
+    rws.forEach(function (r) {
+      r._junc = (r._nodes || []).filter(function (j) { return adj[j.n].some(function (e) { return e.type !== "rwy"; }); });
+    });
+    // Erreichbarkeit von der Landebahn aus
+    var reach = {};
+    if (rws[0]) {
+      var st = rws[0]._junc.map(function (j) { return j.n; });
+      st.forEach(function (n) { reach[n] = 1; });
+      while (st.length) {
+        var n = st.pop();
+        adj[n].forEach(function (e) { if (e.type === "rwy") return; var o = e.a === n ? e.b : e.a; if (!reach[o]) { reach[o] = 1; st.push(o); } });
+      }
+    }
+    mods("stand").forEach(function (m) {
+      m._conn = m._pn !== null && m._pn !== undefined && !!reach[m._pn];
+      var d = standDirs(m), h = SIZE.stand[1] / 2 + 6, P = { x: m.x + d.bx * h, y: m.y + d.by * h };
+      m._term = mods("term").some(function (tm) { return inFoot(foot(tm), P, 1); });
+    });
+    var roads = mods("road");
+    function onRoad(m) { var f = foot(m); return roads.some(function (r) { return segFootDist({ x: r.x1, y: r.y1 }, { x: r.x2, y: r.y2 }, f) < 14; }); }
+    ["term", "park", "bus"].forEach(function (k) { mods(k).forEach(function (m) { m._road = onRoad(m); }); });
+    NET = { N: N, E: E, adj: adj };
+  }
+
+  function path(src, dst) {
+    if (src == null || dst == null) return null;
+    var N = NET.N, dd = {}, prev = {}, done = {}, open = [src];
+    dd[src] = 0;
+    while (open.length) {
+      var bi = 0;
+      for (var i = 1; i < open.length; i++) if (dd[open[i]] < dd[open[bi]]) bi = i;
+      var n = open.splice(bi, 1)[0];
+      if (done[n]) continue;
+      done[n] = 1;
+      if (n === dst) break;
+      NET.adj[n].forEach(function (e) {
+        if (e.type === "rwy") return;
+        var o = e.a === n ? e.b : e.a;
+        if (e.type === "lead" && o !== dst && o !== src && n !== src && n !== dst) return;
+        var nd = dd[n] + e.len;
+        if (dd[o] === undefined || nd < dd[o]) { dd[o] = nd; prev[o] = n; open.push(o); }
+      });
+    }
+    if (dd[dst] === undefined) return null;
+    var out = [dst];
+    while (out[0] !== src) out.unshift(prev[out[0]]);
+    return out.map(function (k) { return N[k]; });
+  }
+
+  function stats() {
+    var st = mods("stand");
+    return {
+      stands: st.length, conn: st.filter(function (m) { return m._conn; }).length,
+      gates: st.filter(function (m) { return m._conn && m.gate && m._term; }).length,
+      heavy: st.filter(function (m) { return m._conn && m.heavy; }).length,
+      rws: mods("runway").length, term: mods("term").length,
+      termRoad: mods("term").some(function (m) { return m._road; }),
+      bus: mods("bus").filter(function (m) { return m._road; }).length,
+      park: mods("park").filter(function (m) { return m._road; }).length,
+      tower: one("tower") ? one("tower").lvl : 0, fire: one("fire") ? one("fire").lvl : 0,
+      hangar: one("hangar") ? one("hangar").lvl : 0, deck: !!one("deck")
+    };
+  }
+  function rank() {
+    var c = stats().conn, r = t("ranks");
+    return !mods("runway").length ? r[0] : c < 3 ? r[1] : c < 6 ? r[2] : c < 10 ? r[3] : r[4];
+  }
+
+  // ---------- Bauen ----------
+  // Jedes Bauteil: Kosten, Sperren, Art des Werkzeugs
   var BUILD = [
-    // Rollfeld
-    { id: "stand", g: "air", name: L2("Parkposition", "Aircraft stand"),
-      desc: L2("Neue Position auf dem Vorfeld. Ohne Gate per Bus: langsamer, weniger Ertrag.", "A new stand on the apron. Without a gate it is served by bus: slower, less revenue."),
-      cost: function () { return round(700 * Math.pow(1.3, nS() - 1)); },
-      lock: function () { if (nS() >= MAXC) return t("maxed"); return nS() >= 4 && G.up.fire < 1 ? t("needFire") : ""; },
-      apply: function () { G.cols.push({ gate: false, heavy: false }); } },
-    { id: "heavy", g: "air", name: L2("Großraum-Position", "Widebody stand"),
-      desc: L2("Macht eine Position fit für Langstreckenjets, die am meisten einbringen.", "Makes a stand fit for widebody jets, which earn the most."),
-      cost: function () { return round(3500 * Math.pow(1.25, nH())); },
+    { id: "runway", g: "air", tool: "runway", name: L2("Piste", "Runway"),
+      desc: L2("Start- und Landebahn, frei drehbar. Der Pfeil zeigt die Landerichtung.", "Runway, freely rotatable. The arrow shows the landing direction."),
+      cost: function () { return mods("runway").length ? 20000 : 2500; },
       lock: function () {
-        if (!G.up.rwy) return t("needRwy");
-        if (G.up.fire < 2) return t("needFire2");
-        return nH() >= nS() ? t("needStand") : "";
-      },
-      apply: function () {
-        var best = -1;
-        G.cols.forEach(function (c, i) { if (!c.heavy && (best < 0 || (c.gate && !G.cols[best].gate))) best = i; });
-        if (best >= 0) G.cols[best].heavy = true;
+        var n = mods("runway").length;
+        if (n >= 2) return t("maxed");
+        if (n === 1 && stats().conn < 6) return t("need6");
+        if (n === 1 && stats().tower < 2) return t("needTower2");
+        return "";
       } },
-    { id: "exit", g: "air", name: L2("Schnellabrollwege", "Rapid exit taxiways"),
-      desc: L2("Schräge Abfahrten: Landende Flieger räumen die Piste früher.", "Angled exits: landing aircraft clear the runway sooner."),
-      cost: function () { return 4000; }, lock: function () { return G.up.exit ? t("done") : ""; },
-      apply: function () { G.up.exit = 1; } },
-    { id: "rwy", g: "air", name: L2("Pistenverlängerung", "Runway extension"),
-      desc: L2("Eine längere Piste, die auch Langstreckenjets nutzen können.", "A longer runway that widebody jets can use too."),
-      cost: function () { return 9000; }, lock: function () { return G.up.rwy ? t("done") : ""; },
-      apply: function () { G.up.rwy = 1; } },
-    { id: "ils", g: "air", name: L2("Instrumentenlandesystem", "Instrument landing system"),
-      desc: L2("Schnellere Anflüge und kürzere Abstände auf der Piste.", "Faster approaches and shorter spacing on the runway."),
-      cost: function () { return 5000; },
-      lock: function () { if (G.up.ils) return t("done"); return G.up.tower < 1 ? t("needTower") : ""; },
-      apply: function () { G.up.ils = 1; } },
-    { id: "r2", g: "air", name: L2("Zweite Piste", "Second runway"),
-      desc: L2("Eine eigene Startbahn: Landungen und Starts laufen parallel.", "A dedicated departure runway: landings and take-offs run in parallel."),
-      cost: function () { return 20000; },
+    { id: "taxi", g: "air", tool: "line", name: L2("Rollweg", "Taxiway"),
+      desc: L2("Verbindet Piste und Parkpositionen. Schräge Abfahrten räumen die Piste schneller.", "Links runway and stands. Angled exits clear the runway faster."),
+      cost: function () { return 30; }, unit: 3, lock: function () { return mods("runway").length ? "" : t("needRw"); } },
+    { id: "stand", g: "air", tool: "rect", name: L2("Parkposition", "Aircraft stand"),
+      desc: L2("Richtet sich zum nächsten Rollweg aus. Ohne Gate per Bus: langsamer, weniger Ertrag.", "Turns to face the nearest taxiway. Without a gate it is served by bus: slower, less revenue."),
+      cost: function () { return round(700 * Math.pow(1.3, mods("stand").length)); },
+      lock: function () { if (!mods("runway").length) return t("needRw"); return mods("stand").length >= 4 && !one("fire") ? t("needFire") : ""; } },
+    { id: "gate", g: "term", tool: "apply", name: L2("Gate", "Gate"),
+      desc: L2("Fluggastbrücke für eine Position, die mit dem Rücken am Terminal steht.", "A jet bridge for a stand whose back touches a terminal."),
+      cost: function () { return round(900 * Math.pow(1.3, mods("stand").filter(function (m) { return m.gate; }).length)); },
+      lock: function () { return mods("term").length ? "" : (lang === "de" ? "Erst ein Terminalmodul bauen" : "Build a terminal module first"); } },
+    { id: "term", g: "term", tool: "rect", name: L2("Terminalmodul", "Terminal module"),
+      desc: L2("Gebäudeabschnitt mit Check-in und Kontrolle. Rastet an Positionen und anderen Modulen ein.", "Building section with check-in and security. Snaps to stands and other modules."),
+      cost: function () { return round(1500 * Math.pow(1.45, mods("term").length)); },
       lock: function () {
-        if (G.up.r2) return t("done");
-        if (nS() < 6) return t("need6");
-        return G.up.tower < 2 ? t("needTower2") : "";
-      },
-      apply: function () { G.up.r2 = 1; } },
-    // Terminal
-    { id: "term", g: "term", name: L2("Terminalmodul", "Terminal module"),
-      desc: L2("Ein neuer Gebäudeabschnitt mit Check-in und Sicherheitskontrolle. Platz für zwei Gates.", "A new building section with check-in and security. Room for two gates."),
-      cost: function () { return round(1500 * Math.pow(1.45, G.term - 1)); },
-      lock: function () {
-        if (G.term * 2 >= MAXC) return t("maxed");
-        if (G.term * 2 >= nS()) return t("needStand");
-        return G.term >= 3 && G.up.road < 2 ? t("needRoad") : "";
-      },
-      apply: function () { G.term++; } },
-    { id: "gate", g: "term", name: L2("Gate", "Gate"),
-      desc: L2("Fluggastbrücke vom Terminal zur Position: schnellere Abfertigung, mehr Einnahmen, mehr Nachfrage.", "A jet bridge from the terminal to the stand: faster turnarounds, more revenue, more demand."),
-      cost: function () { return round(900 * Math.pow(1.3, nGates() - 1)); },
-      lock: function () { if (gateSlot() >= 0) return ""; return nGates() >= nS() ? t("needStand") : t("needTerm"); },
-      apply: function () { var i = gateSlot(); if (i >= 0) G.cols[i].gate = true; } },
-    { id: "ext", g: "term", name: L2("Terminal-Erweiterung", "Terminal extension"),
-      desc: L2("Shops, Gastronomie und Lounges: jede Stufe bringt 15 % mehr pro Passagier.", "Shops, food and lounges: each level earns 15% more per passenger."),
-      cost: function () { return round(3000 * Math.pow(2, G.up.ext)); },
-      lock: function () { return G.up.ext >= 3 ? t("done") : ""; },
-      extra: function () { return lv(G.up.ext, 3); },
-      apply: function () { G.up.ext++; } },
-    // Landseite
-    { id: "road", g: "land", name: L2("Vorfahrt Abflug/Ankunft", "Split forecourt road"),
-      desc: L2("Getrennte Straßen für Abflug und Ankunft. Mehr Passagiere kommen zum Flughafen.", "Separate roads for departures and arrivals. More passengers get to the airport."),
-      cost: function () { return 6000; }, lock: function () { return G.up.road >= 2 ? t("done") : ""; },
-      apply: function () { G.up.road = 2; } },
-    { id: "park", g: "land", name: L2("Parkplatz", "Car park"),
-      desc: L2("Parkgebühren: Jeder Parkplatz verdient an jeder Abfertigung mit.", "Parking fees: every car park earns a share of each turnaround."),
-      cost: function () { return round(1200 * Math.pow(1.5, G.park)); },
-      lock: function () { return G.park >= 6 ? t("maxed") : ""; },
-      extra: function () { return G.park + "/6"; },
-      apply: function () { G.park++; } },
-    { id: "bus", g: "land", name: L2("Bushaltestelle", "Bus stop"),
-      desc: L2("Anbindung an Stadt und Umland: jede Haltestelle bringt rund 8 % mehr Nachfrage.", "Links to the city and region: each stop brings about 8% more demand."),
-      cost: function () { return round(800 * Math.pow(1.6, G.bus)); },
-      lock: function () { return G.bus >= 3 ? t("maxed") : ""; },
-      extra: function () { return G.bus + "/3"; },
-      apply: function () { G.bus++; } },
-    // Betrieb
-    { id: "tower", g: "ops", name: L2("Tower", "Control tower"),
-      desc: L2("Flugsicherung vor Ort: kürzere Abstände zwischen Landungen und Starts. Stufe 2 mit Radar.", "Air traffic control on site: shorter spacing between landings and take-offs. Level 2 adds radar."),
-      cost: function () { return [2500, 8000][G.up.tower] || 0; },
-      lock: function () { return G.up.tower >= 2 ? t("done") : ""; },
-      extra: function () { return lv(G.up.tower, 2); },
-      apply: function () { G.up.tower++; } },
-    { id: "fire", g: "ops", name: L2("Feuerwehr", "Fire station"),
-      desc: L2("Pflicht ab der fünften Position. Stufe 2 erlaubt Langstreckenjets und stärkt den Ruf.", "Required from the fifth stand. Level 2 allows widebodies and boosts reputation."),
-      cost: function () { return [2000, 7000][G.up.fire] || 0; },
-      lock: function () { return G.up.fire >= 2 ? t("done") : ""; },
-      extra: function () { return lv(G.up.fire, 2); },
-      apply: function () { G.up.fire++; } },
-    { id: "hangar", g: "ops", name: L2("Wartungshalle", "Maintenance hangar"),
-      desc: L2("Airlines lassen hier warten: Nach manchen Abflügen kommt ein Wartungsauftrag rein.", "Airlines get their aircraft serviced here: some departures bring in a maintenance job."),
-      cost: function () { return [6000, 14000][G.up.hangar] || 0; },
-      lock: function () { return G.up.hangar >= 2 ? t("done") : ""; },
-      extra: function () { return lv(G.up.hangar, 2); },
-      apply: function () { G.up.hangar++; } },
-    { id: "gh", g: "ops", name: L2("Bodenabfertigung", "Ground handling"),
-      desc: L2("Mehr Personal und Gerät: jede Stufe macht die Abfertigung 15 % schneller.", "More staff and equipment: each level makes turnarounds 15% faster."),
-      cost: function () { return round(2500 * Math.pow(2.2, G.up.gh)); },
-      lock: function () { return G.up.gh >= 3 ? t("done") : ""; },
-      extra: function () { return lv(G.up.gh, 3); },
-      apply: function () { G.up.gh++; } },
-    { id: "deck", g: "ops", name: L2("Aussichtsplattform", "Viewing deck"),
-      desc: L2("Planespotter zahlen Eintritt: Einnahmen bei jeder Bewegung, dazu ein besserer Ruf.", "Plane spotters pay to get in: income on every movement, plus a better reputation."),
-      cost: function () { return 3500; }, lock: function () { return G.up.deck ? t("done") : ""; },
-      apply: function () { G.up.deck = 1; } }
+        if (!mods("runway").length) return t("needRw");
+        return mods("term").length >= 2 && !stats().termRoad ? t("needRoad") : "";
+      } },
+    { id: "heavy", g: "term", tool: "apply", name: L2("Großraum-Position", "Widebody stand"),
+      desc: L2("Macht eine Position fit für Langstreckenjets, die am meisten einbringen.", "Makes a stand fit for widebody jets, which earn the most."),
+      cost: function () { return round(3500 * Math.pow(1.25, mods("stand").filter(function (m) { return m.heavy; }).length)); },
+      lock: function () { if (!G.up.rwy) return t("needExt"); return stats().fire < 2 ? t("needFire2") : ""; } },
+    { id: "road", g: "land", tool: "line", name: L2("Straße", "Road"),
+      desc: L2("Vorfahrt für Abflug und Ankunft. Am Terminal bringt sie mehr Passagiere.", "Forecourt for departures and arrivals. At the terminal it brings more passengers."),
+      cost: function () { return 20; }, unit: 2, lock: function () { return mods("runway").length ? "" : t("needRw"); } },
+    { id: "park", g: "land", tool: "rect", name: L2("Parkplatz", "Car park"),
+      desc: L2("An einer Straße: Parkgebühren bei jeder Abfertigung.", "On a road: parking fees on every turnaround."),
+      cost: function () { return round(1200 * Math.pow(1.5, mods("park").length)); },
+      lock: function () { if (!mods("runway").length) return t("needRw"); return mods("park").length >= 6 ? t("maxed") : ""; } },
+    { id: "bus", g: "land", tool: "rect", name: L2("Bushaltestelle", "Bus stop"),
+      desc: L2("An einer Straße: rund 8 % mehr Nachfrage.", "On a road: about 8% more demand."),
+      cost: function () { return round(800 * Math.pow(1.6, mods("bus").length)); },
+      lock: function () { if (!mods("runway").length) return t("needRw"); return mods("bus").length >= 3 ? t("maxed") : ""; } },
+    { id: "tower", g: "ops", tool: "rect", name: L2("Tower", "Control tower"),
+      desc: L2("Kürzere Abstände zwischen Landungen und Starts. Stufe 2 mit Radar.", "Shorter spacing between landings and take-offs. Level 2 adds radar."),
+      cost: function () { return 2500; }, lock: function () { if (!mods("runway").length) return t("needRw"); return one("tower") ? t("once") : ""; } },
+    { id: "fire", g: "ops", tool: "rect", name: L2("Feuerwehr", "Fire station"),
+      desc: L2("Pflicht ab der fünften Position. Stufe 2 erlaubt Langstreckenjets.", "Required from the fifth stand. Level 2 allows widebodies."),
+      cost: function () { return 2000; }, lock: function () { if (!mods("runway").length) return t("needRw"); return one("fire") ? t("once") : ""; } },
+    { id: "hangar", g: "ops", tool: "rect", name: L2("Wartungshalle", "Maintenance hangar"),
+      desc: L2("Nach manchen Abflügen kommt ein Wartungsauftrag rein.", "Some departures bring in a maintenance job."),
+      cost: function () { return 6000; }, lock: function () { if (!mods("runway").length) return t("needRw"); return one("hangar") ? t("once") : ""; } },
+    { id: "deck", g: "ops", tool: "rect", name: L2("Aussichtsplattform", "Viewing deck"),
+      desc: L2("Planespotter zahlen Eintritt bei jeder Bewegung, dazu ein besserer Ruf.", "Plane spotters pay on every movement, plus a better reputation."),
+      cost: function () { return 3500; }, lock: function () { if (!mods("runway").length) return t("needRw"); return one("deck") ? t("once") : ""; } }
   ];
+  var UPS = [
+    { id: "ils", name: L2("Instrumentenlandesystem", "Instrument landing system"),
+      desc: L2("Schnellere Anflüge, kürzere Abstände.", "Faster approaches, shorter spacing."),
+      cost: function () { return 5000; }, lock: function () { if (G.up.ils) return t("done"); return stats().tower < 1 ? t("needTower") : ""; },
+      apply: function () { G.up.ils = 1; } },
+    { id: "rwy", name: L2("Pistenverlängerung", "Runway extension"),
+      desc: L2("Alle Pisten werden länger, Langstreckenjets können landen.", "All runways get longer so widebodies can land."),
+      cost: function () { return 9000; }, lock: function () { if (G.up.rwy) return t("done"); return mods("runway").length ? "" : t("needRw"); },
+      apply: function () { G.up.rwy = 1; } },
+    { id: "gh", name: L2("Bodenabfertigung", "Ground handling"),
+      desc: L2("Jede Stufe macht die Abfertigung 15 % schneller.", "Each level makes turnarounds 15% faster."),
+      cost: function () { return round(2500 * Math.pow(2.2, G.up.gh)); }, lock: function () { return G.up.gh >= 3 ? t("done") : ""; },
+      extra: function () { return t("lvl") + " " + G.up.gh + "/3"; }, apply: function () { G.up.gh++; } },
+    { id: "ext", name: L2("Terminal-Erweiterung", "Terminal extension"),
+      desc: L2("Shops und Lounges: jede Stufe 15 % mehr pro Passagier.", "Shops and lounges: each level 15% more per passenger."),
+      cost: function () { return round(3000 * Math.pow(2, G.up.ext)); },
+      lock: function () { if (G.up.ext >= 3) return t("done"); return mods("term").length ? "" : (lang === "de" ? "Erst ein Terminalmodul bauen" : "Build a terminal module first"); },
+      extra: function () { return t("lvl") + " " + G.up.ext + "/3"; }, apply: function () { G.up.ext++; } }
+  ];
+  var LVL = { tower: [8000], fire: [7000], hangar: [14000] };
+  function bdef(id) { return BUILD.filter(function (b) { return b.id === id; })[0]; }
 
-  function bname(id) { return BUILD.filter(function (x) { return x.id === id; })[0].name[lang]; }
-  function buy(id) {
-    var b = BUILD.filter(function (x) { return x.id === id; })[0];
-    if (!b || b.lock()) return;
-    var c = b.cost();
-    if (G.money < c) { msg(t("poor")); return; }
-    G.money -= c;
-    b.apply();
-    save();
-    msg(b.name[lang] + " " + t("built") + ".", true);
-    updatePanel(true);
+  function addMod(m, cost) {
+    m.id = G.nid++; m.paid = cost;
+    if (m.t === "tower" || m.t === "fire" || m.t === "hangar") m.lvl = 1;
+    G.mods.push(m);
+    G.money -= cost;
+    rebuild(); save();
+    return m;
+  }
+
+  // Einrasten für Rechteck-Module
+  function snapRect(type, cx, cy, a0) {
+    var sz = SIZE[type], best = null;
+    function cand(x, y, a, d, lineFrom) { if (!best || d < best.d) best = { x: x, y: y, a: a, d: d, from: lineFrom }; }
+    var cur = { x: cx, y: cy };
+    G.mods.forEach(function (m) {
+      if (m.t === "taxi" || m.t === "road" || m.t === "runway") return;
+      var f = foot(m);
+      if (dist(f, cur) > 260) return;
+      var A = axes(m.a);
+      for (var e = 0; e < 4; e++) {
+        var na = m.a + e * Math.PI / 2, nx = Math.cos(na), ny = Math.sin(na), ux = -ny, uy = nx;
+        var hn = Math.abs(nx * A.ux + ny * A.uy) * f.hw + Math.abs(nx * A.vx + ny * A.vy) * f.hh;
+        var hu = Math.abs(ux * A.ux + uy * A.uy) * f.hw + Math.abs(ux * A.vx + uy * A.vy) * f.hh;
+        // Winkel des neuen Moduls: nächstes Vielfaches von 90° zum Nachbarn
+        var k = Math.round((a0 - m.a) / (Math.PI / 2)), ga = m.a + k * Math.PI / 2, G2 = axes(ga);
+        var gn = Math.abs(nx * G2.ux + ny * G2.uy) * sz[0] / 2 + Math.abs(nx * G2.vx + ny * G2.vy) * sz[1] / 2;
+        var gu = Math.abs(ux * G2.ux + uy * G2.uy) * sz[0] / 2 + Math.abs(ux * G2.vx + uy * G2.vy) * sz[1] / 2;
+        var mx = f.x + nx * hn, my = f.y + ny * hn;
+        var tt = (cx - mx) * ux + (cy - my) * uy;
+        var lim = hu + gu - 8;
+        if (Math.abs(tt) > lim + 30) continue;
+        tt = Math.max(-lim, Math.min(lim, tt));
+        [0, hu - gu, gu - hu, hu + gu, -hu - gu].forEach(function (s) { if (Math.abs(tt - s) < 12) tt = s; });
+        var px = mx + nx * gn + ux * tt, py = my + ny * gn + uy * tt;
+        var d = Math.hypot(px - cx, py - cy);
+        if (d < gn + 26) cand(px, py, ga, d);
+      }
+    });
+    if (type === "stand") {
+      mods("taxi").forEach(function (m) {
+        var a = { x: m.x1, y: m.y1 }, b = { x: m.x2, y: m.y2 }, pr = segProj(cur, a, b);
+        if (pr.d > 90) return;
+        var l = dist(a, b), dx = (b.x - a.x) / l, dy = (b.y - a.y) / l;
+        var side = (cx - a.x) * -dy + (cy - a.y) * dx >= 0 ? 1 : -1;
+        var nx = -dy * side, ny = dx * side;            // weg vom Rollweg
+        var fwx = -nx, fwy = -ny;                        // Nase zum Rollweg
+        var ang = Math.atan2(fwx, -fwy);
+        var off = TW_W / 2 + 2 + sz[1] / 2;
+        var px = pr.q.x + nx * off, py = pr.q.y + ny * off;
+        var d = Math.hypot(px - cx, py - cy);
+        if (d < 70) cand(px, py, ang, d * 0.9, null);
+      });
+    }
+    return best;
+  }
+
+  function rectValid(type, x, y, a) {
+    var s = SIZE[type], f = { x: x, y: y, a: a, hw: s[0] / 2, hh: s[1] / 2 };
+    return !G.mods.some(function (m) { return overlap(f, foot(m), 1.5); });
+  }
+  function runwayValid(x, y, a) {
+    var f = { x: x, y: y, a: a, hw: rwLen() / 2, hh: RW_W / 2 + 6 };
+    return !G.mods.some(function (m) { return m.t !== "taxi" && overlap(f, foot(m), 1.5); });
+  }
+  function lineValid(type, a, b) {
+    if (dist(a, b) < 20) return false;
+    var l = dist(a, b), w = type === "taxi" ? TW_W : RD_W;
+    var f = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, a: Math.atan2(b.y - a.y, b.x - a.x), hw: l / 2 - 4, hh: w / 2 };
+    return !G.mods.some(function (m) {
+      if (type === "taxi" && (m.t === "taxi" || m.t === "runway")) return false;
+      if (type === "road" && m.t === "road") return false;
+      return overlap(f, foot(m), 1.5);
+    });
+  }
+  function snapPoint(type, p, thr) {
+    var best = null;
+    function c(x, y, d) { if (d < thr && (!best || d < best.d)) best = { x: x, y: y, d: d }; }
+    var lines = G.mods.filter(function (m) { return type === "taxi" ? (m.t === "taxi" || m.t === "runway") : m.t === "road"; });
+    lines.forEach(function (m) { segEnds(m).forEach(function (e) { c(e.x, e.y, dist(e, p) * 0.6); }); });
+    if (best) return best;
+    lines.forEach(function (m) { var e = segEnds(m), pr = segProj(p, e[0], e[1]); c(pr.q.x, pr.q.y, pr.d); });
+    return best;
   }
 
   // ---------- Verkehr ----------
   function interval() {
-    var cap = 0.6 + 0.4 * nS() + 0.2 * nGates() + 0.25 * nH() + (G.up.r2 ? 0.8 : 0);
-    var land = 1 + 0.15 * (G.up.road - 1) + 0.08 * G.bus;
+    var s = stats();
+    var cap = 0.6 + 0.4 * s.conn + 0.2 * s.gates + 0.25 * s.heavy + (s.rws > 1 ? 0.8 : 0);
+    var land = 1 + (s.termRoad ? 0.15 : 0) + 0.08 * s.bus;
     var repF = 1.35 - G.rep / 100 * 0.7;
     return Math.max(4.5, 50 / (cap * land) * repF);
   }
   function pickType() {
-    var w = { p: Math.max(0.15, 1.2 - 0.12 * nS()), n: 0.3 + 0.15 * nS(), w: (G.up.rwy && nH()) ? 0.1 + 0.14 * nH() : 0 };
+    var s = stats();
+    var w = { p: Math.max(0.15, 1.2 - 0.12 * s.conn), n: 0.3 + 0.15 * s.conn, w: (G.up.rwy && s.heavy) ? 0.1 + 0.14 * s.heavy : 0 };
     var sum = w.p + w.n + w.w, r = Math.random() * sum;
     return r < w.p ? "p" : r < w.p + w.n ? "n" : "w";
   }
   function spawn() {
-    if (R.holdQ.length >= 6) return;
+    if (R.holdQ.length >= 6 || !stats().conn) return;
     var a = AIRLINES[Math.floor(Math.random() * AIRLINES.length)];
     var p = { id: ++R.id, type: pickType(), al: a, cs: a.c + (100 + Math.floor(Math.random() * 900)),
-      x: 70, y: 26, h: 0, alt: 0.8, ang: Math.random() * 6, wait: 0, fade: 0, state: "hold", path: null, pi: 0 };
-    R.planes.push(p);
-    R.holdQ.push(p);
+      x: 0, y: 0, h: 0, alt: 0.8, ang: Math.random() * 6, wait: 0, fade: 0, state: "hold", path: null, pi: 0 };
+    R.planes.push(p); R.holdQ.push(p);
   }
-  function freeStand(type) {
-    var best = -1, bs = -99;
-    G.cols.forEach(function (c, i) {
-      if (R.occ[i]) return;
-      if (TYPES[type].heavy && !c.heavy) return;
-      var s = (c.gate ? 2 : 0) - (c.heavy && !TYPES[type].heavy ? 1.5 : 0) - i * 0.01;
-      if (s > bs) { bs = s; best = i; }
-    });
-    return best;
-  }
-  // Warteplätze vor dem Start: Rollhalt, dann (bei zwei Pisten) vor der Hauptpiste, dann auf dem Rollweg
-  function slot(k) {
-    if (k === 0) return { x: X0 + 12, y: (G.up.r2 ? Y.r2 : Y.r1) + 22 };
-    if (G.up.r2) return k === 1 ? { x: X0 + 12, y: Y.r1 + 22 } : { x: X0 + 12 + 26 * (k - 1), y: Y.twy };
-    return { x: X0 + 12 + 26 * k, y: Y.twy };
-  }
+  function rwState(m) { if (!R.rw[m.id]) R.rw[m.id] = { busy: null, next: null, cool: 0, last: "" }; return R.rw[m.id]; }
   function rwFree(r) { return !r.busy && r.cool <= 0; }
-  // Der nächste Flieger darf schon starten bzw. anfliegen, während der vorige die Piste räumt.
   function rwSoon(r) {
     if (rwFree(r)) return true;
     if (!r.busy || r.next) return false;
     var b = r.busy;
     return (b.state === "dep" && b.pi >= 2) || (b.state === "arr" && b.pi >= 3);
   }
-  function take(r, p, kind) {
-    if (r.busy) r.next = p; else r.busy = p;
-    r.last = kind;
-  }
-  function sep() { return [3, 2, 1.2][G.up.tower] - (G.up.ils ? 0.4 : 0); }
+  function take(r, p, kind) { if (r.busy) r.next = p; else r.busy = p; r.last = kind; }
+  function release(r) { if (r.next) { r.busy = r.next; r.next = null; r.cool = 0; } else { r.busy = null; r.cool = sep(); } }
+  function sep() { return [3, 3, 2, 1.2][stats().tower + 1] - (G.up.ils ? 0.4 : 0); }
 
-  function schedule() {
-    var r1 = R.rw[0], dr = G.up.r2 ? R.rw[1] : r1;
-    if (R.depQ.length && !R.depQ[0].path && R.depQ[0].atHold && rwSoon(dr)) {
-      var arrWaits = !G.up.r2 && dr.last === "d" && arrivalPossible();
-      if (!arrWaits) launch(R.depQ.shift(), dr);
-    }
-    if (R.holdQ.length && rwSoon(r1)) {
-      if (!G.up.r2 && r1.last === "a" && R.depQ.length) return;
-      for (var i = 0; i < R.holdQ.length; i++) {
-        var p = R.holdQ[i], col = freeStand(p.type);
-        if (col >= 0) { R.holdQ.splice(i, 1); clearArrival(p, col, r1); return; }
-      }
-    }
+  function arrPlan(p, st, rw) {
+    var e = rwEnds(rw), min = 40 + TYPES[p.type].roll, best = null, last = null;
+    (rw._junc || []).forEach(function (j) {
+      if (best || j.d < 50) return;
+      var pa = path(j.n, st._pn);
+      if (!pa) return;
+      last = { j: j, pa: pa };
+      if (j.d >= min) best = last;
+    });
+    return best || last;
   }
-  function arrivalPossible() { return R.holdQ.some(function (p) { return freeStand(p.type) >= 0; }); }
-  function exits() {
-    var L = rl(), e = [X0 + L * 0.42, X0 + L * 0.62, X0 + L - 22];
-    if (G.up.exit) e.unshift(X0 + L * 0.3);
-    return e;
-  }
-  function pickExit(type) {
-    var ex = exits(), min = X0 + 40 + TYPES[type].roll * (G.up.exit ? 0.75 : 1);
-    for (var i = 0; i < ex.length; i++) if (ex[i] >= min) return ex[i];
-    return ex[ex.length - 1];
+  function freeStand(type) {
+    var rw = mods("runway")[0], out = null, bs = -99;
+    if (!rw) return null;
+    mods("stand").forEach(function (m) {
+      if (!m._conn || R.occ[m.id]) return;
+      if (TYPES[type].heavy && !m.heavy) return;
+      var s = (m.gate && m._term ? 2 : 0) - (m.heavy && !TYPES[type].heavy ? 1.5 : 0) + Math.random() * 0.1;
+      if (s > bs) { bs = s; out = m; }
+    });
+    return out;
   }
 
-  function clearArrival(p, col, r) {
+  function clearArrival(p, st, plan, rw) {
+    var r = rwState(rw);
     take(r, p, "a");
-    R.occ[col] = p; p.col = col; p.state = "arr";
-    var f = G.up.ils ? 1.25 : 1, ex = pickExit(p.type), sx = cx(col), q = G.up.exit ? 1 : 0;
-    var off = q ? 22 : 0;
-    p.path = [
+    R.occ[st.id] = p; p.st = st.id; p.state = "arr";
+    var e = rwEnds(rw), f = G.up.ils ? 1.25 : 1, pa = plan.pa;
+    var J = { x: e.A.x + e.dx * plan.j.d, y: e.A.y + e.dy * plan.j.d };
+    var n1 = pa[1] || pa[0];
+    var ex = Math.hypot(n1.x - J.x, n1.y - J.y) || 1;
+    var cosA = ((n1.x - J.x) * e.dx + (n1.y - J.y) * e.dy) / ex;
+    var vEx = cosA > 0.5 ? 30 : 16;
+    var cut = Math.min(20, ex);
+    var pts = [
       { x: p.x, y: p.y, a: 0.8, s: 100 * f },
-      { x: X0 - 70, y: Y.r1 - 38, a: 0.5, s: 100 * f },
-      { x: X0 + 40, y: Y.r1, a: 0, s: 85 * f, ev: touchdown },
-      { x: ex, y: Y.r1, s: q ? 34 : 20 },
-      { x: ex + off * 0.4, y: Y.r1 + 16, s: q ? 26 : 16, ev: function () { release(r); } },
-      { x: ex + off, y: Y.twy, s: 24 },
-      { x: sx, y: Y.twy, s: 40 },
-      { x: sx, y: Y.stand, s: 12 }
+      { x: e.A.x - e.dx * 110, y: e.A.y - e.dy * 110, a: 0.45, s: 95 * f },
+      { x: e.A.x + e.dx * 40, y: e.A.y + e.dy * 40, a: 0, s: 85 * f, ev: touchdown },
+      { x: J.x, y: J.y, s: vEx },
+      { x: J.x + (n1.x - J.x) / ex * cut, y: J.y + (n1.y - J.y) / ex * cut, s: vEx * 0.8, ev: function () { release(r); } }
     ];
-    p.pi = 0;
-    p.onEnd = park;
+    for (var i = 1; i < pa.length; i++) pts.push({ x: pa[i].x, y: pa[i].y, s: i === pa.length - 1 ? 8 : i === pa.length - 2 ? 14 : 40 });
+    p.path = pts; p.pi = 0; p.onEnd = park;
   }
   function touchdown(p) { earn(TYPES[p.type].fee, p.x, p.y); movement(); }
   function movement() {
     G.st.moves++;
-    if (G.up.deck) {
+    if (one("deck")) {
       G.rep = Math.min(100, G.rep + 0.05);
-      var v = 15 * (1 + 0.2 * G.up.ext);
-      G.money += v; G.st.earned += v;
+      var v = 15 * (1 + 0.2 * G.up.ext); G.money += v; G.st.earned += v;
       R.visitors = Math.min(24, R.visitors + 2);
     }
   }
-  function release(r) {
-    if (r.next) { r.busy = r.next; r.next = null; r.cool = 0; }
-    else { r.busy = null; r.cool = sep(); }
+  function park(p) {
+    var st = byId(p.st);
+    p.state = "park";
+    p.T = p.t = TYPES[p.type].turn * (st && st.gate && st._term ? 1 : 1.45) * (1 - 0.15 * G.up.gh);
+    if (st) { var d = standDirs(st); p.h = Math.atan2(d.by, d.bx); }
   }
-  function turnTime(p) {
-    return TYPES[p.type].turn * (G.cols[p.col].gate ? 1 : 1.45) * (1 - 0.15 * G.up.gh);
+
+  function depRunway(st) {
+    var rws = mods("runway"), order = rws.length > 1 ? [rws[1], rws[0]] : rws;
+    for (var i = 0; i < order.length; i++) {
+      var rw = order[i], e = rwEnds(rw);
+      var js = (rw._junc || []).slice().sort(function (a, b) { return a.d - b.d; });
+      for (var k = 0; k < js.length; k++) {
+        if (e.L - js[k].d < 200) continue;
+        var pa = path(st._pn, js[k].n);
+        if (pa) return { rw: rw, j: js[k], pa: pa };
+      }
+    }
+    return null;
   }
-  function park(p) { p.state = "park"; p.T = p.t = turnTime(p); p.h = Math.PI / 2; }
+  function polyCum(pts) { var c = [0]; for (var i = 1; i < pts.length; i++) c.push(c[i - 1] + dist(pts[i - 1], pts[i])); return c; }
+  function pointAt(pts, c, d) {
+    d = Math.max(0, Math.min(c[c.length - 1], d));
+    for (var i = 1; i < pts.length; i++) if (c[i] >= d) {
+      var f = (d - c[i - 1]) / ((c[i] - c[i - 1]) || 1);
+      return { x: pts[i - 1].x + (pts[i].x - pts[i - 1].x) * f, y: pts[i - 1].y + (pts[i].y - pts[i - 1].y) * f };
+    }
+    return { x: pts[pts.length - 1].x, y: pts[pts.length - 1].y };
+  }
+  function sub(pts, c, d0, d1, s) {
+    var a = pointAt(pts, c, d0), out = [{ x: a.x, y: a.y, s: s }];
+    for (var i = 0; i < pts.length; i++) if (c[i] > d0 + 0.5 && c[i] < d1 - 0.5) out.push({ x: pts[i].x, y: pts[i].y, s: pts[i].s || s, back: pts[i].back, ev: pts[i].ev });
+    var b = pointAt(pts, c, d1); out.push({ x: b.x, y: b.y, s: s });
+    return out;
+  }
 
   function depart(p) {
-    var T = TYPES[p.type], c = G.cols[p.col], sx = cx(p.col);
-    var fare = (c.gate ? 2.5 : 1.5) * (1 + 0.15 * G.up.ext) + 0.25 * G.park;
+    var st = byId(p.st), T = TYPES[p.type], s = stats();
+    var gate = st && st.gate && st._term;
+    var fare = (gate ? 2.5 : 1.5) * (1 + 0.15 * G.up.ext) + 0.25 * s.park;
     earn(T.pax * fare, p.x, p.y - 14);
     G.st.pax += T.pax * 2;
-    G.rep = Math.min(100, G.rep + (c.gate ? 1 : 0.4) + (G.up.fire >= 2 ? 0.2 : 0));
-    var ry = G.up.r2 ? Y.r2 : Y.r1, col = p.col;
+    G.rep = Math.min(100, G.rep + (gate ? 1 : 0.4) + (s.fire >= 2 ? 0.2 : 0));
+    var plan = st && depRunway(st), sid = p.st;
+    if (!plan) { // kein Weg mehr: Flieger wird abgeschleppt
+      R.occ[sid] = null; R.planes.splice(R.planes.indexOf(p), 1); return;
+    }
+    var pa = plan.pa, full = [{ x: pa[0].x, y: pa[0].y, s: 10 }];
+    full.push({ x: pa[1].x, y: pa[1].y, s: 12, back: 1, ev: function () { R.occ[sid] = null; } });
+    for (var i = 2; i < pa.length; i++) full.push({ x: pa[i].x, y: pa[i].y, s: 40 });
+    p.full = full; p.cum = polyCum(full); p.rwId = plan.rw.id; p.jd = plan.j.d;
+    var q = R.q[p.rwId] || (R.q[p.rwId] = []);
+    var inbound = R.planes.filter(function (o) { return o !== p && o.state === "out" && o.rwId === p.rwId; }).length;
+    var T2 = p.cum[p.cum.length - 1];
+    p.dEnd = 26 + 30 * (q.length + inbound);
     p.state = "out";
-    p.path = [
-      { x: sx, y: Y.stand, s: 10 },
-      { x: sx, y: Y.twy, s: 12, back: 1, ev: function () { R.occ[col] = null; } },
-      { x: X0 + 12 + 26 * (R.depQ.length + 1), y: Y.twy, s: 40 }
-    ];
+    // erster Abschnitt rückwärts (Pushback), dann bis zum Rollhalt
+    p.path = full.slice(0, 2).concat(sub(full, p.cum, p.cum[1], Math.max(p.cum[1], T2 - p.dEnd), 40).slice(1));
     p.pi = 0;
-    p.onEnd = function () { p.state = "wait"; R.depQ.push(p); };
+    p.onEnd = function () { p.state = "wait"; q.push(p); };
   }
-  function launch(p, r) {
+  function launch(p, rwm) {
+    var r = rwState(rwm), e = rwEnds(rwm);
     take(r, p, "d"); p.state = "dep";
-    var ry = G.up.r2 ? Y.r2 : Y.r1, lo = X0 + rl() * (TYPES[p.type].heavy ? 0.66 : 0.5), W = worldW();
-    p.path = [
-      { x: p.x, y: p.y, s: 12 },
-      { x: X0 + 32, y: ry, s: 16 },
-      { x: lo, y: ry, s: 90, ev: function () {
-        earn(TYPES[p.type].fee, p.x, p.y); movement();
-        if (G.up.hangar && Math.random() < 0.2 * G.up.hangar) {
-          var h = SITE.hangar;
-          earn(TYPES[p.type].fee * 1.5, h.x + h.w / 2, h.y + 10, t("maint"));
-          R.hangarT = 14; R.hangarType = p.type;
-        }
-      } },
-      { x: lo + 40, y: ry - 13, a: 0.2, s: 92, ev: function () { release(r); } },
-      { x: lo + 120, y: ry - 40, a: 0.6, s: 95 },
-      { x: W + 160, y: ry - 150, a: 1.3, s: 100 }
-    ];
-    p.pi = 0;
+    var T2 = p.cum[p.cum.length - 1];
+    var pts = sub(p.full, p.cum, T2 - p.dEnd, T2, 14);
+    pts[0] = { x: p.x, y: p.y, s: 12 };
+    var jd = p.jd, rem = e.L - jd, lo = Math.max(110, Math.min(rem - 60, TYPES[p.type].heavy ? 300 : 230));
+    var P = function (d) { return { x: e.A.x + e.dx * d, y: e.A.y + e.dy * d }; };
+    var j = P(jd + 12), l1 = P(jd + lo), l2 = P(jd + lo + 50), l3 = P(jd + lo + 800);
+    pts.push({ x: j.x, y: j.y, s: 14 });
+    pts.push({ x: l1.x, y: l1.y, s: 90, ev: function () {
+      earn(TYPES[p.type].fee, p.x, p.y); movement();
+      var h = one("hangar");
+      if (h && Math.random() < 0.2 * h.lvl) { earn(TYPES[p.type].fee * 1.5, h.x, h.y, t("maint")); R.hangarT = 14; R.hangarType = p.type; }
+    } });
+    pts.push({ x: l2.x, y: l2.y, a: 0.25, s: 95, ev: function () { release(r); } });
+    pts.push({ x: l3.x, y: l3.y, a: 1.4, s: 110 });
+    p.path = pts; p.pi = 0;
     p.onEnd = function () { R.planes.splice(R.planes.indexOf(p), 1); };
   }
 
+  function schedule() {
+    var rws = mods("runway");
+    if (!rws.length) return;
+    var r0 = rwState(rws[0]);
+    // Abflüge je Piste
+    rws.forEach(function (rw) {
+      var q = R.q[rw.id];
+      if (!q || !q.length) return;
+      var r = rwState(rw), p = q[0];
+      if (p.path || !rwSoon(r)) return;
+      if (rws.length === 1 && r.last === "d" && arrivalPossible()) return;
+      q.shift(); launch(p, rw);
+      q.forEach(function (o, k) { // aufrücken
+        var nd = 26 + 30 * k, T2 = o.cum[o.cum.length - 1];
+        if (o.path || nd >= o.dEnd - 1) return;
+        o.path = sub(o.full, o.cum, T2 - o.dEnd, T2 - nd, 16); o.pi = 0; o.path[0] = { x: o.x, y: o.y, s: 16 };
+        o.dEnd = nd; o.onEnd = null;
+      });
+    });
+    // Ankünfte auf der ersten Piste
+    if (!R.holdQ.length || !rwSoon(r0)) return;
+    var q0 = R.q[rws[0].id];
+    if (rws.length === 1 && r0.last === "a" && q0 && q0.length && !q0[0].path) return;
+    for (var i = 0; i < R.holdQ.length; i++) {
+      var h = R.holdQ[i], st = freeStand(h.type);
+      if (!st) continue;
+      var plan = arrPlan(h, st, rws[0]);
+      if (!plan) continue;
+      R.holdQ.splice(i, 1); clearArrival(h, st, plan, rws[0]); return;
+    }
+  }
+  function arrivalPossible() { return R.holdQ.some(function (p) { return !!freeStand(p.type); }); }
+
   function earn(v, x, y, label) {
-    v = Math.round(v);
-    G.money += v; G.st.earned += v;
+    v = Math.round(v); G.money += v; G.st.earned += v;
     R.fx.push({ x: x, y: y, t: 0, txt: (label ? label + " " : "") + "+" + eur(v) });
   }
 
@@ -399,421 +683,487 @@
       var f = Math.min(1, Math.max(0, 1 - d / seg));
       var sp = Math.max(4, a.s + (b.s - a.s) * f), mv = sp * dt;
       if (d > 0.01) p.h = b.back ? Math.atan2(-dy, -dx) : Math.atan2(dy, dx);
-      if (mv >= d) {
-        p.x = b.x; p.y = b.y; p.alt = b.a || 0;
-        dt -= d / sp; p.pi++;
-        if (b.ev) b.ev(p);
-      } else {
-        p.x += dx / d * mv; p.y += dy / d * mv;
-        var g = 1 - (d - mv) / seg;
-        p.alt = (a.a || 0) + ((b.a || 0) - (a.a || 0)) * g;
-        dt = 0;
-      }
+      if (mv >= d) { p.x = b.x; p.y = b.y; p.alt = b.a || 0; dt -= d / sp; p.pi++; if (b.ev) b.ev(p); }
+      else { p.x += dx / d * mv; p.y += dy / d * mv; var g = 1 - (d - mv) / seg; p.alt = (a.a || 0) + ((b.a || 0) - (a.a || 0)) * g; dt = 0; }
     }
   }
 
   function tick(dt) {
     R.clock += dt;
-    R.rw.forEach(function (r) { if (!r.busy && r.cool > 0) r.cool -= dt; });
+    Object.keys(R.rw).forEach(function (k) { var r = R.rw[k]; if (!r.busy && r.cool > 0) r.cool -= dt; });
     R.spawnT -= dt;
     if (R.spawnT <= 0) { spawn(); R.spawnT = interval() * (0.7 + Math.random() * 0.6); }
     if (R.hangarT > 0) R.hangarT -= dt;
-    R.visitors = Math.max(G.up.deck ? 3 : 0, R.visitors - dt * 0.15);
+    R.visitors = Math.max(one("deck") ? 3 : 0, R.visitors - dt * 0.15);
 
+    var rw0 = mods("runway")[0];
     for (var i = R.holdQ.length - 1; i >= 0; i--) {
       var h = R.holdQ[i];
       h.wait += dt; h.fade = Math.min(1, h.fade + dt);
-      if (h.wait > DIVERT) {
-        R.holdQ.splice(i, 1);
-        R.planes.splice(R.planes.indexOf(h), 1);
-        G.rep = Math.max(0, G.rep - 4); G.st.div++;
-        msg(h.cs + " " + t("divert") + (G.st.div % 3 === 1 ? " " + t("tip") : ""));
+      if (h.wait > DIVERT || !rw0) {
+        R.holdQ.splice(i, 1); R.planes.splice(R.planes.indexOf(h), 1);
+        if (rw0) { G.rep = Math.max(0, G.rep - 4); G.st.div++; msg(h.cs + " " + t("divert") + (G.st.div % 3 === 1 ? " " + t("tip") : "")); }
       }
     }
-    R.holdQ.forEach(function (h, k) {
-      h.ang += dt * 0.9;
-      var a = h.ang + k * (Math.PI * 2 / 6), ox = 90, oy = 28, rx = 60, ry = 13;
-      h.x = ox + Math.cos(a) * rx; h.y = oy + Math.sin(a) * ry;
-      h.h = Math.atan2(Math.cos(a) * ry, -Math.sin(a) * rx);
-      h.alt = 0.8;
-    });
-
-    // Wartende Abflüge rücken auf: der erste zum Rollhalt, die anderen auf dem Rollweg dahinter
-    R.depQ.forEach(function (p, k) {
-      if (p.path) return;
-      var sl = slot(k);
-      if (Math.abs(p.x - sl.x) < 1 && Math.abs(p.y - sl.y) < 1) { p.atHold = k === 0; return; }
-      p.atHold = false;
-      var pts = [{ x: p.x, y: p.y, s: 20 }];
-      if (sl.y < Y.twy - 1 && p.y > Y.twy - 1 && Math.abs(p.x - sl.x) > 1) pts.push({ x: sl.x, y: Y.twy, s: 18 });
-      pts.push({ x: sl.x, y: sl.y, s: 16 });
-      p.path = pts; p.pi = 0; p.onEnd = null;
-    });
-
+    if (rw0) {
+      var e = rwEnds(rw0), ox = e.A.x - e.dx * 280, oy = e.A.y - e.dy * 280;
+      R.holdQ.forEach(function (h, k) {
+        h.ang += dt * 0.7;
+        var a = h.ang + k * (Math.PI * 2 / 6);
+        h.x = ox + Math.cos(a) * 70; h.y = oy + Math.sin(a) * 70;
+        h.h = a + Math.PI / 2; h.alt = 0.8;
+      });
+    }
     schedule();
-
-    R.planes.forEach(function (p) {
+    R.planes.slice().forEach(function (p) {
       if (p.state === "park") { p.t -= dt; if (p.t <= 0) depart(p); }
       else if (p.path) move(p, dt);
     });
-
     R.fx.forEach(function (f) { f.t += dt; });
     R.fx = R.fx.filter(function (f) { return f.t < 1.8; });
 
-    // Autos: mehr Terminal, mehr Verkehr
-    var W = worldW();
+    // Autos auf den Straßen
+    var roads = mods("road");
     R.carT -= dt;
-    if (R.carT <= 0) {
-      R.carT = Math.max(0.4, 6 / (1 + G.term + G.park * 0.5));
-      var dir = Math.random() < 0.5 ? 1 : -1;
-      var lane = G.up.road >= 2 ? (Math.random() < 0.5 ? Y.rd1 : Y.rd2) : (Y.rd1 + Y.rd2) / 2;
-      R.cars.push({ x: dir > 0 ? -10 : W + 10, y: lane + (dir > 0 ? 3 : -3), d: dir, v: 26 + Math.random() * 12,
+    if (R.carT <= 0 && roads.length) {
+      R.carT = Math.max(0.5, 5 / (1 + mods("term").length + mods("park").length * 0.5));
+      var rd = roads[Math.floor(Math.random() * roads.length)], fwd = Math.random() < 0.5;
+      R.cars.push({ r: rd.id, k: 0, d: fwd, v: 30 + Math.random() * 14,
         c: ["#E7E9E4", "#2B2E2B", "#9A540A", "#5C6E80", "#B33A2E", "#D9D4C5"][Math.floor(Math.random() * 6)] });
     }
-    R.cars.forEach(function (c) { c.x += c.d * c.v * dt; });
-    R.cars = R.cars.filter(function (c) { return c.x > -20 && c.x < W + 20; });
-
-    // Busse halten an den Haltestellen
-    if (G.bus) {
-      R.busT -= dt;
-      if (R.busT <= 0) { R.busT = 9 / G.bus; R.buses.push({ x: -20, stop: Math.floor(Math.random() * G.bus), wait: 4 }); }
-    }
-    R.buses.forEach(function (b) {
-      var sx = 12 + b.stop * 44 + 19;
-      if (b.wait > 0 && b.x < sx && b.x + 30 * dt >= sx) b.x = sx;
-      if (b.x === sx && b.wait > 0) b.wait -= dt; else b.x += 30 * dt;
-    });
-    R.buses = R.buses.filter(function (b) { return b.x < W + 30; });
+    R.cars.forEach(function (c) { c.k += c.v * dt; });
+    R.cars = R.cars.filter(function (c) { var r = byId(c.r); return r && c.k < Math.hypot(r.x2 - r.x1, r.y2 - r.y1); });
   }
 
   // ---------- Zeichnen ----------
   var FONT = "'Instrument Sans',system-ui,sans-serif";
+  var COL = { grass: "#B9C2A2", grass2: "#B2BC9B", pave: "#D3CDC2", paveEdge: "#C6BFB3", asph: "#4A4350", road: "#5A5360", line: "#E3B83F" };
+
+  function line(c, a, b, x, y) { c.beginPath(); c.moveTo(a, b); c.lineTo(x, y); c.stroke(); }
+  function rr(c, x, y, w, h, r) { c.beginPath(); c.moveTo(x + r, y); c.arcTo(x + w, y, x + w, y + h, r); c.arcTo(x + w, y + h, x, y + h, r); c.arcTo(x, y + h, x, y, r); c.arcTo(x, y, x + w, y, r); c.closePath(); }
+  function inLocal(c, m, fn) { c.save(); c.translate(m.x, m.y); c.rotate(m.a); fn(); c.restore(); }
+
   function draw() {
-    var cv = V.cv, c = V.ctx, W = worldW(), H = Y.H;
-    var cw = V.stage.clientWidth || 600;
-    var sc = Math.max(cw / W, cw < 700 ? 0.8 : 0);
-    var dpr = window.devicePixelRatio || 1;
-    var pw = Math.round(W * sc), ph = Math.round(H * sc);
-    if (cv.width !== Math.round(pw * dpr) || cv.height !== Math.round(ph * dpr)) {
-      cv.width = Math.round(pw * dpr); cv.height = Math.round(ph * dpr);
-      cv.style.width = pw + "px"; cv.style.height = ph + "px";
-    }
-    c.setTransform(sc * dpr, 0, 0, sc * dpr, 0, 0);
+    var cv = V.cv, c = V.ctx, st = V.stage;
+    var W = st.clientWidth, H = st.clientHeight, dpr = window.devicePixelRatio || 1;
+    if (cv.width !== Math.round(W * dpr) || cv.height !== Math.round(H * dpr)) { cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); }
+    V.W = W; V.H = H;
+    var z = V.zoom;
+    c.setTransform(dpr, 0, 0, dpr, 0, 0);
+    c.fillStyle = COL.grass; c.fillRect(0, 0, W, H);
+    c.setTransform(dpr * z, 0, 0, dpr * z, dpr * (W / 2 - V.cam.x * z), dpr * (H / 2 - V.cam.y * z));
     c.textAlign = "center"; c.textBaseline = "middle";
+    var x0 = V.cam.x - W / 2 / z, y0 = V.cam.y - H / 2 / z, x1 = V.cam.x + W / 2 / z, y1 = V.cam.y + H / 2 / z;
+    c.fillStyle = COL.grass2;
+    for (var gx = Math.floor(x0 / 80) * 80; gx < x1; gx += 80) c.fillRect(gx, y0, 40, y1 - y0);
 
-    // Gras mit Mähstreifen
-    c.fillStyle = "#C3BCB0"; c.fillRect(0, 0, W, H);
-    // Landseite
-    c.fillStyle = "#B5AEA2"; c.fillRect(0, Y.termBot + 4, W, H - Y.termBot - 4);
-    // Zaun zwischen Luft- und Landseite
-    c.strokeStyle = "rgba(80,72,84,.35)"; c.setLineDash([2, 3]); c.lineWidth = 0.8;
-    line(c, 0, Y.termBot + 4, W, Y.termBot + 4); c.setLineDash([]);
-
-    if (!G.up.r2) ghost(c, X0, Y.r2 - 11, 440, 22, bname("r2"));
-
-    var L = rl();
-    // Rollweg und Verbindungen
-    c.fillStyle = "#4A4350";
-    c.fillRect(X0, Y.twy - 7, W - X0 - 16, 14);
-    var ex = exits(), q = G.up.exit;
-    c.fillRect(X0 + 5, Y.r1, 14, Y.twy - Y.r1);
-    ex.forEach(function (x) {
-      if (q) {
-        c.beginPath(); c.moveTo(x - 7, Y.r1); c.lineTo(x + 7, Y.r1); c.lineTo(x + 29, Y.twy); c.lineTo(x + 15, Y.twy); c.closePath(); c.fill();
-      } else c.fillRect(x - 7, Y.r1, 14, Y.twy - Y.r1);
+    // 1. Befestigter Untergrund wächst mit allem, was gebaut wird
+    c.lineCap = "round"; c.lineJoin = "round";
+    G.mods.forEach(function (m) {
+      if (m.t === "road") return;
+      if (m.t === "taxi" || m.t === "runway") {
+        var e = segEnds(m);
+        c.strokeStyle = COL.paveEdge; c.lineWidth = (m.t === "runway" ? RW_W : TW_W) + 30; line(c, e[0].x, e[0].y, e[1].x, e[1].y);
+      } else {
+        var s = SIZE[m.t];
+        inLocal(c, m, function () { c.fillStyle = COL.paveEdge; rr(c, -s[0] / 2 - 15, -s[1] / 2 - 15, s[0] + 30, s[1] + 30, 14); c.fill(); });
+      }
     });
-    if (G.up.r2) c.fillRect(X0 + 5, Y.r2, 14, Y.r1 - Y.r2);
-    c.strokeStyle = "rgba(227,184,63,.8)"; c.lineWidth = 0.7;
-    for (var sx2 = X0 + 20; sx2 < W - 24; sx2 += 22) {
-      c.beginPath(); c.arc(sx2, Y.twy - 7, 7, 0, Math.PI); c.stroke();
-      c.beginPath(); c.arc(sx2, Y.twy + 7, 7, Math.PI, Math.PI * 2); c.stroke();
-    }
-    c.strokeStyle = "#E3B83F"; c.lineWidth = 1;
-    line(c, X0, Y.twy, W - 16, Y.twy);
-    line(c, X0 + 12, Y.r1 + 11, X0 + 12, Y.twy);
-    ex.forEach(function (x) { line(c, x, Y.r1 + 11, x + (q ? 22 : 0), Y.twy); });
-    if (G.up.r2) line(c, X0 + 12, Y.r2 + 11, X0 + 12, Y.r1 - 11);
-
-    // Pisten
-    runway(c, Y.r1, L, G.up.r2 ? ["09R", "27L"] : ["09", "27"], G.up.ils);
-    if (G.up.r2) runway(c, Y.r2, 440, ["09L", "27R"], false);
-    c.strokeStyle = "#E3B83F"; c.lineWidth = 1.4;
-    line(c, X0 + 5, Y.r1 + 20, X0 + 19, Y.r1 + 20);
-    if (G.up.r2) line(c, X0 + 5, Y.r2 + 20, X0 + 19, Y.r2 + 20);
-
-    // Vorfeld
-    var n = nS(), ax = LEFT - 8, aw = n * COLW + 16;
-    c.fillStyle = "#D2CCC1"; c.fillRect(ax, Y.twy + 7, aw, Y.termTop - Y.twy - 7);
-    c.fillStyle = "#C4BDB1";
-    for (var i = 0; i < n; i++) c.fillRect(LEFT + i * COLW, Y.twy + 7, 1, Y.termTop - Y.twy - 7);
-    G.cols.forEach(function (col, i) {
-      var x = cx(i);
-      c.strokeStyle = "#E3B83F"; c.lineWidth = 1;
-      line(c, x, Y.twy + 7, x, Y.stand + 14);
-      c.strokeStyle = "rgba(255,255,255,.85)";
-      var bw = col.heavy ? 46 : 34;
-      c.strokeRect(x - bw / 2, Y.stand - 22, bw, 44);
-      c.fillStyle = "rgba(30,32,30,.75)";
-      c.font = "600 9px " + FONT;
-      c.fillText((col.heavy ? "H" : "") + (i + 1), x + bw / 2 - 7, Y.stand - 15);
+    G.mods.forEach(function (m) {
+      if (m.t === "road") return;
+      if (m.t === "taxi" || m.t === "runway") {
+        var e = segEnds(m);
+        c.strokeStyle = COL.pave; c.lineWidth = (m.t === "runway" ? RW_W : TW_W) + 22; line(c, e[0].x, e[0].y, e[1].x, e[1].y);
+      } else {
+        var s = SIZE[m.t];
+        inLocal(c, m, function () { c.fillStyle = COL.pave; rr(c, -s[0] / 2 - 11, -s[1] / 2 - 11, s[0] + 22, s[1] + 22, 10); c.fill(); });
+      }
     });
-
-    // Betriebsgebäude
-    hangar(c); fire(c); deck(c); tower(c);
-
-    // Terminalmodule (je zwei Positionen breit) und Busabfertigung
-    for (var m = 0; m < Math.ceil(n / 2); m++) {
-      var mx = LEFT + m * 2 * COLW, mw = Math.min(2, n - m * 2) * COLW;
-      if (m < G.term) terminal(c, mx, 2 * COLW, m === 0, m === G.term - 1);
-      else ghost(c, mx + 4, Y.termTop + 4, mw - 8, Y.termBot - Y.termTop - 8, bname("term"));
-    }
-    G.cols.forEach(function (col, i) {
-      if (col.gate) return;
-      var x = cx(i);
-      c.fillStyle = "#E3B83F"; c.fillRect(x - 11, Y.stand + 30, 22, 7);
-      c.fillStyle = "#151715"; c.fillRect(x - 9, Y.stand + 32, 18, 2);
+    // 2. Straßen
+    mods("road").forEach(function (m) {
+      c.strokeStyle = COL.road; c.lineWidth = RD_W; line(c, m.x1, m.y1, m.x2, m.y2);
     });
-
-    // Straße(n)
-    roads(c, W);
-    // Parkplätze und Bushaltestellen
-    for (var k = 0; k < G.park; k++) lot(c, LEFT + k * 74, Y.land, k);
-    if (G.park < 6) ghost(c, LEFT + G.park * 74, Y.land, 68, 46, bname("park"));
-    for (var b = 0; b < 3; b++) {
-      if (b < G.bus) stop(c, 12 + b * 44, Y.land + 4);
-      else if (b === G.bus) ghost(c, 12 + b * 44, Y.land + 4, 38, 20, lang === "de" ? "Bus" : "Bus");
-    }
-    R.buses.forEach(function (bs) {
-      c.fillStyle = "#E3B83F"; c.fillRect(bs.x - 13, Y.rd2 + 1, 26, 7);
-      c.fillStyle = "rgba(20,20,20,.6)"; c.fillRect(bs.x - 10, Y.rd2 + 3, 20, 2);
+    c.lineCap = "butt";
+    mods("road").forEach(function (m) {
+      c.strokeStyle = "rgba(255,255,255,.5)"; c.lineWidth = 0.8; c.setLineDash([6, 6]); line(c, m.x1, m.y1, m.x2, m.y2); c.setLineDash([]);
     });
-
+    R.cars.forEach(function (car) {
+      var r = byId(car.r); if (!r) return;
+      var l = Math.hypot(r.x2 - r.x1, r.y2 - r.y1), ux = (r.x2 - r.x1) / l, uy = (r.y2 - r.y1) / l;
+      var k = car.d ? car.k : l - car.k, side = car.d ? 3.5 : -3.5;
+      var x = r.x1 + ux * k - uy * side, y = r.y1 + uy * k + ux * side;
+      c.save(); c.translate(x, y); c.rotate(Math.atan2(uy, ux)); c.fillStyle = car.c; c.fillRect(-4, -2, 8, 4); c.restore();
+    });
+    // 3. Rollwege, dann Pisten
+    c.lineCap = "round";
+    mods("taxi").forEach(function (m) { c.strokeStyle = COL.asph; c.lineWidth = TW_W; line(c, m.x1, m.y1, m.x2, m.y2); });
+    c.lineCap = "butt";
+    mods("taxi").forEach(function (m) {
+      var l = Math.hypot(m.x2 - m.x1, m.y2 - m.y1), a = Math.atan2(m.y2 - m.y1, m.x2 - m.x1);
+      c.save(); c.translate(m.x1, m.y1); c.rotate(a);
+      c.strokeStyle = "rgba(227,184,63,.75)"; c.lineWidth = 0.7;
+      for (var s = 12; s < l - 8; s += 22) { c.beginPath(); c.arc(s, -TW_W / 2, 6, 0, Math.PI); c.stroke(); c.beginPath(); c.arc(s, TW_W / 2, 6, Math.PI, Math.PI * 2); c.stroke(); }
+      c.strokeStyle = COL.line; c.lineWidth = 1; line(c, 0, 0, l, 0);
+      c.restore();
+    });
+    mods("runway").forEach(function (m, i) { drawRunway(c, m, i); });
+    // Zufahrtslinien zu den Positionen
+    mods("stand").forEach(function (m) {
+      if (!m._entry) return;
+      c.strokeStyle = COL.line; c.lineWidth = 1; line(c, m._entry.x, m._entry.y, m.x, m.y);
+    });
+    // 4. Rechteck-Module
+    G.mods.forEach(function (m) {
+      if (m.t === "taxi" || m.t === "road" || m.t === "runway") return;
+      inLocal(c, m, function () { drawMod(c, m); });
+    });
     // Fluggastbrücken
-    G.cols.forEach(function (col, i) {
-      if (!col.gate) return;
-      var x = cx(i), p = R.occ[i], on = p && p.state === "park";
+    mods("stand").forEach(function (m) {
+      if (!(m.gate && m._term)) return;
+      var d = standDirs(m), h = SIZE.stand[1] / 2, p = R.occ[m.id], on = p && p.state === "park";
+      var bx = m.x + d.bx * (h + 2) - d.by * 14 * -1, by = m.y + d.by * (h + 2) + d.bx * 14 * -1;
+      var reach = on ? h - TYPES[p.type].len * 0.25 : 12;
       c.strokeStyle = "#F4F1EC"; c.lineWidth = 4; c.lineCap = "round";
-      line(c, x - 16, Y.termTop, x - 12, on ? Y.stand + TYPES[p.type].len * 0.28 : Y.termTop - 14);
+      line(c, bx, by, bx - d.bx * reach + d.by * -4, by - d.by * reach - d.bx * -4);
       c.lineCap = "butt";
     });
-
-    // Flugzeuge: am Boden zuerst, dann in der Luft
+    // 5. Flugzeuge
     R.planes.slice().sort(function (a, b) { return (a.alt || 0) - (b.alt || 0); }).forEach(function (p) { plane(c, p); });
-
-    // Abfertigungs-Fortschritt
     R.planes.forEach(function (p) {
       if (p.state !== "park") return;
       var r = TYPES[p.type].len * 0.5 + 6, f = 1 - p.t / p.T;
-      c.strokeStyle = "rgba(0,0,0,.25)"; c.lineWidth = 2.5;
-      c.beginPath(); c.arc(p.x, p.y, r, 0, Math.PI * 2); c.stroke();
-      c.strokeStyle = "#F0A848";
-      c.beginPath(); c.arc(p.x, p.y, r, -Math.PI / 2, -Math.PI / 2 + f * Math.PI * 2); c.stroke();
+      c.strokeStyle = "rgba(0,0,0,.25)"; c.lineWidth = 2.5; c.beginPath(); c.arc(p.x, p.y, r, 0, Math.PI * 2); c.stroke();
+      c.strokeStyle = "#F0A848"; c.beginPath(); c.arc(p.x, p.y, r, -Math.PI / 2, -Math.PI / 2 + f * Math.PI * 2); c.stroke();
     });
-
-    // Einnahmen
-    c.font = "700 11px " + FONT;
+    // 6. Auswahl, Vorschau, Einnahmen
+    if (V.sel) { var sm = byId(V.sel); if (sm) outline(c, foot(sm), "#2F6F8F", 2 / z); }
+    drawGhost(c);
+    c.font = "700 " + (11 / Math.max(0.7, z)) + "px " + FONT;
     R.fx.forEach(function (f) {
       var a = 1 - f.t / 1.8, y = f.y - 10 - f.t * 18;
-      c.globalAlpha = a;
-      c.lineWidth = 3; c.strokeStyle = "rgba(20,22,20,.8)"; c.strokeText(f.txt, f.x, y);
-      c.fillStyle = "#FFE7B8"; c.fillText(f.txt, f.x, y);
-      c.globalAlpha = 1;
+      c.globalAlpha = a; c.lineWidth = 3; c.strokeStyle = "rgba(20,22,20,.8)"; c.strokeText(f.txt, f.x, y);
+      c.fillStyle = "#FFE7B8"; c.fillText(f.txt, f.x, y); c.globalAlpha = 1;
+    });
+    if (!G.mods.length) {
+      c.fillStyle = "rgba(60,70,50,.55)"; c.font = "italic 600 " + (26 / z) + "px 'Bodoni Moda',Georgia,serif";
+      c.fillText(lang === "de" ? "Hier entsteht dein Flughafen" : "Your airport starts here", V.cam.x, V.cam.y);
+    }
+  }
+
+  function outline(c, f, col, w) {
+    var p = corners({ x: f.x, y: f.y, a: f.a, hw: f.hw + 4, hh: f.hh + 4 });
+    c.strokeStyle = col; c.lineWidth = w; c.setLineDash([6 * w, 4 * w]);
+    c.beginPath(); c.moveTo(p[0].x, p[0].y); for (var i = 1; i < 4; i++) c.lineTo(p[i].x, p[i].y); c.closePath(); c.stroke();
+    c.setLineDash([]);
+  }
+
+  function bearing(dx, dy) { var b = (Math.atan2(dy, dx) / DEG + 90 + 360) % 360; var n = Math.round(b / 10) % 36; return n === 0 ? 36 : n; }
+  function pad(n) { return (n < 10 ? "0" : "") + n; }
+
+  function drawRunway(c, m, idx) {
+    var L = rwLen(), ghost = m._ghost;
+    inLocal(c, m, function () {
+      c.fillStyle = COL.asph; c.fillRect(-L / 2, -RW_W / 2, L, RW_W);
+      c.strokeStyle = "rgba(255,255,255,.75)"; c.lineWidth = 0.8;
+      line(c, -L / 2 + 2, -9, L / 2 - 2, -9); line(c, -L / 2 + 2, 9, L / 2 - 2, 9);
+      c.fillStyle = "rgba(255,255,255,.85)";
+      for (var k = 0; k < 6; k++) { c.fillRect(-L / 2 + 4, -8 + k * 2.9, 12, 1.6); c.fillRect(L / 2 - 16, -8 + k * 2.9, 12, 1.6); }
+      c.fillRect(-L / 2 + 70, -6, 16, 3); c.fillRect(-L / 2 + 70, 3, 16, 3);
+      c.fillRect(L / 2 - 86, -6, 16, 3); c.fillRect(L / 2 - 86, 3, 16, 3);
+      c.setLineDash([10, 9]); c.lineWidth = 1; line(c, -L / 2 + 44, 0, L / 2 - 44, 0); c.setLineDash([]);
+      var A = axes(m.a), n1 = bearing(A.ux, A.uy), n2 = n1 > 18 ? n1 - 18 : n1 + 18;
+      var sfx = mods("runway").length > 1 && !ghost ? (idx === 0 ? "R" : "L") : "";
+      c.font = "700 7px " + FONT;
+      c.save(); c.translate(-L / 2 + 26, 0); c.rotate(Math.PI / 2); c.fillText(pad(n1) + sfx, 0, 0); c.restore();
+      c.save(); c.translate(L / 2 - 26, 0); c.rotate(-Math.PI / 2); c.fillText(pad(n2) + (sfx === "R" ? "L" : sfx === "L" ? "R" : ""), 0, 0); c.restore();
+      // Landerichtung
+      c.fillStyle = "rgba(240,168,72,.9)";
+      c.beginPath(); c.moveTo(-L / 2 - 30, -6); c.lineTo(-L / 2 - 14, 0); c.lineTo(-L / 2 - 30, 6); c.closePath(); c.fill();
+      c.fillRect(-L / 2 - 50, -1.2, 22, 2.4);
+      if (G.up.ils && idx === 0 && !ghost) {
+        var on = Math.floor(R.clock * 6) % 6;
+        for (var j = 0; j < 6; j++) { c.fillStyle = j === on ? "#FFF6D0" : "rgba(255,246,208,.45)"; c.fillRect(-L / 2 - 58 - j * 7, -1, 3, 2); }
+      }
     });
   }
 
-  function line(c, a, b, x, y) { c.beginPath(); c.moveTo(a, b); c.lineTo(x, y); c.stroke(); }
-  function ghost(c, x, y, w, h, label) {
-    c.strokeStyle = "rgba(74,67,80,.4)"; c.setLineDash([4, 4]); c.lineWidth = 1;
-    c.strokeRect(x, y, w, h); c.setLineDash([]);
-    if (label && w > 30) {
-      c.fillStyle = "rgba(74,67,80,.6)"; c.font = "600 7.5px " + FONT;
-      c.fillText(label, x + w / 2, y + h / 2, w - 4);
-    }
-  }
-
-  function runway(c, y, L, ids, ils) {
-    c.fillStyle = "#4A4350"; c.fillRect(X0, y - 11, L, 22);
-    c.strokeStyle = "rgba(255,255,255,.75)"; c.lineWidth = 0.8;
-    line(c, X0 + 2, y - 9, X0 + L - 2, y - 9); line(c, X0 + 2, y + 9, X0 + L - 2, y + 9);
-    c.fillStyle = "rgba(255,255,255,.85)";
-    for (var k = 0; k < 6; k++) {
-      c.fillRect(X0 + 4, y - 8 + k * 2.9, 12, 1.6);
-      c.fillRect(X0 + L - 16, y - 8 + k * 2.9, 12, 1.6);
-    }
-    c.fillRect(X0 + 70, y - 6, 16, 3); c.fillRect(X0 + 70, y + 3, 16, 3);
-    c.setLineDash([10, 9]); c.lineWidth = 1;
-    line(c, X0 + 44, y, X0 + L - 44, y); c.setLineDash([]);
-    c.font = "700 7px " + FONT;
-    c.save(); c.translate(X0 + 26, y); c.rotate(Math.PI / 2); c.fillText(ids[0], 0, 0); c.restore();
-    c.save(); c.translate(X0 + L - 26, y); c.rotate(-Math.PI / 2); c.fillText(ids[1], 0, 0); c.restore();
-    if (ils) { // Anflugbefeuerung
-      var on = Math.floor(R.clock * 6) % 6;
-      for (var j = 0; j < 6; j++) {
-        c.fillStyle = j === on ? "#FFF6D0" : "rgba(255,246,208,.45)";
-        c.fillRect(X0 - 8 - j * 6, y - 1, 3, 2);
+  function drawMod(c, m) {
+    var s = SIZE[m.t], w = s[0], h = s[1];
+    if (m.t === "stand") {
+      c.strokeStyle = "rgba(255,255,255,.9)"; c.lineWidth = 1;
+      c.strokeRect(-w / 2 + 4, -h / 2 + 2, w - 8, h - 4);
+      if (m.heavy) { c.strokeStyle = COL.line; c.strokeRect(-w / 2 + 1, -h / 2 + 1, w - 2, h - 2); }
+      c.strokeStyle = COL.line; line(c, 0, -h / 2, 0, h / 2 - 8);
+      c.fillStyle = "rgba(30,32,30,.7)"; c.font = "600 8px " + FONT;
+      c.fillText((m.heavy ? "H" : "") + standNo(m), w / 2 - 12, h / 2 - 9);
+      if (!m._conn) {
+        c.fillStyle = "#C2412D"; c.beginPath(); c.arc(-w / 2 + 10, h / 2 - 10, 6, 0, Math.PI * 2); c.fill();
+        c.fillStyle = "#FFF"; c.font = "700 8px " + FONT; c.fillText("!", -w / 2 + 10, h / 2 - 9.5);
+      } else if (!(m.gate && m._term)) {
+        c.fillStyle = "#E3B83F"; c.fillRect(-w / 2 + 6, h / 2 - 13, 16, 6); c.fillStyle = "#151715"; c.fillRect(-w / 2 + 8, h / 2 - 11, 12, 2);
       }
+    } else if (m.t === "term") {
+      c.fillStyle = "#F4F1EC"; c.fillRect(-w / 2, -h / 2, w, h);
+      c.fillStyle = "#8E7D72"; c.fillRect(-w / 2 + 2, -h / 2 + 2, w - 4, h - 4);
+      c.fillStyle = "#C3D3DE";
+      for (var k = 0; k < 2; k++) for (var r = 0; r < 2; r++) c.fillRect(-w / 2 + 10 + k * 54, -h / 2 + 7 + r * 9, 46, 4);
+      var e = G.up.ext;
+      if (e >= 1) { c.fillStyle = "#B9AA9E"; c.fillRect(-w / 2 + 22, h / 2 - 16, w - 44, 7); }
+      if (e >= 2) { c.fillStyle = "#7E9A6E"; c.fillRect(-w / 2 + 7, h / 2 - 16, 9, 9); c.fillRect(w / 2 - 16, h / 2 - 16, 9, 9); }
+      if (e >= 3) { c.fillStyle = "#AEBFCB"; c.beginPath(); c.arc(0, 0, 9, 0, Math.PI * 2); c.fill(); c.strokeStyle = "#F4F1EC"; c.lineWidth = 1.2; c.stroke(); }
+    } else if (m.t === "tower") {
+      c.fillStyle = "rgba(0,0,0,.2)"; c.beginPath(); c.arc(5, 7, 12, 0, Math.PI * 2); c.fill();
+      c.fillStyle = "#D7DAD3"; c.fillRect(-10, -10, 20, 20);
+      c.fillStyle = "#24302E"; c.beginPath(); c.arc(0, 0, 9, 0, Math.PI * 2); c.fill();
+      c.strokeStyle = "#8FB3B8"; c.lineWidth = 1.5; c.stroke();
+      c.fillStyle = "#E7E9E4"; c.beginPath(); c.arc(0, 0, 3, 0, Math.PI * 2); c.fill();
+      if (m.lvl >= 2) {
+        var a = R.clock * 2.5; c.strokeStyle = "#F6F6F2"; c.lineWidth = 2;
+        line(c, 22 - Math.cos(a) * 7, -12 - Math.sin(a) * 7, 22 + Math.cos(a) * 7, -12 + Math.sin(a) * 7);
+      }
+    } else if (m.t === "fire") {
+      c.fillStyle = "#B33A2E"; c.fillRect(-w / 2, -h / 2, w, h);
+      c.fillStyle = "#E7E9E4"; c.fillRect(-w / 2, -h / 2, w, 9);
+      var doors = m.lvl >= 2 ? 3 : 2;
+      for (var i = 0; i < doors; i++) { c.fillStyle = "#8E2A20"; c.fillRect(-w / 2 + 4 + i * 16, -h / 2 + 1, 12, 7); c.fillStyle = "#D8392B"; c.fillRect(-w / 2 + 5 + i * 16, -h / 2 - 9, 10, 7); }
+      c.fillStyle = "#FFF"; c.font = "700 6.5px " + FONT; c.fillText(lang === "de" ? "FEUERWEHR" : "FIRE", 0, 6);
+    } else if (m.t === "hangar") {
+      c.fillStyle = "#C9CCC5"; c.fillRect(-w / 2, -h / 2, w, h);
+      c.fillStyle = "#B7BBB3"; for (var j = 0; j < 7; j++) c.fillRect(-w / 2, -h / 2 + 5 + j * 8, w, 2);
+      if (m.lvl >= 2) { c.fillStyle = "#9EA39A"; c.fillRect(-0.5, -h / 2, 1, h); }
+      c.fillStyle = "#2F3330"; c.fillRect(-w / 2 + 6, -h / 2, w - 12, 3);
+      if (R.hangarT > 0) { c.save(); c.rotate(-Math.PI / 2); shape(c, TYPES[R.hangarType === "w" ? "n" : R.hangarType], "#E6EBF0", "#888"); c.restore(); }
+      c.fillStyle = "rgba(30,32,30,.7)"; c.font = "700 7px " + FONT; c.fillText(lang === "de" ? "WARTUNG" : "MRO", 0, h / 2 - 7);
+    } else if (m.t === "deck") {
+      c.fillStyle = "#A9825A"; c.fillRect(-w / 2, -h / 2, w, h);
+      c.fillStyle = "#94704B"; for (var q = 0; q < w; q += 6) c.fillRect(-w / 2 + q, -h / 2, 1, h);
+      c.strokeStyle = "#E7E9E4"; c.lineWidth = 1.2; c.strokeRect(-w / 2 + 1, -h / 2 + 1, w - 2, h - 2);
+      for (var v = 0; v < Math.round(R.visitors); v++) {
+        c.fillStyle = ["#2F6F8F", "#C2412D", "#D9A21B", "#151715"][v % 4];
+        c.beginPath(); c.arc(-w / 2 + 6 + ((v * 37) % (w - 12)), -h / 2 + 5 + ((v * 13) % 10), 1.8, 0, Math.PI * 2); c.fill();
+      }
+      c.fillStyle = "rgba(30,32,30,.75)"; c.font = "700 6.5px " + FONT; c.fillText(lang === "de" ? "AUSSICHT" : "VIEWING", 0, h / 2 - 8);
+    } else if (m.t === "park") {
+      c.fillStyle = "#6A6370"; c.fillRect(-w / 2, -h / 2, w, h);
+      c.strokeStyle = "rgba(255,255,255,.55)"; c.lineWidth = 0.6;
+      for (var rr2 = 0; rr2 < 2; rr2++) for (var i2 = 0; i2 <= 8; i2++) line(c, -w / 2 + 4 + i2 * 8, -h / 2 + 3 + rr2 * 23, -w / 2 + 4 + i2 * 8, -h / 2 + 19 + rr2 * 23);
+      var fill = Math.min(1, 0.25 + G.st.moves / 400), cols = ["#E7E9E4", "#2B2E2B", "#9A540A", "#5C6E80", "#B33A2E", "#D9D4C5"];
+      for (var r3 = 0; r3 < 2; r3++) for (var j3 = 0; j3 < 8; j3++) {
+        var hs = Math.abs(Math.sin((m.id * 16 + r3 * 8 + j3) * 12.9898) * 43758.5453) % 1;
+        if (hs < fill && m._road) { c.fillStyle = cols[Math.floor(hs * 60) % 6]; c.fillRect(-w / 2 + 6 + j3 * 8, -h / 2 + 6 + r3 * 23, 4, 10); }
+      }
+      c.fillStyle = "#2F6F8F"; c.fillRect(w / 2 - 12, -h / 2 - 5, 10, 10);
+      c.fillStyle = "#FFF"; c.font = "700 7px " + FONT; c.fillText("P", w / 2 - 7, -h / 2 + 0.5);
+    } else if (m.t === "bus") {
+      c.fillStyle = "#C9CCC5"; c.fillRect(-w / 2, -h / 2, w, h);
+      c.fillStyle = "#8FB3B8"; c.fillRect(-w / 2 + 6, -h / 2 + 4, w - 18, 6);
+      c.fillStyle = "#1F5C4F"; c.beginPath(); c.arc(w / 2 - 6, 4, 4, 0, Math.PI * 2); c.fill();
+      c.fillStyle = "#FFF"; c.font = "700 5px " + FONT; c.fillText("H", w / 2 - 6, 4.3);
+      if (m._road && Math.floor(R.clock / 6 + m.id) % 2 === 0) { c.fillStyle = "#E3B83F"; c.fillRect(-w / 2 + 2, h / 2 + 3, 30, 8); }
     }
   }
+  function standNo(m) { return mods("stand").indexOf(m) + 1; }
 
-  function terminal(c, x, w, first, last) {
-    var y = Y.termTop, h = Y.termBot - Y.termTop;
-    if (!first) { c.fillStyle = "#F4F1EC"; c.fillRect(x - 6, y + 14, 12, 12); c.fillStyle = "#8E7D72"; c.fillRect(x - 6, y + 16, 12, 8); }
-    c.fillStyle = "#F4F1EC"; c.fillRect(x + 3, y, w - 6, h);
-    c.fillStyle = "#8E7D72"; c.fillRect(x + 5, y + 2, w - 10, h - 4);
-    c.fillStyle = "#C3D3DE";
-    for (var k = 0; k < 2; k++) for (var r = 0; r < 2; r++) c.fillRect(x + 12 + k * 52, y + 8 + r * 9, 40, 4);
-    c.fillStyle = "#A69689"; c.fillRect(x + 10, y + h - 9, 6, 4); c.fillRect(x + w - 16, y + h - 9, 6, 4);
-    var e = G.up.ext;
-    if (e >= 1) { c.fillStyle = "#B9AA9E"; c.fillRect(x + 22, y + 27, w - 44, 7); }      // Shops
-    if (e >= 2) { c.fillStyle = "#7E9A6E"; c.fillRect(x + 8, y + 27, 9, 8); c.fillRect(x + w - 17, y + 27, 9, 8); } // Dachgarten
-    if (e >= 3 && first) { // Glaskuppel wie in der Vorlage
-      c.fillStyle = "#AEBFCB"; c.beginPath(); c.arc(x + w / 2, Y.termBot + 2, 14, Math.PI, 0); c.fill();
-      c.strokeStyle = "#F4F1EC"; c.lineWidth = 1.2; c.stroke();
-      c.fillStyle = "#8FA3B2"; c.beginPath(); c.moveTo(x + w / 2 - 6, Y.termBot); c.lineTo(x + w / 2, Y.termBot - 9); c.lineTo(x + w / 2 + 6, Y.termBot); c.fill();
+  function drawGhost(c) {
+    var g = V.ghost; if (!g) return;
+    c.globalAlpha = 0.75;
+    if (g.kind === "rect") {
+      var m = { t: g.t, x: g.x, y: g.y, a: g.a, id: 0, lvl: 1, _conn: true, _road: true };
+      inLocal(c, m, function () { var s = SIZE[g.t]; c.fillStyle = COL.pave; c.fillRect(-s[0] / 2 - 6, -s[1] / 2 - 6, s[0] + 12, s[1] + 12); drawMod(c, m); });
+      c.globalAlpha = 1; outline(c, { x: g.x, y: g.y, a: g.a, hw: SIZE[g.t][0] / 2, hh: SIZE[g.t][1] / 2 }, g.ok ? "#2E7D5B" : "#C2412D", 2 / V.zoom);
+    } else if (g.kind === "runway") {
+      drawRunway(c, { x: g.x, y: g.y, a: g.a, _ghost: true }, 0);
+      c.globalAlpha = 1; outline(c, { x: g.x, y: g.y, a: g.a, hw: rwLen() / 2, hh: RW_W / 2 }, g.ok ? "#2E7D5B" : "#C2412D", 2 / V.zoom);
+    } else if (g.kind === "line") {
+      if (g.a) {
+        c.lineCap = "round"; c.strokeStyle = g.t === "taxi" ? COL.asph : COL.road; c.lineWidth = g.t === "taxi" ? TW_W : RD_W;
+        line(c, g.a.x, g.a.y, g.b.x, g.b.y); c.lineCap = "butt";
+        c.globalAlpha = 1; c.strokeStyle = g.ok ? "#2E7D5B" : "#C2412D"; c.lineWidth = 2 / V.zoom; line(c, g.a.x, g.a.y, g.b.x, g.b.y);
+        c.fillStyle = "#151715"; c.font = "600 " + (11 / V.zoom) + "px " + FONT;
+        c.fillText(eur(g.cost), (g.a.x + g.b.x) / 2, (g.a.y + g.b.y) / 2 - 14 / V.zoom);
+      }
+      c.globalAlpha = 1;
+      var p = g.b || g.p;
+      c.fillStyle = g.snap ? "#2E7D5B" : "#151715"; c.beginPath(); c.arc(p.x, p.y, 4 / V.zoom, 0, Math.PI * 2); c.fill();
     }
-  }
-
-  function hangar(c) {
-    var s = SITE.hangar;
-    if (!G.up.hangar) { ghost(c, s.x, s.y, s.w, s.h, bname("hangar")); return; }
-    c.fillStyle = "#4A4350"; c.fillRect(s.x + 10, Y.twy + 7, s.w - 20, s.y - Y.twy - 7);
-    c.fillStyle = "#C9CCC5"; c.fillRect(s.x, s.y, s.w, s.h);
-    c.fillStyle = "#B7BBB3";
-    for (var k = 0; k < 6; k++) c.fillRect(s.x, s.y + 6 + k * 9, s.w, 2);
-    if (G.up.hangar >= 2) { c.fillStyle = "#9EA39A"; c.fillRect(s.x + s.w / 2 - 0.5, s.y, 1, s.h); }
-    c.fillStyle = "#2F3330"; c.fillRect(s.x + 6, s.y, s.w - 12, 3);
-    if (R.hangarT > 0) {
-      c.save(); c.translate(s.x + s.w / 2, s.y + s.h / 2 + 2); c.rotate(-Math.PI / 2);
-      shape(c, TYPES[R.hangarType === "w" ? "n" : R.hangarType], "#F6F6F2", "#888");
-      c.restore();
-    }
-    c.fillStyle = "rgba(30,32,30,.7)"; c.font = "700 7px " + FONT;
-    c.fillText(lang === "de" ? "WARTUNG" : "MRO", s.x + s.w / 2, s.y + s.h - 6);
-  }
-
-  function fire(c) {
-    var s = SITE.fire;
-    if (!G.up.fire) { ghost(c, s.x, s.y, s.w, s.h, bname("fire")); return; }
-    c.fillStyle = "#4A4350"; c.fillRect(s.x + 6, Y.twy + 7, s.w - 12, s.y - Y.twy - 7);
-    c.fillStyle = "#B33A2E"; c.fillRect(s.x, s.y, s.w, s.h);
-    c.fillStyle = "#E7E9E4"; c.fillRect(s.x, s.y + s.h - 10, s.w, 10);
-    c.fillStyle = "#8E2A20";
-    var doors = G.up.fire >= 2 ? 3 : 2;
-    for (var k = 0; k < doors; k++) c.fillRect(s.x + 4 + k * 15, s.y + s.h - 9, 11, 8);
-    for (var j = 0; j < doors; j++) { c.fillStyle = "#D8392B"; c.fillRect(s.x + 5 + j * 15, s.y - 9, 9, 7); }
-    c.fillStyle = "#FFFFFF"; c.font = "700 6.5px " + FONT;
-    c.fillText(lang === "de" ? "FEUERWEHR" : "FIRE", s.x + s.w / 2, s.y + 12);
-  }
-
-  function deck(c) {
-    var s = SITE.deck;
-    if (!G.up.deck) { ghost(c, s.x, s.y, s.w, s.h, bname("deck")); return; }
-    c.fillStyle = "#A9825A"; c.fillRect(s.x, s.y, s.w, s.h);
-    c.fillStyle = "#94704B";
-    for (var k = 0; k < s.w; k += 6) c.fillRect(s.x + k, s.y, 1, s.h);
-    c.strokeStyle = "#E7E9E4"; c.lineWidth = 1.2; c.strokeRect(s.x + 1, s.y + 1, s.w - 2, s.h - 2);
-    var n = Math.round(R.visitors);
-    for (var i = 0; i < n; i++) {
-      var px = s.x + 6 + ((i * 37) % (s.w - 12)), py = s.y + 5 + ((i * 13) % 10);
-      c.fillStyle = ["#2F6F8F", "#C2412D", "#D9A21B", "#151715"][i % 4];
-      c.beginPath(); c.arc(px, py, 1.8, 0, Math.PI * 2); c.fill();
-    }
-    c.fillStyle = "rgba(30,32,30,.75)"; c.font = "700 6.5px " + FONT;
-    c.fillText(lang === "de" ? "AUSSICHT" : "VIEWING", s.x + s.w / 2, s.y + s.h - 8);
-  }
-
-  function tower(c) {
-    var s = SITE.tower;
-    if (!G.up.tower) { ghost(c, s.x - 14, s.y - 14, 28, 28, ""); c.fillStyle = "rgba(74,67,80,.6)"; c.font = "600 7px " + FONT; c.fillText("Tower", s.x, s.y); return; }
-    c.fillStyle = "rgba(0,0,0,.25)"; c.beginPath(); c.arc(s.x + 6, s.y + 8, 11, 0, Math.PI * 2); c.fill();
-    c.fillStyle = "#D7DAD3"; c.fillRect(s.x - 9, s.y - 9, 18, 18);
-    c.fillStyle = "#24302E"; c.beginPath(); c.arc(s.x, s.y, 8, 0, Math.PI * 2); c.fill();
-    c.strokeStyle = "#8FB3B8"; c.lineWidth = 1.5; c.beginPath(); c.arc(s.x, s.y, 8, 0, Math.PI * 2); c.stroke();
-    c.fillStyle = "#E7E9E4"; c.beginPath(); c.arc(s.x, s.y, 3, 0, Math.PI * 2); c.fill();
-    if (G.up.tower >= 2) {
-      var a = R.clock * 2.5, rx = s.x + 20, ry = s.y - 18;
-      c.fillStyle = "#C9CCC5"; c.beginPath(); c.arc(rx, ry, 4, 0, Math.PI * 2); c.fill();
-      c.strokeStyle = "#F6F6F2"; c.lineWidth = 2;
-      line(c, rx - Math.cos(a) * 7, ry - Math.sin(a) * 7, rx + Math.cos(a) * 7, ry + Math.sin(a) * 7);
-    }
-  }
-
-  function roads(c, W) {
-    var two = G.up.road >= 2;
-    c.fillStyle = "#5A5360";
-    if (two) {
-      c.fillRect(0, Y.rd1 - 7, W, 14); c.fillRect(0, Y.rd2 - 7, W, 14);
-      c.fillStyle = "#B5AEA2"; c.fillRect(0, Y.rd1 + 7, W, Y.rd2 - Y.rd1 - 14);
-    } else c.fillRect(0, (Y.rd1 + Y.rd2) / 2 - 8, W, 16);
-    c.strokeStyle = "rgba(255,255,255,.5)"; c.setLineDash([6, 6]); c.lineWidth = 0.8;
-    if (two) { line(c, 0, Y.rd1, W, Y.rd1); line(c, 0, Y.rd2, W, Y.rd2); }
-    else line(c, 0, (Y.rd1 + Y.rd2) / 2, W, (Y.rd1 + Y.rd2) / 2);
-    c.setLineDash([]);
-    // Bordstein am Terminal
-    c.fillStyle = "#C9CCC5"; c.fillRect(LEFT, Y.termBot + 1, Math.max(G.term * 2, 1) * COLW, 3);
-    R.cars.forEach(function (car) { c.fillStyle = car.c; c.fillRect(car.x - 4, car.y - 2, 8, 4); });
-    if (two) {
-      c.font = "700 6.5px " + FONT;
-      [[t("dep"), Y.rd1], [t("arr"), Y.rd2]].forEach(function (l) {
-        var w = c.measureText(l[0]).width + 10;
-        c.fillStyle = "#2E7D5B"; c.fillRect(LEFT - w - 6, l[1] - 5, w, 10);
-        c.fillStyle = "#FFFFFF"; c.fillText(l[0], LEFT - 6 - w / 2, l[1] + 0.5);
-      });
-    }
-  }
-
-  function lot(c, x, y, k) {
-    c.fillStyle = "#6A6370"; c.fillRect(x, y, 68, 46);
-    c.strokeStyle = "rgba(255,255,255,.55)"; c.lineWidth = 0.6;
-    for (var r = 0; r < 2; r++) for (var i = 0; i <= 8; i++) line(c, x + 2 + i * 8, y + 3 + r * 22, x + 2 + i * 8, y + 19 + r * 22);
-    var fill = Math.min(1, 0.25 + G.st.moves / 400);
-    var cols = ["#E7E9E4", "#2B2E2B", "#9A540A", "#5C6E80", "#B33A2E", "#D9D4C5"];
-    for (var r2 = 0; r2 < 2; r2++) for (var j = 0; j < 8; j++) {
-      var hsh = Math.abs(Math.sin((k * 16 + r2 * 8 + j) * 12.9898) * 43758.5453) % 1;
-      if (hsh < fill) { c.fillStyle = cols[Math.floor(hsh * 60) % 6]; c.fillRect(x + 4 + j * 8, y + 6 + r2 * 22, 4, 9); }
-    }
-    c.fillStyle = "#2F6F8F"; c.fillRect(x + 56, y - 6, 9, 9);
-    c.fillStyle = "#FFFFFF"; c.font = "700 7px " + FONT; c.fillText("P", x + 60.5, y - 1.5);
-  }
-
-  function stop(c, x, y) {
-    c.fillStyle = "#C9CCC5"; c.fillRect(x, y, 38, 20);
-    c.fillStyle = "#8FB3B8"; c.fillRect(x + 6, y + 4, 26, 6);
-    c.fillStyle = "#1F5C4F"; c.beginPath(); c.arc(x + 33, y + 15, 3.5, 0, Math.PI * 2); c.fill();
-    c.fillStyle = "#FFFFFF"; c.font = "700 4.5px " + FONT; c.fillText("H", x + 33, y + 15.3);
+    c.globalAlpha = 1;
   }
 
   function plane(c, p) {
     var T = TYPES[p.type], alt = p.alt || 0, s = 1 + alt * 0.7, a = p.state === "hold" ? p.fade : 1;
-    if (alt > 0.02) {
-      c.save(); c.globalAlpha = 0.22 * a;
-      c.translate(p.x + alt * 14, p.y + alt * 20); c.rotate(p.h);
-      shape(c, T, "#000", null); c.restore();
-    }
-    c.save(); c.globalAlpha = a;
-    c.translate(p.x, p.y); c.rotate(p.h); c.scale(s, s);
-    shape(c, T, "#E6EBF0", p.al.col);
-    c.restore();
+    if (alt > 0.02) { c.save(); c.globalAlpha = 0.22 * a; c.translate(p.x + alt * 14, p.y + alt * 20); c.rotate(p.h); shape(c, T, "#000", null); c.restore(); }
+    c.save(); c.globalAlpha = a; c.translate(p.x, p.y); c.rotate(p.h); c.scale(s, s); shape(c, T, "#E6EBF0", p.al.col); c.restore();
   }
-
   function shape(c, T, body, tail) {
     var L = T.len, hl = L / 2, sp = T.span / 2, sw = T.sweep * L, fw = L * 0.085 + 1.2;
-    c.fillStyle = body;
-    c.strokeStyle = "#7D8794"; c.lineWidth = 0.7;
+    c.fillStyle = body; c.strokeStyle = "#7D8794"; c.lineWidth = 0.7;
     c.beginPath();
     c.moveTo(L * 0.1, -fw * 0.6); c.lineTo(L * 0.1 - sw, -sp); c.lineTo(L * 0.1 - sw - L * 0.12, -sp); c.lineTo(-L * 0.08, -fw * 0.6);
     c.lineTo(-L * 0.08, fw * 0.6); c.lineTo(L * 0.1 - sw - L * 0.12, sp); c.lineTo(L * 0.1 - sw, sp); c.lineTo(L * 0.1, fw * 0.6);
     c.closePath(); c.fill(); if (tail) c.stroke();
     var ts = sp * 0.38;
-    c.beginPath();
-    c.moveTo(-hl * 0.72, 0); c.lineTo(-hl * 0.92, -ts); c.lineTo(-hl * 1.0, -ts); c.lineTo(-hl * 0.94, 0);
-    c.lineTo(-hl * 1.0, ts); c.lineTo(-hl * 0.92, ts); c.closePath(); c.fill(); if (tail) c.stroke();
+    c.beginPath(); c.moveTo(-hl * 0.72, 0); c.lineTo(-hl * 0.92, -ts); c.lineTo(-hl, -ts); c.lineTo(-hl * 0.94, 0); c.lineTo(-hl, ts); c.lineTo(-hl * 0.92, ts); c.closePath(); c.fill(); if (tail) c.stroke();
     c.beginPath(); c.ellipse(0, 0, hl, fw, 0, 0, Math.PI * 2); c.fill(); if (tail) c.stroke();
-    if (tail) {
-      c.fillStyle = tail;
-      c.fillRect(-hl * 1.0, -0.9, hl * 0.42, 1.8);
-      c.fillRect(hl * 0.55, -fw * 0.55, hl * 0.12, fw * 1.1);
+    if (tail) { c.fillStyle = tail; c.fillRect(-hl, -0.9, hl * 0.42, 1.8); c.fillRect(hl * 0.55, -fw * 0.55, hl * 0.12, fw * 1.1); }
+  }
+
+  // ---------- Werkzeuge und Eingabe ----------
+  function world(sx, sy) { return { x: (sx - V.W / 2) / V.zoom + V.cam.x, y: (sy - V.H / 2) / V.zoom + V.cam.y }; }
+  function setTool(id) {
+    var b = id && bdef(id);
+    V.tool = b ? { id: id, kind: b.tool, start: null } : null;
+    V.ghost = null;
+    if (b) V.sel = null;
+    updatePanel(true); updateSel(); updateHint();
+  }
+  function updateGhost() {
+    var T = V.tool; if (!T || !V.mouse) { V.ghost = null; return; }
+    var b = bdef(T.id), p = V.mouse, cost = b.cost(), lock = b.lock();
+    if (T.kind === "rect") {
+      var s = snapRect(T.id, p.x, p.y, V.ang);
+      var g = s ? { x: s.x, y: s.y, a: s.a } : { x: p.x, y: p.y, a: V.ang };
+      g.kind = "rect"; g.t = T.id; g.ok = !lock && G.money >= cost && rectValid(T.id, g.x, g.y, g.a); g.snapped = !!s;
+      V.ghost = g;
+    } else if (T.kind === "runway") {
+      var a = V.ang;
+      mods("runway").forEach(function (m) {
+        var d = Math.atan2(Math.sin(a - m.a), Math.cos(a - m.a));
+        if (Math.abs(d) < 8 * DEG) a = m.a; else if (Math.abs(Math.abs(d) - Math.PI) < 8 * DEG) a = m.a + Math.PI;
+      });
+      V.ghost = { kind: "runway", x: p.x, y: p.y, a: a, ok: !lock && G.money >= cost && runwayValid(p.x, p.y, a) };
+    } else if (T.kind === "line") {
+      var thr = 14 / V.zoom + 4;
+      var sp = snapPoint(T.id, p, thr), q = sp ? { x: sp.x, y: sp.y } : { x: p.x, y: p.y };
+      if (T.start && V.shift && !sp) {
+        var ang = Math.round(Math.atan2(q.y - T.start.y, q.x - T.start.x) / STEP) * STEP, l = dist(q, T.start);
+        q = { x: T.start.x + Math.cos(ang) * l, y: T.start.y + Math.sin(ang) * l };
+      }
+      if (!T.start) { V.ghost = { kind: "line", t: T.id, p: q, snap: !!sp }; return; }
+      var c2 = Math.max(cost, Math.round(dist(T.start, q) / 10) * b.unit * 10);
+      V.ghost = { kind: "line", t: T.id, a: T.start, b: q, snap: !!sp, cost: c2, ok: !lock && G.money >= c2 && lineValid(T.id, T.start, q) };
+    } else V.ghost = null;
+  }
+  function act() {
+    var T = V.tool, g = V.ghost, b = T && bdef(T.id);
+    if (!T) return;
+    if (T.kind === "apply") {
+      var hit = pick(V.mouse);
+      if (!hit || hit.t !== "stand") return;
+      applyStand(T.id, hit); return;
     }
+    if (!g) return;
+    var lock = b.lock();
+    if (lock) { msg(lock); return; }
+    if (T.kind === "line" && !T.start) { T.start = { x: g.p.x, y: g.p.y }; updateHint(); return; }
+    var cost = g.cost || b.cost();
+    if (G.money < cost) { msg(t("poor")); return; }
+    if (!g.ok) { msg(t("blocked")); return; }
+    if (g.kind === "rect") addMod({ t: g.t, x: g.x, y: g.y, a: g.a }, cost);
+    else if (g.kind === "runway") { addMod({ t: "runway", x: g.x, y: g.y, a: g.a }, cost); setTool(null); msg(lang === "de" ? "Piste gebaut. Jetzt Rollwege von der Piste wegziehen." : "Runway built. Now draw taxiways off the runway.", true); return; }
+    else if (g.kind === "line") { addMod({ t: T.id, x1: g.a.x, y1: g.a.y, x2: g.b.x, y2: g.b.y }, cost); T.start = { x: g.b.x, y: g.b.y }; }
+    if (T.kind === "rect" && bdef(T.id).lock()) setTool(null);
+    updateGhost(); updatePanel(true);
+  }
+  function applyStand(id, m) {
+    var b = bdef(id), cost = b.cost(), lock = b.lock();
+    if (lock) { msg(lock); return; }
+    if (id === "gate") { if (m.gate) return; if (!m._term) { msg(t("needGateTerm")); return; } }
+    if (id === "heavy" && m.heavy) return;
+    if (G.money < cost) { msg(t("poor")); return; }
+    G.money -= cost; m[id === "gate" ? "gate" : "heavy"] = true; m.paid += cost;
+    save(); msg(b.name[lang] + " " + t("built") + ".", true); updatePanel(true); updateSel();
+  }
+  function pick(p) {
+    if (!p) return null;
+    for (var i = G.mods.length - 1; i >= 0; i--) {
+      var m = G.mods[i];
+      if (m.t === "taxi" || m.t === "road") { if (segProj(p, { x: m.x1, y: m.y1 }, { x: m.x2, y: m.y2 }).d < (m.t === "taxi" ? TW_W : RD_W) / 2 + 3) return m; }
+      else if (inFoot(foot(m), p, 3)) return m;
+    }
+    return null;
+  }
+  function inUse(m) {
+    if (m.t === "stand") return !!R.occ[m.id];
+    if (m.t === "runway") { var r = R.rw[m.id]; return !!(r && (r.busy || r.next)) || R.planes.some(function (p) { return p.rwId === m.id; }); }
+    return false;
+  }
+  function demolish(m) {
+    if (inUse(m)) { msg(t("delBusy")); return; }
+    G.mods.splice(G.mods.indexOf(m), 1);
+    G.money += Math.round((m.paid || 0) / 2);
+    if (m.t === "runway") { delete R.rw[m.id]; delete R.q[m.id]; }
+    V.sel = null; rebuild(); save(); updatePanel(true); updateSel();
+  }
+
+  function onDown(e) {
+    V.stage.focus({ preventScroll: true });
+    var r = V.cv.getBoundingClientRect(), sx = e.clientX - r.left, sy = e.clientY - r.top;
+    V.mouse = world(sx, sy);
+    if (e.button === 1 || e.button === 2 || (e.button === 0 && !V.tool)) {
+      V.drag = { sx: sx, sy: sy, cx: V.cam.x, cy: V.cam.y, moved: false, btn: e.button, id: e.pointerId };
+      try { V.cv.setPointerCapture(e.pointerId); } catch (er) {}
+      return;
+    }
+    if (e.button === 0) { updateGhost(); act(); }
+  }
+  function onMove(e) {
+    var r = V.cv.getBoundingClientRect(), sx = e.clientX - r.left, sy = e.clientY - r.top;
+    V.shift = e.shiftKey;
+    if (V.drag) {
+      var dx = sx - V.drag.sx, dy = sy - V.drag.sy;
+      if (Math.abs(dx) + Math.abs(dy) > 4) V.drag.moved = true;
+      if (V.drag.moved) { V.cam.x = V.drag.cx - dx / V.zoom; V.cam.y = V.drag.cy - dy / V.zoom; V.cv.style.cursor = "grabbing"; }
+    }
+    V.mouse = world(sx, sy);
+    updateGhost();
+  }
+  function onUp(e) {
+    if (!V.drag) return;
+    var d = V.drag; V.drag = null; V.cv.style.cursor = "";
+    if (!d.moved && d.btn === 0 && !V.tool) { var m = pick(V.mouse); V.sel = m ? m.id : null; V.delArm = false; updateSel(); }
+    if (!d.moved && d.btn === 2 && V.tool) { if (V.tool.kind === "line" && V.tool.start) { V.tool.start = null; updateGhost(); updateHint(); } else setTool(null); }
+  }
+  function onWheel(e) {
+    e.preventDefault();
+    var r = V.cv.getBoundingClientRect(), sx = e.clientX - r.left, sy = e.clientY - r.top;
+    var before = world(sx, sy);
+    zoomTo(V.zoom * Math.pow(1.0015, -e.deltaY));
+    var after = world(sx, sy);
+    V.cam.x += before.x - after.x; V.cam.y += before.y - after.y;
+    V.mouse = world(sx, sy); updateGhost();
+  }
+  function zoomTo(z) { V.zoom = Math.max(0.3, Math.min(2.8, z)); }
+  var keys = {};
+  function onKey(e) {
+    if (!V) return;
+    var tag = (e.target && e.target.tagName) || "";
+    if (/INPUT|TEXTAREA|SELECT/.test(tag)) return;
+    var k = e.key.toLowerCase(), down = e.type === "keydown";
+    V.shift = e.shiftKey;
+    if (down && k === "escape") {
+      if (V.tool && V.tool.kind === "line" && V.tool.start) { V.tool.start = null; updateHint(); }
+      else if (V.tool) setTool(null); else { V.sel = null; updateSel(); }
+      updateGhost(); return;
+    }
+    var rot = V.tool && (V.tool.kind === "rect" || V.tool.kind === "runway");
+    if ((k === "q" || k === "e") && rot) {
+      e.preventDefault();
+      if (down && e.shiftKey && !e.repeat) { V.ang = Math.round(V.ang / STEP) * STEP + (k === "q" ? -STEP : STEP); updateGhost(); return; }
+      keys[k] = down && !e.shiftKey; return;
+    }
+    if (["w", "a", "s", "d", "arrowup", "arrowdown", "arrowleft", "arrowright"].indexOf(k) >= 0) {
+      if (!V.stage.contains(document.activeElement) && document.activeElement !== V.stage) return;
+      e.preventDefault(); keys[k] = down;
+    }
+  }
+  function keysTick(dt) {
+    var rs = 1.6 * dt, ps = 520 / V.zoom * dt;
+    if (keys.q || V.rotHold === -1) { V.ang -= rs; updateGhost(); }
+    if (keys.e || V.rotHold === 1) { V.ang += rs; updateGhost(); }
+    if (keys.w || keys.arrowup) V.cam.y -= ps;
+    if (keys.s || keys.arrowdown) V.cam.y += ps;
+    if (keys.a || keys.arrowleft) V.cam.x -= ps;
+    if (keys.d || keys.arrowright) V.cam.x += ps;
   }
 
   // ---------- Oberfläche ----------
@@ -822,45 +1172,66 @@
     ".fh-hud dd{margin:0;font:italic 500 1.6rem/1.2 var(--f-display);font-variant-numeric:tabular-nums;white-space:nowrap}" +
     ".fh-hud .warn dd{color:var(--accent)}" +
     ".fh-rank{margin:6px 0 0;color:var(--accent);font-weight:600}" +
-    ".fh-stage{margin-top:20px;border-radius:4px;overflow-x:auto;overflow-y:hidden;background:#C3BCB0;-webkit-overflow-scrolling:touch}" +
-    ".fh-stage canvas{display:block}" +
+    ".fh-ver{display:inline-block;margin-left:10px;padding:1px 8px;border:1px solid var(--line);border-radius:999px;font:600 .75rem var(--f-body);color:var(--soft);vertical-align:middle;letter-spacing:0}" +
+    ".fh-main{display:grid;grid-template-columns:minmax(0,1fr);gap:16px;margin-top:20px}" +
+    "@media (min-width:900px){.fh-main{grid-template-columns:minmax(0,1fr) 290px;align-items:start}}" +
+    ".fh-stage{position:relative;height:clamp(460px,70vh,780px);border-radius:6px;overflow:hidden;background:#B9C2A2;outline:none;touch-action:none}" +
+    ".fh-stage:focus-visible{box-shadow:0 0 0 2px var(--accent)}" +
+    ".fh-stage canvas{display:block;width:100%;height:100%}" +
+    ".fh-hint{position:absolute;left:10px;top:10px;right:10px;pointer-events:none;display:flex}" +
+    ".fh-hint span{background:rgba(21,23,21,.78);color:#F4F1EC;font:500 .82rem/1.35 var(--f-body);padding:6px 10px;border-radius:8px;max-width:100%}" +
+    ".fh-ctl{position:absolute;right:10px;bottom:10px;display:flex;gap:6px}" +
+    ".fh-ctl button{width:36px;height:36px;border-radius:50%;border:0;background:rgba(21,23,21,.78);color:#F4F1EC;font:600 1.1rem/1 var(--f-body);cursor:pointer}" +
+    ".fh-ctl button:hover{background:#151715}" +
+    ".fh-side{display:flex;flex-direction:column;gap:14px;min-width:0}" +
+    ".fh-sel{border:1px solid var(--line);border-radius:14px;padding:12px 14px;min-height:64px}" +
+    ".fh-sel b{display:block;font-weight:600}.fh-sel p{margin:4px 0 0;color:var(--soft);font-size:.9rem;line-height:1.45}" +
+    ".fh-sel .acts{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}" +
+    ".fh-sel .acts button{font:600 .82rem var(--f-body);padding:6px 12px;border-radius:999px;border:1px solid var(--ink);background:transparent;color:var(--ink);cursor:pointer}" +
+    ".fh-sel .acts button.warn{border-color:var(--accent);color:var(--accent)}" +
+    ".fh-sel .acts button[aria-disabled=true]{opacity:.45;cursor:default}" +
+    ".fh-g{font:italic 600 1.15rem/1.2 var(--f-display);color:var(--accent);margin:4px 0 6px}" +
+    ".fh-tools{display:grid;grid-template-columns:1fr 1fr;gap:6px}" +
+    ".fh-tool{display:flex;flex-direction:column;align-items:flex-start;gap:2px;text-align:left;font:inherit;color:var(--ink);background:transparent;border:1px solid var(--line);border-radius:10px;padding:8px 10px;cursor:pointer;min-width:0}" +
+    ".fh-tool b{font-weight:600;font-size:.88rem;line-height:1.2}.fh-tool em{font-style:normal;font-size:.78rem;color:var(--accent);font-weight:600;font-variant-numeric:tabular-nums}" +
+    ".fh-tool:hover:not([aria-disabled=true]){border-color:var(--ink)}" +
+    ".fh-tool[aria-pressed=true]{background:var(--ink);color:var(--bg);border-color:var(--ink)}.fh-tool[aria-pressed=true] em{color:inherit}" +
+    ".fh-tool[aria-disabled=true]{opacity:.5;cursor:default}.fh-tool[aria-disabled=true] em{color:var(--soft)}" +
     ".fh-bar{display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px;margin-top:14px}" +
-    ".fh-msg{margin:14px 0 0;min-height:1.6em;color:var(--soft)}.fh-msg.good{color:var(--accent);font-weight:600}" +
-    ".fh-h{font:italic 500 2.2rem/1.05 var(--f-display);margin:36px 0 4px}" +
-    ".fh-g{font:italic 600 1.3rem/1.2 var(--f-display);color:var(--accent);margin:24px 0 10px}" +
-    ".fh-build{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px}" +
-    ".fh-card{display:flex;flex-direction:column;gap:6px;text-align:left;font:inherit;color:var(--ink);background:transparent;border:1px solid var(--line);border-radius:14px;padding:14px 16px;cursor:pointer}" +
-    ".fh-card:hover:not([aria-disabled=true]){border-color:var(--ink)}" +
-    ".fh-card b{font-weight:600}.fh-card span{color:var(--soft);font-size:.92rem;line-height:1.45}" +
-    ".fh-card em{font-style:normal;font-weight:600;margin-top:auto;padding-top:6px;font-variant-numeric:tabular-nums;color:var(--accent)}" +
-    ".fh-card[aria-disabled=true]{cursor:default}.fh-card[aria-disabled=true] em{color:var(--soft)}" +
-    ".fh-card.lock{opacity:.55}" +
+    ".fh-msg{margin:12px 0 0;min-height:1.6em;color:var(--soft)}.fh-msg.good{color:var(--accent);font-weight:600}" +
     ".fh-reset[data-armed]{background:var(--accent);border-color:var(--accent);color:var(--bg)}";
 
   function injectCSS() {
-    if (document.getElementById("fh-css")) return;
-    var s = document.createElement("style"); s.id = "fh-css"; s.textContent = CSS;
-    document.head.appendChild(s);
+    var old = document.getElementById("fh-css"); if (old) old.remove();
+    var s = document.createElement("style"); s.id = "fh-css"; s.textContent = CSS; document.head.appendChild(s);
   }
-
   function html() {
-    var groups = ["air", "term", "land", "ops"].map(function (g) {
-      return '<h3 class="fh-g">' + TX.grp[g][lang] + '</h3><div class="fh-build">' +
-        BUILD.filter(function (b) { return b.g === g; }).map(function (b) {
-          return '<button type="button" class="fh-card" data-fh="' + b.id + '"><b>' + b.name[lang] + "</b><span>" + b.desc[lang] + '</span><em id="fh-c-' + b.id + '"></em></button>';
-        }).join("") + "</div>";
-    }).join("");
     function st(id) { return '<div id="fh-w-' + id + '"><dt>' + t(id) + '</dt><dd id="fh-' + id + '"></dd></div>'; }
-    return '<h1 class="ptitle">' + t("title") + '</h1><p class="pintro">' + t("intro") + "</p>" +
+    var groups = ["air", "term", "land", "ops"].map(function (g) {
+      return '<div><h3 class="fh-g">' + TX.grp[g][lang] + '</h3><div class="fh-tools">' +
+        BUILD.filter(function (b) { return b.g === g; }).map(function (b) {
+          return '<button type="button" class="fh-tool" data-tool="' + b.id + '" aria-pressed="false" title="' + b.desc[lang] + '"><b>' + b.name[lang] + '</b><em id="fh-c-' + b.id + '"></em></button>';
+        }).join("") + "</div></div>";
+    }).join("");
+    var ups = '<div><h3 class="fh-g">' + TX.grp.up[lang] + '</h3><div class="fh-tools">' + UPS.map(function (u) {
+      return '<button type="button" class="fh-tool" data-up="' + u.id + '" title="' + u.desc[lang] + '"><b>' + u.name[lang] + '</b><em id="fh-u-' + u.id + '"></em></button>';
+    }).join("") + "</div></div>";
+    return '<h1 class="ptitle">' + t("title") + '<span class="fh-ver">v' + VERSION + '</span></h1><p class="pintro">' + t("intro") + "</p>" +
       '<p class="fh-rank" id="fh-rank"></p>' +
       '<dl class="fh-hud">' + st("money") + st("rep") + st("moves") + st("pax") + st("hold") + "</dl>" +
-      '<div class="fh-stage" id="fh-stage"><canvas id="fh-cv" role="img" aria-label="' + t("title") + '"></canvas></div>' +
+      '<div class="fh-main"><div>' +
+      '<div class="fh-stage" id="fh-stage" tabindex="0" aria-label="' + t("title") + '"><canvas id="fh-cv"></canvas>' +
+      '<div class="fh-hint"><span id="fh-hint"></span></div>' +
+      '<div class="fh-ctl"><button type="button" class="rot" data-rot="-1" title="' + t("rotL") + '" aria-label="' + t("rotL") + '">⟲</button>' +
+      '<button type="button" class="rot" data-rot="1" title="' + t("rotR") + '" aria-label="' + t("rotR") + '">⟳</button>' +
+      '<button type="button" data-zoom="-1" title="' + t("zoomOut") + '" aria-label="' + t("zoomOut") + '">−</button>' +
+      '<button type="button" data-zoom="1" title="' + t("zoomIn") + '" aria-label="' + t("zoomIn") + '">+</button></div></div>' +
       '<div class="fh-bar"><span class="lbl">' + t("speed") + '</span><div class="seg" role="group" aria-label="' + t("speed") + '">' +
       [1, 2, 4].map(function (v) { return '<button type="button" data-fhspeed="' + v + '" aria-pressed="false">' + v + "×</button>"; }).join("") +
       '</div><button type="button" class="navbtn" data-fhpause aria-pressed="false"></button></div>' +
-      '<p class="fh-msg" id="fh-msg" aria-live="polite"></p>' +
-      '<h2 class="fh-h">' + t("build") + "</h2>" + groups +
-      '<section class="phow"><h2>' + t("howH") + "</h2><p>" + t("how1") + "</p><p>" + t("how2") + "</p><p>" + t("how3") + "</p>" +
+      '<p class="fh-msg" id="fh-msg" aria-live="polite"></p></div>' +
+      '<aside class="fh-side"><div class="fh-sel" id="fh-sel"></div>' + groups + ups + "</aside></div>" +
+      '<section class="phow"><h2>' + t("howH") + "</h2><p>" + t("how1") + "</p><p>" + t("how2") + "</p><p>" + t("how3") + "</p><p>" + t("how4") + "</p>" +
       '<button type="button" class="navbtn fh-reset" data-fhreset>' + t("reset") + "</button></section>";
   }
 
@@ -868,76 +1239,144 @@
   function set(id, v) { var e = document.getElementById(id); if (e && e.textContent !== v) e.textContent = v; }
   function updatePanel(force) {
     if (!V) return;
-    set("fh-money", eur(G.money));
-    set("fh-rep", Math.round(G.rep) + " %");
-    set("fh-moves", G.st.moves.toLocaleString(loc()));
-    set("fh-pax", G.st.pax.toLocaleString(loc()));
+    var s = stats();
+    set("fh-money", eur(G.money)); set("fh-rep", Math.round(G.rep) + " %");
+    set("fh-moves", G.st.moves.toLocaleString(loc())); set("fh-pax", G.st.pax.toLocaleString(loc()));
     set("fh-hold", String(R.holdQ.length));
-    set("fh-rank", "SOY · " + rank());
+    set("fh-rank", "SOY · " + rank() + (s.stands ? " · " + fmt(t("conn"), { a: s.conn, b: s.stands }) : ""));
     var hw = document.getElementById("fh-w-hold");
     if (hw) hw.classList.toggle("warn", R.holdQ.some(function (h) { return h.wait > DIVERT * 0.55; }));
-    var sig = "";
-    BUILD.forEach(function (b) { sig += b.id + b.lock() + b.cost() + (G.money >= b.cost()) + (b.extra ? b.extra() : "") + "|"; });
+    var sig = (V.tool ? V.tool.id : "") + "|" + Math.floor(G.money);
+    BUILD.forEach(function (b) { sig += b.lock(); }); UPS.forEach(function (u) { sig += u.lock() + u.cost(); });
     if (sig === lastSig && !force) return;
     lastSig = sig;
     BUILD.forEach(function (b) {
-      var btn = V.root.querySelector('[data-fh="' + b.id + '"]');
-      if (!btn) return;
-      var lock = b.lock(), cost = b.cost(), ok = !lock && G.money >= cost;
-      btn.setAttribute("aria-disabled", String(!ok));
-      btn.classList.toggle("lock", !!lock);
-      var txt = lock ? lock : eur(cost);
-      if (b.extra && lock !== t("done")) txt = b.extra() + " · " + txt;
-      set("fh-c-" + b.id, txt);
+      var btn = V.root.querySelector('[data-tool="' + b.id + '"]'); if (!btn) return;
+      var lock = b.lock(), cost = b.cost();
+      btn.setAttribute("aria-disabled", String(!!lock));
+      btn.setAttribute("aria-pressed", String(!!(V.tool && V.tool.id === b.id)));
+      set("fh-c-" + b.id, lock ? lock : b.unit ? fmt(t("perM"), { p: eur(b.unit * 10) }) : eur(cost));
     });
+    UPS.forEach(function (u) {
+      var btn = V.root.querySelector('[data-up="' + u.id + '"]'); if (!btn) return;
+      var lock = u.lock(), cost = u.cost(), ok = !lock && G.money >= cost;
+      btn.setAttribute("aria-disabled", String(!ok));
+      var txt = lock ? lock : eur(cost); if (u.extra && lock !== t("done")) txt = u.extra() + " · " + txt;
+      set("fh-u-" + u.id, txt);
+    });
+  }
+  var NAMES = { runway: L2("Piste", "Runway"), taxi: L2("Rollweg", "Taxiway"), road: L2("Straße", "Road"), stand: L2("Parkposition", "Aircraft stand"),
+    term: L2("Terminalmodul", "Terminal module"), tower: L2("Tower", "Control tower"), fire: L2("Feuerwehr", "Fire station"),
+    hangar: L2("Wartungshalle", "Maintenance hangar"), deck: L2("Aussichtsplattform", "Viewing deck"), park: L2("Parkplatz", "Car park"), bus: L2("Bushaltestelle", "Bus stop") };
+  function updateSel() {
+    var box = document.getElementById("fh-sel"); if (!box) return;
+    var m = V.sel && byId(V.sel);
+    if (!m) { box.innerHTML = '<p>' + t("selNone") + "</p>"; return; }
+    var info = [], acts = [];
+    function btn(a, label, dis, warn) { return '<button type="button" data-act="' + a + '"' + (warn ? ' class="warn"' : "") + ' aria-disabled="' + dis + '">' + label + "</button>"; }
+    if (m.t === "stand") {
+      info.push(m._conn ? t("stConn") : t("stNoConn"));
+      if (m._conn) info.push(m.gate && m._term ? t("stGate") : t("stBus"));
+      if (!m.gate) acts.push(btn("gate", t("gate") + " · " + eur(bdef("gate").cost()), !!bdef("gate").lock() || !m._term));
+      if (!m.heavy) acts.push(btn("heavy", t("heavy") + " · " + eur(bdef("heavy").cost()), !!bdef("heavy").lock()));
+    } else if (m.t === "runway") {
+      var rws = mods("runway"), i = rws.indexOf(m);
+      info.push(rws.length > 1 ? (i === 0 ? t("rwArr") : t("rwDep")) : t("rwBoth"));
+      acts.push(btn("flip", t("flip"), false));
+    } else if (LVL[m.t]) {
+      info.push(t("lvl") + " " + m.lvl + "/2");
+      if (m.lvl < 2) acts.push(btn("lvl", fmt(t("up2"), { n: 2 }) + " · " + eur(LVL[m.t][0]), false));
+    } else if (m.t === "term" || m.t === "park" || m.t === "bus") info.push(m._road ? t("stRoad") : t("stNoRoad"));
+    acts.push(btn("del", V.delArm ? fmt(t("delQ"), { p: eur((m.paid || 0) / 2) }) : t("del"), false, true));
+    box.innerHTML = "<b>" + NAMES[m.t][lang] + (m.t === "stand" ? " " + standNo(m) : "") + "</b>" + info.map(function (s) { return "<p>" + s + "</p>"; }).join("") + '<div class="acts">' + acts.join("") + "</div>";
+  }
+  function updateHint() {
+    var T = V.tool, k = !T ? "none" : T.kind === "rect" || T.kind === "runway" ? "rect" : T.kind === "apply" ? "apply" : T.start ? "line1" : (T.id === "road" ? "road0" : "line0");
+    set("fh-hint", (T ? bdef(T.id).name[lang] + ": " : "") + TX.hint[k][lang]);
+    Array.prototype.forEach.call(V.root.querySelectorAll(".fh-ctl .rot"), function (b) { b.hidden = !(T && (T.kind === "rect" || T.kind === "runway")); });
   }
   function updateBar() {
     Array.prototype.forEach.call(V.root.querySelectorAll("[data-fhspeed]"), function (b) {
       b.setAttribute("aria-pressed", String(Number(b.getAttribute("data-fhspeed")) === R.speed && !R.paused));
     });
-    var p = V.root.querySelector("[data-fhpause]");
-    p.textContent = R.paused ? t("play") : t("pause");
-    p.setAttribute("aria-pressed", String(R.paused));
+    var p = V.root.querySelector("[data-fhpause]"); p.textContent = R.paused ? t("play") : t("pause"); p.setAttribute("aria-pressed", String(R.paused));
   }
   function msg(s, good) {
     if (!V) return;
-    var e = document.getElementById("fh-msg");
-    if (!e) return;
-    e.textContent = s; e.classList.toggle("good", !!good);
-    R.msgT = 6;
+    var e = document.getElementById("fh-msg"); if (!e) return;
+    e.textContent = s; e.classList.toggle("good", !!good); R.msgT = 6;
   }
 
   function onClick(e) {
-    var b = e.target.closest("[data-fh]");
-    if (b) { buy(b.getAttribute("data-fh")); return; }
+    var tb = e.target.closest("[data-tool]");
+    if (tb) {
+      var id = tb.getAttribute("data-tool");
+      if (tb.getAttribute("aria-disabled") === "true") { msg(bdef(id).lock()); return; }
+      setTool(V.tool && V.tool.id === id ? null : id); V.stage.focus({ preventScroll: true }); return;
+    }
+    var ub = e.target.closest("[data-up]");
+    if (ub) {
+      var u = UPS.filter(function (x) { return x.id === ub.getAttribute("data-up"); })[0], lock = u.lock();
+      if (lock) { msg(lock); return; }
+      if (G.money < u.cost()) { msg(t("poor")); return; }
+      G.money -= u.cost(); u.apply(); rebuild(); save(); msg(u.name[lang] + " " + t("built") + ".", true); updatePanel(true); return;
+    }
+    var ab = e.target.closest("[data-act]");
+    if (ab) {
+      var m = byId(V.sel); if (!m || ab.getAttribute("aria-disabled") === "true") return;
+      var a = ab.getAttribute("data-act");
+      if (a === "del") { if (V.delArm) { V.delArm = false; demolish(m); } else { V.delArm = true; updateSel(); } return; }
+      V.delArm = false;
+      if (a === "gate" || a === "heavy") applyStand(a, m);
+      else if (a === "flip") {
+        if (inUse(m)) { msg(t("delBusy")); return; }
+        m.a += Math.PI; rebuild(); save(); updateSel();
+      } else if (a === "lvl") {
+        var c = LVL[m.t][0];
+        if (G.money < c) { msg(t("poor")); return; }
+        G.money -= c; m.lvl = 2; m.paid += c; save(); msg(NAMES[m.t][lang] + " · " + t("lvl") + " 2", true); updateSel(); updatePanel(true);
+      }
+      return;
+    }
+    var zb = e.target.closest("[data-zoom]");
+    if (zb) { zoomTo(V.zoom * (zb.getAttribute("data-zoom") === "1" ? 1.25 : 0.8)); return; }
     var s = e.target.closest("[data-fhspeed]");
     if (s) { R.speed = Number(s.getAttribute("data-fhspeed")); R.paused = false; updateBar(); return; }
     if (e.target.closest("[data-fhpause]")) { R.paused = !R.paused; updateBar(); return; }
     var r = e.target.closest("[data-fhreset]");
     if (r) {
       if (r.hasAttribute("data-armed")) {
-        G = fresh(); R = runtime(); R.first = false; save();
+        G = fresh(); R = runtime(); R.first = false; rebuild(); save();
         r.removeAttribute("data-armed"); r.textContent = t("reset");
-        msg(t("welcome"), true); updatePanel(true); updateBar();
+        V.sel = null; V.cam = { x: 0, y: 0 }; V.zoom = 1; setTool(null); updateBar(); msg(t("welcome"), true);
       } else {
         r.setAttribute("data-armed", ""); r.textContent = t("resetQ");
         setTimeout(function () { if (r.isConnected) { r.removeAttribute("data-armed"); r.textContent = t("reset"); } }, 4000);
       }
     }
   }
+  function onRotDown(e) { var b = e.target.closest && e.target.closest("[data-rot]"); if (b) { e.preventDefault(); V.rotHold = Number(b.getAttribute("data-rot")); } }
+  function onRotUp() { if (V) V.rotHold = 0; }
 
   var raf = 0, last = 0, hudT = 0;
   function frame(now) {
     raf = requestAnimationFrame(frame);
     var dt = Math.min(0.1, (now - (last || now)) / 1000); last = now;
-    if (!R.paused) {
-      var g = dt * R.speed;
-      while (g > 0) { var d = Math.min(0.05, g); tick(d); g -= d; }
-    }
+    keysTick(dt);
+    if (!R.paused) { var g = dt * R.speed; while (g > 0) { var d = Math.min(0.05, g); tick(d); g -= d; } }
     if (R.msgT > 0) { R.msgT -= dt; if (R.msgT <= 0) msg(""); }
     R.saveT += dt; if (R.saveT > 4) { R.saveT = 0; save(); }
     hudT += dt; if (hudT > 0.25) { hudT = 0; updatePanel(); }
     draw();
+  }
+
+  function fitView() {
+    if (!G.mods.length) { V.cam = { x: 0, y: 0 }; V.zoom = 1; return; }
+    var x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    G.mods.forEach(function (m) { corners(foot(m)).forEach(function (p) { x0 = Math.min(x0, p.x); y0 = Math.min(y0, p.y); x1 = Math.max(x1, p.x); y1 = Math.max(y1, p.y); }); });
+    V.cam = { x: (x0 + x1) / 2, y: (y0 + y1) / 2 };
+    var W = V.stage.clientWidth || 800, H = V.stage.clientHeight || 500;
+    V.zoom = Math.max(0.3, Math.min(1.4, Math.min(W / (x1 - x0 + 200), H / (y1 - y0 + 200))));
   }
 
   function mount(el, l) {
@@ -945,24 +1384,42 @@
     lang = l === "en" ? "en" : "de";
     if (!G) G = load();
     if (!R) R = runtime();
+    rebuild();
     injectCSS();
     el.innerHTML = html();
-    V = { root: el, stage: el.querySelector("#fh-stage"), cv: el.querySelector("#fh-cv") };
+    V = { root: el, stage: el.querySelector("#fh-stage"), cv: el.querySelector("#fh-cv"), cam: { x: 0, y: 0 }, zoom: 1, ang: 0, tool: null, ghost: null, sel: null, mouse: null, W: 800, H: 500, rotHold: 0 };
     V.ctx = V.cv.getContext("2d");
+    fitView();
     el.addEventListener("click", onClick);
-    lastSig = ""; updatePanel(true); updateBar();
-    if (R.first) { R.first = false; msg(t("welcome"), true); }
-    last = 0;
-    raf = requestAnimationFrame(frame);
+    el.addEventListener("pointerdown", onRotDown);
+    window.addEventListener("pointerup", onRotUp);
+    V.cv.addEventListener("pointerdown", onDown);
+    V.cv.addEventListener("pointermove", onMove);
+    V.cv.addEventListener("pointerup", onUp);
+    V.cv.addEventListener("pointerleave", function () { if (V && !V.drag) { V.mouse = null; V.ghost = null; } });
+    V.cv.addEventListener("wheel", onWheel, { passive: false });
+    V.cv.addEventListener("contextmenu", function (e) { e.preventDefault(); });
+    window.addEventListener("keydown", onKey);
+    window.addEventListener("keyup", onKey);
+    lastSig = ""; updatePanel(true); updateBar(); updateSel(); updateHint();
+    if (R.first) { R.first = false; if (!G.mods.length) msg(t("welcome"), true); }
+    last = 0; raf = requestAnimationFrame(frame);
   }
   function unmount() {
-    if (raf) cancelAnimationFrame(raf);
-    raf = 0;
-    if (V) { V.root.removeEventListener("click", onClick); V = null; }
+    if (raf) cancelAnimationFrame(raf); raf = 0;
+    if (V) {
+      V.root.removeEventListener("click", onClick);
+      V.root.removeEventListener("pointerdown", onRotDown);
+      window.removeEventListener("pointerup", onRotUp);
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("keyup", onKey);
+      V = null;
+    }
+    keys = {};
     save();
   }
   window.addEventListener("pagehide", save);
 
-  // Nur zum Testen: Flughafen._debug
-  window.Flughafen = { mount: mount, unmount: unmount, _debug: function () { return { G: G, R: R, tick: tick, buy: buy }; } };
+  window.Flughafen = { mount: mount, unmount: unmount,
+    _debug: function () { return { G: G, R: R, V: V, tick: tick, addMod: addMod, rebuild: rebuild, stats: stats, snapRect: snapRect, setTool: setTool, act: act, updateGhost: updateGhost, rwEnds: rwEnds, world: world }; } };
 })();
