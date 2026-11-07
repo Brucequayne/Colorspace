@@ -5,7 +5,7 @@
   "use strict";
 
   var KEY = "flughafen-v3";
-  var VERSION = "0.31";
+  var VERSION = "0.32";
   var RW_W = 22, TW_W = 14, RD_W = 16;
   var DIVERT = 60;
   var SIZE = { stand: [64, 66], term: [124, 46], tower: [30, 30], fire: [52, 38], hangar: [84, 62], deck: [72, 38], park: [72, 48], bus: [44, 22] };
@@ -1051,7 +1051,7 @@
       c.fillStyle = f.col || "#FFE7B8"; c.fillText(f.txt, f.x, y); c.globalAlpha = 1;
     });
     if (!G.mods.length) {
-      c.fillStyle = "rgba(60,70,50,.55)"; c.font = "italic 600 " + (26 / z) + "px 'Bodoni Moda',Georgia,serif";
+      c.fillStyle = "rgba(60,70,50,.55)"; c.font = "600 " + (26 / z) + "px " + FONT;
       c.fillText(lang === "de" ? "Hier entsteht dein Flughafen" : "Your airport starts here", V.cam.x, V.cam.y);
     }
   }
@@ -1399,7 +1399,7 @@
   // ---------- Oberfläche ----------
   var CSS = ".fh-hud{display:grid;grid-template-columns:repeat(auto-fit,minmax(118px,1fr));gap:12px 16px;margin:22px 0 0;padding:16px 0;border-block:1px solid var(--line)}" +
     ".fh-hud div{display:flex;flex-direction:column;min-width:0}.fh-hud dt{font-size:.85rem;color:var(--soft)}" +
-    ".fh-hud dd{margin:0;font:italic 500 1.6rem/1.2 var(--f-display);font-variant-numeric:tabular-nums;white-space:nowrap}" +
+    ".fh-hud dd{margin:0;font:600 1.6rem/1.2 var(--f-display);font-variant-numeric:tabular-nums;white-space:nowrap}" +
     ".fh-hud .warn dd{color:var(--accent)}" +
     ".fh-rank{margin:6px 0 0;color:var(--accent);font-weight:600}" +
     ".fh-ver{display:inline-block;margin-left:10px;padding:1px 8px;border:1px solid var(--line);border-radius:999px;font:600 .75rem var(--f-body);color:var(--soft);vertical-align:middle;letter-spacing:0}" +
@@ -1420,7 +1420,7 @@
     ".fh-sel .acts button{font:600 .82rem var(--f-body);padding:6px 12px;border-radius:999px;border:1px solid var(--ink);background:transparent;color:var(--ink);cursor:pointer}" +
     ".fh-sel .acts button.warn{border-color:var(--accent);color:var(--accent)}" +
     ".fh-sel .acts button[aria-disabled=true]{opacity:.45;cursor:default}" +
-    ".fh-g{font:italic 600 1.15rem/1.2 var(--f-display);color:var(--accent);margin:4px 0 6px}" +
+    ".fh-g{font:600 1.15rem/1.2 var(--f-display);color:var(--accent);margin:4px 0 6px}" +
     ".fh-tools{display:grid;grid-template-columns:1fr 1fr;gap:6px}" +
     ".fh-tool{display:flex;flex-direction:column;align-items:flex-start;gap:2px;text-align:left;font:inherit;color:var(--ink);background:transparent;border:1px solid var(--line);border-radius:10px;padding:8px 10px;cursor:pointer;min-width:0}" +
     ".fh-tool b{font-weight:600;font-size:.88rem;line-height:1.2}.fh-tool em{font-style:normal;font-size:.78rem;color:var(--accent);font-weight:600;font-variant-numeric:tabular-nums}" +
