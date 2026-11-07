@@ -1,11 +1,11 @@
-/* PIXELLAB 0.3 – Fotos im Browser verfremden, mit einer Kette aus Werkzeugen. Für Soy and Soul.
+/* PIXELLAB 0.31 – Fotos im Browser verfremden, mit einer Kette aus Werkzeugen. Für Soy and Soul.
    Einbindung: pixellab.js per script-Tag laden, dann Pixellab.mount(element, "de" | "en")
    und Pixellab.unmount() beim Verlassen der Seite. Fotos verlassen nie das Gerät. */
 (function () {
   "use strict";
 
-  var VERSION = "0.3";
-  var PREVIEW = 1000;   // längste Seite der Vorschau in Pixeln
+  var VERSION = "0.31";
+  var PREVIEW = 2400;   // Obergrenze für die längste Seite der Vorschau in Pixeln
   var lang = "de";
 
   function L2(de, en) { return { de: de, en: en }; }
@@ -211,15 +211,31 @@
     var x = c.getContext("2d"); x.drawImage(img, 0, 0, w, h);
     return { data: x.getImageData(0, 0, w, h).data, w: w, h: h };
   }
+  // Passt das Foto in die Bildfläche ein, nie größer als das Original, und erzeugt die Vorschau in passender Auflösung
+  function fitPreview(force) {
+    if (!V || !S) return false;
+    var desk = V.root.querySelector("#px-desk"), cv = V.root.querySelector("#px-cv"); if (!desk || !cv) return false;
+    var pad = 2 * 26 + 12, aw = Math.max(80, desk.clientWidth - pad), ah = Math.max(80, desk.clientHeight - pad);
+    var sc = Math.min(aw / S.W, ah / S.H, 1), cw = Math.max(1, Math.round(S.W * sc)), ch = Math.max(1, Math.round(S.H * sc));
+    cv.style.width = cw + "px"; cv.style.height = ch + "px";
+    var side = V.root.querySelector("#px-side");
+    if (side) side.style.maxHeight = window.innerWidth >= 1100 ? desk.offsetHeight + "px" : "";
+    var dpr = window.devicePixelRatio || 1, bw = Math.min(S.W, Math.round(cw * dpr)), lim = PREVIEW / Math.max(S.W, S.H);
+    var f = Math.min(bw / S.W, lim, 1);
+    if (!force && S.base && Math.abs(f - S.f) / S.f < 0.04) return false;
+    S.f = f;
+    S.base = imgData(S.img, Math.max(1, Math.round(S.W * f)), Math.max(1, Math.round(S.H * f)));
+    return true;
+  }
   function loadFile(file) {
     if (!file || !/^image\//.test(file.type)) { note(t("bad")); return; }
     var url = URL.createObjectURL(file), img = new Image();
     img.onload = function () {
-      var W = img.naturalWidth, H = img.naturalHeight, f = Math.min(1, PREVIEW / Math.max(W, H));
+      var W = img.naturalWidth, H = img.naturalHeight, f = Math.min(1, 1000 / Math.max(W, H));
       var keep = S ? S.stack : [newTool("fragments")];
       S = { img: img, name: (file.name || "foto").replace(/\.[^.]+$/, ""), W: W, H: H, f: f,
         base: imgData(img, Math.max(1, Math.round(W * f)), Math.max(1, Math.round(H * f))), stack: keep, q: S ? S.q : 100, stageIn: [] };
-      if (V) { buildUI(); renderPreview(); }
+      if (V) { buildUI(); fitPreview(true); renderPreview(); }
     };
     img.onerror = function () { URL.revokeObjectURL(url); note(t("bad")); };
     img.src = url;
@@ -313,12 +329,17 @@
   // ---------- Oberfläche ----------
   var CSS = ".px-ver{display:inline-block;margin-left:10px;padding:1px 8px;border:1px solid var(--line);border-radius:999px;font:600 .75rem var(--f-body);color:var(--soft);vertical-align:middle}" +
     ".px-wrap{display:grid;grid-template-columns:minmax(0,1fr);gap:20px;margin-top:22px}" +
-    "@media (min-width:960px){.px-wrap{grid-template-columns:minmax(0,1fr) 350px;align-items:start}.px-deskbox{position:sticky;top:12px}}" +
-    ".px-desk{position:relative;min-height:clamp(380px,62vh,760px);border-radius:18px;display:grid;place-items:center;padding:28px;overflow:hidden;" +
+    ".px-desk{position:relative;width:100%;aspect-ratio:16/9;min-height:340px;border-radius:18px;display:grid;place-items:center;padding:26px;overflow:hidden;" +
       "background:#3A3632;background-image:radial-gradient(rgba(255,255,255,.05) 1px,transparent 1px);background-size:6px 6px}" +
     ".px-desk.over{outline:3px dashed #E3B83F;outline-offset:-10px}" +
-    ".px-photo{background:#fff;padding:10px;box-shadow:0 18px 50px rgba(0,0,0,.45);max-width:100%}" +
-    ".px-photo canvas{display:block;max-width:100%;max-height:calc(62vh - 76px);height:auto;width:auto}" +
+    ".px-photo{background:#E9E9E6;padding:6px;box-shadow:0 18px 50px rgba(0,0,0,.45);line-height:0}" +
+    ".px-photo canvas{display:block}" +
+    "@media (min-width:1100px){" +
+      ".px-wrap{width:min(calc(100vw - 48px),2200px);margin-left:calc((100% - min(calc(100vw - 48px),2200px)) / 2);grid-template-columns:minmax(0,3fr) minmax(300px,1fr);align-items:start}" +
+      ".px-desk{max-height:calc(100vh - 40px)}" +
+      ".px-deskbox{position:sticky;top:20px}" +
+      ".px-side{position:sticky;top:20px;max-height:calc(100vh - 40px);overflow-y:auto;padding-right:4px;scrollbar-width:thin}" +
+    "}" +
     ".px-drop{text-align:center;color:#F4F1EC;display:flex;flex-direction:column;align-items:center;gap:10px}" +
     ".px-drop b{font:600 1.4rem/1.2 var(--f-display)}.px-drop span{color:rgba(244,241,236,.7)}" +
     ".px-pick{font:600 1rem var(--f-body);padding:12px 20px;border-radius:999px;border:0;background:#F4F1EC;color:#151715;cursor:pointer}" +
@@ -488,7 +509,7 @@
     var desk = el.querySelector("#px-desk");
     desk.addEventListener("dragover", onDragOver); desk.addEventListener("dragleave", onDragLeave); desk.addEventListener("drop", onDrop);
     buildUI();
-    if (S) renderPreview();
+    if (S) { fitPreview(true); renderPreview(); }
   }
   function unmount() {
     if (V) {
@@ -498,7 +519,12 @@
       V = null;
     }
   }
-  window.addEventListener("resize", function () { if (V && S) drawThumbs(); });
+  var rsT = 0;
+  window.addEventListener("resize", function () {
+    if (!V || !S) return;
+    drawThumbs(); fitPreview(false) ; clearTimeout(rsT);
+    rsT = setTimeout(function () { if (V && S && fitPreview(true)) renderPreview(); else renderPreview(); }, 180);
+  });
 
   window.Pixellab = { mount: mount, unmount: unmount, _debug: function () { return { S: S, TOOLS: TOOLS }; } };
 })();
