@@ -1,10 +1,10 @@
-/* Gigachess 0.1 – Schach auf 10×10 mit dem Räuber. Für Soy and Soul.
+/* Gigachess 0.2 – Schach auf 10×10 mit dem Räuber, zu zweit oder gegen die KI (Stufe 1–10). Für Color Space.
    Einbindung: gigachess.js per script-Tag laden, dann Gigachess.mount(element, "de" | "en")
    und Gigachess.unmount() beim Verlassen der Seite. Die Partie wird nur lokal im Browser gespeichert. */
 (function () {
   "use strict";
 
-  var KEY = "gigachess-v1", VERSION = "0.11", N = 10;
+  var KEY = "gigachess-v1", VERSION = "0.2", N = 10;
   var FILES = "abcdefghij";
 
   // ---------- Texte ----------
@@ -28,6 +28,13 @@
     pause: L2("Uhr anhalten", "Pause clock"), resume: L2("Uhr weiter", "Resume clock"),
     moves: L2("Züge", "Moves"), noMoves: L2("Noch keine Züge.", "No moves yet."),
     promo: L2("Umwandeln in", "Promote to"),
+    mode: L2("Gegner", "Opponent"), twoP: L2("Zu zweit", "Two players"), vsAi: L2("Gegen die KI", "Against the AI"),
+    youPlay: L2("Du spielst", "You play"), random: L2("Zufall", "Random"), level: L2("Stärke der KI", "AI strength"),
+    levelNote: L2("Stufe 1 zieht zufällig, Stufe 10 rechnet so tief es geht. Stufe 7 entspricht ungefähr 400 Elo auf chess.com.", "Level 1 moves at random, level 10 calculates as deep as it can. Level 7 is roughly 400 Elo on chess.com."),
+    ai: L2("KI", "AI"), aiLvl: L2("KI · Stufe {n}", "AI · level {n}"), you: L2("Du", "You"),
+    thinking: L2("Die KI denkt nach …", "The AI is thinking …"),
+    drawNo: L2("Die KI lehnt das Remis ab.", "The AI declines the draw."),
+    win: L2("Du gewinnst!", "You win!"), lose: L2("Die KI gewinnt.", "The AI wins."),
     names: { K: L2("König", "King"), Q: L2("Dame", "Queen"), R: L2("Turm", "Rook"), B: L2("Läufer", "Bishop"), N: L2("Springer", "Knight"), P: L2("Bauer", "Pawn"), X: L2("Räuber", "Robber") },
     letters: { de: { K: "K", Q: "D", R: "T", B: "L", N: "S", P: "", X: "R" }, en: { K: "K", Q: "Q", R: "R", B: "B", N: "N", P: "", X: "X" } },
     rulesH: L2("Regeln", "Rules"),
@@ -206,11 +213,152 @@
     return s;
   }
 
+  // ---------- KI ----------
+  // Stufen 1–10. Stufe 7 ist auf ungefähr 400 Elo (chess.com) ausgelegt: rechnet zwei Halbzüge,
+  // übersieht aber regelmäßig Antworten des Gegners und hängt dann Figuren ein. Ab Stufe 8 wird
+  // mit Alpha-Beta und Schlagfolgen-Suche gerechnet, Stufe 10 denkt mit Zeitlimit so tief es geht.
+  var AI_LEVELS = [null,
+    { random: 1 },
+    { random: 1, capBias: 0.6 },
+    { depth: 1, sigma: 60, blunder: 0, wild: 0.2 },
+    { depth: 1, sigma: 50, blunder: 0, wild: 0.1 },
+    { depth: 2, sigma: 60, blunder: 0.35 },
+    { depth: 2, sigma: 40, blunder: 0.27 },
+    { depth: 2, sigma: 30, blunder: 0.2 },
+    { depth: 3, sigma: 15, blunder: 0.05, q: true },
+    { depth: 5, sigma: 0, blunder: 0, q: true, time: 1200 },
+    { depth: 7, sigma: 0, blunder: 0, q: true, time: 2400 }
+  ];
+  var VAL = { P: 100, N: 300, B: 320, R: 500, Q: 900, X: 280, K: 0 }, MATE = 100000;
+  function evalS(S) {
+    var b = S.b, s = 0, mat = 0, i, p;
+    for (i = 0; i < N * N; i++) { p = b[i]; if (p && p.t !== "K" && p.t !== "P") mat += VAL[p.t]; }
+    for (i = 0; i < N * N; i++) {
+      p = b[i]; if (!p) continue;
+      var f = col(i), r = row(i), v = VAL[p.t], cen = 4.5 - Math.max(Math.abs(f - 4.5), Math.abs(r - 4.5)), rel = p.c === "w" ? r : N - 1 - r;
+      if (p.t === "P") v += (rel >= 6 ? rel * rel * 2 : rel * 5) + (f >= 3 && f <= 6 ? 6 : 0);
+      else if (p.t === "N" || p.t === "B") v += cen * 7;
+      else if (p.t === "X") v += cen * 5 - (f === 0 || f === N - 1 || r === 0 || r === N - 1 ? 8 : 0);
+      else if (p.t === "Q") v += cen * 2;
+      else if (p.t === "K") {
+        if (mat > 3000) v += -rel * 12 - (rel === 0 ? 0 : 8);
+        else v += cen * 6;
+        if (f === 0 || f === N - 1 || r === 0 || r === N - 1) v -= 12;   // Rand: Gefahr, vom Räuber hinausgeschoben zu werden
+      }
+      s += p.c === "w" ? v : -v;
+    }
+    return S.turn === "w" ? s : -s;
+  }
+  function kingCap(S, m) { var q = S.b[m.to]; return !!q && q.t === "K" && q.c !== S.turn && (m.kind === "cap" || m.kind === "pushoff"); }
+  function mScore(S, m) {
+    var q = S.b[m.to], a = S.b[m.from], s = 0;
+    if (q && (m.kind === "cap" || m.kind === "pushoff")) s += (q.t === "K" ? 50000 : VAL[q.t] * 10) - VAL[a.t] / 10 + (q.c === S.turn ? -20000 : 0);
+    if (m.kind === "ep") s += 1000;
+    if (m.promo) s += m.promo === "Q" ? 8000 : 100;
+    if (m.kind === "push") s += 50;
+    return s;
+  }
+  function gen(S, capsOnly) {
+    var ms = pseudo(S, S.turn, !!capsOnly), out = [];
+    for (var i = 0; i < ms.length; i++) {
+      var m = ms[i];
+      if (m.promo && m.promo !== "Q" && m.promo !== "N") continue;
+      if (capsOnly && !(m.kind === "cap" || m.kind === "ep" || m.kind === "pushoff" && S.b[m.to].c !== S.turn || m.promo)) continue;
+      m.o = mScore(S, m); out.push(m);
+    }
+    out.sort(function (a, b) { return b.o - a.o; });
+    return out;
+  }
+  var AIS = { nodes: 0, deadline: 0, stop: false };
+  function timeUp() { if ((++AIS.nodes & 511) === 0 && AIS.deadline && performance.now() > AIS.deadline) AIS.stop = true; return AIS.stop; }
+  function qs(S, a, b, d) {
+    if (timeUp()) return 0;
+    var stand = evalS(S);
+    if (stand >= b) return stand;
+    if (stand > a) a = stand;
+    if (d <= 0) return stand;
+    var ms = gen(S, true);
+    for (var i = 0; i < ms.length; i++) {
+      if (kingCap(S, ms[i])) return MATE;
+      var v = -qs(apply(S, ms[i]), -b, -a, d - 1);
+      if (AIS.stop) return 0;
+      if (v >= b) return v;
+      if (v > a) a = v;
+    }
+    return a;
+  }
+  function canTakeKing(S) { var ms = pseudo(S, S.turn, true); for (var i = 0; i < ms.length; i++) if (kingCap(S, ms[i])) return true; return false; }
+  function nega(S, depth, a, b, ply, useQ) {
+    if (timeUp()) return 0;
+    if (depth <= 0) return useQ ? qs(S, a, b, 4) : (canTakeKing(S) ? MATE - ply : evalS(S));
+    var ms = gen(S, false), best = -MATE * 2;
+    for (var i = 0; i < ms.length; i++) {
+      var m = ms[i];
+      if (kingCap(S, m)) return MATE - ply;
+      var v = -nega(apply(S, m), depth - 1, -b, -a, ply + 1, useQ);
+      if (AIS.stop) return 0;
+      if (v > best) best = v;
+      if (v > a) a = v;
+      if (a >= b) break;
+    }
+    return best;
+  }
+  function gauss() { var u = 1 - Math.random(), v = Math.random(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v); }
+  function aiPick(S, level) {
+    var L = AI_LEVELS[clampInt(level, 1, 10)], root = legal(S);
+    if (!root.length) return null;
+    root = root.filter(function (m) { return !m.promo || m.promo === "Q" || m.promo === "N"; });
+    if (L.random) {
+      if (L.capBias && Math.random() < L.capBias) {
+        var caps = root.filter(function (m) { return (m.kind === "cap" || m.kind === "ep" || m.kind === "pushoff" && S.b[m.to].c !== S.turn); });
+        if (caps.length) { caps.sort(function (x, y) { return mScore(S, y) - mScore(S, x); }); return caps[0]; }
+      }
+      return root[Math.floor(Math.random() * root.length)];
+    }
+    if (L.wild && Math.random() < L.wild) return root[Math.floor(Math.random() * root.length)];
+    AIS.nodes = 0; AIS.stop = false; AIS.deadline = 0;
+    var shallow = Math.random() < L.blunder, depth = shallow ? 1 : L.depth, sigma = shallow ? Math.max(L.sigma, 60) * 1.5 : L.sigma;
+    root.forEach(function (m) { m.o = mScore(S, m); });
+    root.sort(function (x, y) { return y.o - x.o; });
+    var scored = null;
+    if (L.time && !shallow) {
+      // iterative Vertiefung mit Zeitlimit, bester Zug der letzten vollständigen Tiefe zählt
+      AIS.deadline = performance.now() + L.time;
+      for (var d = 1; d <= L.depth; d++) {
+        var a = -MATE * 2, res = [];
+        for (var i = 0; i < root.length; i++) {
+          var after = apply(S, root[i]), v = -nega(after, d - 1, -MATE * 2, -a, 1, L.q);
+          if (AIS.stop) break;
+          res.push({ m: root[i], v: v }); if (v > a) a = v;
+        }
+        if (AIS.stop && d > 1) break;
+        if (res.length === root.length || !scored) {
+          scored = res; scored.sort(function (x, y) { return y.v - x.v; });
+          root = scored.map(function (r) { return r.m; }).concat(root.filter(function (m) { return !res.some(function (r) { return r.m === m; }); }));
+        }
+        if (AIS.stop || (scored.length && scored[0].v > MATE / 2)) break;
+      }
+    } else {
+      scored = root.map(function (m) {
+        var after = apply(S, m), v;
+        if (!legal(after).length) v = inCheck(after, after.turn) ? MATE : 0;
+        else v = -nega(after, depth - 1, -MATE * 2, MATE * 2, 1, L.q && !shallow);
+        return { m: m, v: v };
+      });
+    }
+    if (L.time && !shallow) return scored[0].m;   // Alpha-Beta-Werte sind nur Schranken: hier ohne Zufall den besten nehmen
+    var best = null, bv = -Infinity;
+    scored.forEach(function (r) { var v = r.v + (Math.abs(r.v) > MATE / 2 ? 0 : gauss() * sigma); if (v > bv) { bv = v; best = r.m; } });
+    return best;
+  }
+  function clampInt(v, a, b) { v = Math.round(+v || 0); return v < a ? a : v > b ? b : v; }
+  function aiEval(S) { AIS.nodes = 0; AIS.stop = false; AIS.deadline = performance.now() + 300; return nega(S, 2, -MATE * 2, MATE * 2, 0, true); }
+
   // ---------- Spielzustand ----------
   var G = null, V = null, lang = "de";
-  function fresh(base, inc) {
+  function fresh(base, inc, ai) {
     var s = initial();
-    return { v: 1, S: s, hist: [], log: [], over: null, base: base, inc: inc,
+    return { v: 1, S: s, hist: [], log: [], over: null, base: base, inc: inc, ai: ai || null,
       clock: { w: base, b: base }, started: false, paused: false, flip: false, lastMove: null, lost: { w: [], b: [] } };
   }
   function load() { try { var g = JSON.parse(localStorage.getItem(KEY) || "null"); if (g && g.v === 1) { g.paused = true; return g; } } catch (e) {} return null; }
@@ -238,6 +386,23 @@
     if (!lm.length) G.over = inCheck(G.S, G.S.turn) ? { type: "mate", winner: mover } : { type: "stale" };
     save();
     render(anim);
+    scheduleAI();
+  }
+  // KI-Zug planen: kurze Pause, damit der eigene Zug sichtbar ist und "denkt nach" erscheint
+  var aiTimer = 0, aiBusy = false;
+  function aiTurn() { return !!(G && G.ai && !G.over && G.S.turn === G.ai.color); }
+  function cancelAI() { clearTimeout(aiTimer); aiTimer = 0; aiBusy = false; }
+  function scheduleAI() {
+    cancelAI();
+    if (!aiTurn() || !V) return;
+    if (G.base && G.started && G.paused) return;
+    aiBusy = true; if (V) renderSide();
+    var t0 = performance.now();
+    aiTimer = setTimeout(function () {
+      if (!aiTurn() || !V) { aiBusy = false; return; }
+      var m = aiPick(G.S, G.ai.level), wait = Math.max(0, 450 + Math.random() * 300 - (performance.now() - t0));
+      aiTimer = setTimeout(function () { aiBusy = false; if (m && aiTurn() && V) play(m); }, wait);
+    }, 60);
   }
 
   // ---------- Grafik ----------
@@ -298,7 +463,7 @@
     ".gc-moves li{padding:2px 0}.gc-moves li span{display:inline-block;min-width:9.5em}" +
     ".gc-moves p{margin:0;color:var(--soft)}" +
     ".gc-dlg{position:absolute;inset:0;z-index:10;display:grid;place-items:center;background:rgba(21,23,21,.45);border-radius:4px}" +
-    ".gc-dlg>div{background:var(--bg);color:var(--ink);border-radius:14px;padding:18px 20px;max-width:min(92%,420px);box-shadow:0 18px 50px rgba(0,0,0,.3)}" +
+    ".gc-dlg>div{background:var(--bg);color:var(--ink);border-radius:0;padding:18px 20px;max-width:min(92%,420px);box-shadow:0 18px 50px rgba(0,0,0,.3)}" +
     ".gc-dlg h3{font:600 1.5rem/1.1 var(--f-display);margin:0 0 12px}" +
     ".gc-dlg .lbl{display:block;margin:10px 0 6px}" +
     ".gc-opts{display:flex;flex-wrap:wrap;gap:6px}" +
@@ -306,7 +471,9 @@
     ".gc-opts button[aria-pressed=true]{background:var(--ink);color:var(--bg);border-color:var(--ink)}" +
     ".gc-promo{display:flex;gap:8px}.gc-promo button{width:60px;height:60px;border-radius:12px;border:1px solid var(--line);background:#E9E2D3;cursor:pointer;padding:4px}" +
     ".gc-promo button:hover,.gc-promo button:focus-visible{background:#D9CDB7}" +
-    ".gc-dlg .row{display:flex;gap:8px;margin-top:16px;flex-wrap:wrap}";
+    ".gc-dlg .row{display:flex;gap:8px;margin-top:16px;flex-wrap:wrap}" +
+    ".gc-lv button{min-width:38px;padding:7px 0;text-align:center}.gc-note{margin:8px 0 0;color:var(--soft);font-size:.85rem;line-height:1.4}" +
+    ".gc-dlg>div{max-height:92%;overflow:auto}";
 
   function injectCSS() { var o = document.getElementById("gc-css"); if (o) o.remove(); var s = document.createElement("style"); s.id = "gc-css"; s.textContent = CSS; document.head.appendChild(s); }
 
@@ -403,16 +570,19 @@
       var el = document.getElementById("gc-ck-" + z[0]), c = z[1];
       var active = !G.over && G.S.turn === c;
       el.className = "gc-clock" + (active ? " on" : "") + (G.base && G.clock[c] < 20000 ? " low" : "");
-      el.innerHTML = "<b>" + t(c === "w" ? "white" : "black") + "</b><span>" + (G.base ? fmtClock(G.clock[c]) : "–") + "</span>";
+      var nm = t(c === "w" ? "white" : "black") + (G.ai ? " · " + (G.ai.color === c ? fmt(t("aiLvl"), { n: G.ai.level }) : t("you")) : "");
+      el.innerHTML = "<b>" + nm + "</b><span>" + (G.base ? fmtClock(G.clock[c]) : "–") + "</span>";
       document.getElementById("gc-lost-" + z[0]).innerHTML = lostHTML(G.lost[c], c);
     });
     var st = "", cn = function (c) { return t(c === "w" ? "white" : "black"); };
     if (G.over) {
       var o = G.over;
-      st = o.type === "mate" ? fmt(t("mate"), { c: cn(o.winner) }) : o.type === "stale" ? t("stale") : o.type === "flag" ? fmt(t("flag"), { c: cn(o.winner) }) :
+      st = o.type === "mate" ? fmt(t("mate"), { c: cn(o.winner) }) + (G.ai ? " " + (o.winner === G.ai.color ? t("lose") : t("win")) : "") : o.type === "stale" ? t("stale") : o.type === "flag" ? fmt(t("flag"), { c: cn(o.winner) }) :
         o.type === "resign" ? fmt(t("resign"), { l: cn(opp(o.winner)), c: cn(o.winner) }) : t("draw");
     } else {
       st = fmt(t("toMove"), { c: cn(G.S.turn) }) + (inCheck(G.S, G.S.turn) ? " · " + t("check") : "");
+      if (aiBusy) st += " · " + t("thinking");
+      if (V && V.note) { st += " · " + V.note; }
       if (G.base && !G.started) st += " · " + t("clockWait");
       else if (G.base && G.paused) st += " · " + t("paused");
     }
@@ -432,7 +602,8 @@
 
   // ---------- Bedienung ----------
   function clickSq(i) {
-    if (!G || G.over) return;
+    if (!G || G.over || aiTurn()) return;
+    if (V.note) V.note = "";
     var S = G.S, p = S.b[i];
     var hit = moves.filter(function (m) { return m.to === i; });
     if (sel >= 0 && hit.length) {
@@ -454,9 +625,15 @@
   }
   var TIMES = [0, 1, 3, 5, 10, 15, 30], INCS = [0, 2, 5, 10];
   function setupDialog() {
-    var w = document.getElementById("gc-dlgwrap"), cur = V.setup || { base: G ? G.base / 60000 : 10, inc: G ? G.inc / 1000 : 0 };
+    var w = document.getElementById("gc-dlgwrap"), cur = V.setup || { base: G ? G.base / 60000 : 10, inc: G ? G.inc / 1000 : 0,
+      vs: G && G.ai ? 1 : 0, side: G && G.ai ? (G.ai.color === "w" ? "b" : "w") : "w", level: G && G.ai ? G.ai.level : 7 };
     V.setup = cur;
-    w.innerHTML = '<div class="gc-dlg"><div><h3>' + t("newGame") + '</h3><span class="lbl">' + t("time") + '</span><div class="gc-opts">' +
+    var lv = ""; for (var n = 1; n <= 10; n++) lv += '<button type="button" data-level="' + n + '" aria-pressed="' + (cur.level === n) + '">' + n + "</button>";
+    w.innerHTML = '<div class="gc-dlg"><div><h3>' + t("newGame") + '</h3>' +
+      '<span class="lbl">' + t("mode") + '</span><div class="gc-opts"><button type="button" data-vs="0" aria-pressed="' + !cur.vs + '">' + t("twoP") + '</button><button type="button" data-vs="1" aria-pressed="' + !!cur.vs + '">' + t("vsAi") + "</button></div>" +
+      (cur.vs ? '<span class="lbl">' + t("youPlay") + '</span><div class="gc-opts">' + [["w", "white"], ["b", "black"], ["r", "random"]].map(function (o) { return '<button type="button" data-side="' + o[0] + '" aria-pressed="' + (cur.side === o[0]) + '">' + t(o[1]) + "</button>"; }).join("") + "</div>" +
+        '<span class="lbl">' + t("level") + '</span><div class="gc-opts gc-lv">' + lv + '</div><p class="gc-note">' + t("levelNote") + "</p>" : "") +
+      '<span class="lbl">' + t("time") + '</span><div class="gc-opts">' +
       TIMES.map(function (m) { return '<button type="button" data-time="' + m + '" aria-pressed="' + (cur.base === m) + '">' + (m ? fmt(t("min"), { n: m }) : t("noClock")) + "</button>"; }).join("") +
       '</div><span class="lbl">' + t("inc") + '</span><div class="gc-opts">' +
       INCS.map(function (s) { return '<button type="button" data-inc="' + s + '" aria-pressed="' + (cur.inc === s) + '">' + fmt(t("sec"), { n: s }) + "</button>"; }).join("") +
@@ -475,6 +652,9 @@
       if (m) play(m); else render();
       return;
     }
+    var vb = e.target.closest("[data-vs]"); if (vb) { V.setup.vs = +vb.dataset.vs; setupDialog(); return; }
+    var sb = e.target.closest("[data-side]"); if (sb) { V.setup.side = sb.dataset.side; setupDialog(); return; }
+    var lb = e.target.closest("[data-level]"); if (lb) { V.setup.level = +lb.dataset.level; setupDialog(); return; }
     var tb = e.target.closest("[data-time]");
     if (tb) { V.setup.base = +tb.dataset.time; setupDialog(); return; }
     var ib = e.target.closest("[data-inc]");
@@ -485,16 +665,25 @@
     if (a === "new") { setupDialog(); return; }
     if (a === "close") { closeDlg(); return; }
     if (a === "start") {
-      G = fresh(V.setup.base * 60000, V.setup.inc * 1000);
-      closeDlg(); sel = -1; moves = []; clearPieces(); buildGrid(); save(); render(); return;
+      cancelAI();
+      var su = V.setup, side = su.side === "r" ? (Math.random() < 0.5 ? "w" : "b") : su.side;
+      G = fresh(su.base * 60000, su.inc * 1000, su.vs ? { color: opp(side), level: su.level } : null);
+      if (G.ai) G.flip = side === "b";
+      V.note = ""; closeDlg(); sel = -1; moves = []; clearPieces(); buildGrid(); save(); render(); scheduleAI(); return;
     }
     if (a === "flip") { G.flip = !G.flip; save(); clearPieces(); buildGrid(); render(); return; }
-    if (a === "pause") { G.paused = !G.paused; save(); renderSide(); return; }
+    if (a === "pause") { G.paused = !G.paused; save(); renderSide(); if (G.paused) cancelAI(); else scheduleAI(); renderSide(); return; }
     if (a === "undo") {
-      var last = G.hist.pop(); if (!last) return;
-      var o = JSON.parse(last);
-      G.S = o.S; G.log = o.log; G.clock = o.clock; G.started = o.started; G.lastMove = o.lastMove; G.lost = o.lost; G.over = o.over;
-      sel = -1; moves = []; save(); render(); return;
+      cancelAI();
+      var restore = function () {
+        var last = G.hist.pop(); if (!last) return false;
+        var o = JSON.parse(last);
+        G.S = o.S; G.log = o.log; G.clock = o.clock; G.started = o.started; G.lastMove = o.lastMove; G.lost = o.lost; G.over = o.over;
+        return true;
+      };
+      if (!restore()) return;
+      if (G.ai && G.S.turn === G.ai.color && G.hist.length) restore();   // gegen die KI: bis zum eigenen Zug zurück
+      V.note = ""; sel = -1; moves = []; save(); render(); scheduleAI(); return;
     }
     if (a === "draw" || a === "resign") {
       if (!b.classList.contains("armed")) {
@@ -503,7 +692,12 @@
         return;
       }
       b.classList.remove("armed"); b.textContent = t(a === "draw" ? "offerDraw" : "giveUp");
-      G.over = a === "draw" ? { type: "draw" } : { type: "resign", winner: opp(G.S.turn) };
+      if (G.ai && a === "draw") {
+        var e2 = aiEval({ b: G.S.b, turn: G.ai.color, ep: G.S.ep });
+        if (e2 > -150) { V.note = t("drawNo"); renderSide(); return; }
+      }
+      cancelAI();
+      G.over = a === "draw" ? { type: "draw" } : { type: "resign", winner: G.ai ? G.ai.color : opp(G.S.turn) };
       sel = -1; moves = []; save(); render();
     }
   }
@@ -536,10 +730,10 @@
     window.addEventListener("keydown", onKey);
     lastT = performance.now();
     timer = setInterval(tickClock, 100);
-    if (firstRun) setupDialog();
+    if (firstRun) setupDialog(); else scheduleAI();
   }
   function unmount() {
-    if (timer) clearInterval(timer); timer = 0;
+    if (timer) clearInterval(timer); timer = 0; cancelAI();
     if (V) { V.root.removeEventListener("click", onClick); window.removeEventListener("keydown", onKey); V = null; }
     if (G && G.started && !G.over) G.paused = true;
     save();
@@ -548,5 +742,5 @@
 
   window.Gigachess = { mount: mount, unmount: unmount,
     _rules: { initial: initial, legal: legal, apply: apply, inCheck: inCheck, sq: sq, alg: alg, notation: function (S, m) { return notation(S, m, apply(S, m)); } },
-    _debug: function () { return { G: G, play: play, legal: legal }; } };
+    _debug: function () { return { G: G, play: play, legal: legal, aiPick: aiPick, evalS: evalS, AIS: AIS }; } };
 })();
