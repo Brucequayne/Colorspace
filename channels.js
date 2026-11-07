@@ -1,4 +1,4 @@
-/* Channel Exporter 0.1 – Bilder im Browser in Kanäle zerlegen und exportieren. Für Color Space.
+/* Channel Exporter 0.2 – Bilder im Browser in Kanäle zerlegen und exportieren. Für Color Space.
    Einbindung: channels.js per script-Tag laden, dann Channels.mount(element, "de" | "en") und Channels.unmount().
    Bilder verlassen nie das Gerät.
 
@@ -8,15 +8,15 @@
 (function () {
   "use strict";
 
-  var VERSION = "0.1", PREVIEW = 2000, MAX_PIX = 40e6;
+  var VERSION = "0.2", PREVIEW = 2000, MAX_PIX = 40e6;
   var lang = "de";
   function L2(de, en) { return { de: de, en: en }; }
   function tr(o) { return o[lang]; }
 
   var TX = {
     title: L2("Channel Exporter", "Channel Exporter"),
-    intro: L2("Zieh ein Bild auf die Fläche. Das gewählte Werkzeug zerlegt es in Ebenen, zum Beispiel in die drei Lichtkanäle Rot, Grün und Blau. Du kannst die Ebenen verschieben, ausblenden und einzeln oder zusammen exportieren. Das Bild verlässt dein Gerät nicht.",
-              "Drop an image onto the area. The selected tool splits it into layers, for example the three channels of light: red, green and blue. You can move and hide the layers and export them one by one or together. The image never leaves your device."),
+    intro: L2("Zieh ein Bild auf die Fläche. Das gewählte Werkzeug zerlegt es in Ebenen, zum Beispiel in die Lichtkanäle Rot, Grün und Blau, in die Druckfarben CMYK oder in Schatten, Mitten und Lichter. Du kannst die Ebenen verschieben, ausblenden und einzeln oder zusammen exportieren. Das Bild verlässt dein Gerät nicht.",
+              "Drop an image onto the area. The selected tool splits it into layers, for example the light channels red, green and blue, the CMYK print inks, or shadows, midtones and highlights. You can move and hide the layers and export them one by one or together. The image never leaves your device."),
     drop: L2("Bild hierher ziehen", "Drop an image here"), or: L2("oder", "or"), pick: L2("Bild auswählen", "Choose image"),
     dropNote: L2("JPEG, PNG oder WebP · bleibt auf deinem Gerät", "JPEG, PNG or WebP · stays on your device"),
     other: L2("Anderes Bild", "Other image"), tools: L2("Werkzeuge", "Tools"), more: L2("Weitere Werkzeuge folgen.", "More tools are coming."),
@@ -33,10 +33,15 @@
     shrunk: L2("Das Bild war sehr groß und wurde auf {w} × {h} px verkleinert.", "The image was very large and was reduced to {w} × {h} px."),
     bad: L2("Diese Datei konnte nicht als Bild geöffnet werden.", "This file could not be opened as an image."),
     howH: L2("So funktioniert’s", "How it works"),
-    how1: L2("Jede Ebene wird pixelgenau aus deinem Bild herausgerechnet. Beim RGB-Split enthält jede Ebene nur einen Farbkanal. Übereinander addieren sich die Lichter wieder: Liegen alle drei deckungsgleich, siehst du das Original. Schon wenige Pixel Versatz erzeugen Farbsäume.",
-             "Each layer is computed pixel-exactly from your image. In RGB split, each layer holds just one colour channel. Stacked, the lights add up again: when all three line up, you see the original. A few pixels of offset create colour fringes."),
-    how2: L2("Bedienung: Ebene mit Maus oder Finger ziehen. Die Tasten 1, 2, 3 wählen eine Ebene, die Pfeiltasten verschieben sie um 1 Pixel (mit Umschalt um 10). „Einrasten“ zieht eine Ebene in ihre Ausgangsposition, sobald sie nah genug ist. Beim Export kannst du die Kanäle farbig oder als Graustufen speichern, Graustufen sind praktisch als Masken in der Bildbearbeitung.",
-             "Controls: drag a layer with mouse or finger. Keys 1, 2, 3 pick a layer, arrow keys move it by 1 pixel (10 with Shift). “Snap to origin” pulls a layer back into place once it is close enough. When exporting you can save the channels in colour or as greyscale, which is handy as masks in image editing.")
+    how1: L2("Jede Ebene wird pixelgenau aus deinem Bild herausgerechnet, und bei jedem Werkzeug ergeben alle Ebenen deckungsgleich übereinander wieder das Original. Schon wenige Pixel Versatz erzeugen Farbsäume.",
+             "Each layer is computed pixel-exactly from your image, and with every tool all layers stacked in line give the original again. A few pixels of offset create colour fringes."),
+    howRgb: L2("RGB-Split: Jede Ebene enthält einen Lichtkanal. Auf Schwarz addieren sich die Lichter wieder zu Weiß.", "RGB split: each layer holds one channel of light. On black, the lights add up to white again."),
+    howCmyk: L2("CMYK-Split: Das Bild wird in die vier Druckfarben Cyan, Magenta, Gelb und Schwarz (Key) zerlegt, wie bei einer Druckplatte. Auf weißem Papier multiplizieren sich die Farben wieder. Es ist eine einfache Umrechnung ohne Farbprofil, für echten Druck übernimmt das die Druckerei.",
+                  "CMYK split: the image is split into the four print inks cyan, magenta, yellow and black (key), like printing plates. On white paper the inks multiply back together. This is a simple conversion without a colour profile; for real printing, the print shop handles that."),
+    howTone: L2("Tonwerte: Das Bild wird nach Helligkeit in Schatten, Mitten und Lichter aufgeteilt, mit weichen Übergängen. Die drei Ebenen addieren sich exakt zum Original. Als Graustufen exportiert sind es Luminanzmasken, mit denen man in der Bildbearbeitung gezielt nur die hellen oder dunklen Bereiche bearbeitet.",
+                  "Tones: the image is split by brightness into shadows, midtones and highlights, with soft transitions. The three layers add up exactly to the original. Exported as greyscale they are luminosity masks, used in image editing to work on only the bright or dark areas."),
+    how2: L2("Bedienung: Ebene mit Maus oder Finger ziehen. Die Zahlentasten wählen eine Ebene, die Pfeiltasten verschieben sie um 1 Pixel (mit Umschalt um 10). „Einrasten“ zieht eine Ebene in ihre Ausgangsposition, sobald sie nah genug ist. Beim Export kannst du die Kanäle farbig oder als Graustufen speichern, Graustufen sind praktisch als Masken in der Bildbearbeitung.",
+             "Controls: drag a layer with mouse or finger. Number keys pick a layer, arrow keys move it by 1 pixel (10 with Shift). “Snap to origin” pulls a layer back into place once it is close enough. When exporting you can save the channels in colour or as greyscale, which is handy as masks in image editing.")
   };
   function t(k) { return tr(TX[k]); }
   function fmt(s, o) { return s.replace(/\{(\w+)\}/g, function (_, k) { return o[k]; }); }
@@ -49,6 +54,36 @@
       else { for (var j = 0; j < n; j += 4) { o[j] = idx === 0 ? s[j] : 0; o[j + 1] = idx === 1 ? s[j + 1] : 0; o[j + 2] = idx === 2 ? s[j + 2] : 0; o[j + 3] = 255; } }
     };
   }
+  // CMYK: einfache Umrechnung ohne Farbprofil. K = 1 − max(R,G,B), C = (1 − R − K) / (1 − K) usw.
+  // Farbig: jede Farbe als Druckfarbe auf Weiß, multipliziert ergibt das exakt das Original. Platte: Farbmenge als Grau.
+  function ink(idx) {
+    return function (s, o, mode) {
+      for (var i = 0; i < s.length; i += 4) {
+        var r = s[i] / 255, g = s[i + 1] / 255, b = s[i + 2] / 255, k = 1 - Math.max(r, g, b), v;
+        if (idx === 3) v = k; else { var ch = idx === 0 ? r : idx === 1 ? g : b; v = k >= 1 ? 0 : (1 - ch - k) / (1 - k); }
+        var w = Math.round(255 * (1 - v));
+        if (mode === "gray" || idx === 3) { o[i] = w; o[i + 1] = w; o[i + 2] = w; }
+        else { o[i] = idx === 0 ? w : 255; o[i + 1] = idx === 1 ? w : 255; o[i + 2] = idx === 2 ? w : 255; }
+        o[i + 3] = 255;
+      }
+    };
+  }
+  // Tonwerte: Helligkeit L (Rec. 709) auf drei weiche Bänder verteilt, (1−L)², 2L(1−L), L². Die Summe ist immer 1,
+  // also ergeben die drei Ebenen addiert exakt das Original. Graustufen: das Gewicht selbst als Luminanzmaske.
+  function tone(band) {
+    return function (s, o, mode) {
+      for (var i = 0; i < s.length; i += 4) {
+        var L = (0.2126 * s[i] + 0.7152 * s[i + 1] + 0.0722 * s[i + 2]) / 255;
+        var w = band === 0 ? (1 - L) * (1 - L) : band === 1 ? 2 * L * (1 - L) : L * L;
+        if (mode === "gray") { var v = Math.round(w * 255); o[i] = v; o[i + 1] = v; o[i + 2] = v; }
+        else { o[i] = Math.round(s[i] * w); o[i + 1] = Math.round(s[i + 1] * w); o[i + 2] = Math.round(s[i + 2] * w); }
+        o[i + 3] = 255;
+      }
+    };
+  }
+  var PLUS = typeof CSS !== "undefined" && CSS.supports && CSS.supports("mix-blend-mode", "plus-lighter") ? "plus-lighter" : "screen";
+  function cssBlend(T) { return T.blend === "add" ? PLUS : T.blend; }
+  function modeName(T, m) { return m === "gray" && T.grayName ? tr(T.grayName) : t(m); }
   var TOOLS = [
     { id: "rgb", name: L2("RGB-Split", "RGB split"), short: "rgb",
       desc: L2("Trennt das Bild in die Lichtkanäle Rot, Grün und Blau.", "Splits the image into the red, green and blue channels of light."),
@@ -59,6 +94,27 @@
         { k: "r", name: L2("Rot", "Red"), file: L2("rot", "red"), color: "#E5484D", render: channel(0) },
         { k: "g", name: L2("Grün", "Green"), file: L2("gruen", "green"), color: "#30A46C", render: channel(1) },
         { k: "b", name: L2("Blau", "Blue"), file: L2("blau", "blue"), color: "#3E63DD", render: channel(2) }
+      ] },
+    { id: "cmyk", name: L2("CMYK-Split", "CMYK split"), short: "cmyk",
+      desc: L2("Zerlegt das Bild in die Druckfarben Cyan, Magenta, Gelb und Schwarz.", "Splits the image into the print inks cyan, magenta, yellow and black."),
+      icon: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect width="24" height="24" fill="#fff"/><circle cx="9" cy="9" r="6" fill="#00AEEF"/><circle cx="15" cy="9" r="6" fill="#EC008C" style="mix-blend-mode:multiply"/><circle cx="12" cy="15" r="6" fill="#FFF200" style="mix-blend-mode:multiply"/></svg>',
+      modes: ["tinted", "gray"], grayName: L2("Druckplatten", "Plates"), graySuffix: "platte", blend: "multiply", bg: "#fff",
+      spread: [[-0.16, -0.1], [0.15, -0.08], [-0.05, 0.14], [0.12, 0.12]],
+      layers: [
+        { k: "c", name: L2("Cyan", "Cyan"), file: L2("cyan", "cyan"), color: "#00AEEF", render: ink(0) },
+        { k: "m", name: L2("Magenta", "Magenta"), file: L2("magenta", "magenta"), color: "#EC008C", render: ink(1) },
+        { k: "y", name: L2("Gelb", "Yellow"), file: L2("gelb", "yellow"), color: "#FFF200", render: ink(2) },
+        { k: "k", name: L2("Schwarz (Key)", "Black (key)"), file: L2("schwarz", "black"), color: "#1A1A1A", render: ink(3) }
+      ] },
+    { id: "tone", name: L2("Tonwerte", "Tones"), short: "tonwerte",
+      desc: L2("Teilt das Bild nach Helligkeit in Schatten, Mitten und Lichter. Als Graustufen sind es Luminanzmasken.", "Splits the image by brightness into shadows, midtones and highlights. As greyscale they are luminosity masks."),
+      icon: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="3" width="6" height="18" fill="#2B2D42"/><rect x="9" y="3" width="6" height="18" fill="#8D8A7E"/><rect x="16" y="3" width="6" height="18" fill="#EFE6CF"/></svg>',
+      modes: ["tinted", "gray"], grayName: L2("Luminanzmasken", "Luminosity masks"), graySuffix: "maske", blend: "add",
+      spread: [[-0.17, -0.06], [0.0, 0.12], [0.17, -0.06]],
+      layers: [
+        { k: "s", name: L2("Schatten", "Shadows"), file: L2("schatten", "shadows"), color: "#2B2D42", render: tone(0) },
+        { k: "m", name: L2("Mitten", "Midtones"), file: L2("mitten", "midtones"), color: "#8D8A7E", render: tone(1) },
+        { k: "h", name: L2("Lichter", "Highlights"), file: L2("lichter", "highlights"), color: "#EFE6CF", render: tone(2) }
       ] }
   ];
   function tool() { return TOOLS.filter(function (x) { return x.id === S.tool; })[0] || TOOLS[0]; }
@@ -119,9 +175,24 @@
       c.style.width = dw + "px"; c.style.height = dh + "px";
       c.style.left = (org.x + L.x[k] * ds) + "px"; c.style.top = (org.y + L.y[k] * ds) + "px";
     });
+    drawAdd(st);
     var side = V.root.querySelector("#ch-side");
     if (side) side.style.maxHeight = window.innerWidth >= 1100 ? V.root.querySelector(".ch-deskbox").offsetHeight + "px" : "";
     status();
+  }
+  // Browser ohne mix-blend-mode "plus-lighter": addierende Werkzeuge exakt auf einer Leinwand darüber zeichnen.
+  // Die Ebenen bleiben unsichtbar darunter liegen, damit man sie weiter greifen kann.
+  function drawAdd(st) {
+    var cv = st.querySelector(".ch-addcv"); if (!cv) return;
+    var dpr = window.devicePixelRatio || 1, W = Math.round(st.clientWidth * dpr), H = Math.round(st.clientHeight * dpr);
+    if (cv.width !== W || cv.height !== H) { cv.width = W; cv.height = H; }
+    var x = cv.getContext("2d"); x.globalCompositeOperation = "source-over"; x.fillStyle = "#000"; x.fillRect(0, 0, W, H);
+    x.globalCompositeOperation = "lighter";
+    L.z.forEach(function (k) {
+      if (!L.on[k]) return;
+      var c = st.querySelector('.ch-lyr[data-k="' + k + '"]');
+      x.drawImage(c, (org.x + L.x[k] * ds) * dpr, (org.y + L.y[k] * ds) * dpr, IMG.w * ds * dpr, IMG.h * ds * dpr);
+    });
   }
   function clampPos(nx, ny) {
     var st = stage(), sw = st.clientWidth, sh = st.clientHeight, dw = IMG.w * ds, dh = IMG.h * ds;
@@ -162,6 +233,7 @@
       if (b) { b.setAttribute("aria-pressed", String(L.on[l.k])); b.textContent = L.on[l.k] ? t("on") : t("off"); }
       if (c) c.classList.toggle("off", !L.on[l.k]);
     });
+    var st = stage(); if (st && IMG) drawAdd(st);
   }
 
   // ---------- Export ----------
@@ -183,7 +255,7 @@
       var T = tool(), names = [];
       for (var i = 0; i < keys.length; i++) {
         var l = T.layers.filter(function (q) { return q.k === keys[i]; })[0];
-        var f = IMG.name + "-" + tr(l.file) + (S.mode === "gray" ? "-grau" : "") + ".png";
+        var f = IMG.name + "-" + tr(l.file) + (S.mode === "gray" ? "-" + (T.graySuffix || "grau") : "") + ".png";
         await download(renderLayer(IMG.full, l, S.mode), f); names.push(f);
         if (i < keys.length - 1) await new Promise(function (r) { setTimeout(r, 400); });
       }
@@ -194,8 +266,8 @@
     if (busy || !IMG) return; busy = true; note(t("working")); await later();
     try {
       var T = tool(), c = document.createElement("canvas"); c.width = IMG.w; c.height = IMG.h;
-      var x = c.getContext("2d"); x.fillStyle = "#000"; x.fillRect(0, 0, IMG.w, IMG.h);
-      x.globalCompositeOperation = T.blend === "screen" ? "screen" : "source-over";
+      var x = c.getContext("2d"); x.fillStyle = T.bg || "#000"; x.fillRect(0, 0, IMG.w, IMG.h);
+      x.globalCompositeOperation = { screen: "screen", multiply: "multiply", add: "lighter" }[T.blend] || "source-over";
       T.layers.forEach(function (l) { if (L.on[l.k]) x.drawImage(renderLayer(IMG.full, l, "tinted"), Math.round(L.x[l.k]), Math.round(L.y[l.k])); });
       var f = IMG.name + "-" + T.short + "-komposition.png";
       await download(c, f); note(fmt(t("saved"), { f: f }));
@@ -210,6 +282,7 @@
     ".ch-stage.over{outline:3px dashed #E3B83F;outline-offset:-10px}" +
     ".ch-stage:focus-visible{outline:2px solid var(--accent);outline-offset:3px}" +
     ".ch-lyr{position:absolute;display:block;max-width:none;cursor:grab;touch-action:none}" +
+    ".ch-addcv{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:50}" +
     ".ch-lyr.grab{cursor:grabbing}.ch-lyr.off{display:none}.ch-stage.anim .ch-lyr{transition:left .4s ease,top .4s ease}" +
     ".ch-drop{text-align:center;color:#F1EFEA;display:flex;flex-direction:column;align-items:center;gap:10px;padding:20px}" +
     ".ch-drop b{font:600 1.4rem/1.2 var(--f-display)}.ch-drop span{color:rgba(241,239,234,.7)}" +
@@ -248,7 +321,7 @@
     return '<h1 class="ptitle">' + t("title") + '<span class="ch-ver">v' + VERSION + '</span></h1><p class="pintro">' + t("intro") + "</p>" +
       '<div class="ch-wrap"><div class="ch-deskbox"><div class="ch-stage" id="ch-stage" tabindex="0"></div><input type="file" id="ch-file" accept="image/*" hidden></div>' +
       '<div class="ch-side" id="ch-side"></div></div>' +
-      '<section class="phow"><h2>' + t("howH") + "</h2><p>" + t("how1") + "</p><p>" + t("how2") + "</p></section>";
+      '<section class="phow"><h2>' + t("howH") + "</h2><p>" + t("how1") + "</p><p>" + t("howRgb") + "</p><p>" + t("howCmyk") + "</p><p>" + t("howTone") + "</p><p>" + t("how2") + "</p></section>";
   }
   function toolsBox() {
     return '<div class="ch-box"><h3>' + t("tools") + '</h3><div class="ch-tools">' +
@@ -258,25 +331,30 @@
   function build() {
     var st = stage(), side = V.root.querySelector("#ch-side");
     if (!IMG) {
-      st.classList.add("empty");
+      st.classList.add("empty"); st.style.background = "";
       st.innerHTML = '<div class="ch-drop"><b>' + t("drop") + "</b><span>" + t("or") + '</span><button type="button" class="ch-pick" data-act="pick">' + t("pick") + '</button><span id="ch-dn">' + t("dropNote") + "</span></div>";
       side.innerHTML = toolsBox();
       return;
     }
     var T = tool();
     st.classList.remove("empty");
+    st.style.background = T.bg || "#000";
     st.innerHTML = "";
     L.z.forEach(function (k, i) {
       var l = T.layers.filter(function (q) { return q.k === k; })[0], c = renderLayer(IMG.prev, l, "tinted");
       c.className = "ch-lyr" + (L.on[k] ? "" : " off"); c.setAttribute("data-k", k);
-      c.setAttribute("aria-label", tr(l.name)); c.style.zIndex = i + 1; c.style.mixBlendMode = T.blend;
+      c.setAttribute("aria-label", tr(l.name)); c.style.zIndex = i + 1; c.style.mixBlendMode = cssBlend(T);
       st.appendChild(c);
     });
+    if (T.blend === "add" && PLUS !== "plus-lighter") {
+      Array.prototype.forEach.call(st.querySelectorAll(".ch-lyr"), function (c) { c.style.opacity = "0"; c.style.mixBlendMode = "normal"; });
+      var ac = document.createElement("canvas"); ac.className = "ch-addcv"; st.appendChild(ac);
+    }
     var chips = T.layers.map(function (l) {
       return '<div class="ch-chip"><button type="button" class="sel" data-sel="' + l.k + '" aria-pressed="' + (L.active === l.k) + '"><i style="background:' + l.color + '"></i><b>' + tr(l.name) + '</b><span id="ch-o-' + l.k + '"></span></button>' +
         '<button type="button" class="eye" data-vis="' + l.k + '" aria-pressed="' + L.on[l.k] + '">' + (L.on[l.k] ? t("on") : t("off")) + "</button></div>";
     }).join("");
-    var seg = T.modes.length > 1 ? '<div class="ch-desc">' + t("look") + '</div><div class="ch-seg">' + T.modes.map(function (m) { return '<button type="button" data-mode="' + m + '" aria-pressed="' + (S.mode === m) + '">' + t(m) + "</button>"; }).join("") + "</div>" : "";
+    var seg = T.modes.length > 1 ? '<div class="ch-desc">' + t("look") + '</div><div class="ch-seg">' + T.modes.map(function (m) { return '<button type="button" data-mode="' + m + '" aria-pressed="' + (S.mode === m) + '">' + modeName(T, m) + "</button>"; }).join("") + "</div>" : "";
     side.innerHTML = '<div class="ch-btns"><button type="button" class="navbtn" data-act="pick">' + t("other") + "</button></div>" + toolsBox() +
       '<div class="ch-box"><h3>' + t("layers") + "</h3>" + chips +
       '<div class="ch-btns"><button type="button" class="navbtn" data-act="reset">' + t("reset") + '</button><button type="button" class="navbtn" data-act="spread">' + t("spread") + '</button><label class="ch-snap"><input type="checkbox" data-snap' + (S.snap ? " checked" : "") + "> " + t("snap") + "</label></div>" +
