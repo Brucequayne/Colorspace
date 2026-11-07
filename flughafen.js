@@ -5,7 +5,7 @@
   "use strict";
 
   var KEY = "flughafen-v3";
-  var VERSION = "0.3";
+  var VERSION = "0.31";
   var RW_W = 22, TW_W = 14, RD_W = 16;
   var DIVERT = 60;
   var SIZE = { stand: [64, 66], term: [124, 46], tower: [30, 30], fire: [52, 38], hangar: [84, 62], deck: [72, 38], park: [72, 48], bus: [44, 22] };
@@ -656,7 +656,7 @@
     return best;
   }
   function along(nr, end, d) { var l = dist(nr.q, end); if (l < 1) return { x: end.x, y: end.y }; var k = Math.min(l, d) / l; return { x: nr.q.x + (end.x - nr.q.x) * k, y: nr.q.y + (end.y - nr.q.y) * k }; }
-  function roadEnds(nr) { var e = Math.random() < 0.5 ? [nr.a, nr.b] : [nr.b, nr.a]; return [along(nr, e[0], 170), along(nr, e[1], 170)]; }
+  function roadEnds(nr) { var e = Math.random() < 0.5 ? [nr.a, nr.b] : [nr.b, nr.a]; return [along(nr, e[0], 400), along(nr, e[1], 400)]; }
   var LOT = 16;
   function spotPos(m, i) {
     var w = SIZE.park[0], h = SIZE.park[1], r = Math.floor(i / 8), j = i % 8, A = axes(m.a);
@@ -695,7 +695,7 @@
         if (dir === "dep") { R.tDep += n; v.stay = 70 + Math.random() * 90; }
         else { var k = Math.min(n, R.tArrCar); R.tArrCar -= k; R.pickRes -= n; v.n = k; v.stay = 5 + Math.random() * 6; }
       });
-      v.lot = m.id; v.spot = lot.i; v.back = [S, E, nr.q, along(nr, Math.random() < 0.5 ? nr.a : nr.b, 170)];
+      v.lot = m.id; v.spot = lot.i; v.back = [S, E, nr.q, along(nr, Math.random() < 0.5 ? nr.a : nr.b, 400)];
     } else {
       var nr2 = nearRoad(tc); if (!nr2) { if (dir === "dep") R.tDep += n; return; }
       var e2 = roadEnds(nr2);
@@ -719,6 +719,15 @@
   }
   function landside(dt) {
     var mode = landMode(), stops = mods("bus").filter(function (m) { return m._road; });
+    var roads = mods("road");
+    R.thruT = (R.thruT || 0) - dt;
+    if (roads.length && R.thruT <= 0) {
+      R.thruT = Math.max(0.5, 3 / (1 + mods("term").length * 0.5));
+      var rd = roads[Math.floor(Math.random() * roads.length)], fw = Math.random() < 0.5;
+      var a0 = fw ? { x: rd.x1, y: rd.y1 } : { x: rd.x2, y: rd.y2 }, b0 = fw ? { x: rd.x2, y: rd.y2 } : { x: rd.x1, y: rd.y1 };
+      var tv = vehicle("car", [{ x: a0.x, y: a0.y, s: 42, r: 1 }, { x: b0.x, y: b0.y, s: 42, r: 1 }], dropVeh);
+      tv.thru = true;
+    }
     if (mode !== "road") { // zu Fuß: ohne Straße gehen alle direkt rein und raus
       R.accW += 8 * dt;
       var k = Math.floor(R.accW); R.accW -= k;
@@ -731,7 +740,7 @@
       // Abfliegende im Auto
       R.depCarQ.forEach(function (q) { q.t -= dt; });
       R.spawnCar -= dt;
-      var cars = R.veh.filter(function (v) { return v.kind === "car" && v.path; }).length;
+      var cars = R.veh.filter(function (v) { return v.kind === "car" && v.path && !v.thru; }).length;
       var budget = 0;
       while (R.spawnCar <= 0) { R.spawnCar += 0.05; budget++; }
       for (var bq = 0; bq < budget && cars < 240; bq++, cars++) {
