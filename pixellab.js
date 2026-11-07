@@ -1,10 +1,10 @@
-/* PIXELLAB 0.2 – Fotos im Browser verfremden, mit einer Kette aus Werkzeugen. Für Soy and Soul.
+/* PIXELLAB 0.3 – Fotos im Browser verfremden, mit einer Kette aus Werkzeugen. Für Soy and Soul.
    Einbindung: pixellab.js per script-Tag laden, dann Pixellab.mount(element, "de" | "en")
    und Pixellab.unmount() beim Verlassen der Seite. Fotos verlassen nie das Gerät. */
 (function () {
   "use strict";
 
-  var VERSION = "0.2";
+  var VERSION = "0.3";
   var PREVIEW = 1000;   // längste Seite der Vorschau in Pixeln
   var lang = "de";
 
@@ -24,6 +24,7 @@
     add: L2("Werkzeug hinzufügen", "Add tool"),
     up: L2("Nach oben", "Move up"), down: L2("Nach unten", "Move down"), remove: L2("Entfernen", "Remove"),
     fold: L2("Ein- oder ausklappen", "Expand or collapse"), onoff: L2("An oder aus", "On or off"),
+    dice: L2("Neue Variante würfeln", "Roll a new variant"),
     allOpen: L2("Alle aufklappen", "Expand all"), allClosed: L2("Alle einklappen", "Collapse all"),
     source: L2("Ausschnitt", "Section"), sourceHint: L2("Rahmen verschieben. Das Vorschaubild zeigt, was bei diesem Werkzeug ankommt.", "Drag the frame. The thumbnail shows what reaches this tool."),
     exportH: L2("Export", "Export"), quality: L2("Qualität", "Quality"),
@@ -34,8 +35,8 @@
     howH: L2("So funktioniert’s", "How it works"),
     how1: L2("Füge Werkzeuge zur Kette hinzu. Mit den Pfeilen änderst du die Reihenfolge, mit dem Auge schaltest du ein Werkzeug aus, ohne seine Einstellungen zu verlieren, und mit dem Pfeil rechts klappst du die Regler ein. Dasselbe Werkzeug darf mehrfach vorkommen.",
              "Add tools to the chain. Use the arrows to change the order, the eye to switch a tool off without losing its settings, and the chevron on the right to fold away the sliders. The same tool can appear more than once."),
-    how2: L2("Fragments zerlegt das ganze Bild in Voronoi-Zellen, die alle einen gedrehten und gespiegelten Ausschnitt zeigen. Polymerge baut eine solche Collage nur in einer Form: als Mandala im Kreis, als Dreieck, als wachsende Wurzeln oder als zufälligen Fleck. Punch macht jede Form wilder.",
-             "Fragments splits the whole image into Voronoi cells, each showing a rotated and mirrored section. Polymerge builds such a collage only inside a shape: a circular mandala, a triangle, growing roots or a random blot. Punch makes every shape wilder."),
+    how2: L2("Fragments zerlegt das ganze Bild in Voronoi-Zellen, die alle einen gedrehten und gespiegelten Ausschnitt zeigen. Polymerge baut eine flache Collage nur in einer Form, die frei angedeutet wird: ein Mandala, ein Dreieck, ein Wurzelgeflecht oder ein Fleck. Punch bestimmt, wie wild die Form wird, die Punch-Variante würfelt eine neue Struktur bei gleicher Wildheit.",
+             "Fragments splits the whole image into Voronoi cells, each showing a rotated and mirrored section. Polymerge builds a flat collage only inside a loosely suggested shape: a mandala, a triangle, a root mesh or a blot. Punch sets how wild the shape gets, and the punch variant rolls a new structure at the same wildness."),
     how3: L2("Beim Export bestimmt die Qualität den Anteil der Pixel: 100 % ist die volle Auflösung des Originals, 50 % hat halb so viele Pixel, 1 % ein Hundertstel.",
              "On export, quality sets the share of pixels: 100% is the original's full resolution, 50% has half as many pixels, 1% a hundredth.")
   };
@@ -118,101 +119,82 @@
     px -= clamp(px, -2 * r, 0);
     return -Math.hypot(px, py) * (py < 0 ? -1 : 1);
   }
-  function genRoots(C, Rs, seed, punch) {
-    var R = rng(seed * 7 + 3), segs = [], maxD = 5 + Math.round(punch * 2), cap = 2200;
-    function grow(x, y, a, len, th, dep) {
-      if (dep > maxD || len < Rs * 0.025 || segs.length > cap) return;
-      var steps = 3;
-      for (var s = 0; s < steps; s++) {
-        a += (R() - 0.5) * (0.45 + punch * 1.4);
-        var nx = x + Math.cos(a) * len / steps, ny = y + Math.sin(a) * len / steps;
-        segs.push({ x1: x, y1: y, x2: nx, y2: ny, t: th, a: a });
-        x = nx; y = ny; th *= 0.92;
-      }
-      var nb = R() < 0.35 + punch * 0.35 ? 3 : 2;
-      for (var b = 0; b < nb; b++) grow(x, y, a + (R() - 0.5) * (1.1 + punch * 0.9), len * (0.6 + R() * 0.22), th * 0.72, dep + 1);
-    }
-    var roots = 2 + Math.round(punch * 3);
-    for (var i = 0; i < roots; i++) grow(C.x + (R() - 0.5) * Rs * 0.3, C.y - Rs * 0.95, Math.PI / 2 + (R() - 0.5) * 1.3, Rs * 0.74, Rs * (0.11 + punch * 0.05), 0);
-    // Raster zum schnellen Nachschlagen
-    var g = Math.max(4, Rs * 0.12), grid = {};
-    segs.forEach(function (s) {
-      var pad = s.t + g * 0.05;
-      var x0 = Math.floor((Math.min(s.x1, s.x2) - pad) / g), x1 = Math.floor((Math.max(s.x1, s.x2) + pad) / g);
-      var y0 = Math.floor((Math.min(s.y1, s.y2) - pad) / g), y1 = Math.floor((Math.max(s.y1, s.y2) + pad) / g);
-      for (var gy = y0; gy <= y1; gy++) for (var gx = x0; gx <= x1; gx++) { var key = gx + "," + gy; (grid[key] || (grid[key] = [])).push(s); }
-    });
-    return { grid: grid, g: g };
-  }
   var POLY = {
     name: L2("Polymerge", "Polymerge"),
-    desc: L2("Formt aus einem Ausschnitt eine Collage in einer Gestalt: Kreis-Mandala, Dreieck, Wurzeln oder zufälliger Fleck.", "Shapes a collage from a section into a form: circular mandala, triangle, roots or a random blot."),
+    desc: L2("Formt aus einem Ausschnitt eine flache Collage in einer frei angedeuteten Gestalt: Mandala, Dreieck, Wurzelgeflecht oder Fleck.", "Shapes a section into a flat collage in a loosely suggested form: mandala, triangle, root mesh or blot."),
     icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 3.5 L12 20.5 M4.6 7.8 L19.4 16.2 M4.6 16.2 L19.4 7.8"/><circle cx="12" cy="12" r="3"/></svg>',
-    defaults: { mode: "circle", shape: 70, cell: 14, seed: 11, punch: 25, src: 25, cx: 0.5, cy: 0.5 },
+    defaults: { mode: "circle", shape: 70, cell: 14, seed: 11, punch: 35, src: 25, cx: 0.5, cy: 0.5 },
     controls: [
       { k: "mode", type: "seg", l: L2("Form", "Shape"), opts: [["circle", "Circular"], ["tri", "Triangle"], ["roots", "Roots"], ["noise", "Noisy"]] },
       { k: "punch", l: L2("Punch", "Punch"), min: 0, max: 100, u: " %" },
+      { k: "pseed", type: "dice", l: L2("Punch-Variante", "Punch variant") },
       { k: "shape", l: L2("Größe der Form", "Shape size"), min: 10, max: 100, u: " %" },
       { k: "cell", l: L2("Größe der Teile", "Piece size"), min: 3, max: 40, u: " %" },
       { k: "seed", l: L2("Anordnung", "Arrangement"), min: 0, max: 100, u: "" },
       { k: "thumb" }, { k: "src", l: L2("Größe des Ausschnitts", "Section size"), min: 5, max: 100, u: " %" }
     ],
+    // Alles Zufällige der Form hängt an der Punch-Variante: gleicher Punch, andere Variante, andere Struktur
     prep: function (W0, H0, P) {
-      var p = P.punch / 100, Rs = Math.min(W0, H0) / 2 * P.shape / 100, C = { x: W0 / 2, y: H0 / 2 };
-      var G = { p: p, Rs: Rs, C: C, cs: Rs * P.cell / 100 * 1.4, srcPx: Math.min(W0, H0) * P.src / 100, seed: P.seed * 31 + 5,
-        n: Math.round(6 + p * 10), band: Rs * 0.035, seam: Math.max(W0, H0) / 1400 };
-      if (P.mode === "roots") G.roots = genRoots(C, Rs, P.seed + 1, p);
+      var p = P.punch / 100, Rs = Math.min(W0, H0) / 2 * P.shape / 100, R = rng((P.pseed || 1) * 977 + 13);
+      var G = { p: p, Rs: Rs, cs: Rs * P.cell / 100 * 1.4, srcPx: Math.min(W0, H0) * P.src / 100, seed: P.seed * 31 + 5, ns: (P.pseed || 1) * 101 + 7 };
+      G.C = { x: W0 / 2 + (R() - 0.5) * p * 0.5 * Rs, y: H0 / 2 + (R() - 0.5) * p * 0.5 * Rs };
+      var rot = (R() - 0.5) * 2 * Math.PI * p; G.cr = Math.cos(rot); G.sr = Math.sin(rot);
+      G.ell = 1 + (R() - 0.5) * p * 0.9;
+      G.n = Math.max(3, Math.round(5 + R() * (1 + p * 14)));
+      G.swirl = (R() - 0.5) * 2 * p * 2.6;
+      G.warp = p * 0.55; G.wf = 1.2 + R() * 1.6;
+      G.fx = 1.2 + R() * 1.4; G.fy = 0.5 + R() * 0.6;      // Wurzeln: gestreckte Adern, Richtung je Variante
+      G.vein = 0.76 - p * 0.12;
       return G;
     },
     rows: function (out, src, w, h, f, W0, H0, P, G, y0, y1) {
-      var d = out.data, sd = src.data, mode = P.mode, p = G.p, Rs = G.Rs, C = G.C, cs = G.cs, seed = G.seed, aa = 1.2 / f;
-      var cx = P.cx * W0, cy = P.cy * H0, k = G.srcPx / cs, sec = 2 * Math.PI / (mode === "tri" ? 3 : G.n), band = G.band, seamW = G.seam;
+      var d = out.data, sd = src.data, mode = P.mode, p = G.p, Rs = G.Rs, C = G.C, cs = G.cs, seed = G.seed, ns = G.ns, aa = 1.2 / f;
+      var cx = P.cx * W0, cy = P.cy * H0, k = G.srcPx / cs, sec = 2 * Math.PI / (mode === "tri" ? 3 : G.n);
       for (var oy = y0; oy < y1; oy++) {
         var Y = (oy + 0.5) / f;
         for (var ox = 0; ox < w; ox++) {
-          var o = (oy * w + ox) * 4, X = (ox + 0.5) / f, dx = X - C.x, dy = Y - C.y, sdv, qx = dx, qy = dy, extra = 0;
-          if (mode === "circle" || mode === "tri") {
-            var r = Math.hypot(dx, dy), ang = Math.atan2(dy, dx);
-            var wob = p * (fbm(Math.cos(ang) * 1.6 + 5, Math.sin(ang) * 1.6 + 5, seed, 3) - 0.5) * Rs * 0.7;
-            sdv = mode === "circle" ? r - Rs - wob : sdTri(dx, dy, Rs * 0.86) - wob * 0.6;
-            if (sdv > aa) { d[o] = sd[o]; d[o + 1] = sd[o + 1]; d[o + 2] = sd[o + 2]; d[o + 3] = 255; continue; }
-            var a2 = ang + p * 2.2 * r / Rs;                         // Wirbel mit Punch
-            a2 = ((a2 % sec) + sec) % sec; a2 = Math.abs(a2 - sec / 2); // Kaleidoskop-Faltung
-            qx = r * Math.cos(a2); qy = r * Math.sin(a2);
-          } else if (mode === "roots") {
-            var list = G.roots.grid[Math.floor(X / G.roots.g) + "," + Math.floor(Y / G.roots.g)];
-            sdv = 1e9;
-            if (list) for (var li = 0; li < list.length; li++) {
-              var s = list[li], ex = s.x2 - s.x1, ey = s.y2 - s.y1, l2 = ex * ex + ey * ey || 1;
-              var tt = clamp(((X - s.x1) * ex + (Y - s.y1) * ey) / l2, 0, 1), ddd = Math.hypot(X - s.x1 - ex * tt, Y - s.y1 - ey * tt) - s.t;
-              if (ddd < sdv) { sdv = ddd; extra = s.a; }
-            }
-            if (sdv > aa) { d[o] = sd[o]; d[o + 1] = sd[o + 1]; d[o + 2] = sd[o + 2]; d[o + 3] = 255; continue; }
-          } else { // noise
-            var wx = X + p * Rs * 0.6 * (fbm(X / Rs * 2, Y / Rs * 2, seed + 9, 3) - 0.5), wy = Y + p * Rs * 0.6 * (fbm(X / Rs * 2 + 7, Y / Rs * 2, seed + 13, 3) - 0.5);
-            var nv = fbm(wx / Rs * (1.4 + p * 1.6), wy / Rs * (1.4 + p * 1.6), seed, 4) - Math.hypot(wx - C.x, wy - C.y) / Rs * 0.5;
-            sdv = (0.16 - nv) * Rs * 0.6;
-            if (sdv > aa) { d[o] = sd[o]; d[o + 1] = sd[o + 1]; d[o + 2] = sd[o + 2]; d[o + 3] = 255; continue; }
+          var o = (oy * w + ox) * 4, X = (ox + 0.5) / f;
+          // Form im eigenen, gedrehten und verzerrten Raum
+          var ex = X - C.x, ey = Y - C.y, dx = ex * G.cr + ey * G.sr, dy = (-ex * G.sr + ey * G.cr) * G.ell;
+          var wx = dx, wy = dy;
+          if (G.warp > 0) {
+            wx += G.warp * Rs * (fbm(dx / Rs * G.wf + 3.1, dy / Rs * G.wf, ns, 3) - 0.5) * 2;
+            wy += G.warp * Rs * (fbm(dx / Rs * G.wf, dy / Rs * G.wf + 7.7, ns + 3, 3) - 0.5) * 2;
           }
-          // Collage-Zelle (Worley) in den gefalteten Koordinaten
-          var gxc = Math.floor(qx / cs), gyc = Math.floor(qy / cs), d1 = 1e30, d2 = 1e30, bx = 0, by = 0, bi = 0, bj = 0;
+          var sdv, qx = wx, qy = wy;
+          if (mode === "circle") sdv = Math.hypot(wx, wy) - Rs;
+          else if (mode === "tri") sdv = sdTri(wx, wy, Rs * 0.86);
+          else if (mode === "roots") { // abstrakte Adern aus Rauschen, keine festen Äste
+            var u = wx / Rs, v = wy / Rs;
+            var r1 = 1 - Math.abs(2 * fbm(u * G.fx * (1 + p) + 11, v * G.fy * (1 + p), ns + 21, 4) - 1);
+            var r2 = 1 - Math.abs(2 * fbm(u * G.fx * 2.3 + 5, v * G.fy * 2.3 + 2, ns + 37, 3) - 1);
+            var val = Math.max(r1, r2 * (0.86 + p * 0.08)) - Math.hypot(u, v * 0.8) * 0.3;
+            sdv = (G.vein - val) * Rs * 0.35;
+          } else {
+            var nv = fbm(wx / Rs * (1.4 + p * 1.6), wy / Rs * (1.4 + p * 1.6), ns, 4) - Math.hypot(wx, wy) / Rs * 0.5;
+            sdv = (0.16 - nv) * Rs * 0.6;
+          }
+          if (sdv > aa) { d[o] = sd[o]; d[o + 1] = sd[o + 1]; d[o + 2] = sd[o + 2]; d[o + 3] = 255; continue; }
+          if (mode === "circle" || mode === "tri") {     // Kaleidoskop-Faltung
+            var r = Math.hypot(wx, wy), a2 = Math.atan2(wy, wx) + G.swirl * r / Rs;
+            a2 = ((a2 % sec) + sec) % sec; a2 = Math.abs(a2 - sec / 2);
+            qx = r * Math.cos(a2); qy = r * Math.sin(a2);
+          }
+          // Collage-Teil (Worley), flach ohne Fugen und Schatten
+          var gxc = Math.floor(qx / cs), gyc = Math.floor(qy / cs), d1 = 1e30, bx = 0, by = 0, bi = 0, bj = 0;
           for (var j = -1; j <= 1; j++) for (var i = -1; i <= 1; i++) {
             var gx = gxc + i, gy = gyc + j;
             var sx0 = (gx + 0.5 + (hash(gx, gy, seed) - 0.5) * 0.85) * cs, sy0 = (gy + 0.5 + (hash(gx, gy, seed + 1) - 0.5) * 0.85) * cs;
             var ddx = qx - sx0, ddy = qy - sy0, dd = ddx * ddx + ddy * ddy;
-            if (dd < d1) { d2 = d1; d1 = dd; bx = sx0; by = sy0; bi = gx; bj = gy; } else if (dd < d2) d2 = dd;
+            if (dd < d1) { d1 = dd; bx = sx0; by = sy0; bi = gx; bj = gy; }
           }
-          var an = (hash(bi, bj, seed + 3) * 2 - 1) * Math.PI * (0.4 + p * 0.6) + extra, cA = Math.cos(an), sA = Math.sin(an);
+          var an = (hash(bi, bj, seed + 3) * 2 - 1) * Math.PI * (0.4 + p * 0.6), cA = Math.cos(an), sA = Math.sin(an);
           var mir = hash(bi, bj, seed + 4) < 0.5 ? -1 : 1, scl = 1 + (hash(bi, bj, seed + 7) - 0.5) * p * 1.4;
-          var lx = qx - bx, ly = qy - by, u = (lx * cA - ly * sA) * mir * scl, v = (lx * sA + ly * cA) * scl;
+          var lx = qx - bx, ly = qy - by, uu = (lx * cA - ly * sA) * mir * scl, vv = (lx * sA + ly * cA) * scl;
           var ofx = (hash(bi, bj, seed + 5) - 0.5) * G.srcPx * (0.3 + p), ofy = (hash(bi, bj, seed + 6) - 0.5) * G.srcPx * (0.3 + p);
-          var ssx = reflect(Math.floor((cx + ofx + u * k) * f), w), ssy = reflect(Math.floor((cy + ofy + v * k) * f), h), si = (ssy * w + ssx) * 4;
-          var rr = sd[si], gg = sd[si + 1], bb = sd[si + 2], sh = 0;
-          var e = Math.sqrt(d2) - Math.sqrt(d1); if (e < seamW) sh = Math.max(sh, (1 - e / seamW) * 0.55);
-          if (-sdv < band) sh = Math.max(sh, (1 + sdv / band) * 0.4);         // dunkler Rand der Form
-          rr *= 1 - sh; gg *= 1 - sh; bb *= 1 - sh;
+          var ssx = reflect(Math.floor((cx + ofx + uu * k) * f), w), ssy = reflect(Math.floor((cy + ofy + vv * k) * f), h), si = (ssy * w + ssx) * 4;
           var m = clamp(0.5 - sdv / aa, 0, 1);
-          d[o] = sd[o] + (rr - sd[o]) * m; d[o + 1] = sd[o + 1] + (gg - sd[o + 1]) * m; d[o + 2] = sd[o + 2] + (bb - sd[o + 2]) * m; d[o + 3] = 255;
+          d[o] = sd[o] + (sd[si] - sd[o]) * m; d[o + 1] = sd[o + 1] + (sd[si + 1] - sd[o + 1]) * m; d[o + 2] = sd[o + 2] + (sd[si + 2] - sd[o + 2]) * m; d[o + 3] = 255;
         }
       }
     }
@@ -222,7 +204,7 @@
   // ---------- Zustand ----------
   var S = null;  // { img, name, W, H, f, base, stack: [{id,type,on,open,P}], q }
   var V = null, uid = 0;
-  function newTool(type) { return { id: ++uid, type: type, on: true, open: true, P: Object.assign({}, TOOLS[type].defaults) }; }
+  function newTool(type) { var P = Object.assign({}, TOOLS[type].defaults); if (type === "polymerge") P.pseed = 1 + Math.floor(Math.random() * 999); return { id: ++uid, type: type, on: true, open: true, P: P }; }
 
   function imgData(img, w, h) {
     var c = document.createElement("canvas"); c.width = w; c.height = h;
@@ -369,6 +351,7 @@
     ".px-segs{display:grid;grid-template-columns:repeat(4,1fr);border:1px solid var(--line);border-radius:10px;overflow:hidden}" +
     ".px-segs button{font:600 .8rem var(--f-body);padding:8px 2px;border:0;background:transparent;color:var(--soft);cursor:pointer}" +
     ".px-segs button[aria-pressed=true]{background:var(--ink);color:var(--bg)}" +
+    ".px-dice{align-self:flex-start;font:600 .88rem var(--f-body);padding:7px 14px;border-radius:999px;border:1px solid var(--ink);background:transparent;color:var(--ink);cursor:pointer}.px-dice:hover{background:var(--ink);color:var(--bg)}" +
     ".px-th{display:block;margin:0 auto;border-radius:8px;cursor:move;touch-action:none}" +
     ".px-add{display:flex;flex-wrap:wrap;gap:8px}" +
     ".px-add button{display:flex;align-items:center;gap:6px;font:600 .88rem var(--f-body);padding:8px 12px;border-radius:999px;border:1px dashed var(--ink);background:transparent;color:var(--ink);cursor:pointer}" +
@@ -390,6 +373,7 @@
     var T = TOOLS[tl.type], P = tl.P;
     return T.controls.map(function (c) {
       if (c.k === "thumb") return '<div class="px-row"><label>' + t("source") + '</label><canvas class="px-th" data-i="' + i + '"></canvas><span class="px-desc">' + t("sourceHint") + "</span></div>";
+      if (c.type === "dice") return '<div class="px-row"><label>' + c.l[lang] + '<span>#' + P[c.k] + '</span></label><button type="button" class="px-dice" data-dice="' + i + '">⚄ ' + t("dice") + "</button></div>";
       if (c.type === "check") return '<label class="px-chk"><input type="checkbox" data-i="' + i + '" data-k="' + c.k + '"' + (P[c.k] ? " checked" : "") + "> " + c.l[lang] + "</label>";
       if (c.type === "seg") return '<div class="px-row"><label>' + c.l[lang] + '</label><div class="px-segs" role="group" aria-label="' + c.l[lang] + '">' +
         c.opts.map(function (o) { return '<button type="button" data-i="' + i + '" data-k="' + c.k + '" data-v="' + o[0] + '" aria-pressed="' + (P[c.k] === o[0]) + '">' + o[1] + "</button>"; }).join("") + "</div></div>";
@@ -451,10 +435,14 @@
     renderPreview();
   }
   function onClick(e) {
-    var b = e.target.closest("[data-px],[data-act],[data-add],[data-v]"); if (!b) return;
+    var b = e.target.closest("[data-px],[data-act],[data-add],[data-v],[data-dice]"); if (!b) return;
     if (b.dataset.px === "pick") { V.root.querySelector("#px-file").click(); return; }
     if (!S) return;
     if (b.dataset.px === "save") { doExport(); return; }
+    if (b.dataset.dice !== undefined) {
+      var td = S.stack[+b.dataset.dice]; td.P.pseed = 1 + Math.floor(Math.random() * 999);
+      b.previousSibling.querySelector("span").textContent = "#" + td.P.pseed; renderPreview(); return;
+    }
     if (b.dataset.add) { S.stack.push(newTool(b.dataset.add)); rebuildChain(); renderPreview(); return; }
     if (b.dataset.v !== undefined) {
       var tl0 = S.stack[+b.dataset.i]; tl0.P[b.dataset.k] = b.dataset.v;
