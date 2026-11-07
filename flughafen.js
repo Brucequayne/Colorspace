@@ -5,10 +5,10 @@
   "use strict";
 
   var KEY = "flughafen-v3";
-  var VERSION = "0.41";
+  var VERSION = "0.42";
   var RW_W = 22, TW_W = 14, RD_W = 16;
   var DIVERT = 60;
-  var SIZE = { stand: [64, 66], term: [124, 46], tower: [30, 30], fire: [52, 38], hangar: [84, 62], deck: [72, 38], park: [72, 48], bus: [44, 22] };
+  var SIZE = { stand: [64, 66], term: [124, 46], tower: [30, 30], fire: [52, 38], hangar: [84, 62], deck: [72, 38], park: [72, 48], bus: [44, 22], cab: [62, 22] };
   var DEG = Math.PI / 180, STEP = 15 * DEG;
   var M_PX = 6, RW_MIN = 250, RW_MAX = 760;   // 1 Pixel Piste = 6 m; Mindestlänge 1.500 m
 
@@ -34,15 +34,15 @@
     inTerm: L2("{n} Fluggäste", "{n} passengers"), waiting: L2("{n} wartend", "{n} waiting"),
     termDep: L2("Warten auf den Abflug: {n}", "Waiting to depart: {n}"), termArr: L2("Angekommen, auf dem Weg nach draußen: {n}", "Arrived, heading out: {n}"),
     stopInfo: L2("Wartende Fahrgäste: {n} · Bus fasst 50", "Waiting riders: {n} · bus holds 50"),
-    lotInfo: L2("Belegt: {a} von {b} Plätzen", "Occupied: {a} of {b} spaces"), lotFull: L2("voll", "full"),
+    lotInfo: L2("Belegt: {a} von {b} Plätzen · 5 € pro Sekunde Parkzeit", "Occupied: {a} of {b} spaces · €5 per second parked"), lotFull: L2("voll", "full"),
     noRoadTerm: L2("Ohne Straße am Terminal kommen die Fluggäste zu Fuß, Busse und Autos fahren erst mit Straße.", "Without a road at the terminal, passengers walk in; buses and cars need a road."),
     howH: L2("So funktioniert’s", "How it works"),
     how1: L2("Bauen: Werkzeug im Baumenü unten wählen, mit der Maus platzieren, Klick zum Bauen. Q und E drehen stufenlos, mit gedrückter Umschalttaste in 15°-Schritten. Die Piste ziehst du mit zwei Klicks: Anfang setzen, dann Richtung und Länge. Je länger, desto teurer, aber desto größere Flugzeuge können landen. Danach zeichnest du Anflug- und Abflugroute. Rollwege und Straßen zieht man Stück für Stück mit Klicks, Rechtsklick oder Esc beendet. Mit O werden neue Stücke zur Einbahn, ein Pfeil in der Mittellinie zeigt die Richtung.",
               "Building: pick a tool in the build menu below, move it with the mouse, click to build. Q and E rotate freely, with Shift in 15° steps. The runway takes two clicks: set the start, then direction and length. Longer costs more but lets bigger aircraft land. Then you draw the approach and departure routes. Taxiways and roads are drawn piece by piece with clicks; right-click or Esc ends the line. Press O to make new pieces one-way, an arrow in the centre line shows the direction."),
     how2: L2("Karte: Ziehen auf freier Fläche oder mit rechter Maustaste verschiebt, das Mausrad zoomt, WASD und Pfeiltasten gehen auch. Ein Klick auf etwas Gebautes zeigt Infos, Ausbaustufen und „Abreißen“.",
               "Map: drag on open ground or with the right mouse button to pan, the mouse wheel zooms, WASD and arrow keys work too. Click anything you built for details, upgrades and “Demolish”."),
-    how5: L2("Fluggäste: Ein Flugzeug fasst 120 bis 400 Personen, ein Bus 50, ein Auto 1 bis 4. Ein- und ausgestiegen wird nur, solange das Flugzeug an Gate oder Parkposition steht. Autos und Busse kommen über die Landstraße, die quer über die Karte läuft. Verbinde deine Straßen mit ihr. Autos fahren nicht durcheinander durch, sie stellen sich an, und zu enge Straßen stauen sich. Einbahnstraßen bleiben zweispurig: rechts wird gefahren, links ist ein Streifen mit Schrägparkplätzen, die wie ein Parkplatz Geld bringen.",
-              "Passengers: an aircraft carries 120 to 400 people, a bus 50, a car 1 to 4. Passengers only board and leave while the aircraft is docked at a gate or stand. Cars and buses come in on the country road that crosses the map, so connect your roads to it. Cars don't drive through each other: they queue, and narrow roads jam. One-way roads keep two lanes: traffic uses the right one, the left one becomes angled parking that earns money like a car park."),
+    how5: L2("Fluggäste: Ein Flugzeug fasst 120 bis 400 Personen, ein Bus 50, ein Auto oder Taxi 1 bis 4. Ankommende verlassen den Flughafen mit Bus, Auto oder Taxi. Ein- und ausgestiegen wird nur, solange das Flugzeug an Gate oder Parkposition steht. Autos und Busse kommen über die Landstraße, die quer über die Karte läuft. Verbinde deine Straßen mit ihr. Autos fahren nicht durcheinander durch, sie stellen sich an, und zu enge Straßen stauen sich. Einbahnstraßen bleiben zweispurig: rechts wird gefahren, links ist ein Streifen mit Schrägparkplätzen, die wie ein Parkplatz Geld bringen.",
+              "Passengers: an aircraft carries 120 to 400 people, a bus 50, a car or taxi 1 to 4. Arrivals leave the airport by bus, car or taxi. Passengers only board and leave while the aircraft is docked at a gate or stand. Cars and buses come in on the country road that crosses the map, so connect your roads to it. Cars don't drive through each other: they queue, and narrow roads jam. One-way roads keep two lanes: traffic uses the right one, the left one becomes angled parking that earns money like a car park."),
     how3: L2("Flugzeuge landen in Pfeilrichtung und verlassen die Piste über deine Rollwege. Eine Parkposition wird nur angeflogen, wenn ein Rollweg direkt davor liegt und Hin- und Rückweg zur Piste bestehen. Flugzeuge weichen einander aus und warten, wenn der Weg blockiert ist. Steht eine Position mit dem Rücken an einem Terminal, kann sie ein Gate bekommen.",
               "Aircraft land in the direction of the arrow and leave the runway via your taxiways. A stand is only used when a taxiway runs right in front of it with a way there from the runway and back. Aircraft keep their distance and wait when the way is blocked. If a stand's back touches a terminal, it can get a gate."),
     how4: L2("Der Spielstand wird nur in deinem Browser gespeichert.", "Your progress is saved only in your browser."),
@@ -73,6 +73,8 @@
     rwArr: L2("Landungen", "Landings"), rwDep: L2("Starts", "Take-offs"), rwBoth: L2("Landungen und Starts", "Landings and take-offs"),
     zoomIn: L2("Hineinzoomen", "Zoom in"), zoomOut: L2("Herauszoomen", "Zoom out"),
     rotL: L2("Nach links drehen (Q)", "Rotate left (Q)"), rotR: L2("Nach rechts drehen (E)", "Rotate right (E)"),
+    taxiInfo: L2("Wartende Fluggäste: {n} · Taxis am Stand: {k}", "Waiting passengers: {n} · taxis at the rank: {k}"),
+    termOut: L2("Auf dem Weg nach draußen: {b} Bus, {c} Auto, {x} Taxi", "Heading out: {b} bus, {c} car, {x} taxi"),
     stripInfo: L2("Schrägparkplätze: {a} von {b} belegt", "Angled parking: {a} of {b} taken"),
     owOn: L2("Einbahn", "One-way"), owOff: L2("Beide Richtungen", "Two-way"), owRev: L2("Richtung umkehren", "Reverse direction"),
     owInfo: L2("Einbahn in Pfeilrichtung. Bei Straßen wird die linke Spur zum Streifen mit Schrägparkplätzen.", "One-way in arrow direction. On roads the left lane becomes a strip of angled parking."), twInfo: L2("In beide Richtungen befahrbar", "Usable in both directions"),
@@ -105,10 +107,11 @@
   };
 
   var TYPES = {
-    p: { cap: 120, rev: 2000, turn: 18, len: 17, span: 22, sweep: 0.01, roll: 90, need: 250 },
-    n: { cap: 190, rev: 3500, turn: 26, len: 25, span: 25, sweep: 0.13, roll: 140, need: 350 },
-    w: { cap: 400, rev: 5000, turn: 40, len: 36, span: 37, sweep: 0.16, roll: 200, heavy: true, need: 500 }
+    p: { cap: 120, rev: 20000, turn: 18, len: 17, span: 22, sweep: 0.01, roll: 90, need: 250 },
+    n: { cap: 190, rev: 40000, turn: 26, len: 25, span: 25, sweep: 0.13, roll: 140, need: 350 },
+    w: { cap: 400, rev: 90000, turn: 40, len: 36, span: 37, sweep: 0.16, roll: 200, heavy: true, need: 500 }
   };
+  var PAXFEE = 30, SHOP = 15, PARKFEE = 5, BUSFARE = 4, TAXIFEE = 18;   // Euro pro Fluggast, pro Sekunde Parken, pro Fahrgast, pro Taxi
   var AIRLINES = [ // erfundene Airlines
     { c: "SOY", col: "#B5651D" }, { c: "WOK", col: "#C2412D" }, { c: "TFU", col: "#2F6F8F" },
     { c: "MSO", col: "#4F7A35" }, { c: "UMA", col: "#7A4E9A" }, { c: "KOI", col: "#D9A21B" }, { c: "NRI", col: "#1F5C4F" }
@@ -153,7 +156,7 @@
   }
   function save() { try { if (G) localStorage.setItem(KEY, JSON.stringify(G)); } catch (e) {} }
   function runtime() {
-    return { planes: [], holdQ: [], q: {}, occ: {}, rw: {}, spawnT: 4, jamT: 0, fx: [], veh: [], spots: {}, busT: {}, stopW: {}, tDep: 0, tArrBus: 0, tArrCar: 0, tArrWalk: 0, walkIn: 0, depBus: 0, depCarQ: [], pickRes: 0, accW: 0, accS: 0, spawnCar: 0, speed: 1, paused: false,
+    return { planes: [], holdQ: [], q: {}, occ: {}, rw: {}, spawnT: 4, jamT: 0, bays: {}, tArrTaxi: 0, depTaxi: 0, fx: [], veh: [], spots: {}, busT: {}, stopW: {}, tDep: 0, tArrBus: 0, tArrCar: 0, tArrWalk: 0, walkIn: 0, depBus: 0, depCarQ: [], pickRes: 0, accW: 0, accS: 0, spawnCar: 0, speed: 1, paused: false,
       id: 0, saveT: 0, msgT: 0, first: true, hangarT: 0, hangarType: "n", visitors: 0, clock: 0 };
   }
 
@@ -341,7 +344,7 @@
       for (var i = 0; i < N.length; i++) if (Math.abs(N[i].x - x) < 1.5 && Math.abs(N[i].y - y) < 1.5) return i;
       N.push({ x: x, y: y }); adj.push([]); return N.length - 1;
     }
-    function edge(a, b, ow) { if (a === b) return; var e = { a: a, b: b, len: dist(N[a], N[b]), dir: ow ? 1 : 0 }; adj[a].push(e); adj[b].push(e); }
+    function edge(a, b, ow, hw) { if (a === b) return; var e = { a: a, b: b, len: dist(N[a], N[b]), dir: ow ? 1 : 0, hw: hw ? 1 : 0 }; adj[a].push(e); adj[b].push(e); }
     var segs = mods("road").map(function (m) { return { m: m, a: { x: m.x1, y: m.y1 }, b: { x: m.x2, y: m.y2 }, pts: [{ t: 0, x: m.x1, y: m.y1 }, { t: 1, x: m.x2, y: m.y2 }] }; });
     segs.forEach(function (s) {
       [s.a, s.b].forEach(function (p) {
@@ -350,7 +353,7 @@
     });
     // Zufahrt: nächster Straßenpunkt vor dem Modul
     var acc = [];
-    ["term", "park", "bus"].forEach(function (k) {
+    ["term", "park", "bus", "cab"].forEach(function (k) {
       mods(k).forEach(function (m) {
         var f = foot(m), best = null;
         segs.forEach(function (s) {
@@ -364,7 +367,7 @@
     segs.forEach(function (s) {
       s.pts.sort(function (p, q) { return p.t - q.t; });
       var prev = -1;
-      s.pts.forEach(function (p) { var n = node(p.x, p.y); if (prev >= 0) edge(prev, n, s.m.ow); prev = n; });
+      s.pts.forEach(function (p) { var n = node(p.x, p.y); if (prev >= 0) edge(prev, n, s.m.ow, s.m.hw); prev = n; });
     });
     acc.forEach(function (o) { var p = { x: o.s.a.x + (o.s.b.x - o.s.a.x) * o.t, y: o.s.a.y + (o.s.b.y - o.s.a.y) * o.t }; o.m._acc = node(p.x, p.y); o.m._accPt = p; });
     // Enden der Landstraße
@@ -376,7 +379,7 @@
     RNET = { N: N, adj: adj, ends: ends };
     // Angebunden heißt: von einem Ende der Landstraße hin und zu einem Ende zurück
     var fwd = rflood(ends, false), bwd = rflood(ends, true);
-    ["term", "park", "bus"].forEach(function (k) { mods(k).forEach(function (m) { m._road = m._acc !== null && !!fwd[m._acc] && !!bwd[m._acc]; }); });
+    ["term", "park", "bus", "cab"].forEach(function (k) { mods(k).forEach(function (m) { m._road = m._acc !== null && !!fwd[m._acc] && !!bwd[m._acc]; }); });
     // Einbahnstraßen: rechte Spur fährt, linke Seite ist ein Streifen mit Schrägparkplätzen
     mods("road").forEach(function (m) {
       m._spots = 0; m._park = false;
@@ -425,7 +428,8 @@
     }
     if (dd[dst] === undefined) return null;
     var ids = [dst]; while (ids[0] !== src) ids.unshift(prev[ids[0]]);
-    return ids.map(function (k) { return { x: RNET.N[k].x, y: RNET.N[k].y, r: 1 }; });   // immer rechts fahren, auch Einbahnen sind zweispurig
+    // Landstraße schnell, Flughafenstraßen langsamer
+    return ids.map(function (k, i) { var nx = ids[i + 1] !== undefined ? pe[ids[i + 1]] : null; return { x: RNET.N[k].x, y: RNET.N[k].y, r: 1, s: nx && nx.hw ? 75 : 40 }; });   // immer rechts fahren, auch Einbahnen sind zweispurig
   }
 
   function path(src, dst) {
@@ -512,13 +516,17 @@
       desc: L2("Vorfahrt für Abflug und Ankunft. Am Terminal bringt sie mehr Passagiere.", "Forecourt for departures and arrivals. At the terminal it brings more passengers."),
       cost: function () { return 8000; }, unit: 800, lock: function () { return mods("runway").length ? "" : t("needRw"); } },
     { id: "park", g: "land", tool: "rect", name: L2("Parkplatz", "Car park"),
-      desc: L2("16 Stellplätze an einer Straße. Jedes abfahrende Auto zahlt 15 bis 50 €.", "16 spaces on a road. Every car that leaves pays €15 to €50."),
+      desc: L2("16 Stellplätze an einer Straße. Parken kostet 5 € pro Sekunde, bezahlt wird bei der Ausfahrt.", "16 spaces on a road. Parking costs €5 per second, paid on the way out."),
       cost: function () { return 120000; },
       lock: function () { if (!mods("runway").length) return t("needRw"); return mods("park").length >= 6 ? t("maxed") : ""; } },
     { id: "bus", g: "land", tool: "rect", name: L2("Bushaltestelle", "Bus stop"),
       desc: L2("An einer Straße: Busse mit 50 Plätzen bringen und holen Fluggäste.", "On a road: buses with 50 seats bring and collect passengers."),
       cost: function () { return 60000; },
       lock: function () { if (!mods("runway").length) return t("needRw"); return mods("bus").length >= 3 ? t("maxed") : ""; } },
+    { id: "cab", g: "land", tool: "rect", name: L2("Taxistand", "Taxi rank"),
+      desc: L2("An einer Straße: Taxis bringen Abfliegende und holen Ankommende ab. Jede Fahrt bringt eine Gebühr.", "On a road: taxis drop off departing and collect arriving passengers. Every ride pays a fee."),
+      cost: function () { return 90000; },
+      lock: function () { if (!mods("runway").length) return t("needRw"); return mods("cab").length >= 3 ? t("maxed") : ""; } },
     { id: "tower", g: "ops", tool: "rect", name: L2("Tower", "Control tower"),
       desc: L2("Kürzere Abstände zwischen Landungen und Starts. Stufe 2 mit Radar.", "Shorter spacing between landings and take-offs. Level 2 adds radar."),
       cost: function () { return 2500000; }, lock: function () { if (!mods("runway").length) return t("needRw"); return one("tower") ? t("once") : ""; } },
@@ -552,7 +560,7 @@
   function priceOf(m) {
     var len = m.x2 !== undefined ? Math.hypot(m.x2 - m.x1, m.y2 - m.y1) : 0;
     var base = { runway: rwCost(rwLen(m), 0), taxi: Math.max(25000, len * 2500), road: Math.max(8000, len * 800), stand: 325000, term: 7500000,
-      park: 120000, bus: 60000, tower: 2500000, fire: 1250000, hangar: 6000000, deck: 400000 }[m.t] || 0;
+      park: 120000, bus: 60000, cab: 90000, tower: 2500000, fire: 1250000, hangar: 6000000, deck: 400000 }[m.t] || 0;
     if (m.gate) base += 325000; if (m.heavy) base += 850000;
     if (m.lvl >= 2 && LVL[m.t]) base += LVL[m.t][0];
     return base;
@@ -612,7 +620,7 @@
         if (d < 70) cand(px, py, ang, d * 0.9, null);
       });
     }
-    if (type === "park" || type === "bus" || type === "term") { // bündig an die Straße
+    if (type === "park" || type === "bus" || type === "term" || type === "cab") { // bündig an die Straße
       mods("road").forEach(function (m) {
         var a = { x: m.x1, y: m.y1 }, b = { x: m.x2, y: m.y2 }, pr = segProj(cur, a, b);
         if (pr.d > 80) return;
@@ -769,7 +777,7 @@
     G.st.moves++;
     if (one("deck")) {
       G.rep = Math.min(100, G.rep + 0.05);
-      var v = 150 * (1 + 0.2 * G.up.ext); G.money += v; G.st.earned += v;
+      var v = 600 * (1 + 0.2 * G.up.ext); G.money += v; G.st.earned += v;
       R.visitors = Math.min(24, R.visitors + 2);
     }
   }
@@ -791,7 +799,7 @@
       p.acc += paxRate(p) * dt;
       var k = Math.min(p.on, Math.floor(p.acc)); p.acc -= k; p.on -= k;
       if (k) { G.st.pax += k; arrivePax(k); }
-      if (p.on <= 0) { p.phase = "clean"; p.t = 3 + p.cap / 80; p.acc = 0; }
+      if (p.on <= 0) { p.phase = "clean"; p.t = 3 + p.cap / 80; p.acc = 0; if (p.paxIn) earn(p.paxIn * PAXFEE, p.x, p.y - 10, lang === "de" ? "Fluggastentgelt" : "Passenger fees"); }
     } else if (p.phase === "clean") {
       p.t -= dt; if (p.t <= 0) p.phase = "board";
     } else if (p.phase === "board") {
@@ -810,19 +818,22 @@
   function termCenter() { var ts = mods("term"); if (!ts.length) return null; var x = 0, y = 0; ts.forEach(function (m) { x += m.x; y += m.y; }); return { x: x / ts.length, y: y / ts.length }; }
   function landMode() { if (!mods("term").length) return "none"; return mods("term").some(function (m) { return m._road; }) ? "road" : "walk"; }
   function busShare() { var n = mods("bus").filter(function (m) { return m._road; }).length; return n ? Math.min(0.65, 0.25 + 0.15 * n) : 0; }
-  function termPax() { return R.tDep + R.tArrBus + R.tArrCar + R.tArrWalk; }
+  function taxiShare() { return mods("cab").some(function (m) { return m._road; }) ? 0.45 : 0; }
+  function termPax() { return R.tDep + R.tArrBus + R.tArrCar + R.tArrWalk + (R.tArrTaxi || 0); }
   function bookTrips(n) {
     var mode = landMode();
     if (mode === "none") return;
     if (mode === "walk") { R.walkIn += n; return; }
     var b = Math.round(n * busShare()); R.depBus += b; n -= b;
+    var x = Math.round(n * taxiShare() * 0.6); R.depTaxi = (R.depTaxi || 0) + x; n -= x;
     while (n > 0) { var g = Math.min(n, 1 + Math.floor(Math.random() * 4)); n -= g; R.depCarQ.push({ n: g, t: Math.random() * 30 }); }
   }
   function arrivePax(n) {
     var mode = landMode();
     if (mode === "none") return;
     if (mode === "walk") { R.tArrWalk += n; return; }
-    var b = Math.round(n * busShare()); R.tArrBus += b; R.tArrCar += n - b;
+    var b = Math.round(n * busShare()), x = Math.round((n - b) * taxiShare());
+    R.tArrBus += b; R.tArrTaxi = (R.tArrTaxi || 0) + x; R.tArrCar += n - b - x;
   }
   var LOT = 16;
   function spotPos(m, i) {
@@ -833,7 +844,7 @@
   function lotEntry(m) {
     var q = m._accPt, dx = q.x - m.x, dy = q.y - m.y, l = Math.hypot(dx, dy) || 1, A = axes(m.a);
     var dn = Math.abs(dx * A.vx + dy * A.vy) / l, du = Math.abs(dx * A.ux + dy * A.uy) / l;
-    var r = du > dn ? SIZE.park[0] / 2 : SIZE.park[1] / 2;
+    var sz = SIZE[m.t] || SIZE.park, r = du > dn ? sz[0] / 2 : sz[1] / 2;
     return { x: m.x + dx / l * (r + 2), y: m.y + dy / l * (r + 2) };
   }
   function lotSpots(m) { return R.spots[m.id] || (R.spots[m.id] = []); }
@@ -847,7 +858,7 @@
   var CARS = ["#E7E9E4", "#2B2E2B", "#9A540A", "#5C6E80", "#B33A2E", "#D9D4C5", "#3F6B8F"];
   function vehicle(kind, pts, onEnd) {
     var v = { kind: kind, x: pts[0].x, y: pts[0].y, h: Math.atan2(pts[1].y - pts[0].y, pts[1].x - pts[0].x), alt: 0, path: pts, pi: 0, onEnd: onEnd,
-      c: CARS[Math.floor(Math.random() * CARS.length)], n: 0, len: kind === "bus" ? 24 : 8, wt: 0, id: ++R.id };
+      c: CARS[Math.floor(Math.random() * CARS.length)], n: 0, len: kind === "bus" ? 24 : 8.5, wt: 0, id: ++R.id };
     R.veh.push(v); return v;
   }
   function dropVeh(v) { var i = R.veh.indexOf(v); if (i >= 0) R.veh.splice(i, 1); }
@@ -870,16 +881,18 @@
     return inP && outP ? { inP: speeds(inP, 10), outP: speeds(outP, 45) } : null;
   }
   // Geschwindigkeit je Punkt: Landstraße 45, sonst 32, am Ende langsam
-  function speeds(pts, endS) { return pts.map(function (p, i) { return { x: p.x, y: p.y, r: p.r, s: i === pts.length - 1 ? endS : 48 }; }); }
+  function speeds(pts, endS) { return pts.map(function (p, i) { return { x: p.x, y: p.y, r: p.r, s: i === pts.length - 1 ? endS : p.s || 45 }; }); }
   // Auto bringt (dep) oder holt (arr) n Fluggäste
   function carTrip(n, dir) {
-    var lot = freeLot();
+    R.lastDir = dir;
+    // Viele lassen sich nur vorfahren (Kiss & Fly) oder werden am Bordstein abgeholt, die anderen parken
+    var lot = Math.random() < (dir === "dep" ? 0.4 : 0.35) ? freeLot() : null;
     if (lot && lot.m.t === "road") {   // Schrägparken an der Einbahnstraße
       var rm = lot.m, sp = roadSpot(rm, lot.i), tv = tripVia(rm._sN, rm._eN); if (!tv) return false;
       lotSpots(rm)[lot.i] = true;
       var rv = vehicle("car", tv.inP.concat([{ x: sp.lane.x, y: sp.lane.y, s: 10, r: 1 }, { x: sp.c.x, y: sp.c.y, s: 5 }]), function () {
         rv.h = sp.h; rv.state = "parked";
-        if (dir === "dep") { R.tDep += n; rv.stay = 70 + Math.random() * 90; }
+        if (dir === "dep") { R.tDep += n; rv.stay = 120 + Math.random() * 100; }
         else { var k = Math.min(n, R.tArrCar); R.tArrCar -= k; R.pickRes -= n; rv.n = k; rv.stay = 5 + Math.random() * 6; }
       });
       rv.lot = rm.id; rv.spot = lot.i; rv.back = [sp.c, { x: sp.back.x, y: sp.back.y, r: 1 }].concat(tv.outP);
@@ -891,7 +904,7 @@
       lotSpots(m)[lot.i] = true;
       var v = vehicle("car", tr.inP.concat([{ x: E.x, y: E.y, s: 8 }, { x: S.x, y: S.y, s: 5 }]), function () {
         v.h = m.a + Math.PI / 2; v.state = "parked";
-        if (dir === "dep") { R.tDep += n; v.stay = 70 + Math.random() * 90; }
+        if (dir === "dep") { R.tDep += n; v.stay = 120 + Math.random() * 100; }
         else { var k = Math.min(n, R.tArrCar); R.tArrCar -= k; R.pickRes -= n; v.n = k; v.stay = 5 + Math.random() * 6; }
       });
       v.lot = m.id; v.spot = lot.i; v.back = [S, E].concat(tr.outP);
@@ -899,11 +912,14 @@
     }
     var tm = mods("term").filter(function (q) { return q._road; })[0]; if (!tm) return false;
     var tr2 = trip(tm._acc); if (!tr2) return false;
-    var v2 = vehicle("car", tr2.inP, function () {
-      v2.state = "curb"; v2.stay = 0.8 + Math.random() * 0.6;
+    // Halten auf dem Seitenstreifen vor dem Terminal, verteilt auf die Länge der Vorfahrt
+    var ip = tr2.inP, A2 = ip[ip.length - 1], B2 = ip.length > 1 ? ip[ip.length - 2] : A2, sl = dist(A2, B2), back2 = sl > 6 ? Math.random() * Math.min(50, sl - 4) : 0;
+    var stop = sl > 0 ? { x: A2.x + (B2.x - A2.x) / sl * back2, y: A2.y + (B2.y - A2.y) / sl * back2, r: 1, s: 8 } : A2;
+    var v2 = vehicle("car", ip.slice(0, -1).concat([stop]), function () {
+      v2.state = "curb"; v2.stay = 1 + Math.random() * 1.5;
       if (dir === "dep") R.tDep += n; else { var k = Math.min(n, R.tArrCar); R.tArrCar -= k; R.pickRes -= n; }
     });
-    v2.out = tr2.outP;
+    v2.out = [{ x: A2.x, y: A2.y, r: 1, s: 30 }].concat(tr2.outP.slice(1));
     return true;
   }
   function leave(v) {
@@ -911,15 +927,15 @@
     if (v.lot) {
       var m = byId(v.lot);
       if (m) lotSpots(m)[v.spot] = false;
-      earn(15 + Math.random() * 35, v.x, v.y);
+      earn(Math.max(5, Math.round(v.parkT || 0) * PARKFEE), v.x, v.y);
       var b = v.back;
       v.path = [{ x: v.x, y: v.y, s: 5, back: 1 }, { x: b[1].x, y: b[1].y, s: 8, back: 1 }].concat(b.slice(2));
-    } else v.path = [{ x: v.x, y: v.y, s: 8, r: v.out[0].r }].concat(v.out.slice(1));
+    } else v.path = [{ x: v.x, y: v.y, s: 8, r: 1 }].concat(v.out);
     v.pi = 0; v.onEnd = dropVeh;
   }
   // Abstand halten: wer vor einem steht, bremst. Gegenseitiges Blockieren an Kreuzungen löst sich nach kurzer Zeit.
   function follow(dt) {
-    var vs = R.veh.filter(function (v) { return v.path || v.state === "curb"; });
+    var vs = R.veh.filter(function (v) { return v.path; });   // wer am Bordstein hält, steht auf dem Seitenstreifen
     vs.forEach(function (v) {
       var nx = v.path && v.path[v.pi + 1], off = nx && nx.r ? 3.5 : 0;
       v.px = v.x - Math.sin(v.h) * off; v.py = v.y + Math.cos(v.h) * off;
@@ -946,6 +962,42 @@
       if (v.lim !== undefined && v.lim < 2) { v.wt += dt; if (v.wt > 9) { v.ghost = 1.2; v.wt = 0; } } else v.wt = 0;
     });
   }
+  // ---------- Taxis ----------
+  // Taxis kommen über die Landstraße, bringen Abfliegende mit, warten in einer Bucht am Taxistand und nehmen Ankommende mit
+  var BAYS = 4;
+  function bayPos(m, i) { var A = axes(m.a), lx = -SIZE.cab[0] / 2 + 9 + i * 14.5; return { x: m.x + A.ux * lx, y: m.y + A.uy * lx }; }
+  function taxis(dt) {
+    var ranks = mods("cab").filter(function (m) { return m._road; });
+    if (!ranks.length) { R.tArrCar += R.tArrTaxi || 0; R.tArrTaxi = 0; if (R.depTaxi) { R.depCarQ.push({ n: R.depTaxi, t: 0 }); R.depTaxi = 0; } return; }
+    R.taxiT = (R.taxiT || 0) - dt;
+    if (R.taxiT > 0) return;
+    R.taxiT = 0.6;
+    var fleet = R.veh.filter(function (v) { return v.kind === "taxi" && !v.leaving; }), seats = fleet.length * 3;
+    if ((R.tArrTaxi || 0) <= seats && !(R.depTaxi > 0)) return;
+    if (R.veh.filter(function (v) { return v.kind === "taxi"; }).length >= 30) return;
+    var opts = [];
+    ranks.forEach(function (m) { var b = R.bays[m.id] || (R.bays[m.id] = []); for (var i = 0; i < BAYS; i++) if (!b[i]) opts.push({ m: m, i: i }); });
+    if (!opts.length) return;
+    var o = opts[Math.floor(Math.random() * opts.length)], m = o.m, tr = trip(m._acc); if (!tr) return;
+    var E = lotEntry(m), B = bayPos(m, o.i), drop = Math.min(R.depTaxi || 0, 1 + Math.floor(Math.random() * 3));
+    R.depTaxi -= drop; R.bays[m.id][o.i] = true;
+    var v = vehicle("taxi", tr.inP.concat([{ x: E.x, y: E.y, s: 8 }, { x: B.x, y: B.y, s: 5 }]), function () {
+      v.h = m.a; v.state = "taxi"; v.wait = 0; R.tDep += drop;
+    });
+    v.rank = m.id; v.bay = o.i; v.back = [B, E].concat(tr.outP); v.c = "#F2C230";
+  }
+  function taxiWait(v, dt) {
+    v.wait += dt;
+    if (v.wait < 1.2) return;
+    var avail = Math.min(R.tArrTaxi || 0, 1 + Math.floor(Math.random() * 4));
+    if (avail > 0 || v.wait > 45) {
+      R.tArrTaxi = Math.max(0, (R.tArrTaxi || 0) - avail); v.n = avail;
+      if (avail) earn(TAXIFEE, v.x, v.y);
+      var b = R.bays[v.rank]; if (b) b[v.bay] = false;
+      v.state = ""; v.leaving = true;
+      v.path = [{ x: v.x, y: v.y, s: 5, back: 1 }, { x: v.back[1].x, y: v.back[1].y, s: 8, back: 1 }].concat(v.back.slice(2)); v.pi = 0; v.onEnd = dropVeh;
+    }
+  }
   function landside(dt) {
     var mode = landMode(), stops = mods("bus").filter(function (m) { return m._road; });
     // Durchgangsverkehr auf der Landstraße
@@ -960,7 +1012,8 @@
       R.accW += 8 * dt;
       var k = Math.floor(R.accW); R.accW -= k;
       var a = Math.min(k, R.walkIn + R.depBus); R.walkIn = Math.max(0, R.walkIn - a); R.tDep += a;
-      R.tArrWalk = Math.max(0, R.tArrWalk + R.tArrBus + R.tArrCar - k); R.tArrBus = R.tArrCar = 0;
+      R.tArrWalk = Math.max(0, R.tArrWalk + R.tArrBus + R.tArrCar + (R.tArrTaxi || 0) - k); R.tArrBus = R.tArrCar = R.tArrTaxi = 0;
+      if (R.depTaxi) { R.walkIn += R.depTaxi; R.depTaxi = 0; }
       R.depCarQ.forEach(function (q) { R.walkIn += q.n; }); R.depCarQ = [];
     } else {
       if (R.walkIn) { R.tDep += R.walkIn; R.walkIn = 0; }
@@ -969,13 +1022,14 @@
       R.spawnCar -= dt;
       var cars = R.veh.filter(function (v) { return v.kind === "car" && v.path && !v.thru; }).length;
       var budget = 0;
-      while (R.spawnCar <= 0) { R.spawnCar += 0.55; budget++; }
+      while (R.spawnCar <= 0) { R.spawnCar += 0.22; budget++; }
       // Wer keinen Platz auf der Straße findet, wartet: so entstehen Rückstaus statt endloser Autoschlangen
-      for (var bq = 0; bq < budget && cars < 45; bq++, cars++) {
+      for (var bq = 0; bq < budget && cars < 130; bq++, cars++) {
         var i = R.depCarQ.findIndex(function (q) { return q.t <= 0; });
         var wantArr = R.tArrCar - R.pickRes > 0;
-        if (i >= 0 && (!wantArr || bq % 2 === 0)) { if (carTrip(R.depCarQ[i].n, "dep")) R.depCarQ.splice(i, 1); else R.depCarQ[i].t = 1; }
-        else if (wantArr) { var n = Math.min(R.tArrCar - R.pickRes, 1 + Math.floor(Math.random() * 4)); R.pickRes += n; if (!carTrip(n, "arr")) R.pickRes -= n; }
+        R.alt = !R.alt;   // abwechselnd bringen und abholen, damit Ankommende nicht ewig warten
+        if (i >= 0 && (!wantArr || R.alt)) { if (carTrip(R.depCarQ[i].n, "dep")) R.depCarQ.splice(i, 1); else R.depCarQ[i].t = 1; }
+        else if (wantArr) { var n = Math.min(R.tArrCar - R.pickRes, 1 + Math.floor(Math.random() * 5)); R.pickRes += n; if (!carTrip(n, "arr")) R.pickRes -= n; }
         else break;
       }
       if (stops.length) {
@@ -983,6 +1037,7 @@
         var w = Math.min(R.tArrBus, Math.floor(R.accS)); R.accS -= Math.floor(R.accS); R.tArrBus -= w;
         for (var j = 0; j < w; j++) { var s0 = stops.reduce(function (a2, b2) { return (R.stopW[a2.id] || 0) <= (R.stopW[b2.id] || 0) ? a2 : b2; }); R.stopW[s0.id] = (R.stopW[s0.id] || 0) + 1; }
       } else { R.tArrCar += R.tArrBus; R.tArrBus = 0; while (R.depBus > 0) { var g0 = Math.min(R.depBus, 2); R.depCarQ.push({ n: g0, t: 0 }); R.depBus -= g0; } }
+      taxis(dt);
       stops.forEach(function (st) {
         if (R.busT[st.id] === undefined) R.busT[st.id] = 3 + Math.random() * 6;
         R.busT[st.id] -= dt;
@@ -994,6 +1049,7 @@
         var bus = vehicle("bus", tr.inP, function () {
           var drop = Math.min(50, R.depBus), wt = R.stopW[st.id] || 0, pick = Math.min(50, wt);
           R.depBus -= drop; R.tDep += drop; R.stopW[st.id] = wt - pick;
+          if (drop + pick) earn((drop + pick) * BUSFARE, st.x, st.y + 10);
           bus.n = pick; bus.drop = drop; bus.state = "curb"; bus.stay = 3;
           if (drop || pick) R.fx.push({ x: st.x, y: st.y - 16, t: 0, txt: "+" + drop + " / −" + pick, col: "#CFE3F0" });
         });
@@ -1003,7 +1059,8 @@
     follow(dt);
     R.veh.slice().forEach(function (v) {
       if (v.path) move(v, dt);
-      else if (v.state === "parked" || v.state === "curb") { v.stay -= dt; if (v.stay <= 0) leave(v); }
+      else if (v.state === "parked" || v.state === "curb") { v.stay -= dt; if (v.state === "parked") v.parkT = (v.parkT || 0) + dt; if (v.stay <= 0) leave(v); }
+      else if (v.state === "taxi") taxiWait(v, dt);
     });
   }
 
@@ -1042,7 +1099,7 @@
     var st = byId(p.st), T = TYPES[p.type], s = stats();
     var gate = st && st.gate && st._term;
     p.depLF = p.boarded / p.cap;
-    earn(T.rev * 0.2 * p.depLF * (gate ? 1 : 0.6) * (1 + 0.15 * G.up.ext), p.x, p.y - 14);
+    earn(T.rev * 0.2 * p.depLF * (gate ? 1 : 0.6) * (1 + 0.15 * G.up.ext) + p.boarded * (PAXFEE + (mods("term").length ? SHOP * (1 + 0.15 * G.up.ext) : 0)), p.x, p.y - 14);
     G.rep = Math.min(100, G.rep + (gate ? 1 : 0.4) + (s.fire >= 2 ? 0.2 : 0));
     p.docked = false; p.phase = "push"; p.t = 0;
   }
@@ -1319,11 +1376,11 @@
     });
     // Fahrzeuge: rechts fahren, geparkt im Stellplatz
     R.veh.forEach(function (v) {
-      var nx = v.path && v.path[v.pi + 1], off = nx && nx.r ? 3.5 : 0;
-      var x = v.px !== undefined && (v.path || v.state === "curb") ? v.px : v.x - Math.sin(v.h) * off, y = v.py !== undefined && (v.path || v.state === "curb") ? v.py : v.y + Math.cos(v.h) * off;
+      var nx = v.path && v.path[v.pi + 1], off = v.state === "curb" ? 7 : nx && nx.r ? 3.5 : 0;
+      var x = v.state === "curb" ? v.x - Math.sin(v.h) * off : v.px !== undefined && (v.path || v.state === "curb") ? v.px : v.x - Math.sin(v.h) * off, y = v.state === "curb" ? v.y + Math.cos(v.h) * off : v.py !== undefined && v.path ? v.py : v.y + Math.cos(v.h) * off;
       c.save(); c.translate(x, y); c.rotate(v.h);
       if (v.kind === "bus") { c.fillStyle = "#E3B83F"; c.fillRect(-12, -3.5, 24, 7); c.fillStyle = "rgba(20,20,20,.55)"; c.fillRect(-9, -1.5, 18, 1.2); c.fillRect(-9, 0.6, 18, 1.2); }
-      else { c.fillStyle = v.c; c.fillRect(-4, -2, 8, 4); c.fillStyle = "rgba(20,20,20,.35)"; c.fillRect(0.5, -1.6, 2, 3.2); }
+      else { c.fillStyle = v.c; c.fillRect(-4, -2, 8, 4); c.fillStyle = "rgba(20,20,20,.35)"; c.fillRect(0.5, -1.6, 2, 3.2); if (v.kind === "taxi") { c.fillStyle = "#151715"; c.fillRect(-1.5, -0.8, 1.6, 1.6); } }
       c.restore();
     });
     // Fluggäste unterwegs zwischen angedocktem Flugzeug und Terminal
@@ -1433,6 +1490,8 @@
     var tc = termCenter();
     if (tc) pill(c, tc.x, tc.y, "Terminal · " + fmt(t("inTerm"), { n: nf(termPax()) }), "rgba(46,125,91,.92)");
     mods("bus").forEach(function (m) { if (m._road) pill(c, m.x, m.y - 20 / z, fmt(t("waiting"), { n: nf(R.stopW[m.id] || 0) }), "rgba(31,92,79,.9)"); });
+    var tr0 = mods("cab").filter(function (m) { return m._road; });
+    if (tr0.length) pill(c, tr0[0].x, tr0[0].y - 20 / z, "Taxi · " + fmt(t("waiting"), { n: nf(R.tArrTaxi || 0) }), "rgba(154,120,10,.92)");
     R.veh.forEach(function (v) { if (v.kind === "bus" && v.state === "curb") pill(c, v.x, v.y + 12 / z, (v.n || 0) + "/50", "rgba(227,184,63,.95)", "#151715"); });
     mods("park").forEach(function (m) {
       if (!m._road) return;
@@ -1540,6 +1599,12 @@
       for (var rr2 = 0; rr2 < 2; rr2++) for (var i2 = 0; i2 <= 8; i2++) line(c, -w / 2 + 4 + i2 * 8, -h / 2 + 3 + rr2 * 23, -w / 2 + 4 + i2 * 8, -h / 2 + 19 + rr2 * 23);
       c.fillStyle = "#2F6F8F"; c.fillRect(w / 2 - 12, -h / 2 - 5, 10, 10);
       c.fillStyle = "#FFF"; c.font = "700 7px " + FONT; c.fillText("P", w / 2 - 7, -h / 2 + 0.5);
+    } else if (m.t === "cab") {
+      c.fillStyle = "#6A6370"; c.fillRect(-w / 2, -h / 2, w, h);
+      c.strokeStyle = "rgba(242,194,48,.8)"; c.lineWidth = 0.7;
+      for (var tb = 0; tb <= BAYS; tb++) line(c, -w / 2 + 2 + tb * 14.5, -h / 2 + 2, -w / 2 + 2 + tb * 14.5, h / 2 - 2);
+      c.fillStyle = "#F2C230"; c.fillRect(w / 2 - 15, -h / 2 - 6, 14, 7);
+      c.fillStyle = "#151715"; c.font = "700 4.5px " + FONT; c.fillText("TAXI", w / 2 - 8, -h / 2 - 2.3);
     } else if (m.t === "bus") {
       c.fillStyle = "#C9CCC5"; c.fillRect(-w / 2, -h / 2, w, h);
       c.fillStyle = "#8FB3B8"; c.fillRect(-w / 2 + 6, -h / 2 + 4, w - 18, 6);
@@ -1720,6 +1785,7 @@
     if (m.t === "runway") { delete R.rw[m.id]; delete R.q[m.id]; }
     if (m.t === "park" || m.t === "road") { R.veh.filter(function (v) { return v.lot === m.id; }).forEach(dropVeh); delete R.spots[m.id]; }
     if (m.t === "bus") { R.tArrCar += R.stopW[m.id] || 0; delete R.stopW[m.id]; }
+    if (m.t === "cab") { R.veh.filter(function (v) { return v.rank === m.id; }).forEach(dropVeh); delete R.bays[m.id]; }
     V.sel = null; rebuild(); save(); updatePanel(true); updateSel();
   }
 
@@ -1927,7 +1993,7 @@
   }
   var NAMES = { runway: L2("Piste", "Runway"), taxi: L2("Rollweg", "Taxiway"), road: L2("Straße", "Road"), stand: L2("Parkposition", "Aircraft stand"),
     term: L2("Terminalmodul", "Terminal module"), tower: L2("Tower", "Control tower"), fire: L2("Feuerwehr", "Fire station"),
-    hangar: L2("Wartungshalle", "Maintenance hangar"), deck: L2("Aussichtsplattform", "Viewing deck"), park: L2("Parkplatz", "Car park"), bus: L2("Bushaltestelle", "Bus stop") };
+    hangar: L2("Wartungshalle", "Maintenance hangar"), deck: L2("Aussichtsplattform", "Viewing deck"), park: L2("Parkplatz", "Car park"), bus: L2("Bushaltestelle", "Bus stop"), cab: L2("Taxistand", "Taxi rank") };
   function updateSel() {
     var box = document.getElementById("fh-sel"); if (!box) return;
     var m = V.sel && byId(V.sel);
@@ -1958,10 +2024,11 @@
     } else if (LVL[m.t]) {
       info.push(t("lvl") + " " + m.lvl + "/2");
       if (m.lvl < 2) acts.push(btn("lvl", fmt(t("up2"), { n: 2 }) + " · " + eurS(LVL[m.t][0]), false));
-    } else if (m.t === "term" || m.t === "park" || m.t === "bus") {
+    } else if (m.t === "term" || m.t === "park" || m.t === "bus" || m.t === "cab") {
       info.push(m._road ? t("stRoad") : m._acc !== null && m._acc !== undefined ? t("noHw") : t("stNoRoad"));
-      if (m.t === "term") { info.push(fmt(t("termDep"), { n: Math.round(R.tDep) }), fmt(t("termArr"), { n: Math.round(R.tArrBus + R.tArrCar + R.tArrWalk) })); if (landMode() === "walk") info.push(t("noRoadTerm")); }
+      if (m.t === "term") { info.push(fmt(t("termDep"), { n: Math.round(R.tDep) }), fmt(t("termArr"), { n: Math.round(R.tArrBus + R.tArrCar + R.tArrWalk + (R.tArrTaxi || 0)) }), fmt(t("termOut"), { b: Math.round(R.tArrBus), c: Math.round(R.tArrCar + R.tArrWalk), x: Math.round(R.tArrTaxi || 0) })); if (landMode() === "walk") info.push(t("noRoadTerm")); }
       if (m.t === "bus") info.push(fmt(t("stopInfo"), { n: R.stopW[m.id] || 0 }));
+      if (m.t === "cab") info.push(fmt(t("taxiInfo"), { n: Math.round(R.tArrTaxi || 0), k: R.veh.filter(function (v) { return v.rank === m.id && v.state === "taxi"; }).length }));
       if (m.t === "park") info.push(fmt(t("lotInfo"), { a: lotUsed(m), b: LOT }));
     }
     if (!m.hw) acts.push(btn("del", V.delArm ? fmt(t("delQ"), { p: eurS((m.paid || 0) / 2) }) : t("del"), false, true));
