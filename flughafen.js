@@ -5,7 +5,7 @@
   "use strict";
 
   var KEY = "flughafen-v3";
-  var VERSION = "0.4";
+  var VERSION = "0.41";
   var RW_W = 22, TW_W = 14, RD_W = 16;
   var DIVERT = 60;
   var SIZE = { stand: [64, 66], term: [124, 46], tower: [30, 30], fire: [52, 38], hangar: [84, 62], deck: [72, 38], park: [72, 48], bus: [44, 22] };
@@ -28,7 +28,7 @@
     blocked: L2("Hier ist kein Platz.", "There is no room here."),
     divert: L2("weicht aus: zu lange in der Warteschleife.", "diverts: held too long."),
     tip: L2("Tipp: Ist die Piste der Engpass, helfen Tower, Instrumentenlandesystem, schräge Abrollwege und eine zweite Piste.", "Tip: if the runway is the bottleneck, a tower, an ILS, angled exits and a second runway help."),
-    welcome: L2("Leg los: Wähle rechts „Piste“ und setz sie auf die Wiese.", "Get started: pick “Runway” on the right and place it on the field."),
+    welcome: L2("Leg los: Wähle unten im Baumenü „Piste“ und setz sie auf die Wiese.", "Get started: pick “Runway” in the build menu below and place it on the field."),
     maint: L2("Wartung", "Maintenance"),
     unload: L2("Aussteigen", "Unloading"), board: L2("Einsteigen", "Boarding"), clean: L2("Reinigung", "Cleaning"),
     inTerm: L2("{n} Fluggäste", "{n} passengers"), waiting: L2("{n} wartend", "{n} waiting"),
@@ -37,12 +37,12 @@
     lotInfo: L2("Belegt: {a} von {b} Plätzen", "Occupied: {a} of {b} spaces"), lotFull: L2("voll", "full"),
     noRoadTerm: L2("Ohne Straße am Terminal kommen die Fluggäste zu Fuß, Busse und Autos fahren erst mit Straße.", "Without a road at the terminal, passengers walk in; buses and cars need a road."),
     howH: L2("So funktioniert’s", "How it works"),
-    how1: L2("Bauen: Werkzeug rechts wählen, mit der Maus platzieren, Klick zum Bauen. Q und E drehen stufenlos, mit gedrückter Umschalttaste in 15°-Schritten. Die Piste ziehst du mit zwei Klicks: Anfang setzen, dann Richtung und Länge. Je länger, desto teurer, aber desto größere Flugzeuge können landen. Danach zeichnest du Anflug- und Abflugroute. Rollwege und Straßen zieht man Stück für Stück mit Klicks, Rechtsklick oder Esc beendet. Mit O werden neue Stücke zur Einbahn, ein Pfeil in der Mittellinie zeigt die Richtung.",
-              "Building: pick a tool on the right, move it with the mouse, click to build. Q and E rotate freely, with Shift in 15° steps. The runway takes two clicks: set the start, then direction and length. Longer costs more but lets bigger aircraft land. Then you draw the approach and departure routes. Taxiways and roads are drawn piece by piece with clicks; right-click or Esc ends the line. Press O to make new pieces one-way, an arrow in the centre line shows the direction."),
+    how1: L2("Bauen: Werkzeug im Baumenü unten wählen, mit der Maus platzieren, Klick zum Bauen. Q und E drehen stufenlos, mit gedrückter Umschalttaste in 15°-Schritten. Die Piste ziehst du mit zwei Klicks: Anfang setzen, dann Richtung und Länge. Je länger, desto teurer, aber desto größere Flugzeuge können landen. Danach zeichnest du Anflug- und Abflugroute. Rollwege und Straßen zieht man Stück für Stück mit Klicks, Rechtsklick oder Esc beendet. Mit O werden neue Stücke zur Einbahn, ein Pfeil in der Mittellinie zeigt die Richtung.",
+              "Building: pick a tool in the build menu below, move it with the mouse, click to build. Q and E rotate freely, with Shift in 15° steps. The runway takes two clicks: set the start, then direction and length. Longer costs more but lets bigger aircraft land. Then you draw the approach and departure routes. Taxiways and roads are drawn piece by piece with clicks; right-click or Esc ends the line. Press O to make new pieces one-way, an arrow in the centre line shows the direction."),
     how2: L2("Karte: Ziehen auf freier Fläche oder mit rechter Maustaste verschiebt, das Mausrad zoomt, WASD und Pfeiltasten gehen auch. Ein Klick auf etwas Gebautes zeigt Infos, Ausbaustufen und „Abreißen“.",
               "Map: drag on open ground or with the right mouse button to pan, the mouse wheel zooms, WASD and arrow keys work too. Click anything you built for details, upgrades and “Demolish”."),
-    how5: L2("Fluggäste: Ein Flugzeug fasst 120 bis 400 Personen, ein Bus 50, ein Auto 1 bis 3. Ein- und ausgestiegen wird nur, solange das Flugzeug an Gate oder Parkposition steht. Autos und Busse kommen über die Landstraße, die quer über die Karte läuft. Verbinde deine Straßen mit ihr. Autos fahren nicht durcheinander durch, sie stellen sich an, und zu enge Straßen stauen sich.",
-              "Passengers: an aircraft carries 120 to 400 people, a bus 50, a car 1 to 3. Passengers only board and leave while the aircraft is docked at a gate or stand. Cars and buses come in on the country road that crosses the map, so connect your roads to it. Cars don't drive through each other: they queue, and narrow roads jam."),
+    how5: L2("Fluggäste: Ein Flugzeug fasst 120 bis 400 Personen, ein Bus 50, ein Auto 1 bis 4. Ein- und ausgestiegen wird nur, solange das Flugzeug an Gate oder Parkposition steht. Autos und Busse kommen über die Landstraße, die quer über die Karte läuft. Verbinde deine Straßen mit ihr. Autos fahren nicht durcheinander durch, sie stellen sich an, und zu enge Straßen stauen sich. Einbahnstraßen bleiben zweispurig: rechts wird gefahren, links ist ein Streifen mit Schrägparkplätzen, die wie ein Parkplatz Geld bringen.",
+              "Passengers: an aircraft carries 120 to 400 people, a bus 50, a car 1 to 4. Passengers only board and leave while the aircraft is docked at a gate or stand. Cars and buses come in on the country road that crosses the map, so connect your roads to it. Cars don't drive through each other: they queue, and narrow roads jam. One-way roads keep two lanes: traffic uses the right one, the left one becomes angled parking that earns money like a car park."),
     how3: L2("Flugzeuge landen in Pfeilrichtung und verlassen die Piste über deine Rollwege. Eine Parkposition wird nur angeflogen, wenn ein Rollweg direkt davor liegt und Hin- und Rückweg zur Piste bestehen. Flugzeuge weichen einander aus und warten, wenn der Weg blockiert ist. Steht eine Position mit dem Rücken an einem Terminal, kann sie ein Gate bekommen.",
               "Aircraft land in the direction of the arrow and leave the runway via your taxiways. A stand is only used when a taxiway runs right in front of it with a way there from the runway and back. Aircraft keep their distance and wait when the way is blocked. If a stand's back touches a terminal, it can get a gate."),
     how4: L2("Der Spielstand wird nur in deinem Browser gespeichert.", "Your progress is saved only in your browser."),
@@ -73,8 +73,9 @@
     rwArr: L2("Landungen", "Landings"), rwDep: L2("Starts", "Take-offs"), rwBoth: L2("Landungen und Starts", "Landings and take-offs"),
     zoomIn: L2("Hineinzoomen", "Zoom in"), zoomOut: L2("Herauszoomen", "Zoom out"),
     rotL: L2("Nach links drehen (Q)", "Rotate left (Q)"), rotR: L2("Nach rechts drehen (E)", "Rotate right (E)"),
+    stripInfo: L2("Schrägparkplätze: {a} von {b} belegt", "Angled parking: {a} of {b} taken"),
     owOn: L2("Einbahn", "One-way"), owOff: L2("Beide Richtungen", "Two-way"), owRev: L2("Richtung umkehren", "Reverse direction"),
-    owInfo: L2("Einbahn in Pfeilrichtung", "One-way in arrow direction"), twInfo: L2("In beide Richtungen befahrbar", "Usable in both directions"),
+    owInfo: L2("Einbahn in Pfeilrichtung. Bei Straßen wird die linke Spur zum Streifen mit Schrägparkplätzen.", "One-way in arrow direction. On roads the left lane becomes a strip of angled parking."), twInfo: L2("In beide Richtungen befahrbar", "Usable in both directions"),
     owTool: L2("Einbahn für neue Stücke (Taste O)", "One-way for new pieces (key O)"),
     hwName: L2("Landstraße", "Country road"),
     hwInfo: L2("Von hier kommen alle Autos und Busse. Verbinde deine Straßen mit ihr.", "All cars and buses come from here. Connect your roads to it."),
@@ -124,7 +125,7 @@
   }
   // Landstraße quer über die Karte, leicht geschwungen. Von ihren Enden kommen alle Fahrzeuge.
   function addHighway(g, y0, xa, xb) {
-    xa = xa === undefined ? -2600 : xa; xb = xb === undefined ? 2600 : xb;
+    xa = xa === undefined ? -1900 : xa; xb = xb === undefined ? 1900 : xb;
     var n = Math.max(6, Math.round((xb - xa) / 420)), pts = [];
     for (var i = 0; i <= n; i++) { var x = xa + (xb - xa) * i / n; pts.push({ x: x, y: y0 + Math.sin(i * 1.3) * 26 + Math.sin(i * 0.55 + 1) * 40 }); }
     for (var k = 0; k < n; k++) g.mods.push({ t: "road", hw: 1, id: g.nid++, paid: 0, x1: pts[k].x, y1: pts[k].y, x2: pts[k + 1].x, y2: pts[k + 1].y });
@@ -140,8 +141,8 @@
         if (!s.v4) { // Spielstand aus 0.3: Pistenlänge, Landstraße
           s.v4 = 1;
           s.mods.forEach(function (m) { if (m.t === "runway" && !m.len) m.len = s.up.rwy ? 600 : 440; });
-          var y1 = 0, xa = -2600, xb = 2600;
-          s.mods.forEach(function (m) { var ys = m.y2 !== undefined ? [m.y1, m.y2] : [m.y + 60]; ys.forEach(function (y) { y1 = Math.max(y1, y); }); var xs = m.x2 !== undefined ? [m.x1, m.x2] : [m.x]; xs.forEach(function (x) { xa = Math.min(xa, x - 2000); xb = Math.max(xb, x + 2000); }); });
+          var y1 = 0, xa = -1900, xb = 1900;
+          s.mods.forEach(function (m) { var ys = m.y2 !== undefined ? [m.y1, m.y2] : [m.y + 60]; ys.forEach(function (y) { y1 = Math.max(y1, y); }); var xs = m.x2 !== undefined ? [m.x1, m.x2] : [m.x]; xs.forEach(function (x) { xa = Math.min(xa, x - 1500); xb = Math.max(xb, x + 1500); }); });
           addHighway(s, y1 + 300, xa, xb);
           s.legacyRoads = true;
         }
@@ -376,6 +377,22 @@
     // Angebunden heißt: von einem Ende der Landstraße hin und zu einem Ende zurück
     var fwd = rflood(ends, false), bwd = rflood(ends, true);
     ["term", "park", "bus"].forEach(function (k) { mods(k).forEach(function (m) { m._road = m._acc !== null && !!fwd[m._acc] && !!bwd[m._acc]; }); });
+    // Einbahnstraßen: rechte Spur fährt, linke Seite ist ein Streifen mit Schrägparkplätzen
+    mods("road").forEach(function (m) {
+      m._spots = 0; m._park = false;
+      if (!m.ow || m.hw) return;
+      var L = Math.hypot(m.x2 - m.x1, m.y2 - m.y1);
+      m._spots = Math.max(0, Math.floor((L - 30) / 10));
+      m._sN = node(m.x1, m.y1); m._eN = node(m.x2, m.y2);
+      m._park = m._spots > 0 && !!fwd[m._sN] && !!bwd[m._eN];
+    });
+  }
+  // Schrägparkplatz i an einer Einbahnstraße: Mitte, Spurpunkt davor, Blickrichtung
+  function roadSpot(m, i) {
+    var L = Math.hypot(m.x2 - m.x1, m.y2 - m.y1), ux = (m.x2 - m.x1) / L, uy = (m.y2 - m.y1) / L, lx = uy, ly = -ux;
+    var sOff = 15 + i * 10 + 5, h = Math.atan2(uy, ux);
+    var P = function (d, side) { return { x: m.x1 + ux * d + lx * side, y: m.y1 + uy * d + ly * side }; };
+    return { c: P(sOff + 2, 4.3), lane: P(sOff - 9, 0), back: P(sOff - 3, 0), h: h - Math.PI / 4 };
   }
   function rflood(starts, back) {
     var reach = {}, st = starts.slice();
@@ -408,7 +425,7 @@
     }
     if (dd[dst] === undefined) return null;
     var ids = [dst]; while (ids[0] !== src) ids.unshift(prev[ids[0]]);
-    return ids.map(function (k, i) { var e = pe[k]; return { x: RNET.N[k].x, y: RNET.N[k].y, r: i === 0 ? (pe[ids[1]] && !pe[ids[1]].dir ? 1 : 0) : (e && !e.dir ? 1 : 0) }; });
+    return ids.map(function (k) { return { x: RNET.N[k].x, y: RNET.N[k].y, r: 1 }; });   // immer rechts fahren, auch Einbahnen sind zweispurig
   }
 
   function path(src, dst) {
@@ -824,6 +841,7 @@
   function freeLot() {
     var opts = [];
     mods("park").forEach(function (m) { if (!m._road) return; var sp = lotSpots(m); for (var i = 0; i < LOT; i++) if (!sp[i]) opts.push({ m: m, i: i }); });
+    mods("road").forEach(function (m) { if (!m._park) return; var sp = lotSpots(m); for (var i = 0; i < m._spots; i++) if (!sp[i]) opts.push({ m: m, i: i }); });
     return opts.length ? opts[Math.floor(Math.random() * opts.length)] : null;
   }
   var CARS = ["#E7E9E4", "#2B2E2B", "#9A540A", "#5C6E80", "#B33A2E", "#D9D4C5", "#3F6B8F"];
@@ -836,6 +854,13 @@
   function shuffled(a) { a = a.slice(); for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)), x = a[i]; a[i] = a[j]; a[j] = x; } return a; }
   // Weg von einem Ende der Landstraße zur Zufahrt und von dort zu einem Ende zurück
   function spawnFree(p) { return !R.veh.some(function (v) { return (v.path || v.state === "curb") && Math.abs(v.x - p.x) < 20 && Math.abs(v.y - p.y) < 20; }); }
+  function tripVia(a, b) {
+    var ends = shuffled(RNET.ends).filter(function (e) { return spawnFree(RNET.N[e]); }), inP = null, outP = null;
+    for (var i = 0; i < ends.length && !inP; i++) inP = rpath(ends[i], a);
+    ends = shuffled(RNET.ends);
+    for (var k = 0; k < ends.length && !outP; k++) outP = rpath(b, ends[k]);
+    return inP && outP ? { inP: speeds(inP, 20), outP: speeds(outP, 45) } : null;
+  }
   function trip(acc) {
     var ends = shuffled(RNET.ends).filter(function (e) { return spawnFree(RNET.N[e]); }), inP = null, outP = null, e0 = -1;
     for (var i = 0; i < ends.length && !inP; i++) { inP = rpath(ends[i], acc); e0 = ends[i]; }
@@ -845,10 +870,21 @@
     return inP && outP ? { inP: speeds(inP, 10), outP: speeds(outP, 45) } : null;
   }
   // Geschwindigkeit je Punkt: Landstraße 45, sonst 32, am Ende langsam
-  function speeds(pts, endS) { return pts.map(function (p, i) { return { x: p.x, y: p.y, r: p.r, s: i === pts.length - 1 ? endS : 38 }; }); }
+  function speeds(pts, endS) { return pts.map(function (p, i) { return { x: p.x, y: p.y, r: p.r, s: i === pts.length - 1 ? endS : 48 }; }); }
   // Auto bringt (dep) oder holt (arr) n Fluggäste
   function carTrip(n, dir) {
     var lot = freeLot();
+    if (lot && lot.m.t === "road") {   // Schrägparken an der Einbahnstraße
+      var rm = lot.m, sp = roadSpot(rm, lot.i), tv = tripVia(rm._sN, rm._eN); if (!tv) return false;
+      lotSpots(rm)[lot.i] = true;
+      var rv = vehicle("car", tv.inP.concat([{ x: sp.lane.x, y: sp.lane.y, s: 10, r: 1 }, { x: sp.c.x, y: sp.c.y, s: 5 }]), function () {
+        rv.h = sp.h; rv.state = "parked";
+        if (dir === "dep") { R.tDep += n; rv.stay = 70 + Math.random() * 90; }
+        else { var k = Math.min(n, R.tArrCar); R.tArrCar -= k; R.pickRes -= n; rv.n = k; rv.stay = 5 + Math.random() * 6; }
+      });
+      rv.lot = rm.id; rv.spot = lot.i; rv.back = [sp.c, { x: sp.back.x, y: sp.back.y, r: 1 }].concat(tv.outP);
+      return true;
+    }
     if (lot) {
       var m = lot.m, tr = trip(m._acc); if (!tr) return false;
       var E = lotEntry(m), S = spotPos(m, lot.i);
@@ -1237,8 +1273,13 @@
       var l = Math.hypot(m.x2 - m.x1, m.y2 - m.y1), a = Math.atan2(m.y2 - m.y1, m.x2 - m.x1);
       c.save(); c.translate(m.x1, m.y1); c.rotate(a);
       if (m.hw) { c.strokeStyle = "rgba(255,255,255,.7)"; c.lineWidth = 0.8; line(c, 0, -RD_W / 2 + 1.5, l, -RD_W / 2 + 1.5); line(c, 0, RD_W / 2 - 1.5, l, RD_W / 2 - 1.5); }
-      if (m.ow) arrows(c, l, "rgba(255,255,255,.75)", 3);
-      else { c.strokeStyle = "rgba(255,255,255,.55)"; c.lineWidth = 0.8; c.setLineDash([6, 6]); line(c, 0, 0, l, 0); c.setLineDash([]); }
+      if (m.ow) {
+        c.strokeStyle = "rgba(255,255,255,.55)"; c.lineWidth = 0.6;
+        var ns = m._spots || 0;
+        for (var k = 0; k <= ns; k++) { var sx = 15 + k * 10; line(c, sx, -0.6, sx + 7, -RD_W / 2 + 0.6); }
+        if (ns) { c.setLineDash([3, 3]); line(c, 15, -0.6, 15 + ns * 10, -0.6); c.setLineDash([]); }
+        c.save(); c.translate(0, 3.5); arrows(c, l, "rgba(255,255,255,.8)", 2.6); c.restore();
+      } else { c.strokeStyle = "rgba(255,255,255,.55)"; c.lineWidth = 0.8; c.setLineDash([6, 6]); line(c, 0, 0, l, 0); c.setLineDash([]); }
       c.restore();
     });
     // 3. Rollwege, dann Pisten
@@ -1677,7 +1718,7 @@
     G.mods.splice(G.mods.indexOf(m), 1);
     G.money += Math.round((m.paid || 0) / 2);
     if (m.t === "runway") { delete R.rw[m.id]; delete R.q[m.id]; }
-    if (m.t === "park") { R.veh.filter(function (v) { return v.lot === m.id; }).forEach(dropVeh); delete R.spots[m.id]; }
+    if (m.t === "park" || m.t === "road") { R.veh.filter(function (v) { return v.lot === m.id; }).forEach(dropVeh); delete R.spots[m.id]; }
     if (m.t === "bus") { R.tArrCar += R.stopW[m.id] || 0; delete R.stopW[m.id]; }
     V.sel = null; rebuild(); save(); updatePanel(true); updateSel();
   }
@@ -1745,7 +1786,7 @@
       keys[k] = down && !e.shiftKey; return;
     }
     if (["w", "a", "s", "d", "arrowup", "arrowdown", "arrowleft", "arrowright"].indexOf(k) >= 0) {
-      if (!V.stage.contains(document.activeElement) && document.activeElement !== V.stage) return;
+      if (!V.stage.contains(document.activeElement) && document.activeElement !== V.stage && document.activeElement !== document.body) return;
       e.preventDefault(); keys[k] = down;
     }
   }
@@ -1760,72 +1801,98 @@
   }
 
   // ---------- Oberfläche ----------
-  var CSS = ".fh-hud{display:grid;grid-template-columns:repeat(auto-fit,minmax(118px,1fr));gap:12px 16px;margin:22px 0 0;padding:16px 0;border-block:1px solid var(--line)}" +
-    ".fh-hud div{display:flex;flex-direction:column;min-width:0}.fh-hud dt{font-size:.85rem;color:var(--soft)}" +
-    ".fh-hud dd{margin:0;font:600 1.6rem/1.2 var(--f-display);font-variant-numeric:tabular-nums;white-space:nowrap}" +
-    ".fh-hud .warn dd{color:var(--accent)}" +
-    ".fh-rank{margin:6px 0 0;color:var(--accent);font-weight:600}" +
-    ".fh-ver{display:inline-block;margin-left:10px;padding:1px 8px;border:1px solid var(--line);border-radius:999px;font:600 .75rem var(--f-body);color:var(--soft);vertical-align:middle;letter-spacing:0}" +
-    ".fh-main{display:grid;grid-template-columns:minmax(0,1fr);gap:16px;margin-top:20px}" +
-    "@media (min-width:900px){.fh-main{grid-template-columns:minmax(0,1fr) 290px;align-items:start}}" +
-    ".fh-stage{position:relative;height:clamp(460px,70vh,780px);border-radius:6px;overflow:hidden;background:#B9C2A2;outline:none;touch-action:none}" +
-    ".fh-stage:focus-visible{box-shadow:0 0 0 2px var(--accent)}" +
-    ".fh-stage canvas{display:block;width:100%;height:100%}" +
-    ".fh-hint{position:absolute;left:10px;top:10px;right:10px;pointer-events:none;display:flex}" +
-    ".fh-hint span{background:rgba(21,23,21,.78);color:#F4F1EC;font:500 .82rem/1.35 var(--f-body);padding:6px 10px;border-radius:8px;max-width:100%}" +
-    ".fh-ctl{position:absolute;right:10px;bottom:10px;display:flex;gap:6px}" +
-    ".fh-ctl button{width:36px;height:36px;border-radius:50%;border:0;background:rgba(21,23,21,.78);color:#F4F1EC;font:600 1.1rem/1 var(--f-body);cursor:pointer}" +
-    ".fh-ctl button:hover{background:#151715}.fh-ctl button[aria-pressed=true]{background:#E3B83F;color:#151715}" +
-    ".fh-side{display:flex;flex-direction:column;gap:14px;min-width:0}" +
-    ".fh-sel{border:1px solid var(--line);border-radius:14px;padding:12px 14px;min-height:64px}" +
-    ".fh-sel b{display:block;font-weight:600}.fh-sel p{margin:4px 0 0;color:var(--soft);font-size:.9rem;line-height:1.45}" +
+  var CSS = ".fh-full{position:fixed;inset:0;z-index:70;overflow:hidden;background:#B9C2A2;color:#F4F1EC;font-family:var(--f-body,system-ui,sans-serif);outline:none;touch-action:none;--top:52px;--dock:120px}" +
+    ".fh-full canvas{position:absolute;inset:0;width:100%;height:100%;display:block}" +
+    ".fh-full button{font-family:inherit;border-radius:0}" +
+    ".fh-panel{background:rgba(21,23,21,.86);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px)}" +
+    ".fh-top{position:absolute;left:0;right:0;top:0;display:flex;align-items:center;flex-wrap:wrap;gap:6px 18px;padding:8px max(14px,env(safe-area-inset-right)) 8px max(14px,env(safe-area-inset-left));padding-top:calc(8px + env(safe-area-inset-top,0px))}" +
+    ".fh-back{color:#F4F1EC;text-decoration:none;font-weight:600;font-size:.9rem;white-space:nowrap}.fh-back:hover{text-decoration:underline}" +
+    ".fh-title{display:flex;flex-direction:column;min-width:0;margin-right:auto}" +
+    ".fh-title b{font:600 1.15rem/1.1 var(--f-display,inherit);white-space:nowrap}.fh-title b span{font:600 .7rem var(--f-body,inherit);border:1px solid rgba(244,241,236,.35);padding:0 6px;margin-left:8px;vertical-align:middle}" +
+    ".fh-title small{color:#E3B83F;font-weight:600;font-size:.8rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}" +
+    ".fh-hud{display:flex;gap:4px 18px;margin:0;flex-wrap:wrap}.fh-hud div{display:flex;flex-direction:column;min-width:0}" +
+    ".fh-hud dt{font-size:.7rem;color:rgba(244,241,236,.65);letter-spacing:.04em;text-transform:uppercase}" +
+    ".fh-hud dd{margin:0;font:600 1.05rem/1.2 var(--f-display,inherit);font-variant-numeric:tabular-nums;white-space:nowrap}.fh-hud .warn dd{color:#F0A848}" +
+    ".fh-run{display:flex;gap:4px;align-items:center}" +
+    ".fh-run button{font:600 .82rem/1 inherit;padding:7px 10px;border:1px solid rgba(244,241,236,.3);background:transparent;color:#F4F1EC;cursor:pointer}" +
+    ".fh-run button[aria-pressed=true]{background:#F4F1EC;color:#151715;border-color:#F4F1EC}" +
+    ".fh-dock{position:absolute;left:0;right:0;bottom:0;padding:6px max(10px,env(safe-area-inset-right)) calc(10px + env(safe-area-inset-bottom,0px)) max(10px,env(safe-area-inset-left))}" +
+    ".fh-tabs{display:flex;gap:2px;overflow-x:auto;scrollbar-width:none}" +
+    ".fh-tab{font:600 .85rem inherit;padding:7px 14px;border:0;background:transparent;color:rgba(244,241,236,.7);cursor:pointer;white-space:nowrap;border-bottom:2px solid transparent}" +
+    ".fh-tab[aria-selected=true]{color:#F4F1EC;border-bottom-color:#E3B83F}" +
+    ".fh-tools{display:flex;gap:6px;overflow-x:auto;padding-top:8px;scrollbar-width:thin}" +
+    ".fh-tool{flex:0 0 auto;width:156px;display:flex;flex-direction:column;align-items:flex-start;gap:2px;text-align:left;color:#F4F1EC;background:rgba(244,241,236,.06);border:1px solid rgba(244,241,236,.18);padding:8px 10px;cursor:pointer}" +
+    ".fh-tool b{font-weight:600;font-size:.88rem;line-height:1.2}.fh-tool em{font-style:normal;font-size:.76rem;color:#E3B83F;font-weight:600;font-variant-numeric:tabular-nums;line-height:1.25}" +
+    ".fh-tool:hover:not([aria-disabled=true]){border-color:#F4F1EC}" +
+    ".fh-tool[aria-pressed=true]{background:#E3B83F;color:#151715;border-color:#E3B83F}.fh-tool[aria-pressed=true] em{color:#151715}" +
+    ".fh-tool[aria-disabled=true]{opacity:.45;cursor:default}.fh-tool[aria-disabled=true] em{color:rgba(244,241,236,.7)}" +
+    ".fh-grp{display:none}.fh-grp.on{display:flex}" +
+    ".fh-sel{position:absolute;right:max(12px,env(safe-area-inset-right));top:calc(var(--top) + 10px);width:min(300px,calc(100% - 24px));padding:12px 14px;max-height:calc(100% - var(--top) - var(--dock) - 30px);overflow:auto}" +
+    ".fh-sel b{display:block;font-weight:600}.fh-sel p{margin:4px 0 0;color:rgba(244,241,236,.75);font-size:.86rem;line-height:1.45}" +
     ".fh-sel .acts{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}" +
-    ".fh-sel .acts button{font:600 .82rem var(--f-body);padding:6px 12px;border-radius:999px;border:1px solid var(--ink);background:transparent;color:var(--ink);cursor:pointer}" +
-    ".fh-sel .acts button.warn{border-color:var(--accent);color:var(--accent)}" +
-    ".fh-sel .acts button[aria-disabled=true]{opacity:.45;cursor:default}" +
-    ".fh-g{font:600 1.15rem/1.2 var(--f-display);color:var(--accent);margin:4px 0 6px}" +
-    ".fh-tools{display:grid;grid-template-columns:1fr 1fr;gap:6px}" +
-    ".fh-tool{display:flex;flex-direction:column;align-items:flex-start;gap:2px;text-align:left;font:inherit;color:var(--ink);background:transparent;border:1px solid var(--line);border-radius:10px;padding:8px 10px;cursor:pointer;min-width:0}" +
-    ".fh-tool b{font-weight:600;font-size:.88rem;line-height:1.2}.fh-tool em{font-style:normal;font-size:.78rem;color:var(--accent);font-weight:600;font-variant-numeric:tabular-nums}" +
-    ".fh-tool:hover:not([aria-disabled=true]){border-color:var(--ink)}" +
-    ".fh-tool[aria-pressed=true]{background:var(--ink);color:var(--bg);border-color:var(--ink)}.fh-tool[aria-pressed=true] em{color:inherit}" +
-    ".fh-tool[aria-disabled=true]{opacity:.5;cursor:default}.fh-tool[aria-disabled=true] em{color:var(--soft)}" +
-    ".fh-bar{display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px;margin-top:14px}" +
-    ".fh-msg{margin:12px 0 0;min-height:1.6em;color:var(--soft)}.fh-msg.good{color:var(--accent);font-weight:600}" +
-    ".fh-reset[data-armed]{background:var(--accent);border-color:var(--accent);color:var(--bg)}";
+    ".fh-sel .acts button{font:600 .8rem inherit;padding:6px 10px;border:1px solid rgba(244,241,236,.5);background:transparent;color:#F4F1EC;cursor:pointer}" +
+    ".fh-sel .acts button.warn{border-color:#F0A848;color:#F0A848}.fh-sel .acts button[aria-disabled=true]{opacity:.45;cursor:default}" +
+    ".fh-hint{position:absolute;left:max(12px,env(safe-area-inset-left));top:calc(var(--top) + 10px);max-width:min(560px,calc(100% - 340px));pointer-events:none}" +
+    ".fh-hint span{display:inline-block;background:rgba(21,23,21,.78);font:500 .82rem/1.35 inherit;padding:6px 10px}" +
+    ".fh-ctl{position:absolute;right:max(12px,env(safe-area-inset-right));bottom:calc(var(--dock) + 12px);display:flex;gap:6px}" +
+    ".fh-ctl button{width:38px;height:38px;border:0;background:rgba(21,23,21,.82);color:#F4F1EC;font:600 1.1rem/1 inherit;cursor:pointer}" +
+    ".fh-ctl button:hover{background:#151715}.fh-ctl button[aria-pressed=true]{background:#E3B83F;color:#151715}" +
+    ".fh-msg{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(var(--dock) + 14px);max-width:min(640px,calc(100% - 140px));margin:0;padding:8px 14px;font-size:.88rem;line-height:1.4;text-align:center;pointer-events:none}" +
+    ".fh-msg:empty{display:none}.fh-msg.good{color:#E3B83F;font-weight:600}" +
+    ".fh-help{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(620px,calc(100% - 32px));max-height:calc(100% - var(--top) - var(--dock) - 30px);overflow:auto;padding:18px 22px}" +
+    ".fh-help h2{font:600 1.3rem var(--f-display,inherit);margin:0 0 8px}.fh-help p{margin:8px 0;color:rgba(244,241,236,.85);font-size:.9rem;line-height:1.5}" +
+    ".fh-help .row{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}" +
+    ".fh-help button{font:600 .85rem inherit;padding:8px 14px;border:1px solid rgba(244,241,236,.5);background:transparent;color:#F4F1EC;cursor:pointer}" +
+    ".fh-reset[data-armed]{background:#C2412D!important;border-color:#C2412D!important}" +
+    ".fh-full [hidden]{display:none!important}" +
+    "@media (max-width:760px){.fh-hud dd{font-size:.92rem}.fh-hint{max-width:calc(100% - 24px)}.fh-sel{top:auto;bottom:calc(var(--dock) + 60px)}}";
 
   function injectCSS() {
     var old = document.getElementById("fh-css"); if (old) old.remove();
     var s = document.createElement("style"); s.id = "fh-css"; s.textContent = CSS; document.head.appendChild(s);
   }
+  var GRPS = ["air", "term", "land", "ops", "up"];
   function html() {
     function st(id) { return '<div id="fh-w-' + id + '"><dt>' + t(id) + '</dt><dd id="fh-' + id + '"></dd></div>'; }
+    var tabs = GRPS.map(function (g) { return '<button type="button" class="fh-tab" role="tab" data-tab="' + g + '" aria-selected="false">' + TX.grp[g][lang] + "</button>"; }).join("");
     var groups = ["air", "term", "land", "ops"].map(function (g) {
-      return '<div><h3 class="fh-g">' + TX.grp[g][lang] + '</h3><div class="fh-tools">' +
-        BUILD.filter(function (b) { return b.g === g; }).map(function (b) {
-          return '<button type="button" class="fh-tool" data-tool="' + b.id + '" aria-pressed="false" title="' + b.desc[lang] + '"><b>' + b.name[lang] + '</b><em id="fh-c-' + b.id + '"></em></button>';
-        }).join("") + "</div></div>";
+      return '<div class="fh-tools fh-grp" data-grp="' + g + '">' + BUILD.filter(function (b) { return b.g === g; }).map(function (b) {
+        return '<button type="button" class="fh-tool" data-tool="' + b.id + '" aria-pressed="false" title="' + b.desc[lang] + '"><b>' + b.name[lang] + '</b><em id="fh-c-' + b.id + '"></em></button>';
+      }).join("") + "</div>";
     }).join("");
-    var ups = '<div><h3 class="fh-g">' + TX.grp.up[lang] + '</h3><div class="fh-tools">' + UPS.map(function (u) {
+    var ups = '<div class="fh-tools fh-grp" data-grp="up">' + UPS.map(function (u) {
       return '<button type="button" class="fh-tool" data-up="' + u.id + '" title="' + u.desc[lang] + '"><b>' + u.name[lang] + '</b><em id="fh-u-' + u.id + '"></em></button>';
-    }).join("") + "</div></div>";
-    return '<h1 class="ptitle">' + t("title") + '<span class="fh-ver">v' + VERSION + '</span></h1><p class="pintro">' + t("intro") + "</p>" +
-      '<p class="fh-rank" id="fh-rank"></p>' +
+    }).join("") + "</div>";
+    return '<div class="fh-full" id="fh-stage" tabindex="0" aria-label="' + t("title") + '"><canvas id="fh-cv"></canvas>' +
+      '<div class="fh-top fh-panel" id="fh-top"><a class="fh-back" href="#">' + (lang === "de" ? "← Apps" : "← Apps") + '</a>' +
+      '<div class="fh-title"><b>' + t("title") + "<span>v" + VERSION + '</span></b><small id="fh-rank"></small></div>' +
       '<dl class="fh-hud">' + st("money") + st("rep") + st("moves") + st("pax") + st("hold") + "</dl>" +
-      '<div class="fh-main"><div>' +
-      '<div class="fh-stage" id="fh-stage" tabindex="0" aria-label="' + t("title") + '"><canvas id="fh-cv"></canvas>' +
+      '<div class="fh-run" role="group" aria-label="' + t("speed") + '">' + [1, 2, 4].map(function (v) { return '<button type="button" data-fhspeed="' + v + '" aria-pressed="false">' + v + "×</button>"; }).join("") +
+      '<button type="button" data-fhpause aria-pressed="false"></button><button type="button" data-fhhelp aria-pressed="false" title="' + t("howH") + '">?</button></div></div>' +
       '<div class="fh-hint"><span id="fh-hint"></span></div>' +
-      '<div class="fh-ctl"><button type="button" data-ow hidden title="' + t("owTool") + '" aria-label="' + t("owTool") + '">⇄</button><button type="button" class="rot" data-rot="-1" title="' + t("rotL") + '" aria-label="' + t("rotL") + '">⟲</button>' +
+      '<div class="fh-sel fh-panel" id="fh-sel" hidden></div>' +
+      '<div class="fh-ctl"><button type="button" data-ow hidden title="' + t("owTool") + '" aria-label="' + t("owTool") + '">⇄</button>' +
+      '<button type="button" class="rot" data-rot="-1" title="' + t("rotL") + '" aria-label="' + t("rotL") + '">⟲</button>' +
       '<button type="button" class="rot" data-rot="1" title="' + t("rotR") + '" aria-label="' + t("rotR") + '">⟳</button>' +
       '<button type="button" data-zoom="-1" title="' + t("zoomOut") + '" aria-label="' + t("zoomOut") + '">−</button>' +
-      '<button type="button" data-zoom="1" title="' + t("zoomIn") + '" aria-label="' + t("zoomIn") + '">+</button></div></div>' +
-      '<div class="fh-bar"><span class="lbl">' + t("speed") + '</span><div class="seg" role="group" aria-label="' + t("speed") + '">' +
-      [1, 2, 4].map(function (v) { return '<button type="button" data-fhspeed="' + v + '" aria-pressed="false">' + v + "×</button>"; }).join("") +
-      '</div><button type="button" class="navbtn" data-fhpause aria-pressed="false"></button></div>' +
-      '<p class="fh-msg" id="fh-msg" aria-live="polite"></p></div>' +
-      '<aside class="fh-side"><div class="fh-sel" id="fh-sel"></div>' + groups + ups + "</aside></div>" +
-      '<section class="phow"><h2>' + t("howH") + "</h2><p>" + t("how1") + "</p><p>" + t("how2") + "</p><p>" + t("how3") + "</p><p>" + t("how5") + "</p><p>" + t("how4") + "</p>" +
-      '<button type="button" class="navbtn fh-reset" data-fhreset>' + t("reset") + "</button></section>";
+      '<button type="button" data-zoom="1" title="' + t("zoomIn") + '" aria-label="' + t("zoomIn") + '">+</button></div>' +
+      '<p class="fh-msg fh-panel" id="fh-msg" aria-live="polite"></p>' +
+      '<div class="fh-help fh-panel" id="fh-help" hidden><h2>' + t("howH") + "</h2><p>" + t("how1") + "</p><p>" + t("how2") + "</p><p>" + t("how3") + "</p><p>" + t("how5") + "</p><p>" + t("how4") + "</p>" +
+      '<div class="row"><button type="button" data-fhhelp>' + (lang === "de" ? "Schließen" : "Close") + '</button><button type="button" class="fh-reset" data-fhreset>' + t("reset") + "</button></div></div>" +
+      '<div class="fh-dock fh-panel" id="fh-dock"><div class="fh-tabs" role="tablist">' + tabs + "</div>" + groups + ups + "</div></div>";
+  }
+  function setTab(g) {
+    V.tab = g;
+    Array.prototype.forEach.call(V.root.querySelectorAll("[data-tab]"), function (b) { b.setAttribute("aria-selected", String(b.getAttribute("data-tab") === g)); });
+    Array.prototype.forEach.call(V.root.querySelectorAll("[data-grp]"), function (d) { d.classList.toggle("on", d.getAttribute("data-grp") === g); });
+    layoutVars();
+  }
+  // Höhe von Kopfleiste und Baumenü an die Karte weitergeben, damit Hinweise und Knöpfe nicht darunter liegen
+  function layoutVars() {
+    if (!V) return;
+    var top = V.root.querySelector("#fh-top"), dock = V.root.querySelector("#fh-dock");
+    if (top) V.stage.style.setProperty("--top", top.offsetHeight + "px");
+    if (dock) V.stage.style.setProperty("--dock", dock.offsetHeight + "px");
   }
 
   var lastSig = "";
@@ -1864,7 +1931,8 @@
   function updateSel() {
     var box = document.getElementById("fh-sel"); if (!box) return;
     var m = V.sel && byId(V.sel);
-    if (!m) { box.innerHTML = '<p>' + t("selNone") + "</p>"; return; }
+    if (!m) { box.hidden = true; box.innerHTML = ""; return; }
+    box.hidden = false;
     var info = [], acts = [];
     function btn(a, label, dis, warn) { return '<button type="button" data-act="' + a + '"' + (warn ? ' class="warn"' : "") + ' aria-disabled="' + dis + '">' + label + "</button>"; }
     if (m.t === "stand") {
@@ -1883,6 +1951,7 @@
       if (m.hw) { info.push(t("hwInfo")); }
       else {
         info.push(m.ow ? t("owInfo") : t("twInfo"));
+        if (m.t === "road" && m.ow) info.push(fmt(t("stripInfo"), { a: lotUsed(m), b: m._spots || 0 }) + (m._park ? "" : " · " + t("noHw")));
         acts.push(btn("ow", m.ow ? t("owOff") : t("owOn"), false));
         if (m.ow) acts.push(btn("rev", t("owRev"), false));
       }
@@ -1923,6 +1992,9 @@
   }
 
   function onClick(e) {
+    var tab = e.target.closest("[data-tab]");
+    if (tab) { setTab(tab.getAttribute("data-tab")); return; }
+    if (e.target.closest("[data-fhhelp]")) { var hb = V.root.querySelector("#fh-help"); hb.hidden = !hb.hidden; return; }
     var tb = e.target.closest("[data-tool]");
     if (tb) {
       var id = tb.getAttribute("data-tool");
@@ -1967,7 +2039,7 @@
       if (r.hasAttribute("data-armed")) {
         G = fresh(); R = runtime(); R.first = false; rebuild(); save();
         r.removeAttribute("data-armed"); r.textContent = t("reset");
-        V.sel = null; fitView(); setTool(null); updateBar(); msg(t("welcome"), true);
+        V.sel = null; fitView(); setTool(null); updateBar(); msg(t("welcome"), true); V.root.querySelector("#fh-help").hidden = true;
       } else {
         r.setAttribute("data-armed", ""); r.textContent = t("resetQ");
         setTimeout(function () { if (r.isConnected) { r.removeAttribute("data-armed"); r.textContent = t("reset"); } }, 4000);
@@ -1985,7 +2057,7 @@
     if (!R.paused) { var g = dt * R.speed; while (g > 0) { var d = Math.min(0.05, g); tick(d); g -= d; } }
     if (R.msgT > 0) { R.msgT -= dt; if (R.msgT <= 0) msg(""); }
     R.saveT += dt; if (R.saveT > 4) { R.saveT = 0; save(); }
-    hudT += dt; if (hudT > 0.25) { hudT = 0; updatePanel(); }
+    hudT += dt; if (hudT > 0.25) { hudT = 0; updatePanel(); layoutVars(); }
     draw();
   }
 
@@ -1995,7 +2067,7 @@
     if (!ms.length) { V.cam = { x: 0, y: 120 }; V.zoom = 1; return; }
     ms.forEach(function (m) { corners(foot(m)).forEach(function (p) { x0 = Math.min(x0, p.x); y0 = Math.min(y0, p.y); x1 = Math.max(x1, p.x); y1 = Math.max(y1, p.y); }); });
     V.cam = { x: (x0 + x1) / 2, y: (y0 + y1) / 2 };
-    var W = V.stage.clientWidth || 800, H = V.stage.clientHeight || 500;
+    var W = V.stage.clientWidth || 800, H = (V.stage.clientHeight || 500) - 180;
     V.zoom = Math.max(0.3, Math.min(1.4, Math.min(W / (x1 - x0 + 200), H / (y1 - y0 + 200))));
   }
 
@@ -2007,7 +2079,10 @@
     rebuild();
     injectCSS();
     el.innerHTML = html();
-    V = { root: el, stage: el.querySelector("#fh-stage"), cv: el.querySelector("#fh-cv"), cam: { x: 0, y: 0 }, zoom: 1, ang: 0, tool: null, ghost: null, sel: null, mouse: null, W: 800, H: 500, rotHold: 0 };
+    V = { root: el, stage: el.querySelector("#fh-stage"), cv: el.querySelector("#fh-cv"), cam: { x: 0, y: 0 }, zoom: 1, ang: 0, tool: null, ghost: null, sel: null, mouse: null, W: 800, H: 500, rotHold: 0, ov: document.body.style.overflow };
+    document.body.style.overflow = "hidden";
+    setTab("air"); window.addEventListener("resize", layoutVars);
+    V.stage.focus({ preventScroll: true });
     V.ctx = V.cv.getContext("2d");
     fitView();
     el.addEventListener("click", onClick);
@@ -2034,6 +2109,8 @@
       window.removeEventListener("pointerup", onRotUp);
       window.removeEventListener("keydown", onKey);
       window.removeEventListener("keyup", onKey);
+      window.removeEventListener("resize", layoutVars);
+      document.body.style.overflow = V.ov || "";
       V = null;
     }
     keys = {};
