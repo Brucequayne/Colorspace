@@ -3,7 +3,7 @@
 (function () {
   "use strict";
 
-  var VERSION = "0.22", RATES = [5, 15, 30];
+  var VERSION = "0.5", RATES = [5, 15, 30];
   var lang = "de";
   function L2(de, en) { return { de: de, en: en }; }
 
@@ -27,6 +27,11 @@
     tool: L2("Werkzeug", "Tool"),
     pen: L2("Stift", "Pen"), brush: L2("Pinsel", "Brush"), spray: L2("Spraydose", "Spray can"), eraser: L2("Radierer", "Eraser"),
     size: L2("Größe", "Size"), opacity: L2("Deckkraft", "Opacity"), smooth: L2("Glättung", "Smoothing"), hard: L2("Härte", "Hardness"),
+    crayon: L2("Wachsmalkreide", "Wax crayon"), crayonS: L2("Kreide", "Crayon"), grain: L2("Körnung", "Grain"),
+    ptype: L2("Pinseltyp", "Brush type"), tStroke: L2("Pinsel", "Brush"), tSpray: L2("Spray", "Spray"), tCrayon: L2("Wachsmalkreide", "Wax crayon"),
+    mpBatchDone: L2("Magic Paint in {n} Frames übernommen.", "Magic Paint applied to {n} frames."),
+    mpNext: L2("Für alle folgenden Frames übernehmen", "Apply to all following frames"), mpAll: L2("Auf alle Frames anwenden", "Apply to all frames"),
+    mpBatchNote: L2("Zeichnet jeden Frame mit dieser festen Palette nach, ohne einzeln zu bestätigen. Rechne mit etwa einer bis zwei Sekunden pro Frame. Schon damit bemalte Frames werden übersprungen.", "Redraws every frame with this fixed palette without confirming each one. Expect about one to two seconds per frame. Frames already painted with it are skipped."),
     density: L2("Dichte", "Density"), drop2: L2("Tropfengröße", "Droplet size"),
     smoothNote: L2("Glättung zieht den Strich weich hinter der Maus her, Zittern verschwindet.", "Smoothing lets the stroke trail softly behind the mouse, so jitter disappears."),
     fps: L2("Bildrate", "Frame rate"), fpsLock: L2("Die Bildrate lässt sich nur ändern, solange noch nichts gemalt ist.", "The frame rate can only be changed while nothing is painted yet."),
@@ -73,7 +78,7 @@
     mpSaved: L2("Magic-Paint-Palette in Slot {n} gespeichert.", "Magic Paint palette saved to slot {n}."),
     mpSlotsNote: L2("Slots merken sich Palette, Strichmuster und Regler für diese Sitzung. „Speichern“ geht, solange Magic Paint offen ist.", "Slots keep palette, stroke pattern and sliders for this session. “Save” works while Magic Paint is open."),
     mpWidth: L2("Strichstärke (Basis)", "Stroke width (base)"), mpAngle: L2("Winkel (Basis)", "Angle (base)"),
-    keys: L2("Tasten: C Pipette · Q Quickpaint · M Magic Paint · D halten: Bemalung ausblenden · P Stift · B Pinsel · S Spray · E Radierer · ← → Frame · Leertaste Abspielen · [ ] Größe · Strg+Z Rückgängig", "Keys: C picker · Q Quickpaint · M Magic Paint · hold D: hide painting · P pen · B brush · S spray · E eraser · ← → frame · Space play · [ ] size · Ctrl+Z undo"),
+    keys: L2("Tasten: C Pipette · Q Quickpaint · M Magic Paint · D halten: Bemalung ausblenden · P Stift · B Pinsel · S Spray · W Wachsmalkreide · E Radierer · ← → Frame · Leertaste Abspielen · [ ] Größe · Strg+Z Rückgängig", "Keys: C picker · Q Quickpaint · M Magic Paint · hold D: hide painting · P pen · B brush · S spray · W wax crayon · E eraser · ← → frame · Space play · [ ] size · Ctrl+Z undo"),
     howH: L2("So funktioniert’s", "How it works"),
     how1: L2("Das Video wird in Frames zerlegt, je nach Bildrate 5, 15 oder 30 pro Sekunde. Jeder Frame hat seine eigene Malebene. Mit den Pfeilen springst du von Frame zu Frame, und in jedem Frame siehst du genau das, was du dort gemalt hast. Mit „Framepaint vom letzten Frame übernehmen“ holst du die Zeichnung des vorherigen Frames, um sie für die Animation nur leicht anzupassen. Die Zwiebelhaut zeigt den letzten Frame blass darunter.",
               "The video is split into frames, 5, 15 or 30 per second depending on the frame rate. Each frame has its own paint layer. The arrows jump from frame to frame, and each frame shows exactly what you painted there. “Copy paint from previous frame” brings over the drawing of the frame before, so you only adjust it slightly for the animation. Onion skin shows the previous frame faintly underneath."),
@@ -97,13 +102,15 @@
     pen:    { key: "p", set: { size: 4, opacity: 100, smooth: 40 } },
     brush:  { key: "b", set: { size: 26, opacity: 80, smooth: 40, hard: 35 } },
     spray:  { key: "s", set: { size: 50, opacity: 100, smooth: 20, density: 45, drop: 2 } },
+    crayon: { key: "w", set: { size: 22, opacity: 100, smooth: 30, grain: 55 } },
     eraser: { key: "e", set: { size: 30, opacity: 100, smooth: 30, hard: 70 } }
   };
-  var RANGES = { size: [1, 200, "px"], opacity: [1, 100, " %"], smooth: [0, 95, " %"], hard: [0, 100, " %"], density: [1, 100, " %"], drop: [1, 8, "px"] };
+  var RANGES = { size: [1, 200, "px"], opacity: [1, 100, " %"], smooth: [0, 95, " %"], hard: [0, 100, " %"], density: [1, 100, " %"], drop: [1, 8, "px"], grain: [0, 100, " %"] };
   var ICONS = {
     pen: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20 L6 14 L16 4 L20 8 L10 18 Z" fill="none" stroke="currentColor" stroke-width="2"/><path d="M4 20 L6 14 L10 18 Z" fill="currentColor"/></svg>',
     brush: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3 L21 10 L13 14 L10 11 Z" fill="currentColor"/><path d="M10 12 C6 12 6 17 3 21 C8 21 12 19 12 15" fill="none" stroke="currentColor" stroke-width="2"/></svg>',
     spray: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="8" height="12" fill="none" stroke="currentColor" stroke-width="2"/><rect x="11" y="5" width="4" height="4" fill="currentColor"/><rect x="3" y="4" width="2" height="2" fill="currentColor"/><rect x="5" y="8" width="2" height="2" fill="currentColor"/><rect x="2" y="10" width="2" height="2" fill="currentColor"/><rect x="6" y="3" width="2" height="2" fill="currentColor"/></svg>',
+    crayon: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 19 L4 15 L14 5 L19 10 L9 20 Z" fill="none" stroke="currentColor" stroke-width="2"/><path d="M5 19 L4 15 L7 12 L12 17 L9 20 Z" fill="currentColor"/><path d="M14 5 L16 3 L21 8 L19 10" fill="none" stroke="currentColor" stroke-width="2"/></svg>',
     eraser: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 15 L12 6 L19 13 L12 20 L8 20 Z" fill="none" stroke="currentColor" stroke-width="2"/><path d="M3 15 L7.5 10.5 L14.5 17.5 L12 20 L8 20 Z" fill="currentColor"/><path d="M12 20 H21" stroke="currentColor" stroke-width="2"/></svg>',
     pick: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4 L20 10 L17 13 L11 7 Z" fill="currentColor"/><path d="M12.5 8.5 L5 16 L4 20 L8 19 L15.5 11.5" fill="none" stroke="currentColor" stroke-width="2"/></svg>'
   };
@@ -111,7 +118,7 @@
   // ---------- Zustand ----------
   // F: Projekt { file, url, name, dur, vw, vh, fps, n, ow, oh, idx, paints: { i: {cv}|{blob} } }
   var F = null, V = null;
-  var S = { qp: { hard: 55, human: 55, angle: 35, width: 9, seed: 7 }, mp: { layers: 10, human: 55, angle: 35, width: 10, seed: 3 }, tool: "brush", sets: {}, color: "#1A1A1A", recent: [], onion: false, hideVid: false, mode: "video", mbit: 12, audio: true, fpsI: 1 };
+  var S = { qp: { hard: 55, human: 55, angle: 35, width: 9, seed: 7, type: "stroke" }, mp: { layers: 10, human: 55, angle: 35, width: 10, seed: 3, type: "stroke" }, tool: "brush", sets: {}, color: "#1A1A1A", recent: [], onion: false, hideVid: false, mode: "video", mbit: 12, audio: true, fpsI: 1 };
   Object.keys(TOOLS).forEach(function (k) { S.sets[k] = Object.assign({}, TOOLS[k].set); });
   function set() { return S.sets[S.tool]; }
   function painted() { return Object.keys(F ? F.paints : {}).length + (V && V.dirty ? 1 : 0); }
@@ -235,6 +242,37 @@
     dabCache = { key: key, c: c };
     return c;
   }
+  // Papierkörnung für Wachsmalkreide: kachelbares Rauschen, die Schwelle steuert, wie viel Papier durchscheint
+  var GRAIN = null, grainCache = {};
+  function grainTile() {
+    if (GRAIN) return GRAIN;
+    var N = 256, out = new Float32Array(N * N), R = rng(4242);
+    [[32, 0.22], [64, 0.3], [128, 0.28], [256, 0.2]].forEach(function (o) {
+      var g = o[0], v = new Float32Array(g * g); for (var i = 0; i < v.length; i++) v[i] = R();
+      for (var y = 0; y < N; y++) for (var x = 0; x < N; x++) {
+        var fx = x / N * g, fy = y / N * g, x0 = Math.floor(fx), y0 = Math.floor(fy), tx = fx - x0, ty = fy - y0, x1 = (x0 + 1) % g, y1 = (y0 + 1) % g;
+        tx = tx * tx * (3 - 2 * tx); ty = ty * ty * (3 - 2 * ty);
+        var a = v[y0 * g + x0] * (1 - tx) + v[y0 * g + x1] * tx, b = v[y1 * g + x0] * (1 - tx) + v[y1 * g + x1] * tx;
+        out[y * N + x] += (a * (1 - ty) + b * ty) * o[1];
+      }
+    });
+    GRAIN = out; return out;
+  }
+  function grainCanvas(amount) {   // amount 0..100
+    var key = Math.round(amount); if (grainCache[key]) return grainCache[key];
+    var g = grainTile(), N = 256, c = canvas(N, N), x = c.getContext("2d"), id = x.createImageData(N, N), th = 0.3 + key / 100 * 0.28;
+    for (var i = 0; i < N * N; i++) { var a = clamp((g[i] - th) / 0.07, 0, 1); id.data[i * 4 + 3] = Math.round(a * 255); }
+    x.putImageData(id, 0, 0); grainCache[key] = c; return c;
+  }
+  function applyGrain(ctx, W, H, amount, ox, oy) {
+    var pat = ctx.createPattern(grainCanvas(amount), "repeat");
+    ctx.save(); ctx.globalCompositeOperation = "destination-in"; ctx.globalAlpha = 1;
+    ctx.translate(ox || 0, oy || 0); ctx.fillStyle = pat; ctx.fillRect(-(ox || 0), -(oy || 0), W, H); ctx.restore();
+  }
+  function grainedStroke() {   // Strichebene mit Körnung in V.tmp
+    var tx = V.tmp.getContext("2d"); tx.globalCompositeOperation = "source-over"; tx.globalAlpha = 1; tx.clearRect(0, 0, F.ow, F.oh); tx.drawImage(V.stroke, 0, 0);
+    applyGrain(tx, F.ow, F.oh, set().grain, 0, 0); return V.tmp;
+  }
   function inkColor() { return S.tool === "eraser" ? "#000000" : S.color; }
   function pressureSize(st, p) { return Math.max(1, st.size * (V.pen ? 0.25 + 0.75 * p : 1)); }
   // Ein Wegstück von a nach b auf die Strichebene
@@ -246,6 +284,17 @@
       return;
     }
     if (S.tool === "spray") { sprayAt(b, Math.hypot(b.x - a.x, b.y - a.y)); return; }
+    if (S.tool === "crayon") {   // Grundform: harte Linie mit leicht ausgefransten Rändern, die Körnung kommt beim Zeichnen dazu
+      var cw = pressureSize(st, b.p), cl = Math.hypot(b.x - a.x, b.y - a.y);
+      x.strokeStyle = col; x.fillStyle = col; x.lineCap = "round"; x.lineJoin = "round"; x.lineWidth = cw * 0.86;
+      x.beginPath(); x.moveTo(a.x, a.y); x.lineTo(b.x, b.y); x.stroke();
+      var nn = Math.max(1, Math.round(cl / Math.max(2, cw * 0.15)));
+      for (var ci = 0; ci < nn; ci++) {
+        var tt2 = Math.random(), an2 = Math.random() * Math.PI * 2, rr = cw * (0.36 + Math.random() * 0.16);
+        x.beginPath(); x.arc(a.x + (b.x - a.x) * tt2 + Math.cos(an2) * rr, a.y + (b.y - a.y) * tt2 + Math.sin(an2) * rr, cw * (0.04 + Math.random() * 0.07), 0, Math.PI * 2); x.fill();
+      }
+      return;
+    }
     var sz = pressureSize(st, b.p), img = dab(Math.round(sz), st.hard, col), gap = Math.max(1, sz * 0.12);
     var dx = b.x - a.x, dy = b.y - a.y, len = Math.hypot(dx, dy), acc = V.rest || 0;
     if (len === 0 && !V.first) return;
@@ -275,7 +324,7 @@
     var st = set();
     V.lx.globalAlpha = st.opacity / 100;
     V.lx.globalCompositeOperation = S.tool === "eraser" ? "destination-out" : "source-over";
-    V.lx.drawImage(V.stroke, 0, 0);
+    V.lx.drawImage(S.tool === "crayon" ? grainedStroke() : V.stroke, 0, 0);
     V.lx.globalAlpha = 1; V.lx.globalCompositeOperation = "source-over";
     V.sx.clearRect(0, 0, F.ow, F.oh);
     V.dirty = true;
@@ -412,7 +461,7 @@
   function buildSketch() {
     var G = qpGrids().m;
     V.qp.sketch = V.qp.sketch && V.qp.sketch.width === F.ow ? V.qp.sketch : canvas(F.ow, F.oh);
-    sketch(maskOf(G, V.qp.key, S.qp.hard), { color: S.color, width: S.qp.width, human: S.qp.human, angle: S.qp.angle, seed: S.qp.seed * 7919 }, V.qp.sketch);
+    sketch(maskOf(G, V.qp.key, S.qp.hard), { color: S.color, width: S.qp.width, human: S.qp.human, angle: S.qp.angle, seed: S.qp.seed * 7919, type: S.qp.type }, V.qp.sketch);
     need();
   }
   function sketch(raw, o, out) {
@@ -424,11 +473,21 @@
       bl[y * mw + x] = sum / cnt;
     }
     var M = new Uint8Array(n); for (i = 0; i < n; i++) M[i] = bl[i] >= 0.5 ? 1 : 0;
-    var f = mw / F.ow, h = o.human / 100, sc = F.oh / 1080, w = o.width * sc, R = rng(o.seed), keep = o.keep == null ? 1 : o.keep, am = o.alpha == null ? 1 : o.alpha;
+    var f = mw / F.ow, h = o.human / 100, sc = F.oh / 1080, w = o.width * sc, R = rng(o.seed), keep = o.keep == null ? 1 : o.keep, am = 1, type = o.type || "stroke";
     function inside(px, py) { var mx = Math.floor(px * f), my = Math.floor(py * f); return mx >= 0 && my >= 0 && mx < mw && my < mh && M[my * mw + mx] === 1; }
     var g2 = out.getContext("2d");
     g2.globalCompositeOperation = "source-over"; g2.globalAlpha = 1; g2.clearRect(0, 0, F.ow, F.oh);
     g2.fillStyle = o.color;
+    // Spray: einige Sprühstempel in der Farbe, entlang des Strichs gesetzt
+    var sprays = null;
+    if (type === "spray") {
+      sprays = [];
+      for (var sv = 0; sv < 4; sv++) {
+        var S0 = Math.max(16, Math.round(w * 2.4)), sc0 = canvas(S0, S0), sx0 = sc0.getContext("2d"); sx0.fillStyle = o.color;
+        for (var d0 = 0, dn = Math.round(S0 * S0 * 0.07); d0 < dn; d0++) { var ra = Math.sqrt(-2 * Math.log(Math.max(1e-6, R()))) * 0.36, aa = R() * Math.PI * 2; if (ra > 1) continue; var ds = (1 + R() * 2.2 * (1 - ra * 0.6)) * Math.max(1, sc); sx0.fillRect(S0 / 2 + Math.cos(aa) * ra * S0 / 2 - ds / 2, S0 / 2 + Math.sin(aa) * ra * S0 / 2 - ds / 2, ds, ds); }
+        sprays.push(sc0);
+      }
+    }
     // Strich als gefülltes Band mit schräg abgeschnittenen Enden, wie ein leicht schräg gehaltener flacher Pinsel.
     // Beide Enden haben meist denselben Schnittwinkel (parallel), manchmal einen eigenen; nie abgerundet.
     var nib = (R() - 0.5) * 1.2;   // Grundneigung des "Pinsels" für diese Schicht
@@ -445,7 +504,20 @@
         var sh = k === 0 ? t0 * ww : k === seg ? t1 * ww : 0;   // Schrägschnitt an den Enden
         lft.push(px + nx * ww + ux * sh, py + ny * ww + uy * sh); rgt.push(px - nx * ww - ux * sh, py - ny * ww - uy * sh);
       }
-      g2.globalAlpha = al; g2.beginPath(); g2.moveTo(lft[0], lft[1]);
+      if (type === "spray") {   // statt Fläche: Sprühstempel entlang der Mittellinie
+        var stp = Math.max(2, lw * 0.55), sz0 = lw * 1.7;
+        g2.globalAlpha = 1;
+        for (var dd = 0; dd <= L; dd += stp) {
+          var tt3 = L ? dd / L : 0, it3 = 1 - tt3;
+          var sxp = it3 * it3 * x0 + 2 * it3 * tt3 * qx + tt3 * tt3 * x1, syp = it3 * it3 * y0 + 2 * it3 * tt3 * qy + tt3 * tt3 * y1;
+          g2.drawImage(sprays[Math.floor(R() * 4)], sxp - sz0 / 2, syp - sz0 / 2, sz0, sz0);
+        }
+        return;
+      }
+      if (type === "crayon") {   // ausgefranste Ränder
+        for (k = 0; k < lft.length; k += 2) { var jj = (R() - 0.5) * hw * 0.35; lft[k] += (rgt[k] - lft[k]) * jj / lw; lft[k + 1] += (rgt[k + 1] - lft[k + 1]) * jj / lw; }
+      }
+      g2.globalAlpha = 1; g2.beginPath(); g2.moveTo(lft[0], lft[1]);
       for (k = 2; k < lft.length; k += 2) g2.lineTo(lft[k], lft[k + 1]);
       for (k = rgt.length - 2; k >= 0; k -= 2) g2.lineTo(rgt[k], rgt[k + 1]);
       g2.closePath(); g2.fill();
@@ -463,6 +535,7 @@
     }
     // Rasterpunkte innerhalb der Fläche sammeln, gemischt, damit sich die Striche natürlich überlagern
     function points(cell) {
+      if (type === "spray") cell *= 1.6;   // Spray: weniger Stempel, damit die Sprühpunkte sichtbar bleiben
       var pts = [];
       for (var gy = cell / 2; gy < F.oh; gy += cell) for (var gx = cell / 2; gx < F.ow; gx += cell) {
         var px = gx + (R() - 0.5) * cell * (0.4 + 0.9 * h), py = gy + (R() - 0.5) * cell * (0.4 + 0.9 * h);
@@ -497,6 +570,7 @@
       var ca = (0.75 + 0.25 * R()) * am, cw = w * (0.6 + 0.5 * R());
       ribbon(px2 - ex, py2 - ey, px2, py2, px2 + ex, py2 + ey, cw, ca);
     }
+    if (type === "crayon") applyGrain(g2, F.ow, F.oh, o.grain == null ? 45 : o.grain, Math.floor(R() * 256), Math.floor(R() * 256));
     // auf die leicht erweiterte Maske beschneiden
     var mc = canvas(mw, mh), mx2 = mc.getContext("2d"), id = mx2.createImageData(mw, mh);
     for (i = 0; i < n; i++) id.data[i * 4 + 3] = Math.round(Math.min(1, bl[i] * 1.6) * 255);
@@ -516,7 +590,7 @@
     if (!F || !V.layer || V.loading || V.playing || V.down) return;
     setPick(false); if (V.qp) endQP(); qpGrids();
     if (fromSlot) { S.mp = Object.assign({}, fromSlot.set); }
-    V.mp = { pal: fromSlot ? fromSlot.pal : null, result: null, preview: null, gen: performance.now(), prog: 0, n: 0, layers: [], applied: false, busy: true };
+    V.mp = { pal: fromSlot ? fromSlot.pal : null, result: null, preview: null, gen: performance.now(), prog: 0, n: 0, layers: [], applied: false, busy: true, done: {} };
     mpPanel(true); need();
   }
   function endMP() { mpTok++; V.mp = null; var pn = V.root.querySelector("#fp-qp"); if (pn) { pn.hidden = true; pn.dataset.kind = ""; } need(); updateSide(); }
@@ -524,12 +598,42 @@
     if (!V.mp || !V.mp.result || V.mp.gen || V.mp.busy) return;
     pushUndo();
     V.lx.globalAlpha = 1; V.lx.globalCompositeOperation = "source-over"; V.lx.drawImage(V.mp.result, 0, 0);
-    V.dirty = true; V.mp.result = null; V.mp.preview = null; V.mp.applied = true;   // Fenster bleibt offen
+    V.dirty = true; V.mp.result = null; V.mp.preview = null; V.mp.applied = true; V.mp.done[F.idx] = true;   // Fenster bleibt offen
     mpPanel(); need(); updateBar(); updateSide();
   }
   function mpRefresh() {   // nach Frame-Wechsel: gleiche Palette, neues Bild
-    if (!V.mp) return;
+    if (!V.mp || V.batch) return;
+    if (V.mp.done[F.idx]) { mpTok++; V.mp.applied = true; V.mp.busy = false; V.mp.gen = 0; V.mp.result = null; V.mp.preview = null; mpPanel(); return; }
     mpTok++; V.mp.result = null; V.mp.preview = null; V.mp.applied = false; V.mp.busy = true; V.mp.gen = performance.now() + 60; mpPanel();
+  }
+  async function mpBatch(all) {
+    if (!V.mp || !V.mp.pal || V.batch) return;
+    var mp = V.mp, start = F.idx, list = [];
+    for (var i = all ? 0 : F.idx; i < F.n; i++) if (!mp.done[i]) list.push(i);
+    if (!list.length) { note(t("qpAllDone")); return; }
+    mpTok++; mp.gen = 0;
+    V.batch = { stop: false, i: 0, n: list.length }; mpPanel(true);
+    try {
+      for (var k = 0; k < list.length; k++) {
+        if (V.batch.stop || V.mp !== mp) break;
+        V.batch.i = k + 1; qpBatchNote();
+        if (F.idx !== list[k]) await goFrame(list[k]);
+        if (!V || V.mp !== mp || F.idx !== list[k]) break;
+        mp.gen = 0; await buildMagic();
+        if (!V || V.mp !== mp || !mp.result) break;
+        V.lx.globalAlpha = 1; V.lx.globalCompositeOperation = "source-over"; V.lx.drawImage(mp.result, 0, 0);
+        V.dirty = true; mp.done[F.idx] = true; mp.result = null; mp.preview = null; mp.applied = true; need();
+        await new Promise(function (r) { setTimeout(r, 0); });
+      }
+    } finally {
+      var stopped = V && V.batch && V.batch.stop, cnt = V && V.batch ? V.batch.i : 0;
+      if (V) {
+        V.batch = null;
+        if (V.mp === mp) { await goFrame(start); mpPanel(true); }
+        note(fmt(t(stopped ? "qpBatchStop" : "mpBatchDone"), { n: cnt }));
+        updateSide();
+      }
+    }
   }
   function hex(r, g, b) { return "#" + [r, g, b].map(function (v) { v = clamp(Math.round(v), 0, 255); return (v < 16 ? "0" : "") + v.toString(16); }).join("").toUpperCase(); }
   function vidBox() { var vs = Math.min(F.ow / F.vw, F.oh / F.vh); return { x: (F.ow - F.vw * vs) / 2 / F.ow, y: (F.oh - F.vh * vs) / 2 / F.oh }; }
@@ -608,7 +712,7 @@
       }
       mp.layers.push({ col: P.col, w: Math.round(width), hard: hardness, keep: Math.round(keep * 100) });
       if (area > n * 0.0008 || li === 0) {
-        sketch(raw, { color: P.col, width: width, human: S.mp.human, angle: S.mp.angle + P.ao, seed: P.seed, keep: keep, alpha: alpha, base: t2 < 0.5 }, lay);
+        sketch(raw, { color: P.col, width: width, human: S.mp.human, angle: S.mp.angle + P.ao, seed: P.seed, keep: keep, base: t2 < 0.5, type: S.mp.type }, lay);
         rx.drawImage(lay, 0, 0);
       }
       mp.prog = li + 1; mp.preview = res; mpPanel(); need();
@@ -631,19 +735,25 @@
     function sl(k, lab, min, max, u) { return '<div class="fp-row"><label for="fp-m-' + k + '">' + lab + '<span id="fp-m-' + k + '-v">' + S.mp[k] + u + '</span></label><input type="range" id="fp-m-' + k + '" data-mp="' + k + '" min="' + min + '" max="' + max + '" step="1" value="' + S.mp[k] + '"></div>'; }
     var st = mp.applied ? t("mpApplied") : mp.busy || mp.gen ? fmt(t("mpWork"), { i: Math.min(mp.prog + 1, mp.n || S.mp.layers), n: mp.n || S.mp.layers }) : fmt(t("mpDone"), { n: mp.layers.length });
     var html2 = '<div class="fp-qph"><b>' + t("mpH") + '</b><span class="fp-qs" id="fp-mp-st">' + st + '</span><button type="button" class="fp-x" data-fp="mpNo" aria-label="' + t("close") + '" title="' + t("close") + ' (Esc)">×</button></div>' +
-      sl("layers", t("mpLayers"), 4, 16, "") + sl("human", t("qpHuman"), 0, 100, " %") + sl("angle", t("mpAngle"), 0, 180, "°") + sl("width", t("mpWidth"), 3, 30, "px") +
+      sl("layers", t("mpLayers"), 4, 16, "") + typeSeg("data-mtype", S.mp.type) + sl("human", t("qpHuman"), 0, 100, " %") + sl("angle", t("mpAngle"), 0, 180, "°") + sl("width", t("mpWidth"), 3, 30, "px") +
       '<div class="fp-mpl">' + mp.layers.map(function (l, i) { return '<span title="' + (i + 1) + " · " + l.col + " · " + l.w + "px · " + t("qpHard") + " " + l.hard + " % · " + t("mpCover") + " " + l.keep + ' %" style="background:' + l.col + '"></span>'; }).join("") + "</div>" +
       '<p class="fp-desc">' + t(mp.pal ? "mpLocked" : "mpNew") + "</p>" +
-      '<div class="fp-qb"><button type="button" class="fp-save" data-fp="mpOk"' + (mp.result && !mp.gen ? "" : " disabled") + ">" + t("qpOk") + '</button><button type="button" class="navbtn" data-fp="mpSeed">' + t("mpNewPal") + "</button></div>";
+      '<div class="fp-qb"><button type="button" class="fp-save" data-fp="mpOk"' + (mp.result && !mp.gen ? "" : " disabled") + ">" + t("qpOk") + '</button><button type="button" class="navbtn" data-fp="mpSeed">' + t("mpNewPal") + "</button></div>" +
+      '<div class="fp-qbatch fp-mbatch">' + (V.batch ? '<p class="fp-note2" id="fp-qbat">' + fmt(t("qpBatchRun"), { i: V.batch.i, n: V.batch.n }) + '</p><button type="button" class="fp-save" data-fp="batchStop">' + t("qpStop") + "</button>"
+        : '<button type="button" class="fp-qpbtn" data-fp="mpNext"' + (mp.pal ? "" : " disabled") + ">" + t("mpNext") + '</button><button type="button" class="navbtn" data-fp="mpAll"' + (mp.pal ? "" : " disabled") + ">" + t("mpAll") + '</button><p class="fp-note2">' + t("mpBatchNote") + "</p>") + "</div>";
     if (!fresh && pn.dataset.kind === "mp" && !pn.hidden && pn.querySelector("[data-mp]")) {
       var tmp = document.createElement("div"); tmp.innerHTML = html2;
       pn.querySelector("#fp-mp-st").textContent = st;
-      [".fp-mpl", ".fp-qb", ".fp-desc"].forEach(function (sel) { var a = pn.querySelector(sel), b = tmp.querySelector(sel); if (a && b) a.innerHTML = b.innerHTML; });
+      [".fp-mpl", ".fp-qb", ".fp-desc", ".fp-mbatch"].forEach(function (sel) { var a = pn.querySelector(sel), b = tmp.querySelector(sel); if (a && b) a.innerHTML = b.innerHTML; });
       return;
     }
     pn.dataset.kind = "mp"; pn.innerHTML = html2;
     if (V.qpPos) { pn.style.left = V.qpPos.l + "px"; pn.style.top = V.qpPos.t + "px"; pn.style.right = "auto"; }
     pn.hidden = false;
+  }
+  function typeSeg(attr, cur) {
+    return '<div class="fp-row"><label>' + t("ptype") + '</label><div class="fp-seg">' + [["stroke", "tStroke"], ["spray", "tSpray"], ["crayon", "tCrayon"]].map(function (o) {
+      return '<button type="button" ' + attr + '="' + o[0] + '" aria-pressed="' + (cur === o[0]) + '">' + t(o[1]) + "</button>"; }).join("") + "</div></div>";
   }
   function qpPanel() {
     var pn = V.root.querySelector("#fp-qp"); if (!pn) return;
@@ -651,9 +761,9 @@
     function sl(k, lab, min, max, u) { return '<div class="fp-row"><label for="fp-q-' + k + '">' + lab + '<span id="fp-q-' + k + '-v">' + S.qp[k] + u + '</span></label><input type="range" id="fp-q-' + k + '" data-qp="' + k + '" min="' + min + '" max="' + max + '" step="1" value="' + S.qp[k] + '"></div>'; }
     pn.dataset.kind = "qp";
     pn.innerHTML = '<div class="fp-qph"><b>' + t("qpH") + "</b>" + (q.keyHex ? '<span class="fp-qk" style="background:' + q.keyHex + '" title="' + t("qpKey") + '"></span>' : "") + '<span class="fp-qs">' + t(q.applied ? "qpApplied" : q.stage === "pick" ? "qpPick" : "qpTune") + '</span><button type="button" class="fp-x" data-fp="qpNo" aria-label="' + t("close") + '" title="' + t("close") + ' (Esc)">×</button></div>' +
-      sl("hard", t("qpHard"), 0, 100, " %") + (q.stage === "tune" ? sl("human", t("qpHuman"), 0, 100, " %") + sl("angle", t("qpAngle"), 0, 180, "°") + sl("width", t("qpWidth"), 2, 40, "px") : '<p class="fp-desc">' + t("qpHardNote") + "</p>") +
+      sl("hard", t("qpHard"), 0, 100, " %") + (q.stage === "tune" ? typeSeg("data-qtype", S.qp.type) + sl("human", t("qpHuman"), 0, 100, " %") + sl("angle", t("qpAngle"), 0, 180, "°") + sl("width", t("qpWidth"), 2, 40, "px") : '<p class="fp-desc">' + t("qpHardNote") + "</p>") +
       '<div class="fp-qb">' + (q.stage === "tune" ? '<button type="button" class="fp-save" data-fp="qpOk"' + (q.applied ? " disabled" : "") + ">" + t("qpOk") + '</button><button type="button" class="navbtn" data-fp="qpSeed">' + t("qpSeed") + '</button><button type="button" class="navbtn" data-fp="qpRepick">' + t("qpRepick") + "</button>" : "") + "</div>" +
-      (q.stage === "tune" ? '<div class="fp-qbatch">' + (V.batch ? '<p class="fp-desc" id="fp-qbat">' + fmt(t("qpBatchRun"), { i: V.batch.i, n: V.batch.n }) + '</p><button type="button" class="fp-save" data-fp="qpStop">' + t("qpStop") + "</button>"
+      (q.stage === "tune" ? '<div class="fp-qbatch">' + (V.batch ? '<p class="fp-desc" id="fp-qbat">' + fmt(t("qpBatchRun"), { i: V.batch.i, n: V.batch.n }) + '</p><button type="button" class="fp-save" data-fp="batchStop">' + t("qpStop") + "</button>"
         : '<button type="button" class="fp-qpbtn" data-fp="qpNext">' + t("qpNext") + '</button><button type="button" class="navbtn" data-fp="qpAll">' + t("qpAll") + '</button><p class="fp-desc">' + t("qpBatchNote") + "</p>") + "</div>" : "");
     if (V.qpPos) { pn.style.left = V.qpPos.l + "px"; pn.style.top = V.qpPos.t + "px"; pn.style.right = "auto"; }
     pn.hidden = false;
@@ -700,7 +810,7 @@
       x.drawImage(V.tmp, 0, 0, W, H);
     } else {
       x.drawImage(V.layer, 0, 0, W, H);
-      if (V.down) { x.globalAlpha = st.opacity / 100; x.drawImage(V.stroke, 0, 0, W, H); x.globalAlpha = 1; }
+      if (V.down) { x.globalAlpha = st.opacity / 100; x.drawImage(S.tool === "crayon" ? grainedStroke() : V.stroke, 0, 0, W, H); x.globalAlpha = 1; }
     }
     if (V.mp && V.mp.preview) x.drawImage(V.mp.preview, 0, 0, W, H);
     if (V.qp) {
@@ -881,7 +991,7 @@
     ".fp-desk canvas{display:block;cursor:none;touch-action:none}.fp-desk canvas.pick,.fp-desk canvas.qp{cursor:crosshair}" +
     ".fp-qp{position:absolute;right:12px;top:12px;width:min(300px,calc(100% - 24px));max-height:calc(100% - 24px);overflow-y:auto;z-index:5;background:var(--bg);color:var(--ink);border:2px solid var(--ink);box-shadow:5px 5px 0 rgba(0,0,0,.45);padding:12px 14px;display:flex;flex-direction:column;gap:10px}" +
     ".fp-x{order:1;margin-left:auto;width:30px;height:30px;border:1px solid var(--ink);background:transparent;color:var(--ink);font:600 1.2rem/1 var(--f-body);cursor:pointer}.fp-x:hover{background:var(--ink);color:var(--bg)}" +
-    ".fp-qph::after{display:none!important}.fp-qbatch{display:flex;flex-direction:column;gap:8px;border-top:1px solid var(--line);padding-top:10px}" +
+    ".fp-note2{margin:0;color:var(--soft);font-size:.86rem;line-height:1.45}.fp-qpbtn[disabled]{opacity:.4;cursor:default}.fp-qph::after{display:none!important}.fp-qbatch{display:flex;flex-direction:column;gap:8px;border-top:1px solid var(--line);padding-top:10px}" +
     ".fp-slots{display:flex;flex-direction:column;gap:8px}.fp-slot{display:grid;grid-template-columns:auto 1fr;gap:6px 10px;align-items:center;border:1px solid var(--line);padding:8px 10px}" +
     ".fp-slot b{font-size:.88rem}.fp-slot .fp-mpl span{width:14px;height:14px}.fp-slb{grid-column:1/3;display:flex;gap:6px}.fp-slb .navbtn{flex:1}.fp-slb .navbtn[disabled]{opacity:.4;cursor:default}" +
     ".fp-qp[hidden]{display:none}.fp-mpl{display:flex;flex-wrap:wrap;gap:4px}.fp-mpl span{width:18px;height:18px;border:1px solid var(--line)}.fp-qb .fp-save[disabled]{opacity:.4;cursor:default}" +
@@ -913,7 +1023,7 @@
     ".fp-pk{display:flex;align-items:center;gap:8px;font:600 .92rem var(--f-body);padding:10px 14px;border:1px solid var(--ink);background:transparent;color:var(--ink);cursor:pointer;margin-left:auto}" +
     ".fp-pk svg{width:18px;height:18px}.fp-pk[aria-pressed=true]{background:#E2621B;border-color:#E2621B;color:#fff}" +
     ".fp-rec{display:flex;flex-wrap:wrap;gap:6px}.fp-rec button{width:26px;height:26px;border:1px solid var(--line);cursor:pointer;padding:0}" +
-    ".fp-tools{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}" +
+    ".fp-tools{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px}" +
     ".fp-tools button{display:flex;flex-direction:column;align-items:center;gap:4px;font:600 .78rem var(--f-body);padding:8px 2px;border:1px solid var(--line);background:transparent;color:var(--ink);cursor:pointer}" +
     ".fp-tools button svg{width:22px;height:22px}.fp-tools button[aria-pressed=true]{background:var(--ink);color:var(--bg);border-color:var(--ink)}" +
     ".fp-row{display:flex;flex-direction:column;gap:6px}" +
@@ -988,7 +1098,7 @@
       (S.recent.length ? '<div class="fp-desc">' + t("recent") + '</div><div class="fp-rec">' + S.recent.map(function (c) { return '<button type="button" data-col="' + c + '" style="background:' + c + '" title="' + c + '" aria-label="' + c + '"></button>'; }).join("") + "</div>" : "") +
       '<p class="fp-desc">' + t("colorNote") + "</p></div>";
     var tools = '<div class="fp-box"><h3>' + t("tool") + '</h3><div class="fp-tools">' + Object.keys(TOOLS).map(function (k) {
-      return '<button type="button" data-tool="' + k + '" aria-pressed="' + (S.tool === k) + '" title="' + t(k) + " (" + TOOLS[k].key.toUpperCase() + ')">' + ICONS[k] + t(k) + "</button>";
+      return '<button type="button" data-tool="' + k + '" aria-pressed="' + (S.tool === k) + '" title="' + t(k) + " (" + TOOLS[k].key.toUpperCase() + ')">' + ICONS[k] + t(k === "crayon" ? "crayonS" : k) + "</button>";
     }).join("") + '</div><div id="fp-sl" style="display:flex;flex-direction:column;gap:12px">' + sliders() + "</div></div>";
     var locked = !!(F && painted()) || busy;
     var fps = '<div class="fp-box"><h3>' + t("fps") + '</h3><div class="fp-row"><label for="fp-fps">' + t("fps") + '<span id="fp-fps-v">' + RATES[S.fpsI] + ' fps</span></label>' +
@@ -1127,8 +1237,10 @@
     if (V.qp.stage === "tune") { qpMask(); qpGenSoon(); } else V.qp.dirty = true;
   }
   function onClick(e) {
-    var b = e.target.closest("[data-fp],[data-tool],[data-mode],[data-col],[data-slot-load],[data-slot-save]"); if (!b) return;
-    if (V.batch) { if (b.dataset.fp === "qpStop") V.batch.stop = true; return; }
+    var b = e.target.closest("[data-fp],[data-tool],[data-mode],[data-col],[data-slot-load],[data-slot-save],[data-qtype],[data-mtype]"); if (!b) return;
+    if (V.batch) { if (b.dataset.fp === "batchStop") V.batch.stop = true; return; }
+    if (b.dataset.qtype && !V.batch) { S.qp.type = b.dataset.qtype; if (V.qp) { V.qp.done = {}; qpPanel(); qpGenSoon(0); } return; }
+    if (b.dataset.mtype && !V.batch) { S.mp.type = b.dataset.mtype; if (V.mp) { V.mp.done = {}; mpTok++; V.mp.busy = true; V.mp.applied = false; V.mp.result = null; V.mp.gen = performance.now(); mpPanel(true); } return; }
     if (b.dataset.slotLoad !== undefined) { if (F && V.layer) slotLoad(+b.dataset.slotLoad); return; }
     if (b.dataset.slotSave !== undefined) { slotSave(+b.dataset.slotSave); return; }
     if (b.dataset.tool) { setTool(b.dataset.tool); return; }
@@ -1152,8 +1264,10 @@
     else if (a === "qpNo") endQP();
     else if (a === "mp") { if (V.mp) endMP(); else startMP(); }
     else if (a === "mpOk") mpApply();
+    else if (a === "mpNext") mpBatch(false);
+    else if (a === "mpAll") mpBatch(true);
     else if (a === "mpNo") endMP();
-    else if (a === "mpSeed") { S.mp.seed = 1 + Math.floor(Math.random() * 9999); mpTok++; V.mp.pal = null; V.mp.applied = false; V.mp.gen = performance.now(); V.mp.busy = true; mpPanel(); }
+    else if (a === "mpSeed") { S.mp.seed = 1 + Math.floor(Math.random() * 9999); mpTok++; V.mp.pal = null; V.mp.done = {}; V.mp.applied = false; V.mp.gen = performance.now(); V.mp.busy = true; mpPanel(); }
     else if (a === "qpRepick") { if (V.qp) { V.qp.stage = "pick"; V.qp.done = {}; V.qp.key = null; V.qp.keyHex = null; V.qp.applied = false; V.qp.mask = null; V.qp.sketch = null; qpPanel(); need(); } }
     else if (a === "qpNext") qpBatch(false);
     else if (a === "qpAll") qpBatch(true);
@@ -1167,7 +1281,7 @@
     if (el.dataset.mp) {
       var mk = el.dataset.mp; S.mp[mk] = +el.value;
       V.root.querySelector("#fp-m-" + mk + "-v").textContent = el.value + (mk === "angle" ? "°" : mk === "width" ? "px" : mk === "layers" ? "" : " %");
-      if (V.mp) { if (mk === "layers") V.mp.pal = null; mpTok++; V.mp.busy = true; V.mp.applied = false; V.mp.result = null; V.mp.gen = performance.now() + 350; mpPanel(); }
+      if (V.mp) { if (mk === "layers") V.mp.pal = null; V.mp.done = {}; mpTok++; V.mp.busy = true; V.mp.applied = false; V.mp.result = null; V.mp.gen = performance.now() + 350; mpPanel(); }
       return;
     }
     if (el.dataset.qp) {
