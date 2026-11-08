@@ -3,7 +3,7 @@
 (function () {
   "use strict";
 
-  var VERSION = "0.55", RATES = [5, 15, 30];
+  var VERSION = "0.5", RATES = [5, 15, 30];
   var lang = "de";
   function L2(de, en) { return { de: de, en: en }; }
 
@@ -22,19 +22,13 @@
     clearF: L2("Frame leeren", "Clear frame"), undo: L2("Rückgängig", "Undo"), redo: L2("Wiederholen", "Redo"),
     onion: L2("Zwiebelhaut (letzter Frame blass)", "Onion skin (previous frame faint)"), hideVid: L2("Video ausblenden", "Hide video"),
     color: L2("Farbe", "Colour"), picker: L2("Pipette (C)", "Picker (C)"), pickOn: L2("Klick ins Bild nimmt die Farbe", "Click the image to take the colour"),
-    colorNote: L2("Farben gibt es nur über die Pipette: C drücken, dann mit Linksklick ins Bild. Sie nimmt immer die Farbe aus dem Video unter der Bemalung. Danach malst du sofort mit dieser Farbe.", "Colours come only from the picker: press C, then left-click the image. It always takes the colour from the video beneath the painting. You paint with that colour right away."),
+    colorNote: L2("Farben gibt es nur über die Pipette: C drücken, dann mit Linksklick ins Bild. Danach malst du sofort mit dieser Farbe.", "Colours come only from the picker: press C, then left-click the image. You paint with that colour right away."),
     recent: L2("Zuletzt genommen", "Recently picked"),
     tool: L2("Werkzeug", "Tool"),
     pen: L2("Stift", "Pen"), brush: L2("Pinsel", "Brush"), spray: L2("Spraydose", "Spray can"), eraser: L2("Radierer", "Eraser"),
     size: L2("Größe", "Size"), opacity: L2("Deckkraft", "Opacity"), smooth: L2("Glättung", "Smoothing"), hard: L2("Härte", "Hardness"),
     crayon: L2("Wachsmalkreide", "Wax crayon"), crayonS: L2("Kreide", "Crayon"), grain: L2("Körnung", "Grain"),
     ptype: L2("Pinseltyp", "Brush type"), tStroke: L2("Pinsel", "Brush"), tSpray: L2("Spray", "Spray"), tCrayon: L2("Wachsmalkreide", "Wax crayon"),
-    recolH: L2("Magic-Paint-Farben", "Magic Paint colours"),
-    recolNote: L2("Klick auf ein Farbfeld und wähl dann mit der Pipette eine neue Farbe im Bild (oder eine zuletzt genommene). Die Schicht wird sofort in allen Frames umgefärbt, Striche bleiben gleich.", "Click a swatch, then pick a new colour in the image with the picker (or a recently picked one). The layer is recoloured in every frame at once, strokes stay the same."),
-    recolPick: L2("Neue Farbe für Schicht {n}: Linksklick ins Bild oder eine zuletzt genommene Farbe. Esc bricht ab.", "New colour for layer {n}: left click on the image or a recently picked colour. Esc cancels."),
-    recolDone: L2("Schicht {n} ist jetzt {c}, in allen Frames.", "Layer {n} is now {c}, in every frame."),
-    recolReset: L2("Original-Farben", "Original colours"), recolFrames: L2("{n} Frames", "{n} frames"),
-    recolNone: L2("Noch keine Frames mit Magic Paint. Ab dieser Version bleiben Magic-Paint-Farben nachträglich änderbar.", "No frames with Magic Paint yet. From this version on, Magic Paint colours stay editable afterwards."),
     mpBatchDone: L2("Magic Paint in {n} Frames übernommen.", "Magic Paint applied to {n} frames."),
     mpNext: L2("Für alle folgenden Frames übernehmen", "Apply to all following frames"), mpAll: L2("Auf alle Frames anwenden", "Apply to all frames"),
     mpBatchNote: L2("Zeichnet jeden Frame mit dieser festen Palette nach, ohne einzeln zu bestätigen. Rechne mit etwa einer bis zwei Sekunden pro Frame. Schon damit bemalte Frames werden übersprungen.", "Redraws every frame with this fixed palette without confirming each one. Expect about one to two seconds per frame. Frames already painted with it are skipped."),
@@ -127,7 +121,7 @@
   var S = { qp: { hard: 55, human: 55, angle: 35, width: 9, seed: 7, type: "stroke" }, mp: { layers: 10, human: 55, angle: 35, width: 10, seed: 3, type: "stroke" }, tool: "brush", sets: {}, color: "#1A1A1A", recent: [], onion: false, hideVid: false, mode: "video", mbit: 12, audio: true, fpsI: 1 };
   Object.keys(TOOLS).forEach(function (k) { S.sets[k] = Object.assign({}, TOOLS[k].set); });
   function set() { return S.sets[S.tool]; }
-  function painted() { return Object.keys(F ? F.paints : {}).length + Object.keys(F && F.magic ? F.magic : {}).length + (V && V.dirty ? 1 : 0); }
+  function painted() { return Object.keys(F ? F.paints : {}).length + (V && V.dirty ? 1 : 0); }
   function tFrame(i) { return Math.min((i + 0.5) / F.fps, Math.max(0, F.dur - 0.001)); }
 
   // ---------- Laden ----------
@@ -140,7 +134,7 @@
     if (!file || !/^video\//.test(file.type || "") && !/\.(mp4|mov|m4v|webm|mkv)$/i.test(file.name || "")) { note(t("bad")); return; }
     stopPlay();
     if (F && F.url) URL.revokeObjectURL(F.url);
-    F = { file: file, url: URL.createObjectURL(file), name: (file.name || "video").replace(/\.[^.]+$/, ""), dur: 0, vw: 0, vh: 0, fps: RATES[S.fpsI], n: 1, ow: 1920, oh: 1080, idx: 0, paints: {}, magic: {} };
+    F = { file: file, url: URL.createObjectURL(file), name: (file.name || "video").replace(/\.[^.]+$/, ""), dur: 0, vw: 0, vh: 0, fps: RATES[S.fpsI], n: 1, ow: 1920, oh: 1080, idx: 0, paints: {} };
     buildUI();
   }
   function onMeta() {
@@ -150,7 +144,7 @@
     if (F.vh > F.vw) { F.ow = 1080; F.oh = 1920; } else { F.ow = 1920; F.oh = 1080; }
     F.n = Math.max(1, Math.floor(F.dur * F.fps));
     V.layer = canvas(F.ow, F.oh); V.stroke = canvas(F.ow, F.oh); V.tmp = canvas(F.ow, F.oh); V.frameCv = canvas(F.ow, F.oh);
-    V.lx = V.layer.getContext("2d"); V.sx = V.stroke.getContext("2d"); V.magicCv = canvas(F.ow, F.oh); V.hasMagic = false;
+    V.lx = V.layer.getContext("2d"); V.sx = V.stroke.getContext("2d");
     layout(); updateSide(); goFrame(F.idx || 0);
   }
 
@@ -208,8 +202,6 @@
     if (V.onionBmp && V.onionBmp.close) V.onionBmp.close();
     V.onionBmp = res[1] || null;
     drawVideo(V.frameCv.getContext("2d"), V.vid, F.ow, F.oh);
-    V.hasMagic = false; await loadMagicView();
-    if (tok !== loadTok || !V) return;
     V.loading = false; V.dirty = false;
     updateBar(); need();
     if (V.mp) mpRefresh();
@@ -223,30 +215,20 @@
   }
 
   // ---------- Rückgängig ----------
-  function snap() { var c = canvas(F.ow, F.oh); c.getContext("2d").drawImage(V.layer, 0, 0); return { hand: c, mg: F.magic[F.idx] || null }; }
+  function snap() { var c = canvas(F.ow, F.oh); c.getContext("2d").drawImage(V.layer, 0, 0); return c; }
   function pushUndo() { V.undo.push(snap()); if (V.undo.length > 12) V.undo.shift(); V.redo = []; updateBar(); }
-  function restore(e) {
-    V.lx.globalCompositeOperation = "source-over"; V.lx.globalAlpha = 1; V.lx.clearRect(0, 0, F.ow, F.oh); V.lx.drawImage(e.hand, 0, 0); V.dirty = true;
-    if ((F.magic[F.idx] || null) !== e.mg) { if (e.mg) F.magic[F.idx] = e.mg; else delete F.magic[F.idx]; if (V.mp) delete V.mp.done[F.idx]; loadMagicView(); drawStrip(); updateSide(); }
-    need(); updateBar();
-  }
+  function restore(c) { V.lx.globalCompositeOperation = "source-over"; V.lx.globalAlpha = 1; V.lx.clearRect(0, 0, F.ow, F.oh); V.lx.drawImage(c, 0, 0); V.dirty = true; need(); updateBar(); }
   function undo() { if (!V.undo.length || V.loading) return; V.redo.push(snap()); restore(V.undo.pop()); }
   function redo() { if (!V.redo.length || V.loading) return; V.undo.push(snap()); restore(V.redo.pop()); }
   async function copyPrev() {
     if (!F || F.idx === 0 || V.loading) return;
-    var src = await paintSource(F.idx - 1), pm = F.magic[F.idx - 1];
+    var src = await paintSource(F.idx - 1);
     pushUndo();
     V.lx.globalCompositeOperation = "source-over"; V.lx.globalAlpha = 1; V.lx.clearRect(0, 0, F.ow, F.oh);
     if (src) { V.lx.drawImage(src, 0, 0); if (src.close) src.close(); }
-    if (pm) F.magic[F.idx] = pm.blob ? { pal: pm.pal, blob: pm.blob } : { pal: pm.pal, cv: pm.cv }; else delete F.magic[F.idx];
-    await loadMagicView(); drawStrip(); updateSide();
     V.dirty = true; need();
   }
-  function clearFrame() {
-    if (V.loading) return; pushUndo(); V.lx.clearRect(0, 0, F.ow, F.oh);
-    if (F.magic[F.idx]) { delete F.magic[F.idx]; if (V.mp) delete V.mp.done[F.idx]; V.hasMagic = false; drawStrip(); updateSide(); }
-    V.dirty = true; need();
-  }
+  function clearFrame() { if (V.loading) return; pushUndo(); V.lx.clearRect(0, 0, F.ow, F.oh); V.dirty = true; need(); }
 
   // ---------- Malen ----------
   var dabCache = { key: "", c: null };
@@ -349,9 +331,16 @@
   }
 
   // ---------- Pipette ----------
-  // Pipette nimmt immer die Farbe aus dem Video-Frame, nie aus der Bemalung darüber
-  function sample(p) { return sampleVideo(p); }
-  function setPick(on) { if (!on && V.recolor) { V.recolor = null; updateSide(); if (V.mp) mpPanel(true); } V.picking = on; V.cv && V.cv.classList.toggle("pick", on); var b = V.root.querySelector('[data-fp="pick"]'); if (b) b.setAttribute("aria-pressed", String(on)); need(); }
+  function sample(p) {
+    var c = V.pick1 || (V.pick1 = canvas(1, 1)), x = c.getContext("2d", { willReadFrequently: true });
+    var fx = clamp(Math.floor(p.x), 0, F.ow - 1), fy = clamp(Math.floor(p.y), 0, F.oh - 1);
+    x.globalCompositeOperation = "source-over";
+    if (S.hideVid) { x.fillStyle = "#fff"; x.fillRect(0, 0, 1, 1); } else x.drawImage(V.frameCv, fx, fy, 1, 1, 0, 0, 1, 1);
+    x.drawImage(V.layer, fx, fy, 1, 1, 0, 0, 1, 1);
+    var d = x.getImageData(0, 0, 1, 1).data;
+    return "#" + [d[0], d[1], d[2]].map(function (v) { return (v < 16 ? "0" : "") + v.toString(16); }).join("").toUpperCase();
+  }
+  function setPick(on) { V.picking = on; V.cv && V.cv.classList.toggle("pick", on); var b = V.root.querySelector('[data-fp="pick"]'); if (b) b.setAttribute("aria-pressed", String(on)); need(); }
   function takeColor(c) {
     S.color = c;
     S.recent = [c].concat(S.recent.filter(function (q) { return q !== c; })).slice(0, 10);
@@ -592,86 +581,6 @@
     g2.globalAlpha = 1; g2.globalCompositeOperation = "destination-in"; g2.drawImage(big2, 0, 0);
     g2.globalCompositeOperation = "source-over";
   }
-  // ---------- Magic-Ebene: Index-Karte statt fertiger Pixel ----------
-  // Pro Frame F.magic[i] = { pal, cv | blob }. Die Karte ist ein PNG: Rot = Schicht (1..16, 0 = leer), Grün = Deckung, Alpha 255.
-  // Die Farben kommen erst beim Anzeigen aus der Palette. So lässt sich jede Schicht nachträglich in allen Frames umfärben.
-  var palSeq = 0;
-  function palRGB(pal) { return pal.list.map(function (l) { var h = l.col; return [parseInt(h.substr(1, 2), 16), parseInt(h.substr(3, 2), 16), parseInt(h.substr(5, 2), 16)]; }); }
-  function mapCanvas(idx, al, W, H) {
-    var c = canvas(W, H), x = c.getContext("2d"), id = x.createImageData(W, H), d = id.data;
-    for (var i = 0, o = 0; i < idx.length; i++, o += 4) { d[o] = idx[i]; d[o + 1] = al[i]; d[o + 2] = 0; d[o + 3] = 255; }
-    x.putImageData(id, 0, 0); return c;
-  }
-  function storeMap(i, pal, mc) {
-    if (!pal.id) pal.id = ++palSeq;
-    var rec = { pal: pal, cv: mc }; F.magic[i] = rec;
-    mc.toBlob(function (b) { if (F && F.magic[i] === rec && b) { rec.blob = b; delete rec.cv; } }, "image/png");
-    drawStrip();
-  }
-  function mapSource(rec, w, h) {
-    if (rec.cv) return Promise.resolve(rec.cv);
-    var o = { premultiplyAlpha: "none", colorSpaceConversion: "none" };
-    if (w && h) { o.resizeWidth = w; o.resizeHeight = h; o.resizeQuality = "pixelated"; }
-    return createImageBitmap(rec.blob, o);
-  }
-  function colorize(src, pal, out) {
-    var x = out.getContext("2d", { willReadFrequently: true }), W = out.width, H = out.height;
-    x.globalCompositeOperation = "source-over"; x.globalAlpha = 1; x.imageSmoothingEnabled = false; x.clearRect(0, 0, W, H); x.drawImage(src, 0, 0, W, H);
-    var id = x.getImageData(0, 0, W, H), d = id.data, rgb = palRGB(pal);
-    for (var o = 0; o < d.length; o += 4) {
-      var k = d[o], a = d[o + 1], c = k ? rgb[k - 1] : null;
-      if (!c || !a) { d[o + 3] = 0; continue; }
-      d[o] = c[0]; d[o + 1] = c[1]; d[o + 2] = c[2]; d[o + 3] = a;
-    }
-    x.putImageData(id, 0, 0); x.imageSmoothingEnabled = true;
-    return out;
-  }
-  async function loadMagicView() {
-    if (!F || !V || !V.magicCv) return;
-    var i = F.idx, rec = F.magic[i];
-    if (!rec) { V.hasMagic = false; need(); return; }
-    var src = await mapSource(rec);
-    if (!V || F.idx !== i || F.magic[i] !== rec) { if (src.close) src.close(); return; }
-    colorize(src, rec.pal, V.magicCv); if (src.close) src.close();
-    V.hasMagic = true; need();
-  }
-  function usedPals() { var seen = [], cnt = {}; Object.keys(F ? F.magic : {}).forEach(function (k) { var p = F.magic[k].pal; if (seen.indexOf(p) < 0) seen.push(p); cnt[p.id] = (cnt[p.id] || 0) + 1; }); return { list: seen, cnt: cnt }; }
-  function startRecolor(pal, li) {
-    if (!pal || !pal.list[li]) return;
-    V.recolor = { pal: pal, li: li }; setPick(true); V.recolor = { pal: pal, li: li };
-    note(fmt(t("recolPick"), { n: li + 1 })); updateSide(); if (V.mp) mpPanel(true);
-  }
-  function doRecolor(c) {
-    var r = V.recolor; if (!r) return;
-    var l = r.pal.list[r.li]; if (!l.orig) l.orig = l.col; l.col = c;
-    V.recolor = null; setPick(false);
-    note(fmt(t("recolDone"), { n: r.li + 1, c: c }));
-    refreshMagicColors(r.pal);
-  }
-  function resetColors(pal) { pal.list.forEach(function (l) { if (l.orig) { l.col = l.orig; delete l.orig; } }); refreshMagicColors(pal); }
-  function refreshMagicColors(pal) {
-    loadMagicView();
-    var mp = V.mp;
-    if (mp && mp.pal === pal) {
-      mp.layers.forEach(function (l, i) { if (pal.list[i]) l.col = pal.list[i].col; });
-      if (mp.mapCv && mp.result && mp.canvas) { colorize(mp.mapCv, pal, mp.canvas); mp.result = mp.canvas; mp.preview = mp.canvas; }
-      mpPanel(true);
-    }
-    if (V.cache) { Object.keys(V.cache).forEach(function (k) { var b = V.cache[k]; if (b && b.close) b.close(); }); V.cache = {}; }
-    updateSide(); need();
-  }
-  function recolHTML() {
-    var u = usedPals();
-    if (!u.list.length) return '<p class="fp-desc">' + t("recolNone") + "</p>";
-    return u.list.map(function (pal) {
-      return '<div class="fp-slot"><b>' + fmt(t("recolFrames"), { n: u.cnt[pal.id] }) + '</b><span class="fp-mpl fp-rc">' + pal.list.map(function (l, i) {
-        var on = V.recolor && V.recolor.pal === pal && V.recolor.li === i;
-        return '<button type="button" data-recol="' + pal.id + ":" + i + '" class="' + (on ? "on" : "") + '" style="background:' + l.col + '" title="' + (i + 1) + " · " + l.col + (l.orig ? " (" + l.orig + ")" : "") + '" aria-label="' + (i + 1) + " " + l.col + '"></button>';
-      }).join("") + "</span>" + (pal.list.some(function (l) { return l.orig; }) ? '<span class="fp-slb"><button type="button" class="navbtn" data-recreset="' + pal.id + '">' + t("recolReset") + "</button></span>" : "") + "</div>";
-    }).join("") + '<p class="fp-desc">' + t("recolNote") + "</p>";
-  }
-  function palById(id) { var u = usedPals().list.concat(V.mp && V.mp.pal ? [V.mp.pal] : []); for (var i = 0; i < u.length; i++) if (String(u[i].id) === String(id)) return u[i]; return null; }
-
   // ---------- Magic Paint: viele Quickpaint-Schichten automatisch ----------
   // V.mp = { pal, result, preview, gen, busy, layers, applied }
   // pal = feste Palette { N, C (Lab-Zentren), list: [{ k, col, wf, mf, ao, seed }] }: bleibt über Frames gleich,
@@ -688,9 +597,8 @@
   function mpApply() {
     if (!V.mp || !V.mp.result || V.mp.gen || V.mp.busy) return;
     pushUndo();
-    storeMap(F.idx, V.mp.pal, V.mp.mapCv); V.mp.mapCv = null;   // Magic-Ebene unter der Handmalerei, Farben bleiben änderbar
-    var mx = V.magicCv.getContext("2d"); mx.clearRect(0, 0, F.ow, F.oh); mx.drawImage(V.mp.result, 0, 0); V.hasMagic = true;
-    V.mp.result = null; V.mp.preview = null; V.mp.applied = true; V.mp.done[F.idx] = true;   // Fenster bleibt offen
+    V.lx.globalAlpha = 1; V.lx.globalCompositeOperation = "source-over"; V.lx.drawImage(V.mp.result, 0, 0);
+    V.dirty = true; V.mp.result = null; V.mp.preview = null; V.mp.applied = true; V.mp.done[F.idx] = true;   // Fenster bleibt offen
     mpPanel(); need(); updateBar(); updateSide();
   }
   function mpRefresh() {   // nach Frame-Wechsel: gleiche Palette, neues Bild
@@ -713,9 +621,8 @@
         if (!V || V.mp !== mp || F.idx !== list[k]) break;
         mp.gen = 0; await buildMagic();
         if (!V || V.mp !== mp || !mp.result) break;
-        storeMap(F.idx, mp.pal, mp.mapCv); mp.mapCv = null;
-        var mx2 = V.magicCv.getContext("2d"); mx2.clearRect(0, 0, F.ow, F.oh); mx2.drawImage(mp.result, 0, 0); V.hasMagic = true;
-        mp.done[F.idx] = true; mp.result = null; mp.preview = null; mp.applied = true; need();
+        V.lx.globalAlpha = 1; V.lx.globalCompositeOperation = "source-over"; V.lx.drawImage(mp.result, 0, 0);
+        V.dirty = true; mp.done[F.idx] = true; mp.result = null; mp.preview = null; mp.applied = true; need();
         await new Promise(function (r) { setTimeout(r, 0); });
       }
     } finally {
@@ -788,8 +695,7 @@
     var res = mp.canvas && mp.canvas.width === F.ow ? mp.canvas : (mp.canvas = canvas(F.ow, F.oh)), rx = res.getContext("2d");
     var lay = mp.lay && mp.lay.width === F.ow ? mp.lay : (mp.lay = canvas(F.ow, F.oh));
     rx.globalCompositeOperation = "source-over"; rx.globalAlpha = 1; rx.clearRect(0, 0, F.ow, F.oh);
-    var L = pal.list.length, raw = new Float32Array(n), NP = F.ow * F.oh, MI = new Uint8Array(NP), MA = new Uint8Array(NP);
-    if (!pal.id) pal.id = ++palSeq;
+    var L = pal.list.length, raw = new Float32Array(n);
     for (var li = 0; li < L; li++) {
       var P = pal.list[li], t2 = L > 1 ? li / (L - 1) : 0, kk = P.k;
       // Untere Schichten: großzügige Maske, dicke Striche, volle Deckung. Obere: enger, feiner und lichter, damit darunter durchscheint.
@@ -808,19 +714,11 @@
       if (area > n * 0.0008 || li === 0) {
         sketch(raw, { color: P.col, width: width, human: S.mp.human, angle: S.mp.angle + P.ao, seed: P.seed, keep: keep, base: t2 < 0.5, type: S.mp.type }, lay);
         rx.drawImage(lay, 0, 0);
-        // Index-Karte: oberste deutlich deckende Schicht gewinnt, Deckung wird aufsummiert
-        var ld = lay.getContext("2d", { willReadFrequently: true }).getImageData(0, 0, F.ow, F.oh).data, id1 = li + 1;
-        for (var q = 0, qo = 3; q < NP; q++, qo += 4) {
-          var a8 = ld[qo]; if (!a8) continue;
-          if (a8 >= 128 || !MI[q]) MI[q] = id1;
-          MA[q] = a8 + ((MA[q] * (255 - a8) + 127) / 255 | 0);
-        }
       }
       mp.prog = li + 1; mp.preview = res; mpPanel(); need();
       await new Promise(function (r3) { setTimeout(r3, 0); });
       if (tok !== mpTok || !V || V.mp !== mp) return;
     }
-    mp.mapCv = mapCanvas(MI, MA, F.ow, F.oh);
     mp.result = res; mp.busy = false; mpPanel(); need(); updateSide();
   }
   function slotSave(i) { if (!V.mp || !V.mp.pal) return; MPSLOTS[i] = { pal: V.mp.pal, set: Object.assign({}, S.mp) }; updateSide(); note(fmt(t("mpSaved"), { n: i + 1 })); }
@@ -838,7 +736,7 @@
     var st = mp.applied ? t("mpApplied") : mp.busy || mp.gen ? fmt(t("mpWork"), { i: Math.min(mp.prog + 1, mp.n || S.mp.layers), n: mp.n || S.mp.layers }) : fmt(t("mpDone"), { n: mp.layers.length });
     var html2 = '<div class="fp-qph"><b>' + t("mpH") + '</b><span class="fp-qs" id="fp-mp-st">' + st + '</span><button type="button" class="fp-x" data-fp="mpNo" aria-label="' + t("close") + '" title="' + t("close") + ' (Esc)">×</button></div>' +
       sl("layers", t("mpLayers"), 4, 16, "") + typeSeg("data-mtype", S.mp.type) + sl("human", t("qpHuman"), 0, 100, " %") + sl("angle", t("mpAngle"), 0, 180, "°") + sl("width", t("mpWidth"), 3, 30, "px") +
-      '<div class="fp-mpl fp-rc">' + mp.layers.map(function (l, i) { var on = V.recolor && V.recolor.pal === mp.pal && V.recolor.li === i; return '<button type="button"' + (mp.pal ? ' data-recol="' + (mp.pal.id || (mp.pal.id = ++palSeq)) + ":" + i + '"' : "") + ' class="' + (on ? "on" : "") + '" title="' + (i + 1) + " · " + l.col + " · " + l.w + "px · " + t("qpHard") + " " + l.hard + " % · " + t("mpCover") + " " + l.keep + ' %" style="background:' + l.col + '"></button>'; }).join("") + "</div>" +
+      '<div class="fp-mpl">' + mp.layers.map(function (l, i) { return '<span title="' + (i + 1) + " · " + l.col + " · " + l.w + "px · " + t("qpHard") + " " + l.hard + " % · " + t("mpCover") + " " + l.keep + ' %" style="background:' + l.col + '"></span>'; }).join("") + "</div>" +
       '<p class="fp-desc">' + t(mp.pal ? "mpLocked" : "mpNew") + "</p>" +
       '<div class="fp-qb"><button type="button" class="fp-save" data-fp="mpOk"' + (mp.result && !mp.gen ? "" : " disabled") + ">" + t("qpOk") + '</button><button type="button" class="navbtn" data-fp="mpSeed">' + t("mpNewPal") + "</button></div>" +
       '<div class="fp-qbatch fp-mbatch">' + (V.batch ? '<p class="fp-note2" id="fp-qbat">' + fmt(t("qpBatchRun"), { i: V.batch.i, n: V.batch.n }) + '</p><button type="button" class="fp-save" data-fp="batchStop">' + t("qpStop") + "</button>"
@@ -904,7 +802,6 @@
     x.globalAlpha = 1; x.globalCompositeOperation = "source-over"; x.imageSmoothingQuality = "high";
     if (S.hideVid) { x.fillStyle = "#fff"; x.fillRect(0, 0, W, H); } else x.drawImage(V.frameCv, 0, 0, W, H);
     if (V.peek) return;   // D gehalten: nur das Original
-    if (V.hasMagic) x.drawImage(V.magicCv, 0, 0, W, H);
     if (S.onion && V.onionBmp) { x.globalAlpha = 0.3; x.drawImage(V.onionBmp, 0, 0, W, H); x.globalAlpha = 1; }
     var st = set();
     if (V.down && S.tool === "eraser") {
@@ -925,8 +822,8 @@
     // Zeiger
     if (V.hover) {
       var k = W / F.ow, hx = V.hover.x * k, hy = V.hover.y * k, dpr = window.devicePixelRatio || 1;
-      if (!V.picking && V.mp && (V.mp.preview || V.mp.busy)) { /* kein Pinselzeiger während der Vorschau */ }
-      else if (!V.picking && V.qp && !V.qp.applied) {
+      if (V.mp && (V.mp.preview || V.mp.busy)) { /* kein Pinselzeiger während der Vorschau */ }
+      else if (V.qp && !V.qp.applied) {
         if (V.qp.stage === "pick") {
           x.fillStyle = sampleVideo(V.hover); x.strokeStyle = "#fff"; x.lineWidth = 2 * dpr;
           x.fillRect(hx + 14 * dpr, hy - 48 * dpr, 34 * dpr, 34 * dpr); x.strokeRect(hx + 14 * dpr, hy - 48 * dpr, 34 * dpr, 34 * dpr);
@@ -952,18 +849,10 @@
     var x = c.getContext("2d"); x.clearRect(0, 0, c.width, c.height);
     var fw = c.width / F.n;
     x.fillStyle = "#E2621B";
-    Object.keys(F.paints).concat(Object.keys(F.magic || {})).forEach(function (k) { x.fillRect(Math.floor(+k * fw), 0, Math.max(Math.ceil(fw), Math.round(dpr)), c.height); });
+    Object.keys(F.paints).forEach(function (k) { x.fillRect(Math.floor(+k * fw), 0, Math.max(Math.ceil(fw), Math.round(dpr)), c.height); });
     if (V.dirty || (V.layer && F.paints[F.idx])) { /* aktueller Frame wird beim Wechsel gespeichert */ }
   }
 
-  // Magic-Ebene und Handmalerei eines Frames in gewünschter Größe zusammensetzen
-  async function composeFrame(i, W, H) {
-    var c = canvas(W, H), x = c.getContext("2d"), rec = F.magic[i];
-    if (rec) { var m = await mapSource(rec, rec.cv ? 0 : W, rec.cv ? 0 : H); colorize(m, rec.pal, c); if (m.close) m.close(); }
-    var p = await paintSource(i);
-    if (p) { x.drawImage(p, 0, 0, W, H); if (p.close) p.close(); }
-    return c;
-  }
   // ---------- Abspielen (Vorschau mit der Bemalung) ----------
   function startPlay() {
     if (!F || !V.layer || V.playing) return;
@@ -985,16 +874,16 @@
     var v = V.vid, k = Math.min(F.n - 1, Math.floor(v.currentTime * F.fps));
     if (v.ended || k >= F.n - 1 && v.currentTime >= F.dur - 0.05) { stopPlay(); return; }
     for (var j = k; j < Math.min(F.n, k + 8); j++) {
-      if ((F.paints[j] || F.magic[j]) && !(j in V.cache)) {
+      if (F.paints[j] && !(j in V.cache)) {
         V.cache[j] = null;
-        (function (jj) { composeFrame(jj, V.cv.width, V.cv.height).then(function (b) { if (V && V.playing && V.cache && jj in V.cache) V.cache[jj] = b; }); })(j);
+        (function (jj) { paintSource(jj).then(function (b) { if (V && V.playing && V.cache && jj in V.cache) V.cache[jj] = b; else if (b && b.close) b.close(); }); })(j);
       }
     }
     Object.keys(V.cache).forEach(function (q) { if (+q < k - 1) { var b = V.cache[q]; if (b && b.close) b.close(); delete V.cache[q]; } });
     var x = V.cv.getContext("2d"), W = V.cv.width, H = V.cv.height;
     if (S.hideVid) { x.fillStyle = "#fff"; x.fillRect(0, 0, W, H); }
     else { x.fillStyle = "#000"; x.fillRect(0, 0, W, H); var s = Math.min(W / v.videoWidth, H / v.videoHeight); x.drawImage(v, (W - v.videoWidth * s) / 2, (H - v.videoHeight * s) / 2, v.videoWidth * s, v.videoHeight * s); }
-    var img = (F.paints[k] || F.magic[k]) ? V.cache[k] : null;
+    var img = F.paints[k] ? V.cache[k] : null;
     if (img) x.drawImage(img, 0, 0, W, H);
     if (V.shownIdx !== k) { V.shownIdx = k; F.idx = k; updateBar(true); }
   }
@@ -1052,13 +941,11 @@
         ev = document.createElement("video"); ev.muted = true; ev.playsInline = true; ev.preload = "auto"; ev.src = F.url;
         await new Promise(function (res, rej) { ev.onloadeddata = res; ev.onerror = function () { rej(new Error("video")); }; });
       }
-      var cv = canvas(OW, OH), x = cv.getContext("2d"), exMagic = canvas(OW, OH);
+      var cv = canvas(OW, OH), x = cv.getContext("2d");
       for (var i = 0; i < n; i++) {
         if (cancelReq || encErr) break;
         if (ev) { await seek(ev, tFrame(i)); drawVideo(x, ev, OW, OH); }
         else { x.fillStyle = "#fff"; x.fillRect(0, 0, OW, OH); }
-        var mrec = F.magic[i];
-        if (mrec) { var msrc = await mapSource(mrec); colorize(msrc, mrec.pal, exMagic); if (msrc.close) msrc.close(); x.drawImage(exMagic, 0, 0); }
         var p = await paintSource(i);
         if (p) { x.drawImage(p, 0, 0); if (p.close) p.close(); }
         var vf = new VideoFrame(cv, { timestamp: Math.round(i * us), duration: Math.round(us) });
@@ -1104,7 +991,6 @@
     ".fp-desk canvas{display:block;cursor:none;touch-action:none}.fp-desk canvas.pick,.fp-desk canvas.qp{cursor:crosshair}" +
     ".fp-qp{position:absolute;right:12px;top:12px;width:min(300px,calc(100% - 24px));max-height:calc(100% - 24px);overflow-y:auto;z-index:5;background:var(--bg);color:var(--ink);border:2px solid var(--ink);box-shadow:5px 5px 0 rgba(0,0,0,.45);padding:12px 14px;display:flex;flex-direction:column;gap:10px}" +
     ".fp-x{order:1;margin-left:auto;width:30px;height:30px;border:1px solid var(--ink);background:transparent;color:var(--ink);font:600 1.2rem/1 var(--f-body);cursor:pointer}.fp-x:hover{background:var(--ink);color:var(--bg)}" +
-    ".fp-rc button{width:22px;height:22px;padding:0;border:1px solid var(--line);cursor:pointer}.fp-rc button:hover{outline:2px solid var(--ink);outline-offset:1px}.fp-rc button.on{outline:3px solid #E2621B;outline-offset:1px}.fp-slot .fp-rc button{width:20px;height:20px}" +
     ".fp-note2{margin:0;color:var(--soft);font-size:.86rem;line-height:1.45}.fp-qpbtn[disabled]{opacity:.4;cursor:default}.fp-qph::after{display:none!important}.fp-qbatch{display:flex;flex-direction:column;gap:8px;border-top:1px solid var(--line);padding-top:10px}" +
     ".fp-slots{display:flex;flex-direction:column;gap:8px}.fp-slot{display:grid;grid-template-columns:auto 1fr;gap:6px 10px;align-items:center;border:1px solid var(--line);padding:8px 10px}" +
     ".fp-slot b{font-size:.88rem}.fp-slot .fp-mpl span{width:14px;height:14px}.fp-slb{grid-column:1/3;display:flex;gap:6px}.fp-slb .navbtn{flex:1}.fp-slb .navbtn[disabled]{opacity:.4;cursor:default}" +
@@ -1228,8 +1114,7 @@
       '<p class="fp-note" id="fp-note" aria-live="polite">' + (V.lastNote || "") + "</p></div>";
     var qpb = '<div class="fp-box"><h3>' + t("qpH") + '</h3><button type="button" class="fp-qpbtn" data-fp="qp"' + (ready ? "" : " disabled") + ">" + t("qpStart") + '</button><p class="fp-desc">' + t("qpNote") + "</p></div>";
     var mpb = '<div class="fp-box"><h3>' + t("mpH") + '</h3><button type="button" class="fp-qpbtn" data-fp="mp"' + (ready ? "" : " disabled") + ">" + t("mpStart") + '</button><p class="fp-desc">' + t("mpNote") + "</p>" + slotsHTML() + '<p class="fp-desc">' + t("mpSlotsNote") + "</p></div>";
-    var rcb = F && V.layer ? '<div class="fp-box"><h3>' + t("recolH") + "</h3>" + recolHTML() + "</div>" : "";
-    side.innerHTML = top + color + tools + qpb + mpb + rcb + fps + exp;
+    side.innerHTML = top + color + tools + qpb + mpb + fps + exp;
     if (V.pendingFile) noteSure();
   }
   function updateBar(light) {
@@ -1242,7 +1127,7 @@
     var pb = V.root.querySelector("#fp-play"); pb.textContent = V.playing ? "❚❚ " + t("pause") : "▶ " + t("play");
     V.root.querySelector('[data-fp="prev"]').disabled = F.idx === 0 || V.playing;
     V.root.querySelector('[data-fp="next"]').disabled = F.idx >= F.n - 1 || V.playing;
-    V.root.querySelector("#fp-copy").disabled = F.idx === 0 || V.playing || !(F.paints[F.idx - 1] || F.magic[F.idx - 1]);
+    V.root.querySelector("#fp-copy").disabled = F.idx === 0 || V.playing || !F.paints[F.idx - 1];
     V.root.querySelector("#fp-undo").disabled = !V.undo.length; V.root.querySelector("#fp-redo").disabled = !V.redo.length;
     var ld = V.root.querySelector("#fp-load"); if (ld) ld.hidden = !V.loading;
     drawStrip();
@@ -1263,9 +1148,9 @@
     if (e.button !== undefined && e.button > 0) return;
     e.preventDefault();
     var p = toFrame(e);
-    if (V.picking) { if (V.recolor) doRecolor(sample(p)); else { takeColor(sample(p)); setPick(false); } return; }
     if (V.mp && (V.mp.result || V.mp.busy)) { mpApply(); return; }
     if (V.qp && !V.qp.applied) { if (V.qp.stage === "pick") qpFix(p); else qpApply(); return; }
+    if (V.picking) { takeColor(sample(p)); setPick(false); return; }
     if (V.loading) return;
     pushUndo();
     try { V.cv.setPointerCapture(e.pointerId); } catch (er) {}
@@ -1309,7 +1194,6 @@
     if (e.altKey) return;
     var k = e.key.toLowerCase();
     if (k === "d") { e.preventDefault(); if (!V.peek) { V.peek = true; need(); } return; }
-    if (k === "escape" && V.picking) { setPick(false); return; }
     if (k === "m") { e.preventDefault(); if (V.mp) endMP(); else startMP(); return; }
     if (V.mp && k === "escape") { endMP(); return; }
     if (V.mp && k === "enter" && V.mp.result) { e.preventDefault(); mpApply(); return; }
@@ -1353,21 +1237,15 @@
     if (V.qp.stage === "tune") { qpMask(); qpGenSoon(); } else V.qp.dirty = true;
   }
   function onClick(e) {
-    var b = e.target.closest("[data-fp],[data-tool],[data-mode],[data-col],[data-slot-load],[data-slot-save],[data-qtype],[data-mtype],[data-recol],[data-recreset]"); if (!b) return;
+    var b = e.target.closest("[data-fp],[data-tool],[data-mode],[data-col],[data-slot-load],[data-slot-save],[data-qtype],[data-mtype]"); if (!b) return;
     if (V.batch) { if (b.dataset.fp === "batchStop") V.batch.stop = true; return; }
-    if (b.dataset.recol && !V.batch) {
-      var pr = b.dataset.recol.split(":"), pl = palById(pr[0]);
-      if (V.recolor && V.recolor.pal === pl && V.recolor.li === +pr[1]) setPick(false); else startRecolor(pl, +pr[1]);
-      return;
-    }
-    if (b.dataset.recreset && !V.batch) { var rp = palById(b.dataset.recreset); if (rp) resetColors(rp); return; }
     if (b.dataset.qtype && !V.batch) { S.qp.type = b.dataset.qtype; if (V.qp) { V.qp.done = {}; qpPanel(); qpGenSoon(0); } return; }
     if (b.dataset.mtype && !V.batch) { S.mp.type = b.dataset.mtype; if (V.mp) { V.mp.done = {}; mpTok++; V.mp.busy = true; V.mp.applied = false; V.mp.result = null; V.mp.gen = performance.now(); mpPanel(true); } return; }
     if (b.dataset.slotLoad !== undefined) { if (F && V.layer) slotLoad(+b.dataset.slotLoad); return; }
     if (b.dataset.slotSave !== undefined) { slotSave(+b.dataset.slotSave); return; }
     if (b.dataset.tool) { setTool(b.dataset.tool); return; }
     if (b.dataset.mode) { S.mode = b.dataset.mode; updateSide(); return; }
-    if (b.dataset.col) { if (V.recolor) doRecolor(b.dataset.col); else takeColor(b.dataset.col); return; }
+    if (b.dataset.col) { takeColor(b.dataset.col); return; }
     var a = b.dataset.fp;
     if (a === "file") { if (busy) return; storeCurrent(); if (F && painted() && !V.pendingFile) { V.pendingFile = "pick"; noteSure(); return; } V.root.querySelector("#fp-file").click(); return; }
     if (a === "sureYes") { var pf = V.pendingFile; V.pendingFile = null; if (pf === "pick") V.root.querySelector("#fp-file").click(); else if (pf) loadFile(pf); return; }
