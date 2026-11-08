@@ -3,7 +3,7 @@
 (function () {
   "use strict";
 
-  var VERSION = "0.1", RATES = [5, 15, 30];
+  var VERSION = "0.12", RATES = [5, 15, 30];
   var lang = "de";
   function L2(de, en) { return { de: de, en: en }; }
 
@@ -44,12 +44,23 @@
     failed: L2("Export fehlgeschlagen: {e}", "Export failed: {e}"),
     bad: L2("Diese Datei konnte nicht als Video geöffnet werden.", "This file could not be opened as a video."),
     loading: L2("Frame wird geladen …", "Loading frame …"),
-    keys: L2("Tasten: C Pipette · P Stift · B Pinsel · S Spray · E Radierer · ← → Frame · Leertaste Abspielen · [ ] Größe · Strg+Z Rückgängig", "Keys: C picker · P pen · B brush · S spray · E eraser · ← → frame · Space play · [ ] size · Ctrl+Z undo"),
+    qpH: L2("Quickpaint", "Quickpaint"), qpStart: L2("Quickpaint starten (Q)", "Start Quickpaint (Q)"),
+    qpNote: L2("Q drücken, mit der Pipette eine Farbe im Video wählen: das Bild zeigt live, wo sie vorkommt. Linksklick legt die Farbe fest, dann Härte einstellen (auch per Mausrad) und mit einem zweiten Linksklick ins Bild übernehmen. Gemalt wird in deiner aktuellen Farbe, als Skizze mit Strichen. Esc bricht ab.",
+               "Press Q and pick a colour in the video with the picker: the image shows live where it appears. A left click fixes the colour, then set the hardness (mouse wheel works too) and apply with a second left click on the image. It paints in your current colour, as a sketch made of strokes. Esc cancels."),
+    qpPick: L2("Farbe im Video wählen · Linksklick legt sie fest", "Pick a colour in the video · left click fixes it"),
+    qpTune: L2("Härte einstellen · Linksklick ins Bild übernimmt", "Set the hardness · left click on the image applies"),
+    qpHard: L2("Härte", "Hardness"), qpHardNote: L2("Niedrig erfasst auch ähnliche Farben, hoch nur fast genau diese.", "Low also catches similar colours, high only almost exactly this one."),
+    qpHuman: L2("Humanize", "Humanize"), qpAngle: L2("Winkel", "Angle"), qpWidth: L2("Strichstärke", "Stroke width"),
+    qpOk: L2("Übernehmen", "Apply"), qpNo: L2("Abbrechen", "Cancel"), qpSeed: L2("Andere Variante", "Other variant"),
+    qpKey: L2("Farbe", "Colour"),
+    keys: L2("Tasten: C Pipette · Q Quickpaint · D halten: Bemalung ausblenden · P Stift · B Pinsel · S Spray · E Radierer · ← → Frame · Leertaste Abspielen · [ ] Größe · Strg+Z Rückgängig", "Keys: C picker · Q Quickpaint · hold D: hide painting · P pen · B brush · S spray · E eraser · ← → frame · Space play · [ ] size · Ctrl+Z undo"),
     howH: L2("So funktioniert’s", "How it works"),
     how1: L2("Das Video wird in Frames zerlegt, je nach Bildrate 5, 15 oder 30 pro Sekunde. Jeder Frame hat seine eigene Malebene. Mit den Pfeilen springst du von Frame zu Frame, und in jedem Frame siehst du genau das, was du dort gemalt hast. Mit „Framepaint vom letzten Frame übernehmen“ holst du die Zeichnung des vorherigen Frames, um sie für die Animation nur leicht anzupassen. Die Zwiebelhaut zeigt den letzten Frame blass darunter.",
               "The video is split into frames, 5, 15 or 30 per second depending on the frame rate. Each frame has its own paint layer. The arrows jump from frame to frame, and each frame shows exactly what you painted there. “Copy paint from previous frame” brings over the drawing of the frame before, so you only adjust it slightly for the animation. Onion skin shows the previous frame faintly underneath."),
     how2: L2("Farben gibt es bewusst nur über die Pipette: C drücken und ins Bild klicken. Stift malt harte Linien, Pinsel weiche, die Spraydose sprüht Punkte und sprüht weiter, solange du die Maustaste hältst. Deckkraft gilt für den ganzen Strich, er wird also nicht fleckig, wo er sich überlappt. Glättung zieht den Strich etwas hinter der Maus her, so werden Linien ruhig. Mit Grafiktablett reagieren Stift und Pinsel auf Druck.",
               "Colours come only from the picker, on purpose: press C and click the image. The pen paints hard lines, the brush soft ones, the spray can sprays dots and keeps spraying while you hold the button. Opacity applies to the whole stroke, so it does not get blotchy where it overlaps. Smoothing lets the stroke trail a little behind the mouse, which calms lines. With a graphics tablet, pen and brush respond to pressure."),
+    how4: L2("Quickpaint malt eine Farbfläche automatisch aus, wie ein Chroma Key. Die Härte bestimmt, wie streng die Maske auf die gewählte Farbe reagiert. Gefüllt wird mit Schraffur-Strichen im eingestellten Winkel. Humanize macht daraus eine Handskizze: Striche werden ungleich lang, leicht gebogen, verschieden kräftig, es kommen Kreuzschraffur und skizzierte Umrisse dazu, und die Striche dürfen ein kleines Stück über den Rand laufen, aber nie weit. Solange du D gedrückt hältst, ist die ganze Bemalung ausgeblendet und du siehst das Original.",
+               "Quickpaint fills a colour area automatically, like a chroma key. Hardness sets how strictly the mask reacts to the chosen colour. It fills with hatching strokes at the set angle. Humanize turns that into a hand sketch: strokes get uneven lengths, slight curves and varying weight, cross-hatching and sketched outlines are added, and strokes may run slightly past the edge, but never far. While you hold D, all painting is hidden and you see the original."),
     how3: L2("Der Export rechnet jeden Frame neu und kodiert ihn als H.264 in Full HD, 1920 × 1080, bei Hochkant-Videos 1080 × 1920. Die Bitrate ist variabel, der Regler gibt den Mittelwert vor. Du kannst die Bemalung über dem Video exportieren oder nur die Bemalung auf Weiß.",
               "The export renders every frame again and encodes it as H.264 in Full HD, 1920 × 1080, or 1080 × 1920 for portrait videos. The bitrate is variable, the slider sets the average. You can export the painting over the video, or only the painting on white.")
   };
@@ -78,7 +89,7 @@
   // ---------- Zustand ----------
   // F: Projekt { file, url, name, dur, vw, vh, fps, n, ow, oh, idx, paints: { i: {cv}|{blob} } }
   var F = null, V = null;
-  var S = { tool: "brush", sets: {}, color: "#1A1A1A", recent: [], onion: false, hideVid: false, mode: "video", mbit: 12, audio: true, fpsI: 1 };
+  var S = { qp: { hard: 55, human: 60, angle: 35, width: 5, seed: 7 }, tool: "brush", sets: {}, color: "#1A1A1A", recent: [], onion: false, hideVid: false, mode: "video", mbit: 12, audio: true, fpsI: 1 };
   Object.keys(TOOLS).forEach(function (k) { S.sets[k] = Object.assign({}, TOOLS[k].set); });
   function set() { return S.sets[S.tool]; }
   function painted() { return Object.keys(F ? F.paints : {}).length + (V && V.dirty ? 1 : 0); }
@@ -148,6 +159,7 @@
   async function goFrame(i) {
     if (!F || !V || !V.layer) return;
     i = clamp(i, 0, F.n - 1);
+    if (V.qp) endQP();
     storeCurrent();
     var tok = ++loadTok;
     F.idx = i; V.loading = true; V.undo = []; V.redo = [];
@@ -262,6 +274,158 @@
     updateSide();
   }
 
+  // ---------- Quickpaint (Chroma Key + Skizze) ----------
+  // V.qp = { stage: "pick" | "tune", key: [L,a,b], hover: [L,a,b] }
+  var LIN = (function () { var a = new Float32Array(256); for (var i = 0; i < 256; i++) { var c = i / 255; a[i] = c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); } return a; })();
+  function labOf(r, g, b, out, o) {
+    var R = LIN[r], G = LIN[g], B = LIN[b];
+    var X = (0.4124 * R + 0.3576 * G + 0.1805 * B) / 0.95047, Y = 0.2126 * R + 0.7152 * G + 0.0722 * B, Z = (0.0193 * R + 0.1192 * G + 0.9505 * B) / 1.08883;
+    var fx = X > 0.008856 ? Math.cbrt(X) : 7.787 * X + 0.138, fy = Y > 0.008856 ? Math.cbrt(Y) : 7.787 * Y + 0.138, fz = Z > 0.008856 ? Math.cbrt(Z) : 7.787 * Z + 0.138;
+    out[o] = 116 * fy - 16; out[o + 1] = 500 * (fx - fy); out[o + 2] = 200 * (fy - fz);
+  }
+  function labGrid(w) {
+    var h = Math.max(1, Math.round(w * F.oh / F.ow)), c = canvas(w, h), x = c.getContext("2d");
+    x.imageSmoothingQuality = "high"; x.drawImage(V.frameCv, 0, 0, w, h);
+    var d = x.getImageData(0, 0, w, h).data, L = new Float32Array(w * h * 3);
+    for (var i = 0, j = 0; i < d.length; i += 4, j += 3) labOf(d[i], d[i + 1], d[i + 2], L, j);
+    return { w: w, h: h, L: L };
+  }
+  function qpGrids() {
+    if (!V.qg || V.qg.idx !== F.idx) V.qg = { idx: F.idx, s: labGrid(480), m: labGrid(960) };
+    return V.qg;
+  }
+  // Maske 0..1: weich um den Schwellwert, Härte 100 = nur fast exakt die Farbe
+  function maskOf(G, key, hard) {
+    var n = G.w * G.h, m = new Float32Array(n), T = 3 + (100 - hard) / 100 * 45, e = Math.max(1.5, T * 0.3), L = G.L;
+    for (var i = 0, j = 0; i < n; i++, j += 3) {
+      var dl = (L[j] - key[0]) * 0.6, da = L[j + 1] - key[1], db = L[j + 2] - key[2], d = Math.sqrt(dl * dl + da * da + db * db);
+      m[i] = d <= T - e ? 1 : d >= T + e ? 0 : (T + e - d) / (2 * e);
+    }
+    return m;
+  }
+  function labAt(G, p) { var x = clamp(Math.floor(p.x / F.ow * G.w), 0, G.w - 1), y = clamp(Math.floor(p.y / F.oh * G.h), 0, G.h - 1), j = (y * G.w + x) * 3; return [G.L[j], G.L[j + 1], G.L[j + 2]]; }
+  // Sichtbare Maske: diagonale Schwarz-Weiß-Streifen, auf jeder Farbe gut zu erkennen
+  function maskView(m, G, alpha) {
+    var c = V.qView && V.qView.width === G.w ? V.qView : (V.qView = canvas(G.w, G.h)), x = c.getContext("2d"), id = x.createImageData(G.w, G.h), d = id.data;
+    for (var y = 0, i = 0; y < G.h; y++) for (var xx = 0; xx < G.w; xx++, i++) {
+      var v = ((xx + y) >> 2) & 1 ? 255 : 20, a = m[i] * alpha * 255, o = i * 4;
+      d[o] = v; d[o + 1] = v; d[o + 2] = v; d[o + 3] = a;
+    }
+    x.putImageData(id, 0, 0);
+    return c;
+  }
+  function rng(seed) { return function () { seed |= 0; seed = seed + 0x6D2B79F5 | 0; var t2 = Math.imul(seed ^ seed >>> 15, 1 | seed); t2 = t2 + Math.imul(t2 ^ t2 >>> 7, 61 | t2) ^ t2; return ((t2 ^ t2 >>> 14) >>> 0) / 4294967296; }; }
+  function startQP() {
+    if (!F || !V.layer || V.loading || V.playing || V.down) return;
+    setPick(false); qpGrids();
+    V.qp = { stage: "pick", key: null, hover: null, mask: null, sketch: null, gen: 0 };
+    qpPanel(); need();
+  }
+  function endQP() { V.qp = null; V.qView = null; var pn = V.root.querySelector("#fp-qp"); if (pn) pn.hidden = true; need(); }
+  function qpFix(p) {
+    var G = qpGrids(); V.qp.key = labAt(G.m, p); V.qp.keyHex = sampleVideo(p); V.qp.stage = "tune";
+    qpMask(); qpGenSoon(0); qpPanel();
+  }
+  function qpMask() { var G = qpGrids(), k = V.qp.stage === "tune" ? V.qp.key : V.qp.hover; V.qp.mask = k ? maskView(maskOf(G.s, k, S.qp.hard), G.s, V.qp.stage === "tune" ? 0.16 : 0.85) : null; need(); }
+  function qpGenSoon(ms) { V.qp.gen = performance.now() + (ms === undefined ? 90 : ms); }
+  function qpApply() {
+    if (!V.qp || V.qp.stage !== "tune") return;
+    if (V.qp.gen) { buildSketch(); V.qp.gen = 0; }
+    pushUndo();
+    V.lx.globalAlpha = 1; V.lx.globalCompositeOperation = "source-over"; V.lx.drawImage(V.qp.sketch, 0, 0);
+    V.dirty = true; endQP(); updateBar();
+  }
+  function sampleVideo(p) {
+    var c = V.pick1 || (V.pick1 = canvas(1, 1)), x = c.getContext("2d", { willReadFrequently: true });
+    x.drawImage(V.frameCv, clamp(Math.floor(p.x), 0, F.ow - 1), clamp(Math.floor(p.y), 0, F.oh - 1), 1, 1, 0, 0, 1, 1);
+    var d = x.getImageData(0, 0, 1, 1).data;
+    return "#" + [d[0], d[1], d[2]].map(function (v) { return (v < 16 ? "0" : "") + v.toString(16); }).join("").toUpperCase();
+  }
+  // Skizze bauen: Schraffur im Winkel, Humanize bringt Hand-Unruhe, Kreuzschraffur und skizzierte Umrisse.
+  // Am Ende wird alles auf die leicht erweiterte Maske beschnitten, damit nichts weit über den Rand läuft.
+  function buildSketch() {
+    var G = qpGrids().m, mw = G.w, mh = G.h, raw = maskOf(G, V.qp.key, S.qp.hard), n = mw * mh, i;
+    var bl = new Float32Array(n);   // leicht weichzeichnen gegen Rauschen
+    for (var y = 0; y < mh; y++) for (var x = 0; x < mw; x++) {
+      var sum = 0, cnt = 0;
+      for (var dy = -1; dy <= 1; dy++) for (var dx = -1; dx <= 1; dx++) { var yy = y + dy, xx = x + dx; if (yy >= 0 && yy < mh && xx >= 0 && xx < mw) { sum += raw[yy * mw + xx]; cnt++; } }
+      bl[y * mw + x] = sum / cnt;
+    }
+    var M = new Uint8Array(n); for (i = 0; i < n; i++) M[i] = bl[i] >= 0.5 ? 1 : 0;
+    var f = mw / F.ow, h = S.qp.human / 100, w = S.qp.width * F.oh / 1080, R = rng(S.qp.seed * 7919 + F.idx);
+    function inside(px, py) { var mx = Math.floor(px * f), my = Math.floor(py * f); return mx >= 0 && my >= 0 && mx < mw && my < mh && M[my * mw + mx] === 1; }
+    var out = V.qp.sketch && V.qp.sketch.width === F.ow ? V.qp.sketch : (V.qp.sketch = canvas(F.ow, F.oh)), x2 = out.getContext("2d");
+    x2.globalCompositeOperation = "source-over"; x2.globalAlpha = 1; x2.clearRect(0, 0, F.ow, F.oh);
+    x2.strokeStyle = S.color; x2.lineCap = "round"; x2.lineJoin = "round";
+    function line(ax, ay, bx, by, lw, al) {
+      var len = Math.hypot(bx - ax, by - ay); if (len < 1) return;
+      var nx = -(by - ay) / len, ny = (bx - ax) / len, bend = (R() - 0.5) * len * 0.14 * h;
+      x2.globalAlpha = al; x2.lineWidth = lw;
+      x2.beginPath(); x2.moveTo(ax, ay); x2.quadraticCurveTo((ax + bx) / 2 + nx * bend, (ay + by) / 2 + ny * bend, bx, by); x2.stroke();
+    }
+    function hatch(deg, spacing, keep, alMul) {
+      var a = deg * Math.PI / 180, ux = Math.cos(a), uy = Math.sin(a), vx = -uy, vy = ux, step = 1 / f;
+      var cs = [[0, 0], [F.ow, 0], [0, F.oh], [F.ow, F.oh]].map(function (c) { return [c[0] * vx + c[1] * vy, c[0] * ux + c[1] * uy]; });
+      var c0 = Math.min.apply(null, cs.map(function (q) { return q[0]; })), c1 = Math.max.apply(null, cs.map(function (q) { return q[0]; }));
+      var t0 = Math.min.apply(null, cs.map(function (q) { return q[1]; })), t1 = Math.max.apply(null, cs.map(function (q) { return q[1]; }));
+      for (var c = c0; c <= c1; c += spacing * (1 + (R() - 0.5) * 0.9 * h)) {
+        var run = -1;
+        for (var tt = t0; tt <= t1 + step; tt += step) {
+          var px = c * vx + tt * ux, py = c * vy + tt * uy, ins = tt <= t1 && inside(px, py);
+          if (ins && run < 0) run = tt;
+          else if (!ins && run >= 0) { stroke(run, tt - step, c); run = -1; }
+        }
+      }
+      function stroke(ta, tb, c) {
+        if (tb - ta < w * 1.2) return;
+        var segMax = h > 0 ? 260 - 180 * h : 1e9, s = ta;
+        while (s < tb) {
+          var e = Math.min(tb, s + segMax * (0.5 + R()));
+          if (R() < keep) {
+            var over = w * (0.4 + 2.2 * h) * R(), jit = (R() - 0.5) * 0.35 * h, mx = (s + e) / 2, half = (e - s) / 2 + over;
+            var cj = c + (R() - 0.5) * spacing * 0.5 * h, ca = Math.cos(a + jit), sa = Math.sin(a + jit);
+            var cx = cj * vx + mx * ux, cy = cj * vy + mx * uy;
+            var lw = w * (1 - 0.35 * h + R() * 0.7 * h), al = (1 - 0.35 * h + R() * 0.35 * h) * alMul;
+            line(cx - ca * half, cy - sa * half, cx + ca * half, cy + sa * half, lw, al);
+            if (R() < 0.3 * h) line(cx - ca * half * 0.8 + vx * w * 0.6, cy - sa * half * 0.8 + vy * w * 0.6, cx + ca * half * 0.7 + vx * w * 0.6, cy + sa * half * 0.7 + vy * w * 0.6, lw * 0.7, al * 0.6);
+          }
+          s = e + (h > 0 ? w * 2 * h * R() : 0);
+        }
+      }
+    }
+    hatch(S.qp.angle, w * (2.2 + h * 0.8), 1, 1);
+    if (h > 0.35) hatch(S.qp.angle + 62 + (R() - 0.5) * 20 * h, w * (3.4 + h), (h - 0.35) * 1.2, 0.75);
+    // skizzierte Umrisse entlang der Maskenkante
+    var g = Math.max(2, Math.round(w * 1.8 * f));
+    for (var yy2 = 1; yy2 < mh - 1; yy2 += g) for (var xx2 = 1; xx2 < mw - 1; xx2 += g) {
+      var k = yy2 * mw + xx2, gx = bl[k + 1] - bl[k - 1], gy = bl[k + mw] - bl[k - mw], gm = Math.hypot(gx, gy);
+      if (gm < 0.25 || bl[k] < 0.15 || bl[k] > 0.85) continue;
+      if (h > 0 && R() > 0.45 + 0.5 * h) continue;
+      var tx = -gy / gm, ty = gx / gm, len = g / f * (1.2 + R() * 1.6 * (0.3 + h)), rot = (R() - 0.5) * 0.5 * h, cr = Math.cos(rot), sr = Math.sin(rot);
+      var dxx = (tx * cr - ty * sr) * len / 2, dyy = (tx * sr + ty * cr) * len / 2, px2 = xx2 / f, py2 = yy2 / f;
+      line(px2 - dxx, py2 - dyy, px2 + dxx, py2 + dyy, w * (0.7 + R() * 0.5 * h), 0.85 - 0.25 * h * R());
+    }
+    // auf erweiterte Maske beschneiden
+    var mc = canvas(mw, mh), mx2 = mc.getContext("2d"), id = mx2.createImageData(mw, mh);
+    for (i = 0; i < n; i++) id.data[i * 4 + 3] = Math.round(Math.min(1, bl[i] * 1.6) * 255);
+    mx2.putImageData(id, 0, 0);
+    var big = V.tmp, bx2 = big.getContext("2d"), grow = 1 + h * 6 * F.oh / 1080;
+    bx2.globalCompositeOperation = "source-over"; bx2.globalAlpha = 1; bx2.clearRect(0, 0, F.ow, F.oh); bx2.imageSmoothingEnabled = true;
+    for (var q = 0; q < 9; q++) { var ang = q * Math.PI / 4; bx2.drawImage(mc, q === 8 ? 0 : Math.cos(ang) * grow, q === 8 ? 0 : Math.sin(ang) * grow, F.ow, F.oh); }
+    x2.globalAlpha = 1; x2.globalCompositeOperation = "destination-in"; x2.drawImage(big, 0, 0);
+    x2.globalCompositeOperation = "source-over";
+    need();
+  }
+  function qpPanel() {
+    var pn = V.root.querySelector("#fp-qp"); if (!pn) return;
+    var q = V.qp; if (!q) { pn.hidden = true; return; }
+    function sl(k, lab, min, max, u) { return '<div class="fp-row"><label for="fp-q-' + k + '">' + lab + '<span id="fp-q-' + k + '-v">' + S.qp[k] + u + '</span></label><input type="range" id="fp-q-' + k + '" data-qp="' + k + '" min="' + min + '" max="' + max + '" step="1" value="' + S.qp[k] + '"></div>'; }
+    pn.innerHTML = '<div class="fp-qph"><b>' + t("qpH") + "</b>" + (q.keyHex ? '<span class="fp-qk" style="background:' + q.keyHex + '" title="' + t("qpKey") + '"></span>' : "") + '<span class="fp-qs">' + t(q.stage === "pick" ? "qpPick" : "qpTune") + "</span></div>" +
+      sl("hard", t("qpHard"), 0, 100, " %") + (q.stage === "tune" ? sl("human", t("qpHuman"), 0, 100, " %") + sl("angle", t("qpAngle"), 0, 180, "°") + sl("width", t("qpWidth"), 1, 30, "px") : '<p class="fp-desc">' + t("qpHardNote") + "</p>") +
+      '<div class="fp-qb">' + (q.stage === "tune" ? '<button type="button" class="fp-save" data-fp="qpOk">' + t("qpOk") + '</button><button type="button" class="navbtn" data-fp="qpSeed">' + t("qpSeed") + "</button>" : "") + '<button type="button" class="navbtn" data-fp="qpNo">' + t("qpNo") + " (Esc)</button></div>";
+    pn.hidden = false;
+  }
+
   // ---------- Darstellung ----------
   function layout() {
     if (!V || !F || !F.vw || !V.cv) return;
@@ -283,12 +447,17 @@
       if (S.tool === "spray") { sprayAt(V.sm, 0); V.need = true; }
       if (V.raw && set().smooth > 0 && Math.hypot(V.raw.x - V.sm.x, V.raw.y - V.sm.y) > 0.5) { smoothStep(V.raw); V.need = true; }
     }
+    if (V.qp) {
+      if (V.qp.stage === "pick" && V.qp.dirty) { V.qp.dirty = false; qpMask(); }
+      if (V.qp.stage === "tune" && V.qp.gen && performance.now() >= V.qp.gen) { V.qp.gen = 0; buildSketch(); }
+    }
     if (V.need) { V.need = false; render(); }
   }
   function render() {
     var x = V.cv.getContext("2d"), W = V.cv.width, H = V.cv.height;
     x.globalAlpha = 1; x.globalCompositeOperation = "source-over"; x.imageSmoothingQuality = "high";
     if (S.hideVid) { x.fillStyle = "#fff"; x.fillRect(0, 0, W, H); } else x.drawImage(V.frameCv, 0, 0, W, H);
+    if (V.peek) return;   // D gehalten: nur das Original
     if (S.onion && V.onionBmp) { x.globalAlpha = 0.3; x.drawImage(V.onionBmp, 0, 0, W, H); x.globalAlpha = 1; }
     var st = set();
     if (V.down && S.tool === "eraser") {
@@ -299,10 +468,20 @@
       x.drawImage(V.layer, 0, 0, W, H);
       if (V.down) { x.globalAlpha = st.opacity / 100; x.drawImage(V.stroke, 0, 0, W, H); x.globalAlpha = 1; }
     }
+    if (V.qp) {
+      if (V.qp.mask) x.drawImage(V.qp.mask, 0, 0, W, H);
+      if (V.qp.stage === "tune" && V.qp.sketch) x.drawImage(V.qp.sketch, 0, 0, W, H);
+    }
     // Zeiger
     if (V.hover) {
       var k = W / F.ow, hx = V.hover.x * k, hy = V.hover.y * k, dpr = window.devicePixelRatio || 1;
-      if (V.picking) {
+      if (V.qp) {
+        if (V.qp.stage === "pick") {
+          x.fillStyle = sampleVideo(V.hover); x.strokeStyle = "#fff"; x.lineWidth = 2 * dpr;
+          x.fillRect(hx + 14 * dpr, hy - 48 * dpr, 34 * dpr, 34 * dpr); x.strokeRect(hx + 14 * dpr, hy - 48 * dpr, 34 * dpr, 34 * dpr);
+          x.strokeStyle = "#000"; x.lineWidth = 1 * dpr; x.strokeRect(hx + 12 * dpr, hy - 50 * dpr, 38 * dpr, 38 * dpr);
+        }
+      } else if (V.picking) {
         var c = sample(V.hover);
         x.fillStyle = c; x.strokeStyle = "#fff"; x.lineWidth = 2 * dpr;
         x.fillRect(hx + 14 * dpr, hy - 48 * dpr, 34 * dpr, 34 * dpr); x.strokeRect(hx + 14 * dpr, hy - 48 * dpr, 34 * dpr, 34 * dpr);
@@ -461,7 +640,12 @@
     ".fp-desk{position:relative;width:100%;aspect-ratio:16/9;min-height:300px;display:grid;place-items:center;padding:12px;overflow:hidden;background:#24221F;touch-action:none}" +
     ".fp-desk.tall{aspect-ratio:4/5}" +
     ".fp-desk.over{outline:3px dashed #E3B83F;outline-offset:-10px}" +
-    ".fp-desk canvas{display:block;cursor:none;touch-action:none}.fp-desk canvas.pick{cursor:crosshair}" +
+    ".fp-desk canvas{display:block;cursor:none;touch-action:none}.fp-desk canvas.pick,.fp-desk canvas.qp{cursor:crosshair}" +
+    ".fp-qp{position:absolute;right:12px;top:12px;width:min(300px,calc(100% - 24px));max-height:calc(100% - 24px);overflow-y:auto;z-index:5;background:var(--bg);color:var(--ink);border:2px solid var(--ink);box-shadow:5px 5px 0 rgba(0,0,0,.45);padding:12px 14px;display:flex;flex-direction:column;gap:10px}" +
+    ".fp-qp.alt{right:auto;left:12px}.fp-qp[hidden]{display:none}" +
+    ".fp-qph{display:flex;flex-wrap:wrap;align-items:center;gap:8px}.fp-qph b{font:600 1rem var(--f-display)}.fp-qk{width:20px;height:20px;border:1px solid var(--ink)}" +
+    ".fp-qs{flex-basis:100%;font-size:.84rem;color:var(--soft)}.fp-qb{display:flex;flex-wrap:wrap;gap:8px}.fp-qb .fp-save{padding:9px 14px;font-size:.92rem}" +
+    ".fp-qpbtn{font:600 .95rem var(--f-body);padding:10px 14px;border:2px solid var(--ink);background:transparent;color:var(--ink);cursor:pointer}.fp-qpbtn:hover{background:var(--ink);color:var(--bg)}" +
     ".fp-drop{text-align:center;color:#F1EFEA;display:flex;flex-direction:column;align-items:center;gap:10px;padding:20px}" +
     ".fp-drop b{font:600 1.4rem/1.2 var(--f-display)}.fp-drop span{color:rgba(241,239,234,.7)}" +
     ".fp-pick{font:600 1rem var(--f-body);padding:12px 20px;border:0;background:#F1EFEA;color:#151715;cursor:pointer}" +
@@ -511,7 +695,7 @@
     return '<h1 class="ptitle">' + t("title") + '<span class="fp-ver">v' + VERSION + '</span></h1><p class="pintro">' + t("intro") + "</p>" +
       '<div class="fp-wrap"><div class="fp-deskbox"><div class="fp-desk" id="fp-desk"></div><div id="fp-bar"></div><input type="file" id="fp-file" accept="video/*,.mp4,.mov,.m4v,.webm" hidden></div>' +
       '<div class="fp-side" id="fp-side"></div></div>' +
-      '<section class="phow"><h2>' + t("howH") + "</h2><p>" + t("how1") + "</p><p>" + t("how2") + "</p><p>" + t("how3") + "</p></section>";
+      '<section class="phow"><h2>' + t("howH") + "</h2><p>" + t("how1") + "</p><p>" + t("how2") + "</p><p>" + t("how4") + "</p><p>" + t("how3") + "</p></section>";
   }
   function buildUI() {
     var desk = V.root.querySelector("#fp-desk"), bar = V.root.querySelector("#fp-bar");
@@ -524,7 +708,7 @@
       updateSide();
       return;
     }
-    desk.innerHTML = '<canvas id="fp-cv" aria-label="' + F.name + '"></canvas><span class="fp-load" id="fp-load" hidden>' + t("loading") + "</span>";
+    desk.innerHTML = '<canvas id="fp-cv" aria-label="' + F.name + '"></canvas><div class="fp-qp" id="fp-qp" hidden></div><span class="fp-load" id="fp-load" hidden>' + t("loading") + "</span>";
     V.cv = desk.querySelector("#fp-cv");
     bar.innerHTML = '<div class="fp-bar"><button type="button" class="fp-nav" data-fp="prev" aria-label="' + t("prev") + '" title="' + t("prev") + ' (←)">◀ ' + t("prev") + '</button>' +
       '<span class="fp-fr" id="fp-fr"></span>' +
@@ -576,7 +760,8 @@
       '<p class="fp-desc" id="fp-info">' + fmt(t("exportInfo"), { w: ow, h: oh, f: RATES[S.fpsI], br: S.mbit }) + "</p>" +
       (busy ? '<button type="button" class="fp-save" data-fp="cancel">' + t("cancel") + "</button>" : '<button type="button" class="fp-save" data-fp="export"' + (ready ? "" : " disabled") + ">" + t("save") + "</button>") +
       '<p class="fp-note" id="fp-note" aria-live="polite">' + (V.lastNote || "") + "</p></div>";
-    side.innerHTML = top + color + tools + fps + exp;
+    var qpb = '<div class="fp-box"><h3>' + t("qpH") + '</h3><button type="button" class="fp-qpbtn" data-fp="qp"' + (ready ? "" : " disabled") + ">" + t("qpStart") + '</button><p class="fp-desc">' + t("qpNote") + "</p></div>";
+    side.innerHTML = top + color + tools + qpb + fps + exp;
     if (V.pendingFile) noteSure();
   }
   function updateBar(light) {
@@ -609,6 +794,7 @@
     if (e.button !== undefined && e.button > 0) return;
     e.preventDefault();
     var p = toFrame(e);
+    if (V.qp) { if (V.qp.stage === "pick") qpFix(p); else qpApply(); return; }
     if (V.picking) { takeColor(sample(p)); setPick(false); return; }
     if (V.loading) return;
     pushUndo();
@@ -625,7 +811,14 @@
       evs.forEach(function (ce) { var p = toFrame(ce); if (!V.pen) p.p = 0.5; V.raw = p; smoothStep(p); });
       V.hover = V.raw; need(); return;
     }
-    if (e.target === V.cv) { V.hover = toFrame(e); need(); }
+    if (V.qp) {   // Panel weicht dem Mauszeiger aus
+      var pn = V.root.querySelector("#fp-qp");
+      if (pn && !pn.hidden) { var pr = pn.getBoundingClientRect(), near = e.clientX > pr.left - 40 && e.clientX < pr.right + 40 && e.clientY > pr.top - 40 && e.clientY < pr.bottom + 40; if (near && !pn.contains(e.target)) pn.classList.toggle("alt"); }
+    }
+    if (e.target === V.cv) {
+      V.hover = toFrame(e); need();
+      if (V.qp && V.qp.stage === "pick") { var hv = labAt(qpGrids().s, V.hover), o = V.qp.hover; if (!o || Math.abs(o[0] - hv[0]) + Math.abs(o[1] - hv[1]) + Math.abs(o[2] - hv[2]) > 0.8) { V.qp.hover = hv; V.qp.dirty = true; } }
+    }
     else if (V.hover) { V.hover = null; need(); }
   }
   function onUp(e) {
@@ -648,6 +841,11 @@
     }
     if (e.altKey) return;
     var k = e.key.toLowerCase();
+    if (k === "d") { e.preventDefault(); if (!V.peek) { V.peek = true; need(); } return; }
+    if (k === "q") { e.preventDefault(); if (V.qp) endQP(); else startQP(); return; }
+    if (k === "escape" && V.qp) { endQP(); return; }
+    if (k === "enter" && V.qp && V.qp.stage === "tune") { e.preventDefault(); qpApply(); return; }
+    if (V.qp) return;
     if (k === "c") { e.preventDefault(); setPick(!V.picking); return; }
     if (k === "escape" && V.picking) { setPick(false); return; }
     for (var id in TOOLS) if (TOOLS[id].key === k) { e.preventDefault(); setTool(id); return; }
@@ -658,6 +856,15 @@
       var sl = V.root.querySelector("#fp-s-size"); if (sl) { sl.value = st.size; V.root.querySelector("#fp-s-size-v").textContent = st.size + "px"; }
       need();
     }
+  }
+  function onKeyUp(e) { if (V && (e.key === "d" || e.key === "D") && V.peek) { V.peek = false; need(); } }
+  function onBlurWin() { if (V && V.peek) { V.peek = false; need(); } }
+  function onWheel(e) {
+    if (!V || !V.qp || e.target !== V.cv) return;
+    e.preventDefault();
+    S.qp.hard = clamp(S.qp.hard + (e.deltaY < 0 ? 2 : -2), 0, 100);
+    var sl = V.root.querySelector("#fp-q-hard"); if (sl) { sl.value = S.qp.hard; V.root.querySelector("#fp-q-hard-v").textContent = S.qp.hard + " %"; }
+    if (V.qp.stage === "tune") { qpMask(); qpGenSoon(); } else V.qp.dirty = true;
   }
   function onClick(e) {
     var b = e.target.closest("[data-fp],[data-tool],[data-mode],[data-col]"); if (!b) return;
@@ -676,12 +883,22 @@
     else if (a === "undo") undo();
     else if (a === "redo") redo();
     else if (a === "clear") clearFrame();
-    else if (a === "pick") setPick(!V.picking);
+    else if (a === "pick") { if (V.qp) endQP(); setPick(!V.picking); }
+    else if (a === "qp") { if (V.qp) endQP(); else startQP(); }
+    else if (a === "qpOk") qpApply();
+    else if (a === "qpNo") endQP();
+    else if (a === "qpSeed") { S.qp.seed = 1 + Math.floor(Math.random() * 9999); qpGenSoon(0); }
     else if (a === "export") doExport();
     else if (a === "cancel") cancelReq = true;
   }
   function onInput(e) {
     var el = e.target;
+    if (el.dataset.qp) {
+      var qk = el.dataset.qp; S.qp[qk] = +el.value;
+      V.root.querySelector("#fp-q-" + qk + "-v").textContent = el.value + (qk === "angle" ? "°" : qk === "width" ? "px" : " %");
+      if (V.qp) { if (qk === "hard") { if (V.qp.stage === "tune") qpMask(); else V.qp.dirty = true; } if (V.qp.stage === "tune") qpGenSoon(); }
+      return;
+    }
     if (el.dataset.set) {
       var k = el.dataset.set, r = RANGES[k]; set()[k] = +el.value;
       V.root.querySelector("#fp-s-" + k + "-v").textContent = el.value + r[2]; need(); return;
@@ -721,7 +938,8 @@
     el.addEventListener("pointerdown", onDown); window.addEventListener("pointermove", onMove); window.addEventListener("pointerup", onUp); window.addEventListener("pointercancel", onUp);
     el.addEventListener("pointerleave", onLeave, true);
     el.addEventListener("input", onInput); el.addEventListener("change", onChange); el.addEventListener("click", onClick);
-    window.addEventListener("keydown", onKey); window.addEventListener("resize", onResize);
+    window.addEventListener("keydown", onKey); window.addEventListener("keyup", onKeyUp); window.addEventListener("blur", onBlurWin); window.addEventListener("resize", onResize);
+    el.addEventListener("wheel", onWheel, { passive: false });
     var desk = el.querySelector("#fp-desk");
     desk.addEventListener("dragover", onDragOver); desk.addEventListener("dragleave", onDragLeave); desk.addEventListener("drop", onDrop);
     buildUI();
@@ -735,7 +953,8 @@
     storeCurrent();
     if (V.vid) { V.vid.pause(); }
     window.removeEventListener("pointermove", onMove); window.removeEventListener("pointerup", onUp); window.removeEventListener("pointercancel", onUp);
-    window.removeEventListener("keydown", onKey); window.removeEventListener("resize", onResize);
+    window.removeEventListener("keydown", onKey); window.removeEventListener("keyup", onKeyUp); window.removeEventListener("blur", onBlurWin); window.removeEventListener("resize", onResize);
+    V.root.removeEventListener("wheel", onWheel);
     V.root.removeEventListener("pointerdown", onDown); V.root.removeEventListener("pointerleave", onLeave, true);
     V.root.removeEventListener("input", onInput); V.root.removeEventListener("change", onChange); V.root.removeEventListener("click", onClick);
     V = null;
