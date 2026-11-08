@@ -3,7 +3,7 @@
 (function () {
   "use strict";
 
-  var VERSION = "0.12", RATES = [5, 15, 30];
+  var VERSION = "0.15", RATES = [5, 15, 30];
   var lang = "de";
   function L2(de, en) { return { de: de, en: en }; }
 
@@ -89,7 +89,7 @@
   // ---------- Zustand ----------
   // F: Projekt { file, url, name, dur, vw, vh, fps, n, ow, oh, idx, paints: { i: {cv}|{blob} } }
   var F = null, V = null;
-  var S = { qp: { hard: 55, human: 60, angle: 35, width: 5, seed: 7 }, tool: "brush", sets: {}, color: "#1A1A1A", recent: [], onion: false, hideVid: false, mode: "video", mbit: 12, audio: true, fpsI: 1 };
+  var S = { qp: { hard: 55, human: 55, angle: 35, width: 9, seed: 7 }, tool: "brush", sets: {}, color: "#1A1A1A", recent: [], onion: false, hideVid: false, mode: "video", mbit: 12, audio: true, fpsI: 1 };
   Object.keys(TOOLS).forEach(function (k) { S.sets[k] = Object.assign({}, TOOLS[k].set); });
   function set() { return S.sets[S.tool]; }
   function painted() { return Object.keys(F ? F.paints : {}).length + (V && V.dirty ? 1 : 0); }
@@ -341,79 +341,79 @@
     var d = x.getImageData(0, 0, 1, 1).data;
     return "#" + [d[0], d[1], d[2]].map(function (v) { return (v < 16 ? "0" : "") + v.toString(16); }).join("").toUpperCase();
   }
-  // Skizze bauen: Schraffur im Winkel, Humanize bringt Hand-Unruhe, Kreuzschraffur und skizzierte Umrisse.
-  // Am Ende wird alles auf die leicht erweiterte Maske beschnitten, damit nichts weit über den Rand läuft.
+  // Skizze bauen. Die Lage der Striche ist ein fester, gerüttelter Raster über der Maske, unabhängig vom Winkel.
+  // Der Winkel dreht nur jeden einzelnen Strich um seine eigene Mitte. Jeder Strich wird entlang seiner Richtung
+  // auf die Farbfläche gekürzt und darf nur ein kleines Stück überstehen, am Ende beschneidet die leicht erweiterte Maske alles.
   function buildSketch() {
     var G = qpGrids().m, mw = G.w, mh = G.h, raw = maskOf(G, V.qp.key, S.qp.hard), n = mw * mh, i;
-    var bl = new Float32Array(n);   // leicht weichzeichnen gegen Rauschen
+    var bl = new Float32Array(n);
     for (var y = 0; y < mh; y++) for (var x = 0; x < mw; x++) {
       var sum = 0, cnt = 0;
       for (var dy = -1; dy <= 1; dy++) for (var dx = -1; dx <= 1; dx++) { var yy = y + dy, xx = x + dx; if (yy >= 0 && yy < mh && xx >= 0 && xx < mw) { sum += raw[yy * mw + xx]; cnt++; } }
       bl[y * mw + x] = sum / cnt;
     }
     var M = new Uint8Array(n); for (i = 0; i < n; i++) M[i] = bl[i] >= 0.5 ? 1 : 0;
-    var f = mw / F.ow, h = S.qp.human / 100, w = S.qp.width * F.oh / 1080, R = rng(S.qp.seed * 7919 + F.idx);
+    var f = mw / F.ow, h = S.qp.human / 100, sc = F.oh / 1080, w = S.qp.width * sc, R = rng(S.qp.seed * 7919 + F.idx);
     function inside(px, py) { var mx = Math.floor(px * f), my = Math.floor(py * f); return mx >= 0 && my >= 0 && mx < mw && my < mh && M[my * mw + mx] === 1; }
-    var out = V.qp.sketch && V.qp.sketch.width === F.ow ? V.qp.sketch : (V.qp.sketch = canvas(F.ow, F.oh)), x2 = out.getContext("2d");
-    x2.globalCompositeOperation = "source-over"; x2.globalAlpha = 1; x2.clearRect(0, 0, F.ow, F.oh);
-    x2.strokeStyle = S.color; x2.lineCap = "round"; x2.lineJoin = "round";
-    function line(ax, ay, bx, by, lw, al) {
-      var len = Math.hypot(bx - ax, by - ay); if (len < 1) return;
-      var nx = -(by - ay) / len, ny = (bx - ax) / len, bend = (R() - 0.5) * len * 0.14 * h;
-      x2.globalAlpha = al; x2.lineWidth = lw;
-      x2.beginPath(); x2.moveTo(ax, ay); x2.quadraticCurveTo((ax + bx) / 2 + nx * bend, (ay + by) / 2 + ny * bend, bx, by); x2.stroke();
+    var out = V.qp.sketch && V.qp.sketch.width === F.ow ? V.qp.sketch : (V.qp.sketch = canvas(F.ow, F.oh)), g2 = out.getContext("2d");
+    g2.globalCompositeOperation = "source-over"; g2.globalAlpha = 1; g2.clearRect(0, 0, F.ow, F.oh);
+    g2.strokeStyle = S.color; g2.lineCap = "round"; g2.lineJoin = "round";
+    // Strich von der Mitte aus in beide Richtungen bis zur Kante der Fläche, plus kleiner Überstand
+    function reach(cx, cy, ux, uy, max) { var st = Math.max(1, 1 / f), d = 0; while (d + st <= max && inside(cx + ux * (d + st), cy + uy * (d + st))) d += st; return d; }
+    function mark(cx, cy, ang, len, lw, al) {
+      var ux = Math.cos(ang), uy = Math.sin(ang), over = w * (0.2 + 0.8 * h) * R();
+      var a = reach(cx, cy, -ux, -uy, len / 2), b = reach(cx, cy, ux, uy, len / 2);
+      if (a + b < w * 0.8) return;
+      a = Math.min(len / 2, a + over * (a < len / 2 - 1 ? 1 : 0.4)); b = Math.min(len / 2, b + over * (b < len / 2 - 1 ? 1 : 0.4));
+      var x0 = cx - ux * a, y0 = cy - uy * a, x1 = cx + ux * b, y1 = cy + uy * b, L = a + b, bend = (R() - 0.5) * L * 0.22 * h;
+      g2.globalAlpha = al; g2.lineWidth = lw;
+      g2.beginPath(); g2.moveTo(x0, y0); g2.quadraticCurveTo((x0 + x1) / 2 - uy * bend, (y0 + y1) / 2 + ux * bend, x1, y1); g2.stroke();
     }
-    function hatch(deg, spacing, keep, alMul) {
-      var a = deg * Math.PI / 180, ux = Math.cos(a), uy = Math.sin(a), vx = -uy, vy = ux, step = 1 / f;
-      var cs = [[0, 0], [F.ow, 0], [0, F.oh], [F.ow, F.oh]].map(function (c) { return [c[0] * vx + c[1] * vy, c[0] * ux + c[1] * uy]; });
-      var c0 = Math.min.apply(null, cs.map(function (q) { return q[0]; })), c1 = Math.max.apply(null, cs.map(function (q) { return q[0]; }));
-      var t0 = Math.min.apply(null, cs.map(function (q) { return q[1]; })), t1 = Math.max.apply(null, cs.map(function (q) { return q[1]; }));
-      for (var c = c0; c <= c1; c += spacing * (1 + (R() - 0.5) * 0.9 * h)) {
-        var run = -1;
-        for (var tt = t0; tt <= t1 + step; tt += step) {
-          var px = c * vx + tt * ux, py = c * vy + tt * uy, ins = tt <= t1 && inside(px, py);
-          if (ins && run < 0) run = tt;
-          else if (!ins && run >= 0) { stroke(run, tt - step, c); run = -1; }
-        }
+    // Rasterpunkte innerhalb der Fläche sammeln, gemischt, damit sich die Striche natürlich überlagern
+    function points(cell) {
+      var pts = [];
+      for (var gy = cell / 2; gy < F.oh; gy += cell) for (var gx = cell / 2; gx < F.ow; gx += cell) {
+        var px = gx + (R() - 0.5) * cell * (0.4 + 0.9 * h), py = gy + (R() - 0.5) * cell * (0.4 + 0.9 * h);
+        if (inside(px, py)) pts.push(px, py);
       }
-      function stroke(ta, tb, c) {
-        if (tb - ta < w * 1.2) return;
-        var segMax = h > 0 ? 260 - 180 * h : 1e9, s = ta;
-        while (s < tb) {
-          var e = Math.min(tb, s + segMax * (0.5 + R()));
-          if (R() < keep) {
-            var over = w * (0.4 + 2.2 * h) * R(), jit = (R() - 0.5) * 0.35 * h, mx = (s + e) / 2, half = (e - s) / 2 + over;
-            var cj = c + (R() - 0.5) * spacing * 0.5 * h, ca = Math.cos(a + jit), sa = Math.sin(a + jit);
-            var cx = cj * vx + mx * ux, cy = cj * vy + mx * uy;
-            var lw = w * (1 - 0.35 * h + R() * 0.7 * h), al = (1 - 0.35 * h + R() * 0.35 * h) * alMul;
-            line(cx - ca * half, cy - sa * half, cx + ca * half, cy + sa * half, lw, al);
-            if (R() < 0.3 * h) line(cx - ca * half * 0.8 + vx * w * 0.6, cy - sa * half * 0.8 + vy * w * 0.6, cx + ca * half * 0.7 + vx * w * 0.6, cy + sa * half * 0.7 + vy * w * 0.6, lw * 0.7, al * 0.6);
-          }
-          s = e + (h > 0 ? w * 2 * h * R() : 0);
-        }
-      }
+      for (var k = pts.length / 2 - 1; k > 0; k--) { var r = Math.floor(R() * (k + 1)), ax = pts[2 * k], ay = pts[2 * k + 1]; pts[2 * k] = pts[2 * r]; pts[2 * k + 1] = pts[2 * r + 1]; pts[2 * r] = ax; pts[2 * r + 1] = ay; }
+      return pts;
     }
-    hatch(S.qp.angle, w * (2.2 + h * 0.8), 1, 1);
-    if (h > 0.35) hatch(S.qp.angle + 62 + (R() - 0.5) * 20 * h, w * (3.4 + h), (h - 0.35) * 1.2, 0.75);
-    // skizzierte Umrisse entlang der Maskenkante
-    var g = Math.max(2, Math.round(w * 1.8 * f));
-    for (var yy2 = 1; yy2 < mh - 1; yy2 += g) for (var xx2 = 1; xx2 < mw - 1; xx2 += g) {
-      var k = yy2 * mw + xx2, gx = bl[k + 1] - bl[k - 1], gy = bl[k + mw] - bl[k - mw], gm = Math.hypot(gx, gy);
-      if (gm < 0.25 || bl[k] < 0.15 || bl[k] > 0.85) continue;
-      if (h > 0 && R() > 0.45 + 0.5 * h) continue;
-      var tx = -gy / gm, ty = gx / gm, len = g / f * (1.2 + R() * 1.6 * (0.3 + h)), rot = (R() - 0.5) * 0.5 * h, cr = Math.cos(rot), sr = Math.sin(rot);
-      var dxx = (tx * cr - ty * sr) * len / 2, dyy = (tx * sr + ty * cr) * len / 2, px2 = xx2 / f, py2 = yy2 / f;
-      line(px2 - dxx, py2 - dyy, px2 + dxx, py2 + dyy, w * (0.7 + R() * 0.5 * h), 0.85 - 0.25 * h * R());
+    var th = S.qp.angle * Math.PI / 180, jit = (0.04 + 0.32 * h), P;
+    // 1. breite, blasse Grundstriche: geben Deckung und das schmutzige Kreide-Gefühl
+    P = points(w * 3.6);
+    for (i = 0; i < P.length; i += 2) mark(P[i], P[i + 1], th + (R() - 0.5) * jit, w * (5 + 7 * R()), w * (1.4 + 0.8 * R()), 0.14 + 0.18 * R());
+    // 2. Hauptstriche: dicht, deutlich, ungleich lang und kräftig, überlappend
+    P = points(w * (1.75 + 0.35 * h));
+    for (i = 0; i < P.length; i += 2) {
+      var big = R() < 0.15 + 0.25 * h;
+      mark(P[i], P[i + 1], th + (R() - 0.5) * jit, w * (big ? 9 + 9 * R() : 4 + 5 * R() * (0.5 + h)), w * (0.75 + R() * (0.3 + 0.7 * h)), (0.6 + 0.4 * R()) * (1 - 0.3 * h * R()));
     }
-    // auf erweiterte Maske beschneiden
+    // 3. Kreuzschraffur in Teilen der Fläche (Humanize)
+    if (h > 0.25) {
+      P = points(w * 3.2); var th2 = th + (55 + (R() - 0.5) * 30) * Math.PI / 180;
+      for (i = 0; i < P.length; i += 2) if (R() < (h - 0.25) * 0.9) mark(P[i], P[i + 1], th2 + (R() - 0.5) * jit, w * (4 + 6 * R()), w * (0.6 + 0.5 * R()), 0.55 + 0.3 * R());
+    }
+    // 4. skizzierte Umrisse entlang der Kante, Richtung folgt der Kante
+    var gstep = Math.max(2, Math.round(w * 1.2 * f));
+    for (var yy2 = 1; yy2 < mh - 1; yy2 += gstep) for (var xx2 = 1; xx2 < mw - 1; xx2 += gstep) {
+      var k2 = yy2 * mw + xx2, gx2 = bl[k2 + 1] - bl[k2 - 1], gy2 = bl[k2 + mw] - bl[k2 - mw], gm = Math.hypot(gx2, gy2);
+      if (gm < 0.2 || bl[k2] < 0.15 || bl[k2] > 0.85) continue;
+      if (R() > 0.55 + 0.45 * h) continue;
+      var tx = -gy2 / gm, ty = gx2 / gm, len = w * (3 + R() * 5 * (0.4 + h)), rot = (R() - 0.5) * 0.45 * h, cr = Math.cos(rot), sr = Math.sin(rot);
+      var ex = (tx * cr - ty * sr) * len / 2, ey = (tx * sr + ty * cr) * len / 2, px2 = xx2 / f - gx2 / gm * w * 0.4, py2 = yy2 / f - gy2 / gm * w * 0.4;
+      g2.globalAlpha = 0.75 + 0.25 * R(); g2.lineWidth = w * (0.6 + 0.5 * R());
+      g2.beginPath(); g2.moveTo(px2 - ex, py2 - ey); g2.lineTo(px2 + ex, py2 + ey); g2.stroke();
+    }
+    // auf die leicht erweiterte Maske beschneiden
     var mc = canvas(mw, mh), mx2 = mc.getContext("2d"), id = mx2.createImageData(mw, mh);
     for (i = 0; i < n; i++) id.data[i * 4 + 3] = Math.round(Math.min(1, bl[i] * 1.6) * 255);
     mx2.putImageData(id, 0, 0);
-    var big = V.tmp, bx2 = big.getContext("2d"), grow = 1 + h * 6 * F.oh / 1080;
+    var big2 = V.tmp, bx2 = big2.getContext("2d"), grow = (1.5 + h * 5) * sc;
     bx2.globalCompositeOperation = "source-over"; bx2.globalAlpha = 1; bx2.clearRect(0, 0, F.ow, F.oh); bx2.imageSmoothingEnabled = true;
-    for (var q = 0; q < 9; q++) { var ang = q * Math.PI / 4; bx2.drawImage(mc, q === 8 ? 0 : Math.cos(ang) * grow, q === 8 ? 0 : Math.sin(ang) * grow, F.ow, F.oh); }
-    x2.globalAlpha = 1; x2.globalCompositeOperation = "destination-in"; x2.drawImage(big, 0, 0);
-    x2.globalCompositeOperation = "source-over";
+    for (var q = 0; q < 9; q++) { var an = q * Math.PI / 4; bx2.drawImage(mc, q === 8 ? 0 : Math.cos(an) * grow, q === 8 ? 0 : Math.sin(an) * grow, F.ow, F.oh); }
+    g2.globalAlpha = 1; g2.globalCompositeOperation = "destination-in"; g2.drawImage(big2, 0, 0);
+    g2.globalCompositeOperation = "source-over";
     need();
   }
   function qpPanel() {
@@ -421,8 +421,9 @@
     var q = V.qp; if (!q) { pn.hidden = true; return; }
     function sl(k, lab, min, max, u) { return '<div class="fp-row"><label for="fp-q-' + k + '">' + lab + '<span id="fp-q-' + k + '-v">' + S.qp[k] + u + '</span></label><input type="range" id="fp-q-' + k + '" data-qp="' + k + '" min="' + min + '" max="' + max + '" step="1" value="' + S.qp[k] + '"></div>'; }
     pn.innerHTML = '<div class="fp-qph"><b>' + t("qpH") + "</b>" + (q.keyHex ? '<span class="fp-qk" style="background:' + q.keyHex + '" title="' + t("qpKey") + '"></span>' : "") + '<span class="fp-qs">' + t(q.stage === "pick" ? "qpPick" : "qpTune") + "</span></div>" +
-      sl("hard", t("qpHard"), 0, 100, " %") + (q.stage === "tune" ? sl("human", t("qpHuman"), 0, 100, " %") + sl("angle", t("qpAngle"), 0, 180, "°") + sl("width", t("qpWidth"), 1, 30, "px") : '<p class="fp-desc">' + t("qpHardNote") + "</p>") +
+      sl("hard", t("qpHard"), 0, 100, " %") + (q.stage === "tune" ? sl("human", t("qpHuman"), 0, 100, " %") + sl("angle", t("qpAngle"), 0, 180, "°") + sl("width", t("qpWidth"), 2, 40, "px") : '<p class="fp-desc">' + t("qpHardNote") + "</p>") +
       '<div class="fp-qb">' + (q.stage === "tune" ? '<button type="button" class="fp-save" data-fp="qpOk">' + t("qpOk") + '</button><button type="button" class="navbtn" data-fp="qpSeed">' + t("qpSeed") + "</button>" : "") + '<button type="button" class="navbtn" data-fp="qpNo">' + t("qpNo") + " (Esc)</button></div>";
+    if (V.qpPos) { pn.style.left = V.qpPos.l + "px"; pn.style.top = V.qpPos.t + "px"; pn.style.right = "auto"; }
     pn.hidden = false;
   }
 
@@ -642,9 +643,9 @@
     ".fp-desk.over{outline:3px dashed #E3B83F;outline-offset:-10px}" +
     ".fp-desk canvas{display:block;cursor:none;touch-action:none}.fp-desk canvas.pick,.fp-desk canvas.qp{cursor:crosshair}" +
     ".fp-qp{position:absolute;right:12px;top:12px;width:min(300px,calc(100% - 24px));max-height:calc(100% - 24px);overflow-y:auto;z-index:5;background:var(--bg);color:var(--ink);border:2px solid var(--ink);box-shadow:5px 5px 0 rgba(0,0,0,.45);padding:12px 14px;display:flex;flex-direction:column;gap:10px}" +
-    ".fp-qp.alt{right:auto;left:12px}.fp-qp[hidden]{display:none}" +
-    ".fp-qph{display:flex;flex-wrap:wrap;align-items:center;gap:8px}.fp-qph b{font:600 1rem var(--f-display)}.fp-qk{width:20px;height:20px;border:1px solid var(--ink)}" +
-    ".fp-qs{flex-basis:100%;font-size:.84rem;color:var(--soft)}.fp-qb{display:flex;flex-wrap:wrap;gap:8px}.fp-qb .fp-save{padding:9px 14px;font-size:.92rem}" +
+    ".fp-qp[hidden]{display:none}" +
+    ".fp-qph{display:flex;flex-wrap:wrap;align-items:center;gap:8px;cursor:move;user-select:none;-webkit-user-select:none;touch-action:none;margin:-12px -14px 0;padding:10px 14px 8px;border-bottom:1px solid var(--line)}.fp-qph::after{content:'';order:1;margin-left:auto;width:16px;height:8px;border-top:2px solid var(--soft);border-bottom:2px solid var(--soft)}.fp-qph b{font:600 1rem var(--f-display)}.fp-qk{width:20px;height:20px;border:1px solid var(--ink)}" +
+    ".fp-qs{order:2;flex-basis:100%;font-size:.84rem;color:var(--soft)}.fp-qb{display:flex;flex-wrap:wrap;gap:8px}.fp-qb .fp-save{padding:9px 14px;font-size:.92rem}" +
     ".fp-qpbtn{font:600 .95rem var(--f-body);padding:10px 14px;border:2px solid var(--ink);background:transparent;color:var(--ink);cursor:pointer}.fp-qpbtn:hover{background:var(--ink);color:var(--bg)}" +
     ".fp-drop{text-align:center;color:#F1EFEA;display:flex;flex-direction:column;align-items:center;gap:10px;padding:20px}" +
     ".fp-drop b{font:600 1.4rem/1.2 var(--f-display)}.fp-drop span{color:rgba(241,239,234,.7)}" +
@@ -811,10 +812,6 @@
       evs.forEach(function (ce) { var p = toFrame(ce); if (!V.pen) p.p = 0.5; V.raw = p; smoothStep(p); });
       V.hover = V.raw; need(); return;
     }
-    if (V.qp) {   // Panel weicht dem Mauszeiger aus
-      var pn = V.root.querySelector("#fp-qp");
-      if (pn && !pn.hidden) { var pr = pn.getBoundingClientRect(), near = e.clientX > pr.left - 40 && e.clientX < pr.right + 40 && e.clientY > pr.top - 40 && e.clientY < pr.bottom + 40; if (near && !pn.contains(e.target)) pn.classList.toggle("alt"); }
-    }
     if (e.target === V.cv) {
       V.hover = toFrame(e); need();
       if (V.qp && V.qp.stage === "pick") { var hv = labAt(qpGrids().s, V.hover), o = V.qp.hover; if (!o || Math.abs(o[0] - hv[0]) + Math.abs(o[1] - hv[1]) + Math.abs(o[2] - hv[2]) > 0.8) { V.qp.hover = hv; V.qp.dirty = true; } }
@@ -857,6 +854,21 @@
       need();
     }
   }
+  // Quickpaint-Fenster am Kopf verschieben
+  var qpDrag = null;
+  function onQPDown(e) {
+    var hd = e.target.closest && e.target.closest(".fp-qph"); if (!hd) return;
+    var pn = hd.parentNode, desk = V.root.querySelector("#fp-desk"), pr = pn.getBoundingClientRect(), dr = desk.getBoundingClientRect();
+    qpDrag = { id: e.pointerId, ox: e.clientX - pr.left, oy: e.clientY - pr.top, pn: pn, dr: dr };
+    e.preventDefault(); e.stopPropagation();
+  }
+  function onQPMove(e) {
+    if (!qpDrag || e.pointerId !== qpDrag.id) return;
+    var d = qpDrag, pn = d.pn, dr = V.root.querySelector("#fp-desk").getBoundingClientRect();
+    var l = clamp(e.clientX - d.ox - dr.left, 0, dr.width - pn.offsetWidth), tp = clamp(e.clientY - d.oy - dr.top, 0, dr.height - Math.min(pn.offsetHeight, dr.height));
+    pn.style.left = l + "px"; pn.style.top = tp + "px"; pn.style.right = "auto"; V.qpPos = { l: l, t: tp };
+  }
+  function onQPUp(e) { if (qpDrag && e.pointerId === qpDrag.id) qpDrag = null; }
   function onKeyUp(e) { if (V && (e.key === "d" || e.key === "D") && V.peek) { V.peek = false; need(); } }
   function onBlurWin() { if (V && V.peek) { V.peek = false; need(); } }
   function onWheel(e) {
@@ -940,6 +952,7 @@
     el.addEventListener("input", onInput); el.addEventListener("change", onChange); el.addEventListener("click", onClick);
     window.addEventListener("keydown", onKey); window.addEventListener("keyup", onKeyUp); window.addEventListener("blur", onBlurWin); window.addEventListener("resize", onResize);
     el.addEventListener("wheel", onWheel, { passive: false });
+    el.addEventListener("pointerdown", onQPDown, true); window.addEventListener("pointermove", onQPMove); window.addEventListener("pointerup", onQPUp);
     var desk = el.querySelector("#fp-desk");
     desk.addEventListener("dragover", onDragOver); desk.addEventListener("dragleave", onDragLeave); desk.addEventListener("drop", onDrop);
     buildUI();
@@ -954,7 +967,8 @@
     if (V.vid) { V.vid.pause(); }
     window.removeEventListener("pointermove", onMove); window.removeEventListener("pointerup", onUp); window.removeEventListener("pointercancel", onUp);
     window.removeEventListener("keydown", onKey); window.removeEventListener("keyup", onKeyUp); window.removeEventListener("blur", onBlurWin); window.removeEventListener("resize", onResize);
-    V.root.removeEventListener("wheel", onWheel);
+    V.root.removeEventListener("wheel", onWheel); V.root.removeEventListener("pointerdown", onQPDown, true);
+    window.removeEventListener("pointermove", onQPMove); window.removeEventListener("pointerup", onQPUp); qpDrag = null;
     V.root.removeEventListener("pointerdown", onDown); V.root.removeEventListener("pointerleave", onLeave, true);
     V.root.removeEventListener("input", onInput); V.root.removeEventListener("change", onChange); V.root.removeEventListener("click", onClick);
     V = null;
