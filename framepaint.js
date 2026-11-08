@@ -3,7 +3,7 @@
 (function () {
   "use strict";
 
-  var VERSION = "0.16", RATES = [5, 15, 30];
+  var VERSION = "0.2", RATES = [5, 15, 30];
   var lang = "de";
   function L2(de, en) { return { de: de, en: en }; }
 
@@ -58,6 +58,13 @@
                "Redraws the whole frame automatically: the image is split into colour areas and each area is painted as its own Quickpaint layer in its colour, large areas first with thick strokes, details last with fine ones. Each layer gets its own stroke width, hardness and a slightly different angle. Afterwards you can refine by hand."),
     mpLayers: L2("Qualität (Schichten)", "Quality (layers)"), mpWork: L2("Schicht {i} von {n} wird gemalt …", "Painting layer {i} of {n} …"),
     mpDone: L2("{n} Schichten fertig · Linksklick ins Bild oder Enter übernimmt", "{n} layers done · left click on the image or Enter applies"),
+    close: L2("Schließen", "Close"), mpApplied: L2("Übernommen. Geh zum nächsten Frame, dort wird mit derselben Palette und demselben Strichmuster neu gezeichnet.", "Applied. Go to the next frame, it is redrawn there with the same palette and stroke pattern."),
+    mpLocked: L2("Palette und Strichmuster sind fixiert und bleiben auf allen Frames gleich. Schichtzahl oder „Neue Palette“ erzeugt eine neue.", "Palette and stroke pattern are locked and stay the same on every frame. Changing the layer count or “New palette” creates a new one."),
+    mpNew: L2("Die Palette wird aus diesem Frame berechnet.", "The palette is computed from this frame."),
+    mpNewPal: L2("Neue Palette", "New palette"), mpCover: L2("Deckung", "Coverage"),
+    mpSlot: L2("Slot {n}", "Slot {n}"), mpEmpty: L2("leer", "empty"), mpLoad: L2("Laden", "Load"), mpSave: L2("Speichern", "Save"),
+    mpSaved: L2("Magic-Paint-Palette in Slot {n} gespeichert.", "Magic Paint palette saved to slot {n}."),
+    mpSlotsNote: L2("Slots merken sich Palette, Strichmuster und Regler für diese Sitzung. „Speichern“ geht, solange Magic Paint offen ist.", "Slots keep palette, stroke pattern and sliders for this session. “Save” works while Magic Paint is open."),
     mpWidth: L2("Strichstärke (Basis)", "Stroke width (base)"), mpAngle: L2("Winkel (Basis)", "Angle (base)"),
     keys: L2("Tasten: C Pipette · Q Quickpaint · M Magic Paint · D halten: Bemalung ausblenden · P Stift · B Pinsel · S Spray · E Radierer · ← → Frame · Leertaste Abspielen · [ ] Größe · Strg+Z Rückgängig", "Keys: C picker · Q Quickpaint · M Magic Paint · hold D: hide painting · P pen · B brush · S spray · E eraser · ← → frame · Space play · [ ] size · Ctrl+Z undo"),
     howH: L2("So funktioniert’s", "How it works"),
@@ -168,7 +175,7 @@
     if (!F || !V || !V.layer) return;
     i = clamp(i, 0, F.n - 1);
     if (V.qp) endQP();
-    if (V.mp) endMP();
+    if (V.mp) { mpTok++; V.mp.result = null; V.mp.preview = null; }
     storeCurrent();
     var tok = ++loadTok;
     F.idx = i; V.loading = true; V.undo = []; V.redo = [];
@@ -183,6 +190,7 @@
     drawVideo(V.frameCv.getContext("2d"), V.vid, F.ow, F.oh);
     V.loading = false; V.dirty = false;
     updateBar(); need();
+    if (V.mp) mpRefresh();
   }
   async function reloadOnion() {
     if (!F || !V) return;
@@ -369,7 +377,7 @@
       bl[y * mw + x] = sum / cnt;
     }
     var M = new Uint8Array(n); for (i = 0; i < n; i++) M[i] = bl[i] >= 0.5 ? 1 : 0;
-    var f = mw / F.ow, h = o.human / 100, sc = F.oh / 1080, w = o.width * sc, R = rng(o.seed);
+    var f = mw / F.ow, h = o.human / 100, sc = F.oh / 1080, w = o.width * sc, R = rng(o.seed), keep = o.keep == null ? 1 : o.keep, am = o.alpha == null ? 1 : o.alpha;
     function inside(px, py) { var mx = Math.floor(px * f), my = Math.floor(py * f); return mx >= 0 && my >= 0 && mx < mw && my < mh && M[my * mw + mx] === 1; }
     var g2 = out.getContext("2d");
     g2.globalCompositeOperation = "source-over"; g2.globalAlpha = 1; g2.clearRect(0, 0, F.ow, F.oh);
@@ -377,12 +385,13 @@
     // Strich von der Mitte aus in beide Richtungen bis zur Kante der Fläche, plus kleiner Überstand
     function reach(cx, cy, ux, uy, max) { var st = Math.max(1, 1 / f), d = 0; while (d + st <= max && inside(cx + ux * (d + st), cy + uy * (d + st))) d += st; return d; }
     function mark(cx, cy, ang, len, lw, al) {
+      if (keep < 1 && R() > keep) return;   // obere Schichten lassen mehr von darunter durch
       var ux = Math.cos(ang), uy = Math.sin(ang), over = w * (0.2 + 0.8 * h) * R();
       var a = reach(cx, cy, -ux, -uy, len / 2), b = reach(cx, cy, ux, uy, len / 2);
       if (a + b < w * 0.8) return;
       a = Math.min(len / 2, a + over * (a < len / 2 - 1 ? 1 : 0.4)); b = Math.min(len / 2, b + over * (b < len / 2 - 1 ? 1 : 0.4));
       var x0 = cx - ux * a, y0 = cy - uy * a, x1 = cx + ux * b, y1 = cy + uy * b, L = a + b, bend = (R() - 0.5) * L * 0.22 * h;
-      g2.globalAlpha = al; g2.lineWidth = lw;
+      g2.globalAlpha = al * am; g2.lineWidth = lw;
       g2.beginPath(); g2.moveTo(x0, y0); g2.quadraticCurveTo((x0 + x1) / 2 - uy * bend, (y0 + y1) / 2 + ux * bend, x1, y1); g2.stroke();
     }
     // Rasterpunkte innerhalb der Fläche sammeln, gemischt, damit sich die Striche natürlich überlagern
@@ -398,7 +407,7 @@
     var th = o.angle * Math.PI / 180, jit = (0.04 + 0.32 * h), P;
     // 1. breite, blasse Grundstriche: geben Deckung und das schmutzige Kreide-Gefühl
     P = points(w * 3.6);
-    for (i = 0; i < P.length; i += 2) mark(P[i], P[i + 1], th + (R() - 0.5) * jit, w * (5 + 7 * R()), w * (1.4 + 0.8 * R()), 0.14 + 0.18 * R());
+    if (o.base !== false) for (i = 0; i < P.length; i += 2) mark(P[i], P[i + 1], th + (R() - 0.5) * jit, w * (5 + 7 * R()), w * (1.4 + 0.8 * R()), 0.14 + 0.18 * R());
     // 2. Hauptstriche: dicht, deutlich, ungleich lang und kräftig, überlappend
     P = points(w * (1.75 + 0.35 * h));
     for (i = 0; i < P.length; i += 2) {
@@ -415,10 +424,10 @@
     for (var yy2 = 1; yy2 < mh - 1; yy2 += gstep) for (var xx2 = 1; xx2 < mw - 1; xx2 += gstep) {
       var k2 = yy2 * mw + xx2, gx2 = bl[k2 + 1] - bl[k2 - 1], gy2 = bl[k2 + mw] - bl[k2 - mw], gm = Math.hypot(gx2, gy2);
       if (gm < 0.2 || bl[k2] < 0.15 || bl[k2] > 0.85) continue;
-      if (R() > 0.55 + 0.45 * h) continue;
+      if (R() > (0.55 + 0.45 * h) * Math.min(1, keep + 0.2)) continue;
       var tx = -gy2 / gm, ty = gx2 / gm, len = w * (3 + R() * 5 * (0.4 + h)), rot = (R() - 0.5) * 0.45 * h, cr = Math.cos(rot), sr = Math.sin(rot);
       var ex = (tx * cr - ty * sr) * len / 2, ey = (tx * sr + ty * cr) * len / 2, px2 = xx2 / f - gx2 / gm * w * 0.4, py2 = yy2 / f - gy2 / gm * w * 0.4;
-      g2.globalAlpha = 0.75 + 0.25 * R(); g2.lineWidth = w * (0.6 + 0.5 * R());
+      g2.globalAlpha = (0.75 + 0.25 * R()) * am; g2.lineWidth = w * (0.6 + 0.5 * R());
       g2.beginPath(); g2.moveTo(px2 - ex, py2 - ey); g2.lineTo(px2 + ex, py2 + ey); g2.stroke();
     }
     // auf die leicht erweiterte Maske beschneiden
@@ -432,103 +441,137 @@
     g2.globalCompositeOperation = "source-over";
   }
   // ---------- Magic Paint: viele Quickpaint-Schichten automatisch ----------
-  var mpTok = 0;
-  function startMP() {
+  // V.mp = { pal, result, preview, gen, busy, layers, applied }
+  // pal = feste Palette { N, C (Lab-Zentren), list: [{ k, col, wf, mf, ao, seed }] }: bleibt über Frames gleich,
+  // damit Farben und Strichmuster konstant sind. Neue Palette nur bei neuer Schichtzahl, neuer Variante oder neuem Öffnen.
+  var mpTok = 0, MPSLOTS = [null, null];
+  function startMP(fromSlot) {
     if (!F || !V.layer || V.loading || V.playing || V.down) return;
     setPick(false); if (V.qp) endQP(); qpGrids();
-    V.mp = { result: null, gen: performance.now(), prog: 0, n: 0, layers: [] };
-    mpPanel(); need();
+    if (fromSlot) { S.mp = Object.assign({}, fromSlot.set); }
+    V.mp = { pal: fromSlot ? fromSlot.pal : null, result: null, preview: null, gen: performance.now(), prog: 0, n: 0, layers: [], applied: false, busy: true };
+    mpPanel(true); need();
   }
-  function endMP() { mpTok++; V.mp = null; var pn = V.root.querySelector("#fp-qp"); if (pn) pn.hidden = true; need(); }
+  function endMP() { mpTok++; V.mp = null; var pn = V.root.querySelector("#fp-qp"); if (pn) { pn.hidden = true; pn.dataset.kind = ""; } need(); updateSide(); }
   function mpApply() {
     if (!V.mp || !V.mp.result || V.mp.gen || V.mp.busy) return;
     pushUndo();
     V.lx.globalAlpha = 1; V.lx.globalCompositeOperation = "source-over"; V.lx.drawImage(V.mp.result, 0, 0);
-    V.dirty = true; endMP(); updateBar();
+    V.dirty = true; V.mp.result = null; V.mp.preview = null; V.mp.applied = true;   // Fenster bleibt offen
+    mpPanel(); need(); updateBar(); updateSide();
+  }
+  function mpRefresh() {   // nach Frame-Wechsel: gleiche Palette, neues Bild
+    if (!V.mp) return;
+    mpTok++; V.mp.result = null; V.mp.preview = null; V.mp.applied = false; V.mp.busy = true; V.mp.gen = performance.now() + 60; mpPanel();
   }
   function hex(r, g, b) { return "#" + [r, g, b].map(function (v) { v = clamp(Math.round(v), 0, 255); return (v < 16 ? "0" : "") + v.toString(16); }).join("").toUpperCase(); }
-  async function buildMagic() {
-    var mp = V.mp, tok = ++mpTok, G = qpGrids(), Gs = G.s, Gm = G.m, N = S.mp.layers, R = rng(S.mp.seed * 31 + F.idx * 7 + 1), k, i, j;
-    mp.busy = true; mp.result = null; mp.prog = 0; mp.n = N; mp.layers = []; mpPanel(); need();
-    // Nur der Bildbereich des Videos zählt, schwarze Ränder (Letterbox) bleiben frei
-    var vs = Math.min(F.ow / F.vw, F.oh / F.vh), vx0 = (F.ow - F.vw * vs) / 2 / F.ow, vy0 = (F.oh - F.vh * vs) / 2 / F.oh;
-    function inVid(gx, gy, G2) { var u = (gx + 0.5) / G2.w, v = (gy + 0.5) / G2.h; return u >= vx0 && u <= 1 - vx0 && v >= vy0 && v <= 1 - vy0; }
-    // 1. Hauptfarben per k-means (Lab) auf einer Stichprobe
+  function vidBox() { var vs = Math.min(F.ow / F.vw, F.oh / F.vh); return { x: (F.ow - F.vw * vs) / 2 / F.ow, y: (F.oh - F.vh * vs) / 2 / F.oh }; }
+  function inVid(gx, gy, G2, vb) { var u = (gx + 0.5) / G2.w, v = (gy + 0.5) / G2.h; return u >= vb.x && u <= 1 - vb.x && v >= vb.y && v <= 1 - vb.y; }
+  // Palette: Hauptfarben per k-means (Lab), sortiert nach Fläche, mit festen Eigenschaften je Schicht
+  function makePalette() {
+    var G = qpGrids(), Gs = G.s, N = S.mp.layers, R = rng(S.mp.seed * 31 + 1), vb = vidBox(), k, i;
     var ns = Gs.w * Gs.h, sm = Math.min(6000, ns), smp = new Float32Array(sm * 3);
-    for (i = 0; i < sm; i++) { var q0; do { q0 = Math.floor(R() * ns); } while (!inVid(q0 % Gs.w, Math.floor(q0 / Gs.w), Gs)); var q = q0 * 3; smp[i * 3] = Gs.L[q]; smp[i * 3 + 1] = Gs.L[q + 1]; smp[i * 3 + 2] = Gs.L[q + 2]; }
+    for (i = 0; i < sm; i++) { var q0, guard = 0; do { q0 = Math.floor(R() * ns); } while (!inVid(q0 % Gs.w, Math.floor(q0 / Gs.w), Gs, vb) && ++guard < 50); smp[i * 3] = Gs.L[q0 * 3]; smp[i * 3 + 1] = Gs.L[q0 * 3 + 1]; smp[i * 3 + 2] = Gs.L[q0 * 3 + 2]; }
     var C = new Float32Array(N * 3), dd = new Float32Array(sm).fill(1e9), first = Math.floor(R() * sm);
     C[0] = smp[first * 3]; C[1] = smp[first * 3 + 1]; C[2] = smp[first * 3 + 2];
-    for (k = 1; k < N; k++) {   // k-means++ Start
+    for (k = 1; k < N; k++) {
       var tot = 0;
       for (i = 0; i < sm; i++) { var a0 = smp[i * 3] - C[(k - 1) * 3], a1 = smp[i * 3 + 1] - C[(k - 1) * 3 + 1], a2 = smp[i * 3 + 2] - C[(k - 1) * 3 + 2], dv = a0 * a0 + a1 * a1 + a2 * a2; if (dv < dd[i]) dd[i] = dv; tot += dd[i]; }
       var r = R() * tot, pick = 0; for (i = 0; i < sm; i++) { r -= dd[i]; if (r <= 0) { pick = i; break; } }
       C[k * 3] = smp[pick * 3]; C[k * 3 + 1] = smp[pick * 3 + 1]; C[k * 3 + 2] = smp[pick * 3 + 2];
     }
+    var cnt = new Float64Array(N);
     for (var it = 0; it < 12; it++) {
-      var acc = new Float64Array(N * 4);
+      var acc = new Float64Array(N * 3); cnt = new Float64Array(N);
       for (i = 0; i < sm; i++) {
         var best = 0, bd = 1e18;
         for (k = 0; k < N; k++) { var b0 = smp[i * 3] - C[k * 3], b1 = smp[i * 3 + 1] - C[k * 3 + 1], b2 = smp[i * 3 + 2] - C[k * 3 + 2], dv2 = b0 * b0 + b1 * b1 + b2 * b2; if (dv2 < bd) { bd = dv2; best = k; } }
-        acc[best * 4] += smp[i * 3]; acc[best * 4 + 1] += smp[i * 3 + 1]; acc[best * 4 + 2] += smp[i * 3 + 2]; acc[best * 4 + 3]++;
+        acc[best * 3] += smp[i * 3]; acc[best * 3 + 1] += smp[i * 3 + 1]; acc[best * 3 + 2] += smp[i * 3 + 2]; cnt[best]++;
       }
-      for (k = 0; k < N; k++) if (acc[k * 4 + 3]) { C[k * 3] = acc[k * 4] / acc[k * 4 + 3]; C[k * 3 + 1] = acc[k * 4 + 1] / acc[k * 4 + 3]; C[k * 3 + 2] = acc[k * 4 + 2] / acc[k * 4 + 3]; }
+      for (k = 0; k < N; k++) if (cnt[k]) { C[k * 3] = acc[k * 3] / cnt[k]; C[k * 3 + 1] = acc[k * 3 + 1] / cnt[k]; C[k * 3 + 2] = acc[k * 3 + 2] / cnt[k]; }
     }
-    // 2. alle Pixel zuordnen: nächster Abstand, Fläche und Durchschnittsfarbe je Bereich
-    var n = Gm.w * Gm.h, dmin = new Float32Array(n), own = new Uint8Array(n), info = [];
-    for (k = 0; k < N; k++) info.push({ k: k, area: 0, r: 0, g: 0, b: 0 });
-    var vin = new Uint8Array(n); for (i = 0; i < n; i++) vin[i] = inVid(i % Gm.w, Math.floor(i / Gm.w), Gm) ? 1 : 0;
+    // Durchschnittsfarbe je Bereich aus dem mittleren Raster
+    var Gm = G.m, n = Gm.w * Gm.h, sum = new Float64Array(N * 4), j;
     for (i = 0, j = 0; i < n; i++, j += 3) {
-      if (!vin[i]) { own[i] = 255; continue; }
+      if (!inVid(i % Gm.w, Math.floor(i / Gm.w), Gm, vb)) continue;
       var bk = 0, bdd = 1e18;
       for (k = 0; k < N; k++) { var c0 = Gm.L[j] - C[k * 3], c1 = Gm.L[j + 1] - C[k * 3 + 1], c2 = Gm.L[j + 2] - C[k * 3 + 2], dv3 = c0 * c0 + c1 * c1 + c2 * c2; if (dv3 < bdd) { bdd = dv3; bk = k; } }
-      dmin[i] = Math.sqrt(bdd); own[i] = bk;
-      var I = info[bk]; I.area++; I.r += Gm.rgb[i * 4]; I.g += Gm.rgb[i * 4 + 1]; I.b += Gm.rgb[i * 4 + 2];
+      sum[bk * 4] += Gm.rgb[i * 4]; sum[bk * 4 + 1] += Gm.rgb[i * 4 + 1]; sum[bk * 4 + 2] += Gm.rgb[i * 4 + 2]; sum[bk * 4 + 3]++;
     }
-    info = info.filter(function (I) { return I.area > n * 0.0015; }).sort(function (a, b) { return b.area - a.area; });
+    var list = [];
+    for (k = 0; k < N; k++) if (sum[k * 4 + 3] > n * 0.0015) list.push({ k: k, area: sum[k * 4 + 3], col: hex(sum[k * 4] / sum[k * 4 + 3], sum[k * 4 + 1] / sum[k * 4 + 3], sum[k * 4 + 2] / sum[k * 4 + 3]) });
+    list.sort(function (a, b) { return b.area - a.area; });
+    list.forEach(function (l, li) { l.wf = 0.85 + 0.3 * R(); l.mf = 0.7 + 0.6 * R(); l.ao = (R() - 0.5) * 50; l.seed = S.mp.seed * 101 + li * 13; delete l.area; });
+    return { N: N, C: C, list: list };
+  }
+  async function buildMagic() {
+    var mp = V.mp, tok = ++mpTok;
+    mp.busy = true; mp.result = null; mp.prog = 0; mp.layers = [];
+    if (!mp.pal || mp.pal.N !== S.mp.layers) mp.pal = makePalette();
+    var pal = mp.pal, C = pal.C, N = pal.N, G = qpGrids(), Gm = G.m, vb = vidBox(), n = Gm.w * Gm.h, i, j, k;
+    mp.n = pal.list.length; mpPanel(); need();
+    // Pixel den festen Palettenfarben zuordnen
+    var dmin = new Float32Array(n), own = new Uint8Array(n), vin = new Uint8Array(n);
+    for (i = 0, j = 0; i < n; i++, j += 3) {
+      vin[i] = inVid(i % Gm.w, Math.floor(i / Gm.w), Gm, vb) ? 1 : 0;
+      if (!vin[i]) { own[i] = 255; continue; }
+      var bk = 0, bdd = 1e18;
+      for (k = 0; k < N; k++) { var c0 = Gm.L[j] - C[k * 3], c1 = Gm.L[j + 1] - C[k * 3 + 1], c2 = Gm.L[j + 2] - C[k * 3 + 2], dv = c0 * c0 + c1 * c1 + c2 * c2; if (dv < bdd) { bdd = dv; bk = k; } }
+      dmin[i] = Math.sqrt(bdd); own[i] = bk;
+    }
     await new Promise(function (r2) { setTimeout(r2, 0); });
     if (tok !== mpTok || !V || V.mp !== mp) return;
-    // 3. Schicht für Schicht malen: groß und großzügig zuerst, fein und genau zuletzt
     var res = mp.canvas && mp.canvas.width === F.ow ? mp.canvas : (mp.canvas = canvas(F.ow, F.oh)), rx = res.getContext("2d");
     var lay = mp.lay && mp.lay.width === F.ow ? mp.lay : (mp.lay = canvas(F.ow, F.oh));
     rx.globalCompositeOperation = "source-over"; rx.globalAlpha = 1; rx.clearRect(0, 0, F.ow, F.oh);
-    var L = info.length, raw = new Float32Array(n);
+    var L = pal.list.length, raw = new Float32Array(n);
     for (var li = 0; li < L; li++) {
-      var I2 = info[li], t2 = L > 1 ? li / (L - 1) : 0, kk = I2.k;
-      var width = Math.max(2, S.mp.width * (1.9 - 1.35 * t2) * (0.85 + 0.3 * R()));
-      var margin = (14 - 11 * t2) * (0.7 + 0.6 * R());             // Lab-Spielraum: großzügig = weich, eng = hart
-      var hardness = Math.round(clamp(100 - margin * 5, 5, 95));
+      var P = pal.list[li], t2 = L > 1 ? li / (L - 1) : 0, kk = P.k;
+      // Untere Schichten: großzügige Maske, dicke Striche, volle Deckung. Obere: enger, feiner und lichter, damit darunter durchscheint.
+      var width = Math.max(2, S.mp.width * (1.9 - 1.35 * t2) * P.wf);
+      var margin = (li === 0 ? 34 : 22 * Math.pow(1 - t2, 1.6) + 2.5) * P.mf;
+      var keep = 1 - 0.5 * Math.pow(t2, 0.8), alpha = 1 - 0.32 * t2;
+      var hardness = Math.round(clamp(100 - margin * 3, 5, 95)), area = 0;
       var cx0 = C[kk * 3], cx1 = C[kk * 3 + 1], cx2 = C[kk * 3 + 2];
       for (i = 0, j = 0; i < n; i++, j += 3) {
-        if (own[i] === kk) { raw[i] = 1; continue; }
         if (!vin[i]) { raw[i] = 0; continue; }
+        if (own[i] === kk) { raw[i] = 1; area++; continue; }
         var e0 = Gm.L[j] - cx0, e1 = Gm.L[j + 1] - cx1, e2 = Gm.L[j + 2] - cx2, dk = Math.sqrt(e0 * e0 + e1 * e1 + e2 * e2) - dmin[i];
         raw[i] = dk <= margin ? 1 : dk >= margin * 1.6 ? 0 : 1 - (dk - margin) / (margin * 0.6);
       }
-      var col = hex(I2.r / I2.area, I2.g / I2.area, I2.b / I2.area);
-      sketch(raw, { color: col, width: width, human: S.mp.human, angle: S.mp.angle + (R() - 0.5) * 50, seed: S.mp.seed * 101 + li * 13 + F.idx }, lay);
-      rx.drawImage(lay, 0, 0);
-      mp.layers.push({ col: col, w: Math.round(width), hard: hardness });
-      mp.prog = li + 1; mp.n = L; mp.preview = res; mpPanel(); need();
+      mp.layers.push({ col: P.col, w: Math.round(width), hard: hardness, keep: Math.round(keep * 100) });
+      if (area > n * 0.0008 || li === 0) {
+        sketch(raw, { color: P.col, width: width, human: S.mp.human, angle: S.mp.angle + P.ao, seed: P.seed, keep: keep, alpha: alpha, base: t2 < 0.5 }, lay);
+        rx.drawImage(lay, 0, 0);
+      }
+      mp.prog = li + 1; mp.preview = res; mpPanel(); need();
       await new Promise(function (r3) { setTimeout(r3, 0); });
       if (tok !== mpTok || !V || V.mp !== mp) return;
     }
-    mp.result = res; mp.busy = false; mpPanel(); need();
+    mp.result = res; mp.busy = false; mpPanel(); need(); updateSide();
   }
-  function mpPanel() {
+  function slotSave(i) { if (!V.mp || !V.mp.pal) return; MPSLOTS[i] = { pal: V.mp.pal, set: Object.assign({}, S.mp) }; updateSide(); note(fmt(t("mpSaved"), { n: i + 1 })); }
+  function slotLoad(i) { var sl = MPSLOTS[i]; if (!sl) return; if (V.mp) endMP(); startMP(sl); updateSide(); }
+  function slotsHTML() {
+    return '<div class="fp-slots">' + MPSLOTS.map(function (sl, i) {
+      return '<div class="fp-slot"><b>' + fmt(t("mpSlot"), { n: i + 1 }) + '</b><span class="fp-mpl">' + (sl ? sl.pal.list.map(function (l) { return '<span style="background:' + l.col + '"></span>'; }).join("") : '<em class="fp-desc">' + t("mpEmpty") + "</em>") + "</span>" +
+        '<span class="fp-slb"><button type="button" class="navbtn" data-slot-load="' + i + '"' + (sl ? "" : " disabled") + ">" + t("mpLoad") + '</button><button type="button" class="navbtn" data-slot-save="' + i + '"' + (V && V.mp && V.mp.pal ? "" : " disabled") + ">" + t("mpSave") + "</button></span></div>";
+    }).join("") + "</div>";
+  }
+  function mpPanel(fresh) {
     var pn = V.root.querySelector("#fp-qp"); if (!pn || !V.mp) return;
     var mp = V.mp;
     function sl(k, lab, min, max, u) { return '<div class="fp-row"><label for="fp-m-' + k + '">' + lab + '<span id="fp-m-' + k + '-v">' + S.mp[k] + u + '</span></label><input type="range" id="fp-m-' + k + '" data-mp="' + k + '" min="' + min + '" max="' + max + '" step="1" value="' + S.mp[k] + '"></div>'; }
-    var st = mp.busy || mp.gen ? fmt(t("mpWork"), { i: Math.min(mp.prog + 1, mp.n || S.mp.layers), n: mp.n || S.mp.layers }) : fmt(t("mpDone"), { n: mp.layers.length });
-    var html2 = '<div class="fp-qph"><b>' + t("mpH") + '</b><span class="fp-qs" id="fp-mp-st">' + st + "</span></div>" +
+    var st = mp.applied ? t("mpApplied") : mp.busy || mp.gen ? fmt(t("mpWork"), { i: Math.min(mp.prog + 1, mp.n || S.mp.layers), n: mp.n || S.mp.layers }) : fmt(t("mpDone"), { n: mp.layers.length });
+    var html2 = '<div class="fp-qph"><b>' + t("mpH") + '</b><span class="fp-qs" id="fp-mp-st">' + st + '</span><button type="button" class="fp-x" data-fp="mpNo" aria-label="' + t("close") + '" title="' + t("close") + ' (Esc)">×</button></div>' +
       sl("layers", t("mpLayers"), 4, 16, "") + sl("human", t("qpHuman"), 0, 100, " %") + sl("angle", t("mpAngle"), 0, 180, "°") + sl("width", t("mpWidth"), 3, 30, "px") +
-      '<div class="fp-mpl">' + mp.layers.map(function (l, i) { return '<span title="' + (i + 1) + " · " + l.col + " · " + l.w + "px · " + t("qpHard") + " " + l.hard + ' %" style="background:' + l.col + '"></span>'; }).join("") + "</div>" +
-      '<div class="fp-qb"><button type="button" class="fp-save" data-fp="mpOk"' + (mp.result && !mp.gen ? "" : " disabled") + ">" + t("qpOk") + '</button><button type="button" class="navbtn" data-fp="mpSeed">' + t("qpSeed") + '</button><button type="button" class="navbtn" data-fp="mpNo">' + t("qpNo") + " (Esc)</button></div>";
-    // Regler nicht neu bauen, solange jemand daran zieht: nur Status, Farbfelder und Knopf auffrischen
-    if (pn.dataset.kind === "mp" && !pn.hidden && pn.querySelector("[data-mp]")) {
-      pn.querySelector("#fp-mp-st").textContent = st;
+      '<div class="fp-mpl">' + mp.layers.map(function (l, i) { return '<span title="' + (i + 1) + " · " + l.col + " · " + l.w + "px · " + t("qpHard") + " " + l.hard + " % · " + t("mpCover") + " " + l.keep + ' %" style="background:' + l.col + '"></span>'; }).join("") + "</div>" +
+      '<p class="fp-desc">' + t(mp.pal ? "mpLocked" : "mpNew") + "</p>" +
+      '<div class="fp-qb"><button type="button" class="fp-save" data-fp="mpOk"' + (mp.result && !mp.gen ? "" : " disabled") + ">" + t("qpOk") + '</button><button type="button" class="navbtn" data-fp="mpSeed">' + t("mpNewPal") + "</button></div>";
+    if (!fresh && pn.dataset.kind === "mp" && !pn.hidden && pn.querySelector("[data-mp]")) {
       var tmp = document.createElement("div"); tmp.innerHTML = html2;
-      pn.querySelector(".fp-mpl").innerHTML = tmp.querySelector(".fp-mpl").innerHTML;
-      pn.querySelector(".fp-qb").innerHTML = tmp.querySelector(".fp-qb").innerHTML;
+      pn.querySelector("#fp-mp-st").textContent = st;
+      [".fp-mpl", ".fp-qb", ".fp-desc"].forEach(function (sel) { var a = pn.querySelector(sel), b = tmp.querySelector(sel); if (a && b) a.innerHTML = b.innerHTML; });
       return;
     }
     pn.dataset.kind = "mp"; pn.innerHTML = html2;
@@ -598,7 +641,7 @@
     // Zeiger
     if (V.hover) {
       var k = W / F.ow, hx = V.hover.x * k, hy = V.hover.y * k, dpr = window.devicePixelRatio || 1;
-      if (V.mp) { /* kein Pinselzeiger während Magic Paint */ }
+      if (V.mp && (V.mp.preview || V.mp.busy)) { /* kein Pinselzeiger während der Vorschau */ }
       else if (V.qp) {
         if (V.qp.stage === "pick") {
           x.fillStyle = sampleVideo(V.hover); x.strokeStyle = "#fff"; x.lineWidth = 2 * dpr;
@@ -766,6 +809,10 @@
     ".fp-desk.over{outline:3px dashed #E3B83F;outline-offset:-10px}" +
     ".fp-desk canvas{display:block;cursor:none;touch-action:none}.fp-desk canvas.pick,.fp-desk canvas.qp{cursor:crosshair}" +
     ".fp-qp{position:absolute;right:12px;top:12px;width:min(300px,calc(100% - 24px));max-height:calc(100% - 24px);overflow-y:auto;z-index:5;background:var(--bg);color:var(--ink);border:2px solid var(--ink);box-shadow:5px 5px 0 rgba(0,0,0,.45);padding:12px 14px;display:flex;flex-direction:column;gap:10px}" +
+    ".fp-x{order:1;margin-left:auto;width:30px;height:30px;border:1px solid var(--ink);background:transparent;color:var(--ink);font:600 1.2rem/1 var(--f-body);cursor:pointer}.fp-x:hover{background:var(--ink);color:var(--bg)}" +
+    ".fp-qp[data-kind=mp] .fp-qph::after{display:none}" +
+    ".fp-slots{display:flex;flex-direction:column;gap:8px}.fp-slot{display:grid;grid-template-columns:auto 1fr;gap:6px 10px;align-items:center;border:1px solid var(--line);padding:8px 10px}" +
+    ".fp-slot b{font-size:.88rem}.fp-slot .fp-mpl span{width:14px;height:14px}.fp-slb{grid-column:1/3;display:flex;gap:6px}.fp-slb .navbtn{flex:1}.fp-slb .navbtn[disabled]{opacity:.4;cursor:default}" +
     ".fp-qp[hidden]{display:none}.fp-mpl{display:flex;flex-wrap:wrap;gap:4px}.fp-mpl span{width:18px;height:18px;border:1px solid var(--line)}.fp-qb .fp-save[disabled]{opacity:.4;cursor:default}" +
     ".fp-qph{display:flex;flex-wrap:wrap;align-items:center;gap:8px;cursor:move;user-select:none;-webkit-user-select:none;touch-action:none;margin:-12px -14px 0;padding:10px 14px 8px;border-bottom:1px solid var(--line)}.fp-qph::after{content:'';order:1;margin-left:auto;width:16px;height:8px;border-top:2px solid var(--soft);border-bottom:2px solid var(--soft)}.fp-qph b{font:600 1rem var(--f-display)}.fp-qk{width:20px;height:20px;border:1px solid var(--ink)}" +
     ".fp-qs{order:2;flex-basis:100%;font-size:.84rem;color:var(--soft)}.fp-qb{display:flex;flex-wrap:wrap;gap:8px}.fp-qb .fp-save{padding:9px 14px;font-size:.92rem}" +
@@ -885,7 +932,7 @@
       (busy ? '<button type="button" class="fp-save" data-fp="cancel">' + t("cancel") + "</button>" : '<button type="button" class="fp-save" data-fp="export"' + (ready ? "" : " disabled") + ">" + t("save") + "</button>") +
       '<p class="fp-note" id="fp-note" aria-live="polite">' + (V.lastNote || "") + "</p></div>";
     var qpb = '<div class="fp-box"><h3>' + t("qpH") + '</h3><button type="button" class="fp-qpbtn" data-fp="qp"' + (ready ? "" : " disabled") + ">" + t("qpStart") + '</button><p class="fp-desc">' + t("qpNote") + "</p></div>";
-    var mpb = '<div class="fp-box"><h3>' + t("mpH") + '</h3><button type="button" class="fp-qpbtn" data-fp="mp"' + (ready ? "" : " disabled") + ">" + t("mpStart") + '</button><p class="fp-desc">' + t("mpNote") + "</p></div>";
+    var mpb = '<div class="fp-box"><h3>' + t("mpH") + '</h3><button type="button" class="fp-qpbtn" data-fp="mp"' + (ready ? "" : " disabled") + ">" + t("mpStart") + '</button><p class="fp-desc">' + t("mpNote") + "</p>" + slotsHTML() + '<p class="fp-desc">' + t("mpSlotsNote") + "</p></div>";
     side.innerHTML = top + color + tools + qpb + mpb + fps + exp;
     if (V.pendingFile) noteSure();
   }
@@ -919,7 +966,7 @@
     if (e.button !== undefined && e.button > 0) return;
     e.preventDefault();
     var p = toFrame(e);
-    if (V.mp) { mpApply(); return; }
+    if (V.mp && (V.mp.result || V.mp.busy)) { mpApply(); return; }
     if (V.qp) { if (V.qp.stage === "pick") qpFix(p); else qpApply(); return; }
     if (V.picking) { takeColor(sample(p)); setPick(false); return; }
     if (V.loading) return;
@@ -965,7 +1012,8 @@
     var k = e.key.toLowerCase();
     if (k === "d") { e.preventDefault(); if (!V.peek) { V.peek = true; need(); } return; }
     if (k === "m") { e.preventDefault(); if (V.mp) endMP(); else startMP(); return; }
-    if (V.mp) { if (k === "escape") endMP(); else if (k === "enter") { e.preventDefault(); mpApply(); } return; }
+    if (V.mp && k === "escape") { endMP(); return; }
+    if (V.mp && k === "enter" && V.mp.result) { e.preventDefault(); mpApply(); return; }
     if (k === "q") { e.preventDefault(); if (V.qp) endQP(); else startQP(); return; }
     if (k === "escape" && V.qp) { endQP(); return; }
     if (k === "enter" && V.qp && V.qp.stage === "tune") { e.preventDefault(); qpApply(); return; }
@@ -1006,7 +1054,9 @@
     if (V.qp.stage === "tune") { qpMask(); qpGenSoon(); } else V.qp.dirty = true;
   }
   function onClick(e) {
-    var b = e.target.closest("[data-fp],[data-tool],[data-mode],[data-col]"); if (!b) return;
+    var b = e.target.closest("[data-fp],[data-tool],[data-mode],[data-col],[data-slot-load],[data-slot-save]"); if (!b) return;
+    if (b.dataset.slotLoad !== undefined) { if (F && V.layer) slotLoad(+b.dataset.slotLoad); return; }
+    if (b.dataset.slotSave !== undefined) { slotSave(+b.dataset.slotSave); return; }
     if (b.dataset.tool) { setTool(b.dataset.tool); return; }
     if (b.dataset.mode) { S.mode = b.dataset.mode; updateSide(); return; }
     if (b.dataset.col) { takeColor(b.dataset.col); return; }
@@ -1029,7 +1079,7 @@
     else if (a === "mp") { if (V.mp) endMP(); else startMP(); }
     else if (a === "mpOk") mpApply();
     else if (a === "mpNo") endMP();
-    else if (a === "mpSeed") { S.mp.seed = 1 + Math.floor(Math.random() * 9999); mpTok++; V.mp.gen = performance.now(); V.mp.busy = true; mpPanel(); }
+    else if (a === "mpSeed") { S.mp.seed = 1 + Math.floor(Math.random() * 9999); mpTok++; V.mp.pal = null; V.mp.applied = false; V.mp.gen = performance.now(); V.mp.busy = true; mpPanel(); }
     else if (a === "qpSeed") { S.qp.seed = 1 + Math.floor(Math.random() * 9999); qpGenSoon(0); }
     else if (a === "export") doExport();
     else if (a === "cancel") cancelReq = true;
@@ -1039,7 +1089,7 @@
     if (el.dataset.mp) {
       var mk = el.dataset.mp; S.mp[mk] = +el.value;
       V.root.querySelector("#fp-m-" + mk + "-v").textContent = el.value + (mk === "angle" ? "°" : mk === "width" ? "px" : mk === "layers" ? "" : " %");
-      if (V.mp) { mpTok++; V.mp.busy = true; V.mp.gen = performance.now() + 350; mpPanel(); }
+      if (V.mp) { if (mk === "layers") V.mp.pal = null; mpTok++; V.mp.busy = true; V.mp.applied = false; V.mp.result = null; V.mp.gen = performance.now() + 350; mpPanel(); }
       return;
     }
     if (el.dataset.qp) {
