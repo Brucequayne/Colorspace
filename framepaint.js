@@ -3,7 +3,7 @@
 (function () {
   "use strict";
 
-  var VERSION = "0.21", RATES = [5, 15, 30];
+  var VERSION = "0.22", RATES = [5, 15, 30];
   var lang = "de";
   function L2(de, en) { return { de: de, en: en }; }
 
@@ -46,6 +46,11 @@
     loading: L2("Frame wird geladen …", "Loading frame …"),
     qpApplied: L2("Übernommen. Im nächsten Frame wird dieselbe Farbfläche mit denselben Einstellungen vorbereitet.", "Applied. On the next frame the same colour area is prepared with the same settings."),
     qpRepick: L2("Neue Farbe", "New colour"),
+    qpNext: L2("Für alle folgenden Frames übernehmen", "Apply to all following frames"), qpAll: L2("Auf alle Frames anwenden", "Apply to all frames"),
+    qpBatchNote: L2("Malt diese Einstellung automatisch in jeden Frame bis zum Ende (oder in alle). Frames, die damit schon bemalt sind, werden übersprungen. Bestehende Bemalung bleibt, Quickpaint kommt darüber.", "Paints this setting automatically into every frame up to the end (or into all). Frames already painted with it are skipped. Existing painting stays, Quickpaint goes on top."),
+    qpBatchRun: L2("Frame {i} von {n} wird gemalt …", "Painting frame {i} of {n} …"), qpStop: L2("Stopp", "Stop"),
+    qpBatchDone: L2("Quickpaint in {n} Frames übernommen.", "Quickpaint applied to {n} frames."), qpBatchStop: L2("Gestoppt nach {n} Frames.", "Stopped after {n} frames."),
+    qpAllDone: L2("Alle Frames haben diese Einstellung schon.", "All frames already have this setting."),
     qpH: L2("Quickpaint", "Quickpaint"), qpStart: L2("Quickpaint starten (Q)", "Start Quickpaint (Q)"),
     qpNote: L2("Q drücken, mit der Pipette eine Farbe im Video wählen: das Bild zeigt live, wo sie vorkommt. Linksklick legt die Farbe fest, dann Härte einstellen (auch per Mausrad) und mit einem zweiten Linksklick ins Bild übernehmen. Gemalt wird in deiner aktuellen Farbe, als Skizze mit Strichen. Esc bricht ab.",
                "Press Q and pick a colour in the video with the picker: the image shows live where it appears. A left click fixes the colour, then set the hardness (mouse wheel works too) and apply with a second left click on the image. It paints in your current colour, as a sketch made of strokes. Esc cancels."),
@@ -339,7 +344,7 @@
     if (!F || !V.layer || V.loading || V.playing || V.down) return;
     if (V.mp) endMP();
     setPick(false); qpGrids();
-    V.qp = { stage: "pick", key: null, hover: null, mask: null, sketch: null, gen: 0 };
+    V.qp = { stage: "pick", key: null, hover: null, mask: null, sketch: null, gen: 0, done: {} };
     qpPanel(); need();
   }
   function endQP() { V.qp = null; V.qView = null; var pn = V.root.querySelector("#fp-qp"); if (pn) pn.hidden = true; need(); }
@@ -354,13 +359,45 @@
     if (V.qp.gen) { buildSketch(); V.qp.gen = 0; }
     pushUndo();
     V.lx.globalAlpha = 1; V.lx.globalCompositeOperation = "source-over"; V.lx.drawImage(V.qp.sketch, 0, 0);
-    V.dirty = true; V.qp.applied = true;   // Fenster bleibt offen, Einstellung gilt im nächsten Frame weiter
+    V.dirty = true; V.qp.applied = true; V.qp.done[F.idx] = true;   // Fenster bleibt offen, Einstellung gilt im nächsten Frame weiter
     qpPanel(); need(); updateBar();
   }
+  // Stapel: dieselbe Quickpaint-Einstellung Frame für Frame anwenden, ohne jedes Mal zu bestätigen.
+  // Frames, die in dieser Sitzung schon damit bemalt wurden, werden übersprungen.
+  async function qpBatch(all) {
+    if (!V.qp || V.qp.stage !== "tune" || V.batch) return;
+    var q = V.qp, from = all ? 0 : F.idx, to = F.n - 1, start = F.idx, list = [];
+    for (var i = from; i <= to; i++) if (!q.done[i]) list.push(i);
+    if (!list.length) { note(t("qpAllDone")); return; }
+    V.batch = { stop: false, i: 0, n: list.length }; qpPanel();
+    try {
+      for (var k = 0; k < list.length; k++) {
+        if (V.batch.stop || !V || V.qp !== q) break;
+        V.batch.i = k + 1; qpBatchNote();
+        if (F.idx !== list[k]) await goFrame(list[k]);
+        if (!V || V.qp !== q || F.idx !== list[k]) break;
+        q.gen = 0; buildSketch();
+        V.lx.globalAlpha = 1; V.lx.globalCompositeOperation = "source-over"; V.lx.drawImage(q.sketch, 0, 0);
+        V.dirty = true; q.done[F.idx] = true; q.applied = true; need();
+        await new Promise(function (r) { setTimeout(r, 0); });
+      }
+    } finally {
+      var stopped = V && V.batch && V.batch.stop, cnt = V && V.batch ? V.batch.i : 0;
+      if (V) {
+        V.batch = null;
+        if (V.qp === q) { await goFrame(start); q.applied = !!q.done[F.idx]; q.mask = q.applied ? null : q.mask; qpPanel(); need(); }
+        note(fmt(t(stopped ? "qpBatchStop" : "qpBatchDone"), { n: cnt }));
+        updateSide();
+      }
+    }
+  }
+  function qpBatchNote() { var el = V.root.querySelector("#fp-qbat"); if (el && V.batch) el.textContent = fmt(t("qpBatchRun"), { i: V.batch.i, n: V.batch.n }); }
   function qpRefresh() {   // nach Frame-Wechsel: gleiche Farbe und Einstellungen auf das neue Bild
     if (!V.qp) return;
-    V.qp.applied = false; V.qp.hover = null; V.qp.mask = null;
-    if (V.qp.stage === "tune") { qpMask(); qpGenSoon(60); }
+    V.qp.hover = null; V.qp.mask = null;
+    if (V.batch) { V.qp.applied = true; return; }   // Stapel malt selbst
+    V.qp.applied = !!V.qp.done[F.idx] && V.qp.stage === "tune";
+    if (V.qp.stage === "tune" && !V.qp.applied) { qpMask(); V.qp.gen = performance.now() + 60; }
     qpPanel();
   }
   function sampleVideo(p) {
@@ -615,7 +652,9 @@
     pn.dataset.kind = "qp";
     pn.innerHTML = '<div class="fp-qph"><b>' + t("qpH") + "</b>" + (q.keyHex ? '<span class="fp-qk" style="background:' + q.keyHex + '" title="' + t("qpKey") + '"></span>' : "") + '<span class="fp-qs">' + t(q.applied ? "qpApplied" : q.stage === "pick" ? "qpPick" : "qpTune") + '</span><button type="button" class="fp-x" data-fp="qpNo" aria-label="' + t("close") + '" title="' + t("close") + ' (Esc)">×</button></div>' +
       sl("hard", t("qpHard"), 0, 100, " %") + (q.stage === "tune" ? sl("human", t("qpHuman"), 0, 100, " %") + sl("angle", t("qpAngle"), 0, 180, "°") + sl("width", t("qpWidth"), 2, 40, "px") : '<p class="fp-desc">' + t("qpHardNote") + "</p>") +
-      '<div class="fp-qb">' + (q.stage === "tune" ? '<button type="button" class="fp-save" data-fp="qpOk"' + (q.applied ? " disabled" : "") + ">" + t("qpOk") + '</button><button type="button" class="navbtn" data-fp="qpSeed">' + t("qpSeed") + '</button><button type="button" class="navbtn" data-fp="qpRepick">' + t("qpRepick") + "</button>" : "") + "</div>";
+      '<div class="fp-qb">' + (q.stage === "tune" ? '<button type="button" class="fp-save" data-fp="qpOk"' + (q.applied ? " disabled" : "") + ">" + t("qpOk") + '</button><button type="button" class="navbtn" data-fp="qpSeed">' + t("qpSeed") + '</button><button type="button" class="navbtn" data-fp="qpRepick">' + t("qpRepick") + "</button>" : "") + "</div>" +
+      (q.stage === "tune" ? '<div class="fp-qbatch">' + (V.batch ? '<p class="fp-desc" id="fp-qbat">' + fmt(t("qpBatchRun"), { i: V.batch.i, n: V.batch.n }) + '</p><button type="button" class="fp-save" data-fp="qpStop">' + t("qpStop") + "</button>"
+        : '<button type="button" class="fp-qpbtn" data-fp="qpNext">' + t("qpNext") + '</button><button type="button" class="navbtn" data-fp="qpAll">' + t("qpAll") + '</button><p class="fp-desc">' + t("qpBatchNote") + "</p>") + "</div>" : "");
     if (V.qpPos) { pn.style.left = V.qpPos.l + "px"; pn.style.top = V.qpPos.t + "px"; pn.style.right = "auto"; }
     pn.hidden = false;
   }
@@ -842,7 +881,7 @@
     ".fp-desk canvas{display:block;cursor:none;touch-action:none}.fp-desk canvas.pick,.fp-desk canvas.qp{cursor:crosshair}" +
     ".fp-qp{position:absolute;right:12px;top:12px;width:min(300px,calc(100% - 24px));max-height:calc(100% - 24px);overflow-y:auto;z-index:5;background:var(--bg);color:var(--ink);border:2px solid var(--ink);box-shadow:5px 5px 0 rgba(0,0,0,.45);padding:12px 14px;display:flex;flex-direction:column;gap:10px}" +
     ".fp-x{order:1;margin-left:auto;width:30px;height:30px;border:1px solid var(--ink);background:transparent;color:var(--ink);font:600 1.2rem/1 var(--f-body);cursor:pointer}.fp-x:hover{background:var(--ink);color:var(--bg)}" +
-    ".fp-qph::after{display:none!important}" +
+    ".fp-qph::after{display:none!important}.fp-qbatch{display:flex;flex-direction:column;gap:8px;border-top:1px solid var(--line);padding-top:10px}" +
     ".fp-slots{display:flex;flex-direction:column;gap:8px}.fp-slot{display:grid;grid-template-columns:auto 1fr;gap:6px 10px;align-items:center;border:1px solid var(--line);padding:8px 10px}" +
     ".fp-slot b{font-size:.88rem}.fp-slot .fp-mpl span{width:14px;height:14px}.fp-slb{grid-column:1/3;display:flex;gap:6px}.fp-slb .navbtn{flex:1}.fp-slb .navbtn[disabled]{opacity:.4;cursor:default}" +
     ".fp-qp[hidden]{display:none}.fp-mpl{display:flex;flex-wrap:wrap;gap:4px}.fp-mpl span{width:18px;height:18px;border:1px solid var(--line)}.fp-qb .fp-save[disabled]{opacity:.4;cursor:default}" +
@@ -994,6 +1033,7 @@
 
   // ---------- Eingabe ----------
   function onDown(e) {
+    if (V && V.batch) return;
     if (!F || !V.layer || e.target !== V.cv || V.playing) return;
     if (e.button !== undefined && e.button > 0) return;
     e.preventDefault();
@@ -1032,6 +1072,7 @@
   function setTool(k) { if (!TOOLS[k]) return; if (k !== "eraser") V.lastPaintTool = k; S.tool = k; updateSide(); need(); }
   function onKey(e) {
     if (!V || !F || !V.layer) return;
+    if (V.batch) { if (e.key === "Escape") V.batch.stop = true; e.preventDefault(); return; }
     var tg = e.target, tag = tg && tg.tagName;
     if (tag === "INPUT" && tg.type !== "range" && tg.type !== "checkbox" || tag === "TEXTAREA" || tag === "SELECT") return;
     if (e.ctrlKey || e.metaKey) {
@@ -1087,6 +1128,7 @@
   }
   function onClick(e) {
     var b = e.target.closest("[data-fp],[data-tool],[data-mode],[data-col],[data-slot-load],[data-slot-save]"); if (!b) return;
+    if (V.batch) { if (b.dataset.fp === "qpStop") V.batch.stop = true; return; }
     if (b.dataset.slotLoad !== undefined) { if (F && V.layer) slotLoad(+b.dataset.slotLoad); return; }
     if (b.dataset.slotSave !== undefined) { slotSave(+b.dataset.slotSave); return; }
     if (b.dataset.tool) { setTool(b.dataset.tool); return; }
@@ -1112,13 +1154,16 @@
     else if (a === "mpOk") mpApply();
     else if (a === "mpNo") endMP();
     else if (a === "mpSeed") { S.mp.seed = 1 + Math.floor(Math.random() * 9999); mpTok++; V.mp.pal = null; V.mp.applied = false; V.mp.gen = performance.now(); V.mp.busy = true; mpPanel(); }
-    else if (a === "qpRepick") { if (V.qp) { V.qp.stage = "pick"; V.qp.key = null; V.qp.keyHex = null; V.qp.applied = false; V.qp.mask = null; V.qp.sketch = null; qpPanel(); need(); } }
-    else if (a === "qpSeed") { S.qp.seed = 1 + Math.floor(Math.random() * 9999); qpGenSoon(0); }
+    else if (a === "qpRepick") { if (V.qp) { V.qp.stage = "pick"; V.qp.done = {}; V.qp.key = null; V.qp.keyHex = null; V.qp.applied = false; V.qp.mask = null; V.qp.sketch = null; qpPanel(); need(); } }
+    else if (a === "qpNext") qpBatch(false);
+    else if (a === "qpAll") qpBatch(true);
+    else if (a === "qpSeed") { if (V.qp) V.qp.done = {}; S.qp.seed = 1 + Math.floor(Math.random() * 9999); qpGenSoon(0); }
     else if (a === "export") doExport();
     else if (a === "cancel") cancelReq = true;
   }
   function onInput(e) {
     var el = e.target;
+    if (V.batch) return;
     if (el.dataset.mp) {
       var mk = el.dataset.mp; S.mp[mk] = +el.value;
       V.root.querySelector("#fp-m-" + mk + "-v").textContent = el.value + (mk === "angle" ? "°" : mk === "width" ? "px" : mk === "layers" ? "" : " %");
@@ -1128,6 +1173,7 @@
     if (el.dataset.qp) {
       var qk = el.dataset.qp; S.qp[qk] = +el.value;
       V.root.querySelector("#fp-q-" + qk + "-v").textContent = el.value + (qk === "angle" ? "°" : qk === "width" ? "px" : " %");
+      if (V.qp) V.qp.done = {};   // neue Einstellung: alle Frames gelten wieder als offen
       if (V.qp && V.qp.applied && V.qp.stage === "tune") { V.qp.applied = false; qpPanel(); }
       if (V.qp) { if (qk === "hard") { if (V.qp.stage === "tune") qpMask(); else V.qp.dirty = true; } if (V.qp.stage === "tune") qpGenSoon(); }
       return;
