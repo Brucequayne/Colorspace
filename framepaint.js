@@ -3,7 +3,7 @@
 (function () {
   "use strict";
 
-  var VERSION = "0.2", RATES = [5, 15, 30];
+  var VERSION = "0.21", RATES = [5, 15, 30];
   var lang = "de";
   function L2(de, en) { return { de: de, en: en }; }
 
@@ -44,6 +44,8 @@
     failed: L2("Export fehlgeschlagen: {e}", "Export failed: {e}"),
     bad: L2("Diese Datei konnte nicht als Video geöffnet werden.", "This file could not be opened as a video."),
     loading: L2("Frame wird geladen …", "Loading frame …"),
+    qpApplied: L2("Übernommen. Im nächsten Frame wird dieselbe Farbfläche mit denselben Einstellungen vorbereitet.", "Applied. On the next frame the same colour area is prepared with the same settings."),
+    qpRepick: L2("Neue Farbe", "New colour"),
     qpH: L2("Quickpaint", "Quickpaint"), qpStart: L2("Quickpaint starten (Q)", "Start Quickpaint (Q)"),
     qpNote: L2("Q drücken, mit der Pipette eine Farbe im Video wählen: das Bild zeigt live, wo sie vorkommt. Linksklick legt die Farbe fest, dann Härte einstellen (auch per Mausrad) und mit einem zweiten Linksklick ins Bild übernehmen. Gemalt wird in deiner aktuellen Farbe, als Skizze mit Strichen. Esc bricht ab.",
                "Press Q and pick a colour in the video with the picker: the image shows live where it appears. A left click fixes the colour, then set the hardness (mouse wheel works too) and apply with a second left click on the image. It paints in your current colour, as a sketch made of strokes. Esc cancels."),
@@ -174,7 +176,7 @@
   async function goFrame(i) {
     if (!F || !V || !V.layer) return;
     i = clamp(i, 0, F.n - 1);
-    if (V.qp) endQP();
+    if (V.qp) { V.qp.gen = 0; V.qp.mask = null; V.qp.applied = true; }
     if (V.mp) { mpTok++; V.mp.result = null; V.mp.preview = null; }
     storeCurrent();
     var tok = ++loadTok;
@@ -191,6 +193,7 @@
     V.loading = false; V.dirty = false;
     updateBar(); need();
     if (V.mp) mpRefresh();
+    if (V.qp) qpRefresh();
   }
   async function reloadOnion() {
     if (!F || !V) return;
@@ -345,13 +348,20 @@
     qpMask(); qpGenSoon(0); qpPanel();
   }
   function qpMask() { var G = qpGrids(), k = V.qp.stage === "tune" ? V.qp.key : V.qp.hover; V.qp.mask = k ? maskView(maskOf(G.s, k, S.qp.hard), G.s, V.qp.stage === "tune" ? 0.16 : 0.85) : null; need(); }
-  function qpGenSoon(ms) { V.qp.gen = performance.now() + (ms === undefined ? 90 : ms); }
+  function qpGenSoon(ms) { if (V.qp.applied) { V.qp.applied = false; qpPanel(); } V.qp.gen = performance.now() + (ms === undefined ? 90 : ms); }
   function qpApply() {
-    if (!V.qp || V.qp.stage !== "tune") return;
+    if (!V.qp || V.qp.stage !== "tune" || V.qp.applied) return;
     if (V.qp.gen) { buildSketch(); V.qp.gen = 0; }
     pushUndo();
     V.lx.globalAlpha = 1; V.lx.globalCompositeOperation = "source-over"; V.lx.drawImage(V.qp.sketch, 0, 0);
-    V.dirty = true; endQP(); updateBar();
+    V.dirty = true; V.qp.applied = true;   // Fenster bleibt offen, Einstellung gilt im nächsten Frame weiter
+    qpPanel(); need(); updateBar();
+  }
+  function qpRefresh() {   // nach Frame-Wechsel: gleiche Farbe und Einstellungen auf das neue Bild
+    if (!V.qp) return;
+    V.qp.applied = false; V.qp.hover = null; V.qp.mask = null;
+    if (V.qp.stage === "tune") { qpMask(); qpGenSoon(60); }
+    qpPanel();
   }
   function sampleVideo(p) {
     var c = V.pick1 || (V.pick1 = canvas(1, 1)), x = c.getContext("2d", { willReadFrequently: true });
@@ -365,7 +375,7 @@
   function buildSketch() {
     var G = qpGrids().m;
     V.qp.sketch = V.qp.sketch && V.qp.sketch.width === F.ow ? V.qp.sketch : canvas(F.ow, F.oh);
-    sketch(maskOf(G, V.qp.key, S.qp.hard), { color: S.color, width: S.qp.width, human: S.qp.human, angle: S.qp.angle, seed: S.qp.seed * 7919 + F.idx }, V.qp.sketch);
+    sketch(maskOf(G, V.qp.key, S.qp.hard), { color: S.color, width: S.qp.width, human: S.qp.human, angle: S.qp.angle, seed: S.qp.seed * 7919 }, V.qp.sketch);
     need();
   }
   function sketch(raw, o, out) {
@@ -381,7 +391,28 @@
     function inside(px, py) { var mx = Math.floor(px * f), my = Math.floor(py * f); return mx >= 0 && my >= 0 && mx < mw && my < mh && M[my * mw + mx] === 1; }
     var g2 = out.getContext("2d");
     g2.globalCompositeOperation = "source-over"; g2.globalAlpha = 1; g2.clearRect(0, 0, F.ow, F.oh);
-    g2.strokeStyle = o.color; g2.lineCap = "round"; g2.lineJoin = "round";
+    g2.fillStyle = o.color;
+    // Strich als gefülltes Band mit schräg abgeschnittenen Enden, wie ein leicht schräg gehaltener flacher Pinsel.
+    // Beide Enden haben meist denselben Schnittwinkel (parallel), manchmal einen eigenen; nie abgerundet.
+    var nib = (R() - 0.5) * 1.2;   // Grundneigung des "Pinsels" für diese Schicht
+    function ribbon(x0, y0, qx, qy, x1, y1, lw, al) {
+      var L = Math.hypot(x1 - x0, y1 - y0) + Math.hypot(qx - (x0 + x1) / 2, qy - (y0 + y1) / 2);
+      var seg = Math.max(2, Math.min(14, Math.ceil(L / Math.max(4, lw * 1.2)))), hw = lw / 2, lft = [], rgt = [], k;
+      var sk0 = clamp(nib + (R() - 0.5) * (0.5 + 1.2 * h), -1.15, 1.15), sk1 = R() < 0.7 ? sk0 : clamp(nib + (R() - 0.5) * (0.6 + 1.2 * h), -1.15, 1.15);
+      var t0 = Math.tan(sk0), t1 = Math.tan(sk1), sw = 1 + (R() - 0.5) * 0.25 * h;
+      for (k = 0; k <= seg; k++) {
+        var tt = k / seg, it = 1 - tt;
+        var px = it * it * x0 + 2 * it * tt * qx + tt * tt * x1, py = it * it * y0 + 2 * it * tt * qy + tt * tt * y1;
+        var dx = 2 * it * (qx - x0) + 2 * tt * (x1 - qx), dy = 2 * it * (qy - y0) + 2 * tt * (y1 - qy), dl = Math.hypot(dx, dy) || 1;
+        var ux = dx / dl, uy = dy / dl, nx = -uy, ny = ux, ww = hw * (1 + (sw - 1) * tt);
+        var sh = k === 0 ? t0 * ww : k === seg ? t1 * ww : 0;   // Schrägschnitt an den Enden
+        lft.push(px + nx * ww + ux * sh, py + ny * ww + uy * sh); rgt.push(px - nx * ww - ux * sh, py - ny * ww - uy * sh);
+      }
+      g2.globalAlpha = al; g2.beginPath(); g2.moveTo(lft[0], lft[1]);
+      for (k = 2; k < lft.length; k += 2) g2.lineTo(lft[k], lft[k + 1]);
+      for (k = rgt.length - 2; k >= 0; k -= 2) g2.lineTo(rgt[k], rgt[k + 1]);
+      g2.closePath(); g2.fill();
+    }
     // Strich von der Mitte aus in beide Richtungen bis zur Kante der Fläche, plus kleiner Überstand
     function reach(cx, cy, ux, uy, max) { var st = Math.max(1, 1 / f), d = 0; while (d + st <= max && inside(cx + ux * (d + st), cy + uy * (d + st))) d += st; return d; }
     function mark(cx, cy, ang, len, lw, al) {
@@ -391,8 +422,7 @@
       if (a + b < w * 0.8) return;
       a = Math.min(len / 2, a + over * (a < len / 2 - 1 ? 1 : 0.4)); b = Math.min(len / 2, b + over * (b < len / 2 - 1 ? 1 : 0.4));
       var x0 = cx - ux * a, y0 = cy - uy * a, x1 = cx + ux * b, y1 = cy + uy * b, L = a + b, bend = (R() - 0.5) * L * 0.22 * h;
-      g2.globalAlpha = al * am; g2.lineWidth = lw;
-      g2.beginPath(); g2.moveTo(x0, y0); g2.quadraticCurveTo((x0 + x1) / 2 - uy * bend, (y0 + y1) / 2 + ux * bend, x1, y1); g2.stroke();
+      ribbon(x0, y0, (x0 + x1) / 2 - uy * bend, (y0 + y1) / 2 + ux * bend, x1, y1, lw, al * am);
     }
     // Rasterpunkte innerhalb der Fläche sammeln, gemischt, damit sich die Striche natürlich überlagern
     function points(cell) {
@@ -427,8 +457,8 @@
       if (R() > (0.55 + 0.45 * h) * Math.min(1, keep + 0.2)) continue;
       var tx = -gy2 / gm, ty = gx2 / gm, len = w * (3 + R() * 5 * (0.4 + h)), rot = (R() - 0.5) * 0.45 * h, cr = Math.cos(rot), sr = Math.sin(rot);
       var ex = (tx * cr - ty * sr) * len / 2, ey = (tx * sr + ty * cr) * len / 2, px2 = xx2 / f - gx2 / gm * w * 0.4, py2 = yy2 / f - gy2 / gm * w * 0.4;
-      g2.globalAlpha = (0.75 + 0.25 * R()) * am; g2.lineWidth = w * (0.6 + 0.5 * R());
-      g2.beginPath(); g2.moveTo(px2 - ex, py2 - ey); g2.lineTo(px2 + ex, py2 + ey); g2.stroke();
+      var ca = (0.75 + 0.25 * R()) * am, cw = w * (0.6 + 0.5 * R());
+      ribbon(px2 - ex, py2 - ey, px2, py2, px2 + ex, py2 + ey, cw, ca);
     }
     // auf die leicht erweiterte Maske beschneiden
     var mc = canvas(mw, mh), mx2 = mc.getContext("2d"), id = mx2.createImageData(mw, mh);
@@ -583,9 +613,9 @@
     var q = V.qp; if (!q) { pn.hidden = true; return; }
     function sl(k, lab, min, max, u) { return '<div class="fp-row"><label for="fp-q-' + k + '">' + lab + '<span id="fp-q-' + k + '-v">' + S.qp[k] + u + '</span></label><input type="range" id="fp-q-' + k + '" data-qp="' + k + '" min="' + min + '" max="' + max + '" step="1" value="' + S.qp[k] + '"></div>'; }
     pn.dataset.kind = "qp";
-    pn.innerHTML = '<div class="fp-qph"><b>' + t("qpH") + "</b>" + (q.keyHex ? '<span class="fp-qk" style="background:' + q.keyHex + '" title="' + t("qpKey") + '"></span>' : "") + '<span class="fp-qs">' + t(q.stage === "pick" ? "qpPick" : "qpTune") + "</span></div>" +
+    pn.innerHTML = '<div class="fp-qph"><b>' + t("qpH") + "</b>" + (q.keyHex ? '<span class="fp-qk" style="background:' + q.keyHex + '" title="' + t("qpKey") + '"></span>' : "") + '<span class="fp-qs">' + t(q.applied ? "qpApplied" : q.stage === "pick" ? "qpPick" : "qpTune") + '</span><button type="button" class="fp-x" data-fp="qpNo" aria-label="' + t("close") + '" title="' + t("close") + ' (Esc)">×</button></div>' +
       sl("hard", t("qpHard"), 0, 100, " %") + (q.stage === "tune" ? sl("human", t("qpHuman"), 0, 100, " %") + sl("angle", t("qpAngle"), 0, 180, "°") + sl("width", t("qpWidth"), 2, 40, "px") : '<p class="fp-desc">' + t("qpHardNote") + "</p>") +
-      '<div class="fp-qb">' + (q.stage === "tune" ? '<button type="button" class="fp-save" data-fp="qpOk">' + t("qpOk") + '</button><button type="button" class="navbtn" data-fp="qpSeed">' + t("qpSeed") + "</button>" : "") + '<button type="button" class="navbtn" data-fp="qpNo">' + t("qpNo") + " (Esc)</button></div>";
+      '<div class="fp-qb">' + (q.stage === "tune" ? '<button type="button" class="fp-save" data-fp="qpOk"' + (q.applied ? " disabled" : "") + ">" + t("qpOk") + '</button><button type="button" class="navbtn" data-fp="qpSeed">' + t("qpSeed") + '</button><button type="button" class="navbtn" data-fp="qpRepick">' + t("qpRepick") + "</button>" : "") + "</div>";
     if (V.qpPos) { pn.style.left = V.qpPos.l + "px"; pn.style.top = V.qpPos.t + "px"; pn.style.right = "auto"; }
     pn.hidden = false;
   }
@@ -635,14 +665,16 @@
     }
     if (V.mp && V.mp.preview) x.drawImage(V.mp.preview, 0, 0, W, H);
     if (V.qp) {
-      if (V.qp.mask) x.drawImage(V.qp.mask, 0, 0, W, H);
-      if (V.qp.stage === "tune" && V.qp.sketch) x.drawImage(V.qp.sketch, 0, 0, W, H);
+      if (!V.qp.applied) {
+        if (V.qp.mask) x.drawImage(V.qp.mask, 0, 0, W, H);
+        if (V.qp.stage === "tune" && V.qp.sketch) x.drawImage(V.qp.sketch, 0, 0, W, H);
+      }
     }
     // Zeiger
     if (V.hover) {
       var k = W / F.ow, hx = V.hover.x * k, hy = V.hover.y * k, dpr = window.devicePixelRatio || 1;
       if (V.mp && (V.mp.preview || V.mp.busy)) { /* kein Pinselzeiger während der Vorschau */ }
-      else if (V.qp) {
+      else if (V.qp && !V.qp.applied) {
         if (V.qp.stage === "pick") {
           x.fillStyle = sampleVideo(V.hover); x.strokeStyle = "#fff"; x.lineWidth = 2 * dpr;
           x.fillRect(hx + 14 * dpr, hy - 48 * dpr, 34 * dpr, 34 * dpr); x.strokeRect(hx + 14 * dpr, hy - 48 * dpr, 34 * dpr, 34 * dpr);
@@ -810,7 +842,7 @@
     ".fp-desk canvas{display:block;cursor:none;touch-action:none}.fp-desk canvas.pick,.fp-desk canvas.qp{cursor:crosshair}" +
     ".fp-qp{position:absolute;right:12px;top:12px;width:min(300px,calc(100% - 24px));max-height:calc(100% - 24px);overflow-y:auto;z-index:5;background:var(--bg);color:var(--ink);border:2px solid var(--ink);box-shadow:5px 5px 0 rgba(0,0,0,.45);padding:12px 14px;display:flex;flex-direction:column;gap:10px}" +
     ".fp-x{order:1;margin-left:auto;width:30px;height:30px;border:1px solid var(--ink);background:transparent;color:var(--ink);font:600 1.2rem/1 var(--f-body);cursor:pointer}.fp-x:hover{background:var(--ink);color:var(--bg)}" +
-    ".fp-qp[data-kind=mp] .fp-qph::after{display:none}" +
+    ".fp-qph::after{display:none!important}" +
     ".fp-slots{display:flex;flex-direction:column;gap:8px}.fp-slot{display:grid;grid-template-columns:auto 1fr;gap:6px 10px;align-items:center;border:1px solid var(--line);padding:8px 10px}" +
     ".fp-slot b{font-size:.88rem}.fp-slot .fp-mpl span{width:14px;height:14px}.fp-slb{grid-column:1/3;display:flex;gap:6px}.fp-slb .navbtn{flex:1}.fp-slb .navbtn[disabled]{opacity:.4;cursor:default}" +
     ".fp-qp[hidden]{display:none}.fp-mpl{display:flex;flex-wrap:wrap;gap:4px}.fp-mpl span{width:18px;height:18px;border:1px solid var(--line)}.fp-qb .fp-save[disabled]{opacity:.4;cursor:default}" +
@@ -967,7 +999,7 @@
     e.preventDefault();
     var p = toFrame(e);
     if (V.mp && (V.mp.result || V.mp.busy)) { mpApply(); return; }
-    if (V.qp) { if (V.qp.stage === "pick") qpFix(p); else qpApply(); return; }
+    if (V.qp && !V.qp.applied) { if (V.qp.stage === "pick") qpFix(p); else qpApply(); return; }
     if (V.picking) { takeColor(sample(p)); setPick(false); return; }
     if (V.loading) return;
     pushUndo();
@@ -1016,8 +1048,8 @@
     if (V.mp && k === "enter" && V.mp.result) { e.preventDefault(); mpApply(); return; }
     if (k === "q") { e.preventDefault(); if (V.qp) endQP(); else startQP(); return; }
     if (k === "escape" && V.qp) { endQP(); return; }
-    if (k === "enter" && V.qp && V.qp.stage === "tune") { e.preventDefault(); qpApply(); return; }
-    if (V.qp) return;
+    if (k === "enter" && V.qp && V.qp.stage === "tune" && !V.qp.applied) { e.preventDefault(); qpApply(); return; }
+    if (V.qp && V.qp.stage === "pick") return;
     if (k === "c") { e.preventDefault(); setPick(!V.picking); return; }
     if (k === "escape" && V.picking) { setPick(false); return; }
     for (var id in TOOLS) if (TOOLS[id].key === k) { e.preventDefault(); setTool(id); return; }
@@ -1080,6 +1112,7 @@
     else if (a === "mpOk") mpApply();
     else if (a === "mpNo") endMP();
     else if (a === "mpSeed") { S.mp.seed = 1 + Math.floor(Math.random() * 9999); mpTok++; V.mp.pal = null; V.mp.applied = false; V.mp.gen = performance.now(); V.mp.busy = true; mpPanel(); }
+    else if (a === "qpRepick") { if (V.qp) { V.qp.stage = "pick"; V.qp.key = null; V.qp.keyHex = null; V.qp.applied = false; V.qp.mask = null; V.qp.sketch = null; qpPanel(); need(); } }
     else if (a === "qpSeed") { S.qp.seed = 1 + Math.floor(Math.random() * 9999); qpGenSoon(0); }
     else if (a === "export") doExport();
     else if (a === "cancel") cancelReq = true;
@@ -1095,6 +1128,7 @@
     if (el.dataset.qp) {
       var qk = el.dataset.qp; S.qp[qk] = +el.value;
       V.root.querySelector("#fp-q-" + qk + "-v").textContent = el.value + (qk === "angle" ? "°" : qk === "width" ? "px" : " %");
+      if (V.qp && V.qp.applied && V.qp.stage === "tune") { V.qp.applied = false; qpPanel(); }
       if (V.qp) { if (qk === "hard") { if (V.qp.stage === "tune") qpMask(); else V.qp.dirty = true; } if (V.qp.stage === "tune") qpGenSoon(); }
       return;
     }
