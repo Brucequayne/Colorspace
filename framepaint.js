@@ -3,7 +3,7 @@
 (function () {
   "use strict";
 
-  var VERSION = "0.51", RATES = [5, 15, 30];
+  var VERSION = "0.52", RATES = [5, 15, 30];
   var lang = "de";
   function L2(de, en) { return { de: de, en: en }; }
 
@@ -689,17 +689,33 @@
     var lay = mp.lay && mp.lay.width === F.ow ? mp.lay : (mp.lay = canvas(F.ow, F.oh));
     rx.globalCompositeOperation = "source-over"; rx.globalAlpha = 1; rx.clearRect(0, 0, F.ow, F.oh);
     var L = pal.list.length, raw = new Float32Array(n);
+    // Eigene Fläche schützen: Rang jeder Farbe in der Malreihenfolge. Eine Schicht darf nur dort über ihren Bereich hinaus,
+    // wo später noch eine andere Schicht malt. Auf schon gemalte Schichten nur in einem schmalen Randstreifen (Toleranz),
+    // damit Übergänge natürlich bleiben und keine Lücken entstehen.
+    var rank = new Int16Array(256).fill(9999); pal.list.forEach(function (P0, r0) { rank[P0.k] = r0; }); rank[255] = -1;
+    var TOL = Math.max(1, Math.round(3 * Gm.w / 960)), Om = new Uint8Array(n), Dm = new Uint8Array(n), Tm = new Uint8Array(n);
+    function dilate(src, dst, tmp, W2, H2, r) {
+      var x2, y2, c2, last;
+      for (y2 = 0; y2 < H2; y2++) { last = -1e9; for (x2 = 0; x2 < W2; x2++) { if (src[y2 * W2 + x2]) last = x2; tmp[y2 * W2 + x2] = x2 - last <= r ? 1 : 0; }
+        last = 1e9; for (x2 = W2 - 1; x2 >= 0; x2--) { if (src[y2 * W2 + x2]) last = x2; if (last - x2 <= r) tmp[y2 * W2 + x2] = 1; } }
+      for (x2 = 0; x2 < W2; x2++) { last = -1e9; for (y2 = 0; y2 < H2; y2++) { if (tmp[y2 * W2 + x2]) last = y2; dst[y2 * W2 + x2] = y2 - last <= r ? 1 : 0; }
+        last = 1e9; for (y2 = H2 - 1; y2 >= 0; y2--) { if (tmp[y2 * W2 + x2]) last = y2; if (last - y2 <= r) dst[y2 * W2 + x2] = 1; } }
+    }
     for (var li = 0; li < L; li++) {
       var P = pal.list[li], t2 = L > 1 ? li / (L - 1) : 0, kk = P.k;
       // Untere Schichten: großzügige Maske, dicke Striche, volle Deckung. Obere: enger, feiner und lichter, damit darunter durchscheint.
       var width = Math.max(2, S.mp.width * (1.9 - 1.35 * t2) * P.wf);
-      var margin = (li === 0 ? 34 : 22 * Math.pow(1 - t2, 1.6) + 2.5) * P.mf;
+      // Härte: nur die Grundschicht ist großzügig (gegen Lücken), alle weiteren Schichten bleiben eng an ihrem Farbton (Härte etwa 75 bis 95 %),
+      // damit Abstufungen als eigene Schichten sichtbar werden statt von einer weichen Maske verschluckt zu werden
+      var margin = li === 0 ? 30 * P.mf : (2 + 6 * Math.pow(1 - t2, 1.3)) * (0.85 + 0.3 * (P.mf - 0.7) / 0.6);
       var keep = 1 - 0.5 * Math.pow(t2, 0.8), alpha = 1 - 0.32 * t2;
       var hardness = Math.round(clamp(100 - margin * 3, 5, 95)), area = 0;
       var cx0 = C[kk * 3], cx1 = C[kk * 3 + 1], cx2 = C[kk * 3 + 2];
+      if (li > 0) { for (i = 0; i < n; i++) Om[i] = own[i] === kk ? 1 : 0; dilate(Om, Dm, Tm, Gm.w, Gm.h, TOL); }
       for (i = 0, j = 0; i < n; i++, j += 3) {
         if (!vin[i]) { raw[i] = 0; continue; }
         if (own[i] === kk) { raw[i] = 1; area++; continue; }
+        if (li > 0 && rank[own[i]] < li && !Dm[i]) { raw[i] = 0; continue; }   // Fläche einer früheren Schicht: nur im Randstreifen
         var e0 = Gm.L[j] - cx0, e1 = Gm.L[j + 1] - cx1, e2 = Gm.L[j + 2] - cx2, dk = Math.sqrt(e0 * e0 + e1 * e1 + e2 * e2) - dmin[i];
         raw[i] = dk <= margin ? 1 : dk >= margin * 1.6 ? 0 : 1 - (dk - margin) / (margin * 0.6);
       }
