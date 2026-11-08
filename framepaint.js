@@ -3,7 +3,7 @@
 (function () {
   "use strict";
 
-  var VERSION = "0.5", RATES = [5, 15, 30];
+  var VERSION = "0.51", RATES = [5, 15, 30];
   var lang = "de";
   function L2(de, en) { return { de: de, en: en }; }
 
@@ -22,7 +22,7 @@
     clearF: L2("Frame leeren", "Clear frame"), undo: L2("Rückgängig", "Undo"), redo: L2("Wiederholen", "Redo"),
     onion: L2("Zwiebelhaut (letzter Frame blass)", "Onion skin (previous frame faint)"), hideVid: L2("Video ausblenden", "Hide video"),
     color: L2("Farbe", "Colour"), picker: L2("Pipette (C)", "Picker (C)"), pickOn: L2("Klick ins Bild nimmt die Farbe", "Click the image to take the colour"),
-    colorNote: L2("Farben gibt es nur über die Pipette: C drücken, dann mit Linksklick ins Bild. Danach malst du sofort mit dieser Farbe.", "Colours come only from the picker: press C, then left-click the image. You paint with that colour right away."),
+    colorNote: L2("Farben gibt es nur über die Pipette: C drücken, dann mit Linksklick ins Bild. Sie nimmt immer die Farbe aus dem Video unter der Bemalung. Danach malst du sofort mit dieser Farbe.", "Colours come only from the picker: press C, then left-click the image. It always takes the colour from the video beneath the painting. You paint with that colour right away."),
     recent: L2("Zuletzt genommen", "Recently picked"),
     tool: L2("Werkzeug", "Tool"),
     pen: L2("Stift", "Pen"), brush: L2("Pinsel", "Brush"), spray: L2("Spraydose", "Spray can"), eraser: L2("Radierer", "Eraser"),
@@ -331,15 +331,8 @@
   }
 
   // ---------- Pipette ----------
-  function sample(p) {
-    var c = V.pick1 || (V.pick1 = canvas(1, 1)), x = c.getContext("2d", { willReadFrequently: true });
-    var fx = clamp(Math.floor(p.x), 0, F.ow - 1), fy = clamp(Math.floor(p.y), 0, F.oh - 1);
-    x.globalCompositeOperation = "source-over";
-    if (S.hideVid) { x.fillStyle = "#fff"; x.fillRect(0, 0, 1, 1); } else x.drawImage(V.frameCv, fx, fy, 1, 1, 0, 0, 1, 1);
-    x.drawImage(V.layer, fx, fy, 1, 1, 0, 0, 1, 1);
-    var d = x.getImageData(0, 0, 1, 1).data;
-    return "#" + [d[0], d[1], d[2]].map(function (v) { return (v < 16 ? "0" : "") + v.toString(16); }).join("").toUpperCase();
-  }
+  // Pipette nimmt immer die Farbe aus dem Video-Frame, nie aus der Bemalung darüber
+  function sample(p) { return sampleVideo(p); }
   function setPick(on) { V.picking = on; V.cv && V.cv.classList.toggle("pick", on); var b = V.root.querySelector('[data-fp="pick"]'); if (b) b.setAttribute("aria-pressed", String(on)); need(); }
   function takeColor(c) {
     S.color = c;
