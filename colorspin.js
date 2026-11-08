@@ -4,8 +4,9 @@
 (function () {
   "use strict";
 
-  var VERSION = "0.1";
-  var BUF = 2400;          // Auflösung der Platte und des Exports in Pixeln
+  var VERSION = "0.11";
+  var BUF = 2400;          // Auflösung der Platte und des Exports in Pixeln (je nach Qualitätsstufe)
+  var QUAL = [[2400, L2("Standard", "Standard")], [3200, L2("Hoch", "High")], [4096, L2("Maximum", "Maximum")]];
   var lang = "de";
 
   function L2(de, en) { return { de: de, en: en }; }
@@ -19,6 +20,7 @@
     start: L2("Platte starten", "Start record"), stop: L2("Platte anhalten", "Stop record"),
     dir: L2("Drehrichtung", "Direction"), cw: L2("Im Uhrzeigersinn", "Clockwise"), ccw: L2("Gegen den Uhrzeigersinn", "Counter-clockwise"),
     undo: L2("Letzten Strich zurück", "Undo last stroke"), clear: L2("Neue Platte", "New record"), sure: L2("Wirklich alles löschen?", "Really clear everything?"),
+    quality: L2("Qualität", "Quality"), qNote: L2("Höhere Stufen malen und speichern feiner, brauchen aber mehr Arbeitsspeicher. Schon Gemaltes wird mitgenommen.", "Higher levels paint and save finer detail but need more memory. What you already painted is carried over."),
     export: L2("Als JPEG speichern", "Save as JPEG"), exportNote: L2("{n} × {n} Pixel", "{n} × {n} pixels"),
     exporting: L2("Bild wird erstellt …", "Creating image …"), saved: L2("Bild gespeichert.", "Image saved."),
     howH: L2("So funktioniert’s", "How it works"),
@@ -63,7 +65,8 @@
     ".cs-main{font:600 1rem var(--f-body);padding:12px 18px;border-radius:999px;border:0;background:var(--ink);color:var(--bg);cursor:pointer}" +
     ".cs-main.on{background:var(--accent)}" +
     ".cs-exp{font:600 1rem var(--f-body);padding:12px 18px;border-radius:999px;border:1px solid var(--ink);background:transparent;color:var(--ink);cursor:pointer}" +
-    ".cs-note{margin:0;color:var(--soft);font-size:.88rem;min-height:1.4em}";
+    ".cs-note{margin:0;color:var(--soft);font-size:.88rem;min-height:1.4em}" +
+    ".cs-q{display:flex}.cs-q button{flex:1}.cs-qn{color:var(--soft);font-size:.8rem;line-height:1.4}";
 
   function html() {
     return '<h1 class="ptitle">' + t("title") + '<span class="cs-ver">v' + VERSION + '</span></h1><p class="pintro">' + t("intro") + "</p>" +
@@ -76,6 +79,7 @@
       '<div class="cs-row"><label for="cs-alpha">' + t("alpha") + '<span id="cs-alpha-v"></span></label><input type="range" id="cs-alpha" min="5" max="100" step="1"></div>' +
       '<div class="cs-row"><label for="cs-size">' + t("size") + '<span id="cs-size-v"></span></label><input type="range" id="cs-size" min="1" max="80" step="1"></div>' +
       '<div class="cs-btns"><button type="button" class="navbtn" data-cs="undo">' + t("undo") + '</button><button type="button" class="navbtn" data-cs="clear">' + t("clear") + "</button></div>" +
+      '<div class="cs-row"><label>' + t("quality") + '</label><div class="seg cs-q" role="group" aria-label="' + t("quality") + '">' + QUAL.map(function (q) { return '<button type="button" data-q="' + q[0] + '" aria-pressed="false" title="' + q[0] + ' px">' + q[1][lang] + "</button>"; }).join("") + '</div><small class="cs-qn">' + t("qNote") + "</small></div>" +
       '<button type="button" class="cs-exp" data-cs="export">' + t("export") + '</button><p class="cs-note" id="cs-note">' + fmt(t("exportNote"), { n: BUF.toLocaleString(lang === "de" ? "de-DE" : "en-GB") }) + "</p>" +
       "</div></div>" +
       '<section class="phow"><h2>' + t("howH") + "</h2><p>" + t("how1") + "</p><p>" + t("how2") + "</p></section>";
@@ -189,6 +193,7 @@
     dot.style.width = dot.style.height = sz + "px"; dot.style.background = D.color; dot.style.opacity = D.alpha;
     Array.prototype.forEach.call(r.querySelectorAll("[data-dir]"), function (b) { b.setAttribute("aria-pressed", String(+b.dataset.dir === D.dir)); });
     r.querySelector('[data-cs="undo"]').setAttribute("aria-disabled", String(!D.hasUndo));
+    Array.prototype.forEach.call(r.querySelectorAll("[data-q]"), function (b) { b.setAttribute("aria-pressed", String(+b.dataset.q === BUF)); });
   }
   function onInput(e) {
     var id = e.target.id;
@@ -202,6 +207,8 @@
   function note(s) { var n = document.getElementById("cs-note"); if (n) n.textContent = s; }
   function onClick(e) {
     if (e.target.closest("#cs-spin")) { D.started = true; D.spinning = !D.spinning; updateUI(); return; }
+    var qb = e.target.closest("[data-q]");
+    if (qb) { setQuality(+qb.dataset.q); return; }
     var d = e.target.closest("[data-dir]");
     if (d) { D.dir = +d.dataset.dir; updateUI(); return; }
     var b = e.target.closest("[data-cs]"); if (!b) return;
@@ -223,6 +230,15 @@
     }
     if (a === "export") exportJPEG();
   }
+  // Qualitätsstufe wechseln: neue Puffer in der neuen Größe, bisheriges Bild wird hineinskaliert
+  function setQuality(n) {
+    if (n === BUF || D.drawing) return;
+    function scaled(src) { var c = canvas(n, n), x = c.getContext("2d"); x.imageSmoothingQuality = "high"; x.drawImage(src, 0, 0, n, n); return c; }
+    D.disc = scaled(D.disc); D.undo = scaled(D.undo); D.stroke = canvas(n, n);
+    BUF = n;
+    note(fmt(t("exportNote"), { n: BUF.toLocaleString(lang === "de" ? "de-DE" : "en-GB") }));
+    updateUI();
+  }
   function exportJPEG() {
     note(t("exporting"));
     var out = canvas(BUF, BUF), c = out.getContext("2d");
@@ -241,7 +257,7 @@
       document.body.appendChild(a); a.click(); a.remove();
       setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
       note(t("saved"));
-    }, "image/jpeg", 0.93);
+    }, "image/jpeg", BUF >= 3200 ? 0.95 : 0.93);
   }
 
   function injectCSS() { var o = document.getElementById("cs-css"); if (o) o.remove(); var s = document.createElement("style"); s.id = "cs-css"; s.textContent = CSS; document.head.appendChild(s); }

@@ -8,15 +8,15 @@
 (function () {
   "use strict";
 
-  var VERSION = "0.2", PREVIEW = 2000, MAX_PIX = 40e6;
+  var VERSION = "0.21", PREVIEW = 2000, MAX_PIX = 40e6;
   var lang = "de";
   function L2(de, en) { return { de: de, en: en }; }
   function tr(o) { return o[lang]; }
 
   var TX = {
     title: L2("Channel Exporter", "Channel Exporter"),
-    intro: L2("Zieh ein Bild auf die Fläche. Das gewählte Werkzeug zerlegt es in Ebenen, zum Beispiel in die Lichtkanäle Rot, Grün und Blau, in die Druckfarben CMYK oder in Schatten, Mitten und Lichter. Du kannst die Ebenen verschieben, ausblenden und einzeln oder zusammen exportieren. Das Bild verlässt dein Gerät nicht.",
-              "Drop an image onto the area. The selected tool splits it into layers, for example the light channels red, green and blue, the CMYK print inks, or shadows, midtones and highlights. You can move and hide the layers and export them one by one or together. The image never leaves your device."),
+    intro: L2("Zieh ein Bild auf die Fläche. Das gewählte Werkzeug zerlegt es in Ebenen, zum Beispiel in die Lichtkanäle Rot, Grün und Blau, in die Druckfarben CMYK, in Schatten, Mitten und Lichter oder nach geschätzter Tiefe in Nah, Mitte und Fern. Du kannst die Ebenen verschieben, ausblenden und einzeln oder zusammen exportieren. Das Bild verlässt dein Gerät nicht.",
+              "Drop an image onto the area. The selected tool splits it into layers, for example the light channels red, green and blue, the CMYK print inks, shadows, midtones and highlights, or by estimated depth into near, middle and far. You can move and hide the layers and export them one by one or together. The image never leaves your device."),
     drop: L2("Bild hierher ziehen", "Drop an image here"), or: L2("oder", "or"), pick: L2("Bild auswählen", "Choose image"),
     dropNote: L2("JPEG, PNG oder WebP · bleibt auf deinem Gerät", "JPEG, PNG or WebP · stays on your device"),
     other: L2("Anderes Bild", "Other image"), tools: L2("Werkzeuge", "Tools"), more: L2("Weitere Werkzeuge folgen.", "More tools are coming."),
@@ -38,6 +38,10 @@
     howRgb: L2("RGB-Split: Jede Ebene enthält einen Lichtkanal. Auf Schwarz addieren sich die Lichter wieder zu Weiß.", "RGB split: each layer holds one channel of light. On black, the lights add up to white again."),
     howCmyk: L2("CMYK-Split: Das Bild wird in die vier Druckfarben Cyan, Magenta, Gelb und Schwarz (Key) zerlegt, wie bei einer Druckplatte. Auf weißem Papier multiplizieren sich die Farben wieder. Es ist eine einfache Umrechnung ohne Farbprofil, für echten Druck übernimmt das die Druckerei.",
                   "CMYK split: the image is split into the four print inks cyan, magenta, yellow and black (key), like printing plates. On white paper the inks multiply back together. This is a simple conversion without a colour profile; for real printing, the print shop handles that."),
+    howDepth: L2("Tiefe: Aus dem Bild wird eine Tiefenkarte geschätzt, ganz ohne Server und ohne KI-Modell. Dafür zählen Bildhöhe (unten ist meist näher), Schärfe und Detailreichtum (Nahes ist schärfer) und Dunst (Fernes wirkt heller, blasser und bläulicher). Das Bild wird danach in Nah, Mitte und Fern geteilt, die drei Ebenen addieren sich exakt zum Original, und leicht gegeneinander verschoben entsteht ein Parallax-Effekt. Die Tiefenkarte selbst lässt sich in Graustufen (hell ist nah) oder als Farbverlauf speichern. Es ist eine Schätzung, bei ungewöhnlichen Motiven kann sie danebenliegen.",
+                   "Depth: a depth map is estimated from the image, with no server and no AI model. It looks at height in the frame (lower is usually closer), sharpness and detail (near things are sharper) and haze (distant things look brighter, paler and bluer). The image is then split into near, middle and far; the three layers add up exactly to the original, and shifted slightly against each other they give a parallax effect. The depth map itself can be saved in greyscale (bright is near) or as a colour ramp. It is an estimate and can be off for unusual subjects."),
+    depthH: L2("Tiefenkarte", "Depth map"), depthGray: L2("Tiefenkarte als PNG", "Depth map as PNG"), depthHeat: L2("Tiefenkarte farbig", "Depth map in colour"),
+    depthNote: L2("Hell ist nah, dunkel ist fern. Die Karte wird geschätzt, nicht gemessen.", "Bright is near, dark is far. The map is estimated, not measured."),
     howTone: L2("Tonwerte: Das Bild wird nach Helligkeit in Schatten, Mitten und Lichter aufgeteilt, mit weichen Übergängen. Die drei Ebenen addieren sich exakt zum Original. Als Graustufen exportiert sind es Luminanzmasken, mit denen man in der Bildbearbeitung gezielt nur die hellen oder dunklen Bereiche bearbeitet.",
                   "Tones: the image is split by brightness into shadows, midtones and highlights, with soft transitions. The three layers add up exactly to the original. Exported as greyscale they are luminosity masks, used in image editing to work on only the bright or dark areas."),
     how2: L2("Bedienung: Ebene mit Maus oder Finger ziehen. Die Zahlentasten wählen eine Ebene, die Pfeiltasten verschieben sie um 1 Pixel (mit Umschalt um 10). „Einrasten“ zieht eine Ebene in ihre Ausgangsposition, sobald sie nah genug ist. Beim Export kannst du die Kanäle farbig oder als Graustufen speichern, Graustufen sind praktisch als Masken in der Bildbearbeitung.",
@@ -81,6 +85,98 @@
       }
     };
   }
+  // Tiefe: geschätzte Tiefenkarte (1 = nah, 0 = fern) in kleiner Auflösung, beim Rendern bilinear hochgerechnet.
+  // Merkmale: Bildhöhe, lokale Schärfe, Dunst (hell, ungesättigt, bläulich). Danach weichgezeichnet und normiert.
+  function boxBlur(a, w, h, r) {
+    var t = new Float32Array(a.length), x, y, i, acc, n;
+    for (y = 0; y < h; y++) {
+      acc = 0; n = 0;
+      for (x = -r; x < w + r; x++) {
+        if (x + r < w && x + r >= 0) { acc += a[y * w + x + r]; n++; }
+        if (x - r - 1 >= 0) { acc -= a[y * w + x - r - 1]; n--; }
+        if (x >= 0 && x < w) t[y * w + x] = acc / n;
+      }
+    }
+    for (x = 0; x < w; x++) {
+      acc = 0; n = 0;
+      for (y = -r; y < h + r; y++) {
+        if (y + r < h && y + r >= 0) { acc += t[(y + r) * w + x]; n++; }
+        if (y - r - 1 >= 0) { acc -= t[(y - r - 1) * w + x]; n--; }
+        if (y >= 0 && y < h) a[y * w + x] = acc / n;
+      }
+    }
+    return a;
+  }
+  function pct(a, q) { var b = Array.prototype.slice.call(a).sort(function (u, v) { return u - v; }); return b[Math.min(b.length - 1, Math.floor(q * b.length))]; }
+  function norm(a, lo, hi) { var lv = pct(a, lo), hv = pct(a, hi), d = hv - lv || 1; for (var i = 0; i < a.length; i++) a[i] = Math.min(1, Math.max(0, (a[i] - lv) / d)); return a; }
+  function computeDepth(src) {
+    var f = Math.min(1, 320 / Math.max(src.width, src.height)), w = Math.max(2, Math.round(src.width * f)), h = Math.max(2, Math.round(src.height * f));
+    var c = document.createElement("canvas"); c.width = w; c.height = h;
+    var x = c.getContext("2d"); x.imageSmoothingQuality = "high"; x.drawImage(src, 0, 0, w, h);
+    var d = x.getImageData(0, 0, w, h).data, n = w * h, lum = new Float32Array(n), haze = new Float32Array(n), sharp = new Float32Array(n), i, px, py;
+    for (i = 0; i < n; i++) {
+      var r = d[i * 4] / 255, g = d[i * 4 + 1] / 255, b = d[i * 4 + 2] / 255, mx = Math.max(r, g, b), mn = Math.min(r, g, b);
+      var l = 0.2126 * r + 0.7152 * g + 0.0722 * b, sat = mx > 0 ? (mx - mn) / mx : 0, blue = Math.min(1, Math.max(0, (b - r) * 2 + 0.5));
+      lum[i] = l; haze[i] = (1 - sat) * Math.pow(l, 0.7) * (0.6 + 0.4 * blue);
+    }
+    for (py = 1; py < h - 1; py++) for (px = 1; px < w - 1; px++) {
+      i = py * w + px;
+      var gx = lum[i + 1 - w] + 2 * lum[i + 1] + lum[i + 1 + w] - lum[i - 1 - w] - 2 * lum[i - 1] - lum[i - 1 + w];
+      var gy = lum[i + w - 1] + 2 * lum[i + w] + lum[i + w + 1] - lum[i - w - 1] - 2 * lum[i - w] - lum[i - w + 1];
+      sharp[i] = Math.sqrt(gx * gx + gy * gy);
+    }
+    var R = Math.max(2, Math.round(Math.max(w, h) * 0.04));
+    norm(boxBlur(sharp, w, h, R), 0.02, 0.95); norm(boxBlur(haze, w, h, R), 0.02, 0.98);
+    var dep = new Float32Array(n);
+    for (py = 0; py < h; py++) for (px = 0; px < w; px++) { i = py * w + px; dep[i] = 0.42 * (py / (h - 1)) + 0.33 * sharp[i] + 0.25 * (1 - haze[i]); }
+    var R2 = Math.max(2, Math.round(Math.max(w, h) * 0.03));
+    boxBlur(dep, w, h, R2); boxBlur(dep, w, h, R2);
+    norm(dep, 0.02, 0.98);
+    return { w: w, h: h, d: dep };
+  }
+  function depthAt(D, W, H) {   // Tiefe für ein Bild der Größe W × H, bilinear
+    var out = new Float32Array(W * H), sx = D.w / W, sy = D.h / H;
+    for (var y = 0; y < H; y++) {
+      var fy = Math.min(D.h - 1, Math.max(0, (y + 0.5) * sy - 0.5)), y0 = Math.floor(fy), y1 = Math.min(D.h - 1, y0 + 1), ty = fy - y0;
+      for (var x = 0; x < W; x++) {
+        var fx = Math.min(D.w - 1, Math.max(0, (x + 0.5) * sx - 0.5)), x0 = Math.floor(fx), x1 = Math.min(D.w - 1, x0 + 1), tx = fx - x0;
+        var a = D.d[y0 * D.w + x0] * (1 - tx) + D.d[y0 * D.w + x1] * tx, b = D.d[y1 * D.w + x0] * (1 - tx) + D.d[y1 * D.w + x1] * tx;
+        out[y * W + x] = a * (1 - ty) + b * ty;
+      }
+    }
+    return out;
+  }
+  function depthOf(w, h) {
+    if (!IMG.depth) IMG.depth = computeDepth(IMG.prev);
+    var key = w + "x" + h;
+    if (!IMG.dcache || IMG.dcache.key !== key) IMG.dcache = { key: key, a: depthAt(IMG.depth, w, h) };
+    return IMG.dcache.a;
+  }
+  function depthBand(band) {
+    return function (s, o, mode, w, h) {
+      var D = depthOf(w, h);
+      for (var i = 0, p = 0; i < s.length; i += 4, p++) {
+        var z = D[p], wt = band === 0 ? z * z : band === 1 ? 2 * z * (1 - z) : (1 - z) * (1 - z);
+        if (mode === "gray") { var v = Math.round(wt * 255); o[i] = v; o[i + 1] = v; o[i + 2] = v; }
+        else { o[i] = Math.round(s[i] * wt); o[i + 1] = Math.round(s[i + 1] * wt); o[i + 2] = Math.round(s[i + 2] * wt); }
+        o[i + 3] = 255;
+      }
+    };
+  }
+  // Farbverlauf fern → nah: tiefes Blau, Petrol, Grün, Gelb, Weißgelb
+  var HEAT = [[24, 22, 58], [33, 86, 128], [42, 150, 120], [214, 196, 70], [255, 246, 214]];
+  function depthMap(W, H, heat) {
+    var c = document.createElement("canvas"); c.width = W; c.height = H;
+    var x = c.getContext("2d"), od = x.createImageData(W, H), o = od.data, D = depthOf(W, H);
+    for (var p = 0, i = 0; p < D.length; p++, i += 4) {
+      var z = D[p];
+      if (heat) { var f = z * (HEAT.length - 1), k = Math.min(HEAT.length - 2, Math.floor(f)), u = f - k; for (var j = 0; j < 3; j++) o[i + j] = Math.round(HEAT[k][j] * (1 - u) + HEAT[k + 1][j] * u); }
+      else { var v = Math.round(z * 255); o[i] = v; o[i + 1] = v; o[i + 2] = v; }
+      o[i + 3] = 255;
+    }
+    x.putImageData(od, 0, 0);
+    return c;
+  }
   var PLUS = typeof CSS !== "undefined" && CSS.supports && CSS.supports("mix-blend-mode", "plus-lighter") ? "plus-lighter" : "screen";
   function cssBlend(T) { return T.blend === "add" ? PLUS : T.blend; }
   function modeName(T, m) { return m === "gray" && T.grayName ? tr(T.grayName) : t(m); }
@@ -115,6 +211,16 @@
         { k: "s", name: L2("Schatten", "Shadows"), file: L2("schatten", "shadows"), color: "#2B2D42", render: tone(0) },
         { k: "m", name: L2("Mitten", "Midtones"), file: L2("mitten", "midtones"), color: "#8D8A7E", render: tone(1) },
         { k: "h", name: L2("Lichter", "Highlights"), file: L2("lichter", "highlights"), color: "#EFE6CF", render: tone(2) }
+      ] },
+    { id: "depth", name: L2("Tiefe", "Depth"), short: "tiefe", depth: true,
+      desc: L2("Schätzt eine Tiefenkarte und teilt das Bild in Nah, Mitte und Fern. Leicht verschoben entsteht Parallax.", "Estimates a depth map and splits the image into near, middle and far. Shifted slightly, it gives parallax."),
+      icon: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="3" width="20" height="5" fill="#2E3A5C"/><rect x="2" y="9.5" width="20" height="5" fill="#5F8A86"/><rect x="2" y="16" width="20" height="5" fill="#E8D9A8"/></svg>',
+      modes: ["tinted", "gray"], grayName: L2("Tiefenmasken", "Depth masks"), graySuffix: "maske", blend: "add",
+      spread: [[0.05, 0.015], [0, 0], [-0.04, -0.01]],
+      layers: [
+        { k: "n", name: L2("Nah", "Near"), file: L2("nah", "near"), color: "#E8D9A8", render: depthBand(0) },
+        { k: "m", name: L2("Mitte", "Middle"), file: L2("mitte", "middle"), color: "#5F8A86", render: depthBand(1) },
+        { k: "f", name: L2("Fern", "Far"), file: L2("fern", "far"), color: "#2E3A5C", render: depthBand(2) }
       ] }
   ];
   function tool() { return TOOLS.filter(function (x) { return x.id === S.tool; })[0] || TOOLS[0]; }
@@ -156,7 +262,7 @@
     var w = src.width, h = src.height, sx = src.getContext("2d"), sd = sx.getImageData(0, 0, w, h);
     var c = document.createElement("canvas"); c.width = w; c.height = h;
     var cx = c.getContext("2d"), od = cx.createImageData(w, h);
-    layer.render(sd.data, od.data, mode);
+    layer.render(sd.data, od.data, mode, w, h);
     cx.putImageData(od, 0, 0);
     return c;
   }
@@ -260,7 +366,7 @@
         if (i < keys.length - 1) await new Promise(function (r) { setTimeout(r, 400); });
       }
       note(fmt(t("saved"), { f: names.join(", ") }));
-    } finally { busy = false; }
+    } finally { busy = false; if (IMG) IMG.dcache = null; }
   }
   async function exportComp() {
     if (busy || !IMG) return; busy = true; note(t("working")); await later();
@@ -271,6 +377,14 @@
       T.layers.forEach(function (l) { if (L.on[l.k]) x.drawImage(renderLayer(IMG.full, l, "tinted"), Math.round(L.x[l.k]), Math.round(L.y[l.k])); });
       var f = IMG.name + "-" + T.short + "-komposition.png";
       await download(c, f); note(fmt(t("saved"), { f: f }));
+    } finally { busy = false; if (IMG) IMG.dcache = null; }
+  }
+
+  async function exportDepth(heat) {
+    if (busy || !IMG) return; busy = true; note(t("working")); await later();
+    try {
+      var f = IMG.name + "-tiefenkarte" + (heat ? "-farbig" : "") + ".png";
+      await download(depthMap(IMG.w, IMG.h, heat), f); IMG.dcache = null; note(fmt(t("saved"), { f: f }));
     } finally { busy = false; }
   }
 
@@ -310,6 +424,7 @@
     ".ch-seg{display:flex}.ch-seg button{flex:1;font:600 .88rem var(--f-body);padding:8px 10px;border:1px solid var(--line);background:transparent;color:var(--ink);cursor:pointer}" +
     ".ch-seg button+button{border-left:0}.ch-seg button[aria-pressed=true]{background:var(--ink);color:var(--bg);border-color:var(--ink)}" +
     ".ch-save{font:600 1rem var(--f-body);padding:12px 18px;border:0;background:var(--ink);color:var(--bg);cursor:pointer}" +
+    ".ch-dh{margin-top:6px!important}.ch-dprev{display:grid;grid-template-columns:1fr 1fr;gap:6px}.ch-dprev canvas{width:100%;height:auto;display:block;background:#000}" +
     ".ch-note{margin:0;color:var(--soft);font-size:.88rem;min-height:1.3em;overflow-wrap:anywhere}" +
     "@media (min-width:1100px){" +
       ".ch-wrap{width:min(calc(100vw - 48px),2200px);margin-left:calc((100% - min(calc(100vw - 48px),2200px)) / 2);grid-template-columns:minmax(0,3fr) minmax(300px,1fr);align-items:start}" +
@@ -321,7 +436,7 @@
     return '<h1 class="ptitle">' + t("title") + '<span class="ch-ver">v' + VERSION + '</span></h1><p class="pintro">' + t("intro") + "</p>" +
       '<div class="ch-wrap"><div class="ch-deskbox"><div class="ch-stage" id="ch-stage" tabindex="0"></div><input type="file" id="ch-file" accept="image/*" hidden></div>' +
       '<div class="ch-side" id="ch-side"></div></div>' +
-      '<section class="phow"><h2>' + t("howH") + "</h2><p>" + t("how1") + "</p><p>" + t("howRgb") + "</p><p>" + t("howCmyk") + "</p><p>" + t("howTone") + "</p><p>" + t("how2") + "</p></section>";
+      '<section class="phow"><h2>' + t("howH") + "</h2><p>" + t("how1") + "</p><p>" + t("howRgb") + "</p><p>" + t("howCmyk") + "</p><p>" + t("howTone") + "</p><p>" + t("howDepth") + "</p><p>" + t("how2") + "</p></section>";
   }
   function toolsBox() {
     return '<div class="ch-box"><h3>' + t("tools") + '</h3><div class="ch-tools">' +
@@ -363,7 +478,12 @@
       '<div class="ch-btns">' + T.layers.map(function (l) { return '<button type="button" class="navbtn" data-one="' + l.k + '">' + fmt(t("one"), { n: tr(l.name) }) + "</button>"; }).join("") +
       '<button type="button" class="navbtn" data-act="all">' + t("all") + "</button></div>" +
       '<button type="button" class="ch-save" data-act="comp">' + t("comp") + "</button>" +
+      (T.depth ? '<h3 class="ch-dh">' + t("depthH") + '</h3><div class="ch-dprev" id="ch-dprev"></div><div class="ch-btns"><button type="button" class="navbtn" data-act="dgray">' + t("depthGray") + '</button><button type="button" class="navbtn" data-act="dheat">' + t("depthHeat") + '</button></div><p class="ch-desc">' + t("depthNote") + "</p>" : "") +
       '<p class="ch-desc">' + fmt(t("compNote"), { w: IMG.w, h: IMG.h }) + '</p><p class="ch-note" id="ch-note">' + (IMG.shrunk ? fmt(t("shrunk"), { w: IMG.w, h: IMG.h }) : "") + "</p></div>";
+    if (T.depth) {
+      var dp = V.root.querySelector("#ch-dprev"), pf = Math.min(1, 640 / Math.max(IMG.pw, IMG.ph)), a = depthMap(Math.round(IMG.pw * pf), Math.round(IMG.ph * pf), false), b = depthMap(a.width, a.height, true);
+      a.setAttribute("aria-label", t("depthH")); dp.appendChild(a); dp.appendChild(b);
+    }
     requestAnimationFrame(layout);
   }
   function note(s) { if (!V) return; var n = V.root.querySelector("#ch-note") || V.root.querySelector("#ch-dn"); if (n) n.textContent = s; }
@@ -410,6 +530,7 @@
       }
       else if (a === "all") exportLayers(tool().layers.map(function (l) { return l.k; }));
       else if (a === "comp") exportComp();
+      else if (a === "dgray" || a === "dheat") exportDepth(a === "dheat");
       return;
     }
     if ((b = e.target.closest("[data-tool]"))) { S.tool = b.getAttribute("data-tool"); if (tool().modes.indexOf(S.mode) < 0) S.mode = tool().modes[0]; if (IMG) resetLayers(); build(); return; }

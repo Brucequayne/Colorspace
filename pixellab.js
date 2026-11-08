@@ -4,24 +4,25 @@
 (function () {
   "use strict";
 
-  var VERSION = "0.31";
+  var VERSION = "0.32";
   var PREVIEW = 2400;   // Obergrenze für die längste Seite der Vorschau in Pixeln
   var lang = "de";
 
   function L2(de, en) { return { de: de, en: en }; }
   var TX = {
     title: L2("PIXELLAB", "PIXELLAB"),
-    intro: L2("Lade ein Foto, verfremde es mit einer Kette von Werkzeugen und speichere das Ergebnis. Alles passiert in deinem Browser, das Foto verlässt dein Gerät nicht.",
-              "Load a photo, transform it with a chain of tools and save the result. Everything happens in your browser, and the photo never leaves your device."),
+    intro: L2("Lade ein Foto, verfremde es mit einer Kette von Modifiern und speichere das Ergebnis. Alles passiert in deinem Browser, das Foto verlässt dein Gerät nicht.",
+              "Load a photo, transform it with a chain of modifiers and save the result. Everything happens in your browser, and the photo never leaves your device."),
     drop: L2("Foto hierher ziehen", "Drop a photo here"), or: L2("oder", "or"), pick: L2("Foto auswählen", "Choose photo"),
     dropNote: L2("JPEG, PNG oder WebP · bleibt auf deinem Gerät", "JPEG, PNG or WebP · stays on your device"),
     other: L2("Anderes Foto", "Other photo"), original: L2("Original zeigen", "Show original"),
-    chain: L2("Werkzeugkette", "Tool chain"),
-    chainNote: L2("Die Werkzeuge wirken von oben nach unten. Jedes bearbeitet das Ergebnis des vorherigen, die Reihenfolge verändert also das Bild.",
-                  "Tools run from top to bottom. Each one works on the result of the one before, so the order changes the image."),
+    chain: L2("Modifier-Kette", "Modifier chain"),
+    chainNote: L2("Die Modifier wirken von oben nach unten. Jedes bearbeitet das Ergebnis des vorherigen, die Reihenfolge verändert also das Bild.",
+                  "Modifiers run from top to bottom. Each one works on the result of the one before, so the order changes the image."),
     start: L2("Foto", "Photo"), result: L2("Ergebnis", "Result"),
-    empty: L2("Noch keine Werkzeuge. Füge unten eins hinzu.", "No tools yet. Add one below."),
-    add: L2("Werkzeug hinzufügen", "Add tool"),
+    empty: L2("Noch keine Modifier, das Foto bleibt unverändert. Wähle oben einen Modifier aus.", "No modifiers yet, the photo stays unchanged. Pick a modifier above."),
+    add: L2("Modifier", "Modifiers"), addNote: L2("Ein Klick hängt den Modifier ans Ende der Kette. Derselbe Modifier darf mehrfach vorkommen.", "One click adds the modifier to the end of the chain. The same modifier can be used more than once."),
+    addOne: L2("Hinzufügen", "Add"),
     up: L2("Nach oben", "Move up"), down: L2("Nach unten", "Move down"), remove: L2("Entfernen", "Remove"),
     fold: L2("Ein- oder ausklappen", "Expand or collapse"), onoff: L2("An oder aus", "On or off"),
     dice: L2("Neue Variante würfeln", "Roll a new variant"),
@@ -33,8 +34,8 @@
     tooBig: L2("Das Bild ist zu groß für diesen Browser. Bitte eine niedrigere Qualität wählen.", "The image is too large for this browser. Please pick a lower quality."),
     bad: L2("Diese Datei konnte nicht als Bild geöffnet werden.", "This file could not be opened as an image."),
     howH: L2("So funktioniert’s", "How it works"),
-    how1: L2("Füge Werkzeuge zur Kette hinzu. Mit den Pfeilen änderst du die Reihenfolge, mit dem Auge schaltest du ein Werkzeug aus, ohne seine Einstellungen zu verlieren, und mit dem Pfeil rechts klappst du die Regler ein. Dasselbe Werkzeug darf mehrfach vorkommen.",
-             "Add tools to the chain. Use the arrows to change the order, the eye to switch a tool off without losing its settings, and the chevron on the right to fold away the sliders. The same tool can appear more than once."),
+    how1: L2("Die Kette startet leer. Wähle rechts oben unter „Modifier“ einen aus, er landet am Ende der Kette. Mit den Pfeilen änderst du die Reihenfolge, mit dem Auge schaltest du einen Modifier aus, ohne seine Einstellungen zu verlieren, und mit dem Pfeil rechts klappst du die Regler ein. Derselbe Modifier darf mehrfach vorkommen.",
+             "The chain starts empty. Pick one under “Modifiers” at the top right and it goes to the end of the chain. Use the arrows to change the order, the eye to switch a modifier off without losing its settings, and the chevron on the right to fold away the sliders. The same modifier can appear more than once."),
     how2: L2("Fragments zerlegt das ganze Bild in Voronoi-Zellen, die alle einen gedrehten und gespiegelten Ausschnitt zeigen. Polymerge baut eine flache Collage nur in einer Form, die frei angedeutet wird: ein Mandala, ein Dreieck, ein Wurzelgeflecht oder ein Fleck. Punch bestimmt, wie wild die Form wird, die Punch-Variante würfelt eine neue Struktur bei gleicher Wildheit.",
              "Fragments splits the whole image into Voronoi cells, each showing a rotated and mirrored section. Polymerge builds a flat collage only inside a loosely suggested shape: a mandala, a triangle, a root mesh or a blot. Punch sets how wild the shape gets, and the punch variant rolls a new structure at the same wildness."),
     how3: L2("Beim Export bestimmt die Qualität den Anteil der Pixel: 100 % ist die volle Auflösung des Originals, 50 % hat halb so viele Pixel, 1 % ein Hundertstel.",
@@ -232,7 +233,7 @@
     var url = URL.createObjectURL(file), img = new Image();
     img.onload = function () {
       var W = img.naturalWidth, H = img.naturalHeight, f = Math.min(1, 1000 / Math.max(W, H));
-      var keep = S ? S.stack : [newTool("fragments")];
+      var keep = S ? S.stack : [];
       S = { img: img, name: (file.name || "foto").replace(/\.[^.]+$/, ""), W: W, H: H, f: f,
         base: imgData(img, Math.max(1, Math.round(W * f)), Math.max(1, Math.round(H * f))), stack: keep, q: S ? S.q : 100, stageIn: [] };
       if (V) { buildUI(); fitPreview(true); renderPreview(); }
@@ -374,9 +375,15 @@
     ".px-segs button[aria-pressed=true]{background:var(--ink);color:var(--bg)}" +
     ".px-dice{align-self:flex-start;font:600 .88rem var(--f-body);padding:7px 14px;border-radius:999px;border:1px solid var(--ink);background:transparent;color:var(--ink);cursor:pointer}.px-dice:hover{background:var(--ink);color:var(--bg)}" +
     ".px-th{display:block;margin:0 auto;border-radius:8px;cursor:move;touch-action:none}" +
-    ".px-add{display:flex;flex-wrap:wrap;gap:8px}" +
-    ".px-add button{display:flex;align-items:center;gap:6px;font:600 .88rem var(--f-body);padding:8px 12px;border-radius:999px;border:1px dashed var(--ink);background:transparent;color:var(--ink);cursor:pointer}" +
-    ".px-add button svg{width:16px;height:16px}" +
+    ".px-libl{display:flex;flex-direction:column;gap:8px}" +
+    ".px-libi{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:12px;width:100%;text-align:left;font:inherit;padding:12px;border:1px solid var(--line);background:var(--card,transparent);color:var(--ink)}" +
+    "button.px-libi{cursor:pointer;transition:border-color .15s,transform .1s}button.px-libi:hover{border-color:var(--ink)}button.px-libi:active{transform:translateY(1px)}" +
+    ".px-libi svg.ic{width:28px;height:28px}.px-lt{display:flex;flex-direction:column;gap:3px;min-width:0}.px-lt b{font-weight:600}.px-lt small{color:var(--soft);font-size:.8rem;line-height:1.35}" +
+    ".px-libi em{font:600 .82rem var(--f-body);font-style:normal;padding:6px 10px;background:var(--ink);color:var(--bg);white-space:nowrap}" +
+    ".px-lib.live .px-libl{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px}.px-lib.live .px-libi{padding:10px 12px;gap:10px}.px-lib.live .px-libi svg.ic{width:24px;height:24px}" +
+    ".px-lib.live .px-libi b{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.px-lib.live .px-libi em{width:26px;height:26px;padding:0;display:grid;place-items:center;font-size:1.1rem}" +
+    "@media (min-width:1100px){.px-lib.live{position:sticky;top:0;z-index:3;background:var(--bg)}}" +
+    "@keyframes pxIn{0%{transform:translateX(18px);opacity:0}100%{transform:none;opacity:1}}.px-card.new{animation:pxIn .3s ease-out}" +
     ".px-save{font:600 1rem var(--f-body);padding:12px 18px;border-radius:999px;border:0;background:var(--ink);color:var(--bg);cursor:pointer}" +
     ".px-save[aria-disabled=true]{opacity:.5;cursor:default}" +
     ".px-note{margin:0;color:var(--soft);font-size:.88rem;min-height:1.3em;font-variant-numeric:tabular-nums}";
@@ -418,21 +425,26 @@
     return '<div class="px-box"><div class="px-hd"><h3>' + t("chain") + "</h3>" + (n ? '<button type="button" class="px-lnk" data-act="all">' + (anyOpen ? t("allClosed") : t("allOpen")) + "</button>" : "") + "</div>" +
       '<p class="px-desc">' + t("chainNote") + '</p><div class="px-flow"><span class="px-term">' + t("start") + "</span>" +
       (n ? cards : '<div class="px-link"></div><p class="px-desc">' + t("empty") + "</p>") +
-      '<div class="px-link"></div><span class="px-term">' + t("result") + '</span></div>' +
-      '<div class="px-hd"><h3>' + t("add") + '</h3></div><div class="px-add">' +
-      Object.keys(TOOLS).map(function (k) { return '<button type="button" data-add="' + k + '">+ ' + TOOLS[k].icon + TOOLS[k].name[lang] + "</button>"; }).join("") + "</div></div>";
+      '<div class="px-link"></div><span class="px-term">' + t("result") + '</span></div></div>';
+  }
+  // Verfügbare Modifier: oben im rechten Bereich, gut sichtbar, ein Klick fügt hinzu
+  function libHTML(live) {
+    return '<div class="px-box px-lib' + (live ? " live" : "") + '"><h3>' + t("add") + '</h3>' + (live ? "" : '<p class="px-desc">' + t("addNote") + "</p>") + '<div class="px-libl">' +
+      Object.keys(TOOLS).map(function (k) {
+        var T = TOOLS[k], inner = T.icon.replace("<svg", '<svg class="ic"') + '<span class="px-lt"><b>' + T.name[lang] + "</b><small>" + T.desc[lang] + "</small></span>";
+        return live ? '<button type="button" class="px-libi" data-add="' + k + '" title="' + T.desc[lang] + '">' + T.icon.replace("<svg", '<svg class="ic"') + "<b>" + T.name[lang] + "</b><em>+</em></button>" : '<div class="px-libi">' + inner + "</div>";
+      }).join("") + "</div></div>";
   }
   function buildUI() {
     var desk = V.root.querySelector("#px-desk"), side = V.root.querySelector("#px-side");
     if (!S) {
       desk.innerHTML = '<div class="px-drop"><b>' + t("drop") + "</b><span>" + t("or") + '</span><button type="button" class="px-pick" data-px="pick">' + t("pick") + '</button><span id="px-dn">' + t("dropNote") + "</span></div>";
-      side.innerHTML = '<div class="px-box"><h3>' + t("chain") + '</h3><p class="px-desc">' + t("chainNote") + "</p>" +
-        Object.keys(TOOLS).map(function (k) { return '<div class="px-ch">' + TOOLS[k].icon.replace("<svg", '<svg class="ic"') + "<b>" + TOOLS[k].name[lang] + '</b></div><p class="px-desc">' + TOOLS[k].desc[lang] + "</p>"; }).join("") + "</div>";
+      side.innerHTML = libHTML(false);
       return;
     }
     if (!desk.querySelector("#px-cv")) desk.innerHTML = '<div class="px-photo"><canvas id="px-cv" role="img" aria-label="' + S.name + '"></canvas></div>';
     side.innerHTML = '<div class="px-btns"><button type="button" class="navbtn" data-px="pick">' + t("other") + '</button><button type="button" class="navbtn" data-px="orig">' + t("original") + "</button></div>" +
-      '<div id="px-chain">' + chainHTML() + "</div>" +
+      libHTML(true) + '<div id="px-chain">' + chainHTML() + "</div>" +
       '<div class="px-box"><h3>' + t("exportH") + '</h3><div class="px-row"><label for="px-q">' + t("quality") + '<span id="px-q-v">' + S.q + ' %</span></label><input type="range" id="px-q" min="1" max="100" step="1" value="' + S.q + '"></div>' +
       '<p class="px-note" id="px-dims"></p><button type="button" class="px-save" data-px="save" id="px-save">' + t("save") + '</button><p class="px-note" id="px-note"></p></div>';
     updateExport();
@@ -464,7 +476,14 @@
       var td = S.stack[+b.dataset.dice]; td.P.pseed = 1 + Math.floor(Math.random() * 999);
       b.previousSibling.querySelector("span").textContent = "#" + td.P.pseed; renderPreview(); return;
     }
-    if (b.dataset.add) { S.stack.push(newTool(b.dataset.add)); rebuildChain(); renderPreview(); return; }
+    if (b.dataset.add) {
+      S.stack.forEach(function (x) { x.open = false; });
+      S.stack.push(newTool(b.dataset.add)); rebuildChain(); renderPreview();
+      var cs = V.root.querySelectorAll(".px-card"), nc = cs[cs.length - 1];
+      if (nc) { nc.classList.add("new"); var sd = V.root.querySelector("#px-side"), lb = V.root.querySelector(".px-lib");
+        if (sd && sd.scrollHeight > sd.clientHeight) sd.scrollTop = Math.max(0, nc.offsetTop - sd.offsetTop - (lb ? lb.offsetHeight + 14 : 0)); }
+      return;
+    }
     if (b.dataset.v !== undefined) {
       var tl0 = S.stack[+b.dataset.i]; tl0.P[b.dataset.k] = b.dataset.v;
       Array.prototype.forEach.call(b.parentNode.children, function (x) { x.setAttribute("aria-pressed", String(x === b)); });
