@@ -5,8 +5,8 @@
   "use strict";
 
   var KEY = "flughafen-v3";
-  var VERSION = "0.67";
-  var RW_W = 22, TW_W = 14, RD_W = 16, SL_W = 9;
+  var VERSION = "0.68";
+  var RW_W = 22, TW_W = 14, RD_W = 16, SL_W = 9, RVW = 28;   // RVW: nur gezeichnete Pistenbreite
   var DIVERT = 60;
   var SIZE = { stand: [64, 66], term: [124, 46], tower: [30, 30], fire: [52, 38], hangar: [84, 62], deck: [72, 38], park: [72, 48], bus: [44, 22], cab: [62, 22], hotels: [50, 34], hotel: [70, 44], hotell: [96, 74], tank: [44, 44] };
   var DEG = Math.PI / 180, STEP = 15 * DEG;
@@ -100,6 +100,10 @@
     finCat: L2("Flugbetrieb|Fluggastentgelte|Kerosin an Airlines|Kerosinhandel|Shops|Hotels|Parken, Bus, Taxi|Wartung", "Flight operations|Passenger fees|Fuel to airlines|Fuel trading|Shops|Hotels|Parking, bus, taxi|Maintenance"),
     crisis: L2("Ölkrise", "Oil crisis"), crisisOn: L2("Ölkrise! Der Kerosinpreis steigt stark und bleibt eine Weile hoch.", "Oil crisis! The fuel price rises sharply and stays high for a while."),
     crisisOff: L2("Die Ölkrise ist vorbei, der Kerosinpreis beruhigt sich.", "The oil crisis is over, the fuel price is calming down."), crisisNow: L2("Ölkrise läuft", "Oil crisis ongoing"),
+    wx: L2("Wetter", "Weather"), wxOpen: L2("Vorhersage öffnen", "Open forecast"), wxTitle: L2("Wetter und Vorhersage", "Weather and forecast"),
+    wxSun: L2("Sonnig", "Sunny"), wxPart: L2("Leicht bewölkt", "Partly cloudy"), wxCloud: L2("Bewölkt", "Cloudy"), wxStorm: L2("Gewitter", "Thunderstorm"),
+    wxToday: L2("Heute", "Today"), wxDay: L2("Tag +{n}", "Day +{n}"), wxRisk: L2("Gewitter {p} %", "Storm {p} %"),
+    wxNote: L2("Vorhersagen sind Schätzungen: je weiter weg, desto ungenauer. Bei Gewitter starten keine Flugzeuge.", "Forecasts are estimates: the further ahead, the less accurate. No take-offs during thunderstorms."),
     stocks: L2("Börse", "Stocks"), smOpen: L2("Aktienmarkt öffnen", "Open stock market"), smTitle: L2("Aktienmarkt", "Stock market"),
     smDepot: L2("Depotwert {v} · Gewinn/Verlust {g}", "Portfolio {v} · profit/loss {g}"), smAir: L2("Airline", "Airline"), smOil: L2("Ölfirma", "Oil company"),
     smHold: L2("Bestand {n} Stk. · Ø Kaufkurs {a} · Wert {v}", "Holding {n} shares · avg. price {a} · value {v}"), smNone: L2("Keine Aktien im Bestand", "No shares held"),
@@ -158,7 +162,7 @@
   var TYPES = {
     p: { cap: 120, rev: 20000, turn: 18, len: 14.5, span: 15.5, swp: 3, prop: true, roll: 90, need: 250 },
     n: { cap: 190, rev: 40000, turn: 26, len: 28, span: 26.5, swp: 27, roll: 140, need: 350 },
-    w: { cap: 400, rev: 90000, turn: 40, len: 46, span: 44, swp: 32, roll: 200, heavy: true, need: 500 }
+    w: { cap: 400, rev: 90000, turn: 40, len: 38, span: 36.5, swp: 32, roll: 200, heavy: true, need: 500 }
   };
   var PAXFEE = 30, SHOP = 15, PARKFEE = 5, BUSFARE = 4, TAXIFEE = 18;   // Euro pro Fluggast, pro Sekunde Parken, pro Fahrgast, pro Taxi
   var AIRLINES = [ // neutrale Charter- und Regionalflieger: weiß mit grauem Heck
@@ -1602,6 +1606,76 @@
     var st = G.storm, gt = G.gt || 0; if (!st || gt < st.s || gt >= st.e) return 0;
     return Math.min(1, (gt - st.s) / 12, (st.e - gt) / 12);
   }
+  // ---------- Wetter ----------
+  // Jeder Spieltag hat Bewölkung, Temperatur und Wind aus dem Spielstand-Seed; Gewitter kommen aus dem Unwetter-Plan
+  function wxDay(d) {
+    var c = fpHash(d * 3.1 + 7, 41), c2 = fpHash(d * 5.7 + 3, 42), t0 = fpHash(d * 2.3 + 1, 43), wa = fpHash(d * 1.7 + 9, 44);
+    return { c: Math.max(0, Math.min(1, c * 0.75 + c2 * 0.35 - 0.05)), tb: 11 + t0 * 14, wa: wa * Math.PI * 2 };
+  }
+  function wxNow() {
+    var gt = G.gt || 0, d = Math.floor(gt / DAY), f = gt / DAY - d, a = wxDay(d), b = wxDay(d + 1), k = f * f * (3 - 2 * f);
+    var c = a.c + (b.c - a.c) * k, storm = stormOn();
+    if (storm) c = 1;
+    var h = dayInfo().h, di = Math.cos((h - 15) / 24 * Math.PI * 2), amp = 6 * (1 - c * 0.6);
+    var temp = a.tb + (b.tb - a.tb) * k + di * amp - (storm ? 5 : 0);
+    var wa = a.wa + Math.atan2(Math.sin(b.wa - a.wa), Math.cos(b.wa - a.wa)) * k;
+    return { c: c, t: temp, storm: storm, kind: storm ? "storm" : c > 0.62 ? "cloud" : c > 0.32 ? "part" : "sun", wa: wa };
+  }
+  function wxIcon(kind, sz) {
+    var sun = '<circle cx="10" cy="10" r="4.2" fill="#E3B83F"/><g stroke="#E3B83F" stroke-width="1.6"><path d="M10 1.5v2.6M10 15.9v2.6M1.5 10h2.6M15.9 10h2.6M4 4l1.8 1.8M14.2 14.2l1.8 1.8M4 16l1.8-1.8M14.2 5.8L16 4"/></g>';
+    var cloud = function (x, y, col) { return '<path fill="' + col + '" d="M' + (x + 3) + ' ' + (y + 9) + 'h10a3.2 3.2 0 0 0 0-6.4 4.6 4.6 0 0 0-8.8-1.2A3.8 3.8 0 0 0 ' + (x + 3) + ' ' + (y + 9) + 'z"/>'; };
+    var body = kind === "sun" ? sun : kind === "part" ? '<g transform="translate(-3 -3) scale(.8)">' + sun + '</g>' + cloud(3, 7, "#D9DDE1") : kind === "cloud" ? cloud(0, 3, "#AEB5BC") + cloud(3, 7, "#D9DDE1") : cloud(1, 2, "#8C949C") + '<path fill="#E3B83F" d="M10 12l-3 5h2.5l-1.2 3.5 4.2-5.5H10l1.4-3z"/>';
+    return '<svg class="wxi" viewBox="0 0 20 20" width="' + (sz || 18) + '" height="' + (sz || 18) + '" aria-hidden="true">' + body + "</svg>";
+  }
+  // Vorhersage: Bewölkung mit wachsender Unschärfe, Gewitter als Wahrscheinlichkeit
+  function wxForecast() {
+    var gt = G.gt || 0, d0 = Math.floor(gt / DAY), out = [], st = G.storm || { s: 1e12, e: 1e12 };
+    for (var i = 0; i <= 3; i++) {
+      var d = d0 + i, w = wxDay(d), err = (fpHash(d * 9.1 + i * 2.7, 45) - 0.5) * 0.18 * i;
+      var ds = d * DAY, de = ds + DAY, hit = st.s < de && st.e > ds, near = !hit && Math.abs(st.s - ds) < DAY * 1.6;
+      var p = hit ? (i === 0 ? 95 : 88 - i * 12 + Math.round((fpHash(d, 46) - 0.5) * 20)) : near ? 12 + Math.round(fpHash(d, 47) * 18) : Math.round(fpHash(d, 48) * 8 * (1 + w.c));
+      if (i === 0 && stormOn()) p = 100;
+      var c = Math.max(0, Math.min(1, w.c + err));
+      var kind = p >= 55 ? "storm" : c > 0.62 ? "cloud" : c > 0.32 ? "part" : "sun";
+      var tErr = Math.round((fpHash(d * 4.3 + i, 49) - 0.5) * 2 * i);
+      out.push({ i: i, kind: kind, hi: Math.round(w.tb + 6 * (1 - c * 0.6) + tErr), lo: Math.round(w.tb - 6 * (1 - c * 0.6) + tErr - 1), p: Math.max(0, Math.min(100, p)) });
+    }
+    return out;
+  }
+  // Wolkenschatten ziehen mit dem Wind über die Karte
+  var CLOUDSPR = null;
+  function cloudSprite() {
+    if (CLOUDSPR) return CLOUDSPR;
+    var cv = document.createElement("canvas"); cv.width = cv.height = 128; var g = cv.getContext("2d");
+    [[64, 64, 52], [40, 70, 34], [88, 58, 36], [66, 44, 30]].forEach(function (q) { var gr = g.createRadialGradient(q[0], q[1], 0, q[0], q[1], q[2]); gr.addColorStop(0, "rgba(20,28,40,1)"); gr.addColorStop(1, "rgba(20,28,40,0)"); g.fillStyle = gr; g.fillRect(0, 0, 128, 128); });
+    CLOUDSPR = cv; return cv;
+  }
+  function cloudShadows(c, x0, y0, x1, y1) {
+    var w = wxNow(); if (w.c < 0.12) return;
+    var spr = cloudSprite(), TILE = 2400, n = Math.round(4 + w.c * 10), sp = 14 + (w.storm ? 20 : 0), gt = G.gt || 0;
+    var ox = Math.cos(w.wa) * sp * gt, oy = Math.sin(w.wa) * sp * gt;
+    c.globalAlpha = Math.min(0.32, 0.1 + w.c * 0.16);
+    for (var i = 0; i < n; i++) {
+      var bx = fpHash(i * 1.3 + 0.2, 50) * TILE + ox, by = fpHash(i * 2.1 + 0.7, 51) * TILE + oy, sz = 260 + fpHash(i * 3.7, 52) * 360;
+      bx = ((bx % TILE) + TILE) % TILE; by = ((by % TILE) + TILE) % TILE;
+      for (var tx = Math.floor((x0 - sz) / TILE); tx <= Math.floor(x1 / TILE); tx++) for (var ty = Math.floor((y0 - sz) / TILE); ty <= Math.floor(y1 / TILE); ty++) {
+        var X = bx + tx * TILE - sz / 2, Y = by + ty * TILE - sz / 2;
+        if (X > x1 || Y > y1 || X + sz < x0 || Y + sz < y0) continue;
+        c.drawImage(spr, X, Y, sz, sz * 0.7);
+      }
+    }
+    c.globalAlpha = 1;
+  }
+  function wxDraw() {
+    if (!V) return;
+    var box = V.root.querySelector("#fh-wxp"); if (!box || box.hidden) return;
+    var w = wxNow(), fc = wxForecast(), names = { sun: t("wxSun"), part: t("wxPart"), cloud: t("wxCloud"), storm: t("wxStorm") };
+    var html = '<div class="wxnow">' + wxIcon(w.kind, 40) + '<div><b>' + Math.round(w.t) + ' °C</b><span>' + names[w.kind] + "</span></div></div>" +
+      '<div class="wxlist">' + fc.map(function (d) {
+        return '<div class="wxrow"><span class="dn">' + (d.i ? fmt(t("wxDay"), { n: d.i }) : t("wxToday")) + "</span>" + wxIcon(d.kind, 22) + '<span class="tt">' + d.hi + "° / " + d.lo + '°</span><span class="pp' + (d.p >= 50 ? " hi" : "") + '">' + fmt(t("wxRisk"), { p: d.p }) + "</span></div>";
+      }).join("") + "</div><p>" + t("wxNote") + "</p>";
+    var key2 = html.replace(/\d+ °C/, ""); if (box._k !== html) { box.querySelector(".wxbody").innerHTML = html; box._k = html; }
+  }
   function stormOn() { var st = G.storm, gt = G.gt || 0; return !!st && gt >= st.s && gt < st.e; }
   var CRASHP = 1 / 2048, WRECKCOST = { p: 1000000, n: 2500000, w: 4500000 }, CLEART = 120;
   function crash(p) {
@@ -1723,7 +1797,7 @@
       if (m.t === "road") return;
       if (m.t === "taxi" || m.t === "runway") {
         var e = segEnds(m);
-        c.strokeStyle = COL.paveEdge; c.lineWidth = (m.t === "runway" ? RW_W : TW_W) + 30; line(c, e[0].x, e[0].y, e[1].x, e[1].y);
+        c.strokeStyle = COL.paveEdge; c.lineWidth = (m.t === "runway" ? RVW : TW_W) + 30; line(c, e[0].x, e[0].y, e[1].x, e[1].y);
       } else {
         var s = SIZE[m.t];
         inLocal(c, m, function () { c.fillStyle = COL.paveEdge; rr(c, -s[0] / 2 - 15, -s[1] / 2 - 15, s[0] + 30, s[1] + 30, 14); c.fill(); });
@@ -1733,7 +1807,7 @@
       if (m.t === "road") return;
       if (m.t === "taxi" || m.t === "runway") {
         var e = segEnds(m);
-        c.strokeStyle = COL.pave; c.lineWidth = (m.t === "runway" ? RW_W : TW_W) + 22; line(c, e[0].x, e[0].y, e[1].x, e[1].y);
+        c.strokeStyle = COL.pave; c.lineWidth = (m.t === "runway" ? RVW : TW_W) + 22; line(c, e[0].x, e[0].y, e[1].x, e[1].y);
       } else {
         var s = SIZE[m.t];
         inLocal(c, m, function () { c.fillStyle = COL.pave; rr(c, -s[0] / 2 - 11, -s[1] / 2 - 11, s[0] + 22, s[1] + 22, 10); c.fill(); });
@@ -1880,6 +1954,7 @@
     }
     // 5. Flugzeuge
     R.planes.slice().sort(function (a, b) { return (a.alt || 0) - (b.alt || 0); }).forEach(function (p) { plane(c, p); });
+    cloudShadows(c, x0, y0, x1, y1);
     nightPass(c, z, x0, y0, x1, y1, W, H, dpr);
     labels(c);
     // 6. Auswahl, Vorschau, Einnahmen
@@ -2035,13 +2110,14 @@
   function drawRunway(c, m, idx) {
     var L = rwLen(m), ghost = m._ghost;
     inLocal(c, m, function () {
-      c.fillStyle = COL.asph; c.fillRect(-L / 2, -RW_W / 2, L, RW_W);
+      var hw = RVW / 2, kk = RVW / 22;
+      c.fillStyle = COL.asph; c.fillRect(-L / 2, -hw, L, RVW);
       c.strokeStyle = "rgba(255,255,255,.75)"; c.lineWidth = 0.8;
-      line(c, -L / 2 + 2, -9, L / 2 - 2, -9); line(c, -L / 2 + 2, 9, L / 2 - 2, 9);
+      line(c, -L / 2 + 2, -hw + 2, L / 2 - 2, -hw + 2); line(c, -L / 2 + 2, hw - 2, L / 2 - 2, hw - 2);
       c.fillStyle = "rgba(255,255,255,.85)";
-      for (var k = 0; k < 6; k++) { c.fillRect(-L / 2 + 4, -8 + k * 2.9, 12, 1.6); c.fillRect(L / 2 - 16, -8 + k * 2.9, 12, 1.6); }
-      c.fillRect(-L / 2 + 70, -6, 16, 3); c.fillRect(-L / 2 + 70, 3, 16, 3);
-      c.fillRect(L / 2 - 86, -6, 16, 3); c.fillRect(L / 2 - 86, 3, 16, 3);
+      for (var k = 0; k < 8; k++) { c.fillRect(-L / 2 + 4, -hw + 3.5 + k * (RVW - 7) / 7.6, 12, 1.6); c.fillRect(L / 2 - 16, -hw + 3.5 + k * (RVW - 7) / 7.6, 12, 1.6); }
+      c.fillRect(-L / 2 + 70, -6 * kk, 16, 3 * kk); c.fillRect(-L / 2 + 70, 3 * kk, 16, 3 * kk);
+      c.fillRect(L / 2 - 86, -6 * kk, 16, 3 * kk); c.fillRect(L / 2 - 86, 3 * kk, 16, 3 * kk);
       c.setLineDash([10, 9]); c.lineWidth = 1; line(c, -L / 2 + 44, 0, L / 2 - 44, 0); c.setLineDash([]);
       var A = axes(m.a), n1 = bearing(A.ux, A.uy), n2 = n1 > 18 ? n1 - 18 : n1 + 18;
       var sfx = mods("runway").length > 1 && !ghost ? (idx === 0 ? "R" : "L") : "";
@@ -2327,9 +2403,9 @@
     function vis(x, y, m) { return x > x0 - m && x < x1 + m && y > y0 - m && y < y1 + m; }
     // Pisten: weiße Randbefeuerung, grüne Schwelle, rote Endbefeuerung
     mods("runway").forEach(function (m) {
-      var e = rwEnds(m), nx = -e.dy, ny = e.dx, o = RW_W / 2 + 1.5;
+      var e = rwEnds(m), nx = -e.dy, ny = e.dx, o = RVW / 2 + 1.5;
       for (var s = 0; s <= e.L; s += 26) { var px = e.A.x + e.dx * s, py = e.A.y + e.dy * s; if (!vis(px, py, 20)) continue; glow(c, px + nx * o, py + ny * o, 1.4, "rgba(255,248,225,", 0.95); glow(c, px - nx * o, py - ny * o, 1.4, "rgba(255,248,225,", 0.95); }
-      for (var q = -RW_W / 2; q <= RW_W / 2; q += 4) { glow(c, e.A.x + nx * q, e.A.y + ny * q, 1.4, "rgba(80,255,130,", 1); glow(c, e.B.x + nx * q, e.B.y + ny * q, 1.4, "rgba(255,70,60,", 1); }
+      for (var q = -RVW / 2; q <= RVW / 2; q += 4) { glow(c, e.A.x + nx * q, e.A.y + ny * q, 1.4, "rgba(80,255,130,", 1); glow(c, e.B.x + nx * q, e.B.y + ny * q, 1.4, "rgba(255,70,60,", 1); }
       for (var a2 = 20; a2 <= 140; a2 += 20) { var ax = e.A.x - e.dx * a2, ay = e.A.y - e.dy * a2; if ((R.clock * 2 + a2 / 140) % 1 < 0.15) glow(c, ax, ay, 2.6, "rgba(255,255,255,", 1); else glow(c, ax, ay, 1.2, "rgba(255,240,200,", 0.7); }
     });
     // Rollwege: grüne Mittellinie, blaue Ränder
@@ -2668,6 +2744,10 @@
     ".fh-fp .now small{color:rgba(244,241,236,.6);font-size:.8rem}.fh-fp .now em{font-style:normal;font-size:.85rem;font-variant-numeric:tabular-nums;margin-left:auto}" +
     ".fh-full .fh-fp canvas{position:static;inset:auto;display:block;width:100%;height:auto;aspect-ratio:840/300;background:rgba(0,0,0,.25)}" +
     ".fh-fp .ax{display:flex;justify-content:space-between;font-size:.7rem;color:rgba(244,241,236,.55);margin-top:3px}" +
+    ".fh-hud [data-fhwx]{cursor:pointer}.fh-hud [data-fhwx] dd{display:flex;align-items:center;gap:6px}.fh-hud [data-fhwx]:hover dd{color:#E3B83F}.wxi{display:block;flex:none}" +
+    ".fh-wxp{width:min(380px,calc(100% - 24px))}.fh-wxp .wxnow{display:flex;align-items:center;gap:14px;margin:6px 0 10px}.fh-wxp .wxnow b{display:block;font:600 1.6rem/1 var(--f-display,inherit)}.fh-wxp .wxnow span{font-size:.84rem;color:rgba(244,241,236,.75)}" +
+    ".fh-wxp .wxlist{display:flex;flex-direction:column;gap:2px}.fh-wxp .wxrow{display:grid;grid-template-columns:64px 26px 1fr auto;align-items:center;gap:10px;padding:6px 8px;background:rgba(244,241,236,.05);font-size:.84rem;font-variant-numeric:tabular-nums}" +
+    ".fh-wxp .wxrow .dn{color:rgba(244,241,236,.75)}.fh-wxp .wxrow .pp{color:rgba(244,241,236,.6)}.fh-wxp .wxrow .pp.hi{color:#F2A08E;font-weight:600}.fh-wxp p{font-size:.74rem;color:rgba(244,241,236,.55);margin:10px 0 0}" +
     ".fh-sm{width:min(640px,calc(100% - 24px));max-height:calc(100% - var(--top) - var(--dock) - 30px);overflow:auto}.fh-sm p.sub{margin:2px 0 8px;font-size:.82rem;color:rgba(244,241,236,.75);font-variant-numeric:tabular-nums}" +
     ".fh-sm .list{display:flex;flex-direction:column;gap:2px}.fh-sm .srow{display:grid;grid-template-columns:10px minmax(0,1.6fr) 80px minmax(0,1fr) 62px minmax(0,.8fr);align-items:center;gap:10px;padding:6px 8px;border:1px solid transparent;background:rgba(244,241,236,.04);color:#F4F1EC;font:inherit;text-align:left;cursor:pointer}" +
     ".fh-sm .srow:hover{background:rgba(244,241,236,.09)}.fh-sm .srow[aria-pressed=true]{border-color:#E3B83F;background:rgba(227,184,63,.1)}.fh-sm .srow i{width:10px;height:26px}" +
@@ -2742,7 +2822,7 @@
   }
   var GRPS = ["air", "term", "land", "ops", "up"];
   function html() {
-    function st(id) { return '<div id="fh-w-' + id + '"' + (id === "money" ? ' data-fhfin role="button" tabindex="0" title="' + t("finOpen") + '"' : id === "rate" ? ' title="' + t("rateHint") + '"' : id === "fprice" ? ' data-fhfp role="button" tabindex="0" title="' + t("fpOpen") + '"' : id === "stocks" ? ' data-fhsm role="button" tabindex="0" title="' + t("smOpen") + '"' : "") + '><dt>' + t(id) + '</dt><dd id="fh-' + id + '"></dd></div>'; }
+    function st(id) { return '<div id="fh-w-' + id + '"' + (id === "money" ? ' data-fhfin role="button" tabindex="0" title="' + t("finOpen") + '"' : id === "rate" ? ' title="' + t("rateHint") + '"' : id === "fprice" ? ' data-fhfp role="button" tabindex="0" title="' + t("fpOpen") + '"' : id === "stocks" ? ' data-fhsm role="button" tabindex="0" title="' + t("smOpen") + '"' : id === "wx" ? ' data-fhwx role="button" tabindex="0" title="' + t("wxOpen") + '"' : "") + '><dt>' + t(id) + '</dt><dd id="fh-' + id + '"></dd></div>'; }
     var tabs = GRPS.map(function (g) { return '<button type="button" class="fh-tab" role="tab" data-tab="' + g + '" aria-selected="false">' + TX.grp[g][lang] + "</button>"; }).join("");
     var groups = ["air", "term", "land", "ops"].map(function (g) {
       return '<div class="fh-tools fh-grp" data-grp="' + g + '">' + BUILD.filter(function (b) { return b.g === g; }).map(function (b) {
@@ -2755,7 +2835,7 @@
     return '<div class="fh-full" id="fh-stage" tabindex="0" aria-label="' + t("title") + '"><canvas id="fh-cv"></canvas>' +
       '<div class="fh-top fh-panel" id="fh-top"><a class="fh-back" href="#">' + (lang === "de" ? "← Apps" : "← Apps") + '</a>' +
       '<div class="fh-title"><b>' + t("title") + "<span>v" + VERSION + '</span></b><small id="fh-rank"></small></div>' +
-      '<dl class="fh-hud">' + st("money") + st("rate") + st("fuel") + st("fprice") + st("stocks") + st("rep") + st("moves") + st("pax") + st("hold") + "</dl>" +
+      '<dl class="fh-hud">' + st("money") + st("wx") + st("rate") + st("fuel") + st("fprice") + st("stocks") + st("rep") + st("moves") + st("pax") + st("hold") + "</dl>" +
       '<div class="fh-run" role="group" aria-label="' + t("speed") + '">' + [1, 2, 4].map(function (v) { return '<button type="button" data-fhspeed="' + v + '" aria-pressed="false">' + v + "×</button>"; }).join("") +
       '<button type="button" data-fhpause aria-pressed="false"></button><button type="button" data-fhhelp aria-pressed="false" title="' + t("howH") + '">?</button></div></div>' +
       '<div class="fh-hint"><span id="fh-hint"></span></div>' +
@@ -2764,6 +2844,7 @@
       '<p class="sub">' + t("finSub") + '</p><div class="now"><span id="fh-fin-rate"></span><small>' + t("rate") + '</small></div>' +
       '<canvas id="fh-fin-cv" width="1000" height="357"></canvas><div class="ax"><span>−15 min</span><span>−10 min</span><span>−5 min</span><span>' + (lang === "de" ? "jetzt" : "now") + '</span></div>' +
       '<div class="fleg" id="fh-fin-leg"></div><p id="fh-fin-sum"></p></div>' +
+      '<div class="fh-fp fh-wxp fh-panel" id="fh-wxp" hidden><div class="hd"><b>' + t("wxTitle") + '</b><button type="button" data-fhwx aria-label="' + (lang === "de" ? "Schließen" : "Close") + '">×</button></div><div class="wxbody"></div></div>' +
       '<div class="fh-fp fh-sm fh-panel" id="fh-sm" hidden><div class="hd"><b>' + t("smTitle") + '</b><button type="button" data-fhsm aria-label="' + (lang === "de" ? "Schließen" : "Close") + '">×</button></div>' +
       '<p class="sub" id="fh-sm-dep"></p><div class="list" id="fh-sm-list">' + STOCKS.map(function (q) {
         return '<button type="button" class="srow" data-stk="' + q.id + '"><i style="background:' + q.col + '"></i><span class="nm"><b>' + q.n + '</b><small>' + t(q.k === "air" ? "smAir" : "smOil") + '</small></span>' +
@@ -2817,6 +2898,7 @@
     if (pw) { var pn = fuelPrice(), p60 = fuelPriceAt(Math.floor(G.fpt || 0) - 60), inCr = !!crisisAt(Math.floor(G.fpt || 0)); set("fh-fprice", eur(pn)); pw.classList.toggle("up", pn > p60 * 1.02); pw.classList.toggle("down", pn < p60 * 0.98); pw.classList.toggle("crisis", inCr); pw.title = inCr ? t("crisisNow") : t("fpOpen");
       if (R.inCrisis === undefined) R.inCrisis = inCr; else if (inCr !== R.inCrisis) { R.inCrisis = inCr; msg(t(inCr ? "crisisOn" : "crisisOff"), !inCr); } }
     var sw = document.getElementById("fh-w-stocks"); if (sw) set("fh-stocks", eurS(smDepot().v));
+    var wxe = document.getElementById("fh-wx"); if (wxe) { var wn = wxNow(), wh = wxIcon(wn.kind, 18) + "<span>" + Math.round(wn.t) + " °C</span>"; if (wxe._h !== wh) { wxe.innerHTML = wh; wxe._h = wh; } }
     var fw = document.getElementById("fh-w-fuel");
     if (fw) { var tk = mods("tank").length; fw.hidden = !tk; if (tk) { var fp = fuelPct(); set("fh-fuel", Math.round(fp) + " %"); fw.classList.toggle("warn", fp < 20); } }
     set("fh-rank", "SOY · " + clockTxt() + " · " + rank() + (s.stands ? " · " + fmt(t("conn"), { a: s.conn, b: s.stands }) : ""));
@@ -2941,8 +3023,8 @@
 
   function onClick(e) {
     if (e.target.closest("[data-dozer]")) { setDozer(!(V.tool && V.tool.kind === "dozer")); return; }
-    var pnl = e.target.closest("[data-fhfp]") ? "fh-fp" : e.target.closest("[data-fhfin]") ? "fh-fin" : e.target.closest("[data-fhsm]") ? "fh-sm" : null;
-    if (pnl) { ["fh-fp", "fh-fin", "fh-sm"].forEach(function (id) { var bx = V.root.querySelector("#" + id); bx.hidden = id === pnl ? !bx.hidden : true; }); fpDraw(true); finDraw(true); smDraw(true, true); return; }
+    var pnl = e.target.closest("[data-fhfp]") ? "fh-fp" : e.target.closest("[data-fhfin]") ? "fh-fin" : e.target.closest("[data-fhsm]") ? "fh-sm" : e.target.closest("[data-fhwx]") ? "fh-wxp" : null;
+    if (pnl) { ["fh-fp", "fh-fin", "fh-sm", "fh-wxp"].forEach(function (id) { var bx = V.root.querySelector("#" + id); bx.hidden = id === pnl ? !bx.hidden : true; }); fpDraw(true); finDraw(true); smDraw(true, true); wxDraw(); return; }
     var srow = e.target.closest("[data-stk]"); if (srow) { V.stk = srow.getAttribute("data-stk"); smDraw(true, true); return; }
     var smb = e.target.closest("[data-smtrade]"); if (smb) { if (smb.getAttribute("aria-disabled") !== "true") smDo(); return; }
     if (e.target.closest("[data-fhfpfill]")) { if (e.target.closest("[data-fhfpfill]").getAttribute("aria-disabled") !== "true") fillFuel(); return; }
@@ -3030,6 +3112,7 @@
     var dt = Math.min(0.1, (now - (last || now)) / 1000); last = now;
     keysTick(dt);
     if (!R.paused) { G.fpt = (G.fpt || 0) + dt; fpDraw(); finDraw(); smDraw(); wreckTick(dt); }
+    V.wxT = (V.wxT || 0) + dt; if (V.wxT > 1) { V.wxT = 0; wxDraw(); }
     trT += dt; if (trT > 0.5) { trT = 0; trUpdate(); }
     if (!R.paused) { var g = dt * R.speed; while (g > 0) { var d = Math.min(0.05, g); tick(d); g -= d; } }
     if (R.msgT > 0) { R.msgT -= dt; if (R.msgT <= 0) msg(""); }
