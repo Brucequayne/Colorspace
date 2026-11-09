@@ -58,7 +58,8 @@ button.navbtn{background:transparent;cursor:pointer;border-color:var(--ink)}
 .app{display:flex;flex-direction:column;background:var(--tone);border:1px solid var(--tone);border-radius:0;overflow:hidden;text-decoration:none;color:var(--ink);transition:transform .18s ease,border-color .18s ease,box-shadow .18s ease}
 .app:hover{transform:translateY(-3px);border-color:var(--tone);box-shadow:6px 6px 0 var(--shadow)}
 .app:focus-visible{outline-offset:4px}
-.app .pv{aspect-ratio:16/10;max-width:100%;overflow:hidden;border-bottom:1px solid var(--line)}
+.app .pv{position:relative;aspect-ratio:16/10;max-width:100%;overflow:hidden;border-bottom:1px solid var(--line)}
+.app .soon{position:absolute;left:0;top:14px;max-width:calc(100% - 14px);padding:6px 12px;background:#E3B83F;color:#151715;font-weight:700;font-size:.74rem;letter-spacing:.06em;text-transform:uppercase;line-height:1.2;box-shadow:0 2px 0 rgba(0,0,0,.25)}
 .app .pv svg,.app .pv img{display:block;width:100%;height:100%;object-fit:cover}
 .app .bd{display:flex;flex-direction:column;gap:8px;padding:18px 20px 20px;flex:1;background:var(--tone);color:#F1EFEA}
 .app h2{font:600 1.4rem/1.15 var(--f-display);letter-spacing:-.015em}
@@ -201,18 +202,18 @@ button.navbtn{background:transparent;cursor:pointer;border-color:var(--ink)}
   <footer class="foot"><a id="plink" href="#datenschutz">Datenschutz</a></footer>
 </div>
 
-<script src="patchnotes.js?v=20261109-0657"></script>
-<script src="flughafen.js?v=20261109-0657"></script>
-<script src="gigachess.js?v=20261109-0657"></script>
-<script src="colorspin.js?v=20261109-0657"></script>
-<script src="pixellab.js?v=20261109-0657"></script>
-<script src="ezcrop.js?v=20261109-0657"></script>
-<script src="framepaint.js?v=20261109-0657"></script>
-<script src="drawspace.js?v=20261109-0657"></script>
-<script src="citygen.js?v=20261109-0657"></script>
-<script src="channels.js?v=20261109-0657"></script>
-<script src="noaim.js?v=20261109-0657"></script>
-<script src="weltmacht.js?v=20261109-0657"></script>
+<script src="patchnotes.js?v=20261109-0713"></script>
+<script src="flughafen.js?v=20261109-0713"></script>
+<script src="gigachess.js?v=20261109-0713"></script>
+<script src="colorspin.js?v=20261109-0713"></script>
+<script src="pixellab.js?v=20261109-0713"></script>
+<script src="ezcrop.js?v=20261109-0713"></script>
+<script src="framepaint.js?v=20261109-0713"></script>
+<script src="drawspace.js?v=20261109-0713"></script>
+<script src="citygen.js?v=20261109-0713"></script>
+<script src="channels.js?v=20261109-0713"></script>
+<script src="noaim.js?v=20261109-0713"></script>
+<script src="weltmacht.js?v=20261109-0713"></script>
 <script>
 (function () {
   var T = {
@@ -243,7 +244,7 @@ button.navbtn{background:transparent;cursor:pointer;border-color:var(--ink)}
     drawspace: { de: "Draw Space", en: "Draw Space" }, citygen: { de: "CityGenerator", en: "CityGenerator" }
   };
   var APPS = [
-    { id: "flughafen", tone: "#4E5A2C", ver: "v0.42", art: "AIRSVG",
+    { id: "flughafen", tone: "#4E5A2C", ver: "v0.42", art: "AIRSVG", soon: "Airline Update Coming Soon",
       d: { de: "Bau einen Flughafen von der grünen Wiese aus: Piste, Rollwege, Terminals. Flugzeuge, Busse und Autos bringen echte Passagierzahlen.", en: "Build an airport from an empty field: runway, taxiways, terminals. Aircraft, buses and cars carry real passenger numbers." } },
     { id: "gigachess", tone: "#5E5470", ver: "v0.2", art: "CHESSSVG",
       d: { de: "Schach auf 10 × 10 Feldern mit dem Räuber, der schiebt statt schlägt. Zu zweit oder gegen die KI in 10 Stufen, mit Schachuhr.", en: "Chess on a 10 × 10 board with the robber, who pushes instead of capturing. Two players or against the AI in 10 levels, with a chess clock." } },
@@ -305,7 +306,7 @@ button.navbtn{background:transparent;cursor:pointer;border-color:var(--ink)}
   function appsHTML(anim) {
     if (!S.cat) return "";
     return APPS.filter(function (a) { return catOf(a) === S.cat; }).map(function (a, i) {
-      return '<a class="app' + (anim ? " in" : "") + '" href="#' + a.id + '" style="--tone:' + a.tone + ';--i:' + i + '"><div class="pv">' + ART[a.art] + '</div><div class="bd"><h2>' + U(a.id) + '</h2><p>' + a.d[S.lang] + '</p>' +
+      return '<a class="app' + (anim ? " in" : "") + '" href="#' + a.id + '" style="--tone:' + a.tone + ';--i:' + i + '"><div class="pv">' + ART[a.art] + (a.soon ? '<span class="soon">' + a.soon + '</span>' : "") + '</div><div class="bd"><h2>' + U(a.id) + '</h2><p>' + a.d[S.lang] + '</p>' +
         '<div class="meta"><div class="mv"><span class="ver">' + verOf(a) + '</span>' + pnTile(a.id) + '</div><span class="go">' + U("open") + '</span></div></div></a>';
     }).join("");
   }

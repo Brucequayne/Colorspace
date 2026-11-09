@@ -113,6 +113,9 @@ window.PATCHNOTES = {
       en: ["New game: sketch main and distributor roads with smoothed mouse input", "Pick a city style: USA, Europe or Japan", "Side streets, houses, parking lots, cars, trees and road markings are generated procedurally", "Paint parks, water and special buildings in green, blue and red, then regenerate", "Bridges over rivers, railway with station, stadium, cathedral, opera, harbour, airport and more", "Save the city as PNG"] }
   ],
   flughafen: [
+    { v: "0.6", t: "2026-11-09T07:13:00+01:00",
+      de: ["Finanzbericht: Klick auf die Kasse zeigt den Umsatz je Bereich als Linien in einem Diagramm (letzte 15 Minuten)", "Neue Anzeige oben: Umsatz der letzten 60 Sekunden", "Klick auf die Kerosin-Anzeige kauft nicht mehr ungewollt ein", "Ankündigung auf der Kachel: Airline-Update kommt bald"],
+      en: ["Financial report: click the cash to see revenue by area as lines in one chart (last 15 minutes)", "New display at the top: revenue of the last 60 seconds", "Clicking the fuel display no longer buys fuel by accident", "Announcement on the tile: airline update coming soon"] },
     { v: "0.58", t: "2026-11-09T06:57:00+01:00",
       de: ["Abriss-Werkzeug (Taste B oder „Abriss“ unten rechts): Klick reißt ab, Ziehen räumt alles unter dem Cursor", "Pisten werden beim Ziehen geschont und nur per gezieltem Klick abgerissen", "Parkplätze, Bushaltestellen, Taxistände und Flugzeugpositionen lassen sich für 25.000 € versetzen", "Preisdiagramm zeigt eigene Käufe (rot) und Verkäufe (grün) als Punkte"],
       en: ["Bulldozer (key B or “Bulldozer” bottom right): click to demolish, drag to clear everything under the cursor", "Runways are spared while dragging and only removed with a direct click", "Car parks, bus stops, taxi ranks and aircraft stands can be relocated for €25,000", "Price chart shows your own buys (red) and sells (green) as dots"] },

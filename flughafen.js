@@ -5,7 +5,7 @@
   "use strict";
 
   var KEY = "flughafen-v3";
-  var VERSION = "0.58";
+  var VERSION = "0.6";
   var RW_W = 22, TW_W = 14, RD_W = 16, SL_W = 9;
   var DIVERT = 60;
   var SIZE = { stand: [64, 66], term: [124, 46], tower: [30, 30], fire: [52, 38], hangar: [84, 62], deck: [72, 38], park: [72, 48], bus: [44, 22], cab: [62, 22], hotels: [50, 34], hotel: [70, 44], hotell: [96, 74], tank: [44, 44] };
@@ -93,6 +93,11 @@
     fuelInfo: L2("Lager des Flughafens: {p} %", "Airport stock: {p} %"), fuelBought: L2("Kerosin gekauft", "Fuel bought"), fuelSold: L2("Kerosin", "Fuel"),
     dozer: L2("Abriss", "Bulldozer"), dozerT: L2("Abriss-Werkzeug (B)", "Bulldozer (B)"), mvBtn: L2("Versetzen", "Relocate"), mvName: L2("Versetzen", "Relocate"),
     mvDone: L2("Versetzt", "Relocated"), mvBusy: L2("Gerade belegt, später versetzen", "In use, relocate later"),
+    rate: L2("Umsatz/Min", "Revenue/min"), rateHint: L2("Umsatz der letzten 60 Sekunden", "Revenue of the last 60 seconds"),
+    finOpen: L2("Finanzbericht öffnen", "Open financial report"), finTitle: L2("Finanzbericht", "Financial report"),
+    finSub: L2("Umsatz je Bereich in € pro Minute, letzte 15 Minuten", "Revenue by area in € per minute, last 15 minutes"),
+    finTot: L2("Gesamt", "Total"), finSum: L2("Umsatz in 15 Minuten: {e}", "Revenue in 15 minutes: {e}"), finEmpty: L2("Noch keine Einnahmen", "No revenue yet"),
+    finCat: L2("Flugbetrieb|Fluggastentgelte|Kerosin an Airlines|Kerosinhandel|Shops|Hotels|Parken, Bus, Taxi|Wartung", "Flight operations|Passenger fees|Fuel to airlines|Fuel trading|Shops|Hotels|Parking, bus, taxi|Maintenance"),
     trBuy: L2("Kaufen", "Buy"), trSell: L2("Verkaufen", "Sell"), trMove: L2("Regler verschieben zum Handeln", "Move the slider to trade"),
     trBuyD: L2("Einkauf am Markt: {a} → {b}", "Buying on the market: {a} → {b}"), trSellD: L2("Rückverkauf an den Markt: {a} → {b}", "Selling back to the market: {a} → {b}"),
     trNow: L2("Füllstand jetzt {p}", "Fill level now {p}"), trPoor: L2("Nicht genug Geld", "Not enough money"),
@@ -856,7 +861,7 @@
     for (var i = 1; i < pa.length; i++) pts.push({ x: pa[i].x, y: pa[i].y, s: i === pa.length - 1 ? 8 : i === pa.length - 2 ? 14 : 40 });
     p.path = pts; p.pi = 0; p.onEnd = park;
   }
-  function touchdown(p) { earn(TYPES[p.type].rev * 0.4 * p.paxIn / p.cap * (p.revF || 1), p.x, p.y); movement(); }
+  function touchdown(p) { earn(TYPES[p.type].rev * 0.4 * p.paxIn / p.cap * (p.revF || 1), p.x, p.y, "", "fly"); movement(); }
   function movement() {
     G.st.moves++;
     if (one("deck")) {
@@ -904,7 +909,7 @@
       p.acc += paxRate(p) * dt;
       var k = Math.min(p.on, Math.floor(p.acc)); p.acc -= k; p.on -= k;
       if (k) { G.st.pax += k; arrivePax(k); }
-      if (p.on <= 0) { p.phase = "clean"; p.t = 3 + p.cap / 80; p.acc = 0; if (p.paxIn) earn(p.paxIn * PAXFEE, p.x, p.y - 10, lang === "de" ? "Fluggastentgelt" : "Passenger fees"); }
+      if (p.on <= 0) { p.phase = "clean"; p.t = 3 + p.cap / 80; p.acc = 0; if (p.paxIn) earn(p.paxIn * PAXFEE, p.x, p.y - 10, lang === "de" ? "Fluggastentgelt" : "Passenger fees", "pax"); }
     } else if (p.phase === "clean") {
       p.t -= dt; if (p.t <= 0) p.phase = "board";
     } else if (p.phase === "board") {
@@ -967,7 +972,7 @@
   function trDo() {
     var q = trCalc(); if (!q || q.d === 0) return;
     if (q.buy) { if (q.sum > G.money) { msg(t("poor")); return; } G.money -= q.sum; G.fuel += q.d; logTrade("b", fuelPrice()); msg(t("fuelBought") + " · " + eurS(q.sum), true); }
-    else { G.money += q.sum; G.fuel = Math.max(0, G.fuel + q.d); logTrade("s", fuelBack()); msg(t("trDone") + " · +" + eurS(q.sum), true); }
+    else { G.money += q.sum; finAdd("trade", q.sum); G.fuel = Math.max(0, G.fuel + q.d); logTrade("s", fuelBack()); msg(t("trDone") + " · +" + eurS(q.sum), true); }
     save(); updatePanel(true); updateSel(); fpDraw(true);
   }
   function fillFuel() {
@@ -985,7 +990,7 @@
     if (!mods("tank").length) { p.noFuel = false; return true; }
     var need = FUEL[p.type] || 2;
     if (G.fuel >= need) {
-      var pr = fuelSell(); G.fuel -= need; p.fuelled = true; p.noFuel = false; earn(need * pr, p.x, p.y + 12, t("fuelSold"));
+      var pr = fuelSell(); G.fuel -= need; p.fuelled = true; p.noFuel = false; earn(need * pr, p.x, p.y + 12, t("fuelSold"), "fuel");
       (R.fuelLog || (R.fuelLog = [])).push({ cs: p.cs, k: p.type, u: need, e: need * pr, t: G.fpt || 0 }); if (R.fuelLog.length > 60) R.fuelLog.shift();
       fpDraw(true); return true;
     }
@@ -1002,7 +1007,7 @@
     // je mehr Menschen im Terminal warten, desto mehr wird gekauft
     R.shopAcc += termPax() * 0.32 * (sh.length / ts.length) * (1 + 0.15 * G.up.ext) * dt;
     R.shopT += dt;
-    if (R.shopT >= 8 && R.shopAcc >= 1) { var m = sh[Math.floor(Math.random() * sh.length)]; earn(R.shopAcc, m.x, m.y - 14, t("shopsW")); R.shopAcc = 0; R.shopT = 0; }
+    if (R.shopT >= 8 && R.shopAcc >= 1) { var m = sh[Math.floor(Math.random() * sh.length)]; earn(R.shopAcc, m.x, m.y - 14, t("shopsW"), "shop"); R.shopAcc = 0; R.shopT = 0; }
   }
   // ---------- Hotels: Ankommende mit Anschlussflug übernachten und fliegen danach weiter ----------
   function hotelCap(m) { return (HOTELS[m.t] || HOTELS.hotel).cap; }
@@ -1019,7 +1024,7 @@
       var list = R.hotel[m.id]; if (!list) return;
       for (var i = list.length - 1; i >= 0; i--) {
         var q = list[i]; q.stay -= dt; q.paid += q.n * 2.2 * dt;
-        if (q.stay <= 0) { earn(Math.round(q.paid + q.n * 90), m.x, m.y - 16, t("hotelPay")); R.tDep += q.n; list.splice(i, 1); }
+        if (q.stay <= 0) { earn(Math.round(q.paid + q.n * 90), m.x, m.y - 16, t("hotelPay"), "hotel"); R.tDep += q.n; list.splice(i, 1); }
       }
     });
   }
@@ -1141,7 +1146,7 @@
     if (v.lot) {
       var m = byId(v.lot);
       if (m) lotSpots(m)[v.spot] = false;
-      earn(Math.max(5, Math.round(v.parkT || 0) * PARKFEE), v.x, v.y);
+      earn(Math.max(5, Math.round(v.parkT || 0) * PARKFEE), v.x, v.y, "", "land");
       var b = v.back;
       v.path = [{ x: v.x, y: v.y, s: 5, back: 1 }, { x: b[1].x, y: b[1].y, s: 8, back: 1 }].concat(b.slice(2));
     } else v.path = [{ x: v.x, y: v.y, s: 8, r: 1 }].concat(v.out);
@@ -1207,7 +1212,7 @@
     var avail = Math.min(R.tArrTaxi || 0, 1 + Math.floor(Math.random() * 4));
     if (avail > 0 || v.wait > 45) {
       R.tArrTaxi = Math.max(0, (R.tArrTaxi || 0) - avail); v.n = avail;
-      if (avail) earn(TAXIFEE, v.x, v.y);
+      if (avail) earn(TAXIFEE, v.x, v.y, "", "land");
       var b = R.bays[v.rank]; if (b) b[v.bay] = false;
       v.state = ""; v.leaving = true;
       v.path = [{ x: v.x, y: v.y, s: 5, back: 1 }, { x: v.back[1].x, y: v.back[1].y, s: 8, back: 1 }].concat(v.back.slice(2)); v.pi = 0; v.onEnd = dropVeh;
@@ -1271,7 +1276,7 @@
         var bus = vehicle("bus", tr.inP, function () {
           var drop = Math.min(50, R.depBus), wt = R.stopW[st.id] || 0, pick = Math.min(50, wt);
           R.depBus -= drop; R.tDep += drop; R.stopW[st.id] = wt - pick;
-          if (drop + pick) earn((drop + pick) * BUSFARE, st.x, st.y + 10);
+          if (drop + pick) earn((drop + pick) * BUSFARE, st.x, st.y + 10, "", "land");
           bus.n = pick; bus.drop = drop; bus.state = "curb"; bus.stay = 3;
           if (drop || pick) R.fx.push({ x: st.x, y: st.y - 16, t: 0, txt: "+" + drop + " / −" + pick, col: "#CFE3F0" });
         });
@@ -1369,7 +1374,7 @@
       p.soon = true;
       earn(TYPES[p.type].rev * 0.4 * p.depLF * (p.revF || 1), p.x, p.y); movement();
       var h = one("hangar");
-      if (h && Math.random() < 0.2 * h.lvl) { earn(TYPES[p.type].rev * 2, h.x, h.y, t("maint")); R.hangarT = 14; R.hangarType = p.type; }
+      if (h && Math.random() < 0.2 * h.lvl) { earn(TYPES[p.type].rev * 2, h.x, h.y, t("maint"), "maint"); R.hangarT = 14; R.hangarType = p.type; }
     } });
     pts.push({ x: l2.x, y: l2.y, a: 0.25, s: 95, ev: function () { release(r); } });
     var dr = depRoute(rwm, l2);
@@ -1439,8 +1444,22 @@
     });
     if (R.jamT > 0) R.jamT -= dt;
   }
-  function earn(v, x, y, label) {
-    v = Math.round(v); G.money += v; G.st.earned += v;
+  // Finanzbericht: Einnahmen je Bereich in 5-Sekunden-Töpfen (Echtzeit, pausiert mit dem Spiel), 15 Minuten
+  var FINCAT = ["fly", "pax", "fuel", "trade", "shop", "hotel", "land", "maint"], FINCOL = ["#E3B83F", "#7DB3E8", "#E58A73", "#B98AE0", "#8FC79A", "#5FC2C2", "#C9C2B5", "#D97FB0"];
+  var FINB = 5, FINN = 180;
+  function finAdd(cat, v) {
+    if (!(v > 0)) return;
+    var f = G.fin || (G.fin = []), i = Math.floor((G.fpt || 0) / FINB), last = f[f.length - 1];
+    if (!last || last.i !== i) { last = { i: i, c: {} }; f.push(last); while (f.length && f[0].i <= i - FINN) f.shift(); }
+    last.c[cat] = (last.c[cat] || 0) + Math.round(v);
+  }
+  function finRate() {   // Umsatz der letzten 60 Sekunden
+    var i = Math.floor((G.fpt || 0) / FINB), n = 60 / FINB, s2 = 0;
+    (G.fin || []).forEach(function (b) { if (b.i > i - n) for (var k in b.c) s2 += b.c[k]; });
+    return s2;
+  }
+  function earn(v, x, y, label, cat) {
+    v = Math.round(v); G.money += v; G.st.earned += v; finAdd(cat || "fly", v);
     R.fx.push({ x: x, y: y, t: 0, txt: (label ? label + " " : "") + "+" + eur(v) });
   }
 
@@ -2438,13 +2457,17 @@
     ".fh-fp .now small{color:rgba(244,241,236,.6);font-size:.8rem}.fh-fp .now em{font-style:normal;font-size:.85rem;font-variant-numeric:tabular-nums;margin-left:auto}" +
     ".fh-full .fh-fp canvas{position:static;inset:auto;display:block;width:100%;height:auto;aspect-ratio:840/300;background:rgba(0,0,0,.25)}" +
     ".fh-fp .ax{display:flex;justify-content:space-between;font-size:.7rem;color:rgba(244,241,236,.55);margin-top:3px}" +
+    ".fh-fin{width:min(560px,calc(100% - 24px));max-height:calc(100% - var(--top) - var(--dock) - 30px);overflow:auto}.fh-fin p.sub{margin:2px 0 0;font-size:.78rem;color:rgba(244,241,236,.6)}" +
+    ".fh-fin .fleg{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:4px 14px;margin-top:8px;font-size:.78rem}" +
+    ".fh-fin .fleg span{display:flex;align-items:center;gap:6px;min-width:0;color:rgba(244,241,236,.85)}.fh-fin .fleg span.off{opacity:.4}.fh-fin .fleg i{flex:none;width:12px;height:3px}" +
+    ".fh-fin .fleg em{font-style:normal;margin-left:auto;font-variant-numeric:tabular-nums;color:rgba(244,241,236,.6)}" +
     ".fh-fp .leg{display:flex;gap:12px;font-size:.72rem;color:rgba(244,241,236,.65);margin-top:4px}.fh-fp .leg span{display:flex;align-items:center;gap:5px}" +
     ".fh-fp .leg i{display:inline-block;width:9px;height:9px;border-radius:50%;border:1.5px solid #F4F1EC}.fh-fp .leg i.b{background:#E58A73}.fh-fp .leg i.s{background:#8FC79A}.fh-fp .leg i.r{width:5px;height:5px;border:0;border-radius:0;background:rgba(143,199,154,.7)}" +
     ".fh-fp .sell{display:flex;align-items:center;gap:6px;font-size:.84rem;color:rgba(244,241,236,.8);margin:-2px 0 8px}.fh-fp .sell b{color:#8FC79A;font-weight:600;font-variant-numeric:tabular-nums}" +
     ".fh-fp .sell i{display:inline-block;width:18px;border-top:2px dashed #8FC79A}.fh-fp p.log{font-size:.78rem;color:rgba(244,241,236,.6)}" +
     ".fh-fp p{margin:8px 0 0;color:rgba(244,241,236,.8);font-size:.84rem;line-height:1.45}" +
     ".fh-fp .acts{margin-top:8px}.fh-fp .acts button{font:600 .8rem inherit;padding:6px 10px;border:1px solid rgba(244,241,236,.5);background:transparent;color:#F4F1EC;cursor:pointer}.fh-fp .acts button[aria-disabled=true]{opacity:.45;cursor:default}" +
-    ".fh-hud [data-fuel]{cursor:pointer}.fh-hud [data-fuel]:hover dd{text-decoration:underline}" +
+    ".fh-hud [data-fhfin]{cursor:pointer}.fh-hud [data-fhfin] dd::after{content:'';display:inline-block;width:13px;height:10px;margin-left:6px;vertical-align:1px;background:linear-gradient(currentColor,currentColor) 0 100%/3px 40% no-repeat,linear-gradient(currentColor,currentColor) 5px 100%/3px 100% no-repeat,linear-gradient(currentColor,currentColor) 10px 100%/3px 65% no-repeat;opacity:.8}.fh-hud [data-fhfin]:hover dd{color:#E3B83F}" +
     ".fh-hud dt{font-size:.7rem;color:rgba(244,241,236,.65);letter-spacing:.04em;text-transform:uppercase}" +
     ".fh-hud dd{margin:0;font:600 1.05rem/1.2 var(--f-display,inherit);font-variant-numeric:tabular-nums;white-space:nowrap}.fh-hud .warn dd{color:#F0A848}" +
     ".fh-run{display:flex;gap:4px;align-items:center}" +
@@ -2499,7 +2522,7 @@
   }
   var GRPS = ["air", "term", "land", "ops", "up"];
   function html() {
-    function st(id) { return '<div id="fh-w-' + id + '"' + (id === "fuel" ? ' data-fuel role="button" tabindex="0" title="' + t("fuelHint") + '"' : id === "fprice" ? ' data-fhfp role="button" tabindex="0" title="' + t("fpOpen") + '"' : "") + '><dt>' + t(id) + '</dt><dd id="fh-' + id + '"></dd></div>'; }
+    function st(id) { return '<div id="fh-w-' + id + '"' + (id === "money" ? ' data-fhfin role="button" tabindex="0" title="' + t("finOpen") + '"' : id === "rate" ? ' title="' + t("rateHint") + '"' : id === "fprice" ? ' data-fhfp role="button" tabindex="0" title="' + t("fpOpen") + '"' : "") + '><dt>' + t(id) + '</dt><dd id="fh-' + id + '"></dd></div>'; }
     var tabs = GRPS.map(function (g) { return '<button type="button" class="fh-tab" role="tab" data-tab="' + g + '" aria-selected="false">' + TX.grp[g][lang] + "</button>"; }).join("");
     var groups = ["air", "term", "land", "ops"].map(function (g) {
       return '<div class="fh-tools fh-grp" data-grp="' + g + '">' + BUILD.filter(function (b) { return b.g === g; }).map(function (b) {
@@ -2512,11 +2535,15 @@
     return '<div class="fh-full" id="fh-stage" tabindex="0" aria-label="' + t("title") + '"><canvas id="fh-cv"></canvas>' +
       '<div class="fh-top fh-panel" id="fh-top"><a class="fh-back" href="#">' + (lang === "de" ? "← Apps" : "← Apps") + '</a>' +
       '<div class="fh-title"><b>' + t("title") + "<span>v" + VERSION + '</span></b><small id="fh-rank"></small></div>' +
-      '<dl class="fh-hud">' + st("money") + st("fuel") + st("fprice") + st("rep") + st("moves") + st("pax") + st("hold") + "</dl>" +
+      '<dl class="fh-hud">' + st("money") + st("rate") + st("fuel") + st("fprice") + st("rep") + st("moves") + st("pax") + st("hold") + "</dl>" +
       '<div class="fh-run" role="group" aria-label="' + t("speed") + '">' + [1, 2, 4].map(function (v) { return '<button type="button" data-fhspeed="' + v + '" aria-pressed="false">' + v + "×</button>"; }).join("") +
       '<button type="button" data-fhpause aria-pressed="false"></button><button type="button" data-fhhelp aria-pressed="false" title="' + t("howH") + '">?</button></div></div>' +
       '<div class="fh-hint"><span id="fh-hint"></span></div>' +
       '<div class="fh-sel fh-panel" id="fh-sel" hidden></div>' +
+      '<div class="fh-fp fh-fin fh-panel" id="fh-fin" hidden><div class="hd"><b>' + t("finTitle") + '</b><button type="button" data-fhfin aria-label="' + (lang === "de" ? "Schließen" : "Close") + '">×</button></div>' +
+      '<p class="sub">' + t("finSub") + '</p><div class="now"><span id="fh-fin-rate"></span><small>' + t("rate") + '</small></div>' +
+      '<canvas id="fh-fin-cv" width="1000" height="357"></canvas><div class="ax"><span>−15 min</span><span>−10 min</span><span>−5 min</span><span>' + (lang === "de" ? "jetzt" : "now") + '</span></div>' +
+      '<div class="fleg" id="fh-fin-leg"></div><p id="fh-fin-sum"></p></div>' +
       '<div class="fh-fp fh-panel" id="fh-fp" hidden><div class="hd"><b>' + t("fpTitle") + '</b><button type="button" data-fhfp aria-label="' + (lang === "de" ? "Schließen" : "Close") + '">×</button></div>' +
       '<div class="now"><span id="fh-fp-now"></span><small>' + t("fpBuy") + " " + t("fpUnit") + '</small><em id="fh-fp-d"></em></div>' +
       '<div class="sell"><i></i>' + t("fpSell") + ': <b id="fh-fp-sell"></b></div>' +
@@ -2555,6 +2582,7 @@
     set("fh-money", eurS(G.money)); set("fh-rep", Math.round(G.rep) + " %");
     set("fh-moves", G.st.moves.toLocaleString(loc())); set("fh-pax", G.st.pax.toLocaleString(loc()));
     set("fh-hold", String(R.holdQ.length));
+    set("fh-rate", eurS(finRate()));
     var pw = document.getElementById("fh-w-fprice");
     if (pw) { var pn = fuelPrice(), p60 = fuelPriceAt(Math.floor(G.fpt || 0) - 60); set("fh-fprice", eur(pn)); pw.classList.toggle("up", pn > p60 * 1.02); pw.classList.toggle("down", pn < p60 * 0.98); }
     var fw = document.getElementById("fh-w-fuel");
@@ -2673,9 +2701,9 @@
 
   function onClick(e) {
     if (e.target.closest("[data-dozer]")) { setDozer(!(V.tool && V.tool.kind === "dozer")); return; }
-    if (e.target.closest("[data-fhfp]")) { var fb = V.root.querySelector("#fh-fp"); fb.hidden = !fb.hidden; fpDraw(true); return; }
+    if (e.target.closest("[data-fhfp]")) { var fb = V.root.querySelector("#fh-fp"); fb.hidden = !fb.hidden; if (!fb.hidden) V.root.querySelector("#fh-fin").hidden = true; fpDraw(true); return; }
+    if (e.target.closest("[data-fhfin]")) { var fn = V.root.querySelector("#fh-fin"); fn.hidden = !fn.hidden; if (!fn.hidden) V.root.querySelector("#fh-fp").hidden = true; finDraw(true); return; }
     if (e.target.closest("[data-fhfpfill]")) { if (e.target.closest("[data-fhfpfill]").getAttribute("aria-disabled") !== "true") fillFuel(); return; }
-    if (e.target.closest("[data-fuel]")) { fillFuel(); return; }
     var tab = e.target.closest("[data-tab]");
     if (tab) { setTab(tab.getAttribute("data-tab")); return; }
     if (e.target.closest("[data-fhhelp]")) { var hb = V.root.querySelector("#fh-help"); hb.hidden = !hb.hidden; return; }
@@ -2754,7 +2782,7 @@
     raf = requestAnimationFrame(frame);
     var dt = Math.min(0.1, (now - (last || now)) / 1000); last = now;
     keysTick(dt);
-    if (!R.paused) { G.fpt = (G.fpt || 0) + dt; fpDraw(); }
+    if (!R.paused) { G.fpt = (G.fpt || 0) + dt; fpDraw(); finDraw(); }
     trT += dt; if (trT > 0.5) { trT = 0; trUpdate(); }
     if (!R.paused) { var g = dt * R.speed; while (g > 0) { var d = Math.min(0.05, g); tick(d); g -= d; } }
     if (R.msgT > 0) { R.msgT -= dt; if (R.msgT <= 0) msg(""); }
@@ -2763,6 +2791,45 @@
     draw();
   }
 
+  // Finanzbericht: je Bereich eine Linie (gleitender 60-s-Umsatz in €/min), dazu die Summe
+  var finLast = -1;
+  function finDraw(force) {
+    if (!V) return;
+    var box = V.root.querySelector("#fh-fin"); if (!box || box.hidden) return;
+    var sec = Math.floor(G.fpt || 0); if (!force && sec === finLast) return; finLast = sec;
+    var cv = box.querySelector("#fh-fin-cv"), c = cv.getContext("2d"), W = cv.width, H = cv.height;
+    var cur = Math.floor((G.fpt || 0) / FINB), win = 60 / FINB, map = {}, tot15 = {}, all = 0;
+    (G.fin || []).forEach(function (b) { map[b.i] = b.c; });
+    FINCAT.forEach(function (k) { tot15[k] = 0; });
+    var series = FINCAT.map(function () { return []; }), total = [], ymax = 1000;
+    for (var j = 0; j < FINN; j++) {
+      var i = cur - FINN + 1 + j, tsum = 0;
+      FINCAT.forEach(function (k, ci) {
+        var r = 0; for (var q = 0; q < win; q++) { var b = map[i - q]; if (b && b[k]) r += b[k]; }
+        series[ci].push(r); tsum += r;
+        var bb = map[i]; if (bb && bb[k]) { tot15[k] += bb[k]; all += bb[k]; }
+      });
+      total.push(tsum); if (tsum > ymax) ymax = tsum;
+    }
+    ymax *= 1.08;
+    var P = { l: 6, r: 6, t: 14, b: 10 };
+    function X(j) { return P.l + j / (FINN - 1) * (W - P.l - P.r); }
+    function Y(v) { return H - P.b - v / ymax * (H - P.t - P.b); }
+    c.clearRect(0, 0, W, H);
+    c.lineWidth = 1; c.strokeStyle = "rgba(244,241,236,.08)"; c.fillStyle = "rgba(244,241,236,.5)"; c.font = "600 18px " + FONT; c.textAlign = "left";
+    var step = Math.pow(10, Math.floor(Math.log10(ymax / 3))); [1, 2, 5, 10].some(function (f) { if (ymax / (step * f) <= 5) { step *= f; return true; } });
+    for (var gv = step; gv < ymax; gv += step) { var gy = Math.round(Y(gv)) + 0.5; c.beginPath(); c.moveTo(0, gy); c.lineTo(W, gy); c.stroke(); c.fillText(eurS(gv), 8, gy - 5); }
+    for (var gx = 1; gx < 3; gx++) { var xx = Math.round(X(gx * 60)) + 0.5; c.beginPath(); c.moveTo(xx, 0); c.lineTo(xx, H); c.stroke(); }
+    function line(arr, col, wd) { c.beginPath(); for (var j2 = 0; j2 < arr.length; j2++) { if (j2) c.lineTo(X(j2), Y(arr[j2])); else c.moveTo(X(j2), Y(arr[j2])); } c.strokeStyle = col; c.lineWidth = wd; c.stroke(); }
+    FINCAT.forEach(function (k, ci) { if (tot15[k] > 0 || series[ci].some(function (v) { return v > 0; })) line(series[ci], FINCOL[ci], 3); });
+    c.setLineDash([10, 6]); line(total, "#F4F1EC", 2.5); c.setLineDash([]);
+    var names = t("finCat").split("|"), order = FINCAT.map(function (k, ci) { return ci; }).sort(function (a, b) { return tot15[FINCAT[b]] - tot15[FINCAT[a]]; });
+    document.getElementById("fh-fin-leg").innerHTML = '<span><i style="background:#F4F1EC"></i>' + t("finTot") + "<em>" + eurS(all) + "</em></span>" + order.map(function (ci) {
+      var v = tot15[FINCAT[ci]]; return '<span' + (v > 0 ? "" : ' class="off"') + '><i style="background:' + FINCOL[ci] + '"></i>' + names[ci] + "<em>" + (all > 0 ? Math.round(v / all * 100) : 0) + " %</em></span>";
+    }).join("");
+    set("fh-fin-rate", eurS(finRate()));
+    set("fh-fin-sum", all > 0 ? fmt(t("finSum"), { e: eurS(all) }) : t("finEmpty"));
+  }
   // Preisverlauf: nur gezeichnet, wenn das Fenster offen ist, und dann einmal pro Sekunde
   var fpLast = -1;
   function fpDraw(force) {
