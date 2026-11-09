@@ -1,11 +1,11 @@
-/* CityGenerator 0.2 – Stadtplan aus einer Straßenskizze, prozedural im Browser. Für Color Space.
+/* CityGenerator 0.25 – Stadtplan aus einer Straßenskizze, prozedural im Browser. Für Color Space.
    Ablauf: Hauptstraßen zeichnen → Verteilerstraßen zeichnen → Stil wählen → Stadt generieren →
    mit Grün (Park), Blau (Wasser) und Rot (Spezialbauten) übermalen → neu generieren.
    Welt: 2400 × 1500 m. Alles wird in Metern gerechnet. */
 (function () {
   "use strict";
 
-  var VERSION = "0.2";
+  var VERSION = "0.25";
   var W = 2400, H = 1500;
   var lang = "de";
   function L2(de, en) { return { de: de, en: en }; }
@@ -37,7 +37,9 @@
     saved: L2("Gespeichert: {f}", "Saved: {f}"),
     cathedral: L2("Kathedrale", "Cathedral"), church: L2("Kirche", "Church"), opera: L2("Opernhaus", "Opera house"), museum: L2("Museum", "Museum"),
     townhall: L2("Rathaus", "Town hall"), monument: L2("Denkmal", "Monument"), stadium: L2("Stadion", "Stadium"), airport: L2("Flughafen", "Airport"),
-    harbor: L2("Hafen", "Harbour"), campus: L2("Universität", "University"), station: L2("Bahnhof", "Station")
+    harbor: L2("Hafen", "Harbour"), campus: L2("Universität", "University"), station: L2("Bahnhof", "Station"),
+    arena: L2("Arena", "Arena"), baseball: L2("Baseballstadion", "Ballpark"), hospital: L2("Krankenhaus", "Hospital"), palace: L2("Schloss", "Palace"),
+    temple: L2("Tempel", "Temple"), castle: L2("Burg", "Castle"), mall: L2("Einkaufszentrum", "Shopping mall"), market: L2("Marktplatz", "Market square"), tP: L2("Grau: Parkplätze", "Grey: parking")
   };
   function t(k) { return TX[k] ? TX[k][lang] : k; }
   function fmt(s, o) { return s.replace(/\{(\w+)\}/g, function (m, k) { return o[k] != null ? o[k] : m; }); }
@@ -140,7 +142,7 @@
 
   // ---------- Malmasken (2 m) ----------
   var MW = W / 2, MH = H / 2;
-  var PCOL = { g: "#5DBB4E", b: "#3E8FD8", r: "#E0503A", e: "#000" };
+  var PCOL = { g: "#5DBB4E", b: "#3E8FD8", r: "#E0503A", p: "#7D858E", e: "#000" };
   // Für jede Farbe: alle Striche in Reihenfolge, eigene Farbe zeichnet, alles andere radiert (der letzte Strich gewinnt)
   function drawLayer(x, layer, strokes, extra) {
     strokes.forEach(function (st) {
@@ -156,7 +158,7 @@
   function buildMasks(strokes) {
     var c = document.createElement("canvas"); c.width = MW; c.height = MH;
     var x = c.getContext("2d", { willReadFrequently: true }), out = {};
-    ["g", "b", "r"].forEach(function (k) {
+    ["g", "b", "r", "p"].forEach(function (k) {
       x.setTransform(1, 0, 0, 1, 0, 0); x.clearRect(0, 0, MW, MH); x.setTransform(0.5, 0, 0, 0.5, 0, 0);
       x.strokeStyle = "#fff"; drawLayer(x, k, strokes, 0);
       var d = x.getImageData(0, 0, MW, MH).data, m = new Uint8Array(MW * MH);
@@ -170,7 +172,7 @@
   // ---------- Generierung ----------
   function generate() {
     var t0 = performance.now(), st = STY[S.style], R = mulberry(S.seed), seed = S.seed;
-    var C = { style: S.style, st: st, roads: [], buildings: [], trees: [], cars: [], lots: [], drives: [], pools: [], cross: [], specials: [], labels: [], paths: [], ponds: [], ships: [], forest: [], jn: [] };
+    var C = { style: S.style, st: st, roads: [], buildings: [], trees: [], cars: [], hedges: [], props: [], pk: [], flares: [], stops: [], lots: [], drives: [], pools: [], cross: [], specials: [], labels: [], paths: [], ponds: [], ships: [], forest: [], jn: [] };
     var M = buildMasks(S.paint); C.M = M;
     var water = M.b, park = M.g, red = M.r;
 
@@ -212,14 +214,14 @@
       if (A.bb[0] > B.bb[2] || B.bb[0] > A.bb[2] || A.bb[1] > B.bb[3] || B.bb[1] > A.bb[3]) continue;
       for (var i = 1; i < A.pts.length; i++) for (var j = 1; j < B.pts.length; j++) {
         var X = segX(A.pts[i - 1], A.pts[i], B.pts[j - 1], B.pts[j]);
-        if (X) { A.junc.push({ s: A.L[i - 1] + X.u * (A.L[i] - A.L[i - 1]), w: B.hw + B.sw }); B.junc.push({ s: B.L[j - 1] + X.v * (B.L[j] - B.L[j - 1]), w: A.hw + A.sw }); C.jn.push({ x: X.x, y: X.y }); }
+        if (X) { var sA = A.L[i - 1] + X.u * (A.L[i] - A.L[i - 1]), sB = B.L[j - 1] + X.v * (B.L[j] - B.L[j - 1]); A.junc.push({ s: sA, w: B.hw + B.sw + 10 }); B.junc.push({ s: sB, w: A.hw + A.sw + 10 }); C.jn.push({ x: X.x, y: X.y }); (C.xings || (C.xings = [])).push({ A: A, B: B, sA: sA, sB: sB, x: X.x, y: X.y }); }
       }
       // Einrasten an Enden zählt auch als Kreuzung
       [[A, B], [B, A]].forEach(function (pr) {
         var P = pr[0], Q = pr[1];
         [0, P.pts.length - 1].forEach(function (k) {
           var np = nearestOnPolyline(Q.pts, Q.L, P.pts[k]);
-          if (np.d < 2.5) { Q.junc.push({ s: np.s, w: P.hw + P.sw }); P.junc.push({ s: P.L[k], w: Q.hw + Q.sw }); C.jn.push({ x: np.x, y: np.y }); }
+          if (np.d < 2.5) { Q.junc.push({ s: np.s, w: P.hw + P.sw + 10 }); P.junc.push({ s: P.L[k], w: Q.hw + Q.sw + 10 }); C.jn.push({ x: np.x, y: np.y }); (C.tees || (C.tees = [])).push({ r: P, start: k === 0, host: Q, s: np.s }); }
         });
       });
     }
@@ -302,12 +304,12 @@
 
     // ---------- Seitenstraßen: Stromlinien im Feld ----------
     var dsep = [st.dA, st.dB], step = 3, locals = [], maxSteps = 1200, tStart = performance.now();
-    function blockedAt(x, y) { return mAt(park, x, y) || mAt(red, x, y); }
+    function blockedAt(x, y) { return mAt(park, x, y) || mAt(red, x, y) || mAt(M.p, x, y); }
     function isWater(x, y) { return mAt(water, x, y); }
     function nearRoad(x, y, hw, exclude, srcR, srcS) {
       var hit = null, bd = 1e9;
       hnear(x, y, hw + 16, function (e, d) {
-        if (e.r === exclude) return false;
+        if (e.r === exclude || e.r.cls === "rail") return false;
         var lim = hw + (e.r.cls === "rail" ? e.r.hw + 1.5 : e.r.hw) + 1.2;
         if (d < lim && d < bd) { if (e.r === srcR && Math.abs(e.r.L[e.i] - srcS) < 25) return false; bd = d; hit = e; }
         return false;
@@ -400,16 +402,51 @@
       if (tl < 14 || (typeof res.end === "string" && tl < 28)) continue;
       var lr = addRoad(res.pts, "local", st.hw, st.sw, sd.fam);
       lr.bridges = res.bridges;
-      sr.junc.push({ s: sd.s, w: st.hw + st.sw }); lr.junc.push({ s: 0, w: sr.hw + sr.sw, host: sr });
+      sr.junc.push({ s: sd.s, w: st.hw + st.sw + 4 }); lr.junc.push({ s: 0, w: sr.hw + sr.sw, host: sr });
       if (sr.cls !== "local") C.cross.push({ r: lr, s: 0, off: sr.hw + sr.sw + 1.5 });
       if (typeof res.end === "object" && res.end) {
-        res.end.r.junc.push({ s: res.end.s, w: st.hw + st.sw }); lr.junc.push({ s: lr.len, w: res.end.r.hw + res.end.r.sw, host: res.end.r });
+        res.end.r.junc.push({ s: res.end.s, w: st.hw + st.sw + 4 }); lr.junc.push({ s: lr.len, w: res.end.r.hw + res.end.r.sw, host: res.end.r });
         if (res.end.r.cls !== "local") C.cross.push({ r: lr, s: lr.len, off: -(res.end.r.hw + res.end.r.sw + 1.5) });
         C.jn.push({ x: res.pts[res.pts.length - 1].x, y: res.pts[res.pts.length - 1].y });
       }
       hins(lr); locals.push(lr);
       seedsAlong(lr, true);
     }
+
+    // ---------- Kreuzungen: Bordsteinradien, Zebrastreifen, Haltelinien ----------
+    var RAD = { local: S.style === "jp" ? 2.2 : 4.5, dist: 7, main: 9 };
+    function armDir(r, atStart) {
+      var p0 = atStart ? r.pts[0] : r.pts[r.pts.length - 1], p1 = at(r, atStart ? Math.min(10, r.len) : Math.max(0, r.len - 10)), dx = p1.x - p0.x, dy = p1.y - p0.y, l = Math.hypot(dx, dy) || 1;
+      return { x: dx / l, y: dy / l };
+    }
+    function corner(X, ua, wa, ub, wb, R, col) {
+      var sn = Math.abs(ua.x * ub.y - ua.y * ub.x); if (sn < 0.4) return;
+      var K = { x: X.x + ua.x * wb / sn + ub.x * wa / sn, y: X.y + ua.y * wb / sn + ub.y * wa / sn };
+      C.flares.push({ k: K, a0: { x: K.x + ua.x * R, y: K.y + ua.y * R }, a1: { x: K.x + ub.x * R, y: K.y + ub.y * R }, col: col });
+    }
+    function zebraArm(X, ua, wa, ub, wb, R, stopToo, own) {
+      var sn = Math.abs(ua.x * ub.y - ua.y * ub.x); if (sn < 0.4) return;
+      var d0 = wb / sn + R * 0.55 + 2.2, zx = X.x + ua.x * d0, zy = X.y + ua.y * d0;
+      if (C.zebras.some(function (z) { return Math.hypot(z.x - zx, z.y - zy) < 9; })) return;
+      if (hnear(zx, zy, 24, function (e, dd) { return e.r !== own && e.r.cls !== "rail" && dd < e.r.hw + 1.5; })) return;
+      C.zebras.push({ x: X.x + ua.x * d0, y: X.y + ua.y * d0, dx: ua.x, dy: ua.y, hw: wa });
+      if (stopToo) { var d1 = d0 + 2.6, rx = ua.y, ry = -ua.x, cx2 = X.x + ua.x * d1, cy2 = X.y + ua.y * d1; C.stops.push([cx2 + rx * 0.3, cy2 + ry * 0.3, cx2 + rx * (wa - 0.4), cy2 + ry * (wa - 0.4)]); }
+    }
+    function asphaltOf(r) { return r.cls === "main" ? "#62666C" : r.cls === "dist" ? "#6C7076" : (S.style === "jp" ? "#8A8C8F" : "#777B80"); }
+    C.zebras = [];
+    function tee(minor, atStart, host, sh) {
+      var X = atStart ? minor.pts[0] : minor.pts[minor.pts.length - 1], ua = armDir(minor, atStart), th = at(host, sh);
+      var R = Math.min(RAD[minor.cls], RAD[host.cls], 2.6 * Math.min(minor.sw, host.sw) + 0.5), col = asphaltOf(minor);
+      [{ x: th.tx, y: th.ty }, { x: -th.tx, y: -th.ty }].forEach(function (ub) { corner(X, ua, minor.hw, ub, host.hw, R, col); });
+      if (host.cls !== "local") zebraArm(X, ua, minor.hw, { x: th.tx, y: th.ty }, host.hw, R, minor.cls !== "local" || S.style !== "usa", minor);
+    }
+    C.roads.forEach(function (r) { if (r.cls === "local") r.junc.forEach(function (j) { if (j.host) tee(r, j.s === 0, j.host, nearestOnPolyline(j.host.pts, j.host.L, j.s === 0 ? r.pts[0] : r.pts[r.pts.length - 1]).s); }); });
+    (C.tees || []).forEach(function (q) { tee(q.r, q.start, q.host, q.s); });
+    (C.xings || []).forEach(function (q) {
+      var ta = at(q.A, q.sA), tb = at(q.B, q.sB), X = { x: q.x, y: q.y }, R = Math.min(RAD[q.A.cls], RAD[q.B.cls], 2.6 * Math.min(q.A.sw, q.B.sw)), col = q.A.cls === "dist" ? asphaltOf(q.A) : asphaltOf(q.B);
+      [1, -1].forEach(function (sa) { [1, -1].forEach(function (sb) { corner(X, { x: ta.tx * sa, y: ta.ty * sa }, q.A.hw, { x: tb.tx * sb, y: tb.ty * sb }, q.B.hw, R, col); }); });
+      [1, -1].forEach(function (sa) { zebraArm(X, { x: ta.tx * sa, y: ta.ty * sa }, q.A.hw, { x: tb.tx, y: tb.ty }, q.B.hw, R, true, q.A); zebraArm(X, { x: tb.tx * sa, y: tb.ty * sa }, q.B.hw, { x: ta.tx, y: ta.ty }, q.A.hw, R, true, q.B); });
+    });
 
     // Brücken der großen Straßen über Wasser
     C.roads.forEach(function (r) {
@@ -433,6 +470,7 @@
       else if (water[mk]) land[k3] = 2;
       else if (park[mk]) land[k3] = 3;
       else if (red[mk]) land[k3] = 4;
+      else if (M.p[mk]) land[k3] = 9;
       else if (!inCity(xx, yy)) land[k3] = 6;
     }
     rd = null;
@@ -481,20 +519,54 @@
 
     // ---------- Spezialbauten ----------
     comps.r.forEach(function (cp) {
-      var sr = mulberry(Math.floor(cp.cx * 31 + cp.cy * 17) + seed * 3), A = cp.area, asp = cp.a / Math.max(1, cp.b);
+      var sr = mulberry(Math.floor(cp.cx * 31 + cp.cy * 17) + seed * 3), A = cp.area, asp = cp.a / Math.max(1, cp.b), sty = S.style;
       var wet = false; for (var i = 0; i < cp.edge.length && !wet; i += 3) { var e = cp.edge[i]; for (var a5 = 0; a5 < 8; a5++) { if (mAt(water, e.x + Math.cos(a5 * 0.785) * 10, e.y + Math.sin(a5 * 0.785) * 10)) { wet = true; break; } } }
-      var type;
+      var type, v = Math.floor(sr() * 3);
       if (wet && A > 10000 && sr() < 0.9) type = "harbor";
       else if (A > 80000 && asp > 2.0 && cp.a > 380) type = "airport";
-      else if (A > 22000) type = asp < 2.2 ? (sr() < 0.7 ? "stadium" : "campus") : "campus";
-      else if (A > 6000) type = pick(sr, ["cathedral", "opera", "museum", "townhall", "cathedral", "opera"]);
-      else if (A > 1500) type = pick(sr, ["church", "monument", "church"]);
+      else if (A > 22000) type = pick(sr, sty === "eu" ? ["stadium", "palace", "campus", "stadium", "palace"] : sty === "usa" ? ["stadium", "mall", "campus", "stadium"] : ["stadium", "castle", "campus", "temple"]);
+      else if (A > 6000) type = pick(sr, sty === "eu" ? ["cathedral", "opera", "museum", "townhall", "market"] : sty === "usa" ? ["opera", "museum", "townhall", "church", "mall"] : ["temple", "museum", "opera", "townhall", "temple"]);
+      else if (A > 1500) type = pick(sr, sty === "eu" ? ["church", "monument", "market"] : sty === "usa" ? ["church", "monument"] : ["temple", "monument"]);
       else type = "monument";
-      var sp = { type: type, cx: cp.cx, cy: cp.cy, ux: cp.ux, uy: cp.uy, a: cp.a, b: cp.b, seed: Math.floor(sr() * 1e6), area: A };
+      if (type === "castle" && asp > 1.8) type = "temple";
+      if (type === "mall" && A < 9000) type = "museum";
+      var lk = type;
+      if (type === "stadium") lk = sty === "usa" && v === 2 ? "baseball" : v === 1 ? "arena" : "stadium";
+      if (type === "campus" && v === 2) lk = "hospital";
+      var sp = { type: type, v: v, lk: lk, cx: cp.cx, cy: cp.cy, ux: cp.ux, uy: cp.uy, a: cp.a, b: cp.b, seed: Math.floor(sr() * 1e6), area: A };
+      // Grundriss so weit verkleinern, bis er ganz in der roten Fläche liegt (kein Überstehen mehr)
+      function W2(u, w) { return { x: cp.cx + cp.ux * u - cp.uy * w, y: cp.cy + cp.uy * u + cp.ux * w }; }
+      function fits(fa, fb, ell) {
+        for (var q = 0; q < 28; q++) {
+          var t2 = q / 28 * Math.PI * 2, cu = Math.cos(t2), sv = Math.sin(t2), u, w;
+          if (ell) { u = cu * fa; w = sv * fb; } else { var m = Math.max(Math.abs(cu), Math.abs(sv)); u = cu / m * fa; w = sv / m * fb; }
+          var pw = W2(u, w); if (L(pw.x, pw.y) !== 4) return false;
+        }
+        return true;
+      }
+      var fa = cp.a * 0.96, fb = cp.b * 0.96, ell = type === "stadium" || type === "monument";
+      for (var it = 0; it < 16 && !fits(fa, fb, ell); it++) { fa *= 0.92; fb *= 0.92; }
+      sp.fa = fa; sp.fb = fb;
       if (type === "harbor") {
-        // Richtung zum Wasser
         var wx = 0, wy = 0; cp.edge.forEach(function (e) { for (var a6 = 0; a6 < 8; a6++) { var dx = Math.cos(a6 * 0.785), dy = Math.sin(a6 * 0.785); if (mAt(water, e.x + dx * 10, e.y + dy * 10)) { wx += dx; wy += dy; } } });
         var wl = Math.hypot(wx, wy) || 1; sp.wx = wx / wl; sp.wy = wy / wl;
+        // Rahmen am Ufer: u entlang der Kaikante, v zum Wasser
+        var e1 = { x: -sp.wy, y: sp.wx }, e2 = { x: sp.wx, y: sp.wy }, u0 = 1e9, u1 = -1e9, v0 = 1e9, v1 = -1e9;
+        cp.cells.forEach(function (c) { var px = (c % MW) * 2 + 1 - cp.cx, py = ((c / MW) | 0) * 2 + 1 - cp.cy, u = px * e1.x + py * e1.y, w = px * e2.x + py * e2.y; if (u < u0) u0 = u; if (u > u1) u1 = u; if (w < v0) v0 = w; if (w > v1) v1 = w; });
+        function HW(u, w) { return { x: cp.cx + e1.x * u + e2.x * w, y: cp.cy + e1.y * u + e2.y * w }; }
+        function inside(u, w, du, dw) { for (var a7 = 0; a7 <= 1; a7 += 0.5) for (var b7 = 0; b7 <= 1; b7 += 0.5) { var p7 = HW(u + du * a7, w + dw * b7); if (L(p7.x, p7.y) !== 4) return false; } return true; }
+        var hb = { e1: e1, e2: e2, cranes: [], blocks: [], sheds: [], quay: [] };
+        // Kaikante: entlang des Ufers die Stellen suchen, an denen dahinter Wasser beginnt
+        for (var u = u0 + 10; u < u1 - 10; u += 4) { for (var w = v1; w > v0; w -= 2) { var p8 = HW(u, w); if (mAt(red, p8.x, p8.y)) { hb.quay.push([u, w]); break; } } }
+        hb.quay.forEach(function (q, k) { if (k % 10 === 4 && inside(q[0] - 8, q[1] - 22, 16, 20)) hb.cranes.push(q); });
+        var cols = ["#C2533C", "#3B78B0", "#D9A637", "#4D8F68", "#8E5A9C", "#DDDAD3", "#2F6E8F"];
+        for (var w2 = v0 + 8; w2 < v1 - 40; w2 += 22) for (var u2 = u0 + 6; u2 < u1 - 40; u2 += 44) {
+          if (!inside(u2, w2, 38, 15) || hb.quay.some(function (q) { return Math.abs(q[0] - u2 - 19) < 30 && q[1] - (w2 + 15) < 24; })) continue;
+          var cs = []; for (var k8 = 0; k8 < 18; k8++) cs.push(sr() < 0.12 ? null : cols[Math.floor(sr() * cols.length)]);
+          hb.blocks.push({ u: u2, v: w2, c: cs });
+        }
+        for (var u3 = u0 + 4; u3 < u1 - 60; u3 += 72) if (inside(u3, v0 + 3, 62, 24) && !hb.blocks.some(function (bk) { return Math.abs(bk.u - u3) < 60 && Math.abs(bk.v - v0 - 3) < 26; })) hb.sheds.push([u3, v0 + 3]);
+        sp.hb = hb;
         for (var s6 = 0; s6 < 3; s6++) {
           for (var dd = 30; dd < 260; dd += 10) {
             var ox = cp.cx + sp.wx * (dd + cp.a * 0.3) + (-sp.wy) * (s6 - 1) * 90, oy = cp.cy + sp.wy * (dd + cp.a * 0.3) + sp.wx * (s6 - 1) * 90, ok2 = true;
@@ -504,7 +576,7 @@
         }
       }
       C.specials.push(sp);
-      C.labels.push({ x: cp.cx, y: cp.cy, k: type });
+      C.labels.push({ x: cp.cx, y: cp.cy, k: lk });
     });
     if (C.station) { var sp7 = at(C.rail, C.station.s); C.labels.push({ x: sp7.x - sp7.ty * 30, y: sp7.y + sp7.tx * 30, k: "station" }); }
 
@@ -573,81 +645,138 @@
         var ds = 0, n = 0, i, c;
         for (i = 0; i < cells.length; i += 9) { c = cells[i]; ds += density(c % W, (c / W) | 0); n++; }
         var d = ds / n, P = modeParams(d, er); if (!P) return gid;
-        var solid = maxDT < P.depth * 1.3, Deff = solid ? maxDT + 1 : P.depth, half = solid ? maxDT * 0.5 : P.depth * 0.5;
-        // Front-Grundstücke: den Blockrand (als geschlossene Linie) ablaufen und in Abständen schneiden.
-        // Jede Zelle gehört zum Randpunkt, der ihr am nächsten ist, so laufen die Grenzen senkrecht zur Straße.
+        // Blockumriss als sauberes Polygon (wie in OSM: gerade Fassaden entlang der Straße)
         var bw0 = b[2] - b[0] + 1, bh0 = b[3] - b[1] + 1, mk = new Uint8Array(bw0 * bh0);
         for (i = 0; i < cells.length; i++) { c = cells[i]; mk[(((c / W) | 0) - b[1]) * bw0 + c % W - b[0]] = 1; }
-        var loops = rawLoops(function (i2, j2) { return mk[j2 * bw0 + i2] === 1; }, bw0, bh0);
-        var vmap = new Map(), seeds = [], VWc = W + 1;
-        loops.forEach(function (lp) {
-          var L0 = [0];
-          for (var q = 1; q <= lp.length; q++) { var a = lp[q - 1], c2 = lp[q % lp.length]; L0.push(L0[q - 1] + Math.hypot(c2.x - a.x, c2.y - a.y)); }
-          var tot = L0[lp.length]; if (tot < 6) return;
-          var cuts = [], sAt = er() * 6;
-          while (sAt < tot) { cuts.push(sAt); sAt += rr(er, P.f[0], P.f[1]) * (1.15 - d * 0.3); }
-          if (cuts.length < 2) cuts = [0, tot / 2];
-          var base = seeds.length, pal = [st.roofs[Math.floor(er() * st.roofs.length)], st.roofs[Math.floor(er() * st.roofs.length)], st.roofs[Math.floor(er() * st.roofs.length)]];
-          for (var k2 = 0; k2 < cuts.length; k2++) {
-            var flat = er() < P.flat, rs = flat ? (S.style === "usa" ? ["#C9CCCF", "#BFC3C6", "#D3D5D6", "#B0B5BA", "#9EA4AA"] : S.style === "jp" ? ["#B9B5AC", "#A9ADB2", "#C7C3BA", "#9AA1A8", "#8F969E"] : ["#C9C2B4", "#B8B2A6", "#A9A9A6"]) : st.roofs;
-            seeds.push({ gap: er() < P.gap, det: er() < P.det, flat: flat, roof: flat ? rs[Math.floor(er() * rs.length)] : (er() < 0.8 ? pal[Math.floor(er() * 3)] : rs[Math.floor(er() * rs.length)]), h: rr(er, P.h[0], P.h[1]) * (0.75 + d * 0.5), nx: 0, ny: 0, b: [1e9, 1e9, -1, -1], n: 0 });
-          }
-          for (q = 0; q < lp.length; q++) {
-            var sq = L0[q], lo = 0, hi = cuts.length - 1;
-            if (sq < cuts[0]) idx = cuts.length - 1; else { while (lo < hi) { var mid = (lo + hi + 1) >> 1; if (cuts[mid] <= sq) lo = mid; else hi = mid - 1; } var idx = lo; }
-            vmap.set((lp[q].y + b[1]) * VWc + lp[q].x + b[0], base + idx);
-          }
-        });
-        if (!seeds.length) return gid;
-        function pieceOf(c) {
-          var x1 = fx[c], y1 = fy[c];
-          for (var r2 = 0; r2 <= 2; r2++) for (var yy2 = y1 - r2; yy2 <= y1 + 1 + r2; yy2++) for (var xx2 = x1 - r2; xx2 <= x1 + 1 + r2; xx2++) {
-            var v4 = vmap.get(yy2 * VWc + xx2); if (v4 != null) return v4;
-          }
-          return 0;
+        function inB(x, y) { var lx = Math.floor(x) - b[0], ly = Math.floor(y) - b[1]; return lx >= 0 && ly >= 0 && lx < bw0 && ly < bh0 && mk[ly * bw0 + lx] === 1; }
+        var loops = rawLoops(function (i2, j2) { return mk[j2 * bw0 + i2] === 1; }, bw0, bh0), O = null, oa = 0;
+        loops.forEach(function (lp) { var ar = 0; for (var q = 0; q < lp.length; q++) { var a = lp[q], e = lp[(q + 1) % lp.length]; ar += a.x * e.y - e.x * a.y; } if (ar > oa) { oa = ar; O = lp; } });
+        if (!O) return gid;
+        O = O.map(function (p) { return { x: p.x + b[0], y: p.y + b[1] }; });
+        O.push(O[0]); O = rdp(O, 1.7); O.pop();
+        O = O.filter(function (p, q) { var nx2 = O[(q + 1) % O.length]; return Math.hypot(nx2.x - p.x, nx2.y - p.y) > 1.2; });
+        if (O.length < 3) return gid;
+        var On = O.length, nrm = [];
+        for (i = 0; i < On; i++) { var a = O[i], e = O[(i + 1) % On], l = Math.hypot(e.x - a.x, e.y - a.y) || 1; nrm.push({ x: -(e.y - a.y) / l, y: (e.x - a.x) / l }); }
+        function offset(D) {
+          return O.map(function (p, q) {
+            var n1 = nrm[(q - 1 + On) % On], n2 = nrm[q], mx = n1.x + n2.x, my = n1.y + n2.y, ml = Math.hypot(mx, my) || 1; mx /= ml; my /= ml;
+            var k = Math.max(0.45, mx * n2.x + my * n2.y);
+            return { x: p.x + mx * D / k, y: p.y + my * D / k };
+          });
         }
-        var bw = b[2] - b[0] + 1, bh = b[3] - b[1] + 1, loc = new Int32Array(bw * bh);
-        for (i = 0; i < cells.length; i++) {
-          c = cells[i]; var si = pieceOf(c), dist = Math.sqrt(dd[c]), cx = c % W, cy = (c / W) | 0;
-          pid[c] = gid + si; gdist[c] = dist > 254 ? 255 : dist;
-          if (dist <= Deff && !seeds[si].gap) {
-            loc[(cy - b[1]) * bw + cx - b[0]] = si * 2 + (dist <= half ? 1 : 2);
-            var S0 = seeds[si]; S0.nx += fx[c] - cx; S0.ny += fy[c] - cy;
+        // Kanten, die beim Einrücken umklappen, auf einen Punkt zusammenziehen (vereinfachtes Straight Skeleton)
+        function fixInner(I) {
+          for (var it = 0; it < 4; it++) {
+            var bad = false;
+            for (var q = 0; q < On; q++) {
+              var a = O[q], e = O[(q + 1) % On], ia = I[q], ie = I[(q + 1) % On];
+              if ((ie.x - ia.x) * (e.x - a.x) + (ie.y - ia.y) * (e.y - a.y) < 0) { var m = { x: (ia.x + ie.x) / 2, y: (ia.y + ie.y) / 2 }; I[q] = m; I[(q + 1) % On] = { x: m.x, y: m.y }; bad = true; }
+            }
+            if (!bad) break;
+          }
+          return I;
+        }
+        function validInner(I) {
+          var ar = 0;
+          for (var q = 0; q < On; q++) {
+            var a = O[q], e = O[(q + 1) % On], ia = I[q], ie = I[(q + 1) % On];
+            if ((ie.x - ia.x) * (e.x - a.x) + (ie.y - ia.y) * (e.y - a.y) < -0.01) return false;
+            if (!inB(ia.x, ia.y)) return false;
+            ar += ia.x * ie.y - ie.x * ia.y;
+          }
+          return ar > oa * 0.06;
+        }
+        var D = P.depth, I = null, pie = false;
+        if (maxDT < D * 1.25) D = Math.max(3.5, maxDT * 0.66);
+        for (var tr2 = 0; tr2 < 5; tr2++) { I = fixInner(offset(D)); if (validInner(I)) break; I = null; D *= 0.8; if (D < 3.5) break; }
+        if (!I && oa > 2600) return gid;   // großer, verwinkelter Block: lockere Bebauung übernimmt
+        if (!I || maxDT < 6) {
+          // kleiner Block: ganz bebaut, Teile laufen wie Tortenstücke zur Mitte (Walmdach-Optik)
+          pie = true; var gx = 0, gy = 0; O.forEach(function (p) { gx += p.x; gy += p.y; }); gx /= On; gy /= On;
+          if (!inB(gx, gy)) return gid;
+          I = O.map(function () { return { x: gx, y: gy }; });
+        }
+        var Mi = O.map(function (p, q) { return { x: (p.x + I[q].x) / 2, y: (p.y + I[q].y) / 2 }; });
+        var Lc = [0]; for (i = 1; i <= On; i++) Lc.push(Lc[i - 1] + Math.hypot(O[i % On].x - O[i - 1].x, O[i % On].y - O[i - 1].y));
+        var tot = Lc[On];
+        function loc(s) { s = ((s % tot) + tot) % tot; var lo = 0, hi = On - 1; while (lo < hi) { var m = (lo + hi + 1) >> 1; if (Lc[m] <= s) lo = m; else hi = m - 1; } return { i: lo, t: (s - Lc[lo]) / ((Lc[lo + 1] - Lc[lo]) || 1) }; }
+        function pt(poly, l2) { var a = poly[l2.i], e = poly[(l2.i + 1) % On]; return { x: a.x + (e.x - a.x) * l2.t, y: a.y + (e.y - a.y) * l2.t }; }
+        function along(poly, s0, s1) {
+          var out = [pt(poly, loc(s0))], a = loc(s0), e = loc(s1), i0 = a.i, guard = 0;
+          var span = s1 - s0, walked = Lc[i0 + 1] - (s0 % tot + tot) % tot;
+          while (walked < span - 1e-6 && guard++ < On + 1) { i0 = (i0 + 1) % On; out.push({ x: poly[i0].x, y: poly[i0].y }); walked += Lc[i0 + 1] - Lc[i0]; }
+          out.push(pt(poly, e)); return out;
+        }
+        // Schnitte entlang der Front, an Ecken einrasten
+        var cuts = [], sAt = er() * 5, fs = (1.15 - d * 0.3) * (pie ? 1.5 : 1);
+        while (sAt < tot - 3) {
+          var snap = sAt;
+          for (i = 0; i < On; i++) if (Math.abs(Lc[i] - sAt) < 3.2) { snap = Lc[i]; break; }
+          if (!cuts.length || snap - cuts[cuts.length - 1] > 3) cuts.push(snap);
+          sAt = snap + rr(er, P.f[0], P.f[1]) * fs;
+        }
+        if (cuts.length < 2) cuts = [0, tot / 2];
+        var flatRs = S.style === "usa" ? ["#C9CCCF", "#BFC3C6", "#D3D5D6", "#B0B5BA", "#9EA4AA"] : S.style === "jp" ? ["#B9B5AC", "#A9ADB2", "#C7C3BA", "#9AA1A8", "#8F969E"] : ["#C9C2B4", "#B8B2A6", "#A9A9A6"];
+        var pal = [st.roofs[Math.floor(er() * st.roofs.length)], st.roofs[Math.floor(er() * st.roofs.length)], st.roofs[Math.floor(er() * st.roofs.length)]];
+        var hedgeL = P.mode === "mid" ? Math.min(rr(er, 12, 24), (maxDT - D) * 0.42) : 0;
+        for (var k2 = 0; k2 < cuts.length; k2++) {
+          var s0 = cuts[k2], s1 = k2 + 1 < cuts.length ? cuts[k2 + 1] : cuts[0] + tot;
+          var gap = er() < P.gap, det = er() < P.det, flat = er() < P.flat || (pie && S.style !== "eu" && er() < 0.6);
+          // Hecke an der Grundstücksgrenze (lockere Bebauung)
+          if (hedgeL) {
+            var l0 = loc(s0), po = pt(O, l0), pi2 = pt(I, l0), hx = pi2.x - po.x, hy = pi2.y - po.y, hl = Math.hypot(hx, hy) || 1; hx /= hl; hy /= hl;
+            var q0 = { x: pi2.x, y: pi2.y }, q1 = q0;
+            for (var u = 1; u < hedgeL; u += 1) { var qx = pi2.x + hx * u, qy = pi2.y + hy * u; if (!inB(qx, qy)) break; q1 = { x: qx, y: qy }; }
+            if (q1 !== q0) C.hedges.push([q0.x, q0.y, q1.x, q1.y]);
+          }
+          if (gap) continue;
+          if (det && s1 - s0 > 7) { s0 += 1.1; s1 -= 1.1; }
+          var oP = along(O, s0, s1), mP = along(Mi, s0, s1), iP = along(I, s0, s1);
+          var full = oP.concat(iP.slice().reverse()), A = [oP.concat(mP.slice().reverse())], B2 = [mP.concat(iP.slice().reverse())];
+          // Wohin zeigt die Straße? (Mittel der Außennormalen)
+          var nx = 0, ny = 0; for (i = 0; i < oP.length - 1; i++) { var ex = oP[i + 1].x - oP[i].x, ey = oP[i + 1].y - oP[i].y; nx += ey; ny -= ex; }
+          var nl = Math.hypot(nx, ny) || 1;
+          var roof = flat ? flatRs[Math.floor(er() * flatRs.length)] : (er() < 0.8 ? pal[Math.floor(er() * 3)] : st.roofs[Math.floor(er() * st.roofs.length)]);
+          var hgt = rr(er, P.h[0], P.h[1]) * (0.75 + d * 0.5);
+          fillPoly(full, 5);
+          C.buildings.push({ polys: flat ? [full] : A, polys2: flat ? [] : B2, flat: flat, roof: roof, h: hgt, nx: nx / nl, ny: ny / nl, bb: bboxOf(full, hgt * 1.2 + 1), kind: P.mode });
+          // Seitenflügel in den Hof (Hinterhaus), wie in gründerzeitlichen Blöcken
+          var lw0 = loc((s0 + s1) / 2 - 4), lw1 = loc((s0 + s1) / 2 + 4);
+          if (!pie && P.mode === "dense" && S.style === "eu" && s1 - s0 > 11 && lw0.i === lw1.i && er() < 0.35) {
+            var wm = (s0 + s1) / 2, ww = rr(er, 5, 7), la = loc(wm - ww / 2), lb = loc(wm + ww / 2), ia2 = pt(I, la), ib2 = pt(I, lb), oa2 = pt(O, la);
+            var wOK = Math.hypot(ib2.x - ia2.x, ib2.y - ia2.y) >= 3.5;
+            var vx = ia2.x - oa2.x, vy = ia2.y - oa2.y, vl = Math.hypot(vx, vy) || 1, wl = rr(er, 7, 14); vx /= vl; vy /= vl;
+            var wing = [ia2, ib2, { x: ib2.x + vx * wl, y: ib2.y + vy * wl }, { x: ia2.x + vx * wl, y: ia2.y + vy * wl }];
+            if (wOK && wing.every(function (p) { return inB(p.x, p.y); }) && polyFree(wing)) {
+              fillPoly(wing, 5);
+              var hw2 = [{ x: (wing[0].x + wing[1].x) / 2, y: (wing[0].y + wing[1].y) / 2 }, { x: (wing[2].x + wing[3].x) / 2, y: (wing[2].y + wing[3].y) / 2 }];
+              C.buildings.push({ polys: [[wing[0], hw2[0], hw2[1], wing[3]]], polys2: [[hw2[0], wing[1], wing[2], hw2[1]]], flat: false, roof: roof, h: hgt * 0.8, nx: -vy, ny: vx, bb: bboxOf(wing, hgt + 1), kind: "wing" });
+            }
           }
         }
-        // freistehende Häuser: Zellen an der Grenze zum Nachbarhaus wegnehmen
-        if (P.det > 0) {
-          var cut = [];
-          for (y = 1; y < bh - 1; y++) for (x = 1; x < bw - 1; x++) {
-            var v = loc[y * bw + x]; if (!v) continue; var sv = (v - 1) >> 1; if (!seeds[sv].det) continue;
-            var nbs = [loc[y * bw + x - 1], loc[y * bw + x + 1], loc[(y - 1) * bw + x], loc[(y + 1) * bw + x]];
-            for (var q = 0; q < 4; q++) if (nbs[q] && ((nbs[q] - 1) >> 1) !== sv) { cut.push(y * bw + x); break; }
-          }
-          cut.forEach(function (p) { loc[p] = 0; });
-          // zweite Reihe für etwas Abstand
-          cut.forEach(function (p) { var y2 = (p / bw) | 0, x2 = p % bw; [p - 1, p + 1, p - bw, p + bw].forEach(function (p2) { if (p2 >= 0 && p2 < loc.length && loc[p2] && er() < 0.5 && Math.abs((p2 % bw) - x2) <= 1 && Math.abs(((p2 / bw) | 0) - y2) <= 1) loc[p2] = loc[p2]; }); });
+        for (i = 0; i < cells.length; i++) { c = cells[i]; if (land[c] === 0) land[c] = P.mode === "dense" ? 8 : 7; }
+        return gid + cuts.length + 1;
+      }
+      // Polygon ins Belegungsraster schreiben (nur freie Zellen)
+      function fillPoly(Pl, val) {
+        var bb = bboxOf(Pl, 0), n = Pl.length;
+        for (var y = Math.max(0, Math.floor(bb[1])); y <= Math.min(H - 1, bb[3]); y++) {
+          var cy = y + 0.5, xs = [];
+          for (var q = 0, r2 = n - 1; q < n; r2 = q++) { var a = Pl[q], e = Pl[r2]; if ((a.y > cy) !== (e.y > cy)) xs.push(a.x + (cy - a.y) * (e.x - a.x) / (e.y - a.y)); }
+          xs.sort(function (u, v) { return u - v; });
+          for (var k = 0; k + 1 < xs.length; k += 2) for (var x = Math.max(0, Math.ceil(xs[k] - 0.5)); x <= Math.min(W - 1, Math.floor(xs[k + 1] - 0.5)); x++) { var kk = y * W + x; if (land[kk] === 0 || land[kk] === 7 || land[kk] === 8) land[kk] = val; }
         }
-        for (i = 0; i < cells.length; i++) {
-          c = cells[i]; var lx = c % W - b[0], ly = ((c / W) | 0) - b[1], v2 = loc[ly * bw + lx];
-          if (v2) { land[c] = 5; var s2 = seeds[(v2 - 1) >> 1]; s2.n++; if (lx < s2.b[0]) s2.b[0] = lx; if (ly < s2.b[1]) s2.b[1] = ly; if (lx > s2.b[2]) s2.b[2] = lx; if (ly > s2.b[3]) s2.b[3] = ly; }
-          else land[c] = P.mode === "dense" && Math.sqrt(dd[c]) > Deff ? 8 : 7;
+      }
+      function polyFree(Pl) {
+        var bb = bboxOf(Pl, 0), n = Pl.length, bad = 0;
+        for (var y = Math.max(0, Math.floor(bb[1])); y <= Math.min(H - 1, bb[3]); y++) {
+          var cy = y + 0.5, xs = [];
+          for (var q = 0, r2 = n - 1; q < n; r2 = q++) { var a = Pl[q], e = Pl[r2]; if ((a.y > cy) !== (e.y > cy)) xs.push(a.x + (cy - a.y) * (e.x - a.x) / (e.y - a.y)); }
+          xs.sort(function (u, v) { return u - v; });
+          for (var k = 0; k + 1 < xs.length; k += 2) for (var x = Math.max(0, Math.ceil(xs[k] - 0.5)); x <= Math.min(W - 1, Math.floor(xs[k + 1] - 0.5)); x++) { var v = land[y * W + x]; if (v !== 0) bad++; }
         }
-        // Umrisse als Polygone
-        seeds.forEach(function (s, si) {
-          if (s.n < 12) return;
-          var x0 = s.b[0], y0 = s.b[1], w = s.b[2] - x0 + 1, h = s.b[3] - y0 + 1, o = si * 2 + 1, inn = si * 2 + 2;
-          var A, B2;
-          if (s.flat) { A = contours(function (i2, j2) { var v3 = loc[(j2 + y0) * bw + i2 + x0]; return v3 === o || v3 === inn; }, w, h, b[0] + x0, b[1] + y0); B2 = []; }
-          else {
-            A = contours(function (i2, j2) { return loc[(j2 + y0) * bw + i2 + x0] === o; }, w, h, b[0] + x0, b[1] + y0);
-            B2 = contours(function (i2, j2) { return loc[(j2 + y0) * bw + i2 + x0] === inn; }, w, h, b[0] + x0, b[1] + y0);
-          }
-          if (!A.length && !B2.length) return;
-          var nl = Math.hypot(s.nx, s.ny) || 1, all = A.concat(B2), pts = [];
-          all.forEach(function (p) { pts = pts.concat(p); });
-          C.buildings.push({ polys: A, polys2: B2, flat: s.flat, roof: s.roof, h: s.h, nx: s.nx / nl, ny: s.ny / nl, bb: bboxOf(pts, s.h * 1.2 + 1), kind: P.mode });
-        });
-        return gid + seeds.length + 1;
+        return bad < 4;
       }
       C.gdist = gdist; return pid;
     }
@@ -798,6 +927,49 @@
       }
     }
 
+    // ---------- Gemalte Parkplätze: Reihen mit Fahrgassen, an den Straßen ausgerichtet ----------
+    var pkr = mulberry(seed * 29 + 11);
+    components(M.p).forEach(function (cp) {
+      var ang = fieldAng(cp.cx, cp.cy), ux = Math.cos(ang), uy = Math.sin(ang), vx = -uy, vy = ux, u0 = 1e9, u1 = -1e9, v0 = 1e9, v1 = -1e9;
+      cp.cells.forEach(function (c) { var px = (c % MW) * 2 + 1 - cp.cx, py = ((c / MW) | 0) * 2 + 1 - cp.cy, u = px * ux + py * uy, v = px * vx + py * vy; if (u < u0) u0 = u; if (u > u1) u1 = u; if (v < v0) v0 = v; if (v > v1) v1 = v; });
+      function P2(u, v) { return { x: cp.cx + ux * u + vx * v, y: cp.cy + uy * u + vy * v }; }
+      function inP(u, v) { var q = P2(u, v); return L(q.x, q.y) === 9 && L(q.x + 1, q.y) === 9 && L(q.x, q.y + 1) === 9 && L(q.x - 1, q.y) === 9 && L(q.x, q.y - 1) === 9; }
+      // Modul: Stellreihe 5 m, Fahrgasse 6,5 m, Stellreihe 5 m, Grünstreifen 1,5 m
+      for (var v = v0 + 1; v + 11.5 < v1; v += 18) {
+        [[v, v + 5, 1], [v + 11.5, v + 16.5, -1]].forEach(function (row) {
+          for (var u = u0 + 1; u + 2.6 < u1; u += 2.6) {
+            if (!inP(u, row[0] + 0.3) || !inP(u + 2.6, row[0] + 0.3) || !inP(u, row[1] - 0.3) || !inP(u + 2.6, row[1] - 0.3)) continue;
+            var a1 = P2(u, row[0]), b1 = P2(u, row[1]), a2 = P2(u + 2.6, row[0]), b2 = P2(u + 2.6, row[1]);
+            C.pk.push([a1.x, a1.y, b1.x, b1.y], [a2.x, a2.y, b2.x, b2.y]);
+            if (pkr() < 0.62) { var cc = P2(u + 1.3, (row[0] + row[1]) / 2); C.cars.push({ x: cc.x, y: cc.y, a: ang + Math.PI / 2, c: pick(pkr, CARS) }); }
+          }
+        });
+        for (var u2 = u0 + 6; u2 < u1 - 4; u2 += 18) if (pkr() < 0.7 && inP(u2, v + 17.2)) { var tp = P2(u2, v + 17.2); C.trees.push({ x: tp.x, y: tp.y, r: 2.2 + pkr() * 0.8, s: pkr() }); }
+      }
+    });
+
+    // ---------- Details auf den Grundstücken ----------
+    var pr3 = mulberry(seed * 23 + 7);
+    for (var py6 = 3; py6 < H - 3; py6 += 7) for (var px6 = 3; px6 < W - 3; px6 += 7) {
+      var x6 = px6 + pr3() * 4, y6 = py6 + pr3() * 4, c6 = L(x6, y6), q6 = pr3();
+      if (c6 !== 7 && c6 !== 8 && !(c6 === 0 && inCity(x6, y6))) continue;
+      var a6 = fieldAng(x6, y6), ux6 = Math.cos(a6), uy6 = Math.sin(a6);
+      function prop(k, w, h, col) {
+        var P6 = rectPts(x6, y6, ux6, uy6, -uy6, ux6, w, h);
+        if (!P6.every(function (p) { var cc = L(p.x, p.y); return cc === c6; })) return false;
+        rectMark(P6, 10); C.props.push({ k: k, P: P6, col: col }); return true;
+      }
+      if (c6 === 7 || c6 === 0) {
+        if (q6 < 0.06) prop("shed", 2.4, 3, pick(pr3, ["#8F7B66", "#7D848C", "#A08C74"]));
+        else if (q6 < 0.085 && S.style !== "jp") prop("tramp", 3.4, 3.4, "#2F3A3F");
+        else if (q6 < 0.12) prop("patio", 4, 3, "#D8D3C8");
+      } else {
+        if (q6 < 0.05) prop("bins", 3, 0.9, "#4E5A52");
+        else if (q6 < 0.08) prop("bikes", 5, 2, "#B9BDC1");
+        else if (q6 < 0.1 && S.style !== "usa") prop("play", 5, 5, "#E6D6A8");
+      }
+    }
+
     // ---------- Bäume ----------
     var tr = mulberry(seed * 11 + 5);
     function addTree(x, y, r0) { C.trees.push({ x: x, y: y, r: r0, s: hash2(x | 0, y | 0, 5) }); }
@@ -830,7 +1002,7 @@
       else if (c9 === 7) { if (h9 < st.trees * 0.45 + 0.06 && L(x9 + 2.5, y9) === 7 && L(x9 - 2.5, y9) === 7 && L(x9, y9 + 2.5) === 7 && L(x9, y9 - 2.5) === 7) addTree(x9, y9, 2 + hash2(tx2, ty2, 9) * 2.4); }
       else if (c9 === 8) { if (S.style !== "usa" && h9 < (S.style === "eu" ? 0.16 : 0.05) && L(x9 + 3, y9) === 8 && L(x9 - 3, y9) === 8 && L(x9, y9 + 3) === 8 && L(x9, y9 - 3) === 8) addTree(x9, y9, 2.2 + hash2(tx2, ty2, 9) * 2); }
       else if (c9 === 0) { if (h9 < st.trees * 0.35 && L(x9 + 3, y9) === 0 && L(x9 - 3, y9) === 0 && L(x9, y9 + 3) === 0 && L(x9, y9 - 3) === 0) addTree(x9, y9, 2.5 + hash2(tx2, ty2, 9) * 2.5); }
-      else if (c9 === 4) { if (h9 < 0.12 && !C.specials.some(function (sp) { var dx = x9 - sp.cx, dy = y9 - sp.cy, u = dx * sp.ux + dy * sp.uy, v = -dx * sp.uy + dy * sp.ux; return (u * u) / Math.pow(sp.a * 0.9 + 6, 2) + (v * v) / Math.pow(sp.b * 0.9 + 6, 2) < 1.15 || sp.type === "harbor" || sp.type === "airport" || sp.type === "campus"; }) && L(x9 + 4, y9) === 4 && L(x9 - 4, y9) === 4 && L(x9, y9 + 4) === 4 && L(x9, y9 - 4) === 4) addTree(x9, y9, 2.6 + hash2(tx2, ty2, 9) * 1.6); }
+      else if (c9 === 4) { if (h9 < 0.12 && !C.specials.some(function (sp) { var dx = x9 - sp.cx, dy = y9 - sp.cy, u = dx * sp.ux + dy * sp.uy, v = -dx * sp.uy + dy * sp.ux; return (u * u) / Math.pow(sp.fa + 6, 2) + (v * v) / Math.pow(sp.fb + 6, 2) < 1.15 || sp.type === "harbor" || sp.type === "airport" || sp.type === "campus"; }) && L(x9 + 4, y9) === 4 && L(x9 - 4, y9) === 4 && L(x9, y9 + 4) === 4 && L(x9, y9 - 4) === 4) addTree(x9, y9, 2.6 + hash2(tx2, ty2, 9) * 1.6); }
       else if (c9 === 6) { var fn = noise2(x9 / 140, y9 / 140, seed + 45); if (fn > 0.62 && h9 < 0.75) addTree(x9, y9, 3.5 + hash2(tx2, ty2, 9) * 2.5); else if (h9 < 0.006) addTree(x9, y9, 4); }
     }
 
@@ -894,8 +1066,7 @@
       var k5 = y4 * W + x4, m5 = (y4 >> 1) * MW + (x4 >> 1), lc = land[k5], r5 = b2r[m5], g5 = b2g[m5], bl5 = b2b[m5], o5 = k5 * 4;
       if (lc === 7) {
         var pp = plotId[k5];
-        if (pp && C.gdist[k5] < 28 && ((x4 < W - 1 && land[k5 + 1] === 7 && plotId[k5 + 1] !== pp) || (y4 < H - 1 && land[k5 + W] === 7 && plotId[k5 + W] !== pp))) { r5 = HEDGE[0]; g5 = HEDGE[1]; bl5 = HEDGE[2]; }
-        else { r5 = GARD[0] + (r5 - gr[0]); g5 = GARD[1] + (g5 - gr[1]); bl5 = GARD[2] + (bl5 - gr[2]); }
+        { r5 = GARD[0] + (r5 - gr[0]); g5 = GARD[1] + (g5 - gr[1]); bl5 = GARD[2] + (bl5 - gr[2]); }
       } else if (lc === 8) { r5 = YARD[0] + (r5 - gr[0]) * 0.6; g5 = YARD[1] + (g5 - gr[1]) * 0.6; bl5 = YARD[2] + (bl5 - gr[2]) * 0.6; }
       else if (lc === 0 && ic2[m5] && S.style !== "usa") { var gw = Math.max(0, 0.75 - dn2[m5] * 1.3); r5 += (GARD[0] - r5) * gw; g5 += (GARD[1] - g5) * gw; bl5 += (GARD[2] - bl5) * gw; }
       g[o5] = r5; g[o5 + 1] = g5; g[o5 + 2] = bl5; g[o5 + 3] = 255;
@@ -960,12 +1131,23 @@
     var tmp = document.createElement("canvas"), tw = Math.ceil((vb[2] - vb[0]) * z), th = Math.ceil((vb[3] - vb[1]) * z);
     tmp.width = Math.max(1, tw); tmp.height = Math.max(1, th);
     var tx = tmp.getContext("2d");
-    function layer(k, col, extra) {
+    function layer(k, col, extra, deco) {
       tx.setTransform(1, 0, 0, 1, 0, 0); tx.clearRect(0, 0, tmp.width, tmp.height);
       tx.setTransform(z, 0, 0, z, -vb[0] * z, -vb[1] * z); tx.strokeStyle = col; drawLayer(tx, k, S.paintGen || [], extra);
+      if (deco) { tx.globalCompositeOperation = "source-atop"; deco(tx); tx.globalCompositeOperation = "source-over"; }
       x.save(); x.setTransform(1, 0, 0, 1, 0, 0); x.drawImage(tmp, 0, 0); x.restore();
     }
-    layer("r", "#E3DCCD", 0); layer("g", "#B9D99C", 4); layer("g", "#A6CF88", 0);
+    function paving(t2) {   // Pflastermuster auf Plätzen
+      if (z < 1.2) return; t2.strokeStyle = "rgba(150,138,118,.28)"; t2.lineWidth = 0.18; t2.beginPath();
+      for (var gx = Math.floor(vb[0] / 3) * 3; gx < vb[2]; gx += 3) { t2.moveTo(gx, vb[1]); t2.lineTo(gx, vb[3]); }
+      for (var gy = Math.floor(vb[1] / 3) * 3; gy < vb[3]; gy += 3) { t2.moveTo(vb[0], gy); t2.lineTo(vb[2], gy); }
+      t2.stroke();
+    }
+    layer("r", "#D4CCBC", 1.2); layer("r", "#E3DCCD", 0, paving); layer("g", "#B9D99C", 4); layer("g", "#A6CF88", 0);
+    layer("p", "#C9C5BC", 1.6); layer("p", "#84888D", 0);
+    // Stellplätze der gemalten Parkflächen
+    x.strokeStyle = "#E7E4DC"; x.lineWidth = 0.15; x.beginPath();
+    C.pk.forEach(function (l) { if (!visP(l[0], l[1], 8)) return; x.moveTo(l[0], l[1]); x.lineTo(l[2], l[3]); }); x.stroke();
     layer("b", "#CFE5EE", 10); layer("b", "#8EC0DC", 4); layer("b", "#78B0D3", 0);
     // Teiche und Parkwege
     C.ponds.forEach(function (p) {
@@ -976,6 +1158,9 @@
     });
     x.lineCap = "round"; x.lineJoin = "round";
     C.paths.forEach(function (P) { x.beginPath(); P.forEach(function (p, i) { if (i) x.lineTo(p.x, p.y); else x.moveTo(p.x, p.y); }); x.strokeStyle = "#E9DFC4"; x.lineWidth = 3; x.stroke(); });
+    // Hecken an Grundstücksgrenzen
+    x.lineCap = "round"; x.strokeStyle = "#A3BE86"; x.lineWidth = 0.9;
+    x.beginPath(); C.hedges.forEach(function (h) { if (!visP(h[0], h[1], 30)) return; x.moveTo(h[0], h[1]); x.lineTo(h[2], h[3]); }); x.stroke();
     // Schiffe
     C.ships.forEach(function (s) { if (!visP(s.x, s.y, s.l)) return; drawShip(x, s); });
 
@@ -998,23 +1183,16 @@
     rs.forEach(function (r) { path(r); x.strokeStyle = r.cls === "main" ? "#62666C" : r.cls === "dist" ? "#6C7076" : (C.style === "jp" ? "#8A8C8F" : "#777B80"); x.lineWidth = 2 * r.hw; x.stroke(); });
     // Mittelstreifen mit Grün (Europa)
     rs.forEach(function (r) { if (!r.median) return; x.lineCap = "butt"; freeIntervals(r).forEach(function (iv) { path(r, iv[0], iv[1]); x.strokeStyle = "#D9D5CB"; x.lineWidth = 4.2; x.stroke(); path(r, iv[0], iv[1]); x.strokeStyle = "#9CC47F"; x.lineWidth = 3.4; x.stroke(); }); x.lineCap = "round"; });
+    // Bordsteinradien an den Ecken der Kreuzungen
+    C.flares.forEach(function (f) {
+      if (!visP(f.k.x, f.k.y, 14)) return;
+      x.beginPath(); x.moveTo(f.a0.x, f.a0.y); x.lineTo(f.k.x, f.k.y); x.lineTo(f.a1.x, f.a1.y); x.quadraticCurveTo(f.k.x, f.k.y, f.a0.x, f.a0.y); x.fillStyle = f.col; x.fill();
+      x.beginPath(); x.moveTo(f.a1.x, f.a1.y); x.quadraticCurveTo(f.k.x, f.k.y, f.a0.x, f.a0.y); x.strokeStyle = "#55585E"; x.lineWidth = 0.3; x.stroke();
+    });
     // Brückengeländer
     roads.forEach(function (r) { r.bridges.forEach(function (b) {
       [-1, 1].forEach(function (sd) { x.save(); var s0 = Math.max(0, b[0]), s1 = Math.min(r.len, b[1]); x.beginPath(); for (var s = s0; s <= s1; s += 2) { var p = at(r, s), o = (r.hw + r.sw) * sd; if (s === s0) x.moveTo(p.x - p.ty * o, p.y + p.tx * o); else x.lineTo(p.x - p.ty * o, p.y + p.tx * o); } x.strokeStyle = "#F4F2EC"; x.lineWidth = 0.9; x.stroke(); x.restore(); });
     }); });
-    // Bahn
-    roads.forEach(function (r) {
-      if (r.cls !== "rail") return;
-      path(r); x.strokeStyle = "#A69F95"; x.lineWidth = 9; x.lineCap = "butt"; x.stroke();
-      [-1.6, 1.6].forEach(function (o2) { x.save(); path(r); x.setLineDash([0.5, 0.9]); x.strokeStyle = "#7B6F63"; x.lineWidth = 3.4; x.stroke(); x.restore(); });
-      x.save(); x.setLineDash([0.45, 0.75]); path(r); x.strokeStyle = "#7B6F63"; x.lineWidth = 7.2; x.stroke(); x.restore();
-      [-2.8, -0.9, 0.9, 2.8].forEach(function (o2) {
-        x.beginPath(); for (var i = 0; i < r.pts.length; i++) { var nx = r.pts[Math.min(r.pts.length - 1, i + 1)], pv = r.pts[Math.max(0, i - 1)], tx2 = nx.x - pv.x, ty2 = nx.y - pv.y, l = Math.hypot(tx2, ty2) || 1, X = r.pts[i].x - ty2 / l * o2, Y = r.pts[i].y + tx2 / l * o2; if (i) x.lineTo(X, Y); else x.moveTo(X, Y); }
-        x.strokeStyle = "#5C5F64"; x.lineWidth = 0.35; x.stroke();
-      });
-      x.lineCap = "round";
-    });
-    if (C.platforms) C.platforms.forEach(function (P) { poly(x, P); x.fillStyle = "#D8D4CB"; x.fill(); x.strokeStyle = "#B8B3A8"; x.lineWidth = 0.4; x.stroke(); });
     // Markierungen
     x.lineCap = "butt";
     rs.forEach(function (r) {
@@ -1033,17 +1211,17 @@
         }
       });
     });
-    // Zebrastreifen
-    C.cross.forEach(function (c) {
-      var r = c.r; if (!vis(r.bb)) return;
-      var s = c.off > 0 ? c.off : r.len + c.off; if (s < 0 || s > r.len) return;
-      var p = at(r, s), nx = -p.ty, ny = p.tx;
-      x.fillStyle = "rgba(244,242,236,.92)";
-      for (var o = -r.hw + 0.6; o < r.hw - 0.3; o += 1.1) {
-        var cx = p.x + nx * o, cy = p.y + ny * o;
-        x.save(); x.translate(cx, cy); x.rotate(Math.atan2(p.ty, p.tx)); x.fillRect(-1.5, -0.27, 3, 0.55); x.restore();
-      }
+    // Zebrastreifen: Balken parallel zur Fahrtrichtung, über die ganze Fahrbahn, Haltelinien davor
+    x.fillStyle = "rgba(244,242,236,.92)";
+    C.zebras.forEach(function (zb) {
+      if (!visP(zb.x, zb.y, zb.hw + 4)) return;
+      var nx = -zb.dy, ny = zb.dx, ang = Math.atan2(zb.dy, zb.dx), n = Math.max(2, Math.floor((2 * zb.hw - 0.6) / 1.1)), o0 = -(n - 1) * 1.1 / 2;
+      x.save(); x.translate(zb.x, zb.y); x.rotate(ang);
+      for (var q = 0; q < n; q++) x.fillRect(-1.6, o0 + q * 1.1 - 0.28, 3.2, 0.56);
+      x.restore();
     });
+    x.strokeStyle = "rgba(244,242,236,.92)"; x.lineWidth = 0.45; x.lineCap = "butt";
+    x.beginPath(); C.stops.forEach(function (l) { if (!visP(l[0], l[1], 12)) return; x.moveTo(l[0], l[1]); x.lineTo(l[2], l[3]); }); x.stroke();
     x.lineCap = "round";
     // Parkplätze, Einfahrten, Pools
     C.lots.forEach(function (lt) {
@@ -1057,6 +1235,16 @@
       }
     });
     C.drives.forEach(function (P) { if (!vis(bboxOf(P, 1))) return; poly(x, P); x.fillStyle = "#CFCBC2"; x.fill(); });
+    C.props.forEach(function (pp) {
+      var P = pp.P; if (!visP(P[0].x, P[0].y, 8)) return;
+      if (pp.k === "tramp") { var c = centroid(P); x.beginPath(); x.arc(c.x + 0.6, c.y + 0.8, 1.6, 0, 6.283); x.fillStyle = "rgba(0,0,0,.18)"; x.fill(); x.beginPath(); x.arc(c.x, c.y, 1.6, 0, 6.283); x.fillStyle = "#3A86C8"; x.fill(); x.beginPath(); x.arc(c.x, c.y, 1.2, 0, 6.283); x.fillStyle = pp.col; x.fill(); return; }
+      if (pp.k === "play") { poly(x, P); x.fillStyle = pp.col; x.fill(); var c2 = centroid(P); x.fillStyle = "#C8432F"; x.fillRect(c2.x - 1.4, c2.y - 0.4, 1, 1); x.fillStyle = "#3B78B0"; x.fillRect(c2.x + 0.6, c2.y + 0.6, 1.2, 0.6); return; }
+      if (pp.k === "patio") { poly(x, P); x.fillStyle = pp.col; x.fill(); return; }
+      x.save(); x.translate(0.4, 0.55); poly(x, P); x.fillStyle = "rgba(40,36,30,.2)"; x.fill(); x.restore();
+      poly(x, P); x.fillStyle = pp.col; x.fill();
+      if (pp.k === "shed") { x.beginPath(); x.moveTo(P[0].x, P[0].y); x.lineTo(P[1].x, P[1].y); x.lineTo((P[1].x + P[2].x) / 2, (P[1].y + P[2].y) / 2); x.lineTo((P[0].x + P[3].x) / 2, (P[0].y + P[3].y) / 2); x.closePath(); x.fillStyle = shade(pp.col, 0.15); x.fill(); }
+      if (pp.k === "bins") { var cb = ["#3E6B4E", "#4F6E8C", "#7A5A2E"]; for (var q = 0; q < 3; q++) { var t2 = (q + 0.15) / 3; x.fillStyle = cb[q]; x.fillRect(P[0].x + (P[1].x - P[0].x) * t2 - 0.35, P[0].y + (P[1].y - P[0].y) * t2 - 0.35 + 0.1, 0.75, 0.75); } }
+    });
     C.pools.forEach(function (P) { if (!vis(bboxOf(P, 1))) return; poly(x, P); x.fillStyle = "#F2F0EA"; x.fill(); var c = centroid(P); x.save(); x.translate(c.x, c.y); x.scale(0.8, 0.8); x.translate(-c.x, -c.y); poly(x, P); x.fillStyle = "#6EC3E0"; x.fill(); x.restore(); });
     // Gebäude: erst alle Schatten, dann Dächer
     var bs = C.buildings.filter(function (b) { return vis(b.bb || (b.bb = bboxOf(b.P, b.h * 1.2 + 1))); });
@@ -1068,6 +1256,24 @@
     C.specials.forEach(function (sp) { if (!visP(sp.cx, sp.cy, Math.max(sp.a, sp.b) + 80)) return; drawSpecial(x, sp, C); });
     // Autos
     if (z > 0.5) C.cars.forEach(function (c) { if (!visP(c.x, c.y, 4)) return; drawCar(x, c); });
+    // Bahn auf einem Viadukt: über den Straßen, mit Schatten
+    roads.forEach(function (r) {
+      if (r.cls !== "rail") return;
+      x.lineCap = "butt"; x.lineJoin = "round";
+      x.save(); x.translate(3.2, 4.4); path(r); x.strokeStyle = "rgba(30,30,30,.28)"; x.lineWidth = 11; x.stroke(); x.restore();
+      path(r); x.strokeStyle = "#8F8B84"; x.lineWidth = 11; x.stroke();
+      path(r); x.strokeStyle = "#BDB8AF"; x.lineWidth = 10.2; x.stroke();
+      path(r); x.strokeStyle = "#A39C92"; x.lineWidth = 8; x.stroke();
+      x.save(); x.setLineDash([0.45, 0.75]); path(r); x.strokeStyle = "#7B6F63"; x.lineWidth = 7.2; x.stroke(); x.restore();
+      [-2.8, -1.25, 1.25, 2.8].forEach(function (o2) {
+        x.beginPath(); for (var i = 0; i < r.pts.length; i++) { var nx = r.pts[Math.min(r.pts.length - 1, i + 1)], pv = r.pts[Math.max(0, i - 1)], tx2 = nx.x - pv.x, ty2 = nx.y - pv.y, l = Math.hypot(tx2, ty2) || 1, X = r.pts[i].x - ty2 / l * o2, Y = r.pts[i].y + tx2 / l * o2; if (i) x.lineTo(X, Y); else x.moveTo(X, Y); }
+        x.strokeStyle = "#5C5F64"; x.lineWidth = 0.35; x.stroke();
+      });
+      // Masten der Oberleitung
+      x.fillStyle = "#6E7177"; for (var s2 = 10; s2 < r.len; s2 += 40) { var p = at(r, s2); x.fillRect(p.x - p.ty * 4.6 - 0.35, p.y + p.tx * 4.6 - 0.35, 0.7, 0.7); x.fillRect(p.x + p.ty * 4.6 - 0.35, p.y - p.tx * 4.6 - 0.35, 0.7, 0.7); }
+      x.lineCap = "round";
+    });
+    if (C.platforms) C.platforms.forEach(function (P) { x.save(); x.translate(1.6, 2.2); poly(x, P); x.fillStyle = "rgba(30,30,30,.25)"; x.fill(); x.restore(); poly(x, P); x.fillStyle = "#D8D4CB"; x.fill(); x.strokeStyle = "#B8B3A8"; x.lineWidth = 0.4; x.stroke(); x.fillStyle = "#9FA7AE"; var c0 = centroid(P); });
     // Bäume: Schatten, dann Kronen
     var ts = C.trees.filter(function (tr) { return visP(tr.x, tr.y, tr.r + 3); });
     x.fillStyle = "rgba(30,40,20,.22)";
@@ -1079,7 +1285,7 @@
     });
   }
   function freeIntervals(r) {
-    var ex = r.junc.map(function (j) { return [j.s - j.w - 3, j.s + j.w + 3]; }).sort(function (a, b) { return a[0] - b[0]; });
+    var ex = r.junc.map(function (j) { return [j.s - j.w - 2, j.s + j.w + 2]; }).sort(function (a, b) { return a[0] - b[0]; });
     var out = [], cur = 2;
     ex.forEach(function (e) { if (e[0] > cur + 2) out.push([cur, e[0]]); cur = Math.max(cur, e[1]); });
     if (r.len - 2 > cur + 2) out.push([cur, r.len - 2]);
@@ -1169,97 +1375,210 @@
     x.fillStyle = "#F2F0EA"; x.fillRect(-l / 2 + 2, -w / 2 + 1, l * 0.12, w - 2);
     x.restore();
   }
-  // Spezialbauten im eigenen, gedrehten Raum
+  // Spezialbauten im eigenen, gedrehten Raum. a, b: halbe Ausdehnung, passend in die rote Fläche eingepasst.
   function drawSpecial(x, sp, C) {
-    var r = mulberry(sp.seed), a = sp.a * 0.82, b = sp.b * 0.82;
+    var r = mulberry(sp.seed), a = sp.fa, b = sp.fb, T = sp.type, V = sp.v || 0;
+    if (T === "harbor") { drawHarbor(x, sp); return; }
     x.save(); x.translate(sp.cx, sp.cy); x.rotate(Math.atan2(sp.uy, sp.ux));
-    function rect(px, py, w, h, col, hgt) { if (hgt) { x.fillStyle = "rgba(40,36,30,.22)"; x.fillRect(px + hgt * 0.4, py + hgt * 0.55, w, h); } x.fillStyle = col; x.fillRect(px, py, w, h); }
-    function shadowed(fn, hgt) { x.save(); x.translate(hgt * 0.42, hgt * 0.55); x.fillStyle = "rgba(40,36,30,.22)"; fn(true); x.restore(); fn(false); }
-    function ellipse(rx, ry, col) { x.beginPath(); x.ellipse(0, 0, Math.max(0.1, rx), Math.max(0.1, ry), 0, 0, 6.283); x.fillStyle = col; x.fill(); }
-    var T = sp.type;
+    var SH = "rgba(40,36,30,.22)";
+    function rect(px, py, w, h, col, hgt) { if (hgt) { x.fillStyle = SH; x.fillRect(px + hgt * 0.4, py + hgt * 0.55, w, h); } x.fillStyle = col; x.fillRect(px, py, w, h); }
+    function roofRect(px, py, w, h, col, hgt) {   // Satteldach entlang der längeren Seite
+      rect(px, py, w, h, col, hgt);
+      x.fillStyle = shade(col, 0.14); if (w >= h) x.fillRect(px, py, w, h / 2); else x.fillRect(px, py, w / 2, h);
+      x.strokeStyle = shade(col, -0.3); x.lineWidth = 0.3; x.strokeRect(px, py, w, h);
+    }
+    function circ(cx, cy, rad, col, hgt) { if (hgt) { x.beginPath(); x.arc(cx + hgt * 0.4, cy + hgt * 0.55, rad, 0, 6.283); x.fillStyle = SH; x.fill(); } x.beginPath(); x.arc(cx, cy, rad, 0, 6.283); x.fillStyle = col; x.fill(); }
+    function ell(rx, ry, col, ox, oy) { x.beginPath(); x.ellipse(ox || 0, oy || 0, Math.max(0.1, rx), Math.max(0.1, ry), 0, 0, 6.283); x.fillStyle = col; x.fill(); }
+    function tree(px, py, rad) { circ(px + rad * 0.45, py + rad * 0.6, rad, "rgba(30,40,20,.22)"); circ(px, py, rad, "#6C9C55"); circ(px - rad * 0.28, py - rad * 0.3, rad * 0.52, "rgba(170,208,128,.5)"); }
+    function lawn(px, py, w, h) { rect(px, py, w, h, "#A6CF88"); x.fillStyle = "rgba(255,255,255,.07)"; for (var q = 0; q < w; q += 6) if ((q / 6) % 2 === 0) x.fillRect(px + q, py, 3, h); }
+    function parkingRows(px, py, w, h) {
+      rect(px, py, w, h, "#83878C"); x.strokeStyle = "#E7E4DC"; x.lineWidth = 0.15;
+      for (var v2 = py + 1; v2 + 5 < py + h; v2 += 17) for (var u2 = px + 1; u2 < px + w - 1; u2 += 2.6) {
+        x.beginPath(); x.moveTo(u2, v2); x.lineTo(u2, v2 + 5); x.moveTo(u2, v2 + 11); x.lineTo(u2, v2 + 16); x.stroke();
+        if (r() < 0.55) drawCar(x, { x: u2 + 1.3, y: v2 + 2.6, a: Math.PI / 2, c: pick(r, CARS) });
+        if (v2 + 16 < py + h && r() < 0.55) drawCar(x, { x: u2 + 1.3, y: v2 + 13.6, a: Math.PI / 2, c: pick(r, CARS) });
+      }
+    }
     if (T === "stadium") {
       var rx = Math.min(a, b * 1.45), ry = Math.min(b, a / 1.3);
-      x.save(); x.translate(4, 6); ellipse(rx, ry, "rgba(40,36,30,.22)"); x.restore();
-      ellipse(rx, ry, "#C9C6C0"); ellipse(rx * 0.93, ry * 0.9, "#A8ABB2");
-      for (var k = 0; k < 6; k++) { x.beginPath(); x.ellipse(0, 0, rx * (0.9 - k * 0.04), ry * (0.87 - k * 0.045), 0, 0, 6.283); x.strokeStyle = k % 2 ? "#B9473C" : "#C7574B"; x.lineWidth = Math.min(rx, ry) * 0.035; x.stroke(); }
-      var pw = rx * 0.44, ph = ry * 0.42;
-      rect(-pw, -ph, 2 * pw, 2 * ph, "#5FA35A");
-      for (var s = 0; s < 8; s++) { x.fillStyle = s % 2 ? "rgba(255,255,255,.06)" : "rgba(0,0,0,.05)"; x.fillRect(-pw + s * pw / 4, -ph, pw / 4, 2 * ph); }
-      x.strokeStyle = "rgba(255,255,255,.85)"; x.lineWidth = Math.max(0.3, pw * 0.012); x.strokeRect(-pw * 0.92, -ph * 0.9, pw * 1.84, ph * 1.8);
-      x.beginPath(); x.moveTo(0, -ph * 0.9); x.lineTo(0, ph * 0.9); x.stroke(); x.beginPath(); x.arc(0, 0, ph * 0.28, 0, 6.283); x.stroke();
-      x.strokeRect(-pw * 0.92, -ph * 0.4, pw * 0.3, ph * 0.8); x.strokeRect(pw * 0.62, -ph * 0.4, pw * 0.3, ph * 0.8);
-    } else if (T === "airport") {
-      var rl = a * 1.9, rw = Math.min(45, b * 0.5);
-      rect(-rl / 2, -b * 0.15 - rw / 2, rl, rw, "#5B5F66");
-      x.fillStyle = "#EEE"; for (var u = -rl / 2 + 60; u < rl / 2 - 60; u += 50) x.fillRect(u, -b * 0.15 - 0.5, 28, 1);
-      for (var k2 = 0; k2 < 8; k2++) { x.fillRect(-rl / 2 + 6, -b * 0.15 - rw / 2 + 4 + k2 * (rw - 8) / 8, 22, 2); x.fillRect(rl / 2 - 28, -b * 0.15 - rw / 2 + 4 + k2 * (rw - 8) / 8, 22, 2); }
-      rect(-rl / 2 + 40, -b * 0.15 + rw / 2 + 30, rl - 80, 18, "#6E7279");
-      for (var c2 = -rl / 2 + 80; c2 < rl / 2 - 60; c2 += rl / 6) rect(c2, -b * 0.15 + rw / 2, 14, 32, "#6E7279");
-      var tw = Math.min(rl * 0.45, 320), ty = -b * 0.15 + rw / 2 + 62;
-      rect(-tw / 2, ty, tw, Math.min(80, b * 0.9 - (ty + b * 0.15)), "#7D8188");
-      rect(-tw / 2, ty + 30, tw, 34, "#DADDE1", 5);
-      for (var g = -tw / 2 + 25; g < tw / 2 - 10; g += 48) { rect(g, ty + 8, 4, 22, "#C4C8CD", 3); drawPlane(x, g + 2, ty - 6, Math.PI / 2, 38); }
-      drawPlane(x, -rl * 0.25, -b * 0.15, 0, 44);
-    } else if (T === "harbor") {
-      var wx = sp.wx, wy = sp.wy, ax = Math.cos(-Math.atan2(sp.uy, sp.ux)), ay = Math.sin(-Math.atan2(sp.uy, sp.ux));
-      var lx = wx * ax - wy * ay, ly = wx * ay + wy * ax;   // Wasserrichtung im lokalen Raum
-      rect(-a, -b, 2 * a, 2 * b, "#B7B4AD");
-      x.save(); x.rotate(Math.atan2(ly, lx));
-      var R2 = Math.hypot(a, b);
-      for (var row = -R2 * 0.5; row < R2 * 0.25; row += 16) for (var col = -R2 * 0.6; col < R2 * 0.6; col += 14) {
-        if (r() < 0.25) continue;
-        var cc = ["#C2533C", "#3B78B0", "#D9A637", "#4D8F68", "#8E5A9C", "#DDDAD3"][Math.floor(r() * 6)];
-        rect(row, col, 12, 2.4, cc, 2.5); rect(row, col + 2.9, 12, 2.4, cc, 2.5);
+      if (sp.lk === "baseball") {
+        var R0 = Math.min(a, b) * 1.5;
+        x.save(); x.translate(-R0 * 0.35, R0 * 0.35); x.rotate(-Math.PI / 4);
+        x.beginPath(); x.moveTo(0, 0); x.arc(0, 0, R0 * 0.95, -Math.PI / 4 - 0.75, -Math.PI / 4 + 0.75); x.closePath(); x.fillStyle = "#C9C6C0"; x.fill();
+        x.beginPath(); x.moveTo(0, 0); x.arc(0, 0, R0 * 0.78, -Math.PI / 4 - 0.75, -Math.PI / 4 + 0.75); x.closePath(); x.fillStyle = "#5FA35A"; x.fill();
+        x.rotate(-Math.PI / 4); var d3 = R0 * 0.22;
+        x.fillStyle = "#C29266"; x.beginPath(); x.moveTo(0, 0); x.lineTo(d3, 0); x.lineTo(d3, -d3); x.lineTo(0, -d3); x.closePath(); x.fill();
+        x.fillStyle = "#5FA35A"; x.fillRect(d3 * 0.18, -d3 * 0.82, d3 * 0.64, d3 * 0.64);
+        x.restore();
+      } else if (sp.lk === "arena") {
+        x.save(); x.translate(4, 6); ell(rx, ry, SH); x.restore();
+        ell(rx, ry, "#D9DCE0"); x.strokeStyle = "#B4B8BE"; x.lineWidth = 0.5;
+        for (var k = 0; k < 24; k++) { var an = k / 24 * 6.283; x.beginPath(); x.moveTo(Math.cos(an) * rx * 0.35, Math.sin(an) * ry * 0.35); x.lineTo(Math.cos(an) * rx, Math.sin(an) * ry); x.stroke(); }
+        ell(rx * 0.35, ry * 0.35, "#EEF0F2"); x.beginPath(); x.ellipse(0, 0, rx * 0.35, ry * 0.35, 0, 0, 6.283); x.stroke();
+        x.beginPath(); x.ellipse(0, 0, rx * 0.7, ry * 0.7, 0, 0, 6.283); x.stroke();
+      } else {
+        x.save(); x.translate(4, 6); ell(rx, ry, SH); x.restore();
+        ell(rx, ry, "#C9C6C0"); ell(rx * 0.93, ry * 0.9, "#A8ABB2");
+        for (var k2 = 0; k2 < 6; k2++) { x.beginPath(); x.ellipse(0, 0, rx * (0.9 - k2 * 0.04), ry * (0.87 - k2 * 0.045), 0, 0, 6.283); x.strokeStyle = k2 % 2 ? "#B9473C" : "#C7574B"; x.lineWidth = Math.min(rx, ry) * 0.035; x.stroke(); }
+        var pw = rx * 0.44, ph = ry * 0.42;
+        rect(-pw, -ph, 2 * pw, 2 * ph, "#5FA35A");
+        for (var s = 0; s < 8; s++) { x.fillStyle = s % 2 ? "rgba(255,255,255,.06)" : "rgba(0,0,0,.05)"; x.fillRect(-pw + s * pw / 4, -ph, pw / 4, 2 * ph); }
+        x.strokeStyle = "rgba(255,255,255,.85)"; x.lineWidth = Math.max(0.3, pw * 0.012); x.strokeRect(-pw * 0.92, -ph * 0.9, pw * 1.84, ph * 1.8);
+        x.beginPath(); x.moveTo(0, -ph * 0.9); x.lineTo(0, ph * 0.9); x.stroke(); x.beginPath(); x.arc(0, 0, ph * 0.28, 0, 6.283); x.stroke();
+        x.strokeRect(-pw * 0.92, -ph * 0.4, pw * 0.3, ph * 0.8); x.strokeRect(pw * 0.62, -ph * 0.4, pw * 0.3, ph * 0.8);
       }
-      for (var cr = -R2 * 0.45; cr < R2 * 0.45; cr += 42) { rect(R2 * 0.32, cr, 14, 2, "#D9622B", 14); rect(R2 * 0.32, cr - 6, 2, 14, "#D9622B", 14); rect(R2 * 0.32 + 12, cr - 6, 2, 14, "#D9622B", 14); }
-      rect(-R2 * 0.75, -R2 * 0.35, 30, R2 * 0.3, "#8E949B", 5); rect(-R2 * 0.75, R2 * 0.1, 30, R2 * 0.3, "#9AA0A6", 5);
-      x.restore();
+    } else if (T === "airport") {
+      var rl = a * 1.9, rw = Math.min(45, b * 0.45), ry0 = -b * 0.35;
+      rect(-rl / 2, ry0 - rw / 2, rl, rw, "#5B5F66");
+      x.fillStyle = "#EEE"; for (var u = -rl / 2 + 60; u < rl / 2 - 60; u += 50) x.fillRect(u, ry0 - 0.5, 28, 1);
+      for (var k3 = 0; k3 < 8; k3++) { x.fillRect(-rl / 2 + 6, ry0 - rw / 2 + 4 + k3 * (rw - 8) / 8, 22, 2); x.fillRect(rl / 2 - 28, ry0 - rw / 2 + 4 + k3 * (rw - 8) / 8, 22, 2); }
+      rect(-rl / 2 + 40, ry0 + rw / 2 + 26, rl - 80, 16, "#6E7279");
+      for (var c2 = -rl / 2 + 80; c2 < rl / 2 - 60; c2 += rl / 6) rect(c2, ry0 + rw / 2, 14, 28, "#6E7279");
+      var tw = Math.min(rl * 0.45, 320), ty = ry0 + rw / 2 + 54, th = Math.max(20, Math.min(80, b - ty - 2));
+      rect(-tw / 2, ty, tw, th, "#7D8188");
+      rect(-tw / 2, ty + th * 0.45, tw, th * 0.45, "#DADDE1", 5);
+      for (var g = -tw / 2 + 25; g < tw / 2 - 10; g += 48) { rect(g, ty + 4, 4, th * 0.42, "#C4C8CD", 3); drawPlane(x, g + 2, ty - 6, Math.PI / 2, 38); }
+      drawPlane(x, -rl * 0.25, ry0, 0, 44);
     } else if (T === "cathedral" || T === "church") {
       var big = T === "cathedral", L0 = Math.min(a * 1.7, big ? 130 : 45), Wn = L0 * (big ? 0.2 : 0.26), tr = L0 * (big ? 0.55 : 0.5);
-      rect(-a, -b, 2 * a, 2 * b, "#E8E1D2");
-      var roof = big ? "#5E7E78" : "#8C5A45", h = big ? 9 : 5;
-      shadowed(function (sh) {
-        var f = sh ? null : roof;
-        function R3(px, py, w, hh, c) { x.fillStyle = sh ? "rgba(40,36,30,.22)" : c; x.fillRect(px, py, w, hh); }
-        R3(-L0 / 2, -Wn / 2, L0, Wn, roof);
-        R3(L0 * 0.1 - Wn / 2, -tr / 2, Wn, tr, roof);
-        x.beginPath(); x.arc(L0 / 2, 0, Wn / 2, -Math.PI / 2, Math.PI / 2); x.fillStyle = sh ? "rgba(40,36,30,.22)" : shade(roof, -0.08); x.fill();
-        if (big) { R3(-L0 / 2 - Wn * 0.35, -Wn * 0.75, Wn * 0.6, Wn * 0.6, shade(roof, -0.15)); R3(-L0 / 2 - Wn * 0.35, Wn * 0.15, Wn * 0.6, Wn * 0.6, shade(roof, -0.15)); }
-        else R3(-L0 / 2 - Wn * 0.5, -Wn * 0.35, Wn * 0.7, Wn * 0.7, shade(roof, -0.15));
-      }, h);
-      x.strokeStyle = shade(roof, -0.3); x.lineWidth = 0.4; x.beginPath(); x.moveTo(-L0 / 2, 0); x.lineTo(L0 / 2, 0); x.moveTo(L0 * 0.1, -tr / 2); x.lineTo(L0 * 0.1, tr / 2); x.stroke();
+      var roof = big ? (V === 1 ? "#6B6F75" : "#5E7E78") : (V === 1 ? "#6F7782" : "#8C5A45"), h = big ? 9 : 5;
+      if (big && V === 2) { var cs = Wn * 1.6; roofRect(L0 * 0.1 - cs / 2, Wn / 2, cs, Wn * 0.35, "#9A8F80", 3); roofRect(L0 * 0.1 - cs / 2, Wn / 2 + cs - Wn * 0.35, cs, Wn * 0.35, "#9A8F80", 3); roofRect(L0 * 0.1 - cs / 2, Wn / 2, Wn * 0.35, cs, "#9A8F80", 3); roofRect(L0 * 0.1 + cs / 2 - Wn * 0.35, Wn / 2, Wn * 0.35, cs, "#9A8F80", 3); lawn(L0 * 0.1 - cs / 2 + Wn * 0.35, Wn / 2 + Wn * 0.35, cs - Wn * 0.7, cs - Wn * 0.7); }
+      x.fillStyle = SH; x.save(); x.translate(h * 0.42, h * 0.55); x.fillRect(-L0 / 2, -Wn / 2, L0, Wn); x.fillRect(L0 * 0.1 - Wn / 2, -tr / 2, Wn, tr); x.restore();
+      x.fillStyle = roof; x.fillRect(-L0 / 2, -Wn / 2, L0, Wn); x.fillRect(L0 * 0.1 - Wn / 2, -tr / 2, Wn, tr);
+      x.beginPath(); x.arc(L0 / 2, 0, Wn / 2, -Math.PI / 2, Math.PI / 2); x.fillStyle = shade(roof, -0.08); x.fill();
       x.fillStyle = shade(roof, 0.15); x.fillRect(-L0 / 2, -Wn / 2, L0, Wn / 2); x.fillRect(L0 * 0.1 - Wn / 2, -tr / 2, Wn / 2, tr);
-      x.beginPath(); x.moveTo(-L0 / 2, 0); x.lineTo(L0 / 2, 0); x.stroke();
+      x.strokeStyle = shade(roof, -0.3); x.lineWidth = 0.4; x.beginPath(); x.moveTo(-L0 / 2, 0); x.lineTo(L0 / 2, 0); x.moveTo(L0 * 0.1, -tr / 2); x.lineTo(L0 * 0.1, tr / 2); x.stroke();
+      if (big && V === 1) { circ(L0 * 0.1, 0, Wn * 0.62, "#7FA59A", 14); circ(L0 * 0.1 - Wn * 0.15, -Wn * 0.15, Wn * 0.3, "#A5C6BB"); rect(-L0 / 2 - Wn * 0.55, -Wn * 0.4, Wn * 0.8, Wn * 0.8, shade(roof, -0.15), 22); }
+      else if (big) { rect(-L0 / 2 - Wn * 0.35, -Wn * 0.75, Wn * 0.6, Wn * 0.6, shade(roof, -0.15), 24); rect(-L0 / 2 - Wn * 0.35, Wn * 0.15, Wn * 0.6, Wn * 0.6, shade(roof, -0.15), 24); }
+      else if (V === 1) circ(-L0 / 2 - Wn * 0.2, 0, Wn * 0.4, shade(roof, -0.15), 14);
+      else rect(-L0 / 2 - Wn * 0.5, -Wn * 0.35, Wn * 0.7, Wn * 0.7, shade(roof, -0.15), 16);
+      for (var t3 = 0; t3 < 6; t3++) tree(-a * 0.8 + t3 * a * 0.32, b * 0.82, 3);
     } else if (T === "opera") {
       var Lw = Math.min(a * 1.6, 110), Wd = Math.min(b * 1.5, 70);
-      rect(-a, -b, 2 * a, 2 * b, "#E8E1D2");
-      shadowed(function (sh) { x.fillStyle = sh ? "rgba(40,36,30,.22)" : "#D8CDB8"; x.fillRect(-Lw / 2, -Wd / 2, Lw, Wd); x.beginPath(); x.arc(-Lw / 2, 0, Wd / 2, Math.PI / 2, Math.PI * 1.5); x.fill(); }, 6);
-      rect(Lw * 0.12, -Wd * 0.38, Lw * 0.3, Wd * 0.76, "#BFB39C", 12);
-      x.beginPath(); x.arc(-Lw * 0.18, 0, Wd * 0.3, 0, 6.283); x.fillStyle = "#6E9C8E"; x.fill(); x.beginPath(); x.arc(-Lw * 0.18 - Wd * 0.08, -Wd * 0.08, Wd * 0.14, 0, 6.283); x.fillStyle = "#8DB8A9"; x.fill();
-      x.fillStyle = "#B6AA92"; for (var k3 = -Wd / 2 + 3; k3 < Wd / 2 - 2; k3 += 4) { x.beginPath(); x.arc(-Lw / 2 - Wd * 0.42, k3 * 0.8, 0.9, 0, 6.283); x.fill(); }
-    } else if (T === "museum" || T === "townhall") {
-      var s2 = Math.min(a, b) * 1.6, hs = s2 / 2, th = s2 * 0.24;
-      rect(-a, -b, 2 * a, 2 * b, "#E8E1D2");
-      var rc = T === "museum" ? "#BDB3A3" : "#A9573E";
-      shadowed(function (sh) { x.fillStyle = sh ? "rgba(40,36,30,.22)" : rc; x.fillRect(-hs, -hs, s2, th); x.fillRect(-hs, hs - th, s2, th); x.fillRect(-hs, -hs, th, s2); if (T === "museum") x.fillRect(hs - th, -hs, th, s2); }, 6);
-      x.fillStyle = shade(rc, 0.14); x.fillRect(-hs, -hs, s2, th / 2); x.fillRect(-hs, hs - th, s2, th / 2);
-      if (T === "townhall") { rect(-hs - 4, -th * 0.4, th * 0.8, th * 0.8, shade(rc, -0.2), 14); x.beginPath(); x.arc(hs + 18, 0, 5, 0, 6.283); x.fillStyle = "#8EC0DC"; x.fill(); }
-      else { x.beginPath(); x.arc(0, 0, hs * 0.32, 0, 6.283); x.fillStyle = "#CFE3EA"; x.fill(); x.strokeStyle = "#9FB9C2"; x.lineWidth = 0.4; for (var g2 = -hs * 0.32; g2 <= hs * 0.32; g2 += 2.5) { x.beginPath(); x.moveTo(g2, -hs * 0.32); x.lineTo(g2, hs * 0.32); x.stroke(); } }
-    } else if (T === "campus") {
-      rect(-a, -b, 2 * a, 2 * b, "#B9D99C");
-      x.strokeStyle = "#E9DFC4"; x.lineWidth = 3; x.beginPath(); x.moveTo(-a * 0.9, 0); x.lineTo(a * 0.9, 0); x.moveTo(0, -b * 0.9); x.lineTo(0, b * 0.9); x.stroke();
-      for (var i = 0; i < 6; i++) {
-        var w = Math.min(90, a * rr(r, 0.3, 0.46)), hh2 = Math.min(45, b * rr(r, 0.28, 0.4)), px = (i % 3 - 1) * a * 0.62 - w / 2, py = (i < 3 ? -1 : 1) * b * 0.5 - hh2 / 2;
-        rect(px, py, w, hh2, pick(r, ["#B8705A", "#C9BBA6", "#A35C47"]), 6); x.fillStyle = "rgba(255,255,255,.12)"; x.fillRect(px, py, w, hh2 / 2);
+      if (V === 1) {
+        // Segeldächer
+        x.fillStyle = SH; x.fillRect(-Lw / 2 + 4, -Wd * 0.3 + 6, Lw, Wd * 0.6);
+        rect(-Lw / 2, -Wd * 0.3, Lw, Wd * 0.6, "#CFC6B5");
+        for (var q2 = 0; q2 < 5; q2++) {
+          var cx2 = -Lw / 2 + Lw * (0.14 + q2 * 0.17), sz = Wd * (0.42 - q2 * 0.04);
+          x.beginPath(); x.moveTo(cx2 - sz * 0.5, sz * 0.4); x.quadraticCurveTo(cx2, -sz, cx2 + sz * 0.5, sz * 0.4); x.closePath(); x.fillStyle = "#F4F2EC"; x.fill();
+          x.beginPath(); x.moveTo(cx2, -sz * 0.3); x.lineTo(cx2, sz * 0.4); x.strokeStyle = "#D8D4CA"; x.lineWidth = 0.5; x.stroke();
+        }
+      } else {
+        x.fillStyle = SH; x.save(); x.translate(3, 4); x.fillRect(-Lw / 2, -Wd / 2, Lw, Wd); x.restore();
+        rect(-Lw / 2, -Wd / 2, Lw, Wd, "#D8CDB8"); x.beginPath(); x.arc(-Lw / 2, 0, Wd / 2, Math.PI / 2, Math.PI * 1.5); x.fillStyle = "#D8CDB8"; x.fill();
+        rect(Lw * 0.12, -Wd * 0.38, Lw * 0.3, Wd * 0.76, "#BFB39C", 12);
+        circ(-Lw * 0.18, 0, Wd * 0.3, "#6E9C8E"); circ(-Lw * 0.18 - Wd * 0.08, -Wd * 0.08, Wd * 0.14, "#8DB8A9");
+        x.fillStyle = "#B6AA92"; for (var k4 = -Wd / 2 + 3; k4 < Wd / 2 - 2; k4 += 4) { x.beginPath(); x.arc(-Lw / 2 - Wd * 0.42, k4 * 0.8, 0.9, 0, 6.283); x.fill(); }
       }
+    } else if (T === "museum" || T === "townhall") {
+      var s2 = Math.min(a, b) * 1.6, hs = s2 / 2, thk = s2 * 0.24, rc = T === "museum" ? "#BDB3A3" : "#A9573E";
+      x.fillStyle = SH; x.save(); x.translate(3, 4); x.fillRect(-hs, -hs, s2, thk); x.fillRect(-hs, hs - thk, s2, thk); x.fillRect(-hs, -hs, thk, s2); if (T === "museum") x.fillRect(hs - thk, -hs, thk, s2); x.restore();
+      x.fillStyle = rc; x.fillRect(-hs, -hs, s2, thk); x.fillRect(-hs, hs - thk, s2, thk); x.fillRect(-hs, -hs, thk, s2); if (T === "museum") x.fillRect(hs - thk, -hs, thk, s2);
+      x.fillStyle = shade(rc, 0.14); x.fillRect(-hs, -hs, s2, thk / 2); x.fillRect(-hs, hs - thk, s2, thk / 2);
+      if (T === "townhall") {
+        rect(-hs - 4, -thk * 0.4, thk * 0.8, thk * 0.8, shade(rc, -0.2), 14);
+        x.strokeStyle = "rgba(160,150,135,.5)"; x.lineWidth = 0.3; for (var g2 = hs + 2; g2 < a; g2 += 3) { x.beginPath(); x.moveTo(g2, -b); x.lineTo(g2, b); x.stroke(); }
+        circ(Math.min(a * 0.75, hs + 20), 0, 4.5, "#CFC7B6"); circ(Math.min(a * 0.75, hs + 20), 0, 3.5, "#8EC0DC");
+      } else if (V === 1) {
+        x.beginPath(); x.moveTo(-hs * 0.3, hs * 0.3); x.lineTo(hs * 0.3, hs * 0.3); x.lineTo(0, -hs * 0.3); x.closePath(); x.fillStyle = "#CFE3EA"; x.fill(); x.strokeStyle = "#9FB9C2"; x.lineWidth = 0.4; x.stroke();
+        x.beginPath(); x.moveTo(0, -hs * 0.3); x.lineTo(0, hs * 0.3); x.stroke();
+      } else { circ(0, 0, hs * 0.32, "#CFE3EA"); x.strokeStyle = "#9FB9C2"; x.lineWidth = 0.4; for (var g3 = -hs * 0.3; g3 <= hs * 0.3; g3 += 2.5) { x.beginPath(); x.moveTo(g3, -Math.sqrt(Math.max(0, hs * hs * 0.1 - g3 * g3))); x.lineTo(g3, Math.sqrt(Math.max(0, hs * hs * 0.1 - g3 * g3))); x.stroke(); } }
+    } else if (T === "campus") {
+      lawn(-a, -b, 2 * a, 2 * b);
+      x.strokeStyle = "#E9DFC4"; x.lineWidth = 3; x.beginPath(); x.moveTo(-a * 0.9, 0); x.lineTo(a * 0.9, 0); x.moveTo(0, -b * 0.9); x.lineTo(0, b * 0.9); x.stroke();
+      if (sp.lk === "hospital") {
+        var hw3 = Math.min(a * 0.9, 90), hh3 = Math.min(b * 0.8, 60), bar = Math.min(hw3, hh3) * 0.28;
+        rect(-hw3, -hh3, bar, hh3 * 2, "#E6E3DC", 8); rect(hw3 - bar, -hh3, bar, hh3 * 2, "#E6E3DC", 8); rect(-hw3, -bar / 2, hw3 * 2, bar, "#EDEAE4", 8);
+        circ(0, -hh3 * 0.55, Math.min(9, bar * 0.6), "#8E959C"); x.fillStyle = "#F2F0EA"; var hz = Math.min(9, bar * 0.6) * 0.5; x.fillRect(-hz * 0.6, -hh3 * 0.55 - hz, hz * 0.3, hz * 2); x.fillRect(hz * 0.3, -hh3 * 0.55 - hz, hz * 0.3, hz * 2); x.fillRect(-hz * 0.6, -hh3 * 0.55 - hz * 0.15, hz * 1.2, hz * 0.3);
+      } else {
+        for (var i = 0; i < 6; i++) {
+          var w = Math.min(90, a * rr(r, 0.3, 0.46)), hh2 = Math.min(45, b * rr(r, 0.28, 0.4)), px = (i % 3 - 1) * a * 0.62 - w / 2, py = (i < 3 ? -1 : 1) * b * 0.5 - hh2 / 2;
+          roofRect(px, py, w, hh2, pick(r, ["#B8705A", "#C9BBA6", "#A35C47"]), 6);
+        }
+      }
+      for (var t4 = 0; t4 < 10; t4++) tree(rr(r, -a * 0.9, a * 0.9), (t4 % 2 ? 1 : -1) * b * 0.12, 2.6);
+    } else if (T === "palace") {
+      var Pw = Math.min(a * 0.5, 120), Ph = Math.min(b * 1.5, 110), px0 = -a + 4;
+      // Schloss als Dreiflügelanlage, davor ein barocker Garten bis zum anderen Ende
+      roofRect(px0, -Ph / 2, Pw * 0.28, Ph, "#6F7782", 10); roofRect(px0, -Ph / 2, Pw, Ph * 0.18, "#6F7782", 10); roofRect(px0, Ph / 2 - Ph * 0.18, Pw, Ph * 0.18, "#6F7782", 10);
+      circ(px0 + Pw * 0.14, 0, Ph * 0.12, "#7FA59A", 14);
+      var gx0 = px0 + Pw + 8, gw = a - gx0 - 4, gh = b * 1.7;
+      if (gw > 20) {
+        rect(gx0, -gh / 2, gw, gh, "#E9DFC4");
+        var pc = 3, pr = 2, cw = (gw - 4 * (pc + 1)) / pc, ch = (gh - 6 * (pr + 1)) / pr;
+        for (var ci = 0; ci < pc; ci++) for (var cj = 0; cj < pr; cj++) {
+          var qx = gx0 + 4 + ci * (cw + 4), qy = -gh / 2 + 6 + cj * (ch + 6);
+          rect(qx, qy, cw, ch, "#8DBA6B"); x.strokeStyle = "#5F9150"; x.lineWidth = 0.9; x.strokeRect(qx + 2, qy + 2, cw - 4, ch - 4);
+          x.beginPath(); x.ellipse(qx + cw / 2, qy + ch / 2, cw * 0.25, ch * 0.25, 0, 0, 6.283); x.stroke();
+        }
+        circ(gx0 + gw / 2, 0, Math.min(10, gh * 0.08), "#CFC7B6"); circ(gx0 + gw / 2, 0, Math.min(8, gh * 0.065), "#8EC0DC");
+        for (var t5 = gx0; t5 < gx0 + gw; t5 += 9) { tree(t5, -gh / 2 - 3, 2.6); tree(t5, gh / 2 + 3, 2.6); }
+      }
+    } else if (T === "temple") {
+      rect(-a, -b, 2 * a, 2 * b, "#E8E3D6");
+      var Hw = Math.min(a * 0.9, 50), Hh = Math.min(b * 0.9, 30);
+      x.strokeStyle = "#D8D0BE"; x.lineWidth = 3; x.beginPath(); x.moveTo(-a, 0); x.lineTo(a * 0.2, 0); x.stroke();
+      for (var g4 = -a + 6; g4 < a * 0.1 - 6; g4 += 12) { x.fillStyle = "#C8432F"; x.fillRect(g4, -3.2, 0.9, 6.4); x.fillRect(g4 - 0.5, -2.6, 1.9, 0.7); x.fillRect(g4 - 0.5, 2, 1.9, 0.7); }
+      var hx = a * 0.2;
+      x.fillStyle = SH; x.fillRect(hx + 3, -Hh / 2 + 4, Hw, Hh);
+      x.fillStyle = "#3E434A"; x.fillRect(hx, -Hh / 2, Hw, Hh); x.fillStyle = "#565C64"; x.fillRect(hx, -Hh / 2, Hw, Hh / 2);
+      x.strokeStyle = "#2B2F34"; x.lineWidth = 0.6; x.strokeRect(hx + 1.5, -Hh / 2 + 1.5, Hw - 3, Hh - 3); x.beginPath(); x.moveTo(hx + Hh * 0.3, 0); x.lineTo(hx + Hw - Hh * 0.3, 0); x.stroke();
+      if (a > 30 && b > 20) {
+        var pgx = -a * 0.5, pgy = -b * 0.55, pz = Math.min(12, b * 0.35);
+        for (var lv = 0; lv < 5; lv++) { var sz2 = pz * (1 - lv * 0.16); rect(pgx - sz2 / 2, pgy - sz2 / 2, sz2, sz2, lv % 2 ? "#5C6168" : "#4A4F56", lv === 0 ? 16 : 0); }
+      }
+      for (var t6 = 0; t6 < 12; t6++) tree(rr(r, -a * 0.95, a * 0.95), (r() < 0.5 ? -1 : 1) * rr(r, b * 0.6, b * 0.95), 2.4 + r() * 1.5);
+    } else if (T === "castle") {
+      var cR = Math.min(a, b) * 0.95;
+      rect(-cR, -cR, cR * 2, cR * 2, "#78B0D3");
+      rect(-cR * 0.86, -cR * 0.86, cR * 1.72, cR * 1.72, "#9C9488");
+      lawn(-cR * 0.78, -cR * 0.78, cR * 1.56, cR * 1.56);
+      x.strokeStyle = "#E9DFC4"; x.lineWidth = 2.4; x.beginPath(); x.moveTo(-cR, 0); x.lineTo(0, 0); x.stroke();
+      rect(-cR * 0.92, -2, cR * 0.14, 4, "#9C9488");
+      var kz = cR * 0.42;
+      for (var lv2 = 0; lv2 < 4; lv2++) { var s3 = kz * (1 - lv2 * 0.2); rect(-s3 / 2, -s3 / 2, s3, s3, lv2 % 2 ? "#F2F0EA" : "#3E434A", lv2 === 0 ? 18 : 0); }
+      for (var t7 = 0; t7 < 10; t7++) tree(rr(r, -cR * 0.7, cR * 0.7), (t7 % 2 ? 1 : -1) * rr(r, cR * 0.45, cR * 0.72), 2.6);
+    } else if (T === "mall") {
+      var mw = Math.min(a * 1.2, 160), mh = Math.min(b * 0.9, 70);
+      parkingRows(-a, -b, 2 * a, 2 * b);
+      rect(-mw / 2, -b, mw, mh * 1.2 > b * 2 ? b * 1.6 : mh, "#D3D5D6", 4);
+      x.fillStyle = "#C2C5C8"; x.fillRect(-mw / 2 + 2, -b + 2, mw - 4, 2); x.fillStyle = "#AEB2B6"; for (var q3 = -mw / 2 + 8; q3 < mw / 2 - 6; q3 += 14) x.fillRect(q3, -b + mh * 0.4, 3, 3);
+    } else if (T === "market") {
+      rect(-a, -b, 2 * a, 2 * b, "#E3DACA");
+      x.strokeStyle = "rgba(170,158,140,.45)"; x.lineWidth = 0.25; for (var g5 = -a; g5 < a; g5 += 2.5) { x.beginPath(); x.moveTo(g5, -b); x.lineTo(g5, b); x.stroke(); }
+      var tc = ["#C2533C", "#F2F0EA", "#3B78B0", "#D9A637", "#4D8F68"];
+      for (var u4 = -a * 0.8; u4 < a * 0.8 - 4; u4 += 6) for (var v4 = -b * 0.7; v4 < b * 0.7 - 4; v4 += 9) {
+        if (Math.abs(u4) < 8 && Math.abs(v4) < 8) continue;
+        if (r() < 0.25) continue; rect(u4, v4, 4.4, 4.4, pick(r, tc), 1.2); x.fillStyle = "rgba(255,255,255,.25)"; x.fillRect(u4, v4, 2.2, 4.4);
+      }
+      circ(0, 0, 4, "#CFC7B6"); circ(0, 0, 3, "#8EC0DC");
     } else {
-      // Denkmal auf rundem Platz
-      var pr2 = Math.min(a, b) * 0.9;
-      x.beginPath(); x.arc(0, 0, pr2, 0, 6.283); x.fillStyle = "#E5DDCD"; x.fill(); x.strokeStyle = "#CFC6B4"; x.lineWidth = 0.6; x.stroke();
+      var pr2 = Math.min(a, b) * 0.95;
+      circ(0, 0, pr2, "#E5DDCD"); x.strokeStyle = "#CFC6B4"; x.lineWidth = 0.6; x.beginPath(); x.arc(0, 0, pr2, 0, 6.283); x.stroke();
       x.beginPath(); x.arc(0, 0, pr2 * 0.55, 0, 6.283); x.strokeStyle = "#D6CDBB"; x.stroke();
-      x.fillStyle = "rgba(40,36,30,.25)"; x.beginPath(); x.arc(3, 4, pr2 * 0.16, 0, 6.283); x.fill();
-      x.beginPath(); x.arc(0, 0, pr2 * 0.16, 0, 6.283); x.fillStyle = "#9C9488"; x.fill(); x.beginPath(); x.arc(-0.5, -0.6, pr2 * 0.08, 0, 6.283); x.fillStyle = "#B8AF9F"; x.fill();
+      if (V === 1) { x.fillStyle = "rgba(40,36,30,.3)"; x.beginPath(); x.moveTo(-0.8, 0); x.lineTo(pr2 * 0.6, pr2 * 0.8); x.lineTo(0.8, 0); x.fill(); rect(-1.1, -1.1, 2.2, 2.2, "#B8AF9F"); }
+      else if (V === 2) { circ(0, 0, pr2 * 0.35, "#CFC7B6"); circ(0, 0, pr2 * 0.28, "#8EC0DC"); circ(0, 0, pr2 * 0.06, "#F2F0EA"); }
+      else { circ(0, 0, pr2 * 0.16, "#9C9488", 6); circ(-0.5, -0.6, pr2 * 0.08, "#B8AF9F"); }
+      for (var t8 = 0; t8 < 8; t8++) { var an2 = t8 / 8 * 6.283; tree(Math.cos(an2) * pr2 * 0.78, Math.sin(an2) * pr2 * 0.78, Math.max(1.5, pr2 * 0.1)); }
     }
+    x.restore();
+  }
+  // Hafen: Kaikante mit Kränen, kompakte Containerblöcke, Lagerhallen. Rahmen: u entlang des Ufers, v zum Wasser.
+  function drawHarbor(x, sp) {
+    var hb = sp.hb; if (!hb) return;
+    x.save(); x.translate(sp.cx, sp.cy); x.transform(hb.e1.x, hb.e1.y, hb.e2.x, hb.e2.y, 0, 0);
+    if (hb.quay.length > 1) { x.beginPath(); hb.quay.forEach(function (q, i) { if (i) x.lineTo(q[0], q[1] - 6); else x.moveTo(q[0], q[1] - 6); }); x.strokeStyle = "#B9B6AE"; x.lineWidth = 12; x.stroke(); x.beginPath(); hb.quay.forEach(function (q, i) { if (i) x.lineTo(q[0], q[1] - 0.5); else x.moveTo(q[0], q[1] - 0.5); }); x.strokeStyle = "#8E8A82"; x.lineWidth = 1; x.stroke(); }
+    hb.sheds.forEach(function (s) { x.fillStyle = "rgba(40,36,30,.22)"; x.fillRect(s[0] + 3, s[1] + 4, 60, 22); x.fillStyle = "#9AA0A6"; x.fillRect(s[0], s[1], 60, 22); x.fillStyle = "#AEB4BA"; x.fillRect(s[0], s[1], 60, 11); x.strokeStyle = "#7F858B"; x.lineWidth = 0.3; for (var u = s[0] + 5; u < s[0] + 60; u += 5) { x.beginPath(); x.moveTo(u, s[1]); x.lineTo(u, s[1] + 22); x.stroke(); } });
+    hb.blocks.forEach(function (bk) {
+      x.fillStyle = "#A7A49D"; x.fillRect(bk.u - 1, bk.v - 1, 40, 17);
+      for (var k = 0; k < 18; k++) { var c = bk.c[k]; if (!c) continue; var cu = bk.u + (k % 3) * 12.8, cv = bk.v + Math.floor(k / 3) * 2.5; x.fillStyle = "rgba(30,30,30,.25)"; x.fillRect(cu + 0.6, cv + 0.8, 12.2, 2.3); x.fillStyle = c; x.fillRect(cu, cv, 12.2, 2.3); x.fillStyle = "rgba(255,255,255,.18)"; x.fillRect(cu, cv, 12.2, 0.8); }
+    });
+    hb.cranes.forEach(function (q) {
+      var u = q[0], v = q[1];
+      x.fillStyle = "rgba(30,30,30,.22)"; x.fillRect(u - 7 + 6, v - 20 + 8, 14, 34);
+      x.fillStyle = "#D9622B"; x.fillRect(u - 7, v - 20, 2, 22); x.fillRect(u + 5, v - 20, 2, 22); x.fillRect(u - 7, v - 20, 14, 2); x.fillRect(u - 1.2, v - 22, 2.4, 36); x.fillRect(u - 7, v - 6, 14, 2);
+    });
     x.restore();
   }
   function drawPlane(x, px, py, ang, s) {
@@ -1303,7 +1622,7 @@
   // ---------- Oberfläche ----------
   var ICON = {
     view: '<svg viewBox="0 0 24 24"><path d="M12 3v18M3 12h18M12 3l-3 3M12 3l3 3M12 21l-3-3M12 21l3-3M3 12l3-3M3 12l3 3M21 12l-3-3M21 12l-3 3" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>',
-    g: '<i style="background:' + PCOL.g + '"></i>', b: '<i style="background:' + PCOL.b + '"></i>', r: '<i style="background:' + PCOL.r + '"></i>',
+    g: '<i style="background:' + PCOL.g + '"></i>', b: '<i style="background:' + PCOL.b + '"></i>', r: '<i style="background:' + PCOL.r + '"></i>', p: '<i style="background:' + PCOL.p + '"></i>',
     e: '<svg viewBox="0 0 24 24"><path d="M4 16l8-8 6 6-5 5H8z" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M8 19h12" stroke="currentColor" stroke-width="1.8"/></svg>'
   };
   function html() {
@@ -1330,8 +1649,8 @@
     }
     var dirty = S.paint.length !== S.genPaintN;
     return '<h2>' + t("h3") + '</h2><p>' + t("p3") + '</p>' +
-      '<div class="cg-tools">' + ["view", "g", "b", "r", "e"].map(function (k) {
-        return '<button type="button" class="cg-tool" data-tool="' + k + '" aria-pressed="' + (S.tool === k) + '">' + ICON[k] + '<span>' + t({ view: "tView", g: "tG", b: "tB", r: "tR", e: "tE" }[k]) + '</span></button>';
+      '<div class="cg-tools">' + ["view", "g", "b", "r", "p", "e"].map(function (k) {
+        return '<button type="button" class="cg-tool" data-tool="' + k + '" aria-pressed="' + (S.tool === k) + '">' + ICON[k] + '<span>' + t({ view: "tView", g: "tG", b: "tB", r: "tR", p: "tP", e: "tE" }[k]) + '</span></button>';
       }).join("") + '</div>' +
       '<label class="cg-sl">' + t("size") + ' <b id="cg-sz">' + S.size + ' m</b><input type="range" min="8" max="160" step="2" value="' + S.size + '" data-cg="size"></label>' +
       '<button type="button" class="cg-btn cg-pri cg-wide' + (dirty ? " cg-hot" : "") + '" data-cg="regen">' + t("regen") + '</button>' +
@@ -1450,7 +1769,7 @@
         ox.setTransform(dpr * z, 0, 0, dpr * z, -V.vx * z * dpr, -V.vy * z * dpr);
         var strokes = S.paint.slice(S.genPaintN === S.paint.length || !S.showPaint ? S.genPaintN : 0);
         if (S.showPaint) strokes = S.paint;
-        ["g", "b", "r"].forEach(function (k) {
+        ["g", "b", "r", "p"].forEach(function (k) {
           var lc = V.lc || (V.lc = document.createElement("canvas")); if (lc.width !== oc.width || lc.height !== oc.height) { lc.width = oc.width; lc.height = oc.height; }
           var lx = lc.getContext("2d"); lx.setTransform(1, 0, 0, 1, 0, 0); lx.clearRect(0, 0, lc.width, lc.height); lx.setTransform(dpr * z, 0, 0, dpr * z, -V.vx * z * dpr, -V.vy * z * dpr);
           lx.strokeStyle = PCOL[k]; drawLayer(lx, k, strokes, 0);
