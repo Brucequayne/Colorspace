@@ -113,6 +113,9 @@ window.PATCHNOTES = {
       en: ["New game: sketch main and distributor roads with smoothed mouse input", "Pick a city style: USA, Europe or Japan", "Side streets, houses, parking lots, cars, trees and road markings are generated procedurally", "Paint parks, water and special buildings in green, blue and red, then regenerate", "Bridges over rivers, railway with station, stadium, cathedral, opera, harbour, airport and more", "Save the city as PNG"] }
   ],
   flughafen: [
+    { v: "0.58", t: "2026-11-09T06:57:00+01:00",
+      de: ["Abriss-Werkzeug (Taste B oder „Abriss“ unten rechts): Klick reißt ab, Ziehen räumt alles unter dem Cursor", "Pisten werden beim Ziehen geschont und nur per gezieltem Klick abgerissen", "Parkplätze, Bushaltestellen, Taxistände und Flugzeugpositionen lassen sich für 25.000 € versetzen", "Preisdiagramm zeigt eigene Käufe (rot) und Verkäufe (grün) als Punkte"],
+      en: ["Bulldozer (key B or “Bulldozer” bottom right): click to demolish, drag to clear everything under the cursor", "Runways are spared while dragging and only removed with a direct click", "Car parks, bus stops, taxi ranks and aircraft stands can be relocated for €25,000", "Price chart shows your own buys (red) and sells (green) as dots"] },
     { v: "0.57", t: "2026-11-09T06:44:00+01:00",
       de: ["Kerosinbörse am Tank: Klick auf einen Tank zeigt den Füllstand als Regler", "Regler nach rechts kauft Kerosin am Markt, nach links verkauft es zurück", "Kosten (rot) oder Erlös (grün) werden live beim Schieben angezeigt", "Rückverkauf zum Marktpreis abzüglich 3 %"],
       en: ["Fuel trading at the tank: click a tank to see its fill level as a slider", "Slide right to buy fuel on the market, left to sell it back", "Cost (red) or revenue (green) updates live while sliding", "Selling back pays the market price minus 3%"] },
