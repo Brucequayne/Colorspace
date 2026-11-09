@@ -4,7 +4,7 @@
 (function () {
   "use strict";
 
-  var VERSION = "0.22";
+  var VERSION = "0.23";
   var CELL_M = 2.5, PX = 24;              // Meter je Zelle, Pixel je Zelle bei Zoom 1
   var lang = "de";
   function L2(de, en) { return { de: de, en: en }; }
@@ -420,7 +420,7 @@
     } else if (k === "ms") {
       c.fillStyle = shade(col, -0.12); c.fillRect(w * 0.08, h * 0.3, w * 0.84, h * 0.7);
       c.fillStyle = b.c || "#8C4A3A"; c.fillRect(w * 0.14, h - s * 0.55, w * 0.72, s * 0.35);
-      [0.3, 0.7].forEach(function (q) { c.fillStyle = DARK; c.fillRect(w * q - w * 0.15, h * 0.06, w * 0.3, h * 0.55); var ready = !(opts && opts.reload); c.fillStyle = ready ? "#E9ECEE" : "#4A525C"; c.beginPath(); c.moveTo(w * q, h * 0.08); c.lineTo(w * q + w * 0.09, h * 0.2); c.lineTo(w * q - w * 0.09, h * 0.2); c.closePath(); c.fill(); if (ready) { c.fillStyle = "#C8473A"; c.fillRect(w * q - w * 0.09, h * 0.2, w * 0.18, h * 0.06); } });
+      [0.3, 0.7].forEach(function (q) { c.fillStyle = DARK; c.fillRect(w * q - w * 0.15, h * 0.06, w * 0.3, h * 0.55); var ready = (opts && opts.ammo !== undefined ? opts.ammo : 2) > (q < 0.5 ? 1 : 0); c.fillStyle = ready ? "#E9ECEE" : "#4A525C"; c.beginPath(); c.moveTo(w * q, h * 0.08); c.lineTo(w * q + w * 0.09, h * 0.2); c.lineTo(w * q - w * 0.09, h * 0.2); c.closePath(); c.fill(); if (ready) { c.fillStyle = "#C8473A"; c.fillRect(w * q - w * 0.09, h * 0.2, w * 0.18, h * 0.06); } });
       c.strokeStyle = shade(col, -0.55); c.lineWidth = lw; c.strokeRect(w * 0.08, h * 0.3, w * 0.84, h * 0.7);
     } else if (k === "rg") {
       c.fillStyle = shade(col, -0.15); c.fillRect(w * 0.08, h - s * 1.2, w * 0.84, s * 1.2);
@@ -595,7 +595,7 @@
     sorted.forEach(function (b) {
       var ty = T[b.t], hpk = b.hp !== undefined ? b.hp / ty.hp : 1, o = null;
       if (isHull(ty.kind, view)) { hull.push(b); return; }
-      if (body) o = { pilot: ty.kind === "cock" && body.ctrl && FL && FL.seated && b === body.seat, batK: body.cap ? body.energy / body.cap : 1, charge: b.chg ? Math.min(1, b.chg / RG.charge) : 0, reload: b.rl > 0 };
+      if (body) o = { pilot: ty.kind === "cock" && body.ctrl && FL && FL.seated && b === body.seat, batK: body.cap ? body.energy / body.cap : 1, charge: b.chg ? Math.min(1, b.chg / RG.charge) : 0, ammo: b.ammo === undefined ? 2 : b.ammo };
       drawBlock(c, b, s, view, hpk, tm, o);
     });
     hull.forEach(function (b) { hullFill(c, b, s, view, b.hp !== undefined ? b.hp / T[b.t].hp : 1); });
@@ -652,7 +652,7 @@
   // ---------- Testflug ----------
   var FL = null;
   var MG = { rate: 12, speed: 420, life: 1.25, dmg: 7, heat: 0.042, cool: 0.42, warn: 0.78, lock: 3.2, e: 0.4 };
-  var MS = { v0: 30, acc: 420, vmax: 340, turn: 0.45, life: 4, dmg: 55, splash: 2.6, sdmg: 28, reload: 1.4, e: 6 };
+  var MS = { v0: 30, acc: 420, vmax: 340, turn: 0.45, life: 4, dmg: 55, splash: 2.6, sdmg: 28, reload: 2.5, gap: 0.18, e: 6 };
   var RG = { charge: 0.7, cd: 2.2, dmg: 150, range: 700, e: 45 };
   function makeBody(blocks, ctrl) {
     var bd = { blocks: blocks, x: 0, y: 0, a: 0, vx: 0, vy: 0, w: 0, ctrl: !!ctrl, energy: 0, cap: 0, flames: {} };
@@ -686,7 +686,7 @@
     var sp0 = seatPos(me); FL.pilot = { x: sp0.x, y: sp0.y, face: -Math.PI / 2, ph: 0 };
     FL.oc = false; FL.ocT = me.ocMax;
     FL.groups = []; if (st.mg) FL.groups.push("mg"); if (st.ms) FL.groups.push("ms"); if (st.rg) FL.groups.push("rg");
-    FL.missiles = [];
+    FL.missiles = []; FL.msRl = 0; FL.msCd = 0;
     spawnTargets();
     S.mode = "fly"; V.zoomEd = V.zoom; V.zoom = Math.min(1.1, Math.max(0.6, V.zoom));
     syncUI();
@@ -716,6 +716,7 @@
 
   function flTick(dt) {
     FL.t += dt;
+    if (FL.msRl > 0) { FL.msRl -= dt; if (FL.msRl <= 0) { FL.msRl = 0; FL.me.blocks.forEach(function (b) { if (T[b.t].kind === "ms") b.ammo = 2; }); } }
     if (FL.oc) { FL.ocT -= dt; if (FL.ocT <= 0) { FL.ocT = 0; FL.oc = false; } }
     else FL.ocT = Math.min(FL.me.ocMax || 3, FL.ocT + dt * 0.5);
     var me = FL.me, k = FL.keys;
@@ -729,7 +730,7 @@
       bd.blocks.forEach(function (b) {
         var ty = T[b.t];
         if (ty.kind === "mg") { var cn = (bd.cool && bd.cool.get(b)) || 0; if (b.oh > 0) { b.oh -= dt; if (b.oh <= 0) { b.oh = 0; b.heat = 0; } } else if (!b.firing) b.heat = Math.max(0, (b.heat || 0) - MG.cool * (1 + 0.6 * cn) * dt); b.firing = false; }
-        if (ty.kind === "ms" && b.rl > 0) b.rl -= dt;
+        if (ty.kind === "ms" && b.ammo === undefined) b.ammo = 2;
         if (ty.kind === "rg") { if (b.cd > 0) b.cd -= dt; if (!b.holding) b.chg = 0; b.holding = false; }
         var hk = b.hp / ty.hp;
         if (MECH[ty.kind] && hk < 0.5 && Math.random() < dt * (hk < 0.25 ? 5 : 2.5)) { var p = blockCenter(bd, b); FL.parts.push({ x: p.x + (Math.random() - 0.5) * 2, y: p.y + (Math.random() - 0.5) * 2, vx: bd.vx + (Math.random() - 0.5) * 3, vy: bd.vy - 1.5 - Math.random() * 2, life: 0, max: 1.4 + Math.random() * 0.8, k: "smoke", sz: 0.5 + Math.random() * 0.5 }); }
@@ -862,12 +863,20 @@
       b.heat = (b.heat || 0) + MG.heat / (1 + 0.35 * cn2);
       if (b.heat >= 1) { b.heat = 1; b.oh = b.ohMax = MG.lock / (1 + 0.3 * cn2); for (var i = 0; i < 10; i++) FL.parts.push({ x: tip.x, y: tip.y, vx: bd.vx + (Math.random() - 0.5) * 6, vy: bd.vy + (Math.random() - 0.5) * 6, life: 0, max: 1 + Math.random(), k: "smoke", sz: 1 + Math.random() }); }
     });
-    if (FL.fire && g === "ms") bd.blocks.forEach(function (b) {
-      if (T[b.t].kind !== "ms" || b.rl > 0 || bd.energy < MS.e) return;
-      b.rl = MS.reload; bd.energy -= MS.e;
-      var d = dirWorld(bd, dirOut(b, 0)), tip = muzzle(bd, b);
-      FL.missiles.push({ x: tip.x, y: tip.y, vx: bd.vx + d.x * MS.v0, vy: bd.vy + d.y * MS.v0, h: Math.atan2(d.y, d.x), life: 0, own: bd });
-    });
+    // Raketen: je Werfer 2 Schuss, abgefeuert wird nacheinander aus irgendeinem Werfer mit Munition.
+    // Erst wenn alle leer sind, laden alle gemeinsam nach: 2,5 s je Werfer.
+    FL.msCd = Math.max(0, (FL.msCd || 0) - dt);
+    if (FL.fire && g === "ms" && !(FL.msRl > 0) && FL.msCd <= 0 && bd.energy >= MS.e) {
+      var ls = bd.blocks.filter(function (b) { return T[b.t].kind === "ms" && b.ammo > 0; });
+      if (ls.length) {
+        var lb = ls[(FL.msTurn = ((FL.msTurn || 0) + 1)) % ls.length];
+        lb.ammo--; bd.energy -= MS.e; FL.msCd = MS.gap;
+        var d = dirWorld(bd, dirOut(lb, 0)), tip = muzzle(bd, lb), side = lb.ammo === 1 ? 0.22 : -0.22, nx = -d.y * side * CELL_M, ny = d.x * side * CELL_M;
+        FL.missiles.push({ x: tip.x + nx, y: tip.y + ny, vx: bd.vx + d.x * MS.v0, vy: bd.vy + d.y * MS.v0, h: Math.atan2(d.y, d.x), life: 0, own: bd });
+        var left = bd.blocks.reduce(function (a, b) { return a + (T[b.t].kind === "ms" ? b.ammo : 0); }, 0);
+        if (!left) FL.msRl = FL.msRlMax = MS.reload * bd.blocks.filter(function (b) { return T[b.t].kind === "ms"; }).length;
+      }
+    }
     if (FL.fire && g === "rg") bd.blocks.forEach(function (b) {
       if (T[b.t].kind !== "rg" || b.cd > 0) return;
       b.holding = true;
@@ -1030,7 +1039,7 @@
     var oe = V.root.querySelector("#sr-h-oc"); if (oe) oe.className = FL.oc ? "on" : "";
     var wtxt = g ? t(g) : t("none");
     if (g === "mg") { var h = 0, oh = 0; me.blocks.forEach(function (b) { if (T[b.t].kind === "mg") { h = Math.max(h, b.heat || 0); oh = Math.max(oh, b.oh || 0); } }); wtxt += oh > 0 ? " · !!! " + nf(oh, 1) + " s" : " · " + Math.round(h * 100) + " %"; }
-    if (g === "ms") { var rl = 0; me.blocks.forEach(function (b) { if (T[b.t].kind === "ms") rl = Math.max(rl, b.rl || 0); }); wtxt += rl > 0 ? " · " + nf(rl, 1) + " s" : (lang === "de" ? " · bereit" : " · ready"); }
+    if (g === "ms") { var am = 0, mx = 0; me.blocks.forEach(function (b) { if (T[b.t].kind === "ms") { am += b.ammo === undefined ? 2 : b.ammo; mx += 2; } }); wtxt += FL.msRl > 0 ? (lang === "de" ? " · lädt " : " · reloading ") + nf(FL.msRl, 1) + " s" : " · " + am + " / " + mx; }
     if (g === "rg") { var cd = 0; me.blocks.forEach(function (b) { if (T[b.t].kind === "rg") cd = Math.max(cd, b.cd || 0); }); wtxt += cd > 0 ? " · " + nf(cd, 1) + " s" : " · bereit".replace("bereit", lang === "de" ? "bereit" : "ready"); }
     set("sr-h-w", wtxt);
     set("sr-h-seat", !me.seat ? t("cockGone") : FL.seated ? t("seated") : t("walking"));
@@ -1059,7 +1068,7 @@
     return '<div class="sr-root">' +
       '<canvas id="sr-cv"></canvas>' +
       '<div class="sr-top"><a class="sr-back" href="#">← ' + t("back") + '</a><b class="sr-ttl">' + t("title") + ' <small>v' + VERSION + '</small></b>' +
-      '<div class="sr-ed-only sr-tbar"><button type="button" data-act="undo">' + t("undo") + '</button><button type="button" data-act="starter">' + t("starter") + '</button><button type="button" data-act="clear">' + t("clear") + '</button></div>' +
+      '<div class="sr-ed-only sr-tbar"><button type="button" data-act="undo">' + t("undo") + '</button><button type="button" data-act="starter">' + t("starter") + '</button><button type="button" data-act="clear">' + t("clear") + '</button><button type="button" data-act="exp">Export</button><button type="button" data-act="imp">Import</button></div>' +
       '<div class="sr-sp"></div><div class="sr-seg"><button type="button" data-view="in">' + t("vIn") + '</button><button type="button" data-view="out">' + t("vOut") + '</button></div>' +
       '<button type="button" class="sr-go sr-ed-only" data-act="test">' + t("test") + ' ▸</button><button type="button" class="sr-go sr-fl-only" data-act="edit">◂ ' + t("toEd") + '</button></div>' +
       '<aside class="sr-pal sr-ed-only"><div class="sr-tools"><button type="button" data-tool="build">' + t("tBuild") + '</button><button type="button" data-tool="erase">' + t("tErase") + '</button><button type="button" data-tool="paint">' + t("tPaint") + '</button></div>' +
@@ -1070,7 +1079,8 @@
       '<div class="sr-hud sr-fl-only"><div><small>' + t("speed") + '</small><b id="sr-h-sp"></b></div><div><small>' + t("energy") + '</small><b id="sr-h-en"></b><i class="sr-eb"><i id="sr-h-ebar"></i></i></div>' +
       '<div><small>' + t("weapon") + ' (R)</small><b id="sr-h-w"></b></div><div><small>Z</small><b id="sr-h-damp"></b></div><div><small>X · Overcharge</small><b id="sr-h-oc"></b><i class="sr-eb"><i id="sr-h-ocbar"></i></i></div><div><small>F</small><b id="sr-h-seat"></b></div><div hidden><small>' + t("weld") + '</small><b id="sr-h-weld"></b></div>' +
       '<button type="button" data-act="seat" id="sr-h-seatb"></button><button type="button" data-act="targets">' + t("targets") + '</button></div>' +
-      '<div class="sr-hint" id="sr-hint"></div><div class="sr-note" hidden></div></div>';
+      '<div class="sr-hint" id="sr-hint"></div><div class="sr-note" hidden></div>' +
+      '<div class="sr-io" hidden><div class="sr-io-box"><div class="sr-io-h"></div><textarea spellcheck="false"></textarea><div class="sr-tbar"><button type="button" data-act="io-copy">' + (lang === "de" ? "Kopieren" : "Copy") + '</button><button type="button" data-act="io-load">' + (lang === "de" ? "Laden" : "Load") + '</button><span class="sr-sp"></span><button type="button" data-act="io-x">' + (lang === "de" ? "Schließen" : "Close") + '</button></div></div></div></div>';
   }
   function syncUI() {
     if (!V) return;
@@ -1136,6 +1146,7 @@
     ".sr-info div{display:flex;justify-content:space-between;gap:8px;padding:2px 0}.sr-info div span{color:#B9C4D4}.sr-info b{font-weight:600;font-variant-numeric:tabular-nums;text-align:right}" +
     ".sr-info p{margin:2px 0}.sr-info .ok{color:#7FD3A4}.sr-info .bad{color:#F08A78}.sr-warn{margin:10px 0 0;padding:8px 8px 8px 22px;background:rgba(224,83,63,.12);border-left:3px solid #E0533F;color:#F3C2B8}.sr-warn li{margin:2px 0}" +
     ".sr-hint{position:absolute;left:50%;bottom:10px;transform:translateX(-50%);max-width:calc(100% - 540px);min-width:280px;text-align:center;font-size:.74rem;color:#B9C4D4;background:rgba(14,19,28,.85);border:1px solid #263142;padding:6px 10px;z-index:2}" +
+    ".sr-io{position:absolute;inset:0;background:rgba(10,10,10,.72);display:flex;align-items:center;justify-content:center;z-index:6;padding:16px}.sr-io[hidden]{display:none}.sr-io-box{background:#1E1E1E;border:1px solid #3A3A3A;padding:14px;width:min(560px,100%);display:flex;flex-direction:column;gap:10px}.sr-io-h{color:#DDD;font-size:.88rem;line-height:1.45}.sr-io textarea{height:180px;background:#141414;color:#E8E8E8;border:1px solid #3A3A3A;font:12px ui-monospace,Menlo,Consolas,monospace;padding:8px;resize:vertical;border-radius:0}.sr-io .sr-sp{flex:1}" +
     ".sr-note{position:absolute;left:50%;top:72px;transform:translateX(-50%);background:#E0533F;color:#fff;font-weight:600;padding:8px 14px;z-index:4;font-size:.86rem}" +
     ".sr-hud{position:absolute;left:12px;top:64px;display:flex;flex-direction:column;gap:8px;background:rgba(14,19,28,.88);border:1px solid #263142;padding:10px 12px;z-index:2;min-width:220px}" +
     ".sr-hud div{display:flex;flex-direction:column;gap:2px}.sr-hud small{font-size:.66rem;letter-spacing:.08em;text-transform:uppercase;color:#8FA0B8}.sr-hud b{font-weight:600;font-variant-numeric:tabular-nums}" +
@@ -1182,7 +1193,7 @@
   function onUp(e) { if (!V) return; V.pan = null; V.down = null; if (FL) FL.fire = false; if (V.row) { placeRow(); V.row = null; syncUI(); } }
   function onWheel(e) { e.preventDefault(); var k = e.deltaY < 0 ? 1.12 : 1 / 1.12; V.zoom = Math.max(0.3, Math.min(3, V.zoom * k)); }
   function onKey(e) {
-    if (!V || e.target.tagName === "INPUT") return;
+    if (!V || e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA") return;
     var k = e.key.toLowerCase();
     if (S.mode === "fly") {
       if (k === "escape") { stopTest(); return; }
@@ -1212,6 +1223,22 @@
     if (FL) { FL.keys[k] = false; if (k === "shift") FL.keys.shift = false; }
     V.keys[k] = false;
   }
+  // Schiffscode: kompaktes JSON, damit Entwürfe geteilt und später als Gegner-Blaupausen eingebaut werden können.
+  function shipCode() { return JSON.stringify({ sr: 1, color: S.color, b: S.blocks.map(function (b) { var a = [b.t, b.x, b.y, b.r, b.f]; if (b.c) a.push(b.c); return a; }) }); }
+  function parseShip(txt) {
+    try {
+      var o = JSON.parse(String(txt).trim()); if (!o || !Array.isArray(o.b)) return null;
+      var out = o.b.filter(function (a) { return Array.isArray(a) && T[a[0]]; }).map(function (a) { var b = { t: a[0], x: a[1] | 0, y: a[2] | 0, r: (a[3] | 0) & 3, f: a[4] ? 1 : 0 }; if (a[5]) b.c = String(a[5]); return b; });
+      return out.length ? out : null;
+    } catch (e) { return null; }
+  }
+  function openIO(mode) {
+    var io = V.root.querySelector(".sr-io"), ta = io.querySelector("textarea"), h = io.querySelector(".sr-io-h");
+    io.hidden = false;
+    io.querySelector('[data-act="io-copy"]').hidden = mode !== "exp"; io.querySelector('[data-act="io-load"]').hidden = mode !== "imp";
+    if (mode === "exp") { h.textContent = lang === "de" ? "Schiffscode deines Entwurfs. Kopieren und teilen oder speichern." : "Ship code of your design. Copy and share or keep it."; ta.value = shipCode(); ta.readOnly = true; ta.select(); }
+    else { h.textContent = lang === "de" ? "Schiffscode einfügen und laden. Der aktuelle Entwurf lässt sich mit Rückgängig zurückholen." : "Paste a ship code and load it. Undo brings back the current design."; ta.value = ""; ta.readOnly = false; ta.focus(); }
+  }
   function undo() { var u = S.undo.pop(); if (!u) return; S.blocks = JSON.parse(u); save(); syncUI(); }
   function onClick(e) {
     var a = e.target.closest("[data-act]"), tl = e.target.closest("[data-tool]"), bk = e.target.closest("[data-blk]"), vw = e.target.closest("[data-view]"), sw = e.target.closest("[data-sw]");
@@ -1227,6 +1254,10 @@
     else if (act === "undo") undo();
     else if (act === "clear") { pushUndo(); S.blocks = []; save(); }
     else if (act === "starter") { pushUndo(); S.blocks = starter(); save(); fitCam(); }
+    else if (act === "exp" || act === "imp") { openIO(act); return; }
+    else if (act === "io-x") { V.root.querySelector(".sr-io").hidden = true; return; }
+    else if (act === "io-copy") { var ta = V.root.querySelector(".sr-io textarea"); ta.select(); try { navigator.clipboard.writeText(ta.value).then(function () { note(lang === "de" ? "Schiffscode kopiert." : "Ship code copied."); }, function () {}); } catch (er) {} return; }
+    else if (act === "io-load") { var bl = parseShip(V.root.querySelector(".sr-io textarea").value); if (!bl) { note(lang === "de" ? "Code ungültig." : "Invalid code."); return; } pushUndo(); S.blocks = bl; save(); fitCam(); V.root.querySelector(".sr-io").hidden = true; note(lang === "de" ? "Schiff geladen (" + bl.length + " Blöcke)." : "Ship loaded (" + bl.length + " blocks)."); }
     else if (act === "test") { startTest(); return; }
     else if (act === "edit") { stopTest(); return; }
     else if (act === "targets") { if (FL) spawnTargets(); return; }
