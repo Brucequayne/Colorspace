@@ -5,7 +5,7 @@
   "use strict";
 
   var KEY = "flughafen-v3";
-  var VERSION = "0.65";
+  var VERSION = "0.66";
   var RW_W = 22, TW_W = 14, RD_W = 16, SL_W = 9;
   var DIVERT = 60;
   var SIZE = { stand: [64, 66], term: [124, 46], tower: [30, 30], fire: [52, 38], hangar: [84, 62], deck: [72, 38], park: [72, 48], bus: [44, 22], cab: [62, 22], hotels: [50, 34], hotel: [70, 44], hotell: [96, 74], tank: [44, 44] };
@@ -332,7 +332,7 @@
       });
     });
     // Parkpositionen: Rollweg direkt vor der Nase?
-    mods("stand").forEach(function (m) {
+    function standRay(m) {
       var d = standDirs(m), h = SIZE.stand[1] / 2;
       var F = { x: m.x + d.fx * h, y: m.y + d.fy * h };
       var best = null;
@@ -345,6 +345,16 @@
         var k = (qx * ry - qy * rx) / den, u = (qx * d.fy - qy * d.fx) / den;
         if (k >= -3 && k <= 26 && u >= -0.001 && u <= 1.001 && (!best || k < best.k)) best = { k: k, s: s, u: u };
       });
+      if (best) { best.F = F; best.d = d; }
+      return best;
+    }
+    mods("stand").forEach(function (m) {
+      var best = standRay(m);
+      // Position vor dem Rollweg gebaut: liegt der Rollweg seitlich oder hinten, dreht sich die Position zu ihm
+      if (!best && !(R && R.occ && R.occ[m.id])) [Math.PI, Math.PI / 2, -Math.PI / 2].some(function (da) {
+        m.a += da; best = standRay(m); if (best) return true; m.a -= da; return false;
+      });
+      var d = best ? best.d : standDirs(m), F = best ? best.F : null;
       m._en = m._pn = null;
       if (best) {
         var ex = F.x + d.fx * best.k, ey = F.y + d.fy * best.k;
@@ -383,8 +393,8 @@
       }
       return reach;
     }
-    var reachIn = rws[0] ? flood(rws[0]._junc.map(function (j) { return j.n; }), false) : {};
     var allJ = []; rws.forEach(function (r) { r._junc.forEach(function (j) { allJ.push(j.n); }); });
+    var reachIn = flood(allJ, false);   // Landungen auf jeder Piste möglich
     var reachOut = flood(allJ, true);
     mods("stand").forEach(function (m) {
       var has = m._pn !== null && m._pn !== undefined;
@@ -850,6 +860,11 @@
       if (j.d >= min) best = last;
     });
     return best || last;
+  }
+  function standsFor(type) {   // freie, angebundene Positionen, beste zuerst
+    var L = mods("stand").filter(function (m) { return m._conn && !R.occ[m.id] && (!TYPES[type].heavy || m.heavy); });
+    L.forEach(function (m) { m._sc = (m.gate && m._term ? 2 : 0) - (m.heavy && !TYPES[type].heavy ? 1.5 : 0) + Math.random() * 0.1; });
+    return L.sort(function (a, b) { return b._sc - a._sc; });
   }
   function freeStand(type) {
     var rw = mods("runway")[0], out = null, bs = -99;
@@ -1487,16 +1502,20 @@
         o.dEnd = nd; o.onEnd = null;
       });
     });
-    // Ankünfte auf der ersten Piste
-    if (!R.holdQ.length || !rwSoon(r0)) return;
+    // Ankünfte: bevorzugt auf der ersten Piste, sonst auf jeder Piste, von der die Position erreichbar ist
+    if (!R.holdQ.length) return;
     var q0 = R.q[rws[0].id];
-    if (rws.length === 1 && r0.last === "a" && q0 && q0.length && !q0[0].path) return;
+    if (rws.length === 1 && (!rwSoon(r0) || (r0.last === "a" && q0 && q0.length && !q0[0].path))) return;
     for (var i = 0; i < R.holdQ.length; i++) {
-      var h = R.holdQ[i], st = freeStand(h.type);
-      if (!st || !rwFits(rws[0], h.type) || !depRunway(st, h.type)) continue;
-      var plan = arrPlan(h, st, rws[0]);
-      if (!plan) continue;
-      R.holdQ.splice(i, 1); clearArrival(h, st, plan, rws[0]); return;
+      var h = R.holdQ[i], cands = standsFor(h.type);
+      for (var ci = 0; ci < cands.length; ci++) {
+        var st = cands[ci]; if (!depRunway(st, h.type)) continue;
+        for (var ri = 0; ri < rws.length; ri++) {
+          var rw = rws[ri]; if (!rwFits(rw, h.type) || !rwSoon(rwState(rw))) continue;
+          var plan = arrPlan(h, st, rw);
+          if (plan) { R.holdQ.splice(i, 1); clearArrival(h, st, plan, rw); return; }
+        }
+      }
     }
   }
   function arrivalPossible() { return R.holdQ.some(function (p) { return !!freeStand(p.type); }); }

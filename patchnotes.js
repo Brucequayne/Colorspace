@@ -113,6 +113,9 @@ window.PATCHNOTES = {
       en: ["New game: sketch main and distributor roads with smoothed mouse input", "Pick a city style: USA, Europe or Japan", "Side streets, houses, parking lots, cars, trees and road markings are generated procedurally", "Paint parks, water and special buildings in green, blue and red, then regenerate", "Bridges over rivers, railway with station, stadium, cathedral, opera, harbour, airport and more", "Save the city as PNG"] }
   ],
   flughafen: [
+    { v: "0.66", t: "2026-11-09T19:01:00+01:00",
+      de: ["Hotfix: Positionen, die vor ihren Rollwegen gebaut wurden, drehen sich jetzt selbst zum Rollweg und gelten als angebunden", "Hotfix: Landungen sind auf jeder Piste möglich, nicht nur auf der ersten. Positionen, die nur an der zweiten Piste hängen, werden angeflogen"],
+      en: ["Hotfix: stands built before their taxiways now turn to face the taxiway and count as connected", "Hotfix: landings can use any runway, not just the first. Stands linked only to the second runway now receive arrivals"] },
     { v: "0.65", t: "2026-11-09T18:26:00+01:00",
       de: ["Unwetter alle 7 bis 14 Spieltage mit Regen und Blitzen, Dauer bis zu einem Tag: solange starten keine Flugzeuge", "Seltene Abstürze bei Start oder Landung (1 zu 2048): Flugbetrieb steht, bis das Wrack geräumt ist", "Wrack anklicken und räumen: 1 bis 4,5 Mio. € je nach Flugzeuggröße, danach 2 Minuten Sicherung", "Absturz einer Börsen-Airline lässt die Aktie sofort einbrechen, die Erholung dauert lange"],
       en: ["Severe storms every 7 to 14 game days with rain and lightning, lasting up to a day: no take-offs meanwhile", "Rare crashes on take-off or landing (1 in 2048): operations stop until the wreck is cleared", "Click the wreck to clear it: €1M to €4.5M depending on aircraft size, then 2 minutes to secure the site", "A crash of a listed airline sends its share price plunging, and recovery takes a long time"] },
