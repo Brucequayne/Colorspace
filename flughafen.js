@@ -5,7 +5,7 @@
   "use strict";
 
   var KEY = "flughafen-v3";
-  var VERSION = "0.56";
+  var VERSION = "0.57";
   var RW_W = 22, TW_W = 14, RD_W = 16, SL_W = 9;
   var DIVERT = 60;
   var SIZE = { stand: [64, 66], term: [124, 46], tower: [30, 30], fire: [52, 38], hangar: [84, 62], deck: [72, 38], park: [72, 48], bus: [44, 22], cab: [62, 22], hotels: [50, 34], hotel: [70, 44], hotell: [96, 74], tank: [44, 44] };
@@ -90,6 +90,11 @@
     fpNoTank: L2("Noch kein Kerosintank gebaut", "No fuel tank built yet"), fpLo: L2("Tief", "Low"), fpHi: L2("Hoch", "High"),
     fuelFill: L2("Auffüllen", "Refill"), fuelFull: L2("Tanks sind voll", "Tanks are full"), fuelEmpty: L2("Kein Kerosin: Flugbetrieb eingestellt. Tanks auffüllen!", "Out of fuel: flight operations stopped. Refill the tanks!"),
     fuelInfo: L2("Lager des Flughafens: {p} %", "Airport stock: {p} %"), fuelBought: L2("Kerosin gekauft", "Fuel bought"), fuelSold: L2("Kerosin", "Fuel"),
+    trBuy: L2("Kaufen", "Buy"), trSell: L2("Verkaufen", "Sell"), trMove: L2("Regler verschieben zum Handeln", "Move the slider to trade"),
+    trBuyD: L2("Einkauf am Markt: {a} → {b}", "Buying on the market: {a} → {b}"), trSellD: L2("Rückverkauf an den Markt: {a} → {b}", "Selling back to the market: {a} → {b}"),
+    trNow: L2("Füllstand jetzt {p}", "Fill level now {p}"), trPoor: L2("Nicht genug Geld", "Not enough money"),
+    trPrice: L2("Markt: Einkauf {b} · Rückkauf {s} je Einheit", "Market: buy {b} · sell back {s} per unit"),
+    trDone: L2("Kerosin verkauft", "Fuel sold"),
     fuelHint: L2("Klick füllt alle Tanks auf", "Click to refill all tanks"),
     tMod: L2("Modernisieren", "Modernise"), tShop: L2("Shops einbauen", "Add shops"), tLng: L2("Lounge einbauen", "Add lounge"),
     tLvl2: L2("Modernes Terminal", "Modern terminal"), tHas: L2("Ausstattung: {x}", "Fitted: {x}"), tNone: L2("keine", "none"),
@@ -932,6 +937,33 @@
     return Math.round(FUELBUY * (1 + 0.42 * Math.sin(u) + 0.14 * n) / 10) * 10;
   }
   function fuelPrice() { return fuelPriceAt(Math.floor(G.fpt || 0)); }
+  // Kerosinbörse am Tank: Regler auf Zielfüllstand, links verkaufen (zum Marktpreis −3 %), rechts kaufen
+  var SELLBACK = 0.97;
+  function fuelBack() { return Math.round(fuelPrice() * SELLBACK / 10) * 10; }
+  function trCalc() {
+    var r = document.getElementById("fh-tr"); if (!r) return null;
+    var cap = fuelCap(), tgt = Math.round(+r.value / 100 * cap), d = tgt - Math.round(G.fuel);
+    if (Math.abs(d) < 1) d = 0;
+    return { r: r, cap: cap, pct: +r.value, d: d, buy: d > 0, sum: d > 0 ? d * fuelPrice() : -d * fuelBack() };
+  }
+  function trUpdate() {
+    var q = trCalc(); if (!q) return;
+    var cp = Math.round(fuelPct()), pe = function (v) { return v + "\u00a0%"; };
+    q.r.style.setProperty("--cur", cp + "%"); q.r.style.setProperty("--a", Math.min(cp, q.pct) + "%"); q.r.style.setProperty("--b", Math.max(cp, q.pct) + "%"); q.r.classList.toggle("buy", q.d > 0); q.r.classList.toggle("sell", q.d < 0);
+    set("fh-tr-pct", pe(q.pct)); set("fh-tr-now", fmt(t("trNow"), { p: pe(cp) }));
+    set("fh-tr-pr", fmt(t("trPrice"), { b: eur(fuelPrice()), s: eur(fuelBack()) }));
+    var sum = document.getElementById("fh-tr-sum"), b = document.getElementById("fh-tr-btn"), poor = q.buy && q.sum > G.money;
+    set("fh-tr-desc", q.d === 0 ? "" : fmt(t(q.buy ? "trBuyD" : "trSellD"), { a: pe(cp), b: pe(q.pct) }));
+    sum.textContent = q.d === 0 ? "" : (q.buy ? "−" : "+") + eur(q.sum); sum.className = "sum " + (q.d > 0 ? "buy" : "sell");
+    b.textContent = q.d === 0 ? t("trMove") : poor ? t("trPoor") : (q.buy ? t("trBuy") : t("trSell")) + " · " + eurS(q.sum);
+    b.className = q.d > 0 ? "buy" : q.d < 0 ? "sell" : ""; b.setAttribute("aria-disabled", String(q.d === 0 || poor));
+  }
+  function trDo() {
+    var q = trCalc(); if (!q || q.d === 0) return;
+    if (q.buy) { if (q.sum > G.money) { msg(t("poor")); return; } G.money -= q.sum; G.fuel += q.d; msg(t("fuelBought") + " · " + eurS(q.sum), true); }
+    else { G.money += q.sum; G.fuel = Math.max(0, G.fuel + q.d); msg(t("trDone") + " · +" + eurS(q.sum), true); }
+    save(); updatePanel(true); updateSel(); fpDraw(true);
+  }
   function fillFuel() {
     var cap = fuelCap(); if (!cap) return;
     var miss = cap - G.fuel; if (miss < 0.5) { msg(t("fuelFull")); return; }
@@ -2368,6 +2400,17 @@
     ".fh-grp{display:none}.fh-grp.on{display:flex}" +
     ".fh-sel{position:absolute;right:max(12px,env(safe-area-inset-right));top:calc(var(--top) + 10px);width:min(300px,calc(100% - 24px));padding:12px 14px;max-height:calc(100% - var(--top) - var(--dock) - 30px);overflow:auto}" +
     ".fh-sel b{display:block;font-weight:600}.fh-sel p{margin:4px 0 0;color:rgba(244,241,236,.75);font-size:.86rem;line-height:1.45}" +
+    ".fh-trade{display:flex;flex-direction:column;gap:6px;margin-top:2px}.fh-trade .row{display:flex;justify-content:space-between;align-items:baseline;gap:8px;font-size:.78rem;color:rgba(244,241,236,.6)}" +
+    ".fh-trade .row b{font:600 1.25rem/1 var(--f-display,inherit);color:#F4F1EC;font-variant-numeric:tabular-nums}.fh-trade .row.sm{font-size:.72rem;flex-wrap:wrap}" +
+    ".fh-trade input{-webkit-appearance:none;appearance:none;width:100%;height:22px;margin:0;background:transparent;cursor:pointer;--tc:#E3B83F}" +
+    ".fh-trade input.buy{--tc:#E58A73}.fh-trade input.sell{--tc:#8FC79A}" +
+    ".fh-trade input::-webkit-slider-runnable-track{height:8px;background:linear-gradient(90deg,transparent calc(var(--cur) - 1px),#F4F1EC calc(var(--cur) - 1px),#F4F1EC calc(var(--cur) + 1px),transparent calc(var(--cur) + 1px)),linear-gradient(90deg,rgba(227,184,63,.55) var(--a,var(--cur)),var(--tc) var(--a,var(--cur)),var(--tc) var(--b,var(--cur)),rgba(244,241,236,.14) var(--b,var(--cur)))}" +
+    ".fh-trade input::-moz-range-track{height:8px;background:linear-gradient(90deg,transparent calc(var(--cur) - 1px),#F4F1EC calc(var(--cur) - 1px),#F4F1EC calc(var(--cur) + 1px),transparent calc(var(--cur) + 1px)),linear-gradient(90deg,rgba(227,184,63,.55) var(--a,var(--cur)),var(--tc) var(--a,var(--cur)),var(--tc) var(--b,var(--cur)),rgba(244,241,236,.14) var(--b,var(--cur)))}" +
+    ".fh-trade input::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:22px;margin-top:-7px;background:var(--tc);border:2px solid #1E211E;border-radius:0}" +
+    ".fh-trade input::-moz-range-thumb{width:12px;height:20px;background:var(--tc);border:2px solid #1E211E;border-radius:0}" +
+    ".fh-trade .desc{font-size:.84rem;color:rgba(244,241,236,.85)}.fh-trade .desc:empty,.fh-trade .sum:empty{display:none}" +
+    ".fh-trade .sum{font:600 1.4rem/1.1 var(--f-display,inherit);font-variant-numeric:tabular-nums}.fh-trade .sum.buy{color:#E58A73}.fh-trade .sum.sell{color:#8FC79A}" +
+    ".fh-sel .acts button.buy{border-color:#E58A73;color:#E58A73}.fh-sel .acts button.sell{border-color:#8FC79A;color:#8FC79A}" +
     ".fh-sel .acts{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}" +
     ".fh-sel .acts button{font:600 .8rem inherit;padding:6px 10px;border:1px solid rgba(244,241,236,.5);background:transparent;color:#F4F1EC;cursor:pointer}" +
     ".fh-sel .acts button.warn{border-color:#F0A848;color:#F0A848}.fh-sel .acts button[aria-disabled=true]{opacity:.45;cursor:default}" +
@@ -2477,7 +2520,8 @@
   var NAMES = { runway: L2("Piste", "Runway"), taxi: L2("Rollweg", "Taxiway"), road: L2("Straße", "Road"), stand: L2("Parkposition", "Aircraft stand"),
     term: L2("Terminalmodul", "Terminal module"), tower: L2("Tower", "Control tower"), fire: L2("Feuerwehr", "Fire station"),
     hangar: L2("Wartungshalle", "Maintenance hangar"), deck: L2("Aussichtsplattform", "Viewing deck"), park: L2("Parkplatz", "Car park"), bus: L2("Bushaltestelle", "Bus stop"), cab: L2("Taxistand", "Taxi rank"), hotels: L2("Hotel klein", "Small hotel"), hotel: L2("Hotel mittel", "Medium hotel"), hotell: L2("Hotel groß", "Large hotel"), tank: L2("Kerosintank", "Fuel tank") };
-  function updateSel() {
+  function updateSel() { updateSel0(); trUpdate(); }
+  function updateSel0() {
     var box = document.getElementById("fh-sel"); if (!box) return;
     var m = V.sel && byId(V.sel);
     if (!m) { box.hidden = true; box.innerHTML = ""; return; }
@@ -2509,9 +2553,12 @@
       info.push(t("lvl") + " " + m.lvl + "/2");
       if (m.lvl < 2) acts.push(btn("lvl", fmt(t("up2"), { n: 2 }) + " · " + eurS(LVL[m.t][0]), false));
     } else if (m.t === "tank") {
-      info.push(fmt(t("fuelInfo"), { p: Math.round(fuelPct()) }));
-      var miss = Math.max(0, fuelCap() - G.fuel);
-      acts.push(btn("fuel", t("fuelFill") + " · " + eurS(miss * fuelPrice()), miss < 0.5));
+      var cp = Math.round(fuelPct());
+      info.push('<span class="fh-trade"><span class="row"><span>0 %</span><b id="fh-tr-pct">' + cp + ' %</b><span>100 %</span></span>' +
+        '<input type="range" id="fh-tr" min="0" max="100" step="1" value="' + cp + '" aria-label="' + t("fuel") + '" style="--cur:' + cp + '%">' +
+        '<span class="row sm"><span id="fh-tr-now"></span><span id="fh-tr-pr"></span></span>' +
+        '<span class="desc" id="fh-tr-desc"></span><span class="sum" id="fh-tr-sum"></span></span>');
+      acts.push('<button type="button" data-act="trade" id="fh-tr-btn" aria-disabled="true">' + t("trMove") + "</button>");
     } else if (m.t === "term" || m.t === "park" || m.t === "bus" || m.t === "cab" || isHotel(m.t)) {
       if (isHotel(m.t)) info.push(fmt(t("hotelInfo"), { n: hotelGuests(m), k: hotelCap(m) }));
       if (m.t === "term") {
@@ -2596,6 +2643,7 @@
         rebuild(); save(); updateSel();
       }
       else if (a === "fuel") { fillFuel(); }
+      else if (a === "trade") { trDo(); }
       else if (a === "tmod" || a === "tshop" || a === "tlng") {
         var pc = a === "tmod" ? 3500000 : a === "tshop" ? 1500000 : 2000000;
         if (G.money < pc) { msg(t("poor")); return; }
@@ -2633,11 +2681,13 @@
   function onRotUp() { if (V) V.rotHold = 0; }
 
   var raf = 0, last = 0, hudT = 0;
+  var trT = 0;
   function frame(now) {
     raf = requestAnimationFrame(frame);
     var dt = Math.min(0.1, (now - (last || now)) / 1000); last = now;
     keysTick(dt);
     if (!R.paused) { G.fpt = (G.fpt || 0) + dt; fpDraw(); }
+    trT += dt; if (trT > 0.5) { trT = 0; trUpdate(); }
     if (!R.paused) { var g = dt * R.speed; while (g > 0) { var d = Math.min(0.05, g); tick(d); g -= d; } }
     if (R.msgT > 0) { R.msgT -= dt; if (R.msgT <= 0) msg(""); }
     R.saveT += dt; if (R.saveT > 4) { R.saveT = 0; save(); }
@@ -2703,6 +2753,7 @@
     V.ctx = V.cv.getContext("2d");
     fitView();
     el.addEventListener("click", onClick);
+    el.addEventListener("input", function (e) { if (e.target.id === "fh-tr") trUpdate(); });
     el.addEventListener("pointerdown", onRotDown);
     window.addEventListener("pointerup", onRotUp);
     V.cv.addEventListener("pointerdown", onDown);
