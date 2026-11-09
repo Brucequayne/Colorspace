@@ -1,11 +1,11 @@
-/* CityGenerator 0.1 – Stadtplan aus einer Straßenskizze, prozedural im Browser. Für Color Space.
+/* CityGenerator 0.2 – Stadtplan aus einer Straßenskizze, prozedural im Browser. Für Color Space.
    Ablauf: Hauptstraßen zeichnen → Verteilerstraßen zeichnen → Stil wählen → Stadt generieren →
    mit Grün (Park), Blau (Wasser) und Rot (Spezialbauten) übermalen → neu generieren.
    Welt: 2400 × 1500 m. Alles wird in Metern gerechnet. */
 (function () {
   "use strict";
 
-  var VERSION = "0.1";
+  var VERSION = "0.2";
   var W = 2400, H = 1500;
   var lang = "de";
   function L2(de, en) { return { de: de, en: en }; }
@@ -452,7 +452,7 @@
       var b = bboxOf(P, 0), ax = P[1].x - P[0].x, ay = P[1].y - P[0].y, bx2 = P[3].x - P[0].x, by2 = P[3].y - P[0].y, la = ax * ax + ay * ay, lb = bx2 * bx2 + by2 * by2;
       for (var y = Math.max(0, Math.floor(b[1])); y <= Math.min(H - 1, b[3]); y++) for (var x = Math.max(0, Math.floor(b[0])); x <= Math.min(W - 1, b[2]); x++) {
         var px = x + 0.5 - P[0].x, py = y + 0.5 - P[0].y, u = (px * ax + py * ay) / la, v = (px * bx2 + py * by2) / lb;
-        if (u >= -0.02 && u <= 1.02 && v >= -0.02 && v <= 1.02) { var k = y * W + x; if (land[k] === 0 || land[k] === 7) land[k] = val; }
+        if (u >= -0.02 && u <= 1.02 && v >= -0.02 && v <= 1.02) { var k = y * W + x; if (land[k] === 0 || land[k] === 7 || land[k] === 8) land[k] = val; }
       }
     }
 
@@ -518,7 +518,193 @@
       C.platforms.forEach(function (P) { rectMark(P, 1); });
     }
 
-    // ---------- Gebäude entlang der Straßen ----------
+    // ---------- Häuserblock-Engine (0.2) ----------
+    // Jeder Straßenblock wird als Fläche behandelt: Abstandsfeld zur Straßenkante (mit nächstem Kantenpunkt),
+    // Grundstücke entstehen entlang der Front und reichen organisch bis in die Blockmitte. Je dichter (Nähe zum Zentrum),
+    // desto tiefer und geschlossener die Randbebauung, dahinter Innenhöfe. Außen lockerer mit Gärten und Hecken.
+    var cxC = C.center.x, cyC = C.center.y, Rd = st.cityR * 1.05;
+    function density(x, y) { var d = 1 - Math.hypot(x - cxC, y - cyC) / Rd; d += (noise2(x / 170, y / 170, seed + 61) - 0.5) * 0.32; return d < 0 ? 0 : d > 1 ? 1 : d; }
+    C.density = density;
+    var plotId = blockEngine();
+    function modeParams(d, r) {
+      var s = S.style;
+      if (s === "eu") {
+        if (d > 0.5) return { mode: "dense", depth: 11 + d * 6 + r() * 2, f: [8, 18], gap: 0.03, det: 0, flat: 0.12, h: [3.5, 7] };
+        if (d > 0.28) return { mode: "mid", depth: 9.5 + r() * 2.5, f: [9, 16], gap: 0.16, det: 0.55, flat: 0.05, h: [2, 3.5] };
+        return null;
+      }
+      if (s === "usa") {
+        if (d > 0.62) return { mode: "dense", depth: 22 + d * 14, f: [18, 42], gap: 0.07, det: 0.35, flat: 1, h: [7, 24] };
+        if (d > 0.42) return { mode: "mid", depth: 15 + r() * 4, f: [16, 30], gap: 0.22, det: 0.75, flat: 0.85, h: [3, 6] };
+        return null;
+      }
+      if (d > 0.42) return { mode: "dense", depth: 10 + d * 3, f: [6, 11], gap: 0.02, det: 0.1, flat: 0.7, h: [3, 9] };
+      if (d > 0.22) return { mode: "mid", depth: 8.5 + r() * 2, f: [5, 9], gap: 0.08, det: 0.6, flat: 0.5, h: [2, 3] };
+      return null;
+    }
+    function blockEngine() {
+      var N = W * H, fx = new Int16Array(N), fy = new Int16Array(N), dd = new Int32Array(N), BIG = 2000000000, k, x, y;
+      for (k = 0; k < N; k++) { if (land[k] !== 0) { fx[k] = k % W; fy[k] = (k / W) | 0; dd[k] = 0; } else { fx[k] = -1; dd[k] = BIG; } }
+      function rl(k, x, y, nk) { if (fx[nk] < 0) return; var dx = x - fx[nk], dy = y - fy[nk], d = dx * dx + dy * dy; if (d < dd[k]) { dd[k] = d; fx[k] = fx[nk]; fy[k] = fy[nk]; } }
+      for (y = 0; y < H; y++) {
+        for (x = 0; x < W; x++) { k = y * W + x; if (!dd[k]) continue; if (x > 0) rl(k, x, y, k - 1); if (y > 0) { rl(k, x, y, k - W); if (x > 0) rl(k, x, y, k - W - 1); if (x < W - 1) rl(k, x, y, k - W + 1); } }
+        for (x = W - 2; x >= 0; x--) { k = y * W + x; if (dd[k]) rl(k, x, y, k + 1); }
+      }
+      for (y = H - 1; y >= 0; y--) {
+        for (x = W - 1; x >= 0; x--) { k = y * W + x; if (!dd[k]) continue; if (x < W - 1) rl(k, x, y, k + 1); if (y < H - 1) { rl(k, x, y, k + W); if (x < W - 1) rl(k, x, y, k + W + 1); if (x > 0) rl(k, x, y, k + W - 1); } }
+        for (x = 1; x < W; x++) { k = y * W + x; if (dd[k]) rl(k, x, y, k - 1); }
+      }
+      var lab = new Uint8Array(N), stack = new Int32Array(N), pid = new Int32Array(N), gdist = new Uint8Array(N), gid = 1, er = mulberry(seed * 17 + 3);
+      for (k = 0; k < N; k++) {
+        if (land[k] !== 0 || lab[k]) continue;
+        var sp = 0, cells = [], b = [1e9, 1e9, -1, -1], maxd = 0; stack[sp++] = k; lab[k] = 1;
+        while (sp) {
+          var c = stack[--sp]; cells.push(c); var cx = c % W, cy = (c / W) | 0;
+          if (cx < b[0]) b[0] = cx; if (cy < b[1]) b[1] = cy; if (cx > b[2]) b[2] = cx; if (cy > b[3]) b[3] = cy; if (dd[c] > maxd) maxd = dd[c];
+          if (cx > 0 && !lab[c - 1] && land[c - 1] === 0) { lab[c - 1] = 1; stack[sp++] = c - 1; }
+          if (cx < W - 1 && !lab[c + 1] && land[c + 1] === 0) { lab[c + 1] = 1; stack[sp++] = c + 1; }
+          if (cy > 0 && !lab[c - W] && land[c - W] === 0) { lab[c - W] = 1; stack[sp++] = c - W; }
+          if (cy < H - 1 && !lab[c + W] && land[c + W] === 0) { lab[c + W] = 1; stack[sp++] = c + W; }
+        }
+        gid = doBlock(cells, b, Math.sqrt(maxd), gid);
+      }
+      function doBlock(cells, b, maxDT, gid) {
+        if (cells.length < 80 || cells.length > 160000) return gid;
+        var ds = 0, n = 0, i, c;
+        for (i = 0; i < cells.length; i += 9) { c = cells[i]; ds += density(c % W, (c / W) | 0); n++; }
+        var d = ds / n, P = modeParams(d, er); if (!P) return gid;
+        var solid = maxDT < P.depth * 1.3, Deff = solid ? maxDT + 1 : P.depth, half = solid ? maxDT * 0.5 : P.depth * 0.5;
+        // Front-Grundstücke: den Blockrand (als geschlossene Linie) ablaufen und in Abständen schneiden.
+        // Jede Zelle gehört zum Randpunkt, der ihr am nächsten ist, so laufen die Grenzen senkrecht zur Straße.
+        var bw0 = b[2] - b[0] + 1, bh0 = b[3] - b[1] + 1, mk = new Uint8Array(bw0 * bh0);
+        for (i = 0; i < cells.length; i++) { c = cells[i]; mk[(((c / W) | 0) - b[1]) * bw0 + c % W - b[0]] = 1; }
+        var loops = rawLoops(function (i2, j2) { return mk[j2 * bw0 + i2] === 1; }, bw0, bh0);
+        var vmap = new Map(), seeds = [], VWc = W + 1;
+        loops.forEach(function (lp) {
+          var L0 = [0];
+          for (var q = 1; q <= lp.length; q++) { var a = lp[q - 1], c2 = lp[q % lp.length]; L0.push(L0[q - 1] + Math.hypot(c2.x - a.x, c2.y - a.y)); }
+          var tot = L0[lp.length]; if (tot < 6) return;
+          var cuts = [], sAt = er() * 6;
+          while (sAt < tot) { cuts.push(sAt); sAt += rr(er, P.f[0], P.f[1]) * (1.15 - d * 0.3); }
+          if (cuts.length < 2) cuts = [0, tot / 2];
+          var base = seeds.length, pal = [st.roofs[Math.floor(er() * st.roofs.length)], st.roofs[Math.floor(er() * st.roofs.length)], st.roofs[Math.floor(er() * st.roofs.length)]];
+          for (var k2 = 0; k2 < cuts.length; k2++) {
+            var flat = er() < P.flat, rs = flat ? (S.style === "usa" ? ["#C9CCCF", "#BFC3C6", "#D3D5D6", "#B0B5BA", "#9EA4AA"] : S.style === "jp" ? ["#B9B5AC", "#A9ADB2", "#C7C3BA", "#9AA1A8", "#8F969E"] : ["#C9C2B4", "#B8B2A6", "#A9A9A6"]) : st.roofs;
+            seeds.push({ gap: er() < P.gap, det: er() < P.det, flat: flat, roof: flat ? rs[Math.floor(er() * rs.length)] : (er() < 0.8 ? pal[Math.floor(er() * 3)] : rs[Math.floor(er() * rs.length)]), h: rr(er, P.h[0], P.h[1]) * (0.75 + d * 0.5), nx: 0, ny: 0, b: [1e9, 1e9, -1, -1], n: 0 });
+          }
+          for (q = 0; q < lp.length; q++) {
+            var sq = L0[q], lo = 0, hi = cuts.length - 1;
+            if (sq < cuts[0]) idx = cuts.length - 1; else { while (lo < hi) { var mid = (lo + hi + 1) >> 1; if (cuts[mid] <= sq) lo = mid; else hi = mid - 1; } var idx = lo; }
+            vmap.set((lp[q].y + b[1]) * VWc + lp[q].x + b[0], base + idx);
+          }
+        });
+        if (!seeds.length) return gid;
+        function pieceOf(c) {
+          var x1 = fx[c], y1 = fy[c];
+          for (var r2 = 0; r2 <= 2; r2++) for (var yy2 = y1 - r2; yy2 <= y1 + 1 + r2; yy2++) for (var xx2 = x1 - r2; xx2 <= x1 + 1 + r2; xx2++) {
+            var v4 = vmap.get(yy2 * VWc + xx2); if (v4 != null) return v4;
+          }
+          return 0;
+        }
+        var bw = b[2] - b[0] + 1, bh = b[3] - b[1] + 1, loc = new Int32Array(bw * bh);
+        for (i = 0; i < cells.length; i++) {
+          c = cells[i]; var si = pieceOf(c), dist = Math.sqrt(dd[c]), cx = c % W, cy = (c / W) | 0;
+          pid[c] = gid + si; gdist[c] = dist > 254 ? 255 : dist;
+          if (dist <= Deff && !seeds[si].gap) {
+            loc[(cy - b[1]) * bw + cx - b[0]] = si * 2 + (dist <= half ? 1 : 2);
+            var S0 = seeds[si]; S0.nx += fx[c] - cx; S0.ny += fy[c] - cy;
+          }
+        }
+        // freistehende Häuser: Zellen an der Grenze zum Nachbarhaus wegnehmen
+        if (P.det > 0) {
+          var cut = [];
+          for (y = 1; y < bh - 1; y++) for (x = 1; x < bw - 1; x++) {
+            var v = loc[y * bw + x]; if (!v) continue; var sv = (v - 1) >> 1; if (!seeds[sv].det) continue;
+            var nbs = [loc[y * bw + x - 1], loc[y * bw + x + 1], loc[(y - 1) * bw + x], loc[(y + 1) * bw + x]];
+            for (var q = 0; q < 4; q++) if (nbs[q] && ((nbs[q] - 1) >> 1) !== sv) { cut.push(y * bw + x); break; }
+          }
+          cut.forEach(function (p) { loc[p] = 0; });
+          // zweite Reihe für etwas Abstand
+          cut.forEach(function (p) { var y2 = (p / bw) | 0, x2 = p % bw; [p - 1, p + 1, p - bw, p + bw].forEach(function (p2) { if (p2 >= 0 && p2 < loc.length && loc[p2] && er() < 0.5 && Math.abs((p2 % bw) - x2) <= 1 && Math.abs(((p2 / bw) | 0) - y2) <= 1) loc[p2] = loc[p2]; }); });
+        }
+        for (i = 0; i < cells.length; i++) {
+          c = cells[i]; var lx = c % W - b[0], ly = ((c / W) | 0) - b[1], v2 = loc[ly * bw + lx];
+          if (v2) { land[c] = 5; var s2 = seeds[(v2 - 1) >> 1]; s2.n++; if (lx < s2.b[0]) s2.b[0] = lx; if (ly < s2.b[1]) s2.b[1] = ly; if (lx > s2.b[2]) s2.b[2] = lx; if (ly > s2.b[3]) s2.b[3] = ly; }
+          else land[c] = P.mode === "dense" && Math.sqrt(dd[c]) > Deff ? 8 : 7;
+        }
+        // Umrisse als Polygone
+        seeds.forEach(function (s, si) {
+          if (s.n < 12) return;
+          var x0 = s.b[0], y0 = s.b[1], w = s.b[2] - x0 + 1, h = s.b[3] - y0 + 1, o = si * 2 + 1, inn = si * 2 + 2;
+          var A, B2;
+          if (s.flat) { A = contours(function (i2, j2) { var v3 = loc[(j2 + y0) * bw + i2 + x0]; return v3 === o || v3 === inn; }, w, h, b[0] + x0, b[1] + y0); B2 = []; }
+          else {
+            A = contours(function (i2, j2) { return loc[(j2 + y0) * bw + i2 + x0] === o; }, w, h, b[0] + x0, b[1] + y0);
+            B2 = contours(function (i2, j2) { return loc[(j2 + y0) * bw + i2 + x0] === inn; }, w, h, b[0] + x0, b[1] + y0);
+          }
+          if (!A.length && !B2.length) return;
+          var nl = Math.hypot(s.nx, s.ny) || 1, all = A.concat(B2), pts = [];
+          all.forEach(function (p) { pts = pts.concat(p); });
+          C.buildings.push({ polys: A, polys2: B2, flat: s.flat, roof: s.roof, h: s.h, nx: s.nx / nl, ny: s.ny / nl, bb: bboxOf(pts, s.h * 1.2 + 1), kind: P.mode });
+        });
+        return gid + seeds.length + 1;
+      }
+      C.gdist = gdist; return pid;
+    }
+    // Alle Randlinien einer Maske (auch Löcher), Eckpunkte in lokalen Pixelkoordinaten
+    function rawLoops(inside, w, h) {
+      var VW = w + 1, nxt = new Int32Array(VW * (h + 1)).fill(-1), nxt2 = new Int32Array(VW * (h + 1)).fill(-1);
+      function add(a, b2) { if (nxt[a] < 0) nxt[a] = b2; else nxt2[a] = b2; }
+      for (var j = 0; j < h; j++) for (var i = 0; i < w; i++) {
+        if (!inside(i, j)) continue;
+        if (j === 0 || !inside(i, j - 1)) add(j * VW + i, j * VW + i + 1);
+        if (i === w - 1 || !inside(i + 1, j)) add(j * VW + i + 1, (j + 1) * VW + i + 1);
+        if (j === h - 1 || !inside(i, j + 1)) add((j + 1) * VW + i + 1, (j + 1) * VW + i);
+        if (i === 0 || !inside(i - 1, j)) add((j + 1) * VW + i, j * VW + i);
+      }
+      var out = [];
+      for (var s = 0; s < nxt.length; s++) {
+        while (nxt[s] >= 0) {
+          var loop = [], v = s, guard = 0;
+          do { loop.push({ x: v % VW, y: (v / VW) | 0 }); var n2 = nxt[v]; if (n2 < 0) break; if (nxt2[v] >= 0) { nxt[v] = nxt2[v]; nxt2[v] = -1; } else nxt[v] = -1; v = n2; } while (v !== s && ++guard < 400000);
+          if (loop.length >= 4) out.push(loop);
+        }
+      }
+      return out;
+    }
+    // Umriss einer Rastermaske (1 m) als Polygone, an den Pixelkanten entlang, danach vereinfacht
+    function contours(inside, w, h, ox, oy) {
+      var VW = w + 1, nxt = new Int32Array(VW * (h + 1)).fill(-1), nxt2 = new Int32Array(VW * (h + 1)).fill(-1);
+      function add(a, b2) { if (nxt[a] < 0) nxt[a] = b2; else nxt2[a] = b2; }
+      for (var j = 0; j < h; j++) for (var i = 0; i < w; i++) {
+        if (!inside(i, j)) continue;
+        if (j === 0 || !inside(i, j - 1)) add(j * VW + i, j * VW + i + 1);
+        if (i === w - 1 || !inside(i + 1, j)) add(j * VW + i + 1, (j + 1) * VW + i + 1);
+        if (j === h - 1 || !inside(i, j + 1)) add((j + 1) * VW + i + 1, (j + 1) * VW + i);
+        if (i === 0 || !inside(i - 1, j)) add((j + 1) * VW + i, j * VW + i);
+      }
+      var out = [];
+      for (var s = 0; s < nxt.length; s++) {
+        while (nxt[s] >= 0) {
+          var loop = [], v = s, guard = 0;
+          do {
+            loop.push(v); var n2 = nxt[v];
+            if (n2 < 0) break;
+            if (nxt2[v] >= 0) { nxt[v] = nxt2[v]; nxt2[v] = -1; } else nxt[v] = -1;
+            v = n2;
+          } while (v !== s && ++guard < 100000);
+          if (loop.length < 4) continue;
+          var P = loop.map(function (q) { return { x: ox + q % VW, y: oy + ((q / VW) | 0) }; }), ar = 0;
+          for (var q = 0; q < P.length; q++) { var a = P[q], c = P[(q + 1) % P.length]; ar += a.x * c.y - c.x * a.y; }
+          if (ar < 8) continue;   // Löcher und Krümel weglassen
+          P.push(P[0]); P = rdp(P, 1.05); P.pop();
+          if (P.length >= 3) out.push(P);
+        }
+      }
+      return out;
+    }
+
+    // ---------- Gebäude entlang der Straßen (lockere Gebiete) ----------
     var br = mulberry(seed * 7 + 1);
     function lotSpec(cls) {
       var s = S.style;
@@ -583,7 +769,7 @@
                   if (rectFree(PP, 0, 0)) { rectMark(PP, 7); C.pools.push(PP); }
                 }
               }
-              s += ff + rr(br, spec.gap[0], spec.gap[1]);
+              s += ff + rr(br, spec.gap[0], spec.gap[1]) * (1.3 - density(p.x, p.y) * 0.6);
             }
           }
           if (!placed) s += 2.5;
@@ -598,16 +784,16 @@
       var gstep = S.style === "jp" ? 8 : 16;
       for (var gy = 4; gy < H - 4; gy += gstep) for (var gx = 4; gx < W - 4; gx += gstep) {
         var jx = gx + hash2(gx, gy, seed + 21) * gstep * 0.6, jy = gy + hash2(gx, gy, seed + 22) * gstep * 0.6;
-        if (L(jx, jy) !== 0) continue;
+        var c0 = L(jx, jy); if (c0 !== 0 && c0 !== 8) continue;
         var nb = false; for (var q8 = 0; q8 < 8 && !nb; q8++) { var c8 = L(jx + Math.cos(q8 * 0.785) * 14, jy + Math.sin(q8 * 0.785) * 14); if (c8 === 5 || c8 === 1) nb = true; }
         if (!nb) continue;
-        if (S.style === "eu" && hash2(gx, gy, seed + 23) > 0.35) continue;
+        if (S.style === "eu" && hash2(gx, gy, seed + 23) > (c0 === 8 ? 0.55 : 0.35)) continue;
         var a7 = fieldAng(jx, jy), tx7 = Math.cos(a7), ty7 = Math.sin(a7), f7 = S.style === "jp" ? rr(br, 5, 8) : rr(br, 6, 11), d7 = S.style === "jp" ? rr(br, 6, 9) : rr(br, 5, 8);
         var P7 = rectPts(jx, jy, tx7, ty7, -ty7, tx7, f7, d7);
-        if (rectFree(P7, 0, 0)) {
+        if (rectFree(P7, 0, c0)) {
           // Abstand halten, damit Höfe sichtbar bleiben
           var pad = S.style === "jp" ? 0.8 : 3, P8 = rectPts(jx - tx7 * pad + ty7 * pad, jy - ty7 * pad - tx7 * pad, tx7, ty7, -ty7, tx7, f7 + 2 * pad, d7 + 2 * pad);
-          if (rectFree(P8, 0.02, 0)) { var rf7 = roofFor(S.style === "jp" ? "jhouse" : "block", jx, jy); rectMark(P7, 5); C.buildings.push({ P: P7, h: S.style === "jp" ? 2 : 2, roof: rf7.roof, type: rf7.type, kind: "back" }); }
+          if (rectFree(P8, 0.02, c0)) { var rf7 = roofFor(S.style === "jp" ? "jhouse" : "block", jx, jy); rectMark(P7, 5); C.buildings.push({ P: P7, h: S.style === "jp" ? 2 : 2, roof: rf7.roof, type: rf7.type, kind: "back" }); }
         }
       }
     }
@@ -641,6 +827,8 @@
     for (var ty2 = 2; ty2 < H - 2; ty2 += 5) for (var tx2 = 2; tx2 < W - 2; tx2 += 5) {
       var x9 = tx2 + hash2(tx2, ty2, seed + 41) * 4, y9 = ty2 + hash2(tx2, ty2, seed + 42) * 4, c9 = L(x9, y9), h9 = hash2(tx2, ty2, seed + 43);
       if (c9 === 3) { var cl = noise2(x9 / 45, y9 / 45, seed + 44); if (h9 < st.park + (cl - 0.45) * 1.6 && !nearPath(x9, y9, 4.5)) addTree(x9, y9, 3 + hash2(tx2, ty2, 9) * 3); }
+      else if (c9 === 7) { if (h9 < st.trees * 0.45 + 0.06 && L(x9 + 2.5, y9) === 7 && L(x9 - 2.5, y9) === 7 && L(x9, y9 + 2.5) === 7 && L(x9, y9 - 2.5) === 7) addTree(x9, y9, 2 + hash2(tx2, ty2, 9) * 2.4); }
+      else if (c9 === 8) { if (S.style !== "usa" && h9 < (S.style === "eu" ? 0.16 : 0.05) && L(x9 + 3, y9) === 8 && L(x9 - 3, y9) === 8 && L(x9, y9 + 3) === 8 && L(x9, y9 - 3) === 8) addTree(x9, y9, 2.2 + hash2(tx2, ty2, 9) * 2); }
       else if (c9 === 0) { if (h9 < st.trees * 0.35 && L(x9 + 3, y9) === 0 && L(x9 - 3, y9) === 0 && L(x9, y9 + 3) === 0 && L(x9, y9 - 3) === 0) addTree(x9, y9, 2.5 + hash2(tx2, ty2, 9) * 2.5); }
       else if (c9 === 4) { if (h9 < 0.12 && !C.specials.some(function (sp) { var dx = x9 - sp.cx, dy = y9 - sp.cy, u = dx * sp.ux + dy * sp.uy, v = -dx * sp.uy + dy * sp.ux; return (u * u) / Math.pow(sp.a * 0.9 + 6, 2) + (v * v) / Math.pow(sp.b * 0.9 + 6, 2) < 1.15 || sp.type === "harbor" || sp.type === "airport" || sp.type === "campus"; }) && L(x9 + 4, y9) === 4 && L(x9 - 4, y9) === 4 && L(x9, y9 + 4) === 4 && L(x9, y9 - 4) === 4) addTree(x9, y9, 2.6 + hash2(tx2, ty2, 9) * 1.6); }
       else if (c9 === 6) { var fn = noise2(x9 / 140, y9 / 140, seed + 45); if (fn > 0.62 && h9 < 0.75) addTree(x9, y9, 3.5 + hash2(tx2, ty2, 9) * 2.5); else if (h9 < 0.006) addTree(x9, y9, 4); }
@@ -685,22 +873,44 @@
     function onBr(r, s) { for (var i = 0; i < r.bridges.length; i++) if (s > r.bridges[i][0] - 3 && s < r.bridges[i][1] + 3) return true; return false; }
     C.nearJ = nearJ;
 
-    // ---------- Boden (2 m) ----------
-    var gcv = document.createElement("canvas"); gcv.width = MW; gcv.height = MH;
-    var gx2 = gcv.getContext("2d"), gd = gx2.createImageData(MW, MH), g = gd.data, gr = st.ground;
+    // ---------- Boden (1 m): Grundfarbe, Gärten, Hecken an Grundstücksgrenzen, Innenhöfe ----------
+    var gcv = document.createElement("canvas"); gcv.width = W; gcv.height = H;
+    var gx2 = gcv.getContext("2d"), gd = gx2.createImageData(W, H), g = gd.data, gr = st.ground;
+    var b2r = new Float32Array(MW * MH), b2g = new Float32Array(MW * MH), b2b = new Float32Array(MW * MH), dn2 = new Float32Array(MW * MH), ic2 = new Uint8Array(MW * MH);
     for (var j3 = 0; j3 < MH; j3++) for (var i3 = 0; i3 < MW; i3++) {
-      var x3 = i3 * 2, y3 = j3 * 2, k4 = (j3 * MW + i3) * 4, n4 = noise2(x3 / 90, y3 / 90, seed + 50) - 0.5, ic = inCity(x3, y3);
-      var col;
+      var x3 = i3 * 2, y3 = j3 * 2, m3 = j3 * MW + i3, n4 = noise2(x3 / 90, y3 / 90, seed + 50) - 0.5, ic = inCity(x3, y3), col;
       if (ic) col = [gr[0] + n4 * 8, gr[1] + n4 * 8, gr[2] + n4 * 8];
       else {
         var fld = noise2(x3 / 180, y3 / 180, seed + 51), stripe = (Math.floor((x3 * Math.cos(gAng) + y3 * Math.sin(gAng)) / 60) + Math.floor(fld * 5)) % 3;
         col = stripe === 0 ? [206, 216, 176] : stripe === 1 ? [196, 210, 166] : [214, 214, 178];
         col = [col[0] + n4 * 10, col[1] + n4 * 10, col[2] + n4 * 6];
       }
-      g[k4] = col[0]; g[k4 + 1] = col[1]; g[k4 + 2] = col[2]; g[k4 + 3] = 255;
+      b2r[m3] = col[0]; b2g[m3] = col[1]; b2b[m3] = col[2]; ic2[m3] = ic ? 1 : 0; dn2[m3] = ic ? density(x3, y3) : 0;
+    }
+    var GARD = S.style === "usa" ? [200, 214, 172] : S.style === "jp" ? [208, 212, 190] : [204, 214, 178];
+    var YARD = S.style === "usa" ? [132, 135, 140] : S.style === "jp" ? [214, 211, 204] : [221, 214, 200];
+    var HEDGE = [170, 192, 140];
+    for (var y4 = 0; y4 < H; y4++) for (var x4 = 0; x4 < W; x4++) {
+      var k5 = y4 * W + x4, m5 = (y4 >> 1) * MW + (x4 >> 1), lc = land[k5], r5 = b2r[m5], g5 = b2g[m5], bl5 = b2b[m5], o5 = k5 * 4;
+      if (lc === 7) {
+        var pp = plotId[k5];
+        if (pp && C.gdist[k5] < 28 && ((x4 < W - 1 && land[k5 + 1] === 7 && plotId[k5 + 1] !== pp) || (y4 < H - 1 && land[k5 + W] === 7 && plotId[k5 + W] !== pp))) { r5 = HEDGE[0]; g5 = HEDGE[1]; bl5 = HEDGE[2]; }
+        else { r5 = GARD[0] + (r5 - gr[0]); g5 = GARD[1] + (g5 - gr[1]); bl5 = GARD[2] + (bl5 - gr[2]); }
+      } else if (lc === 8) { r5 = YARD[0] + (r5 - gr[0]) * 0.6; g5 = YARD[1] + (g5 - gr[1]) * 0.6; bl5 = YARD[2] + (bl5 - gr[2]) * 0.6; }
+      else if (lc === 0 && ic2[m5] && S.style !== "usa") { var gw = Math.max(0, 0.75 - dn2[m5] * 1.3); r5 += (GARD[0] - r5) * gw; g5 += (GARD[1] - g5) * gw; bl5 += (GARD[2] - bl5) * gw; }
+      g[o5] = r5; g[o5 + 1] = g5; g[o5 + 2] = bl5; g[o5 + 3] = 255;
     }
     gx2.putImageData(gd, 0, 0); C.ground = gcv;
+    // Parkplätze in amerikanischen Innenhöfen
+    if (S.style === "usa") {
+      var cr = mulberry(seed * 19 + 4);
+      for (var py5 = 3; py5 < H - 3; py5 += 6) for (var px5 = 2; px5 < W - 2; px5 += 3) {
+        if (L(px5, py5) !== 8 || L(px5 + 3, py5) !== 8 || L(px5 - 3, py5) !== 8 || L(px5, py5 + 3) !== 8 || L(px5, py5 - 3) !== 8 || cr() > 0.4) continue;
+        C.cars.push({ x: px5, y: py5, a: Math.PI / 2, c: pick(cr, CARS) });
+      }
+    }
 
+    C.gdist = null;
     C.localsN = locals.length;
     C.km = Math.round(C.roads.filter(function (r) { return r.cls !== "rail"; }).reduce(function (a, r) { return a + r.len; }, 0) / 100) / 10;
     C.ms = Math.round(performance.now() - t0);
@@ -850,8 +1060,9 @@
     C.pools.forEach(function (P) { if (!vis(bboxOf(P, 1))) return; poly(x, P); x.fillStyle = "#F2F0EA"; x.fill(); var c = centroid(P); x.save(); x.translate(c.x, c.y); x.scale(0.8, 0.8); x.translate(-c.x, -c.y); poly(x, P); x.fillStyle = "#6EC3E0"; x.fill(); x.restore(); });
     // Gebäude: erst alle Schatten, dann Dächer
     var bs = C.buildings.filter(function (b) { return vis(b.bb || (b.bb = bboxOf(b.P, b.h * 1.2 + 1))); });
+    function polys(b) { return b.polys ? b.polys.concat(b.polys2) : [b.P]; }
     x.fillStyle = "rgba(40,36,30,.2)";
-    bs.forEach(function (b) { var dx = 0.55 + b.h * 0.42, dy = 0.75 + b.h * 0.55; x.save(); x.translate(dx, dy); poly(x, b.P); x.fill(); x.restore(); });
+    bs.forEach(function (b) { var dx = 0.55 + b.h * 0.42, dy = 0.75 + b.h * 0.55; x.save(); x.translate(dx, dy); polys(b).forEach(function (P) { poly(x, P); x.fill(); }); x.restore(); });
     bs.forEach(function (b) { drawBuilding(x, b, z); });
     // Spezialbauten
     C.specials.forEach(function (sp) { if (!visP(sp.cx, sp.cy, Math.max(sp.a, sp.b) + 80)) return; drawSpecial(x, sp, C); });
@@ -886,6 +1097,7 @@
     return "rgb(" + (r | 0) + "," + (g | 0) + "," + (b | 0) + ")";
   }
   function drawBuilding(x, b, z) {
+    if (b.polys) { drawBlockBuilding(x, b, z); return; }
     var P = b.P;
     if (b.type === "gable" || b.type === "hip") {
       var la = dist(P[0], P[1]), lb = dist(P[1], P[2]), A, B, Cc, D;
@@ -916,6 +1128,28 @@
         }
       }
     }
+  }
+  // Gebäude aus der Block-Engine: Satteldach als zwei Hälften (straßenseitig, hofseitig), Licht von oben links
+  function drawBlockBuilding(x, b, z) {
+    var lit = (-b.nx - b.ny) * 0.075;
+    if (b.flat) {
+      b.polys.forEach(function (P) {
+        poly(x, P); x.fillStyle = shade(b.roof, 0.04); x.fill();
+        x.save(); poly(x, P); x.clip(); x.strokeStyle = shade(b.roof, -0.12); x.lineWidth = 1.6; x.stroke(); x.restore();
+        poly(x, P); x.strokeStyle = shade(b.roof, -0.34); x.lineWidth = 0.3; x.stroke();
+        if (z > 1.2 && b.h > 2.5) {
+          var c = centroid(P), hr = hash2(c.x | 0, c.y | 0, 81);
+          x.fillStyle = "rgba(60,60,60,.18)"; x.fillRect(c.x - 0.4, c.y - 0.2, 2.8, 2.4); x.fillStyle = shade(b.roof, 0.22); x.fillRect(c.x - 1.2, c.y - 1.2, 2.6, 2.2);
+          if (hr > 0.5) { x.fillStyle = shade(b.roof, 0.18); x.fillRect(c.x + 3, c.y + 1.5, 1.8, 1.8); }
+        }
+      });
+      return;
+    }
+    b.polys.forEach(function (P) { poly(x, P); x.fillStyle = shade(b.roof, lit); x.fill(); });
+    b.polys2.forEach(function (P) { poly(x, P); x.fillStyle = shade(b.roof, -lit - 0.04); x.fill(); });
+    x.strokeStyle = shade(b.roof, -0.32); x.lineWidth = 0.28;
+    b.polys.forEach(function (P) { poly(x, P); x.stroke(); });
+    b.polys2.forEach(function (P) { poly(x, P); x.stroke(); });
   }
   function drawCar(x, c) {
     x.save(); x.translate(c.x, c.y); x.rotate(c.a);
