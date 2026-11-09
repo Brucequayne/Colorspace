@@ -5,7 +5,7 @@
   "use strict";
 
   var KEY = "flughafen-v3";
-  var VERSION = "0.5";
+  var VERSION = "0.51";
   var RW_W = 22, TW_W = 14, RD_W = 16, SL_W = 9;
   var DIVERT = 60;
   var SIZE = { stand: [64, 66], term: [124, 46], tower: [30, 30], fire: [52, 38], hangar: [84, 62], deck: [72, 38], park: [72, 48], bus: [44, 22], cab: [62, 22] };
@@ -113,9 +113,9 @@
   };
 
   var TYPES = {
-    p: { cap: 120, rev: 20000, turn: 18, len: 17, span: 22, sweep: 0.01, roll: 90, need: 250 },
-    n: { cap: 190, rev: 40000, turn: 26, len: 25, span: 25, sweep: 0.13, roll: 140, need: 350 },
-    w: { cap: 400, rev: 90000, turn: 40, len: 36, span: 37, sweep: 0.16, roll: 200, heavy: true, need: 500 }
+    p: { cap: 120, rev: 20000, turn: 18, len: 14.5, span: 15.5, swp: 3, prop: true, roll: 90, need: 250 },
+    n: { cap: 190, rev: 40000, turn: 26, len: 28, span: 26.5, swp: 27, roll: 140, need: 350 },
+    w: { cap: 400, rev: 90000, turn: 40, len: 46, span: 44, swp: 32, roll: 200, heavy: true, need: 500 }
   };
   var PAXFEE = 30, SHOP = 15, PARKFEE = 5, BUSFARE = 4, TAXIFEE = 18;   // Euro pro Fluggast, pro Sekunde Parken, pro Fahrgast, pro Taxi
   var AIRLINES = [ // erfundene Airlines
@@ -566,7 +566,7 @@
       lock: function () { if (G.up.ext >= 3) return t("done"); return mods("term").length ? "" : (lang === "de" ? "Erst ein Terminalmodul bauen" : "Build a terminal module first"); },
       extra: function () { return t("lvl") + " " + G.up.ext + "/3"; }, apply: function () { G.up.ext++; } }
   ];
-  var LVL = { tower: [4000000], fire: [2000000], hangar: [9000000] };
+  var LVL = { tower: [500000], fire: [2000000], hangar: [9000000] };
   // Neupreis eines Bauteils (für die Umstellung alter Spielstände)
   function priceOf(m) {
     var len = m.x2 !== undefined ? Math.hypot(m.x2 - m.x1, m.y2 - m.y1) : 0;
@@ -664,8 +664,9 @@
   }
 
   function rectValid(type, x, y, a) {
-    var s = SIZE[type], f = { x: x, y: y, a: a, hw: s[0] / 2, hh: s[1] / 2 };
-    return !G.mods.some(function (m) { return overlap(f, foot(m), 1.5); });
+    var s = SIZE[type], f = { x: x, y: y, a: a, hw: s[0] / 2, hh: s[1] / 2 }, soft = { park: 1, bus: 1, cab: 1 };
+    // Parkplätze und Haltebuchten dürfen sich gegenseitig um etwa 5 % überlappen
+    return !G.mods.some(function (m) { return overlap(f, foot(m), soft[type] && soft[m.t] ? 1.5 + Math.min(s[0], s[1]) * 0.05 : 1.5); });
   }
   function runwayValid(x, y, a, len) {
     if (len < RW_MIN) return false;
@@ -1450,6 +1451,7 @@
     });
     // 5. Flugzeuge
     R.planes.slice().sort(function (a, b) { return (a.alt || 0) - (b.alt || 0); }).forEach(function (p) { plane(c, p); });
+    nightPass(c, z, x0, y0, x1, y1, W, H, dpr);
     labels(c);
     // 6. Auswahl, Vorschau, Einnahmen
     if (V.sel) { var sm = byId(V.sel); if (sm) outline(c, foot(sm), "#2F6F8F", 2 / z); }
@@ -1717,17 +1719,137 @@
     if (alt > 0.02) { c.save(); c.globalAlpha = 0.22 * a; c.translate(p.x + alt * 14, p.y + alt * 20); c.rotate(p.h); shape(c, T, "#000", null); c.restore(); }
     c.save(); c.globalAlpha = a; c.translate(p.x, p.y); c.rotate(p.h); c.scale(s, s); shape(c, T, "#E6EBF0", p.al.col); c.restore();
   }
+  // Flugzeug von oben: schlanker Rumpf mit Nase und Heckkonus, gepfeilte Flügel (Jets etwa 30° nach hinten),
+  // Höhenleitwerk, Triebwerke unter den Flügeln. Turboprops mit geraden Flügeln und Propellern.
   function shape(c, T, body, tail) {
-    var L = T.len, hl = L / 2, sp = T.span / 2, sw = T.sweep * L, fw = L * 0.085 + 1.2;
-    c.fillStyle = body; c.strokeStyle = "#7D8794"; c.lineWidth = 0.7;
+    var L = T.len, hl = L / 2, sp = T.span / 2, prop = !!T.prop, fw = L * (prop ? 0.105 : 0.115) / 2 + 0.25;
+    var sw = Math.tan((T.swp || 0) * Math.PI / 180), cr = L * (prop ? 0.13 : 0.2), ct = cr * (prop ? 0.7 : 0.3), le = prop ? L * 0.14 : L * 0.1;
+    var dark = body === "#000";
+    c.fillStyle = body; c.strokeStyle = "#7D8794"; c.lineWidth = 0.35;
+    // Flügel
+    function wing(side) {
+      var tipLE = le - sp * sw;
+      c.beginPath(); c.moveTo(le, side * fw * 0.8); c.lineTo(tipLE, side * sp); c.lineTo(tipLE - ct, side * sp); c.lineTo(le - cr, side * fw * 0.8); c.closePath(); c.fill(); if (tail) c.stroke();
+    }
+    wing(-1); wing(1);
+    // Höhenleitwerk
+    var hs = sp * (prop ? 0.34 : 0.36), hcr = L * 0.11, hsw = Math.tan(((T.swp || 0) + (prop ? 0 : 6)) * Math.PI / 180), hle = -hl + L * (prop ? 0.13 : 0.15);
+    [-1, 1].forEach(function (side) { c.beginPath(); c.moveTo(hle, side * fw * 0.4); c.lineTo(hle - hs * hsw, side * hs); c.lineTo(hle - hs * hsw - hcr * 0.45, side * hs); c.lineTo(hle - hcr, side * fw * 0.3); c.closePath(); c.fill(); if (tail) c.stroke(); });
+    // Rumpf: spitz zulaufende Nase, lange gleich breite Röhre, schlanker Heckkonus
+    var nose = hl - L * 0.1, tailS = -hl + L * 0.24;
     c.beginPath();
-    c.moveTo(L * 0.1, -fw * 0.6); c.lineTo(L * 0.1 - sw, -sp); c.lineTo(L * 0.1 - sw - L * 0.12, -sp); c.lineTo(-L * 0.08, -fw * 0.6);
-    c.lineTo(-L * 0.08, fw * 0.6); c.lineTo(L * 0.1 - sw - L * 0.12, sp); c.lineTo(L * 0.1 - sw, sp); c.lineTo(L * 0.1, fw * 0.6);
+    c.moveTo(hl, 0);
+    c.quadraticCurveTo(hl, -fw, nose, -fw); c.lineTo(tailS, -fw); c.quadraticCurveTo(-hl + L * 0.06, -fw * 0.75, -hl, -fw * 0.22);
+    c.lineTo(-hl, fw * 0.22); c.quadraticCurveTo(-hl + L * 0.06, fw * 0.75, tailS, fw); c.lineTo(nose, fw); c.quadraticCurveTo(hl, fw, hl, 0);
     c.closePath(); c.fill(); if (tail) c.stroke();
-    var ts = sp * 0.38;
-    c.beginPath(); c.moveTo(-hl * 0.72, 0); c.lineTo(-hl * 0.92, -ts); c.lineTo(-hl, -ts); c.lineTo(-hl * 0.94, 0); c.lineTo(-hl, ts); c.lineTo(-hl * 0.92, ts); c.closePath(); c.fill(); if (tail) c.stroke();
-    c.beginPath(); c.ellipse(0, 0, hl, fw, 0, 0, Math.PI * 2); c.fill(); if (tail) c.stroke();
-    if (tail) { c.fillStyle = tail; c.fillRect(-hl, -0.9, hl * 0.42, 1.8); c.fillRect(hl * 0.55, -fw * 0.55, hl * 0.12, fw * 1.1); }
+    // Triebwerke
+    if (!dark) {
+      if (prop) {
+        [-1, 1].forEach(function (side) {
+          var y = side * sp * 0.34; c.fillStyle = "#C9CED4"; c.fillRect(le - cr * 0.6, y - fw * 0.42, cr * 0.9, fw * 0.84);
+          c.strokeStyle = "rgba(60,64,70,.55)"; c.lineWidth = 0.4; c.beginPath(); c.moveTo(le + 0.6, y - sp * 0.16); c.lineTo(le + 0.6, y + sp * 0.16); c.stroke();
+        });
+      } else {
+        var eng = T.heavy ? [0.36] : [0.34];
+        eng.forEach(function (f) {
+          [-1, 1].forEach(function (side) {
+            var y = side * sp * f, x0 = le - sp * f * sw + L * 0.05, el = L * (T.heavy ? 0.13 : 0.12), ew = fw * (T.heavy ? 0.95 : 0.8);
+            c.fillStyle = "#B9C0C8"; c.beginPath(); c.moveTo(x0, y - ew / 2); c.lineTo(x0 - el, y - ew / 2 * 0.8); c.lineTo(x0 - el, y + ew / 2 * 0.8); c.lineTo(x0, y + ew / 2); c.closePath(); c.fill();
+            c.fillStyle = "#59606A"; c.fillRect(x0 - 0.35, y - ew / 2, 0.35, ew);
+          });
+        });
+      }
+    }
+    if (tail) {
+      // Seitenleitwerk von oben als Strich in Airline-Farbe, Cockpitfenster
+      c.fillStyle = tail; c.beginPath(); c.moveTo(-hl, -0.55); c.lineTo(-hl + L * 0.2, -0.3); c.lineTo(-hl + L * 0.2, 0.3); c.lineTo(-hl, 0.55); c.closePath(); c.fill();
+      c.fillStyle = tail; c.fillRect(nose - L * 0.3, -fw, L * 0.3, fw * 0.28); c.fillRect(nose - L * 0.3, fw * 0.72, L * 0.3, fw * 0.28);
+      c.fillStyle = "#3B4652"; c.beginPath(); c.moveTo(hl - L * 0.035, -fw * 0.55); c.lineTo(hl - L * 0.06, -fw * 0.7); c.lineTo(hl - L * 0.06, fw * 0.7); c.lineTo(hl - L * 0.035, fw * 0.55); c.closePath(); c.fill();
+    }
+  }
+  function planeLights(c, T) {
+    var L = T.len, hl = L / 2, sp = T.span / 2, prop = !!T.prop, sw = Math.tan((T.swp || 0) * Math.PI / 180), cr = L * (prop ? 0.13 : 0.2), ct = cr * (prop ? 0.7 : 0.3), le = prop ? L * 0.14 : L * 0.1;
+      // Positionslichter: links rot, rechts grün, weiße Blitzer an den Spitzen, rotes Leuchtfeuer am Rumpf
+      var tipLE2 = le - sp * sw, tx = tipLE2 - ct * 0.5, ph = R.clock % 1.2;
+      glow(c, tx, -sp, 2.2, "rgba(255,60,50,", 0.95); glow(c, tx, sp, 2.2, "rgba(60,255,120,", 0.95);
+      if (ph < 0.08 || (ph > 0.18 && ph < 0.26)) { glow(c, tx, -sp, 4, "rgba(255,255,255,", 1); glow(c, tx, sp, 4, "rgba(255,255,255,", 1); glow(c, -hl, 0, 3, "rgba(255,255,255,", 0.9); }
+      if ((R.clock + 0.5) % 1 < 0.15) glow(c, 0, 0, 3.4, "rgba(255,70,50,", 1);
+  }
+  var GLOW = {};
+  function glow(c, x, y, r, rgba, a) {
+    var sp = GLOW[rgba];
+    if (!sp) {
+      sp = document.createElement("canvas"); sp.width = sp.height = 64;
+      var x2 = sp.getContext("2d"), g = x2.createRadialGradient(32, 32, 0, 32, 32, 32);
+      g.addColorStop(0, rgba + "1)"); g.addColorStop(0.25, rgba + ".7)"); g.addColorStop(0.55, rgba + ".18)"); g.addColorStop(1, rgba + "0)");
+      x2.fillStyle = g; x2.fillRect(0, 0, 64, 64); GLOW[rgba] = sp;
+    }
+    var R2 = r * 2.2, ga = c.globalAlpha; c.globalAlpha = ga * a; c.drawImage(sp, x - R2, y - R2, R2 * 2, R2 * 2); c.globalAlpha = ga;
+  }
+  // ---------- Tag und Nacht ----------
+  var DAY = 420;   // ein Tag dauert 7 Minuten Spielzeit
+  function dayInfo() {
+    var tod = (R.clock / DAY + 0.3) % 1, h = tod * 24, dark, dusk = 0;
+    if (h >= 7 && h <= 18.5) dark = 0; else if (h > 18.5 && h < 21) dark = (h - 18.5) / 2.5; else if (h >= 21 || h < 4.5) dark = 1; else dark = 1 - (h - 4.5) / 2.5;
+    dark = Math.max(0, Math.min(1, dark)); dark = dark * dark * (3 - 2 * dark);
+    if (h > 17 && h < 21.5) dusk = Math.sin((h - 17) / 4.5 * Math.PI); else if (h > 4.5 && h < 8.5) dusk = 0.7 * Math.sin((h - 4.5) / 4 * Math.PI);
+    return { h: h, dark: dark, dusk: dusk };
+  }
+  function clockTxt() { var h = dayInfo().h, hh = Math.floor(h), mm = Math.floor((h - hh) * 60 / 10) * 10; return (hh < 10 ? "0" : "") + hh + ":" + (mm < 10 ? "0" : "") + mm; }
+  function nightPass(c, z, x0, y0, x1, y1, W, H, dpr) {
+    var d = dayInfo();
+    if (d.dark < 0.01 && d.dusk < 0.01) return;
+    // Abdunkeln: Abendrot in der Dämmerung, kühles Blau in der Nacht
+    var r = 255, g = 255, b = 255, k = d.dusk * 0.45 * (1 - d.dark);
+    r = r + (255 - r) * k; g = g + (198 - g) * k; b = b + (150 - b) * k;
+    var n = d.dark * 0.88; r = r + (48 - r) * n; g = g + (60 - g) * n; b = b + (108 - b) * n;
+    c.save(); c.setTransform(dpr, 0, 0, dpr, 0, 0); c.globalCompositeOperation = "multiply"; c.fillStyle = "rgb(" + (r | 0) + "," + (g | 0) + "," + (b | 0) + ")"; c.fillRect(0, 0, W, H); c.restore();
+    if (d.dark < 0.08) return;
+    c.save(); c.globalCompositeOperation = "lighter"; c.globalAlpha = Math.min(1, d.dark * 1.25);
+    function vis(x, y, m) { return x > x0 - m && x < x1 + m && y > y0 - m && y < y1 + m; }
+    // Pisten: weiße Randbefeuerung, grüne Schwelle, rote Endbefeuerung
+    mods("runway").forEach(function (m) {
+      var e = rwEnds(m), nx = -e.dy, ny = e.dx, o = RW_W / 2 + 1.5;
+      for (var s = 0; s <= e.L; s += 26) { var px = e.A.x + e.dx * s, py = e.A.y + e.dy * s; if (!vis(px, py, 20)) continue; glow(c, px + nx * o, py + ny * o, 1.4, "rgba(255,248,225,", 0.95); glow(c, px - nx * o, py - ny * o, 1.4, "rgba(255,248,225,", 0.95); }
+      for (var q = -RW_W / 2; q <= RW_W / 2; q += 4) { glow(c, e.A.x + nx * q, e.A.y + ny * q, 1.4, "rgba(80,255,130,", 1); glow(c, e.B.x + nx * q, e.B.y + ny * q, 1.4, "rgba(255,70,60,", 1); }
+      for (var a2 = 20; a2 <= 140; a2 += 20) { var ax = e.A.x - e.dx * a2, ay = e.A.y - e.dy * a2; if ((R.clock * 2 + a2 / 140) % 1 < 0.15) glow(c, ax, ay, 2.6, "rgba(255,255,255,", 1); else glow(c, ax, ay, 1.2, "rgba(255,240,200,", 0.7); }
+    });
+    // Rollwege: grüne Mittellinie, blaue Ränder
+    mods("taxi").forEach(function (m) {
+      var l = Math.hypot(m.x2 - m.x1, m.y2 - m.y1), ux = (m.x2 - m.x1) / l, uy = (m.y2 - m.y1) / l;
+      for (var s = 6; s < l; s += 16) { var px = m.x1 + ux * s, py = m.y1 + uy * s; if (!vis(px, py, 10)) continue; glow(c, px, py, 1.1, "rgba(80,255,140,", 0.9); if (s % 32 < 16) { glow(c, px - uy * (TW_W / 2 + 1), py + ux * (TW_W / 2 + 1), 1.1, "rgba(80,140,255,", 0.9); glow(c, px + uy * (TW_W / 2 + 1), py - ux * (TW_W / 2 + 1), 1.1, "rgba(80,140,255,", 0.9); } }
+    });
+    // Straßenlaternen
+    mods("road").forEach(function (m) {
+      var l = Math.hypot(m.x2 - m.x1, m.y2 - m.y1), ux = (m.x2 - m.x1) / l, uy = (m.y2 - m.y1) / l, o = (m.sl ? SL_W : RD_W) / 2 + 3, step = m.hw ? 90 : 55;
+      for (var s = step / 2; s < l; s += step) { var px = m.x1 + ux * s, py = m.y1 + uy * s; if (!vis(px, py, 30)) continue; glow(c, px - uy * o, py + ux * o, 7, "rgba(255,196,120,", 0.42); glow(c, px - uy * o, py + ux * o, 1.3, "rgba(255,226,170,", 1); }
+    });
+    // Gebäude: Fenster, Flutlicht, Leuchtfeuer
+    G.mods.forEach(function (m) {
+      if (m.t === "road" || m.t === "taxi" || m.t === "runway" || !vis(m.x, m.y, 90)) return;
+      var sz = SIZE[m.t] || [20, 20], A = axes(m.a), w2 = sz[0] / 2, h2 = sz[1] / 2;
+      function L2p(lx, ly) { return { x: m.x + A.ux * lx + A.vx * ly, y: m.y + A.uy * lx + A.vy * ly }; }
+      function lg(lx, ly, r, col, a) { var q = L2p(lx, ly); glow(c, q.x, q.y, r, col, a); }
+      if (m.t === "term") { for (var u = -w2 + 6; u < w2 - 4; u += 8) { lg(u, -h2 + 1.5, 2.4, "rgba(255,214,140,", 0.85); lg(u, h2 - 1.5, 2.4, "rgba(255,214,140,", 0.85); } lg(0, 0, 26, "rgba(255,200,120,", 0.25); }
+      else if (m.t === "tower") { lg(0, 0, 9, "rgba(170,230,255,", 0.5); if (R.clock % 2 < 1) lg(0, 0, 3, "rgba(80,255,120,", 1); else lg(0, 0, 3, "rgba(255,255,255,", 1); }
+      else if (m.t === "hangar") { lg(0, h2 + 6, 22, "rgba(255,240,210,", 0.35); lg(-w2 + 4, -h2 + 4, 2, "rgba(255,70,60,", 1); }
+      else if (m.t === "fire") { lg(0, h2 + 4, 14, "rgba(255,230,200,", 0.35); if (R.clock % 1.4 < 0.2) lg(0, 0, 3, "rgba(255,80,60,", 1); }
+      else if (m.t === "park") { [[-w2 + 3, -h2 + 3], [w2 - 3, -h2 + 3], [-w2 + 3, h2 - 3], [w2 - 3, h2 - 3], [0, 0]].forEach(function (q) { lg(q[0], q[1], 9, "rgba(255,206,140,", 0.38); lg(q[0], q[1], 1.3, "rgba(255,230,180,", 1); }); }
+      else if (m.t === "bus" || m.t === "cab") { lg(0, 0, 10, "rgba(255,226,170,", 0.4); }
+      else if (m.t === "deck") { for (var u2 = -w2 + 6; u2 < w2; u2 += 12) lg(u2, 0, 2, "rgba(255,226,170,", 0.8); }
+      else if (m.t === "stand") { lg(-w2 + 4, h2 - 4, 26, "rgba(255,236,200,", 0.28); lg(w2 - 4, h2 - 4, 26, "rgba(255,236,200,", 0.28); lg(-w2 + 4, h2 - 4, 1.8, "rgba(255,240,210,", 1); lg(w2 - 4, h2 - 4, 1.8, "rgba(255,240,210,", 1); }
+    });
+    // Scheinwerfer der Fahrzeuge
+    R.veh.forEach(function (v) { if (!v.path || !vis(v.x, v.y, 20)) return; var f = v.len / 2 + 3; glow(c, v.x + Math.cos(v.h) * f, v.y + Math.sin(v.h) * f, 3.2, "rgba(255,240,200,", 0.6); });
+    // Flugzeuge: Positions- und Blitzlichter, Landescheinwerfer beim Rollen
+    R.planes.forEach(function (p) {
+      if (p.state === "hold" && !p.fade) return;
+      var T = TYPES[p.type], s = 1 + (p.alt || 0) * 0.7;
+      c.save(); c.translate(p.x, p.y); c.rotate(p.h); c.scale(s, s); planeLights(c, T);
+      if ((p.alt || 0) < 0.3) glow(c, T.len / 2 + 8, 0, 6, "rgba(255,250,230,", 0.35);
+      c.restore();
+    });
+    c.restore();
   }
 
   // ---------- Werkzeuge und Eingabe ----------
@@ -2058,7 +2180,7 @@
     set("fh-money", eurS(G.money)); set("fh-rep", Math.round(G.rep) + " %");
     set("fh-moves", G.st.moves.toLocaleString(loc())); set("fh-pax", G.st.pax.toLocaleString(loc()));
     set("fh-hold", String(R.holdQ.length));
-    set("fh-rank", "SOY · " + rank() + (s.stands ? " · " + fmt(t("conn"), { a: s.conn, b: s.stands }) : ""));
+    set("fh-rank", "SOY · " + clockTxt() + " · " + rank() + (s.stands ? " · " + fmt(t("conn"), { a: s.conn, b: s.stands }) : ""));
     var hw = document.getElementById("fh-w-hold");
     if (hw) hw.classList.toggle("warn", R.holdQ.some(function (h) { return h.wait > DIVERT * 0.55; }));
     var sig = (V.tool ? V.tool.id : "") + "|" + Math.floor(G.money);
