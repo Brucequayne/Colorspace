@@ -5,7 +5,7 @@
   "use strict";
 
   var KEY = "flughafen-v3";
-  var VERSION = "0.6";
+  var VERSION = "0.61";
   var RW_W = 22, TW_W = 14, RD_W = 16, SL_W = 9;
   var DIVERT = 60;
   var SIZE = { stand: [64, 66], term: [124, 46], tower: [30, 30], fire: [52, 38], hangar: [84, 62], deck: [72, 38], park: [72, 48], bus: [44, 22], cab: [62, 22], hotels: [50, 34], hotel: [70, 44], hotell: [96, 74], tank: [44, 44] };
@@ -212,7 +212,7 @@
   function one(type) { return mods(type)[0] || null; }
   function byId(id) { for (var i = 0; i < G.mods.length; i++) if (G.mods[i].id === id) return G.mods[i]; return null; }
   function rwLen(m) { return (m && m.len) || 440; }
-  function rwCost(len, n) { return round((3000000 + len * M_PX * 2000) * (n ? 4 : 1) / 1000) * 1000; }
+  function rwCost(len, n) { return round((3000000 + len * M_PX * 2000) * (n ? 2 : 1) / 1000) * 1000; }
   function rwMeters(len) { return Math.round(len * M_PX / 10) * 10; }
   function rwFits(m, type) { return rwLen(m) >= TYPES[type].need; }
   function rwClasses(len) { return ["p", "n", "w"].filter(function (k) { return len >= TYPES[k].need; }).map(function (k) { return TX.cls[k][lang]; }).join(", "); }
@@ -544,7 +544,7 @@
       lock: function () { return mods("term").length ? "" : (lang === "de" ? "Erst ein Terminalmodul bauen" : "Build a terminal module first"); } },
     { id: "term", g: "term", tool: "rect", name: L2("Terminalmodul", "Terminal module"),
       desc: L2("Gebäudeabschnitt mit Check-in und Kontrolle. Rastet an Positionen und anderen Modulen ein.", "Building section with check-in and security. Snaps to stands and other modules."),
-      cost: function () { return 7500000; },
+      cost: function () { return 3500000; },
       lock: function () {
         if (!mods("runway").length) return t("needRw");
         return mods("term").length >= 2 && !stats().termRoad ? t("needRoad") : "";
@@ -559,30 +559,30 @@
     { id: "park", g: "land", tool: "rect", name: L2("Parkplatz", "Car park"),
       desc: L2("16 Stellplätze an einer Straße. Wer parkt, bringt 1 bis 4 Fluggäste mit, später fahren Ankommende mit dem Auto weg. Parken kostet 5 € pro Sekunde, bezahlt wird bei der Ausfahrt.", "16 spaces on a road. Each parked car brings 1 to 4 passengers; arriving passengers later drive it away. Parking costs €5 per second, paid on the way out."),
       cost: function () { return 120000; },
-      lock: function () { if (!mods("runway").length) return t("needRw"); return mods("park").length >= 6 ? t("maxed") : ""; } },
+      lock: function () { if (!mods("runway").length) return t("needRw"); return ""; } },
     { id: "bus", g: "land", tool: "rect", name: L2("Bushaltestelle", "Bus stop"),
       desc: L2("An einer Straße: Busse mit 50 Plätzen bringen und holen Fluggäste.", "On a road: buses with 50 seats bring and collect passengers."),
       cost: function () { return 60000; },
-      lock: function () { if (!mods("runway").length) return t("needRw"); return mods("bus").length >= 3 ? t("maxed") : ""; } },
+      lock: function () { if (!mods("runway").length) return t("needRw"); return mods("bus").length >= 8 ? t("maxed") : ""; } },
     { id: "cab", g: "land", tool: "rect", name: L2("Taxistand", "Taxi rank"),
       desc: L2("An einer Straße: Taxis bringen Abfliegende und holen Ankommende ab. Jede Fahrt bringt eine Gebühr.", "On a road: taxis drop off departing and collect arriving passengers. Every ride pays a fee."),
       cost: function () { return 90000; },
-      lock: function () { if (!mods("runway").length) return t("needRw"); return mods("cab").length >= 3 ? t("maxed") : ""; } },
+      lock: function () { if (!mods("runway").length) return t("needRw"); return mods("cab").length >= 8 ? t("maxed") : ""; } },
     { id: "hotels", g: "land", tool: "rect", name: L2("Hotel klein", "Small hotel"),
       desc: L2("An einer Straße: kompaktes Hotel für 50 Gäste. Ankommende mit Anschlussflug übernachten hier und zahlen pro Aufenthalt.", "On a road: compact hotel for 50 guests. Arriving passengers with onward flights stay here and pay for the stay."),
-      cost: function () { return HOTELS.hotels.cost; }, lock: function () { if (!mods("runway").length) return t("needRw"); if (!mods("term").length) return lang === "de" ? "Erst ein Terminalmodul bauen" : "Build a terminal module first"; return hotels().length >= 6 ? t("maxed") : ""; } },
+      cost: function () { return HOTELS.hotels.cost; }, lock: function () { if (!mods("runway").length) return t("needRw"); if (!mods("term").length) return lang === "de" ? "Erst ein Terminalmodul bauen" : "Build a terminal module first"; return hotels().length >= 12 ? t("maxed") : ""; } },
     { id: "hotel", g: "land", tool: "rect", name: L2("Hotel mittel", "Medium hotel"),
       desc: L2("An einer Straße: Hotel für 100 Gäste. Ankommende mit Anschlussflug übernachten hier und zahlen pro Aufenthalt.", "On a road: hotel for 100 guests. Arriving passengers with onward flights stay here and pay for the stay."),
-      cost: function () { return HOTELS.hotel.cost; }, lock: function () { if (!mods("runway").length) return t("needRw"); if (!mods("term").length) return lang === "de" ? "Erst ein Terminalmodul bauen" : "Build a terminal module first"; return hotels().length >= 6 ? t("maxed") : ""; } },
+      cost: function () { return HOTELS.hotel.cost; }, lock: function () { if (!mods("runway").length) return t("needRw"); if (!mods("term").length) return lang === "de" ? "Erst ein Terminalmodul bauen" : "Build a terminal module first"; return hotels().length >= 12 ? t("maxed") : ""; } },
     { id: "hotell", g: "land", tool: "rect", name: L2("Hotel groß", "Large hotel"),
       desc: L2("An einer Straße: großes Hotel mit eigenem Parkplatz davor, 180 Gäste. Zieht die meisten Übernachtungen an.", "On a road: large hotel with its own car park in front, 180 guests. Attracts the most overnight stays."),
-      cost: function () { return HOTELS.hotell.cost; }, lock: function () { if (!mods("runway").length) return t("needRw"); if (!mods("term").length) return lang === "de" ? "Erst ein Terminalmodul bauen" : "Build a terminal module first"; return hotels().length >= 6 ? t("maxed") : ""; } },
+      cost: function () { return HOTELS.hotell.cost; }, lock: function () { if (!mods("runway").length) return t("needRw"); if (!mods("term").length) return lang === "de" ? "Erst ein Terminalmodul bauen" : "Build a terminal module first"; return hotels().length >= 12 ? t("maxed") : ""; } },
     { id: "veg", g: "land", tool: "brush", name: L2("Vegetation", "Vegetation"),
       desc: L2("Pinsel mit einer Mischung aus Bäumen und Büschen. Ziehen pflanzt, Umschalt + Ziehen entfernt. Je Pflanze 1.500 €, etwas besserer Ruf.", "Brush with a mix of trees and bushes. Drag to plant, Shift + drag removes. €1,500 per plant, a slightly better reputation."),
       cost: function () { return 1500; }, lock: function () { return ""; } },
     { id: "tank", g: "ops", tool: "rect", name: L2("Kerosintank", "Fuel tank"),
       desc: L2("Frei platzierbar. Ein Tank reicht für etwa 100 Flüge. Kerosin einkaufen und an die Flugzeuge weiterverkaufen: Klick auf die Kerosin-Anzeige oben füllt auf.", "Place anywhere. One tank lasts about 100 flights. Buy fuel and sell it on to aircraft: click the fuel gauge at the top to refill."),
-      cost: function () { return 250000; }, lock: function () { if (!mods("runway").length) return t("needRw"); return mods("tank").length >= 8 ? t("maxed") : ""; } },
+      cost: function () { return 250000; }, lock: function () { if (!mods("runway").length) return t("needRw"); return mods("tank").length >= 16 ? t("maxed") : ""; } },
     { id: "tower", g: "ops", tool: "rect", name: L2("Tower", "Control tower"),
       desc: L2("Kürzere Abstände zwischen Landungen und Starts. Stufe 2 mit Radar.", "Shorter spacing between landings and take-offs. Level 2 adds radar."),
       cost: function () { return 2500000; }, lock: function () { if (!mods("runway").length) return t("needRw"); return one("tower") ? t("once") : ""; } },
@@ -615,9 +615,9 @@
   // Neupreis eines Bauteils (für die Umstellung alter Spielstände)
   function priceOf(m) {
     var len = m.x2 !== undefined ? Math.hypot(m.x2 - m.x1, m.y2 - m.y1) : 0;
-    var base = { runway: rwCost(rwLen(m), 0), taxi: Math.max(25000, len * 2500), road: Math.max(8000, len * 800), stand: 325000, term: 7500000,
+    var base = { runway: rwCost(rwLen(m), 0), taxi: Math.max(25000, len * 2500), road: Math.max(8000, len * 800), stand: 325000, term: 3500000,
       park: 120000, bus: 60000, cab: 90000, hotels: 900000, hotel: 1600000, hotell: 2400000, tank: 250000, tower: 2500000, fire: 750000, hangar: 6000000, deck: 400000 }[m.t] || 0;
-    if (m.gate) base += 325000; if (m.heavy) base += 850000; if (m.t === "term") { if (m.lvl >= 2) base += 3500000; if (m.shops) base += 1500000; if (m.lounge) base += 2000000; }
+    if (m.gate) base += 325000; if (m.heavy) base += 850000; if (m.t === "term") { if (m.lvl >= 2) base += TUP.tmod; if (m.shops) base += TUP.tshop; if (m.lounge) base += TUP.tlng; }
     if (m.lvl >= 2 && LVL[m.t]) base += LVL[m.t][0];
     return base;
   }
@@ -638,7 +638,7 @@
   // Vegetationspinsel: Bäume und Büsche gemischt, nicht auf Gebautem
   var PV = 16;
   function paveAt(p, erase) {
-    var Rb = 40, i0 = Math.floor((p.x - Rb) / PV), i1 = Math.floor((p.x + Rb) / PV), j0 = Math.floor((p.y - Rb) / PV), j1 = Math.floor((p.y + Rb) / PV);
+    var Rb = 22, i0 = Math.floor((p.x - Rb) / PV), i1 = Math.floor((p.x + Rb) / PV), j0 = Math.floor((p.y - Rb) / PV), j1 = Math.floor((p.y + Rb) / PV);
     for (var j = j0; j <= j1; j++) for (var i = i0; i <= i1; i++) {
       var cx = (i + 0.5) * PV, cy = (j + 0.5) * PV; if (Math.hypot(cx - p.x, cy - p.y) > Rb) continue;
       var k = i + "," + j;
@@ -999,6 +999,7 @@
     return false;
   }
   // ---------- Terminal: modernes Terminal mit Shops und Lounges ----------
+  var TUP = { tmod: 2000000, tshop: 800000, tlng: 1200000 };
   function termLvl(m) { return m.lvl || 1; }
   function bizShare() { var n = mods("term").filter(function (m) { return termLvl(m) >= 2 && m.lounge; }).length; return Math.min(0.32, 0.05 + 0.07 * n); }
   function shopTick(dt) {
@@ -1067,7 +1068,8 @@
     return { x: m.x + dx / l * (r + 2), y: m.y + dy / l * (r + 2) };
   }
   function lotSpots(m) { return R.spots[m.id] || (R.spots[m.id] = []); }
-  function lotUsed(m) { return lotSpots(m).filter(function (x) { return x; }).length; }
+  function lotUsed(m) { return lotSpots(m).filter(function (x) { return x; }).length; }   // reserviert (inkl. Anfahrt)
+  function lotParked(m) { return R.veh.filter(function (v) { return v.lot === m.id && v.state === "parked"; }).length; }   // tatsächlich geparkt
   function freeLot() {
     var opts = [];
     mods("park").forEach(function (m) { if (!m._road) return; var sp = lotSpots(m); for (var i = 0; i < LOT; i++) if (!sp[i]) opts.push({ m: m, i: i }); });
@@ -1080,7 +1082,10 @@
       c: CARS[Math.floor(Math.random() * CARS.length)], n: 0, len: kind === "bus" ? 24 : 8.5, wt: 0, id: ++R.id };
     R.veh.push(v); return v;
   }
-  function dropVeh(v) { var i = R.veh.indexOf(v); if (i >= 0) R.veh.splice(i, 1); }
+  function dropVeh(v) {
+    if (v.lot && !v.lotFree) { var lm = byId(v.lot); if (lm && R.spots[lm.id]) R.spots[lm.id][v.spot] = false; v.lotFree = true; }   // Platz nicht dauerhaft blockieren
+    var i = R.veh.indexOf(v); if (i >= 0) R.veh.splice(i, 1);
+  }
   function shuffled(a) { a = a.slice(); for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)), x = a[i]; a[i] = a[j]; a[j] = x; } return a; }
   // Weg von einem Ende der Landstraße zur Zufahrt und von dort zu einem Ende zurück
   function spawnFree(p) { return !R.veh.some(function (v) { return (v.path || v.state === "curb") && Math.abs(v.x - p.x) < 20 && Math.abs(v.y - p.y) < 20; }); }
@@ -1145,7 +1150,7 @@
     v.state = "";
     if (v.lot) {
       var m = byId(v.lot);
-      if (m) lotSpots(m)[v.spot] = false;
+      if (m) lotSpots(m)[v.spot] = false; v.lotFree = true;
       earn(Math.max(5, Math.round(v.parkT || 0) * PARKFEE), v.x, v.y, "", "land");
       var b = v.back;
       v.path = [{ x: v.x, y: v.y, s: 5, back: 1 }, { x: b[1].x, y: b[1].y, s: 8, back: 1 }].concat(b.slice(2));
@@ -1664,7 +1669,7 @@
         c.fillStyle = "rgba(170,206,120,.6)"; c.beginPath(); c.arc(v.x - v.r * 0.25, v.y - v.r * 0.3, v.r * 0.38, 0, Math.PI * 2); c.fill();
       }
     });
-    if (V.tool && V.tool.kind === "brush" && V.mouse) { c.strokeStyle = "rgba(21,23,21,.65)"; c.lineWidth = 1.5 / z; c.setLineDash([5 / z, 4 / z]); c.beginPath(); c.arc(V.mouse.x, V.mouse.y, V.tool.id === "pave" ? 40 : 34, 0, Math.PI * 2); c.stroke(); c.setLineDash([]); }
+    if (V.tool && V.tool.kind === "brush" && V.mouse) { c.strokeStyle = "rgba(21,23,21,.65)"; c.lineWidth = 1.5 / z; c.setLineDash([5 / z, 4 / z]); c.beginPath(); c.arc(V.mouse.x, V.mouse.y, V.tool.id === "pave" ? 22 : 34, 0, Math.PI * 2); c.stroke(); c.setLineDash([]); }
     // Fluggastbrücken
     mods("stand").forEach(function (m) {
       if (!(m.gate && m._term)) return;
@@ -1721,7 +1726,7 @@
     if (V.sel) { var sm = byId(V.sel); if (sm) outline(c, foot(sm), "#2F6F8F", 2 / z); }
     drawGhost(c);
     c.font = "700 " + (11 / Math.max(0.7, z)) + "px " + FONT;
-    R.fx.forEach(function (f) {
+    if (!V.clean) R.fx.forEach(function (f) {
       var a = 1 - f.t / 1.8, y = f.y - 10 - f.t * 18;
       c.globalAlpha = a; c.lineWidth = 3; c.strokeStyle = "rgba(20,22,20,.8)"; c.strokeText(f.txt, f.x, y);
       c.fillStyle = f.col || "#FFE7B8"; c.fillText(f.txt, f.x, y); c.globalAlpha = 1;
@@ -1798,6 +1803,7 @@
     c.fillStyle = fg || "#F4F1EC"; c.fillText(txt, x, y + 0.5 / z);
   }
   function labels(c) {
+    if (V.clean) return;   // für saubere Vorschaubilder
     var z = V.zoom, nf = function (n) { return Math.round(n).toLocaleString(loc()); };
     R.planes.forEach(function (p) {
       if (p.state !== "park") return;
@@ -1816,7 +1822,7 @@
     R.veh.forEach(function (v) { if (v.kind === "bus" && v.state === "curb") pill(c, v.x, v.y + 12 / z, (v.n || 0) + "/50", "rgba(227,184,63,.95)", "#151715"); });
     mods("park").forEach(function (m) {
       if (!m._road) return;
-      var u = lotUsed(m);
+      var u = lotParked(m);
       pill(c, m.x, m.y, u >= LOT ? t("lotFull") + " " + u + "/" + LOT : u + "/" + LOT, u >= LOT ? "rgba(194,65,45,.92)" : "rgba(47,111,143,.9)");
     });
   }
@@ -2636,7 +2642,7 @@
       if (m.hw) { info.push(t("hwInfo")); }
       else {
         info.push(m.bl ? t("owBus") : m.sl ? t("owSl") : m.ow ? t("owInfo") : t("twInfo"));
-        if (m.t === "road" && m.ow && !m.sl && !m.bl) info.push(fmt(t("stripInfo"), { a: lotUsed(m), b: m._spots || 0 }) + (m._park ? "" : " · " + t("noHw")));
+        if (m.t === "road" && m.ow && !m.sl && !m.bl) info.push(fmt(t("stripInfo"), { a: lotParked(m), b: m._spots || 0 }) + (m._park ? "" : " · " + t("noHw")));
         var nxt = m.t === "road" ? (!m.ow ? 1 : m.bl ? 0 : m.sl ? 3 : 2) : (m.ow ? 0 : 1);
         acts.push(btn("ow", nxt === 0 ? t("owOff") : nxt === 1 ? (m.t === "road" ? t("owPk") : t("owOn")) : nxt === 2 ? t("owSl") : t("owBus"), false));
         if (m.ow) acts.push(btn("rev", t("owRev"), false));
@@ -2656,14 +2662,14 @@
       if (m.t === "term") {
         var fit = []; if (m.shops) fit.push(t("shopsW")); if (m.lounge) fit.push(t("lngW"));
         info.push((termLvl(m) >= 2 ? t("tLvl2") : NAMES.term[lang]) + " · " + fmt(t("tHas"), { x: fit.length ? fit.join(", ") : t("tNone") }));
-        if (termLvl(m) < 2) acts.push(btn("tmod", t("tMod") + " · " + eurS(3500000), false));
-        else { if (!m.shops) acts.push(btn("tshop", t("tShop") + " · " + eurS(1500000), false)); if (!m.lounge) acts.push(btn("tlng", t("tLng") + " · " + eurS(2000000), false)); }
+        if (termLvl(m) < 2) acts.push(btn("tmod", t("tMod") + " · " + eurS(TUP.tmod), false));
+        else { if (!m.shops) acts.push(btn("tshop", t("tShop") + " · " + eurS(TUP.tshop), false)); if (!m.lounge) acts.push(btn("tlng", t("tLng") + " · " + eurS(TUP.tlng), false)); }
       }
       info.push(m._road ? t("stRoad") : m._acc !== null && m._acc !== undefined ? t("noHw") : t("stNoRoad"));
       if (m.t === "term") { info.push(fmt(t("termDep"), { n: Math.round(R.tDep) }), fmt(t("termArr"), { n: Math.round(R.tArrBus + R.tArrCar + R.tArrWalk + (R.tArrTaxi || 0)) }), fmt(t("termOut"), { b: Math.round(R.tArrBus), c: Math.round(R.tArrCar + R.tArrWalk), x: Math.round(R.tArrTaxi || 0) })); if (landMode() === "walk") info.push(t("noRoadTerm")); }
       if (m.t === "bus") info.push(fmt(t("stopInfo"), { n: R.stopW[m.id] || 0 }));
       if (m.t === "cab") info.push(fmt(t("taxiInfo"), { n: Math.round(R.tArrTaxi || 0), k: R.veh.filter(function (v) { return v.rank === m.id && v.state === "taxi"; }).length }));
-      if (m.t === "park") info.push(fmt(t("lotInfo"), { a: lotUsed(m), b: LOT }));
+      if (m.t === "park") info.push(fmt(t("lotInfo"), { a: lotParked(m), b: LOT }));
     }
     if (!m.hw) acts.push(btn("del", V.delArm ? fmt(t("delQ"), { p: eurS((m.paid || 0) / 2) }) : t("del"), false, true));
     if (MOVABLE[m.t] && !m.hw) acts.unshift(btn("move", t("mvBtn") + " · " + eurS(MOVEFEE), G.money < MOVEFEE || inUse(m)));
@@ -2741,7 +2747,7 @@
       else if (a === "trade") { trDo(); }
       else if (a === "move") { startMove(m); }
       else if (a === "tmod" || a === "tshop" || a === "tlng") {
-        var pc = a === "tmod" ? 3500000 : a === "tshop" ? 1500000 : 2000000;
+        var pc = TUP[a];
         if (G.money < pc) { msg(t("poor")); return; }
         G.money -= pc; m.paid = (m.paid || 0) + pc;
         if (a === "tmod") m.lvl = 2; else if (a === "tshop") m.shops = 1; else m.lounge = 1;

@@ -113,6 +113,9 @@ window.PATCHNOTES = {
       en: ["New game: sketch main and distributor roads with smoothed mouse input", "Pick a city style: USA, Europe or Japan", "Side streets, houses, parking lots, cars, trees and road markings are generated procedurally", "Paint parks, water and special buildings in green, blue and red, then regenerate", "Bridges over rivers, railway with station, stadium, cathedral, opera, harbour, airport and more", "Save the city as PNG"] }
   ],
   flughafen: [
+    { v: "0.61", t: "2026-11-09T16:26:00+01:00",
+      de: ["Parkplätze zeigen nur noch Autos, die wirklich dort stehen", "Zweite Piste kostet nur noch das Doppelte statt das Vierfache (ab 12 Mio. €)", "Terminalmodule kosten 3,5 Mio. € statt 7,5 Mio. €", "Terminal-Ausbauten günstiger: Modernisieren 2 Mio. €, Shops 0,8 Mio. €, Lounge 1,2 Mio. €", "Asphaltpinsel ist kleiner", "Parkplätze unbegrenzt, mehr Bushaltestellen, Taxistände (je 8), Hotels (12) und Tanks (16)"],
+      en: ["Car parks only count cars that are actually parked there", "The second runway now costs double instead of four times (from €12M)", "Terminal modules cost €3.5M instead of €7.5M", "Cheaper terminal upgrades: modernise €2M, shops €0.8M, lounge €1.2M", "Smaller paving brush", "Unlimited car parks, more bus stops, taxi ranks (8 each), hotels (12) and fuel tanks (16)"] },
     { v: "0.6", t: "2026-11-09T07:13:00+01:00",
       de: ["Finanzbericht: Klick auf die Kasse zeigt den Umsatz je Bereich als Linien in einem Diagramm (letzte 15 Minuten)", "Neue Anzeige oben: Umsatz der letzten 60 Sekunden", "Klick auf die Kerosin-Anzeige kauft nicht mehr ungewollt ein", "Ankündigung auf der Kachel: Airline-Update kommt bald"],
       en: ["Financial report: click the cash to see revenue by area as lines in one chart (last 15 minutes)", "New display at the top: revenue of the last 60 seconds", "Clicking the fuel display no longer buys fuel by accident", "Announcement on the tile: airline update coming soon"] },
