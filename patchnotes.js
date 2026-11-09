@@ -112,6 +112,11 @@ window.PATCHNOTES = {
       de: ["Neues Spiel: Hauptstraßen und Verteilerstraßen mit geglätteter Maus skizzieren", "Stadtstil wählen: USA, Europa oder Japan", "Seitenstraßen, Häuser, Parkplätze, Autos, Bäume und Markierungen entstehen prozedural", "Mit Grün, Blau und Rot Parks, Wasser und Spezialbauten einmalen und neu generieren", "Brücken über Flüsse, Bahnlinie mit Bahnhof, Stadion, Kathedrale, Oper, Hafen, Flughafen und mehr", "Stadt als PNG speichern"],
       en: ["New game: sketch main and distributor roads with smoothed mouse input", "Pick a city style: USA, Europe or Japan", "Side streets, houses, parking lots, cars, trees and road markings are generated procedurally", "Paint parks, water and special buildings in green, blue and red, then regenerate", "Bridges over rivers, railway with station, stadium, cathedral, opera, harbour, airport and more", "Save the city as PNG"] }
   ],
+  spacerogue: [
+    { v: "0.1", t: "2026-11-09T20:58:00+01:00",
+      de: ["Neues Spiel: Space Rogue, zuerst der Schiffseditor", "Panzerung leicht und schwer (Block, Rampen, runde Ecke, halb), drei Cockpits, Ionenantriebe, Gyroskop, Antenne, Batterie, Reaktor, Innenraum mit Boden, Wand, Tür und Fenster, Minigun und Railgun", "Bauen, Abreißen, Malen, Drehen, Spiegeln, Symmetrie, Innen- und Außenansicht, Luftdichte-Prüfung", "Testflug mit Schub je Richtung, Gyroskop, Energie, Trägheitsdämpfer, Waffen mit Überhitzung, Schaden und Zerstörung"],
+      en: ["New game: Space Rogue, starting with the ship editor", "Light and heavy armour (block, slopes, round corner, half), three cockpits, ion thrusters, gyroscope, antenna, battery, reactor, interior floor, wall, door and window, minigun and railgun", "Build, remove, paint, rotate, flip, symmetry, interior and exterior view, airtightness check", "Test flight with per-direction thrust, gyroscope, power, inertia dampers, overheating weapons, damage and destruction"] }
+  ],
   flughafen: [
     { v: "0.66", t: "2026-11-09T19:01:00+01:00",
       de: ["Hotfix: Positionen, die vor ihren Rollwegen gebaut wurden, drehen sich jetzt selbst zum Rollweg und gelten als angebunden", "Hotfix: Landungen sind auf jeder Piste möglich, nicht nur auf der ersten. Positionen, die nur an der zweiten Piste hängen, werden angeflogen"],
