@@ -4,7 +4,7 @@
 (function () {
   "use strict";
 
-  var VERSION = "0.2";
+  var VERSION = "0.22";
   var CELL_M = 2.5, PX = 24;              // Meter je Zelle, Pixel je Zelle bei Zoom 1
   var lang = "de";
   function L2(de, en) { return { de: de, en: en }; }
@@ -34,13 +34,13 @@
     wNoPow: L2("Keine Energiequelle: Batterie oder Reaktor einbauen.", "No power source: add a battery or reactor."),
     okRooms: L2("{n} Raum/Räume luftdicht", "{n} room(s) airtight"), noRooms: L2("Keine Innenräume", "No interior rooms"),
     hintEd: L2("Linksklick bauen, Ziehen baut Reihen · Rechtsklick abreißen · R drehen · F spiegeln · M Symmetrie · V Innen/Außen · Mausrad zoomt · Mitte/Leertaste + Ziehen verschiebt", "Left click build, drag for rows · right click remove · R rotate · F flip · M symmetry · V interior/exterior · wheel zooms · middle/space + drag pans"),
-    hintFl: L2("Im Sitz: WASD fliegen · Q/E drehen (oder Umschalt + Maus) · Linksklick feuern · R Waffe · Z Trägheitsdämpfer · X Overcharge · Zu Fuß: WASD laufen · Linksklick schweißen · F aussteigen/hinsetzen · V Innen/Außen · Rechtsklick: Block beschädigen (Test) · Esc Editor", "Seated: WASD fly · Q/E rotate (or Shift + mouse) · left click fire · R weapon · Z inertia dampers · X overcharge · On foot: WASD walk · left click weld · F get up/sit down · V interior/exterior · right click: damage block (test) · Esc editor"),
+    hintFl: L2("Im Sitz: WASD fliegen · Q/E drehen (oder Umschalt + Maus) · Linksklick feuern · R Waffe · Z Trägheitsdämpfer · X Overcharge · Raketen lenken leicht zum Mauszeiger · Zu Fuß: WASD laufen · Linksklick schweißen · F aussteigen/hinsetzen · V Innen/Außen · Rechtsklick: Block beschädigen (Test) · Esc Editor", "Seated: WASD fly · Q/E rotate (or Shift + mouse) · left click fire · R weapon · Z inertia dampers · X overcharge · missiles steer gently toward the cursor · On foot: WASD walk · left click weld · F get up/sit down · V interior/exterior · right click: damage block (test) · Esc editor"),
     noCockTest: L2("Zum Testen braucht das Schiff ein Cockpit.", "The ship needs a cockpit to be tested."),
     damp: L2("Trägheitsdämpfer", "Inertia dampers"), on: L2("an", "on"), off: L2("aus", "off"),
     speed: L2("Tempo", "Speed"), energy: L2("Energie", "Power"), weapon: L2("Waffe", "Weapon"), none: L2("keine", "none"),
     seated: L2("Im Cockpit", "In cockpit"), unseated: L2("Nicht im Cockpit · F zum Hinsetzen", "Not in cockpit · F to sit down"),
     cockGone: L2("Cockpit zerstört · Steuerung verloren", "Cockpit destroyed · control lost"),
-    noPower: L2("Keine Energie", "No power"), mg: L2("Minigun", "Minigun"), rg: L2("Railgun", "Railgun"),
+    noPower: L2("Keine Energie", "No power"), mg: L2("Minigun", "Minigun"), rg: L2("Railgun", "Railgun"), ms: L2("Leichte Raketen", "Light missiles"),
     targets: L2("Ziele neu", "Reset targets"), exitSeat: L2("Aussteigen (F)", "Get up (F)"), sitDown: L2("Hinsetzen (F)", "Sit down (F)"),
     walking: L2("Zu Fuß · F am Sitz zum Hinsetzen", "On foot · F at the seat to sit down"), tooFar: L2("Zu weit vom Sitz entfernt", "Too far from the seat"),
     weld: L2("Schweißgerät", "Welder"), weldOn: L2("repariert {n}: {p} %", "repairing {n}: {p} %"), weldIdle: L2("Linksklick vor einem Block repariert ihn", "Left click facing a block repairs it"),
@@ -59,6 +59,7 @@
     [["blk", "full", 1, 1, L2("Block 1×1", "Block 1×1"), 1],
      ["rmp", "ramp1", 1, 1, L2("Rampe 1×1", "Slope 1×1"), 0.5],
      ["rm2", "ramp2", 1, 2, L2("Rampe 1×2", "Slope 1×2"), 1],
+     ["rm3", "ramp3", 1, 3, L2("Rampe 1×3", "Slope 1×3"), 1.5],
      ["cor", "round", 1, 1, L2("Ecke rund 1×1", "Round corner 1×1"), 0.8],
      ["hlf", "half", 1, 1, L2("Halb 1×1", "Half 1×1"), 0.5]].forEach(function (a) {
       def(pre + a[0], { cat: heavy ? "catHA" : "catLA", kind: "armor", shape: a[1], w: a[2], h: a[3], mass: Math.round(m * a[5] * 100) / 100, hp: Math.round(hp * Math.max(0.6, a[5])), col: col, heavy: heavy,
@@ -81,9 +82,10 @@
   def("dor", { cat: "catIn", kind: "door", w: 1, h: 1, mass: 0.6, hp: 75, n: L2("Schiebetür", "Sliding door"), col: "#9AA5B1" });
   def("win", { cat: "catIn", kind: "win", w: 1, h: 1, mass: 0.7, hp: 40, n: L2("Fenster 1×1", "Window 1×1"), col: "#9AA5B1" });
   def("mgn", { cat: "catWe", kind: "mg", w: 1, h: 2, mass: 1.3, hp: 60, n: L2("Minigun 1×2", "Minigun 1×2"), col: "#7E8995" });
+  def("msl", { cat: "catWe", kind: "ms", w: 1, h: 2, mass: 1.6, hp: 60, n: L2("Leichte Raketen 1×2", "Light missiles 1×2"), col: "#7E8995" });
   def("rgn", { cat: "catWe", kind: "rg", w: 1, h: 3, mass: 3.8, hp: 120, n: L2("Railgun 1×3", "Railgun 1×3"), col: "#7E8995" });
   CATS = ["catLA", "catHA", "catCo", "catTh", "catEn", "catIn", "catWe"];
-  var MECH = { cock: 1, thr: 1, gyro: 1, ant: 1, bat: 1, reac: 1, door: 1, mg: 1, rg: 1, cool: 1 };
+  var MECH = { cock: 1, thr: 1, gyro: 1, ant: 1, bat: 1, reac: 1, door: 1, mg: 1, rg: 1, cool: 1, ms: 1 };
   var ROOMABLE = { bat: 1, reac: 1, gyro: 1, cool: 1 };   // Maschinen, die in einem Raum stehen dürfen und dann zum Raum gehören
   function replaceable(newT, o) { return o && T[newT].kind !== "floor" && T[o.b.t].kind === "floor"; }
   var DV = [[0, -1], [1, 0], [0, 1], [-1, 0]];     // N, O, S, W als Zellversatz
@@ -93,13 +95,13 @@
     var k = ty.kind, sh = ty.shape, last = ly === ty.h - 1;
     if (k === "armor") {
       if (sh === "ramp1" || sh === "round") return { c: d === 2 || d === 3, s: d === 2 || d === 3 };
-      if (sh === "ramp2") return { c: d === 3 || (d === 2 && last), s: d === 3 || (d === 2 && last) };
+      if (sh === "ramp2" || sh === "ramp3") return { c: d === 3 || (d === 2 && last), s: d === 3 || (d === 2 && last) };
       if (sh === "half") return { c: d !== 0, s: d === 2 };
       return { c: true, s: true };
     }
     if (k === "thr") return { c: d !== 2, s: true };                       // Düse hinten verbindet nicht
-    if (k === "mg" || k === "rg" || k === "ant") return { c: last && d !== 0, s: true };   // nur am hinteren Ende
-    if (k === "cock") return { c: d !== 0, s: true };                      // Kanzel vorne ist Glas
+    if (k === "mg" || k === "rg" || k === "ant" || k === "ms") return { c: last && d !== 0, s: true };   // nur am hinteren Ende
+    if (k === "cock") return { c: true, s: true };                         // auch vorne an der Kanzel lässt sich anbauen
     return { c: true, s: true };
   }
 
@@ -186,7 +188,7 @@
   // ---------- Werte eines Schiffs ----------
   function thrustDir(b) { return dirOut(b, 0); }     // Schub zeigt zur Montageseite, Düse nach hinten
   function stats(blocks) {
-    var s = { mass: 0, thr: [0, 0, 0, 0], torque: 0, cap: 0, prod: 0, use: 0, n: blocks.length, cock: 0, gyro: 0, com: [0, 0], I: 0, mg: 0, rg: 0 };
+    var s = { mass: 0, thr: [0, 0, 0, 0], torque: 0, cap: 0, prod: 0, use: 0, n: blocks.length, cock: 0, gyro: 0, com: [0, 0], I: 0, mg: 0, rg: 0, ms: 0 };
     blocks.forEach(function (b) {
       var ty = T[b.t], f = fp(b), cx = b.x + f[0] / 2, cy = b.y + f[1] / 2;
       s.mass += ty.mass; s.com[0] += cx * ty.mass; s.com[1] += cy * ty.mass;
@@ -197,6 +199,7 @@
       if (ty.kind === "cock") s.cock++;
       if (ty.kind === "mg") s.mg++;
       if (ty.kind === "rg") s.rg++;
+      if (ty.kind === "ms") s.ms++;
     });
     if (s.mass) { s.com[0] /= s.mass; s.com[1] /= s.mass; }
     blocks.forEach(function (b) {
@@ -239,6 +242,7 @@
     m("ths", -6, -1, 1);
     m("lrmp", -3, 2, 2); m("lrmp", -4, 1, 2);
     m("col", -3, 4, 0); m("col", -3, 5, 0);
+    m("msl", -1, -8, 0);
     return B;
   }
 
@@ -320,7 +324,7 @@
   }
   function shapePath(c, sh, w, h) {
     c.beginPath();
-    if (sh === "ramp1" || sh === "ramp2") { c.moveTo(0, 0); c.lineTo(0, h); c.lineTo(w, h); c.closePath(); }
+    if (sh === "ramp1" || sh === "ramp2" || sh === "ramp3") { c.moveTo(0, 0); c.lineTo(0, h); c.lineTo(w, h); c.closePath(); }
     else if (sh === "round") { c.moveTo(0, 0); c.arc(0, h, w, -Math.PI / 2, 0); c.lineTo(0, h); c.closePath(); }
     else if (sh === "half") c.rect(0, h / 2, w, h / 2);
     else c.rect(0, 0, w, h);
@@ -413,6 +417,11 @@
       c.fillStyle = DARK; [0.3, 0.5, 0.7].forEach(function (q) { c.fillRect(w * q - w * 0.06, h * 0.06, w * 0.12, h - s * 0.9); });
       c.fillStyle = MID; c.fillRect(w * 0.18, h * 0.42, w * 0.64, s * 0.14);
       c.strokeStyle = shade(col, -0.55); c.lineWidth = lw; c.strokeRect(w * 0.12, h - s, w * 0.76, s);
+    } else if (k === "ms") {
+      c.fillStyle = shade(col, -0.12); c.fillRect(w * 0.08, h * 0.3, w * 0.84, h * 0.7);
+      c.fillStyle = b.c || "#8C4A3A"; c.fillRect(w * 0.14, h - s * 0.55, w * 0.72, s * 0.35);
+      [0.3, 0.7].forEach(function (q) { c.fillStyle = DARK; c.fillRect(w * q - w * 0.15, h * 0.06, w * 0.3, h * 0.55); var ready = !(opts && opts.reload); c.fillStyle = ready ? "#E9ECEE" : "#4A525C"; c.beginPath(); c.moveTo(w * q, h * 0.08); c.lineTo(w * q + w * 0.09, h * 0.2); c.lineTo(w * q - w * 0.09, h * 0.2); c.closePath(); c.fill(); if (ready) { c.fillStyle = "#C8473A"; c.fillRect(w * q - w * 0.09, h * 0.2, w * 0.18, h * 0.06); } });
+      c.strokeStyle = shade(col, -0.55); c.lineWidth = lw; c.strokeRect(w * 0.08, h * 0.3, w * 0.84, h * 0.7);
     } else if (k === "rg") {
       c.fillStyle = shade(col, -0.15); c.fillRect(w * 0.08, h - s * 1.2, w * 0.84, s * 1.2);
       c.fillStyle = b.c || "#3E6F96"; c.fillRect(w * 0.16, h - s * 1.05, w * 0.68, s * 0.5);
@@ -563,7 +572,7 @@
   }
   function kg(t) { return nf(Math.round(t * 1000)) + " kg"; }
   function arrowFor(c, b, s) {   // zeigt bei Triebwerken die Schubrichtung, bei Waffen die Schussrichtung
-    var ty = T[b.t]; if (ty.kind !== "thr" && ty.kind !== "mg" && ty.kind !== "rg") return;
+    var ty = T[b.t]; if (ty.kind !== "thr" && ty.kind !== "mg" && ty.kind !== "rg" && ty.kind !== "ms") return;
     var d = dirOut(b, 0), f = fp(b), cx = (b.x + f[0] / 2) * s, cy = (b.y + f[1] / 2) * s, L = Math.max(f[0], f[1]) * s * 0.5 + s * 0.8;
     var dx = DV[d][0], dy = DV[d][1], ex = cx + dx * L, ey = cy + dy * L;
     c.strokeStyle = ty.kind === "thr" ? "#57D18A" : "#E0533F"; c.fillStyle = c.strokeStyle; c.lineWidth = 2;
@@ -577,7 +586,7 @@
     return o;
   }
   // Schiff: erst Innenleben, dann Aufbauten; Panzerung zuletzt, damit Kanten sauber liegen
-  var ORDER = { floor: 0, door: 0, wall: 1, cock: 2, bat: 2, reac: 2, gyro: 2, cool: 2, thr: 3, mg: 3, rg: 3, ant: 3, win: 4, armor: 4 };
+  var ORDER = { floor: 0, door: 0, wall: 1, cock: 2, bat: 2, reac: 2, gyro: 2, cool: 2, thr: 3, mg: 3, rg: 3, ms: 3, ant: 3, win: 4, armor: 4 };
   // Panzerung (und außen die Dächer) verschmilzt zu einer Hülle: Kanten nur dort, wo die Hülle endet
   function isHull(k, view) { return k === "armor" || k === "win" || (view === "out" && (k === "floor" || k === "wall" || k === "door")); }
   function drawShip(c, blocks, s, view, tm, body, M) {
@@ -586,7 +595,7 @@
     sorted.forEach(function (b) {
       var ty = T[b.t], hpk = b.hp !== undefined ? b.hp / ty.hp : 1, o = null;
       if (isHull(ty.kind, view)) { hull.push(b); return; }
-      if (body) o = { pilot: ty.kind === "cock" && body.ctrl && FL && FL.seated && b === body.seat, batK: body.cap ? body.energy / body.cap : 1, charge: b.chg ? Math.min(1, b.chg / RG.charge) : 0 };
+      if (body) o = { pilot: ty.kind === "cock" && body.ctrl && FL && FL.seated && b === body.seat, batK: body.cap ? body.energy / body.cap : 1, charge: b.chg ? Math.min(1, b.chg / RG.charge) : 0, reload: b.rl > 0 };
       drawBlock(c, b, s, view, hpk, tm, o);
     });
     hull.forEach(function (b) { hullFill(c, b, s, view, b.hp !== undefined ? b.hp / T[b.t].hp : 1); });
@@ -599,13 +608,13 @@
       shapePath(c, ty.shape, w, h); c.fillStyle = col; c.fill();
       if (ty.heavy && ty.shape === "full") { c.fillStyle = shade(col, -0.25); [[0.2, 0.2], [0.8, 0.2], [0.2, 0.8], [0.8, 0.8]].forEach(function (q) { c.fillRect(w * q[0] - lw, h * q[1] - lw, lw * 2, lw * 2); }); }
       c.strokeStyle = shade(col, -0.55); c.lineWidth = lw * 1.2; c.beginPath();
-      if (ty.shape === "ramp1" || ty.shape === "ramp2") { c.moveTo(0, 0); c.lineTo(w, h); }
+      if (ty.shape.indexOf("ramp") === 0) { c.moveTo(0, 0); c.lineTo(w, h); }
       else if (ty.shape === "round") c.arc(0, h, w, -Math.PI / 2, 0);
       else if (ty.shape === "half") { c.moveTo(0, h / 2); c.lineTo(w, h / 2); c.moveTo(0, h / 2); c.lineTo(0, h); c.moveTo(w, h / 2); c.lineTo(w, h); }
       c.stroke();
       if (ty.shape !== "full") {   // Lichtkante an der schrägen Seite
         c.strokeStyle = shade(col, 0.25); c.lineWidth = lw; c.beginPath();
-        if (ty.shape === "ramp1" || ty.shape === "ramp2") { c.moveTo(lw * 1.4, lw * 3); c.lineTo(w - lw * 2.5, h - lw * 1.2); }
+        if (ty.shape.indexOf("ramp") === 0) { c.moveTo(lw * 1.4, lw * 3); c.lineTo(w - lw * 2.5, h - lw * 1.2); }
         else if (ty.shape === "round") c.arc(0, h, w - lw * 1.6, -Math.PI / 2 + 0.12, -0.12);
         c.stroke();
       }
@@ -643,6 +652,7 @@
   // ---------- Testflug ----------
   var FL = null;
   var MG = { rate: 12, speed: 420, life: 1.25, dmg: 7, heat: 0.042, cool: 0.42, warn: 0.78, lock: 3.2, e: 0.4 };
+  var MS = { v0: 30, acc: 420, vmax: 340, turn: 0.45, life: 4, dmg: 55, splash: 2.6, sdmg: 28, reload: 1.4, e: 6 };
   var RG = { charge: 0.7, cd: 2.2, dmg: 150, range: 700, e: 45 };
   function makeBody(blocks, ctrl) {
     var bd = { blocks: blocks, x: 0, y: 0, a: 0, vx: 0, vy: 0, w: 0, ctrl: !!ctrl, energy: 0, cap: 0, flames: {} };
@@ -675,7 +685,8 @@
     FL = { bodies: [me], me: me, shots: [], beams: [], parts: [], seated: true, damp: true, wsel: 0, groups: [], keys: {}, mdx: 0, cam: { x: 0, y: 0 }, zoom: 1, t: 0 };
     var sp0 = seatPos(me); FL.pilot = { x: sp0.x, y: sp0.y, face: -Math.PI / 2, ph: 0 };
     FL.oc = false; FL.ocT = me.ocMax;
-    FL.groups = []; if (st.mg) FL.groups.push("mg"); if (st.rg) FL.groups.push("rg");
+    FL.groups = []; if (st.mg) FL.groups.push("mg"); if (st.ms) FL.groups.push("ms"); if (st.rg) FL.groups.push("rg");
+    FL.missiles = [];
     spawnTargets();
     S.mode = "fly"; V.zoomEd = V.zoom; V.zoom = Math.min(1.1, Math.max(0.6, V.zoom));
     syncUI();
@@ -718,6 +729,7 @@
       bd.blocks.forEach(function (b) {
         var ty = T[b.t];
         if (ty.kind === "mg") { var cn = (bd.cool && bd.cool.get(b)) || 0; if (b.oh > 0) { b.oh -= dt; if (b.oh <= 0) { b.oh = 0; b.heat = 0; } } else if (!b.firing) b.heat = Math.max(0, (b.heat || 0) - MG.cool * (1 + 0.6 * cn) * dt); b.firing = false; }
+        if (ty.kind === "ms" && b.rl > 0) b.rl -= dt;
         if (ty.kind === "rg") { if (b.cd > 0) b.cd -= dt; if (!b.holding) b.chg = 0; b.holding = false; }
         var hk = b.hp / ty.hp;
         if (MECH[ty.kind] && hk < 0.5 && Math.random() < dt * (hk < 0.25 ? 5 : 2.5)) { var p = blockCenter(bd, b); FL.parts.push({ x: p.x + (Math.random() - 0.5) * 2, y: p.y + (Math.random() - 0.5) * 2, vx: bd.vx + (Math.random() - 0.5) * 3, vy: bd.vy - 1.5 - Math.random() * 2, life: 0, max: 1.4 + Math.random() * 0.8, k: "smoke", sz: 0.5 + Math.random() * 0.5 }); }
@@ -735,6 +747,22 @@
       return true;
     });
     FL.beams = FL.beams.filter(function (b) { b.life += dt; return b.life < 0.3; });
+    // Leichte Raketen: starke Beschleunigung, lenken nur ganz leicht zum Mauszeiger
+    var mw = mouseWorld();
+    FL.missiles = (FL.missiles || []).filter(function (m) {
+      m.life += dt; if (m.life > MS.life) { blast(m.x, m.y, MS.splash, MS.sdmg, m.own); return false; }
+      if (mw) { var want = Math.atan2(mw.y - m.y, mw.x - m.x), dh = Math.atan2(Math.sin(want - m.h), Math.cos(want - m.h)); m.h += Math.max(-MS.turn * dt, Math.min(MS.turn * dt, dh)); }
+      var sp = Math.hypot(m.vx, m.vy), ns = Math.min(MS.vmax, sp + MS.acc * dt);
+      // Geschwindigkeit dreht mit der Nase mit
+      m.vx = Math.cos(m.h) * ns; m.vy = Math.sin(m.h) * ns;
+      if (Math.random() < 0.9) FL.parts.push({ x: m.x, y: m.y, vx: (Math.random() - 0.5) * 2, vy: (Math.random() - 0.5) * 2, life: 0, max: 0.7 + Math.random() * 0.4, k: "smoke", sz: 0.35 + Math.random() * 0.25 });
+      var steps = Math.ceil(ns * dt / 1.0);
+      for (var i = 0; i < steps; i++) {
+        m.x += m.vx * dt / steps; m.y += m.vy * dt / steps;
+        var hit = hitAt(m.x, m.y, m.own); if (hit) { damage(hit.bd, hit.b, MS.dmg, m.x, m.y); blast(m.x, m.y, MS.splash, MS.sdmg, null); return false; }
+      }
+      return true;
+    });
     FL.parts = FL.parts.filter(function (q) { q.life += dt; q.x += q.vx * dt; q.y += q.vy * dt; if (q.k === "debris") { q.a += q.w * dt; } return q.life < q.max; });
     if (FL.parts.length > 900) FL.parts.splice(0, FL.parts.length - 900);
     FL.cam.x = me.x; FL.cam.y = me.y;
@@ -834,6 +862,12 @@
       b.heat = (b.heat || 0) + MG.heat / (1 + 0.35 * cn2);
       if (b.heat >= 1) { b.heat = 1; b.oh = b.ohMax = MG.lock / (1 + 0.3 * cn2); for (var i = 0; i < 10; i++) FL.parts.push({ x: tip.x, y: tip.y, vx: bd.vx + (Math.random() - 0.5) * 6, vy: bd.vy + (Math.random() - 0.5) * 6, life: 0, max: 1 + Math.random(), k: "smoke", sz: 1 + Math.random() }); }
     });
+    if (FL.fire && g === "ms") bd.blocks.forEach(function (b) {
+      if (T[b.t].kind !== "ms" || b.rl > 0 || bd.energy < MS.e) return;
+      b.rl = MS.reload; bd.energy -= MS.e;
+      var d = dirWorld(bd, dirOut(b, 0)), tip = muzzle(bd, b);
+      FL.missiles.push({ x: tip.x, y: tip.y, vx: bd.vx + d.x * MS.v0, vy: bd.vy + d.y * MS.v0, h: Math.atan2(d.y, d.x), life: 0, own: bd });
+    });
     if (FL.fire && g === "rg") bd.blocks.forEach(function (b) {
       if (T[b.t].kind !== "rg" || b.cd > 0) return;
       b.holding = true;
@@ -855,6 +889,21 @@
     }
     FL.beams.push({ x0: p.x, y0: p.y, x1: end.x, y1: end.y, life: 0 });
   }
+  function mouseWorld() {
+    if (!V.mouse) return null; var ppm = PX * V.zoom / CELL_M;
+    return { x: FL.cam.x + (V.mouse.sx - V.W / 2) / ppm, y: FL.cam.y + (V.mouse.sy - V.H / 2) / ppm };
+  }
+  // Flächenschaden um einen Punkt (Raketen, explodierende Triebwerke und Reaktoren)
+  function blast(x, y, r, dmg, skip) {
+    FL.parts.push({ x: x, y: y, vx: 0, vy: 0, life: 0, max: 0.22, k: "flash", sz: r * 1.3 });
+    for (var i = 0; i < 10; i++) FL.parts.push({ x: x, y: y, vx: (Math.random() - 0.5) * 14, vy: (Math.random() - 0.5) * 14, life: 0, max: 0.35 + Math.random() * 0.35, k: "fire", sz: 0.8 + Math.random() * r * 0.4 });
+    var hits = [];
+    FL.bodies.forEach(function (bd) {
+      if (bd === skip || Math.abs(x - bd.x) > bd.rad + r || Math.abs(y - bd.y) > bd.rad + r) return;
+      bd.blocks.forEach(function (b) { var p = blockCenter(bd, b), d = Math.hypot(p.x - x, p.y - y); if (d < r) hits.push({ bd: bd, b: b, dmg: dmg * (1 - d / r * 0.7) }); });
+    });
+    hits.forEach(function (h) { damage(h.bd, h.b, h.dmg, x, y); });
+  }
   function hitAt(x, y, own) {
     for (var i = 0; i < FL.bodies.length; i++) {
       var bd = FL.bodies[i]; if (bd === own) continue;
@@ -867,6 +916,7 @@
   function spark(x, y, n) { for (var i = 0; i < n; i++) { var a = Math.random() * 6.28, v = 8 + Math.random() * 18; FL.parts.push({ x: x, y: y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: 0, max: 0.2 + Math.random() * 0.25, k: "spark", sz: 0.4 }); } }
   // Schaden: bei 0 Leben fällt der Block weg, lose Teile treiben als eigene Trümmer davon
   function damage(bd, b, dmg, x, y) {
+    if (FL.bodies.indexOf(bd) < 0 || bd.blocks.indexOf(b) < 0) return;   // schon zerstört (Kettenreaktion)
     b.hp -= dmg;
     if (b.hp > 0) return;
     var p = blockCenter(bd, b), col = b.c || T[b.t].col;
@@ -874,8 +924,11 @@
     for (i = 0; i < 6; i++) FL.parts.push({ x: p.x, y: p.y, vx: bd.vx + (Math.random() - 0.5) * 8, vy: bd.vy + (Math.random() - 0.5) * 8, life: 0, max: 0.35 + Math.random() * 0.3, k: "fire", sz: 1.2 + Math.random() });
     FL.parts.push({ x: p.x, y: p.y, vx: bd.vx, vy: bd.vy, life: 0, max: 0.18, k: "flash", sz: 4 });
     bd.blocks.splice(bd.blocks.indexOf(b), 1);
-    if (!bd.blocks.length) { FL.bodies.splice(FL.bodies.indexOf(bd), 1); return; }
-    splitBody(bd);
+    if (!bd.blocks.length) FL.bodies.splice(FL.bodies.indexOf(bd), 1); else splitBody(bd);
+    // Triebwerke und Reaktoren explodieren und beschädigen, was direkt drumherum liegt
+    var kd = T[b.t].kind;
+    if (kd === "reac") blast(p.x, p.y, 3.2 * CELL_M, 85, null);
+    else if (kd === "thr") blast(p.x, p.y, (T[b.t].w > 1 ? 2.4 : 1.8) * CELL_M, T[b.t].w > 1 ? 60 : 40, null);
   }
   function splitBody(bd) {
     var comps = components(bd.blocks);
@@ -908,7 +961,20 @@
         var gr = c.createLinearGradient(base.x, base.y, base.x + ex.x * L, base.y + ex.y * L);
         if (ocx) { gr.addColorStop(0, "rgba(255,255,255,.98)"); gr.addColorStop(0.3, "rgba(200,140,255,.85)"); gr.addColorStop(1, "rgba(150,80,255,0)"); }
         else { gr.addColorStop(0, "rgba(190,240,255,.95)"); gr.addColorStop(0.35, "rgba(90,170,255,.7)"); gr.addColorStop(1, "rgba(60,100,255,0)"); }
-        c.fillStyle = gr; c.beginPath(); c.moveTo(base.x - ex.y * wd, base.y + ex.x * wd); c.lineTo(base.x + ex.x * L, base.y + ex.y * L); c.lineTo(base.x + ex.y * wd, base.y - ex.x * wd); c.closePath(); c.fill();
+        if (ocx) {   // Overcharge: wilder, ausfransender Strahl statt spitzer Flamme
+          var ang = Math.atan2(ex.y, ex.x);
+          c.save(); c.translate(base.x, base.y); c.rotate(ang);
+          for (var lb = 0; lb < 7; lb++) {
+            var la = (Math.random() - 0.5) * 0.7, ll = L * (0.45 + Math.random() * 0.7), lwd = wd * (0.45 + Math.random() * 0.8);
+            var g2 = c.createLinearGradient(0, 0, ll, 0); g2.addColorStop(0, "rgba(255,255,255,.9)"); g2.addColorStop(0.35, "rgba(205,150,255,.6)"); g2.addColorStop(1, "rgba(140,70,255,0)");
+            c.save(); c.rotate(la); c.fillStyle = g2; c.beginPath(); c.moveTo(0, -wd * 0.8);
+            c.quadraticCurveTo(ll * 0.45, -lwd * 1.3, ll, -lwd * (0.3 + Math.random() * 0.5)); c.lineTo(ll * (0.85 + Math.random() * 0.2), 0); c.lineTo(ll, lwd * (0.3 + Math.random() * 0.5));
+            c.quadraticCurveTo(ll * 0.45, lwd * 1.3, 0, wd * 0.8); c.closePath(); c.fill(); c.restore();
+          }
+          c.fillStyle = "rgba(255,255,255,.85)"; c.beginPath(); c.ellipse(wd * 0.3, 0, wd * 0.8, wd * 0.6, 0, 0, Math.PI * 2); c.fill();
+          c.restore();
+          if (Math.random() < 0.6) { var sa = ang + (Math.random() - 0.5) * 0.9, sv = 25 + Math.random() * 30; FL.parts.push({ x: base.x, y: base.y, vx: bd.vx + Math.cos(sa) * sv, vy: bd.vy + Math.sin(sa) * sv, life: 0, max: 0.25 + Math.random() * 0.3, k: "ocs", sz: 0.4 }); }
+        } else { c.fillStyle = gr; c.beginPath(); c.moveTo(base.x - ex.y * wd, base.y + ex.x * wd); c.lineTo(base.x + ex.x * L, base.y + ex.y * L); c.lineTo(base.x + ex.y * wd, base.y - ex.x * wd); c.closePath(); c.fill(); }
       });
     });
     FL.bodies.forEach(function (bd) {
@@ -930,6 +996,12 @@
       });
       c.restore();
     });
+    (FL.missiles || []).forEach(function (m) {
+      c.save(); c.translate(m.x, m.y); c.rotate(m.h);
+      c.fillStyle = "rgba(255,190,90,.85)"; c.beginPath(); c.moveTo(-0.9, -0.28); c.lineTo(-2.4 - Math.random() * 0.8, 0); c.lineTo(-0.9, 0.28); c.closePath(); c.fill();
+      c.fillStyle = "#E9ECEE"; c.fillRect(-0.9, -0.22, 1.6, 0.44); c.fillStyle = "#C8473A"; c.beginPath(); c.moveTo(0.7, -0.22); c.lineTo(1.1, 0); c.lineTo(0.7, 0.22); c.closePath(); c.fill();
+      c.restore();
+    });
     // Geschosse, Strahlen, Partikel
     c.strokeStyle = "#FFD27A"; c.lineWidth = 0.5;
     FL.shots.forEach(function (p) { var l = Math.hypot(p.vx, p.vy) || 1; c.beginPath(); c.moveTo(p.x, p.y); c.lineTo(p.x - p.vx / l * 2.4, p.y - p.vy / l * 2.4); c.stroke(); });
@@ -938,6 +1010,7 @@
       var k = q.life / q.max;
       if (q.k === "smoke") { c.fillStyle = "rgba(70,70,74," + (0.38 * (1 - k)) + ")"; c.beginPath(); c.arc(q.x, q.y, q.sz * (1 + k * 1.6), 0, Math.PI * 2); c.fill(); }
       else if (q.k === "fire") { c.fillStyle = "rgba(255," + Math.round(200 - k * 140) + ",60," + (0.9 * (1 - k)) + ")"; c.beginPath(); c.arc(q.x, q.y, q.sz * (1 - k * 0.5), 0, Math.PI * 2); c.fill(); }
+      else if (q.k === "ocs") { c.fillStyle = "rgba(220,180,255," + (1 - k) + ")"; c.fillRect(q.x, q.y, 0.45, 0.45); }
       else if (q.k === "weld") { c.fillStyle = "rgba(170,230,255," + (1 - k) + ")"; c.fillRect(q.x, q.y, 0.35, 0.35); }
       else if (q.k === "spark") { c.fillStyle = "rgba(255,230,160," + (1 - k) + ")"; c.fillRect(q.x, q.y, 0.4, 0.4); }
       else if (q.k === "flash") { c.fillStyle = "rgba(255,240,200," + (1 - k) + ")"; c.beginPath(); c.arc(q.x, q.y, q.sz, 0, Math.PI * 2); c.fill(); }
@@ -957,6 +1030,7 @@
     var oe = V.root.querySelector("#sr-h-oc"); if (oe) oe.className = FL.oc ? "on" : "";
     var wtxt = g ? t(g) : t("none");
     if (g === "mg") { var h = 0, oh = 0; me.blocks.forEach(function (b) { if (T[b.t].kind === "mg") { h = Math.max(h, b.heat || 0); oh = Math.max(oh, b.oh || 0); } }); wtxt += oh > 0 ? " · !!! " + nf(oh, 1) + " s" : " · " + Math.round(h * 100) + " %"; }
+    if (g === "ms") { var rl = 0; me.blocks.forEach(function (b) { if (T[b.t].kind === "ms") rl = Math.max(rl, b.rl || 0); }); wtxt += rl > 0 ? " · " + nf(rl, 1) + " s" : (lang === "de" ? " · bereit" : " · ready"); }
     if (g === "rg") { var cd = 0; me.blocks.forEach(function (b) { if (T[b.t].kind === "rg") cd = Math.max(cd, b.cd || 0); }); wtxt += cd > 0 ? " · " + nf(cd, 1) + " s" : " · bereit".replace("bereit", lang === "de" ? "bereit" : "ready"); }
     set("sr-h-w", wtxt);
     set("sr-h-seat", !me.seat ? t("cockGone") : FL.seated ? t("seated") : t("walking"));
