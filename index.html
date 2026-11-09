@@ -63,7 +63,41 @@ button.navbtn{background:transparent;cursor:pointer;border-color:var(--ink)}
 .app:hover{transform:translateY(-3px);border-color:var(--tone);box-shadow:6px 6px 0 var(--shadow)}
 .app:focus-visible{outline-offset:4px}
 .app .pv{position:relative;aspect-ratio:16/10;max-width:100%;overflow:hidden;border-bottom:1px solid var(--line)}
-.app .soon{position:absolute;left:0;top:14px;max-width:calc(100% - 14px);padding:6px 12px;background:#E3B83F;color:#151715;font-weight:700;font-size:.74rem;letter-spacing:.06em;text-transform:uppercase;line-height:1.2;box-shadow:0 2px 0 rgba(0,0,0,.25)}
+.app .soon{position:absolute;left:0;top:14px;max-width:calc(100% - 14px);padding:6px 12px;background:#151715;color:#FFE1A8;font-weight:700;font-size:.74rem;letter-spacing:.06em;text-transform:uppercase;line-height:1.2;box-shadow:0 2px 0 rgba(0,0,0,.25)}
+.ico{display:block;width:100%;height:100%}.ico .grid rect{fill:rgba(255,255,255,.10)}
+.ico-t .bg{fill:#2A7A57}.ico-g .bg{fill:#D2601F}.ico .fg{fill:#F7F4EE}.ico .st{fill:none;stroke:#F7F4EE;stroke-width:7;stroke-linejoin:miter;stroke-linecap:butt}
+.ico-t .ac{fill:#B9F0CF}.ico-g .ac{fill:#FFE1A8}.ico-t .ac[fill=none],.ico-t .a-stroke{stroke:#B9F0CF}.ico-g .ac[fill=none]{stroke:#FFE1A8}.ico .ac[fill=none]{fill:none}.ico-t .bgc{fill:#2A7A57}.ico-g .bgc{fill:#D2601F}
+.ico-t .bgs{fill:none;stroke:#2A7A57;stroke-width:5}.ico *{transform-box:fill-box;transform-origin:center}
+.a-stars{animation:icoStars 4s linear infinite}.a-flame{transform-origin:top;animation:icoFlame .22s ease-in-out infinite alternate}
+.a-takeoff{animation:icoTake 4.5s ease-in infinite}.a-dash{animation:icoDash 1s linear infinite}
+.a-push{animation:icoPush 3s ease-in-out infinite}.a-globe{animation:icoGlobe 4s linear infinite}.a-globe2{animation:icoGlobe 4s linear infinite;animation-delay:-2s}.a-bob{transform-origin:bottom;animation:icoBob 2s ease-in-out infinite alternate}
+.a-aim{animation:icoAim 3.2s ease-in-out infinite}.a-ring{opacity:0;animation:icoRing 3.2s ease-out infinite}.a-hit{animation:icoHit 3.2s ease-out infinite}
+.a-rise{transform-origin:bottom;animation:icoRise 3.2s ease-in-out infinite}.a-frag{animation:icoFrag 2.4s steps(4) infinite}
+.a-spin{animation:icoSpin 5s linear infinite}.a-pan{animation:icoPan 4s ease-in-out infinite alternate}
+.a-draw{stroke-dasharray:420;animation:icoDraw 3.2s ease-in-out infinite}.a-tip{animation:icoTip 3.2s ease-in-out infinite}
+.a-film{animation:icoFilm 3s linear infinite}.a-stroke{stroke-dasharray:90;animation:icoDraw2 3s ease-in-out infinite}
+.a-ch1{animation:icoCh1 3.6s ease-in-out infinite}.a-ch3{animation:icoCh3 3.6s ease-in-out infinite}
+@keyframes icoStars{from{transform:translateY(-30px)}to{transform:translateY(30px)}}
+@keyframes icoFlame{from{transform:scaleY(.7)}to{transform:scaleY(1.15)}}
+@keyframes icoTake{0%{transform:translate(-120px,22px) scale(.85);opacity:0}12%{opacity:1}55%{transform:translate(0,14px) scale(.95)}85%{opacity:1}100%{transform:translate(120px,-38px) scale(1.15);opacity:0}}
+@keyframes icoDash{to{transform:translateX(-32px)}}
+@keyframes icoPush{0%,25%{transform:translateX(0)}45%,75%{transform:translateX(40px)}95%,100%{transform:translateX(0)}}
+@keyframes icoGlobe{0%{transform:scaleX(1)}50%{transform:scaleX(.05)}100%{transform:scaleX(1)}}
+@keyframes icoBob{from{transform:rotate(-4deg)}to{transform:rotate(4deg)}}
+@keyframes icoAim{0%{transform:translate(-50px,-24px)}40%,60%{transform:translate(0,0)}100%{transform:translate(-50px,-24px)}}
+@keyframes icoRing{0%,42%{opacity:0;transform:scale(1)}45%{opacity:1}70%{opacity:0;transform:scale(3)}100%{opacity:0}}
+@keyframes icoHit{0%,42%{transform:scale(1)}48%{transform:scale(.4)}60%{transform:scale(1)}}
+@keyframes icoRise{0%,100%{transform:scaleY(.35)}45%,70%{transform:scaleY(1)}}
+@keyframes icoFrag{0%{transform:translate(0,0)}25%{transform:translate(-6px,4px)}50%{transform:translate(4px,-6px)}75%{transform:translate(-3px,-3px)}}
+@keyframes icoSpin{to{transform:rotate(360deg)}}
+@keyframes icoPan{from{transform:translateX(-64px)}to{transform:translateX(64px)}}
+@keyframes icoDraw{0%{stroke-dashoffset:420}60%,85%{stroke-dashoffset:0}100%{stroke-dashoffset:-420}}
+@keyframes icoTip{0%,60%,100%{opacity:0}62%,85%{opacity:1}}
+@keyframes icoFilm{to{transform:translateX(-24px)}}
+@keyframes icoDraw2{0%{stroke-dashoffset:90}50%,80%{stroke-dashoffset:0}100%{stroke-dashoffset:0;opacity:0}}
+@keyframes icoCh1{0%,30%,100%{transform:translate(12px,10px)}55%,75%{transform:translate(-14px,-8px)}}
+@keyframes icoCh3{0%,30%,100%{transform:translate(-12px,-10px)}55%,75%{transform:translate(14px,8px)}}
+@media (prefers-reduced-motion:reduce){.ico *{animation:none!important}}
 .app .pv svg,.app .pv img{display:block;width:100%;height:100%;object-fit:cover}
 .app .bd{display:flex;flex-direction:column;gap:8px;padding:18px 20px 20px;flex:1;background:var(--tone);color:#F1EFEA}
 .app h2{font:600 1.4rem/1.15 var(--f-display);letter-spacing:-.015em}
@@ -206,19 +240,19 @@ button.navbtn{background:transparent;cursor:pointer;border-color:var(--ink)}
   <footer class="foot"><a id="plink" href="#datenschutz">Datenschutz</a></footer>
 </div>
 
-<script src="patchnotes.js?v=20261109-2102"></script>
-<script src="flughafen.js?v=20261109-2102"></script>
-<script src="gigachess.js?v=20261109-2102"></script>
-<script src="colorspin.js?v=20261109-2102"></script>
-<script src="pixellab.js?v=20261109-2102"></script>
-<script src="ezcrop.js?v=20261109-2102"></script>
-<script src="framepaint.js?v=20261109-2102"></script>
-<script src="drawspace.js?v=20261109-2102"></script>
-<script src="citygen.js?v=20261109-2102"></script>
-<script src="spacerogue.js?v=20261109-2102"></script>
-<script src="channels.js?v=20261109-2102"></script>
-<script src="noaim.js?v=20261109-2102"></script>
-<script src="weltmacht.js?v=20261109-2102"></script>
+<script src="patchnotes.js?v=20261109-2112"></script>
+<script src="flughafen.js?v=20261109-2112"></script>
+<script src="gigachess.js?v=20261109-2112"></script>
+<script src="colorspin.js?v=20261109-2112"></script>
+<script src="pixellab.js?v=20261109-2112"></script>
+<script src="ezcrop.js?v=20261109-2112"></script>
+<script src="framepaint.js?v=20261109-2112"></script>
+<script src="drawspace.js?v=20261109-2112"></script>
+<script src="citygen.js?v=20261109-2112"></script>
+<script src="spacerogue.js?v=20261109-2112"></script>
+<script src="channels.js?v=20261109-2112"></script>
+<script src="noaim.js?v=20261109-2112"></script>
+<script src="weltmacht.js?v=20261109-2112"></script>
 <script>
 (function () {
   var T = {
@@ -249,29 +283,29 @@ button.navbtn{background:transparent;cursor:pointer;border-color:var(--ink)}
     drawspace: { de: "Draw Space", en: "Draw Space" }, citygen: { de: "CityGenerator", en: "CityGenerator" }, spacerogue: { de: "Space Rogue", en: "Space Rogue" }
   };
   var APPS = [
-    { id: "spacerogue", tone: "#26344F", ver: "v0.1", art: "SRIMG",
+    { id: "spacerogue", tone: "#9A4216", ver: "v0.1", art: "ICO_spacerogue",
       d: { de: "Baue dein eigenes Raumschiff aus Panzerung, Cockpit, Triebwerken, Reaktoren und Waffen und flieg es im Testflug. Erster Teil eines Roguelikes im Stil von FTL.", en: "Build your own spaceship from armour, cockpit, thrusters, reactors and weapons, then take it for a test flight. First part of an FTL-style roguelike." } },
-    { id: "flughafen", tone: "#4E5A2C", ver: "v0.42", art: "FHIMG", soon: "Airline Update Coming Soon",
+    { id: "flughafen", tone: "#9A4216", ver: "v0.42", art: "ICO_flughafen", soon: "Airline Update Coming Soon",
       d: { de: "Bau einen Flughafen von der grünen Wiese aus: Piste, Rollwege, Terminals. Flugzeuge, Busse und Autos bringen echte Passagierzahlen.", en: "Build an airport from an empty field: runway, taxiways, terminals. Aircraft, buses and cars carry real passenger numbers." } },
-    { id: "gigachess", tone: "#5E5470", ver: "v0.2", art: "GCIMG",
+    { id: "gigachess", tone: "#9A4216", ver: "v0.2", art: "ICO_gigachess",
       d: { de: "Schach auf 10 × 10 Feldern mit dem Räuber, der schiebt statt schlägt. Zu zweit oder gegen die KI in 10 Stufen, mit Schachuhr.", en: "Chess on a 10 × 10 board with the robber, who pushes instead of capturing. Two players or against the AI in 10 levels, with a chess clock." } },
-    { id: "pixellab", tone: "#2E5A5E", ver: "v0.32", art: "PIXIMG",
+    { id: "pixellab", tone: "#1E5A40", ver: "v0.32", art: "ICO_pixellab",
       d: { de: "Fotos hochladen, mit einer Kette aus Modifiern verfremden und als JPEG speichern. Modifier: Fragments und Polymerge. Das Foto bleibt auf deinem Gerät.", en: "Upload photos, transform them with a chain of modifiers and save as JPEG. Modifiers: Fragments and Polymerge. The photo stays on your device." } },
-    { id: "colorspin", tone: "#844A31", ver: "v0.11", art: "SPINSVG",
+    { id: "colorspin", tone: "#1E5A40", ver: "v0.11", art: "ICO_colorspin",
       d: { de: "Mal auf einer drehenden weißen Schallplatte. Aus jedem Strich werden Ringe und Spiralen, am Ende bis 4096 px speichern.", en: "Paint on a spinning white record. Every stroke becomes rings and spirals, then save it at up to 4096 px." } },
-    { id: "ezcrop", tone: "#6B3F52", ver: "v0.11", art: "EZSVG",
+    { id: "ezcrop", tone: "#1E5A40", ver: "v0.11", art: "ICO_ezcrop",
       d: { de: "Querformat-Video in 9:16 zuschneiden: Rahmen beim Abspielen mit der Maus führen, die Fahrt wird als Keyframes gespeichert. Export als Full-HD-MP4 für TikTok. Das Video bleibt auf deinem Gerät.", en: "Crop landscape video to 9:16: steer the frame with your mouse during playback, the move is stored as keyframes. Export as Full HD MP4 for TikTok. The video stays on your device." } },
-    { id: "citygen", tone: "#2F6E5A", ver: "v0.1", art: "CGSVG",
+    { id: "citygen", tone: "#9A4216", ver: "v0.1", art: "ICO_citygen",
       d: { de: "Skizzier Haupt- und Verteilerstraßen, wähle USA, Europa oder Japan und lass eine ganze Stadt entstehen. Danach Parks, Wasser und Spezialbauten wie Stadion, Kathedrale oder Hafen einmalen.", en: "Sketch main and distributor roads, pick USA, Europe or Japan and let a whole city grow. Then paint in parks, water and special buildings like a stadium, cathedral or harbour." } },
-    { id: "drawspace", tone: "#3E7F8C", ver: "v0.25", art: "DSSVG",
+    { id: "drawspace", tone: "#1E5A40", ver: "v0.25", art: "ICO_drawspace",
       d: { de: "Eine weiße Fläche von 100.000 × 100.000 Pixeln zum Kritzeln: Rund-, Haar- und Borstenpinsel, Spraydose, Lineal und Kurve, starke Glättung, Farbkreis. Ausschnitte exportierst du als JPEG in genau der gezogenen Größe.", en: "A white area of 100,000 × 100,000 pixels for sketching: round, hair and bristle brushes, spray can, ruler and curve, strong smoothing, colour wheel. Export any area as a JPEG in exactly the size you drag." } },
-    { id: "framepaint", tone: "#4A6A8C", ver: "v0.52", art: "FPSVG",
+    { id: "framepaint", tone: "#1E5A40", ver: "v0.52", art: "ICO_framepaint",
       d: { de: "Video laden und Bild für Bild darübermalen: Stift, Pinsel, Spraydose, Wachsmalkreide, Farben nur per Pipette aus dem Video, Quickpaint füllt Farbflächen als Skizze, Magic Paint zeichnet den ganzen Frame nach. 5, 15 oder 30 Frames pro Sekunde, Export als Full-HD-MP4. Das Video bleibt auf deinem Gerät.", en: "Load a video and paint over it frame by frame: pen, brush, spray can, wax crayon, colours only via the picker from the video, Quickpaint fills colour areas as a sketch, Magic Paint redraws the whole frame. 5, 15 or 30 frames per second, export as Full HD MP4. The video stays on your device." } },
-    { id: "weltmacht", tone: "#6E3B2A", ver: "v0.15", art: "WMIMG",
+    { id: "weltmacht", tone: "#9A4216", ver: "v0.15", art: "ICO_weltmacht",
       d: { de: "Eroberungs-Brettspiel auf einer echten Weltkarte mit 91 Provinzen: Token-Wirtschaft, Elite-Armeen mit W8, Provinz-Ausbau und Bonuskarten. Für 2 bis 6 Spieler, Menschen oder KI.", en: "Conquest board game on a real world map with 91 provinces: token economy, elite armies with d8, province upgrades and bonus cards. For 2 to 6 players, human or AI." } },
-    { id: "noaim", tone: "#7A5A1C", ver: "v0.2", art: "AIMSVG",
+    { id: "noaim", tone: "#9A4216", ver: "v0.2", art: "ICO_noaim",
       d: { de: "Aimtrainer über die ganze Seite: Vögel fliegen in Wellen über den Himmel, Frösche hüpfen über die Wiese. Drei entwischt, Game Over. Mit Tageszeit, Schwierigkeit und Highscore.", en: "Full-page aim trainer: birds fly across the sky in waves, frogs hop over the meadow. Three escape, game over. With time of day, difficulty and high score." } },
-    { id: "channels", tone: "#3D4864", ver: "v0.21", art: "RGBSVG",
+    { id: "channels", tone: "#1E5A40", ver: "v0.21", art: "ICO_channels",
       d: { de: "Eigene Bilder in Kanäle zerlegen: RGB, CMYK, Tonwerte oder eine KI-Tiefenkarte. Ebenen verschieben und einzeln oder zusammen als PNG exportieren. Das Bild bleibt auf deinem Gerät.", en: "Split your own images into channels: RGB, CMYK, tones or an AI depth map. Move the layers and export them one by one or together as PNG. The image stays on your device." } }
   ];
 
@@ -313,10 +347,42 @@ button.navbtn{background:transparent;cursor:pointer;border-color:var(--ink)}
   function appsHTML(anim) {
     if (!S.cat) return "";
     return APPS.filter(function (a) { return catOf(a) === S.cat; }).map(function (a, i) {
-      return '<a class="app' + (anim ? " in" : "") + '" href="#' + a.id + '" style="--tone:' + a.tone + ';--i:' + i + '"><div class="pv">' + ART[a.art] + (a.soon ? '<span class="soon">' + a.soon + '</span>' : "") + '</div><div class="bd"><h2>' + U(a.id) + '</h2><p>' + a.d[S.lang] + '</p>' +
+      return '<a class="app' + (anim ? " in" : "") + '" href="#' + a.id + '" style="--tone:' + a.tone + ';--i:' + i + '"><div class="pv">' + (ICO[a.art] || ART[a.art]) + (a.soon ? '<span class="soon">' + a.soon + '</span>' : "") + '</div><div class="bd"><h2>' + U(a.id) + '</h2><p>' + a.d[S.lang] + '</p>' +
         '<div class="meta"><div class="mv"><span class="ver">' + verOf(a) + '</span>' + pnTile(a.id) + '</div><span class="go">' + U("open") + '</span></div></div></a>';
     }).join("");
   }
+  // Kachel-Icons: Werkzeuge grün, Spiele orange, darin ein schlichtes weißes Symbol mit kleiner Animation
+  var ICO = {};
+  (function () {
+    var F = 'class="fg"', A = 'class="ac"', S = 'class="st"';
+    function wrap(cat, body) { return '<svg class="ico ico-' + cat + '" viewBox="0 0 320 200" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><rect class="bg" width="320" height="200"/><g class="grid">' + grid() + '</g>' + body + '</svg>'; }
+    function grid() { var o = ""; for (var x = 20; x < 320; x += 40) for (var y = 20; y < 200; y += 40) o += '<rect x="' + (x - 1.5) + '" y="' + (y - 1.5) + '" width="3" height="3"/>'; return o; }
+    var I = {
+      spacerogue: ['g', '<g class="a-stars" fill="#F7F4EE" opacity=".75"><rect x="70" y="40" width="4" height="4"/><rect x="250" y="70" width="4" height="4"/><rect x="96" y="150" width="3" height="3"/><rect x="226" y="140" width="3" height="3"/><rect x="200" y="30" width="3" height="3"/></g>' +
+        '<polygon  class="ac a-flame" points="148,142 172,142 160,172"/><polygon ' + F + ' points="160,40 184,104 184,140 136,140 136,104"/><polygon ' + F + ' points="136,108 110,140 136,134"/><polygon ' + F + ' points="184,108 210,140 184,134"/><rect ' + A + ' x="152" y="76" width="16" height="20"/>'],
+      flughafen: ['g', '<rect ' + F + ' opacity=".28" x="40" y="128" width="240" height="34"/><g class="a-dash"><path ' + S + ' stroke-dasharray="18 14" d="M48 145H272"/></g>' +
+        '<g class="a-takeoff"><path ' + F + ' d="M128 96h62l14 6-14 6h-62z"/><polygon ' + F + ' points="152,96 170,96 150,66 140,66"/><polygon ' + F + ' points="152,108 170,108 150,138 140,138"/><polygon ' + F + ' points="128,98 136,98 128,84 122,84"/><polygon ' + F + ' points="128,106 136,106 128,120 122,120"/><rect ' + A + ' x="194" y="99" width="5" height="6"/></g>'],
+      gigachess: ['g', '<g ' + F + '><rect x="100" y="60" width="40" height="40"/><rect x="180" y="60" width="40" height="40"/><rect x="140" y="100" width="40" height="40"/><rect x="60" y="100" width="40" height="40"/><rect x="220" y="100" width="40" height="40"/></g>' +
+        '<rect ' + S + ' x="60" y="60" width="200" height="80"/><g class="a-push"><g class="a-pawn"><circle ' + A + ' cx="200" cy="74" r="9"/><path ' + A + ' d="M190 98l4-16h12l4 16z"/></g><g><circle class="bgc" cx="160" cy="74" r="9"/><path class="bgc" d="M148 98l5-16h14l5 16z"/><rect class="bgc" x="151" y="70" width="18" height="5"/></g></g>'],
+      weltmacht: ['g', '<circle ' + S + ' cx="160" cy="100" r="58"/><ellipse  class="st a-globe" cx="160" cy="100" rx="58" ry="58"/><ellipse  class="st a-globe2" cx="160" cy="100" rx="30" ry="58"/><path ' + S + ' d="M102 100H218M110 72H210M110 128H210"/>' +
+        '<g class="a-bob"><path ' + S + ' d="M196 70V28"/><polygon ' + A + ' points="196,28 222,36 196,44"/></g>'],
+      noaim: ['g', '<g class="a-hit"><circle ' + A + ' cx="160" cy="100" r="10"/></g><circle class="ac a-ring" fill="none" stroke-width="4" cx="160" cy="100" r="14"/>' +
+        '<g class="a-aim"><circle ' + S + ' cx="160" cy="100" r="36"/><path ' + S + ' d="M160 50V78M160 122V150M110 100H138M182 100H210"/></g>'],
+      citygen: ['g', '<path ' + S + ' d="M50 160H270"/><g ' + F + '><rect class="a-rise" style="animation-delay:0s" x="68" y="100" width="28" height="56"/><rect class="a-rise" style="animation-delay:.4s" x="104" y="60" width="32" height="96"/><rect class="a-rise" style="animation-delay:.8s" x="144" y="84" width="30" height="72"/><rect class="a-rise" style="animation-delay:1.2s" x="182" y="44" width="34" height="112"/><rect class="a-rise" style="animation-delay:1.6s" x="224" y="110" width="28" height="46"/></g>' +
+        '<g ' + A + '><rect x="112" y="72" width="6" height="8"/><rect x="122" y="72" width="6" height="8"/><rect x="190" y="58" width="6" height="8"/><rect x="202" y="58" width="6" height="8"/><rect x="190" y="74" width="6" height="8"/></g>'],
+      pixellab: ['t', '<rect ' + S + ' x="96" y="50" width="128" height="100"/><polygon ' + F + ' points="100,146 146,96 176,124 196,106 220,146"/><circle ' + A + ' cx="190" cy="78" r="12"/>' +
+        '<g class="a-frag"><rect ' + F + ' x="230" y="56" width="16" height="16"/><rect ' + A + ' x="250" y="80" width="10" height="10"/><rect ' + F + ' opacity=".7" x="70" y="118" width="12" height="12"/></g>'],
+      colorspin: ['t', '<g class="a-spin"><circle ' + F + ' cx="160" cy="100" r="62"/><path class="bgs" d="M160 56a44 44 0 0 1 44 44"/><path class="bgs" d="M160 144a44 44 0 0 1 -38 -22"/><circle ' + A + ' cx="160" cy="100" r="20"/><circle class="bgc" cx="160" cy="100" r="5"/></g>'],
+      ezcrop: ['t', '<rect ' + S + ' opacity=".45" x="60" y="56" width="200" height="112"/><polygon ' + F + ' opacity=".45" points="64,164 120,110 156,140 200,96 256,164"/>' +
+        '<g class="a-pan"><rect class="ac" opacity=".25" x="132" y="48" width="56" height="128"/><rect ' + S + ' x="132" y="48" width="56" height="128"/><path ' + S + ' d="M132 66v-18h18M188 158v18h-18"/></g>'],
+      drawspace: ['t', '<path class="st a-draw" d="M70 140c30-70 50-70 70-20s40 40 60-10 30-40 50-20"/><circle  class="ac a-tip" cx="250" cy="90" r="9"/>'],
+      framepaint: ['t', '<g class="a-film"><rect ' + F + ' x="10" y="58" width="300" height="84"/><g class="bgc">' + (function () { var o = ""; for (var x = 18; x < 310; x += 24) { o += '<rect x="' + x + '" y="64" width="12" height="8"/><rect x="' + x + '" y="128" width="12" height="8"/>'; } return o; })() + '</g>' +
+        '<rect class="bgc" x="38" y="78" width="70" height="44"/><rect class="bgc" x="125" y="78" width="70" height="44"/><rect class="bgc" x="212" y="78" width="70" height="44"/></g>' +
+        '<path class="ac a-stroke" fill="none" stroke-width="7" d="M138 112c10-18 22-18 30-6s16 6 20-10"/>'],
+      channels: ['t', '<rect class="fg a-ch1" opacity=".9" x="112" y="60" width="72" height="72"/><rect  class="st a-ch2" x="124" y="70" width="72" height="72"/><rect class="ac a-ch3" opacity=".85" x="136" y="80" width="72" height="72"/>']
+    };
+    Object.keys(I).forEach(function (k) { ICO["ICO_" + k] = wrap(I[k][0], I[k][1]); });
+  })();
   function homeHTML() {
     var n = { games: APPS.filter(function (a) { return catOf(a) === "games"; }).length, tools: APPS.filter(function (a) { return catOf(a) === "tools"; }).length };
     return '<section class="hero"><h1 class="ctitle">Color Space</h1><p>' + U("heroSub") + '</p></section>' +
