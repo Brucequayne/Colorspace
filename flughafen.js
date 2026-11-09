@@ -5,7 +5,7 @@
   "use strict";
 
   var KEY = "flughafen-v3";
-  var VERSION = "0.68";
+  var VERSION = "0.69";
   var RW_W = 22, TW_W = 14, RD_W = 16, SL_W = 9, RVW = 28;   // RVW: nur gezeichnete Pistenbreite
   var DIVERT = 60;
   var SIZE = { stand: [64, 66], term: [124, 46], tower: [30, 30], fire: [52, 38], hangar: [84, 62], deck: [72, 38], park: [72, 48], bus: [44, 22], cab: [62, 22], hotels: [50, 34], hotel: [70, 44], hotell: [96, 74], tank: [44, 44] };
@@ -1650,13 +1650,16 @@
     [[64, 64, 52], [40, 70, 34], [88, 58, 36], [66, 44, 30]].forEach(function (q) { var gr = g.createRadialGradient(q[0], q[1], 0, q[0], q[1], q[2]); gr.addColorStop(0, "rgba(20,28,40,1)"); gr.addColorStop(1, "rgba(20,28,40,0)"); g.fillStyle = gr; g.fillRect(0, 0, 128, 128); });
     CLOUDSPR = cv; return cv;
   }
+  // Menge hängt vom Bewölkungsgrad ab (sonnig fast keine, bewölkt viele), Größe variiert um Faktor 20.
+  // Bei Unwetter ist ohnehin alles dunkel, dann werden keine Einzelschatten gezeichnet.
   function cloudShadows(c, x0, y0, x1, y1) {
-    var w = wxNow(); if (w.c < 0.12) return;
-    var spr = cloudSprite(), TILE = 2400, n = Math.round(4 + w.c * 10), sp = 14 + (w.storm ? 20 : 0), gt = G.gt || 0;
+    var w = wxNow(), sk = 1 - stormK(); if (w.c < 0.18 || sk <= 0.02) return;
+    var spr = cloudSprite(), TILE = 3600, cc = w.c - 0.18, n = Math.round(Math.pow(cc, 1.6) * 70), sp = 0.7, gt = G.gt || 0;
+    if (!n) return;
     var ox = Math.cos(w.wa) * sp * gt, oy = Math.sin(w.wa) * sp * gt;
-    c.globalAlpha = Math.min(0.32, 0.1 + w.c * 0.16);
+    c.globalAlpha = Math.min(0.3, 0.12 + w.c * 0.14) * sk;
     for (var i = 0; i < n; i++) {
-      var bx = fpHash(i * 1.3 + 0.2, 50) * TILE + ox, by = fpHash(i * 2.1 + 0.7, 51) * TILE + oy, sz = 260 + fpHash(i * 3.7, 52) * 360;
+      var bx = fpHash(i * 1.3 + 0.2, 50) * TILE + ox * (0.85 + fpHash(i * 4.9, 53) * 0.3), by = fpHash(i * 2.1 + 0.7, 51) * TILE + oy * (0.85 + fpHash(i * 4.9, 53) * 0.3), sz = 70 * Math.pow(20, fpHash(i * 3.7, 52));
       bx = ((bx % TILE) + TILE) % TILE; by = ((by % TILE) + TILE) % TILE;
       for (var tx = Math.floor((x0 - sz) / TILE); tx <= Math.floor(x1 / TILE); tx++) for (var ty = Math.floor((y0 - sz) / TILE); ty <= Math.floor(y1 / TILE); ty++) {
         var X = bx + tx * TILE - sz / 2, Y = by + ty * TILE - sz / 2;
@@ -1979,7 +1982,7 @@
     if (!k && !w) return;
     c.save(); c.setTransform(dpr, 0, 0, dpr, 0, 0);
     if (k) {
-      c.fillStyle = "rgba(28,34,46," + (0.38 * k) + ")"; c.fillRect(0, 0, W, H);
+      c.fillStyle = "rgba(24,30,42," + (0.5 * k) + ")"; c.fillRect(0, 0, W, H);
       var tm = R.clock, n = Math.round(260 * k);
       c.strokeStyle = "rgba(200,215,235,.38)"; c.lineWidth = 1; c.beginPath();
       for (var i = 0; i < n; i++) {
@@ -3334,5 +3337,5 @@
   window.addEventListener("pagehide", save);
 
   window.Flughafen = { mount: mount, unmount: unmount,
-    _debug: function () { return { G: G, R: R, V: V, tick: tick, addMod: addMod, rebuild: rebuild, stats: stats, snapRect: snapRect, setTool: setTool, act: act, updateGhost: updateGhost, rwEnds: rwEnds, world: world, fuelPriceAt: fuelPriceAt, crisisList: crisisList, crash: crash }; } };
+    _debug: function () { return { G: G, R: R, V: V, tick: tick, addMod: addMod, rebuild: rebuild, stats: stats, snapRect: snapRect, setTool: setTool, act: act, updateGhost: updateGhost, rwEnds: rwEnds, world: world, fuelPriceAt: fuelPriceAt, crisisList: crisisList, crash: crash, wxNow: wxNow }; } };
 })();
