@@ -101,6 +101,11 @@ window.PATCHNOTES = {
   ],
 
   // ================= Spiele =================
+  citygen: [
+    { v: "0.1", t: "2026-11-09T03:45:00+01:00",
+      de: ["Neues Spiel: Hauptstraßen und Verteilerstraßen mit geglätteter Maus skizzieren", "Stadtstil wählen: USA, Europa oder Japan", "Seitenstraßen, Häuser, Parkplätze, Autos, Bäume und Markierungen entstehen prozedural", "Mit Grün, Blau und Rot Parks, Wasser und Spezialbauten einmalen und neu generieren", "Brücken über Flüsse, Bahnlinie mit Bahnhof, Stadion, Kathedrale, Oper, Hafen, Flughafen und mehr", "Stadt als PNG speichern"],
+      en: ["New game: sketch main and distributor roads with smoothed mouse input", "Pick a city style: USA, Europe or Japan", "Side streets, houses, parking lots, cars, trees and road markings are generated procedurally", "Paint parks, water and special buildings in green, blue and red, then regenerate", "Bridges over rivers, railway with station, stadium, cathedral, opera, harbour, airport and more", "Save the city as PNG"] }
+  ],
   flughafen: [
     { v: "0.42", t: "2026-11-08T00:12:00+01:00",
       de: ["Ankommende verlassen den Flughafen per Bus, Auto oder Taxi", "Neu: Taxistand mit Gebühr pro Fahrt", "Mehr Einnahmen, Parken kostet 5 € pro Sekunde"],
