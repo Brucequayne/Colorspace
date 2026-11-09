@@ -8,31 +8,31 @@
 
 /* Layout: eine ruhige App-Übersicht. Kopfzeile mit Marke und Sprache, darunter eine knappe Einleitung und große Kacheln mit Vorschaubild. */
 :root{
-  --bg:#DEDEDA;
-  --card:#E9E9E6;
-  --ink:#151715;
-  --soft:#565C56;
-  --line:#C5C6C1;
-  --accent:#9A540A;
-  --g1:#E3CFC8;--g2:#C9D9D2;--g3:#CBD1E3;--g4:#E1D8BC;--g5:#D6CEDD;--gl:#CFCFCA;
+  --bg:#2A2B2A;
+  --head:#313231;
+  --edge:#242524;
+  --card:#323332;
+  --ink:#E9EAE6;
+  --soft:#A4A7A2;
+  --line:#434543;
+  --accent:#E8A04A;
+  --shadow:#161716;
+  --g1:#303130;--g2:#2E2F2E;--g3:#2F302F;--g4:#313231;--g5:#2D2E2D;--gl:#333433;
   --f-display:"Instrument Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
   --f-body:"Instrument Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  color-scheme:dark;
 }
-@media (prefers-color-scheme: dark){
-  :root:not([data-theme="light"]){--bg:#121413;--card:#1B1E1C;--ink:#ECEEE8;--soft:#A3AAA2;--line:#2E322F;--accent:#E8A04A;--g1:#2C2422;--g2:#1F2A26;--g3:#20253A;--g4:#2B2719;--g5:#272130;--gl:#262A27;color-scheme:dark}
-}
-:root[data-theme="dark"]{--bg:#121413;--card:#1B1E1C;--ink:#ECEEE8;--soft:#A3AAA2;--line:#2E322F;--accent:#E8A04A;--g1:#2C2422;--g2:#1F2A26;--g3:#20253A;--g4:#2B2719;--g5:#272130;--gl:#262A27;color-scheme:dark}
 *,*::before,*::after{box-sizing:border-box}
-body{background:var(--bg);color:var(--ink);font:400 17px/1.6 var(--f-body);margin:0}
+body{background:var(--bg) linear-gradient(90deg,var(--edge),var(--bg) 9%,var(--bg) 91%,var(--edge)) fixed;color:var(--ink);font:400 17px/1.6 var(--f-body);margin:0}
 h1,h2,h3{font-family:var(--f-display);font-style:normal;text-wrap:balance;margin:0}
 a{color:inherit}
 :focus-visible{outline:2px solid var(--accent);outline-offset:3px}
 #app,#app *{font-style:normal}
-.bgart{position:fixed;inset:0;width:100%;height:100%;z-index:0;pointer-events:none}
+.bgart{display:none}
 .page{position:relative;z-index:1}
 
 .page{max-width:1200px;margin:0 auto;padding-block:20px 80px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
-.top{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:12px;padding-bottom:16px;border-bottom:1px solid var(--line)}
+.top{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:12px;padding-bottom:16px;border-bottom:1px solid var(--line);background:var(--head);box-shadow:0 0 0 100vmax var(--head);clip-path:inset(-20px -100vmax 0 -100vmax)}
 .brand{display:flex;align-items:center;gap:10px;font:600 1.15rem/1 var(--f-display);letter-spacing:.01em;text-decoration:none}
 .brand .logo{width:28px;height:28px;flex:none}
 
@@ -56,7 +56,7 @@ button.navbtn{background:transparent;cursor:pointer;border-color:var(--ink)}
 .apps{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:20px}
 @media (min-width:1000px){.apps{grid-template-columns:repeat(3,1fr)}}
 .app{display:flex;flex-direction:column;background:var(--tone);border:1px solid var(--tone);border-radius:0;overflow:hidden;text-decoration:none;color:var(--ink);transition:transform .18s ease,border-color .18s ease,box-shadow .18s ease}
-.app:hover{transform:translateY(-3px);border-color:var(--tone);box-shadow:6px 6px 0 var(--ink)}
+.app:hover{transform:translateY(-3px);border-color:var(--tone);box-shadow:6px 6px 0 var(--shadow)}
 .app:focus-visible{outline-offset:4px}
 .app .pv{aspect-ratio:16/10;max-width:100%;overflow:hidden;border-bottom:1px solid var(--line)}
 .app .pv svg,.app .pv img{display:block;width:100%;height:100%;object-fit:cover}
@@ -72,9 +72,9 @@ button.navbtn{background:transparent;cursor:pointer;border-color:var(--ink)}
 @media (prefers-reduced-motion:reduce){.app{transition:none}.app:hover{transform:none}}
 /* Kategorien */
 .cats{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:46px 0 24px}
-.cat{position:relative;overflow:hidden;display:flex;align-items:center;gap:16px;padding:18px 22px;border:2px solid var(--ink);border-radius:0;background:var(--card);color:var(--ink);cursor:pointer;text-align:left;font:inherit;box-shadow:6px 6px 0 var(--ink);transition:transform .12s ease,box-shadow .12s ease,background-color .25s ease,color .25s ease;-webkit-tap-highlight-color:transparent}
-.cat:hover{transform:translate(-2px,-2px);box-shadow:8px 8px 0 var(--ink)}
-.cat:active{transform:translate(5px,5px);box-shadow:1px 1px 0 var(--ink);transition-duration:.05s}
+.cat{position:relative;overflow:hidden;display:flex;align-items:center;gap:16px;padding:18px 22px;border:2px solid var(--ink);border-radius:0;background:var(--card);color:var(--ink);cursor:pointer;text-align:left;font:inherit;box-shadow:6px 6px 0 var(--shadow);transition:transform .12s ease,box-shadow .12s ease,background-color .25s ease,color .25s ease;-webkit-tap-highlight-color:transparent}
+.cat:hover{transform:translate(-2px,-2px);box-shadow:8px 8px 0 var(--shadow)}
+.cat:active{transform:translate(5px,5px);box-shadow:1px 1px 0 var(--shadow);transition-duration:.05s}
 .cat[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
 .cat svg{flex:0 0 auto;width:46px;height:46px}
 .cat span{display:flex;flex-direction:column;gap:4px;min-width:0}
@@ -93,6 +93,25 @@ button.navbtn{background:transparent;cursor:pointer;border-color:var(--ink)}
 @media (max-width:560px){.cats{gap:10px}.cat{padding:14px;gap:10px}.cat svg{width:34px;height:34px}}
 @media (prefers-reduced-motion:reduce){.cat.pop,.apps .app.in,.spark,.cat .rip{animation:none}}
 
+/* Bewertung und Aufrufe */
+.appbar{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:10px 16px}
+.appbar .back{margin:22px 0 0}
+.rate{display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px;margin-top:22px;font-size:.9rem;color:var(--soft);font-variant-numeric:tabular-nums}
+.rate[hidden]{display:none}
+.stars{display:inline-flex}
+.stars button{width:26px;height:26px;padding:2px;border:0;background:none;cursor:pointer;color:var(--line);line-height:0}
+.stars button svg{width:100%;height:100%;display:block}
+.stars button.on{color:#E8B13F}
+.stars:not(.done):hover button{color:#E8B13F}
+.stars:not(.done) button:hover~button{color:var(--line)}
+.stars.done button{cursor:default}
+.rate .rv{display:inline-flex;align-items:center;gap:6px}
+.rate .rv svg{width:18px;height:18px}
+.rate b{color:var(--ink);font-weight:600}
+.rate.float{position:fixed;right:max(12px,env(safe-area-inset-right,0px));bottom:max(12px,env(safe-area-inset-bottom,0px));z-index:200;margin:0;padding:6px 12px;background:rgba(36,37,36,.88);border:1px solid var(--line);color:#C9CBC6;opacity:.7;transition:opacity .15s}
+.rate.float:hover{opacity:1}
+.rate.float .stars button{width:22px;height:22px}
+
 /* Unterseiten */
 .back{display:inline-block;margin:22px 0 0;color:var(--soft);text-decoration:none;font-weight:600}
 .back:hover{color:var(--ink)}
@@ -105,7 +124,7 @@ button.navbtn{background:transparent;cursor:pointer;border-color:var(--ink)}
 .pitem{max-width:62ch;padding:16px 0;border-bottom:1px solid var(--line)}
 .pitem h2{font:600 1.15rem/1.3 var(--f-display);margin-bottom:4px}
 .pitem p{margin:0;color:var(--soft)}
-.foot{margin-top:56px;padding-top:16px;border-top:1px solid var(--line);font-size:.92rem;color:var(--soft)}
+.foot{margin-top:56px;padding-top:16px;border-top:1px solid var(--line);font-size:.92rem;color:var(--soft);background:var(--head);box-shadow:0 0 0 100vmax var(--head);clip-path:inset(0 -100vmax -80px -100vmax)}
 .foot a{color:inherit}
 
 /* Klare Kanten auch in den Anwendungen */
@@ -164,6 +183,11 @@ button.navbtn{background:transparent;cursor:pointer;border-color:var(--ink)}
     games: { de: "Games", en: "Games" }, tools: { de: "Tools", en: "Tools" },
     nGames: { de: "{n} Spiele", en: "{n} games" }, nTools: { de: "{n} Werkzeuge", en: "{n} tools" },
     open: { de: "Öffnen →", en: "Open →" },
+    rateLbl: { de: "Bewerten", en: "Rate" }, rateNone: { de: "noch keine Bewertung", en: "no ratings yet" },
+    rateN: { de: "{n} Bewertungen", en: "{n} ratings" }, rate1: { de: "1 Bewertung", en: "1 rating" },
+    rateMine: { de: "Du hast {n} von 5 Sternen gegeben. Danke!", en: "You gave {n} out of 5 stars. Thanks!" },
+    rateStar: { de: "{n} von 5 Sternen", en: "{n} out of 5 stars" },
+    views: { de: "{n} Aufrufe", en: "{n} views" }, views1: { de: "1 Aufruf", en: "1 view" },
     back: { de: "← Alle Anwendungen", en: "← All apps" },
     privacy: { de: "Datenschutz", en: "Privacy" },
     flughafen: { de: "Flughafen", en: "Airport" },
@@ -201,7 +225,7 @@ button.navbtn{background:transparent;cursor:pointer;border-color:var(--ink)}
     title: { de: "Datenschutz", en: "Privacy" },
     items: [
       { h: { de: "Kurz gesagt", en: "In short" },
-        p: { de: "Diese Seite wird privat betrieben, ohne Werbung, ohne Tracking und ohne Cookies.", en: "This site is run privately, with no ads, no tracking and no cookies." } },
+        p: { de: "Diese Seite wird privat betrieben, ohne Werbung, ohne Cookies und ohne Nutzerprofile. Es gibt nur anonyme Zähler für Aufrufe und Bewertungen der Anwendungen.", en: "This site is run privately, with no ads, no cookies and no user profiles. There are only anonymous counters for app views and ratings." } },
       { h: { de: "Verantwortlich", en: "Responsible person" },
         p: { de: "Noah Schulz, Frankfurt am Main, noahschulzhtc@gmail.com", en: "Noah Schulz, Frankfurt am Main, noahschulzhtc@gmail.com" } },
       { h: { de: "Hosting", en: "Hosting" },
@@ -214,6 +238,8 @@ button.navbtn{background:transparent;cursor:pointer;border-color:var(--ink)}
         p: { de: "Videos, die du in EZ Crop oder im Frame Painter öffnest, werden nur in deinem Browser abgespielt, bearbeitet und kodiert, auch deine Bemalung bleibt dort. Sie werden nicht hochgeladen oder an mich gesendet. Für den Export lädt die Seite die Bibliothek mp4-muxer vom selben Server nach.", en: "Videos you open in EZ Crop or Frame Painter are played, edited and encoded only in your browser, and so is your painting. They are not uploaded or sent to me. For the export the page loads the mp4-muxer library from the same server." } },
       { h: { de: "Fotos und Bilder in PIXELLAB, Channel Exporter und Colorspin", en: "Photos and images in PIXELLAB, Channel Exporter and Colorspin" },
         p: { de: "Bilder, die du in PIXELLAB oder im Channel Exporter öffnest, und alles, was du in Colorspin malst, werden nur in deinem Browser verarbeitet. Nichts davon wird hochgeladen oder an mich gesendet, und nach dem Verlassen der Seite wird nichts aufbewahrt.", en: "Images you open in PIXELLAB or the Channel Exporter and anything you paint in Colorspin are processed only in your browser. None of it is uploaded or sent to me, and nothing is kept after you leave the page." } },
+      { h: { de: "Aufrufzähler und Bewertungen", en: "View counter and ratings" },
+        p: { de: "Wenn du eine Anwendung öffnest, zählt die Seite einen Aufruf, und wenn du Sterne vergibst, eine Bewertung. Dafür ruft dein Browser den freien Zähldienst Abacus (abacus.jasoncameron.dev) auf. Übermittelt werden nur der Name der Anwendung und gegebenenfalls die Sternezahl, keine Inhalte, Fotos, Videos oder Spielstände. Wie bei jedem Webaufruf sieht der Dienst technisch deine IP-Adresse. Damit du nicht doppelt bewertest, merkt sich dein Browser lokal, welche Sterne du vergeben hast.", en: "When you open an app the page counts a view, and when you give stars it counts a rating. For this your browser calls the free counting service Abacus (abacus.jasoncameron.dev). Only the app name and, if given, the number of stars are sent, no content, photos, videos or game progress. As with any web request, the service can technically see your IP address. So you do not rate twice, your browser stores locally which stars you gave." } },
       { h: { de: "Fragen und Löschwünsche", en: "Questions and deletion requests" },
         p: { de: "Bitte schreibe an die oben genannte Adresse.", en: "Please write to the address above." } }
     ]
@@ -284,7 +310,59 @@ button.navbtn{background:transparent;cursor:pointer;border-color:var(--ink)}
       PRIV.items.map(function (it) { return '<div class="pitem"><h2>' + it.h[S.lang] + "</h2><p>" + it.p[S.lang] + "</p></div>"; }).join("");
   }
 
+  // ---------- Bewertung (1 bis 5 Sterne) und Aufrufzähler über den Zähldienst Abacus ----------
+  // Pro Anwendung: <id>-views und <id>-r1 … <id>-r5. Ein Aufruf zählt einmal pro Seitenbesuch und Anwendung.
+  var RATE_API = "https://abacus.jasoncameron.dev", RATE_NS = "colorspace-brucequayne", FULL = ["flughafen", "noaim", "weltmacht"];
+  var viewed = {}, rateTok = 0;
+  var STAR = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5l2.9 6.2 6.8.8-5 4.7 1.3 6.7L12 17.6l-6 3.3 1.3-6.7-5-4.7 6.8-.8z" fill="currentColor"/></svg>';
+  var EYE = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12z" fill="none" stroke="currentColor" stroke-width="2"/><rect x="9.5" y="9.5" width="5" height="5" fill="currentColor"/></svg>';
+  function rateCall(kind, key) {
+    return fetch(RATE_API + "/" + kind + "/" + RATE_NS + "/" + key, { cache: "no-store" }).then(function (r) {
+      if (r.status === 404) return { value: 0 };
+      if (!r.ok) throw new Error(r.status);
+      return r.json();
+    }).then(function (j) { return +j.value || 0; });
+  }
+  function myRating(id) { try { return +localStorage.getItem("rate-" + id) || 0; } catch (e) { return 0; } }
+  function fmtN(n) { return n.toLocaleString(S.lang === "de" ? "de-DE" : "en-GB"); }
+  function rateHTML(id, st) {
+    var mine = myRating(id), shown = mine || (st && st.avg ? Math.round(st.avg) : 0);
+    var stars = '<span class="stars' + (mine ? " done" : "") + '" role="group" aria-label="' + U("rateLbl") + '">' + [1, 2, 3, 4, 5].map(function (n) {
+      return '<button type="button" data-rate="' + n + '" class="' + (n <= shown ? "on" : "") + '" aria-label="' + U("rateStar").replace("{n}", n) + '"' + (mine ? ' disabled title="' + U("rateMine").replace("{n}", mine) + '"' : ' title="' + U("rateStar").replace("{n}", n) + '"') + ">" + STAR + "</button>";
+    }).join("") + "</span>";
+    var avg = !st ? "…" : st.cnt ? "<b>" + st.avg.toFixed(1).replace(".", S.lang === "de" ? "," : ".") + "</b> · " + (st.cnt === 1 ? U("rate1") : U("rateN").replace("{n}", fmtN(st.cnt))) : U("rateNone");
+    var vw = !st ? "…" : st.views === 1 ? U("views1") : U("views").replace("{n}", fmtN(st.views));
+    return stars + '<span class="ra">' + avg + '</span><span class="rv">' + EYE + vw + "</span>";
+  }
+  function rateBox() { return document.getElementById("rate"); }
+  function loadRating(id) {
+    var tok = ++rateTok, box = rateBox(); if (!box) return;
+    box.innerHTML = rateHTML(id, null); box.hidden = false;
+    var vq = viewed[id] ? rateCall("get", id + "-views") : rateCall("hit", id + "-views");
+    viewed[id] = true;
+    Promise.all([vq].concat([1, 2, 3, 4, 5].map(function (n) { return rateCall("get", id + "-r" + n); }))).then(function (v) {
+      if (tok !== rateTok || !rateBox()) return;
+      var cnt = 0, sum = 0; for (var n = 1; n <= 5; n++) { cnt += v[n]; sum += n * v[n]; }
+      var st = { views: v[0], cnt: cnt, avg: cnt ? sum / cnt : 0 };
+      rateBox().dataset.st = JSON.stringify(st);
+      rateBox().innerHTML = rateHTML(id, st);
+    }).catch(function () { if (tok === rateTok && rateBox()) rateBox().hidden = true; });   // Dienst nicht erreichbar: unauffällig ausblenden
+  }
+  function giveRating(id, n) {
+    if (myRating(id)) return;
+    try { localStorage.setItem("rate-" + id, String(n)); } catch (e) {}
+    var box = rateBox(), st = box && box.dataset.st ? JSON.parse(box.dataset.st) : null;
+    if (st) { st.avg = (st.avg * st.cnt + n) / (st.cnt + 1); st.cnt++; box.innerHTML = rateHTML(id, st); }
+    rateCall("hit", id + "-r" + n).then(function () { loadRating(id); }).catch(function () {});
+  }
+  document.addEventListener("click", function (e) {
+    var b = e.target.closest && e.target.closest("#rate [data-rate]");
+    if (b && !b.disabled) { e.stopPropagation(); giveRating(S.view, +b.getAttribute("data-rate")); }
+  }, true);
+
   function render() {
+    var oldf = document.querySelector(".rate.float"); if (oldf) oldf.remove();
+    rateTok++;
     if (window.Flughafen) window.Flughafen.unmount();
     if (window.Gigachess) window.Gigachess.unmount();
     if (window.Colorspin) window.Colorspin.unmount();
@@ -296,9 +374,12 @@ button.navbtn{background:transparent;cursor:pointer;border-color:var(--ink)}
     if (window.Weltmacht) window.Weltmacht.unmount();
     var v = S.view;
     if (v === "flughafen" || v === "gigachess" || v === "colorspin" || v === "pixellab" || v === "ezcrop" || v === "framepaint" || v === "channels" || v === "noaim" || v === "weltmacht") {
-      app.innerHTML = '<a class="back" href="#">' + U("back") + '</a><div id="approot"></div>';
+      var full = FULL.indexOf(v) >= 0;
+      app.innerHTML = '<div class="appbar"><a class="back" href="#">' + U("back") + '</a>' + (full ? "" : '<div class="rate" id="rate" hidden></div>') + '</div><div id="approot"></div>';
+      if (full) { var d = document.createElement("div"); d.className = "rate float"; d.id = "rate"; d.hidden = true; document.body.appendChild(d); }
       var mod = { flughafen: window.Flughafen, gigachess: window.Gigachess, colorspin: window.Colorspin, pixellab: window.Pixellab, ezcrop: window.EzCrop, framepaint: window.FramePainter, channels: window.Channels, noaim: window.NoAim, weltmacht: window.Weltmacht }[v];
       if (mod) mod.mount(document.getElementById("approot"), S.lang);
+      loadRating(v);
     } else if (v === "privacy") app.innerHTML = privacyHTML();
     else app.innerHTML = homeHTML();
 
