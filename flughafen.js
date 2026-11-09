@@ -5,7 +5,7 @@
   "use strict";
 
   var KEY = "flughafen-v3";
-  var VERSION = "0.61";
+  var VERSION = "0.62";
   var RW_W = 22, TW_W = 14, RD_W = 16, SL_W = 9;
   var DIVERT = 60;
   var SIZE = { stand: [64, 66], term: [124, 46], tower: [30, 30], fire: [52, 38], hangar: [84, 62], deck: [72, 38], park: [72, 48], bus: [44, 22], cab: [62, 22], hotels: [50, 34], hotel: [70, 44], hotell: [96, 74], tank: [44, 44] };
@@ -98,6 +98,14 @@
     finSub: L2("Umsatz je Bereich in € pro Minute, letzte 15 Minuten", "Revenue by area in € per minute, last 15 minutes"),
     finTot: L2("Gesamt", "Total"), finSum: L2("Umsatz in 15 Minuten: {e}", "Revenue in 15 minutes: {e}"), finEmpty: L2("Noch keine Einnahmen", "No revenue yet"),
     finCat: L2("Flugbetrieb|Fluggastentgelte|Kerosin an Airlines|Kerosinhandel|Shops|Hotels|Parken, Bus, Taxi|Wartung", "Flight operations|Passenger fees|Fuel to airlines|Fuel trading|Shops|Hotels|Parking, bus, taxi|Maintenance"),
+    crisis: L2("Ölkrise", "Oil crisis"), crisisOn: L2("Ölkrise! Der Kerosinpreis steigt stark und bleibt eine Weile hoch.", "Oil crisis! The fuel price rises sharply and stays high for a while."),
+    crisisOff: L2("Die Ölkrise ist vorbei, der Kerosinpreis beruhigt sich.", "The oil crisis is over, the fuel price is calming down."), crisisNow: L2("Ölkrise läuft", "Oil crisis ongoing"),
+    stocks: L2("Börse", "Stocks"), smOpen: L2("Aktienmarkt öffnen", "Open stock market"), smTitle: L2("Aktienmarkt", "Stock market"),
+    smDepot: L2("Depotwert {v} · Gewinn/Verlust {g}", "Portfolio {v} · profit/loss {g}"), smAir: L2("Airline", "Airline"), smOil: L2("Ölfirma", "Oil company"),
+    smHold: L2("Bestand {n} Stk. · Ø Kaufkurs {a} · Wert {v}", "Holding {n} shares · avg. price {a} · value {v}"), smNone: L2("Keine Aktien im Bestand", "No shares held"),
+    smBuyD: L2("Kauf: {n} Aktien zu je {p}", "Buying {n} shares at {p} each"), smSellD: L2("Verkauf: {n} Aktien zu je {p}", "Selling {n} shares at {p} each"),
+    smFee: L2("Verkauf zum Kurs abzüglich 1 %", "Sales pay the price minus 1%"), smShares: L2("{n} Stk.", "{n} sh."), smDone: L2("Aktien verkauft", "Shares sold"), smBought: L2("Aktien gekauft", "Shares bought"),
+    smHint: L2("Airlines leiden unter hohem Ölpreis, Ölfirmen profitieren davon.", "Airlines suffer from high oil prices, oil companies profit from them."),
     trBuy: L2("Kaufen", "Buy"), trSell: L2("Verkaufen", "Sell"), trMove: L2("Regler verschieben zum Handeln", "Move the slider to trade"),
     trBuyD: L2("Einkauf am Markt: {a} → {b}", "Buying on the market: {a} → {b}"), trSellD: L2("Rückverkauf an den Markt: {a} → {b}", "Selling back to the market: {a} → {b}"),
     trNow: L2("Füllstand jetzt {p}", "Fill level now {p}"), trPoor: L2("Nicht genug Geld", "Not enough money"),
@@ -145,9 +153,17 @@
     w: { cap: 400, rev: 90000, turn: 40, len: 46, span: 44, swp: 32, roll: 200, heavy: true, need: 500 }
   };
   var PAXFEE = 30, SHOP = 15, PARKFEE = 5, BUSFARE = 4, TAXIFEE = 18;   // Euro pro Fluggast, pro Sekunde Parken, pro Fahrgast, pro Taxi
-  var AIRLINES = [ // erfundene Airlines
-    { c: "SOY", col: "#B5651D" }, { c: "WOK", col: "#C2412D" }, { c: "TFU", col: "#2F6F8F" },
-    { c: "MSO", col: "#4F7A35" }, { c: "UMA", col: "#7A4E9A" }, { c: "KOI", col: "#D9A21B" }, { c: "NRI", col: "#1F5C4F" }
+  var AIRLINES = [ // neutrale Charter- und Regionalflieger: weiß mit grauem Heck
+    { c: "SOY", col: "#8C96A0" }, { c: "WOK", col: "#6B7580" }, { c: "TFU", col: "#A3ACB5" },
+    { c: "MSO", col: "#5C6670" }, { c: "UMA", col: "#959DA6" }, { c: "KOI", col: "#7D8794" }, { c: "NRI", col: "#4F5963" }
+  ];
+  // Die fünf großen Airlines: farbiger Rumpf und Leitwerk, an der Börse gehandelt
+  var CARRIERS = [
+    { id: "FMR", n: "Flymore", c: "FMR", col: "#C8372D", dk: "#8E241D" },
+    { id: "BOT", n: "Bot Air", c: "BOT", col: "#2F6FB8", dk: "#1F4C80" },
+    { id: "SLK", n: "Slickair", c: "SLK", col: "#2E8B57", dk: "#1E5E3A" },
+    { id: "LFH", n: "Lufthoheit", c: "LFH", col: "#E0B323", dk: "#9C7C14" },
+    { id: "NFK", n: "Nachtfalke", c: "NFK", col: "#7B4BA8", dk: "#53317A" }
   ];
 
   // ---------- Zustand ----------
@@ -771,7 +787,7 @@
   }
   function spawn() {
     if (R.holdQ.length >= 6 || !stats().conn || fuelOut()) return;   // ohne Kerosin ist der Flugbetrieb eingestellt
-    var a = AIRLINES[Math.floor(Math.random() * AIRLINES.length)];
+    var a = Math.random() < 0.35 ? CARRIERS[Math.floor(Math.random() * CARRIERS.length)] : AIRLINES[Math.floor(Math.random() * AIRLINES.length)];
     var p = { id: ++R.id, type: pickType(), al: a, cs: a.c + (100 + Math.floor(Math.random() * 900)),
       x: 0, y: 0, h: 0, alt: 0.8, ang: Math.random() * 6, wait: 0, fade: 0, state: "hold", path: null, pi: 0 };
     var cap = TYPES[p.type].cap;
@@ -939,14 +955,64 @@
   function fuelPct() { var c = fuelCap(); return c ? Math.max(0, Math.min(100, G.fuel / c * 100)) : 0; }
   // Kerosinpreis: Grundwelle (Periode 13 min, leicht verzerrt) garantiert in jedem 15-Minuten-Fenster
   // ein Hoch und ein Tief, Rauschen lässt ihn dazwischen schwanken. Zeit läuft in Echtzeit (G.fpt).
-  function fpHash(i) { var v = Math.sin(i * 127.1 + G.fps * 3.17) * 43758.5453; return v - Math.floor(v); }
-  function fpNoise(x) { var i = Math.floor(x), f = x - i; f = f * f * (3 - 2 * f); return fpHash(i) + (fpHash(i + 1) - fpHash(i)) * f; }
+  // Marktrauschen: glatte Zufallskurve, je Kanal (k) eigener Verlauf, alles aus dem Spielstand-Seed
+  function fpHash(i, k) { var v = Math.sin(i * 127.1 + (k || 0) * 311.7 + G.fps * 3.17) * 43758.5453; return v - Math.floor(v); }
+  function fpNoise(x, k) { var i = Math.floor(x), f = x - i; f = f * f * (3 - 2 * f); var a = fpHash(i, k); return a + (fpHash(i + 1, k) - a) * f; }
+  function fpN(x, k) { return fpNoise(x, k) * 2 - 1; }   // −1 … 1
+  // Ölkrisen: nach 3 bis 10 Preiszyklen (je ca. 13 min) steigt der Preis 3–5 min stark, bleibt 5–10 min kritisch und beruhigt sich
+  var CRISES = null, CRSEED = null;
+  function crisisList(tt) {
+    if (CRSEED !== G.fps) { CRSEED = G.fps; CRISES = []; }
+    var rnd = function (n, k) { return fpHash(n * 7.3 + 0.5, 900 + k); };
+    while (true) {
+      var n = CRISES.length, prev = n ? CRISES[n - 1] : null;
+      if (prev && prev.s > tt + 4000) break;
+      var gap = (3 + Math.floor(rnd(n, 1) * 8)) * 780, st = (prev ? prev.e : 0) + gap;
+      var up = 180 + rnd(n, 2) * 120, hold = 300 + rnd(n, 3) * 300, down = 150 + rnd(n, 4) * 150;
+      CRISES.push({ s: st, a: st + up, b: st + up + hold, e: st + up + hold + down, k: 0.85 + rnd(n, 5) * 0.55 });
+      if (CRISES.length > 400) break;
+    }
+    return CRISES;
+  }
+  function crisisAt(tt) {   // 0 … 1 (Stärke) und die Krise selbst
+    if (tt <= 0) return null;
+    var L = crisisList(tt);
+    for (var i = 0; i < L.length; i++) {
+      var c = L[i]; if (tt < c.s) return null; if (tt >= c.e) continue;
+      var lv = tt < c.a ? (tt - c.s) / (c.a - c.s) : tt < c.b ? 1 : 1 - (tt - c.b) / (c.e - c.b);
+      return { c: c, lv: lv * lv * (3 - 2 * lv) };
+    }
+    return null;
+  }
   function fuelPriceAt(tt) {
-    var u = Math.PI * 2 * (tt / 780) + 0.4 * Math.sin(Math.PI * 2 * tt / 2700 + G.fps) + G.fps;
-    var n = (fpNoise(tt / 40) - 0.5) * 1.3 + (fpNoise(tt / 11 + 50) - 0.5) * 0.7;
-    return Math.round(FUELBUY * (1 + 0.42 * Math.sin(u) + 0.14 * n) / 10) * 10;
+    // Grundwelle mit unregelmäßigem Takt, darüber vier Rauschlinien unterschiedlicher Geschwindigkeit
+    var u = Math.PI * 2 * (tt / 780) + 1.7 * fpNoise(tt / 900, 7) * Math.PI + G.fps;
+    var v = 0.28 * Math.sin(u) + 0.22 * fpN(tt / 160, 1) + 0.14 * fpN(tt / 47, 2) + 0.07 * fpN(tt / 13, 3) + 0.035 * fpN(tt / 4, 4);
+    var cr = crisisAt(tt), boost = 0;
+    if (cr) boost = cr.c.k * cr.lv + cr.lv * 0.12 * fpN(tt / 9, 5);
+    return Math.round(FUELBUY * Math.max(0.22, 1 + v) * (1 + boost) / 10) * 10;
   }
   function fuelPrice() { return fuelPriceAt(Math.floor(G.fpt || 0)); }
+  // ---------- Aktienmarkt ----------
+  // Kurse sind eine feste Funktion der Zeit (wie der Kerosinpreis): eigenes Rauschen je Aktie plus Abhängigkeit vom Ölpreis
+  var STOCKS = CARRIERS.map(function (a, i) { return { id: a.id, n: a.n, k: "air", col: a.col, base: [64, 38, 52, 118, 27][i], vol: [0.2, 0.26, 0.22, 0.16, 0.3][i], beta: -0.42 }; }).concat([
+    { id: "PNV", n: "Petronova", k: "oil", col: "#2C2F33", base: 142, vol: 0.18, beta: 0.5 },
+    { id: "OKR", n: "Ölkrone AG", k: "oil", col: "#8A6A2B", base: 86, vol: 0.2, beta: 0.62 },
+    { id: "DWE", n: "Deepwell Energy", k: "oil", col: "#1F5C6B", base: 47, vol: 0.27, beta: 0.7 },
+    { id: "SFO", n: "Sandfire Oil", k: "oil", col: "#B5512A", base: 23, vol: 0.34, beta: 0.85 }
+  ]);
+  function stk(id) { return STOCKS.filter(function (q) { return q.id === id; })[0]; }
+  function stockAt(q, tt) {
+    var k = 20 + STOCKS.indexOf(q) * 6, oil = fuelPriceAt(tt) / FUELBUY - 1;
+    var ln = q.vol * (1.1 * fpN(tt / 5200, k) + 0.9 * fpN(tt / 620, k + 1) + 0.5 * fpN(tt / 140, k + 2) + 0.25 * fpN(tt / 33, k + 3) + 0.1 * fpN(tt / 8, k + 4)) + q.beta * 0.55 * oil;
+    return Math.round(q.base * Math.exp(ln) * 100) / 100;
+  }
+  function stockNow(q) { return stockAt(q, Math.floor(G.fpt || 0)); }
+  function eur2(v) { var n = v.toLocaleString(loc(), { minimumFractionDigits: 2, maximumFractionDigits: 2 }); return lang === "de" ? n + " €" : "€" + n; }
+  function smDepot() {
+    var v = 0, c = 0; STOCKS.forEach(function (q) { var h = (G.port || {})[q.id]; if (h && h.n) { v += h.n * stockNow(q); c += h.cost; } });
+    return { v: v, g: v - c, c: c };
+  }
   // Kerosinbörse am Tank: Regler auf Zielfüllstand, links verkaufen (zum Marktpreis −3 %), rechts kaufen
   var SELLBACK = 0.97;
   function fuelBack() { return Math.round(fuelPrice() * SELLBACK / 10) * 10; }
@@ -2033,11 +2099,11 @@
   function plane(c, p) {
     var T = TYPES[p.type], alt = p.alt || 0, s = 1 + alt * 0.7, a = p.state === "hold" ? p.fade : 1;
     if (alt > 0.02) { c.save(); c.globalAlpha = 0.22 * a; c.translate(p.x + alt * 14, p.y + alt * 20); c.rotate(p.h); shape(c, T, "#000", null); c.restore(); }
-    c.save(); c.globalAlpha = a; c.translate(p.x, p.y); c.rotate(p.h); c.scale(s, s); shape(c, T, "#E6EBF0", p.al.col); c.restore();
+    c.save(); c.globalAlpha = a; c.translate(p.x, p.y); c.rotate(p.h); c.scale(s, s); shape(c, T, "#E6EBF0", p.al.col, p.al.n ? p.al : null); c.restore();
   }
   // Flugzeug von oben: schlanker Rumpf mit Nase und Heckkonus, gepfeilte Flügel (Jets etwa 30° nach hinten),
   // Höhenleitwerk, Triebwerke unter den Flügeln. Turboprops mit geraden Flügeln und Propellern.
-  function shape(c, T, body, tail) {
+  function shape(c, T, body, tail, liv) {
     var L = T.len, hl = L / 2, sp = T.span / 2, prop = !!T.prop, fw = L * (prop ? 0.105 : 0.115) / 2 + 0.25;
     var sw = Math.tan((T.swp || 0) * Math.PI / 180), cr = L * (prop ? 0.13 : 0.2), ct = cr * (prop ? 0.7 : 0.3), le = prop ? L * 0.14 : L * 0.1;
     var dark = body === "#000";
@@ -2049,10 +2115,12 @@
     }
     wing(-1); wing(1);
     // Höhenleitwerk
+    if (liv) c.fillStyle = liv.col;
     var hs = sp * (prop ? 0.34 : 0.36), hcr = L * 0.11, hsw = Math.tan(((T.swp || 0) + (prop ? 0 : 6)) * Math.PI / 180), hle = -hl + L * (prop ? 0.13 : 0.15);
     [-1, 1].forEach(function (side) { c.beginPath(); c.moveTo(hle, side * fw * 0.4); c.lineTo(hle - hs * hsw, side * hs); c.lineTo(hle - hs * hsw - hcr * 0.45, side * hs); c.lineTo(hle - hcr, side * fw * 0.3); c.closePath(); c.fill(); if (tail) c.stroke(); });
     // Rumpf: spitz zulaufende Nase, lange gleich breite Röhre, schlanker Heckkonus
     var nose = hl - L * 0.1, tailS = -hl + L * 0.24;
+    if (liv) c.fillStyle = liv.col;
     c.beginPath();
     c.moveTo(hl, 0);
     c.quadraticCurveTo(hl, -fw, nose, -fw); c.lineTo(tailS, -fw); c.quadraticCurveTo(-hl + L * 0.06, -fw * 0.75, -hl, -fw * 0.22);
@@ -2076,7 +2144,12 @@
         });
       }
     }
-    if (tail) {
+    if (tail && liv) {
+      // Airline: Seitenleitwerk dunkel, heller Streifen über dem Rumpf
+      c.fillStyle = liv.dk; c.beginPath(); c.moveTo(-hl, -0.7); c.lineTo(-hl + L * 0.24, -0.38); c.lineTo(-hl + L * 0.24, 0.38); c.lineTo(-hl, 0.7); c.closePath(); c.fill();
+      c.fillStyle = "rgba(255,255,255,.55)"; c.fillRect(tailS + L * 0.02, -fw * 0.16, nose - tailS - L * 0.06, fw * 0.32);
+      c.fillStyle = "#3B4652"; c.beginPath(); c.moveTo(hl - L * 0.035, -fw * 0.55); c.lineTo(hl - L * 0.06, -fw * 0.7); c.lineTo(hl - L * 0.06, fw * 0.7); c.lineTo(hl - L * 0.035, fw * 0.55); c.closePath(); c.fill();
+    } else if (tail) {
       // Seitenleitwerk von oben als Strich in Airline-Farbe, Cockpitfenster
       c.fillStyle = tail; c.beginPath(); c.moveTo(-hl, -0.55); c.lineTo(-hl + L * 0.2, -0.3); c.lineTo(-hl + L * 0.2, 0.3); c.lineTo(-hl, 0.55); c.closePath(); c.fill();
       c.fillStyle = tail; c.fillRect(nose - L * 0.3, -fw, L * 0.3, fw * 0.28); c.fillRect(nose - L * 0.3, fw * 0.72, L * 0.3, fw * 0.28);
@@ -2455,7 +2528,7 @@
     ".fh-title small{color:#E3B83F;font-weight:600;font-size:.8rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}" +
     ".fh-hud{display:flex;gap:4px 18px;margin:0;flex-wrap:wrap}.fh-hud div{display:flex;flex-direction:column;min-width:0}" +
     ".fh-hud [data-fhfp]{cursor:pointer}.fh-hud [data-fhfp] dd::after{content:'';display:inline-block;width:13px;height:10px;margin-left:6px;vertical-align:1px;background:linear-gradient(currentColor,currentColor) 0 100%/3px 40% no-repeat,linear-gradient(currentColor,currentColor) 5px 100%/3px 100% no-repeat,linear-gradient(currentColor,currentColor) 10px 100%/3px 65% no-repeat;opacity:.8}" +
-    ".fh-hud [data-fhfp]:hover dd{color:#E3B83F}.fh-hud .up dd{color:#E58A73}.fh-hud .down dd{color:#8FC79A}" +
+    ".fh-hud .crisis{background:#8E241D}.fh-hud .crisis dt{color:#FFD9CF}.fh-hud [data-fhsm]{cursor:pointer}.fh-hud [data-fhsm]:hover dd{color:#E3B83F}.fh-hud [data-fhfp]:hover dd{color:#E3B83F}.fh-hud .up dd{color:#E58A73}.fh-hud .down dd{color:#8FC79A}" +
     ".fh-fp{position:absolute;left:50%;transform:translateX(-50%);top:calc(var(--top) + 10px);width:min(460px,calc(100% - 24px));padding:12px 14px}" +
     ".fh-fp .hd{display:flex;justify-content:space-between;align-items:center}.fh-fp .hd b{font-weight:600}" +
     ".fh-fp .hd button{font:600 1.1rem inherit;width:28px;height:28px;border:1px solid rgba(244,241,236,.35);background:transparent;color:#F4F1EC;cursor:pointer}" +
@@ -2463,6 +2536,15 @@
     ".fh-fp .now small{color:rgba(244,241,236,.6);font-size:.8rem}.fh-fp .now em{font-style:normal;font-size:.85rem;font-variant-numeric:tabular-nums;margin-left:auto}" +
     ".fh-full .fh-fp canvas{position:static;inset:auto;display:block;width:100%;height:auto;aspect-ratio:840/300;background:rgba(0,0,0,.25)}" +
     ".fh-fp .ax{display:flex;justify-content:space-between;font-size:.7rem;color:rgba(244,241,236,.55);margin-top:3px}" +
+    ".fh-sm{width:min(640px,calc(100% - 24px));max-height:calc(100% - var(--top) - var(--dock) - 30px);overflow:auto}.fh-sm p.sub{margin:2px 0 8px;font-size:.82rem;color:rgba(244,241,236,.75);font-variant-numeric:tabular-nums}" +
+    ".fh-sm .list{display:flex;flex-direction:column;gap:2px}.fh-sm .srow{display:grid;grid-template-columns:10px minmax(0,1.6fr) 80px minmax(0,1fr) 62px minmax(0,.8fr);align-items:center;gap:10px;padding:6px 8px;border:1px solid transparent;background:rgba(244,241,236,.04);color:#F4F1EC;font:inherit;text-align:left;cursor:pointer}" +
+    ".fh-sm .srow:hover{background:rgba(244,241,236,.09)}.fh-sm .srow[aria-pressed=true]{border-color:#E3B83F;background:rgba(227,184,63,.1)}.fh-sm .srow i{width:10px;height:26px}" +
+    ".fh-sm .srow .nm{display:flex;flex-direction:column;min-width:0}.fh-sm .srow .nm b{font-weight:600;font-size:.86rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.fh-sm .srow .nm small{font-size:.68rem;color:rgba(244,241,236,.55)}" +
+    ".fh-full .fh-sm .srow canvas{position:static;inset:auto;width:80px;height:22px;background:none}.fh-sm .srow .pr{font-variant-numeric:tabular-nums;font-weight:600;font-size:.86rem;text-align:right}" +
+    ".fh-sm .srow .ch{font-variant-numeric:tabular-nums;font-size:.78rem;text-align:right}.fh-sm .srow .hl{font-variant-numeric:tabular-nums;font-size:.74rem;color:rgba(244,241,236,.6);text-align:right}" +
+    ".fh-sm .up{color:#8FC79A}.fh-sm .dn{color:#E58A73}.fh-sm .det{margin-top:10px;padding-top:10px;border-top:1px solid rgba(244,241,236,.15)}.fh-sm .det .now span:first-child{font-size:1rem;font-weight:600}" +
+    ".fh-sm p.hint{font-size:.74rem;color:rgba(244,241,236,.55)}.fh-sm .acts button.buy{border-color:#E58A73;color:#E58A73}.fh-sm .acts button.sell{border-color:#8FC79A;color:#8FC79A}" +
+    "@media (max-width:560px){.fh-sm .srow{grid-template-columns:8px minmax(0,1fr) 60px 56px;gap:8px}.fh-full .fh-sm .srow canvas,.fh-sm .srow .hl{display:none}}" +
     ".fh-fin{width:min(560px,calc(100% - 24px));max-height:calc(100% - var(--top) - var(--dock) - 30px);overflow:auto}.fh-fin p.sub{margin:2px 0 0;font-size:.78rem;color:rgba(244,241,236,.6)}" +
     ".fh-fin .fleg{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:4px 14px;margin-top:8px;font-size:.78rem}" +
     ".fh-fin .fleg span{display:flex;align-items:center;gap:6px;min-width:0;color:rgba(244,241,236,.85)}.fh-fin .fleg span.off{opacity:.4}.fh-fin .fleg i{flex:none;width:12px;height:3px}" +
@@ -2481,7 +2563,7 @@
     ".fh-run button[aria-pressed=true]{background:#F4F1EC;color:#151715;border-color:#F4F1EC}" +
     ".fh-dock{position:absolute;left:0;right:0;bottom:0;padding:6px max(10px,env(safe-area-inset-right)) calc(10px + env(safe-area-inset-bottom,0px)) max(10px,env(safe-area-inset-left))}" +
     ".fh-tabs{display:flex;gap:2px;overflow-x:auto;scrollbar-width:none}" +
-    ".fh-tab.fh-doz{margin-left:auto;color:#F0A848}.fh-tab.fh-doz[aria-pressed=true]{background:#C2412D;color:#F4F1EC;border-bottom-color:#F4F1EC}" +
+    ".fh-tab.fh-doz{margin-left:auto;color:#F0A848;display:inline-flex;align-items:center;gap:7px}.fh-tab.fh-doz svg{flex:none}.fh-tab.fh-doz[aria-pressed=true]{background:#C2412D;color:#F4F1EC;border-bottom-color:#F4F1EC}" +
     ".fh-tab{font:600 .85rem inherit;padding:7px 14px;border:0;background:transparent;color:rgba(244,241,236,.7);cursor:pointer;white-space:nowrap;border-bottom:2px solid transparent}" +
     ".fh-tab[aria-selected=true]{color:#F4F1EC;border-bottom-color:#E3B83F}" +
     ".fh-tools{display:flex;gap:6px;overflow-x:auto;padding-top:8px;scrollbar-width:thin}" +
@@ -2528,7 +2610,7 @@
   }
   var GRPS = ["air", "term", "land", "ops", "up"];
   function html() {
-    function st(id) { return '<div id="fh-w-' + id + '"' + (id === "money" ? ' data-fhfin role="button" tabindex="0" title="' + t("finOpen") + '"' : id === "rate" ? ' title="' + t("rateHint") + '"' : id === "fprice" ? ' data-fhfp role="button" tabindex="0" title="' + t("fpOpen") + '"' : "") + '><dt>' + t(id) + '</dt><dd id="fh-' + id + '"></dd></div>'; }
+    function st(id) { return '<div id="fh-w-' + id + '"' + (id === "money" ? ' data-fhfin role="button" tabindex="0" title="' + t("finOpen") + '"' : id === "rate" ? ' title="' + t("rateHint") + '"' : id === "fprice" ? ' data-fhfp role="button" tabindex="0" title="' + t("fpOpen") + '"' : id === "stocks" ? ' data-fhsm role="button" tabindex="0" title="' + t("smOpen") + '"' : "") + '><dt>' + t(id) + '</dt><dd id="fh-' + id + '"></dd></div>'; }
     var tabs = GRPS.map(function (g) { return '<button type="button" class="fh-tab" role="tab" data-tab="' + g + '" aria-selected="false">' + TX.grp[g][lang] + "</button>"; }).join("");
     var groups = ["air", "term", "land", "ops"].map(function (g) {
       return '<div class="fh-tools fh-grp" data-grp="' + g + '">' + BUILD.filter(function (b) { return b.g === g; }).map(function (b) {
@@ -2541,7 +2623,7 @@
     return '<div class="fh-full" id="fh-stage" tabindex="0" aria-label="' + t("title") + '"><canvas id="fh-cv"></canvas>' +
       '<div class="fh-top fh-panel" id="fh-top"><a class="fh-back" href="#">' + (lang === "de" ? "← Apps" : "← Apps") + '</a>' +
       '<div class="fh-title"><b>' + t("title") + "<span>v" + VERSION + '</span></b><small id="fh-rank"></small></div>' +
-      '<dl class="fh-hud">' + st("money") + st("rate") + st("fuel") + st("fprice") + st("rep") + st("moves") + st("pax") + st("hold") + "</dl>" +
+      '<dl class="fh-hud">' + st("money") + st("rate") + st("fuel") + st("fprice") + st("stocks") + st("rep") + st("moves") + st("pax") + st("hold") + "</dl>" +
       '<div class="fh-run" role="group" aria-label="' + t("speed") + '">' + [1, 2, 4].map(function (v) { return '<button type="button" data-fhspeed="' + v + '" aria-pressed="false">' + v + "×</button>"; }).join("") +
       '<button type="button" data-fhpause aria-pressed="false"></button><button type="button" data-fhhelp aria-pressed="false" title="' + t("howH") + '">?</button></div></div>' +
       '<div class="fh-hint"><span id="fh-hint"></span></div>' +
@@ -2550,6 +2632,16 @@
       '<p class="sub">' + t("finSub") + '</p><div class="now"><span id="fh-fin-rate"></span><small>' + t("rate") + '</small></div>' +
       '<canvas id="fh-fin-cv" width="1000" height="357"></canvas><div class="ax"><span>−15 min</span><span>−10 min</span><span>−5 min</span><span>' + (lang === "de" ? "jetzt" : "now") + '</span></div>' +
       '<div class="fleg" id="fh-fin-leg"></div><p id="fh-fin-sum"></p></div>' +
+      '<div class="fh-fp fh-sm fh-panel" id="fh-sm" hidden><div class="hd"><b>' + t("smTitle") + '</b><button type="button" data-fhsm aria-label="' + (lang === "de" ? "Schließen" : "Close") + '">×</button></div>' +
+      '<p class="sub" id="fh-sm-dep"></p><div class="list" id="fh-sm-list">' + STOCKS.map(function (q) {
+        return '<button type="button" class="srow" data-stk="' + q.id + '"><i style="background:' + q.col + '"></i><span class="nm"><b>' + q.n + '</b><small>' + t(q.k === "air" ? "smAir" : "smOil") + '</small></span>' +
+          '<canvas width="160" height="44" data-spark="' + q.id + '"></canvas><span class="pr" data-spr="' + q.id + '"></span><span class="ch" data-sch="' + q.id + '"></span><span class="hl" data-shl="' + q.id + '"></span></button>';
+      }).join("") + '</div>' +
+      '<div class="det"><div class="now"><span id="fh-sm-name"></span><span id="fh-sm-now"></span><em id="fh-sm-d"></em></div>' +
+      '<canvas id="fh-sm-cv" width="1000" height="357"></canvas><div class="ax"><span>−15 min</span><span>' + t("fpRange") + '</span><span>' + (lang === "de" ? "jetzt" : "now") + '</span></div>' +
+      '<p id="fh-sm-hold"></p><div class="fh-trade"><input type="range" id="fh-sm-r" min="0" max="1000" step="1" value="0" aria-label="' + t("stocks") + '">' +
+      '<span class="row sm"><span>0</span><span id="fh-sm-tg"></span><span id="fh-sm-mx"></span></span><span class="desc" id="fh-sm-desc"></span><span class="sum" id="fh-sm-sum"></span></div>' +
+      '<div class="acts"><button type="button" id="fh-sm-btn" data-smtrade aria-disabled="true"></button></div><p class="hint">' + t("smHint") + " " + t("smFee") + '</p></div></div>' +
       '<div class="fh-fp fh-panel" id="fh-fp" hidden><div class="hd"><b>' + t("fpTitle") + '</b><button type="button" data-fhfp aria-label="' + (lang === "de" ? "Schließen" : "Close") + '">×</button></div>' +
       '<div class="now"><span id="fh-fp-now"></span><small>' + t("fpBuy") + " " + t("fpUnit") + '</small><em id="fh-fp-d"></em></div>' +
       '<div class="sell"><i></i>' + t("fpSell") + ': <b id="fh-fp-sell"></b></div>' +
@@ -2564,7 +2656,7 @@
       '<p class="fh-msg fh-panel" id="fh-msg" aria-live="polite"></p>' +
       '<div class="fh-help fh-panel" id="fh-help" hidden><h2>' + t("howH") + "</h2><p>" + t("how1") + "</p><p>" + t("how2") + "</p><p>" + t("how3") + "</p><p>" + t("how5") + "</p><p>" + t("how4") + "</p>" +
       '<div class="row"><button type="button" data-fhhelp>' + (lang === "de" ? "Schließen" : "Close") + '</button><button type="button" class="fh-reset" data-fhreset>' + t("reset") + "</button></div></div>" +
-      '<div class="fh-dock fh-panel" id="fh-dock"><div class="fh-tabs" role="tablist">' + tabs + '<button type="button" class="fh-tab fh-doz" data-dozer aria-pressed="false" title="' + t("dozerT") + '">' + t("dozer") + "</button></div>" + groups + ups + "</div></div>";
+      '<div class="fh-dock fh-panel" id="fh-dock"><div class="fh-tabs" role="tablist">' + tabs + '<button type="button" class="fh-tab fh-doz" data-dozer aria-pressed="false" title="' + t("dozerT") + '"><svg viewBox="0 0 28 18" width="26" height="17" aria-hidden="true"><path d="M1 3h3v14H1z" fill="currentColor"/><path d="M4 10h5v2H4z" fill="currentColor"/><path d="M9 7h12V2h6v10H9z" fill="currentColor"/><path d="M22 3.5h3.5v4H22z" fill="#1E211E"/><path d="M8 12.5h19v5H8z" fill="currentColor"/><path d="M10 14h2v2h-2zM14 14h2v2h-2zM18 14h2v2h-2zM22 14h2v2h-2z" fill="#1E211E"/></svg><span>' + t("dozer") + "</span></button></div>" + groups + ups + "</div></div>";
   }
   function setTab(g) {
     V.tab = g;
@@ -2590,7 +2682,9 @@
     set("fh-hold", String(R.holdQ.length));
     set("fh-rate", eurS(finRate()));
     var pw = document.getElementById("fh-w-fprice");
-    if (pw) { var pn = fuelPrice(), p60 = fuelPriceAt(Math.floor(G.fpt || 0) - 60); set("fh-fprice", eur(pn)); pw.classList.toggle("up", pn > p60 * 1.02); pw.classList.toggle("down", pn < p60 * 0.98); }
+    if (pw) { var pn = fuelPrice(), p60 = fuelPriceAt(Math.floor(G.fpt || 0) - 60), inCr = !!crisisAt(Math.floor(G.fpt || 0)); set("fh-fprice", eur(pn)); pw.classList.toggle("up", pn > p60 * 1.02); pw.classList.toggle("down", pn < p60 * 0.98); pw.classList.toggle("crisis", inCr); pw.title = inCr ? t("crisisNow") : t("fpOpen");
+      if (R.inCrisis === undefined) R.inCrisis = inCr; else if (inCr !== R.inCrisis) { R.inCrisis = inCr; msg(t(inCr ? "crisisOn" : "crisisOff"), !inCr); } }
+    var sw = document.getElementById("fh-w-stocks"); if (sw) set("fh-stocks", eurS(smDepot().v));
     var fw = document.getElementById("fh-w-fuel");
     if (fw) { var tk = mods("tank").length; fw.hidden = !tk; if (tk) { var fp = fuelPct(); set("fh-fuel", Math.round(fp) + " %"); fw.classList.toggle("warn", fp < 20); } }
     set("fh-rank", "SOY · " + clockTxt() + " · " + rank() + (s.stands ? " · " + fmt(t("conn"), { a: s.conn, b: s.stands }) : ""));
@@ -2707,8 +2801,10 @@
 
   function onClick(e) {
     if (e.target.closest("[data-dozer]")) { setDozer(!(V.tool && V.tool.kind === "dozer")); return; }
-    if (e.target.closest("[data-fhfp]")) { var fb = V.root.querySelector("#fh-fp"); fb.hidden = !fb.hidden; if (!fb.hidden) V.root.querySelector("#fh-fin").hidden = true; fpDraw(true); return; }
-    if (e.target.closest("[data-fhfin]")) { var fn = V.root.querySelector("#fh-fin"); fn.hidden = !fn.hidden; if (!fn.hidden) V.root.querySelector("#fh-fp").hidden = true; finDraw(true); return; }
+    var pnl = e.target.closest("[data-fhfp]") ? "fh-fp" : e.target.closest("[data-fhfin]") ? "fh-fin" : e.target.closest("[data-fhsm]") ? "fh-sm" : null;
+    if (pnl) { ["fh-fp", "fh-fin", "fh-sm"].forEach(function (id) { var bx = V.root.querySelector("#" + id); bx.hidden = id === pnl ? !bx.hidden : true; }); fpDraw(true); finDraw(true); smDraw(true, true); return; }
+    var srow = e.target.closest("[data-stk]"); if (srow) { V.stk = srow.getAttribute("data-stk"); smDraw(true, true); return; }
+    var smb = e.target.closest("[data-smtrade]"); if (smb) { if (smb.getAttribute("aria-disabled") !== "true") smDo(); return; }
     if (e.target.closest("[data-fhfpfill]")) { if (e.target.closest("[data-fhfpfill]").getAttribute("aria-disabled") !== "true") fillFuel(); return; }
     var tab = e.target.closest("[data-tab]");
     if (tab) { setTab(tab.getAttribute("data-tab")); return; }
@@ -2788,7 +2884,7 @@
     raf = requestAnimationFrame(frame);
     var dt = Math.min(0.1, (now - (last || now)) / 1000); last = now;
     keysTick(dt);
-    if (!R.paused) { G.fpt = (G.fpt || 0) + dt; fpDraw(); finDraw(); }
+    if (!R.paused) { G.fpt = (G.fpt || 0) + dt; fpDraw(); finDraw(); smDraw(); }
     trT += dt; if (trT > 0.5) { trT = 0; trUpdate(); }
     if (!R.paused) { var g = dt * R.speed; while (g > 0) { var d = Math.min(0.05, g); tick(d); g -= d; } }
     if (R.msgT > 0) { R.msgT -= dt; if (R.msgT <= 0) msg(""); }
@@ -2797,6 +2893,74 @@
     draw();
   }
 
+  // Aktienmarkt-Fenster: Liste mit Mini-Verlauf, darunter Detail-Diagramm und Handelsregler (wie beim Kerosin)
+  var smLast = -1;
+  function nI(v) { return Math.round(v).toLocaleString(loc()); }
+  function smHold(id) { var p = G.port || (G.port = {}); return p[id] || (p[id] = { n: 0, cost: 0 }); }
+  function smDraw(force, reset) {
+    if (!V) return;
+    var box = V.root.querySelector("#fh-sm"); if (!box || box.hidden) return;
+    var sec = Math.floor(G.fpt || 0); if (!force && sec === smLast) return; smLast = sec;
+    if (!V.stk) V.stk = STOCKS[0].id;
+    var dep = smDepot();
+    set("fh-sm-dep", fmt(t("smDepot"), { v: eurS(dep.v), g: (dep.g >= 0 ? "+" : "−") + eurS(Math.abs(dep.g)) }));
+    STOCKS.forEach(function (q) {
+      var now = stockNow(q), old = stockAt(q, sec - 900), ch = (now / old - 1) * 100, h = smHold(q.id);
+      var row = box.querySelector('[data-stk="' + q.id + '"]'); row.setAttribute("aria-pressed", String(V.stk === q.id));
+      box.querySelector('[data-spr="' + q.id + '"]').textContent = eur2(now);
+      var ce = box.querySelector('[data-sch="' + q.id + '"]'); ce.textContent = (ch >= 0 ? "+" : "−") + Math.abs(ch).toFixed(1).replace(".", lang === "de" ? "," : ".") + " %"; ce.className = "ch " + (ch >= 0 ? "up" : "dn");
+      box.querySelector('[data-shl="' + q.id + '"]').textContent = h.n ? fmt(t("smShares"), { n: nI(h.n) }) : "";
+      var cv = box.querySelector('[data-spark="' + q.id + '"]'), c = cv.getContext("2d"), W = cv.width, H = cv.height, pts = [], lo = Infinity, hi = -Infinity;
+      for (var k = 0; k <= 60; k++) { var v = stockAt(q, sec - 900 + k * 15); pts.push(v); lo = Math.min(lo, v); hi = Math.max(hi, v); }
+      c.clearRect(0, 0, W, H); c.beginPath();
+      pts.forEach(function (v, k2) { var x = k2 / 60 * (W - 4) + 2, y = H - 4 - (v - lo) / ((hi - lo) || 1) * (H - 8); if (k2) c.lineTo(x, y); else c.moveTo(x, y); });
+      c.strokeStyle = ch >= 0 ? "#8FC79A" : "#E58A73"; c.lineWidth = 3; c.stroke();
+    });
+    // Detail
+    var q = stk(V.stk), N = 900, pts2 = [], lo2 = Infinity, hi2 = -Infinity;
+    for (var k3 = 0; k3 <= N; k3++) { var v2 = stockAt(q, sec - N + k3); pts2.push(v2); lo2 = Math.min(lo2, v2); hi2 = Math.max(hi2, v2); }
+    var cv2 = box.querySelector("#fh-sm-cv"), c2 = cv2.getContext("2d"), W2 = cv2.width, H2 = cv2.height, pad = (hi2 - lo2) * 0.12 || 1, ymin = lo2 - pad, ymax = hi2 + pad;
+    function X(k) { return 4 + k / N * (W2 - 8); }
+    function Y(v) { return H2 - 12 - (v - ymin) / (ymax - ymin) * (H2 - 24); }
+    c2.clearRect(0, 0, W2, H2); shadeCrisis(c2, sec - N, N, X, H2);
+    c2.strokeStyle = "rgba(244,241,236,.08)"; c2.lineWidth = 1; for (var gx = 0; gx <= 15; gx++) { var xx = Math.round(X(gx * 60)) + 0.5; c2.beginPath(); c2.moveTo(xx, 0); c2.lineTo(xx, H2); c2.stroke(); }
+    var h0 = smHold(q.id); if (h0.n) { var av = h0.cost / h0.n; c2.setLineDash([8, 6]); c2.strokeStyle = "rgba(244,241,236,.5)"; c2.lineWidth = 2; c2.beginPath(); c2.moveTo(0, Y(av)); c2.lineTo(W2, Y(av)); c2.stroke(); c2.setLineDash([]); }
+    c2.beginPath(); c2.moveTo(X(0), H2); for (k3 = 0; k3 <= N; k3++) c2.lineTo(X(k3), Y(pts2[k3])); c2.lineTo(X(N), H2); c2.closePath(); c2.fillStyle = q.col + "22"; c2.fill();
+    c2.beginPath(); for (k3 = 0; k3 <= N; k3++) { if (k3) c2.lineTo(X(k3), Y(pts2[k3])); else c2.moveTo(X(k3), Y(pts2[k3])); } c2.strokeStyle = q.k === "oil" && q.col === "#2C2F33" ? "#C9CED4" : q.col; c2.lineWidth = 3; c2.stroke();
+    (G.strades || []).forEach(function (m) { if (m.s !== q.id) return; var kk = m.t - (sec - N); if (kk < 0 || kk > N) return; c2.beginPath(); c2.arc(X(kk), Y(m.p), 8, 0, Math.PI * 2); c2.fillStyle = m.k === "b" ? "#E58A73" : "#8FC79A"; c2.fill(); c2.lineWidth = 3; c2.strokeStyle = "#F4F1EC"; c2.stroke(); });
+    c2.fillStyle = "#F4F1EC"; c2.fillRect(X(N) - 6, Y(pts2[N]) - 6, 12, 12);
+    var now2 = pts2[N], d1 = now2 - stockAt(q, sec - 60), de = document.getElementById("fh-sm-d");
+    set("fh-sm-name", q.n + " · " + q.id); set("fh-sm-now", eur2(now2));
+    de.textContent = (d1 >= 0 ? "▲ +" : "▼ −") + eur2(Math.abs(d1)) + " / min"; de.style.color = d1 >= 0 ? "#8FC79A" : "#E58A73";
+    set("fh-sm-hold", h0.n ? fmt(t("smHold"), { n: nI(h0.n), a: eur2(h0.cost / h0.n), v: eurS(h0.n * now2) }) + " · " + ((h0.n * now2 - h0.cost) >= 0 ? "+" : "−") + eurS(Math.abs(h0.n * now2 - h0.cost)) : t("smNone"));
+    if (reset) { var r = document.getElementById("fh-sm-r"), mx = smMax(q); r.value = mx ? Math.round(h0.n / mx * 1000) : 0; V.smR0 = r.value; }
+    smUpd();
+  }
+  function smMax(q) { return smHold(q.id).n + Math.floor(Math.max(0, G.money) / stockNow(q)); }
+  function smCalc() {
+    var r = document.getElementById("fh-sm-r"); if (!r || !V.stk) return null;
+    var q = stk(V.stk), h = smHold(q.id), mx = smMax(q), tg = r.value === V.smR0 ? h.n : Math.round(+r.value / 1000 * mx), d = tg - h.n, pr = stockNow(q), sp = Math.round(pr * 0.99 * 100) / 100;
+    return { r: r, q: q, h: h, mx: mx, tg: tg, d: d, pr: pr, sp: sp, sum: d > 0 ? d * pr : -d * sp };
+  }
+  function smUpd() {
+    var z = smCalc(); if (!z) return;
+    var cur = z.mx ? z.h.n / z.mx * 100 : 0, tp = +z.r.value / 10;
+    z.r.style.setProperty("--cur", cur + "%"); z.r.style.setProperty("--a", Math.min(cur, tp) + "%"); z.r.style.setProperty("--b", Math.max(cur, tp) + "%");
+    z.r.classList.toggle("buy", z.d > 0); z.r.classList.toggle("sell", z.d < 0);
+    set("fh-sm-tg", fmt(t("smShares"), { n: nI(z.tg) })); set("fh-sm-mx", fmt(t("smShares"), { n: nI(z.mx) }));
+    set("fh-sm-desc", z.d === 0 ? "" : fmt(t(z.d > 0 ? "smBuyD" : "smSellD"), { n: nI(Math.abs(z.d)), p: eur2(z.d > 0 ? z.pr : z.sp) }));
+    var sm = document.getElementById("fh-sm-sum"), b = document.getElementById("fh-sm-btn"), poor = z.d > 0 && z.sum > G.money;
+    sm.textContent = z.d === 0 ? "" : (z.d > 0 ? "−" : "+") + eur(z.sum); sm.className = "sum " + (z.d > 0 ? "buy" : "sell");
+    b.textContent = z.d === 0 ? t("trMove") : poor ? t("trPoor") : (z.d > 0 ? t("trBuy") : t("trSell")) + " · " + eurS(z.sum);
+    b.className = z.d > 0 ? "buy" : z.d < 0 ? "sell" : ""; b.setAttribute("aria-disabled", String(z.d === 0 || poor));
+  }
+  function smDo() {
+    var z = smCalc(); if (!z || z.d === 0) return;
+    if (z.d > 0) { if (z.sum > G.money) { msg(t("poor")); return; } G.money -= z.sum; z.h.n += z.d; z.h.cost += z.sum; msg(z.q.n + ": " + t("smBought") + " · " + eurS(z.sum), true); }
+    else { var part = -z.d / z.h.n; z.h.cost -= z.h.cost * part; z.h.n += z.d; G.money += z.sum; if (!z.h.n) z.h.cost = 0; msg(z.q.n + ": " + t("smDone") + " · +" + eurS(z.sum), true); }
+    (G.strades || (G.strades = [])).push({ s: z.q.id, t: Math.floor(G.fpt || 0), p: z.d > 0 ? z.pr : z.sp, k: z.d > 0 ? "b" : "s" }); if (G.strades.length > 80) G.strades.shift();
+    save(); updatePanel(true); smDraw(true, true);
+  }
   // Finanzbericht: je Bereich eine Linie (gleitender 60-s-Umsatz in €/min), dazu die Summe
   var finLast = -1;
   function finDraw(force) {
@@ -2838,6 +3002,16 @@
   }
   // Preisverlauf: nur gezeichnet, wenn das Fenster offen ist, und dann einmal pro Sekunde
   var fpLast = -1;
+  function shadeCrisis(c, t0, N, X, H) {
+    var L = crisisList(t0 + N);
+    L.forEach(function (q) {
+      if (q.e < t0 || q.s > t0 + N) return;
+      var xa = X(Math.max(0, q.s - t0)), xb = X(Math.min(N, q.e - t0)), xh = X(Math.max(0, Math.min(N, q.a - t0))), xe = X(Math.max(0, Math.min(N, q.b - t0)));
+      c.fillStyle = "rgba(194,65,45,.13)"; c.fillRect(xa, 0, xb - xa, H);
+      c.fillStyle = "rgba(194,65,45,.18)"; c.fillRect(xh, 0, Math.max(0, xe - xh), H);
+      c.fillStyle = "#E58A73"; c.font = "700 19px " + FONT; c.textAlign = "left"; c.fillText(t("crisis").toUpperCase(), Math.min(Math.max(xa + 8, 8), xb - 8 > xa + 8 ? xb - 120 : xa + 8), 24);
+    });
+  }
   function fpDraw(force) {
     if (!V) return;
     var box = V.root.querySelector("#fh-fp"); if (!box || box.hidden) return;
@@ -2849,6 +3023,7 @@
     function Y(v) { return H - 14 - (v - ymin) / (ymax - ymin) * (H - 28); }
     function X(k) { return padL + k / N * (W - padL - padR); }
     c.clearRect(0, 0, W, H);
+    shadeCrisis(c, sec - N, N, X, H);
     c.strokeStyle = "rgba(244,241,236,.08)"; c.lineWidth = 1;
     for (var gx = 0; gx <= 15; gx++) { var xx = Math.round(X(gx * 60)) + 0.5; c.beginPath(); c.moveTo(xx, 0); c.lineTo(xx, H); c.stroke(); }
     c.setLineDash([8, 6]); c.strokeStyle = "rgba(143,199,154,.8)"; c.lineWidth = 2; c.beginPath(); for (k = 0; k <= N; k += 3) { if (k) c.lineTo(X(k), Y(sp[k])); else c.moveTo(X(k), Y(sp[k])); } c.stroke(); c.setLineDash([]);
@@ -2896,7 +3071,7 @@
     V.ctx = V.cv.getContext("2d");
     fitView();
     el.addEventListener("click", onClick);
-    el.addEventListener("input", function (e) { if (e.target.id === "fh-tr") trUpdate(); });
+    el.addEventListener("input", function (e) { if (e.target.id === "fh-tr") trUpdate(); if (e.target.id === "fh-sm-r") smUpd(); });
     el.addEventListener("pointerdown", onRotDown);
     window.addEventListener("pointerup", onRotUp);
     V.cv.addEventListener("pointerdown", onDown);
@@ -2930,5 +3105,5 @@
   window.addEventListener("pagehide", save);
 
   window.Flughafen = { mount: mount, unmount: unmount,
-    _debug: function () { return { G: G, R: R, V: V, tick: tick, addMod: addMod, rebuild: rebuild, stats: stats, snapRect: snapRect, setTool: setTool, act: act, updateGhost: updateGhost, rwEnds: rwEnds, world: world, fuelPriceAt: fuelPriceAt }; } };
+    _debug: function () { return { G: G, R: R, V: V, tick: tick, addMod: addMod, rebuild: rebuild, stats: stats, snapRect: snapRect, setTool: setTool, act: act, updateGhost: updateGhost, rwEnds: rwEnds, world: world, fuelPriceAt: fuelPriceAt, crisisList: crisisList }; } };
 })();
