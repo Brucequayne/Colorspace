@@ -63,7 +63,11 @@ button.navbtn{background:transparent;cursor:pointer;border-color:var(--ink)}
 .app .bd{display:flex;flex-direction:column;gap:8px;padding:18px 20px 20px;flex:1;background:var(--tone);color:#F1EFEA}
 .app h2{font:600 1.4rem/1.15 var(--f-display);letter-spacing:-.015em}
 .app p{margin:0;color:rgba(241,239,234,.8);font-size:.98rem;line-height:1.5}
-.app .meta{display:flex;justify-content:space-between;align-items:center;margin-top:auto;padding-top:10px}
+.app .meta{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:8px 12px;margin-top:auto;padding-top:10px}
+.app .mv{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;min-width:0}
+.app .pn{font:600 .75rem var(--f-body);color:#F1EFEA;background:rgba(0,0,0,.18);border:1px solid rgba(241,239,234,.4);padding:2px 9px;cursor:pointer}
+.app .pn:hover,.app .pn:focus-visible{background:rgba(0,0,0,.34);border-color:rgba(241,239,234,.8)}
+.app .ago{font-size:.75rem;color:rgba(241,239,234,.7);font-variant-numeric:tabular-nums}
 .app .ver{font:600 .75rem var(--f-body);color:rgba(241,239,234,.85);border:1px solid rgba(241,239,234,.4);border-radius:0;padding:2px 9px}
 .app .go{font-weight:600;font-size:.92rem}
 .app:hover .go{text-decoration:underline;text-underline-offset:3px}
@@ -108,9 +112,40 @@ button.navbtn{background:transparent;cursor:pointer;border-color:var(--ink)}
 .rate .rv{display:inline-flex;align-items:center;gap:6px}
 .rate .rv svg{width:18px;height:18px}
 .rate b{color:var(--ink);font-weight:600}
-.rate.float{position:fixed;right:max(12px,env(safe-area-inset-right,0px));bottom:max(12px,env(safe-area-inset-bottom,0px));z-index:200;margin:0;padding:6px 12px;background:rgba(36,37,36,.88);border:1px solid var(--line);color:#C9CBC6;opacity:.7;transition:opacity .15s}
-.rate.float:hover{opacity:1}
-.rate.float .stars button{width:22px;height:22px}
+.abr{display:flex;flex-wrap:wrap;align-items:center;gap:6px 18px;margin-top:22px}
+.abr .rate{margin:0}
+.fbar{position:fixed;right:max(12px,env(safe-area-inset-right,0px));bottom:max(12px,env(safe-area-inset-bottom,0px));z-index:200;display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px;padding:6px 12px;background:rgba(36,37,36,.88);border:1px solid var(--line);color:#C9CBC6;opacity:.7;transition:opacity .15s}
+.fbar:hover{opacity:1}
+.fbar .rate{margin:0;color:#C9CBC6}
+.fbar .stars button{width:22px;height:22px}
+
+/* Patchnotes */
+.pnb{display:inline-flex;align-items:center;gap:8px;font:600 .85rem var(--f-body);color:var(--ink);background:var(--card);border:1px solid var(--line);padding:5px 11px;cursor:pointer;font-variant-numeric:tabular-nums}
+.pnb:hover,.pnb:focus-visible{border-color:var(--soft)}
+.pnb .pv2{color:var(--accent)}
+.pnb .ago{color:var(--soft);font-weight:500}
+.fbar .pnb{padding:3px 9px;font-size:.8rem}
+.pnm{position:fixed;inset:0;z-index:400;display:flex;align-items:flex-start;justify-content:center;padding:max(24px,env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) 24px max(16px,env(safe-area-inset-left,0px));background:rgba(14,15,14,.62);overflow-y:auto;overscroll-behavior:contain}
+.pnm[hidden]{display:none}
+.pnp{position:relative;width:100%;max-width:600px;margin:4vh 0 0;background:var(--card);border:1px solid var(--line);border-top:4px solid var(--tone,var(--accent));box-shadow:10px 10px 0 var(--shadow);color:var(--ink)}
+.pnh{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;padding:20px 22px 14px;border-bottom:1px solid var(--line)}
+.pnh h2{margin:0;font:600 1.5rem/1.1 var(--f-display);letter-spacing:-.015em}
+.pnh small{display:block;margin-top:6px;color:var(--soft);font-size:.85rem}
+.pnx{flex:0 0 auto;width:34px;height:34px;border:1px solid var(--line);background:transparent;color:var(--ink);cursor:pointer;position:relative}
+.pnx:hover,.pnx:focus-visible{border-color:var(--soft)}
+.pnx::before,.pnx::after{content:"";position:absolute;left:8px;right:8px;top:50%;height:2px;margin-top:-1px;background:currentColor;transform:rotate(45deg)}
+.pnx::after{transform:rotate(-45deg)}
+.pnl{list-style:none;margin:0;padding:6px 22px 20px}
+.pnl>li{padding:16px 0;border-bottom:1px solid var(--line)}
+.pnl>li:last-child{border-bottom:0}
+.pnv{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 12px}
+.pnv b{font:600 1.15rem var(--f-display)}
+.pnv .new{font:600 .7rem var(--f-body);letter-spacing:.06em;text-transform:uppercase;color:#1E1F1E;background:var(--accent);padding:2px 7px}
+.pnv time{color:var(--soft);font-size:.85rem;font-variant-numeric:tabular-nums}
+.pnv .ago{color:var(--soft);font-size:.85rem}
+.pnl ul{margin:8px 0 0;padding-left:20px;line-height:1.5;list-style:square}
+.pnl ul li{margin:3px 0}
+.pnl ul li::marker{color:var(--accent)}
 
 /* Unterseiten */
 .back{display:inline-block;margin:22px 0 0;color:var(--soft);text-decoration:none;font-weight:600}
@@ -166,6 +201,7 @@ button.navbtn{background:transparent;cursor:pointer;border-color:var(--ink)}
   <footer class="foot"><a id="plink" href="#datenschutz">Datenschutz</a></footer>
 </div>
 
+<script src="patchnotes.js"></script>
 <script src="flughafen.js"></script>
 <script src="gigachess.js"></script>
 <script src="colorspin.js"></script>
@@ -190,6 +226,9 @@ button.navbtn{background:transparent;cursor:pointer;border-color:var(--ink)}
     rateStar: { de: "{n} von 5 Sternen", en: "{n} out of 5 stars" },
     views: { de: "{n} Aufrufe", en: "{n} views" }, views1: { de: "1 Aufruf", en: "1 view" },
     back: { de: "← Alle Anwendungen", en: "← All apps" },
+    pn: { de: "Patchnotes", en: "Patch notes" }, pnClose: { de: "Schließen", en: "Close" },
+    pnSub: { de: "{n} Versionen · letztes Update {a}", en: "{n} versions · last update {a}" }, pnSub1: { de: "1 Version · veröffentlicht {a}", en: "1 version · released {a}" },
+    pnNew: { de: "Aktuell", en: "Current" }, pnLast: { de: "Letztes Update {a}", en: "Last update {a}" },
     privacy: { de: "Datenschutz", en: "Privacy" },
     flughafen: { de: "Flughafen", en: "Airport" },
     gigachess: { de: "Gigachess", en: "Gigachess" },
@@ -264,7 +303,7 @@ button.navbtn{background:transparent;cursor:pointer;border-color:var(--ink)}
     if (!S.cat) return "";
     return APPS.filter(function (a) { return catOf(a) === S.cat; }).map(function (a, i) {
       return '<a class="app' + (anim ? " in" : "") + '" href="#' + a.id + '" style="--tone:' + a.tone + ';--i:' + i + '"><div class="pv">' + ART[a.art] + '</div><div class="bd"><h2>' + U(a.id) + '</h2><p>' + a.d[S.lang] + '</p>' +
-        '<div class="meta"><span class="ver">' + a.ver + '</span><span class="go">' + U("open") + '</span></div></div></a>';
+        '<div class="meta"><div class="mv"><span class="ver">' + verOf(a) + '</span>' + pnTile(a.id) + '</div><span class="go">' + U("open") + '</span></div></div></a>';
     }).join("");
   }
   function homeHTML() {
@@ -313,6 +352,84 @@ button.navbtn{background:transparent;cursor:pointer;border-color:var(--ink)}
     return '<a class="back" href="#">' + U("back") + '</a><h1 class="ptitle">' + PRIV.title[S.lang] + "</h1>" +
       PRIV.items.map(function (it) { return '<div class="pitem"><h2>' + it.h[S.lang] + "</h2><p>" + it.p[S.lang] + "</p></div>"; }).join("");
   }
+
+  // ---------- Patchnotes ----------
+  // Daten in patchnotes.js (neueste Version oben). „vor …“ wird beim Laden und dann alle 15 Sekunden neu berechnet.
+  var PN = window.PATCHNOTES || {};
+  function notes(id) { return PN[id] || []; }
+  function verOf(a) { var n = notes(a.id); return n.length ? "v" + n[0].v : a.ver; }
+  function agoTxt(iso) {
+    var s = Math.max(0, (Date.now() - new Date(iso).getTime()) / 1000), u, n;
+    if (s < 60) { u = "second"; n = Math.max(1, Math.floor(s)); }
+    else if (s < 3600) { u = "minute"; n = Math.floor(s / 60); }
+    else if (s < 86400) { u = "hour"; n = Math.floor(s / 3600); }
+    else if (s < 7 * 86400) { u = "day"; n = Math.floor(s / 86400); }
+    else if (s < 30.44 * 86400) { u = "week"; n = Math.floor(s / (7 * 86400)); }
+    else if (s < 365.25 * 86400) { u = "month"; n = Math.floor(s / (30.44 * 86400)); }
+    else { u = "year"; n = Math.floor(s / (365.25 * 86400)); }
+    try { return new Intl.RelativeTimeFormat(S.lang, { numeric: "always" }).format(-n, u); }
+    catch (e) { return S.lang === "de" ? "vor " + n + " " + u : n + " " + u + (n === 1 ? "" : "s") + " ago"; }
+  }
+  function agoEl(iso) { return '<span class="ago" data-ago="' + iso + '">' + agoTxt(iso) + "</span>"; }
+  function refreshAgo() {
+    Array.prototype.forEach.call(document.querySelectorAll("[data-ago]"), function (el) {
+      var txt = agoTxt(el.getAttribute("data-ago")); if (el.textContent !== txt) el.textContent = txt;
+    });
+  }
+  setInterval(function () { if (!document.hidden) refreshAgo(); }, 15000);
+  document.addEventListener("visibilitychange", function () { if (!document.hidden) refreshAgo(); });
+  function pnTile(id) {
+    var n = notes(id); if (!n.length) return "";
+    return '<span class="pn" role="button" tabindex="0" data-pn="' + id + '">' + U("pn") + "</span>" + agoEl(n[0].t);
+  }
+  function pnButton(id) {
+    var n = notes(id); if (!n.length) return "";
+    return '<button type="button" class="pnb" data-pn="' + id + '"><span>' + U("pn") + '</span><span class="pv2">v' + n[0].v + "</span>" + agoEl(n[0].t) + "</button>";
+  }
+  function fmtDate(iso) {
+    try { return new Date(iso).toLocaleString(S.lang === "de" ? "de-DE" : "en-GB", S.lang === "de" ? { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" } : { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) + (S.lang === "de" ? " Uhr" : ""); }
+    catch (e) { return iso; }
+  }
+  var pnLastFocus = null;
+  function openPN(id) {
+    var n = notes(id), a = APPS.filter(function (x) { return x.id === id; })[0]; if (!n.length) return;
+    closePN();
+    pnLastFocus = document.activeElement;
+    var m = document.createElement("div");
+    m.className = "pnm"; m.id = "pnm";
+    var sub = (n.length === 1 ? U("pnSub1") : U("pnSub").replace("{n}", n.length)).replace("{a}", agoEl(n[0].t));
+    m.innerHTML = '<div class="pnp" role="dialog" aria-modal="true" aria-labelledby="pnt" style="--tone:' + (a ? a.tone : "") + '">' +
+      '<div class="pnh"><div><h2 id="pnt">' + U(id) + " · " + U("pn") + "</h2><small>" + sub + '</small></div><button type="button" class="pnx" data-pnx aria-label="' + U("pnClose") + '"></button></div>' +
+      '<ol class="pnl">' + n.map(function (e, i) {
+        return '<li><div class="pnv"><b>v' + e.v + "</b>" + (i === 0 ? '<span class="new">' + U("pnNew") + "</span>" : "") +
+          '<time datetime="' + e.t + '">' + fmtDate(e.t) + "</time>" + agoEl(e.t) + "</div><ul>" +
+          (e[S.lang] || e.de).map(function (b) { return "<li>" + b + "</li>"; }).join("") + "</ul></li>";
+      }).join("") + "</ol></div>";
+    document.body.appendChild(m);
+    m.querySelector(".pnx").focus();
+  }
+  function closePN() {
+    var m = document.getElementById("pnm"); if (!m) return;
+    m.remove();
+    if (pnLastFocus && pnLastFocus.focus && document.contains(pnLastFocus)) pnLastFocus.focus();
+    pnLastFocus = null;
+  }
+  // Fängt Klicks vor den Kacheln und den Spielen ab (Capture), damit der Link der Kachel nicht auslöst
+  document.addEventListener("click", function (e) {
+    var t = e.target.closest && e.target.closest("[data-pn]");
+    if (t) { e.preventDefault(); e.stopPropagation(); openPN(t.getAttribute("data-pn")); return; }
+    var m = document.getElementById("pnm");
+    if (m && (e.target === m || (e.target.closest && e.target.closest("[data-pnx]")))) { e.preventDefault(); e.stopPropagation(); closePN(); }
+  }, true);
+  ["pointerdown", "mousedown"].forEach(function (ev) {
+    document.addEventListener(ev, function (e) { if (e.target.closest && (e.target.closest("[data-pn]") || e.target.closest("#pnm"))) e.stopPropagation(); }, true);
+  });
+  document.addEventListener("keydown", function (e) {
+    var m = document.getElementById("pnm");
+    if (m) { if (e.key === "Escape") { e.preventDefault(); closePN(); } e.stopPropagation(); return; }   // Spiele bekommen keine Tasten, solange Patchnotes offen sind
+    var t = e.target.closest && e.target.closest("span[data-pn]");
+    if (t && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); e.stopPropagation(); openPN(t.getAttribute("data-pn")); }
+  }, true);
 
   // ---------- Bewertung (1 bis 5 Sterne) und Aufrufzähler über den Zähldienst Abacus ----------
   // Pro Anwendung: <id>-views und <id>-r1 … <id>-r5. Ein Aufruf zählt einmal pro Seitenbesuch und Anwendung.
@@ -365,7 +482,8 @@ button.navbtn{background:transparent;cursor:pointer;border-color:var(--ink)}
   }, true);
 
   function render() {
-    var oldf = document.querySelector(".rate.float"); if (oldf) oldf.remove();
+    var oldf = document.querySelector(".fbar"); if (oldf) oldf.remove();
+    closePN();
     rateTok++;
     if (window.Flughafen) window.Flughafen.unmount();
     if (window.Gigachess) window.Gigachess.unmount();
@@ -380,8 +498,8 @@ button.navbtn{background:transparent;cursor:pointer;border-color:var(--ink)}
     var v = S.view;
     if (v === "flughafen" || v === "gigachess" || v === "colorspin" || v === "pixellab" || v === "ezcrop" || v === "framepaint" || v === "drawspace" || v === "channels" || v === "noaim" || v === "weltmacht") {
       var full = FULL.indexOf(v) >= 0;
-      app.innerHTML = '<div class="appbar"><a class="back" href="#">' + U("back") + '</a>' + (full ? "" : '<div class="rate" id="rate" hidden></div>') + '</div><div id="approot"></div>';
-      if (full) { var d = document.createElement("div"); d.className = "rate float"; d.id = "rate"; d.hidden = true; document.body.appendChild(d); }
+      app.innerHTML = '<div class="appbar"><a class="back" href="#">' + U("back") + '</a>' + (full ? "" : '<div class="abr">' + pnButton(v) + '<div class="rate" id="rate" hidden></div></div>') + '</div><div id="approot"></div>';
+      if (full) { var d = document.createElement("div"); d.className = "fbar"; d.innerHTML = pnButton(v) + '<div class="rate" id="rate" hidden></div>'; document.body.appendChild(d); }
       var mod = { flughafen: window.Flughafen, gigachess: window.Gigachess, colorspin: window.Colorspin, pixellab: window.Pixellab, ezcrop: window.EzCrop, framepaint: window.FramePainter, drawspace: window.DrawSpace, channels: window.Channels, noaim: window.NoAim, weltmacht: window.Weltmacht }[v];
       if (mod) mod.mount(document.getElementById("approot"), S.lang);
       loadRating(v);
