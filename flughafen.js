@@ -5,7 +5,7 @@
   "use strict";
 
   var KEY = "flughafen-v3";
-  var VERSION = "0.52";
+  var VERSION = "0.55";
   var RW_W = 22, TW_W = 14, RD_W = 16, SL_W = 9;
   var DIVERT = 60;
   var SIZE = { stand: [64, 66], term: [124, 46], tower: [30, 30], fire: [52, 38], hangar: [84, 62], deck: [72, 38], park: [72, 48], bus: [44, 22], cab: [62, 22], hotel: [76, 46], tank: [44, 44] };
@@ -82,7 +82,10 @@
     owPk: L2("Einbahn mit Parkstreifen", "One-way with parking"), owSl: L2("Einbahn einspurig", "One-way single lane"),
     cvTool: L2("Kurve (Taste C)", "Curve (key C)"), cvOn: L2("Kurve an", "Curve on"),
     vegName: L2("Vegetation", "Vegetation"),
-    owBus: L2("Einbahn mit Busspur", "One-way with bus lane"), fuel: L2("Kerosin", "Fuel"),
+    owBus: L2("Einbahn mit Busspur", "One-way with bus lane"), fuel: L2("Kerosin", "Fuel"), fprice: L2("Kerosinpreis", "Fuel price"),
+    fpTitle: L2("Kerosinpreis", "Fuel price"), fpUnit: L2("je Einheit", "per unit"), fpOpen: L2("Preisverlauf öffnen", "Open price chart"),
+    fpSell: L2("Verkauf an Airlines", "Sold to airlines"), fpFill: L2("Volltanken jetzt", "Full refill now"), fpRange: L2("Letzte 15 Minuten", "Last 15 minutes"),
+    fpNoTank: L2("Noch kein Kerosintank gebaut", "No fuel tank built yet"), fpLo: L2("Tief", "Low"), fpHi: L2("Hoch", "High"),
     fuelFill: L2("Auffüllen", "Refill"), fuelFull: L2("Tanks sind voll", "Tanks are full"), fuelEmpty: L2("Kein Kerosin mehr: Flugzeuge tanken woanders. Tanks auffüllen!", "Out of fuel: aircraft refuel elsewhere. Refill the tanks!"),
     fuelInfo: L2("Lager des Flughafens: {p} %", "Airport stock: {p} %"), fuelBought: L2("Kerosin gekauft", "Fuel bought"), fuelSold: L2("Kerosin", "Fuel"),
     fuelHint: L2("Klick füllt alle Tanks auf", "Click to refill all tanks"),
@@ -135,7 +138,7 @@
 
   function fresh() {
     var g = { v: 3, v4: 1, eco: 1, money: 25000000, rep: 50, nid: 1, mods: [],
-      up: { rwy: 0, ils: 0, gh: 0, ext: 0 }, st: { moves: 0, pax: 0, earned: 0, div: 0 }, veg: [], pave: {}, fuel: 0 };
+      up: { rwy: 0, ils: 0, gh: 0, ext: 0 }, st: { moves: 0, pax: 0, earned: 0, div: 0 }, veg: [], pave: {}, fuel: 0, fpt: 0, fps: Math.random() * 1000 };
     addHighway(g, 430);
     return g;
   }
@@ -162,7 +165,7 @@
           addHighway(s, y1 + 300, xa, xb);
           s.legacyRoads = true;
         }
-        if (!s.veg) s.veg = []; if (!s.pave) s.pave = {}; if (s.fuel === undefined) s.fuel = 0;
+        if (!s.veg) s.veg = []; if (!s.pave) s.pave = {}; if (s.fuel === undefined) s.fuel = 0; if (!s.fpt) s.fpt = 0; if (s.fps === undefined) s.fps = Math.random() * 1000;
         return s;
       }
     } catch (e) {}
@@ -897,11 +900,21 @@
   var FUEL = { p: 1, n: 3, w: 8 }, TANKCAP = 300, FUELBUY = 3500, FUELSELL = 5600;
   function fuelCap() { return mods("tank").length * TANKCAP; }
   function fuelPct() { var c = fuelCap(); return c ? Math.max(0, Math.min(100, G.fuel / c * 100)) : 0; }
+  // Kerosinpreis: Grundwelle (Periode 13 min, leicht verzerrt) garantiert in jedem 15-Minuten-Fenster
+  // ein Hoch und ein Tief, Rauschen lässt ihn dazwischen schwanken. Zeit läuft in Echtzeit (G.fpt).
+  function fpHash(i) { var v = Math.sin(i * 127.1 + G.fps * 3.17) * 43758.5453; return v - Math.floor(v); }
+  function fpNoise(x) { var i = Math.floor(x), f = x - i; f = f * f * (3 - 2 * f); return fpHash(i) + (fpHash(i + 1) - fpHash(i)) * f; }
+  function fuelPriceAt(tt) {
+    var u = Math.PI * 2 * (tt / 780) + 0.4 * Math.sin(Math.PI * 2 * tt / 2700 + G.fps) + G.fps;
+    var n = (fpNoise(tt / 40) - 0.5) * 1.3 + (fpNoise(tt / 11 + 50) - 0.5) * 0.7;
+    return Math.round(FUELBUY * (1 + 0.42 * Math.sin(u) + 0.14 * n) / 10) * 10;
+  }
+  function fuelPrice() { return fuelPriceAt(Math.floor(G.fpt || 0)); }
   function fillFuel() {
     var cap = fuelCap(); if (!cap) return;
     var miss = cap - G.fuel; if (miss < 0.5) { msg(t("fuelFull")); return; }
-    var buy = Math.min(miss, Math.floor(G.money / FUELBUY)); if (buy <= 0) { msg(t("poor")); return; }
-    G.fuel += buy; G.money -= buy * FUELBUY; save(); msg(t("fuelBought") + " · " + eurS(buy * FUELBUY), true); updatePanel(true); updateSel();
+    var pr = fuelPrice(), buy = Math.min(miss, Math.floor(G.money / pr)); if (buy <= 0) { msg(t("poor")); return; }
+    G.fuel += buy; G.money -= buy * pr; save(); msg(t("fuelBought") + " · " + eurS(buy * pr), true); updatePanel(true); updateSel(); fpDraw(true);
   }
   function refuel(p) {
     if (!mods("tank").length) return;
@@ -2266,6 +2279,17 @@
     ".fh-title b{font:600 1.15rem/1.1 var(--f-display,inherit);white-space:nowrap}.fh-title b span{font:600 .7rem var(--f-body,inherit);border:1px solid rgba(244,241,236,.35);padding:0 6px;margin-left:8px;vertical-align:middle}" +
     ".fh-title small{color:#E3B83F;font-weight:600;font-size:.8rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}" +
     ".fh-hud{display:flex;gap:4px 18px;margin:0;flex-wrap:wrap}.fh-hud div{display:flex;flex-direction:column;min-width:0}" +
+    ".fh-hud [data-fhfp]{cursor:pointer}.fh-hud [data-fhfp] dd::after{content:'';display:inline-block;width:13px;height:10px;margin-left:6px;vertical-align:1px;background:linear-gradient(currentColor,currentColor) 0 100%/3px 40% no-repeat,linear-gradient(currentColor,currentColor) 5px 100%/3px 100% no-repeat,linear-gradient(currentColor,currentColor) 10px 100%/3px 65% no-repeat;opacity:.8}" +
+    ".fh-hud [data-fhfp]:hover dd{color:#E3B83F}.fh-hud .up dd{color:#E58A73}.fh-hud .down dd{color:#8FC79A}" +
+    ".fh-fp{position:absolute;left:50%;transform:translateX(-50%);top:calc(var(--top) + 10px);width:min(460px,calc(100% - 24px));padding:12px 14px}" +
+    ".fh-fp .hd{display:flex;justify-content:space-between;align-items:center}.fh-fp .hd b{font-weight:600}" +
+    ".fh-fp .hd button{font:600 1.1rem inherit;width:28px;height:28px;border:1px solid rgba(244,241,236,.35);background:transparent;color:#F4F1EC;cursor:pointer}" +
+    ".fh-fp .now{display:flex;align-items:baseline;gap:8px;margin:6px 0 8px}.fh-fp .now span{font:600 1.6rem/1 var(--f-display,inherit);font-variant-numeric:tabular-nums}" +
+    ".fh-fp .now small{color:rgba(244,241,236,.6);font-size:.8rem}.fh-fp .now em{font-style:normal;font-size:.85rem;font-variant-numeric:tabular-nums;margin-left:auto}" +
+    ".fh-full .fh-fp canvas{position:static;inset:auto;display:block;width:100%;height:auto;aspect-ratio:840/300;background:rgba(0,0,0,.25)}" +
+    ".fh-fp .ax{display:flex;justify-content:space-between;font-size:.7rem;color:rgba(244,241,236,.55);margin-top:3px}" +
+    ".fh-fp p{margin:8px 0 0;color:rgba(244,241,236,.8);font-size:.84rem;line-height:1.45}" +
+    ".fh-fp .acts{margin-top:8px}.fh-fp .acts button{font:600 .8rem inherit;padding:6px 10px;border:1px solid rgba(244,241,236,.5);background:transparent;color:#F4F1EC;cursor:pointer}.fh-fp .acts button[aria-disabled=true]{opacity:.45;cursor:default}" +
     ".fh-hud [data-fuel]{cursor:pointer}.fh-hud [data-fuel]:hover dd{text-decoration:underline}" +
     ".fh-hud dt{font-size:.7rem;color:rgba(244,241,236,.65);letter-spacing:.04em;text-transform:uppercase}" +
     ".fh-hud dd{margin:0;font:600 1.05rem/1.2 var(--f-display,inherit);font-variant-numeric:tabular-nums;white-space:nowrap}.fh-hud .warn dd{color:#F0A848}" +
@@ -2309,7 +2333,7 @@
   }
   var GRPS = ["air", "term", "land", "ops", "up"];
   function html() {
-    function st(id) { return '<div id="fh-w-' + id + '"' + (id === "fuel" ? ' data-fuel role="button" tabindex="0" title="' + t("fuelHint") + '"' : "") + '><dt>' + t(id) + '</dt><dd id="fh-' + id + '"></dd></div>'; }
+    function st(id) { return '<div id="fh-w-' + id + '"' + (id === "fuel" ? ' data-fuel role="button" tabindex="0" title="' + t("fuelHint") + '"' : id === "fprice" ? ' data-fhfp role="button" tabindex="0" title="' + t("fpOpen") + '"' : "") + '><dt>' + t(id) + '</dt><dd id="fh-' + id + '"></dd></div>'; }
     var tabs = GRPS.map(function (g) { return '<button type="button" class="fh-tab" role="tab" data-tab="' + g + '" aria-selected="false">' + TX.grp[g][lang] + "</button>"; }).join("");
     var groups = ["air", "term", "land", "ops"].map(function (g) {
       return '<div class="fh-tools fh-grp" data-grp="' + g + '">' + BUILD.filter(function (b) { return b.g === g; }).map(function (b) {
@@ -2322,11 +2346,15 @@
     return '<div class="fh-full" id="fh-stage" tabindex="0" aria-label="' + t("title") + '"><canvas id="fh-cv"></canvas>' +
       '<div class="fh-top fh-panel" id="fh-top"><a class="fh-back" href="#">' + (lang === "de" ? "← Apps" : "← Apps") + '</a>' +
       '<div class="fh-title"><b>' + t("title") + "<span>v" + VERSION + '</span></b><small id="fh-rank"></small></div>' +
-      '<dl class="fh-hud">' + st("money") + st("fuel") + st("rep") + st("moves") + st("pax") + st("hold") + "</dl>" +
+      '<dl class="fh-hud">' + st("money") + st("fuel") + st("fprice") + st("rep") + st("moves") + st("pax") + st("hold") + "</dl>" +
       '<div class="fh-run" role="group" aria-label="' + t("speed") + '">' + [1, 2, 4].map(function (v) { return '<button type="button" data-fhspeed="' + v + '" aria-pressed="false">' + v + "×</button>"; }).join("") +
       '<button type="button" data-fhpause aria-pressed="false"></button><button type="button" data-fhhelp aria-pressed="false" title="' + t("howH") + '">?</button></div></div>' +
       '<div class="fh-hint"><span id="fh-hint"></span></div>' +
       '<div class="fh-sel fh-panel" id="fh-sel" hidden></div>' +
+      '<div class="fh-fp fh-panel" id="fh-fp" hidden><div class="hd"><b>' + t("fpTitle") + '</b><button type="button" data-fhfp aria-label="' + (lang === "de" ? "Schließen" : "Close") + '">×</button></div>' +
+      '<div class="now"><span id="fh-fp-now"></span><small>' + t("fpUnit") + '</small><em id="fh-fp-d"></em></div>' +
+      '<canvas id="fh-fp-cv" width="840" height="300"></canvas><div class="ax"><span>−15 min</span><span>' + t("fpRange") + '</span><span>' + (lang === "de" ? "jetzt" : "now") + '</span></div>' +
+      '<p id="fh-fp-info"></p><div class="acts"><button type="button" data-fhfpfill></button></div></div>' +
       '<div class="fh-ctl"><button type="button" data-ow hidden title="' + t("owTool") + '" aria-label="' + t("owTool") + '">⇄</button>' +
       '<button type="button" data-cv hidden title="' + t("cvTool") + '" aria-label="' + t("cvTool") + '">◠</button>' +
       '<button type="button" class="rot" data-rot="-1" title="' + t("rotL") + '" aria-label="' + t("rotL") + '">⟲</button>' +
@@ -2360,6 +2388,8 @@
     set("fh-money", eurS(G.money)); set("fh-rep", Math.round(G.rep) + " %");
     set("fh-moves", G.st.moves.toLocaleString(loc())); set("fh-pax", G.st.pax.toLocaleString(loc()));
     set("fh-hold", String(R.holdQ.length));
+    var pw = document.getElementById("fh-w-fprice");
+    if (pw) { var pn = fuelPrice(), p60 = fuelPriceAt(Math.floor(G.fpt || 0) - 60); set("fh-fprice", eur(pn)); pw.classList.toggle("up", pn > p60 * 1.02); pw.classList.toggle("down", pn < p60 * 0.98); }
     var fw = document.getElementById("fh-w-fuel");
     if (fw) { var tk = mods("tank").length; fw.hidden = !tk; if (tk) { var fp = fuelPct(); set("fh-fuel", Math.round(fp) + " %"); fw.classList.toggle("warn", fp < 20); } }
     set("fh-rank", "SOY · " + clockTxt() + " · " + rank() + (s.stands ? " · " + fmt(t("conn"), { a: s.conn, b: s.stands }) : ""));
@@ -2421,7 +2451,7 @@
     } else if (m.t === "tank") {
       info.push(fmt(t("fuelInfo"), { p: Math.round(fuelPct()) }));
       var miss = Math.max(0, fuelCap() - G.fuel);
-      acts.push(btn("fuel", t("fuelFill") + " · " + eurS(miss * FUELBUY), miss < 0.5));
+      acts.push(btn("fuel", t("fuelFill") + " · " + eurS(miss * fuelPrice()), miss < 0.5));
     } else if (m.t === "term" || m.t === "park" || m.t === "bus" || m.t === "cab" || m.t === "hotel") {
       if (m.t === "hotel") info.push(fmt(t("hotelInfo"), { n: hotelGuests(m), k: HOTELCAP }));
       if (m.t === "term") {
@@ -2469,6 +2499,8 @@
   }
 
   function onClick(e) {
+    if (e.target.closest("[data-fhfp]")) { var fb = V.root.querySelector("#fh-fp"); fb.hidden = !fb.hidden; fpDraw(true); return; }
+    if (e.target.closest("[data-fhfpfill]")) { if (e.target.closest("[data-fhfpfill]").getAttribute("aria-disabled") !== "true") fillFuel(); return; }
     if (e.target.closest("[data-fuel]")) { fillFuel(); return; }
     var tab = e.target.closest("[data-tab]");
     if (tab) { setTab(tab.getAttribute("data-tab")); return; }
@@ -2545,6 +2577,7 @@
     raf = requestAnimationFrame(frame);
     var dt = Math.min(0.1, (now - (last || now)) / 1000); last = now;
     keysTick(dt);
+    if (!R.paused) { G.fpt = (G.fpt || 0) + dt; fpDraw(); }
     if (!R.paused) { var g = dt * R.speed; while (g > 0) { var d = Math.min(0.05, g); tick(d); g -= d; } }
     if (R.msgT > 0) { R.msgT -= dt; if (R.msgT <= 0) msg(""); }
     R.saveT += dt; if (R.saveT > 4) { R.saveT = 0; save(); }
@@ -2552,6 +2585,33 @@
     draw();
   }
 
+  // Preisverlauf: nur gezeichnet, wenn das Fenster offen ist, und dann einmal pro Sekunde
+  var fpLast = -1;
+  function fpDraw(force) {
+    if (!V) return;
+    var box = V.root.querySelector("#fh-fp"); if (!box || box.hidden) return;
+    var sec = Math.floor(G.fpt || 0); if (!force && sec === fpLast) return; fpLast = sec;
+    var cv = box.querySelector("#fh-fp-cv"), c = cv.getContext("2d"), W = cv.width, H = cv.height, N = 900, pts = [], lo = Infinity, hi = -Infinity;
+    for (var k = 0; k <= N; k++) { var v = fuelPriceAt(sec - N + k); pts.push(v); if (v < lo) lo = v; if (v > hi) hi = v; }
+    var ymin = Math.min(lo, FUELSELL) * 0.92, ymax = Math.max(hi, FUELSELL) * 1.04, padL = 4, padR = 4;
+    function Y(v) { return H - 14 - (v - ymin) / (ymax - ymin) * (H - 28); }
+    function X(k) { return padL + k / N * (W - padL - padR); }
+    c.clearRect(0, 0, W, H);
+    c.strokeStyle = "rgba(244,241,236,.08)"; c.lineWidth = 1;
+    for (var gx = 0; gx <= 15; gx++) { var xx = Math.round(X(gx * 60)) + 0.5; c.beginPath(); c.moveTo(xx, 0); c.lineTo(xx, H); c.stroke(); }
+    c.setLineDash([8, 6]); c.strokeStyle = "rgba(244,241,236,.55)"; c.beginPath(); c.moveTo(0, Y(FUELSELL)); c.lineTo(W, Y(FUELSELL)); c.stroke(); c.setLineDash([]);
+    c.beginPath(); c.moveTo(X(0), H); for (k = 0; k <= N; k++) c.lineTo(X(k), Y(pts[k])); c.lineTo(X(N), H); c.closePath(); c.fillStyle = "rgba(227,184,63,.14)"; c.fill();
+    c.beginPath(); for (k = 0; k <= N; k++) { if (k) c.lineTo(X(k), Y(pts[k])); else c.moveTo(X(k), Y(pts[k])); } c.strokeStyle = "#E3B83F"; c.lineWidth = 3; c.stroke();
+    var iH = pts.indexOf(hi), iL = pts.indexOf(lo); c.font = "600 19px " + FONT;
+    [[iH, hi, t("fpHi"), -10], [iL, lo, t("fpLo"), 24]].forEach(function (q) { var x = X(q[0]); c.fillStyle = "#F4F1EC"; c.fillRect(x - 4, Y(q[1]) - 4, 8, 8); c.textAlign = x > W * 0.75 ? "right" : x < W * 0.25 ? "left" : "center"; c.fillText(q[2] + " " + eur(q[1]), x, Y(q[1]) + q[3]); });
+    c.fillStyle = "#E3B83F"; c.fillRect(X(N) - 6, Y(pts[N]) - 6, 12, 12);
+    var now = pts[N], d = now - fuelPriceAt(sec - 60), de = document.getElementById("fh-fp-d");
+    set("fh-fp-now", eur(now));
+    de.textContent = (d > 0 ? "▲ +" : d < 0 ? "▼ −" : "± ") + eur(Math.abs(d)) + " / min"; de.style.color = d > 0 ? "#E58A73" : d < 0 ? "#8FC79A" : "";
+    var cap = fuelCap(), miss = Math.max(0, cap - G.fuel), fb = box.querySelector("[data-fhfpfill]");
+    set("fh-fp-info", t("fpSell") + " (- - -): " + eur(FUELSELL) + " · " + (cap ? t("fuel") + " " + Math.round(fuelPct()) + " %" : t("fpNoTank")));
+    fb.hidden = !cap; fb.textContent = t("fuelFill") + " · " + eurS(miss * now); fb.setAttribute("aria-disabled", String(miss < 0.5));
+  }
   function fitView() {
     var x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
     var ms = G.mods.filter(function (m) { return !m.hw; });
