@@ -5,7 +5,7 @@
   "use strict";
 
   var KEY = "flughafen-v3";
-  var VERSION = "0.62";
+  var VERSION = "0.65";
   var RW_W = 22, TW_W = 14, RD_W = 16, SL_W = 9;
   var DIVERT = 60;
   var SIZE = { stand: [64, 66], term: [124, 46], tower: [30, 30], fire: [52, 38], hangar: [84, 62], deck: [72, 38], park: [72, 48], bus: [44, 22], cab: [62, 22], hotels: [50, 34], hotel: [70, 44], hotell: [96, 74], tank: [44, 44] };
@@ -106,6 +106,13 @@
     smBuyD: L2("Kauf: {n} Aktien zu je {p}", "Buying {n} shares at {p} each"), smSellD: L2("Verkauf: {n} Aktien zu je {p}", "Selling {n} shares at {p} each"),
     smFee: L2("Verkauf zum Kurs abzüglich 1 %", "Sales pay the price minus 1%"), smShares: L2("{n} Stk.", "{n} sh."), smDone: L2("Aktien verkauft", "Shares sold"), smBought: L2("Aktien gekauft", "Shares bought"),
     smHint: L2("Airlines leiden unter hohem Ölpreis, Ölfirmen profitieren davon.", "Airlines suffer from high oil prices, oil companies profit from them."),
+    storm: L2("Unwetter", "Severe storm"), stormOn: L2("Unwetter zieht auf: Starts sind ausgesetzt, bis es vorbei ist.", "A severe storm is coming: take-offs are suspended until it passes."),
+    stormOff: L2("Das Unwetter ist abgezogen, Starts sind wieder frei.", "The storm has passed, take-offs are cleared again."), stormBan: L2("UNWETTER · Starts ausgesetzt", "SEVERE STORM · take-offs suspended"),
+    crash: L2("Absturz! {cs} ist verunglückt. Flugbetrieb eingestellt, bis das Wrack geräumt ist.", "Crash! {cs} has crashed. Flight operations suspended until the wreck is cleared."),
+    wreck: L2("Wrack", "Wreck"), wreckInfo: L2("{cs} · Flugbetrieb eingestellt", "{cs} · flight operations suspended"), wreckClear: L2("Wrack räumen", "Clear wreck"),
+    wreckBusy: L2("Räumung läuft · noch {s}", "Clearing in progress · {s} left"), wreckDone: L2("Absturzstelle geräumt und sicher. Flugbetrieb läuft wieder.", "Crash site cleared and safe. Flight operations resume."),
+    wreckBan: L2("ABSTURZ · Flugbetrieb eingestellt", "CRASH · flight operations suspended"), wreckBan2: L2("RÄUMUNG · noch {s}", "CLEARING · {s} left"), wreckHint: L2("Auf das Wrack klicken und räumen", "Click the wreck and clear it"),
+    crashMk: L2("Absturz", "Crash"),
     trBuy: L2("Kaufen", "Buy"), trSell: L2("Verkaufen", "Sell"), trMove: L2("Regler verschieben zum Handeln", "Move the slider to trade"),
     trBuyD: L2("Einkauf am Markt: {a} → {b}", "Buying on the market: {a} → {b}"), trSellD: L2("Rückverkauf an den Markt: {a} → {b}", "Selling back to the market: {a} → {b}"),
     trNow: L2("Füllstand jetzt {p}", "Fill level now {p}"), trPoor: L2("Nicht genug Geld", "Not enough money"),
@@ -786,7 +793,7 @@
     return r < w.p ? "p" : r < w.p + w.n ? "n" : "w";
   }
   function spawn() {
-    if (R.holdQ.length >= 6 || !stats().conn || fuelOut()) return;   // ohne Kerosin ist der Flugbetrieb eingestellt
+    if (R.holdQ.length >= 6 || !stats().conn || fuelOut() || opsBlocked()) return;   // ohne Kerosin ist der Flugbetrieb eingestellt
     var a = Math.random() < 0.35 ? CARRIERS[Math.floor(Math.random() * CARRIERS.length)] : AIRLINES[Math.floor(Math.random() * AIRLINES.length)];
     var p = { id: ++R.id, type: pickType(), al: a, cs: a.c + (100 + Math.floor(Math.random() * 900)),
       x: 0, y: 0, h: 0, alt: 0.8, ang: Math.random() * 6, wait: 0, fade: 0, state: "hold", path: null, pi: 0 };
@@ -877,7 +884,7 @@
     for (var i = 1; i < pa.length; i++) pts.push({ x: pa[i].x, y: pa[i].y, s: i === pa.length - 1 ? 8 : i === pa.length - 2 ? 14 : 40 });
     p.path = pts; p.pi = 0; p.onEnd = park;
   }
-  function touchdown(p) { earn(TYPES[p.type].rev * 0.4 * p.paxIn / p.cap * (p.revF || 1), p.x, p.y, "", "fly"); movement(); }
+  function touchdown(p) { if (Math.random() < CRASHP) { crash(p); return; } earn(TYPES[p.type].rev * 0.4 * p.paxIn / p.cap * (p.revF || 1), p.x, p.y, "", "fly"); movement(); }
   function movement() {
     G.st.moves++;
     if (one("deck")) {
@@ -1005,7 +1012,12 @@
   function stockAt(q, tt) {
     var k = 20 + STOCKS.indexOf(q) * 6, oil = fuelPriceAt(tt) / FUELBUY - 1;
     var ln = q.vol * (1.1 * fpN(tt / 5200, k) + 0.9 * fpN(tt / 620, k + 1) + 0.5 * fpN(tt / 140, k + 2) + 0.25 * fpN(tt / 33, k + 3) + 0.1 * fpN(tt / 8, k + 4)) + q.beta * 0.55 * oil;
-    return Math.round(q.base * Math.exp(ln) * 100) / 100;
+    (G.scrash || []).forEach(function (c) {   // Absturz: Kurs fällt binnen Sekunden auf den Tiefstand, Erholung dauert lange
+      if (c.s !== q.id || tt < c.t) return;
+      var a = tt - c.t, f = a < 25 ? a / 25 : a < 180 ? 1 : Math.exp(-(a - 180) / 1500);
+      ln -= c.d * f;
+    });
+    return Math.max(0.5, Math.round(q.base * Math.exp(ln) * 100) / 100);
   }
   function stockNow(q) { return stockAt(q, Math.floor(G.fpt || 0)); }
   function eur2(v) { var n = v.toLocaleString(loc(), { minimumFractionDigits: 2, maximumFractionDigits: 2 }); return lang === "de" ? n + " €" : "€" + n; }
@@ -1442,6 +1454,7 @@
     pts.push({ x: j.x, y: j.y, s: 14 });
     p.soon = false;
     pts.push({ x: l1.x, y: l1.y, s: 90, ev: function () {
+      if (Math.random() < CRASHP) { crash(p); return; }
       p.soon = true;
       earn(TYPES[p.type].rev * 0.4 * p.depLF * (p.revF || 1), p.x, p.y); movement();
       var h = one("hangar");
@@ -1457,12 +1470,12 @@
 
   function schedule() {
     var rws = mods("runway");
-    if (!rws.length) return;
-    var r0 = rwState(rws[0]);
+    if (!rws.length || opsBlocked()) return;   // Absturz: nichts startet, nichts landet
+    var r0 = rwState(rws[0]), storm = stormOn();
     // Abflüge je Piste
     rws.forEach(function (rw) {
       var q = R.q[rw.id];
-      if (!q || !q.length) return;
+      if (!q || !q.length || storm) return;   // bei Unwetter warten die Abflüge am Rollhalt
       var r = rwState(rw), p = q[0];
       if (p.path || !rwSoon(r)) return;
       if (rws.length === 1 && r.last === "d" && arrivalPossible()) return;
@@ -1550,8 +1563,46 @@
     }
   }
 
+  // ---------- Unwetter und Abstürze ----------
+  // Spielzeit G.gt läuft mit (gespeichert). Unwetter alle 7–14 Spieltage, Dauer ein Fünftel bis ein ganzer Tag.
+  function stormPlan() {
+    var gt = G.gt || 0;
+    if (!G.storm || gt >= G.storm.e) G.storm = { s: gt + (7 + Math.random() * 7) * DAY, e: 0 };
+    if (!G.storm.e) G.storm.e = G.storm.s + DAY * (0.2 + Math.random() * 0.8);
+  }
+  function stormK() {   // 0 … 1, mit Ein- und Ausblenden
+    var st = G.storm, gt = G.gt || 0; if (!st || gt < st.s || gt >= st.e) return 0;
+    return Math.min(1, (gt - st.s) / 12, (st.e - gt) / 12);
+  }
+  function stormOn() { var st = G.storm, gt = G.gt || 0; return !!st && gt >= st.s && gt < st.e; }
+  var CRASHP = 1 / 2048, WRECKCOST = { p: 1000000, n: 2500000, w: 4500000 }, CLEART = 120;
+  function crash(p) {
+    var cs = p.cs, al = p.al;
+    G.wreck = { x: p.x, y: p.y, h: p.h, k: p.type, cs: cs, col: al.col, n: al.n || "", cost: WRECKCOST[p.type] || 2500000, clr: 0 };
+    // Flugzeug entfernen, Piste und Position freigeben
+    mods("runway").forEach(function (rw) { var r = rwState(rw); if (r.busy === p) release(r); if (r.next === p) r.next = null; });
+    Object.keys(R.occ).forEach(function (k) { if (R.occ[k] === p) R.occ[k] = null; });
+    Object.keys(R.q).forEach(function (k) { var q = R.q[k], i = q.indexOf(p); if (i >= 0) q.splice(i, 1); });
+    var i = R.planes.indexOf(p); if (i >= 0) R.planes.splice(i, 1);
+    R.apron = R.apron.filter(function (j) { return j.p !== p; });
+    G.rep = Math.max(0, G.rep - 15);
+    if (al.n) (G.scrash || (G.scrash = [])).push({ s: al.id, t: Math.floor(G.fpt || 0), d: 0.85 + Math.random() * 0.35 });
+    msg(fmt(t("crash"), { cs: (al.n ? al.n + " " : "") + cs }));
+    V.sel = "wreck"; updateSel(); save();
+  }
+  function opsBlocked() { return !!G.wreck; }
+  function wreckTick(dtReal) {
+    var w = G.wreck; if (!w || !w.clr) return;
+    w.clr -= dtReal;
+    if (w.clr <= 0) { G.wreck = null; msg(t("wreckDone"), true); if (V.sel === "wreck") V.sel = null; updateSel(); save(); }
+    else if (V.sel === "wreck") { var el = document.getElementById("fh-wreck-t"); if (el) el.textContent = fmt(t("wreckBusy"), { s: mmss(w.clr) }); }
+  }
+  function earnFx(w) { R.fx.push({ x: w.x, y: w.y - 10, t: 0, txt: "−" + eur(w.cost), col: "#F2A08E" }); }
+  function mmss(sec) { sec = Math.max(0, Math.ceil(sec)); return Math.floor(sec / 60) + ":" + ("0" + sec % 60).slice(-2); }
   function tick(dt) {
     R.clock += dt;
+    G.gt = (G.gt || 0) + dt; stormPlan();
+    var so = stormOn(); if (R.stormWas === undefined) R.stormWas = so; else if (so !== R.stormWas) { R.stormWas = so; msg(t(so ? "stormOn" : "stormOff"), !so); }
     shopTick(dt);
     Object.keys(R.rw).forEach(function (k) { var r = R.rw[k]; if (!r.busy && r.cool > 0) r.cool -= dt; });
     R.spawnT -= dt;
@@ -1784,6 +1835,21 @@
       c.restore();
       return true;
     });
+    // Wrack mit Rauch und Feuer
+    if (G.wreck) {
+      var wk = G.wreck, WT = TYPES[wk.k];
+      c.save(); c.translate(wk.x, wk.y); c.rotate(wk.h + 0.5);
+      c.fillStyle = "rgba(20,16,12,.35)"; c.beginPath(); c.ellipse(0, 0, WT.len * 0.75, WT.span * 0.45, 0, 0, Math.PI * 2); c.fill();
+      shape(c, WT, "#3A3A3A", null);
+      c.fillStyle = "#2A2624"; c.fillRect(-WT.len * 0.1, -WT.span * 0.08, WT.len * 0.3, WT.span * 0.16);
+      c.restore();
+      if (!wk.clr || wk.clr > 20) for (var fi = 0; fi < 7; fi++) {   // Rauchwolken ziehen nach rechts oben ab
+        var ph = (R.clock * 0.35 + fi / 7) % 1, smR = 4 + ph * 16;
+        c.fillStyle = "rgba(60,58,56," + (0.45 * (1 - ph)) + ")"; c.beginPath(); c.arc(wk.x + ph * 40 + Math.sin(fi * 2.3) * 5, wk.y - ph * 55, smR, 0, Math.PI * 2); c.fill();
+      }
+      if (!wk.clr) { c.fillStyle = "rgba(255,140,40," + (0.55 + 0.25 * Math.sin(R.clock * 13)) + ")"; c.beginPath(); c.arc(wk.x, wk.y, 4 + Math.sin(R.clock * 9) * 1.2, 0, Math.PI * 2); c.fill(); }
+      if (V.sel === "wreck") outline(c, { x: wk.x, y: wk.y, a: 0, hw: WT.len * 0.6, hh: WT.span * 0.6 }, "#C2412D", 2 / z);
+    }
     // 5. Flugzeuge
     R.planes.slice().sort(function (a, b) { return (a.alt || 0) - (b.alt || 0); }).forEach(function (p) { plane(c, p); });
     nightPass(c, z, x0, y0, x1, y1, W, H, dpr);
@@ -1797,12 +1863,47 @@
       c.globalAlpha = a; c.lineWidth = 3; c.strokeStyle = "rgba(20,22,20,.8)"; c.strokeText(f.txt, f.x, y);
       c.fillStyle = f.col || "#FFE7B8"; c.fillText(f.txt, f.x, y); c.globalAlpha = 1;
     });
+    weatherPass(c, W, H, dpr);
     if (!mods("runway").length) {
       c.fillStyle = "rgba(60,70,50,.55)"; c.font = "600 " + (26 / z) + "px " + FONT;
       c.fillText(lang === "de" ? "Hier entsteht dein Flughafen" : "Your airport starts here", V.cam.x, V.cam.y);
     }
   }
 
+  // Unwetter (Regen, Blitze, Abdunklung) und Banner für Sperren, in Bildschirmkoordinaten
+  function weatherPass(c, W, H, dpr) {
+    var k = stormK(), w = G.wreck;
+    if (!k && !w) return;
+    c.save(); c.setTransform(dpr, 0, 0, dpr, 0, 0);
+    if (k) {
+      c.fillStyle = "rgba(28,34,46," + (0.38 * k) + ")"; c.fillRect(0, 0, W, H);
+      var tm = R.clock, n = Math.round(260 * k);
+      c.strokeStyle = "rgba(200,215,235,.38)"; c.lineWidth = 1; c.beginPath();
+      for (var i = 0; i < n; i++) {
+        var hx = (Math.sin(i * 12.9898) * 43758.5453) % 1, hy = (Math.sin(i * 78.233) * 12543.21) % 1; hx = Math.abs(hx); hy = Math.abs(hy);
+        var x = (hx * (W + 200) + tm * 120) % (W + 200) - 100, y = (hy * (H + 100) + tm * 620 * (0.8 + hx * 0.4)) % (H + 100) - 50;
+        c.moveTo(x, y); c.lineTo(x - 5, y + 16);
+      }
+      c.stroke();
+      // Blitz: alle paar Sekunden kurzer Lichtblitz mit gezackter Linie
+      var cyc = 5.3, ph = tm % cyc, seed = Math.floor(tm / cyc);
+      if (ph < 0.35 && Math.abs(Math.sin(seed * 3.7)) > 0.35) {
+        var a = (1 - ph / 0.35);
+        c.fillStyle = "rgba(235,240,255," + (0.28 * a * k) + ")"; c.fillRect(0, 0, W, H);
+        var bx = Math.abs(Math.sin(seed * 91.7)) * W, by = 0; c.strokeStyle = "rgba(255,255,255," + (0.9 * a) + ")"; c.lineWidth = 2.2; c.beginPath(); c.moveTo(bx, by);
+        for (var s2 = 1; s2 <= 9; s2++) { bx += Math.sin(seed * 13 + s2 * 7.1) * 28; by += H * 0.06; c.lineTo(bx, by); }
+        c.stroke();
+      }
+    }
+    var ban = w ? (w.clr ? fmt(t("wreckBan2"), { s: mmss(w.clr) }) : t("wreckBan")) : t("stormBan");
+    c.font = "700 13px " + FONT; c.textAlign = "center"; c.textBaseline = "middle";
+    var tp = V.root.querySelector(".fh-top"), ty = 12;
+    if (tp) { var rb = tp.getBoundingClientRect(), rs = V.stage.getBoundingClientRect(); ty = Math.max(12, rb.bottom - rs.top + 12); }
+    var bw = c.measureText(ban).width + 28; c.fillStyle = w ? "rgba(194,50,38,.95)" : "rgba(28,34,46,.92)"; c.fillRect(W / 2 - bw / 2, ty, bw, 28);
+    c.fillStyle = "#F4F1EC"; c.fillText(ban, W / 2, ty + 14.5);
+    if (w && !w.clr) { c.font = "600 11px " + FONT; c.fillStyle = "rgba(20,22,20,.85)"; c.fillRect(W / 2 - bw / 2, ty + 28, bw, 20); c.fillStyle = "rgba(244,241,236,.9)"; c.fillText(t("wreckHint"), W / 2, ty + 38.5); }
+    c.restore();
+  }
   function arrows(c, l, col, w) {
     c.fillStyle = col;
     var n = Math.max(1, Math.floor(l / 70));
@@ -2460,7 +2561,10 @@
     if (V.brush) { V.brush = null; if (V.brushed) { V.brushed = false; save(); updatePanel(true); } return; }
     if (!V.drag) return;
     var d = V.drag; V.drag = null; V.cv.style.cursor = "";
-    if (!d.moved && d.btn === 0 && !V.tool) { var m = pick(V.mouse); V.sel = m ? m.id : null; V.delArm = false; updateSel(); }
+    if (!d.moved && d.btn === 0 && !V.tool) {
+      var wk = G.wreck, onW = wk && dist(V.mouse, wk) < TYPES[wk.k].len * 0.7 + 8;
+      var m = onW ? null : pick(V.mouse); V.sel = onW ? "wreck" : m ? m.id : null; V.delArm = false; updateSel();
+    }
     if (!d.moved && d.btn === 2 && V.tool) {
       if (V.tool.kind === "route") finishRoute(false);
       else if (V.tool.kind === "line" && V.tool.end) { V.tool.end = null; updateGhost(); updateHint(); }
@@ -2715,6 +2819,13 @@
   function updateSel() { updateSel0(); trUpdate(); }
   function updateSel0() {
     var box = document.getElementById("fh-sel"); if (!box) return;
+    if (V.sel === "wreck") {
+      var w = G.wreck; if (!w) { V.sel = null; box.hidden = true; box.innerHTML = ""; return; }
+      box.hidden = false;
+      box.innerHTML = "<b>" + t("wreck") + "</b><p>" + fmt(t("wreckInfo"), { cs: (w.n ? w.n + " " : "") + w.cs }) + "</p>" +
+        (w.clr ? '<p id="fh-wreck-t">' + fmt(t("wreckBusy"), { s: mmss(w.clr) }) + "</p>" : '<div class="acts"><button type="button" data-wreck class="warn">' + t("wreckClear") + " · " + eurS(w.cost) + "</button></div>");
+      return;
+    }
     var m = V.sel && byId(V.sel);
     if (!m) { box.hidden = true; box.innerHTML = ""; return; }
     box.hidden = false;
@@ -2822,6 +2933,11 @@
       if (G.money < u.cost()) { msg(t("poor")); return; }
       G.money -= u.cost(); u.apply(); rebuild(); save(); msg(u.name[lang] + " " + t("built") + ".", true); updatePanel(true); return;
     }
+    if (e.target.closest("[data-wreck]")) {
+      var w = G.wreck; if (!w || w.clr) return;
+      G.money -= w.cost; w.clr = CLEART; earnFx(w);   // darf ins Minus gehen, sonst stünde der Flughafen für immer still
+      save(); updateSel(); updatePanel(true); return;
+    }
     var ab = e.target.closest("[data-act]");
     if (ab) {
       var m = byId(V.sel); if (!m || ab.getAttribute("aria-disabled") === "true") return;
@@ -2884,7 +3000,7 @@
     raf = requestAnimationFrame(frame);
     var dt = Math.min(0.1, (now - (last || now)) / 1000); last = now;
     keysTick(dt);
-    if (!R.paused) { G.fpt = (G.fpt || 0) + dt; fpDraw(); finDraw(); smDraw(); }
+    if (!R.paused) { G.fpt = (G.fpt || 0) + dt; fpDraw(); finDraw(); smDraw(); wreckTick(dt); }
     trT += dt; if (trT > 0.5) { trT = 0; trUpdate(); }
     if (!R.paused) { var g = dt * R.speed; while (g > 0) { var d = Math.min(0.05, g); tick(d); g -= d; } }
     if (R.msgT > 0) { R.msgT -= dt; if (R.msgT <= 0) msg(""); }
@@ -2928,6 +3044,7 @@
     c2.beginPath(); c2.moveTo(X(0), H2); for (k3 = 0; k3 <= N; k3++) c2.lineTo(X(k3), Y(pts2[k3])); c2.lineTo(X(N), H2); c2.closePath(); c2.fillStyle = q.col + "22"; c2.fill();
     c2.beginPath(); for (k3 = 0; k3 <= N; k3++) { if (k3) c2.lineTo(X(k3), Y(pts2[k3])); else c2.moveTo(X(k3), Y(pts2[k3])); } c2.strokeStyle = q.k === "oil" && q.col === "#2C2F33" ? "#C9CED4" : q.col; c2.lineWidth = 3; c2.stroke();
     (G.strades || []).forEach(function (m) { if (m.s !== q.id) return; var kk = m.t - (sec - N); if (kk < 0 || kk > N) return; c2.beginPath(); c2.arc(X(kk), Y(m.p), 8, 0, Math.PI * 2); c2.fillStyle = m.k === "b" ? "#E58A73" : "#8FC79A"; c2.fill(); c2.lineWidth = 3; c2.strokeStyle = "#F4F1EC"; c2.stroke(); });
+    (G.scrash || []).forEach(function (cc) { if (cc.s !== q.id) return; var kk = cc.t - (sec - N); if (kk < 0 || kk > N) return; var xx2 = X(kk); c2.fillStyle = "rgba(194,65,45,.9)"; c2.fillRect(xx2 - 1.5, 0, 3, H2); c2.font = "700 19px " + FONT; c2.textAlign = xx2 > W2 * 0.8 ? "right" : "left"; c2.fillText(t("crashMk").toUpperCase(), xx2 + (xx2 > W2 * 0.8 ? -8 : 8), H2 - 18); });
     c2.fillStyle = "#F4F1EC"; c2.fillRect(X(N) - 6, Y(pts2[N]) - 6, 12, 12);
     var now2 = pts2[N], d1 = now2 - stockAt(q, sec - 60), de = document.getElementById("fh-sm-d");
     set("fh-sm-name", q.n + " · " + q.id); set("fh-sm-now", eur2(now2));
@@ -3105,5 +3222,5 @@
   window.addEventListener("pagehide", save);
 
   window.Flughafen = { mount: mount, unmount: unmount,
-    _debug: function () { return { G: G, R: R, V: V, tick: tick, addMod: addMod, rebuild: rebuild, stats: stats, snapRect: snapRect, setTool: setTool, act: act, updateGhost: updateGhost, rwEnds: rwEnds, world: world, fuelPriceAt: fuelPriceAt, crisisList: crisisList }; } };
+    _debug: function () { return { G: G, R: R, V: V, tick: tick, addMod: addMod, rebuild: rebuild, stats: stats, snapRect: snapRect, setTool: setTool, act: act, updateGhost: updateGhost, rwEnds: rwEnds, world: world, fuelPriceAt: fuelPriceAt, crisisList: crisisList, crash: crash }; } };
 })();
