@@ -8,7 +8,7 @@
 (function () {
   "use strict";
 
-  var VERSION = "0.21", PREVIEW = 2000, MAX_PIX = 40e6;
+  var VERSION = "0.25", PREVIEW = 2000, MAX_PIX = 40e6;
   var lang = "de";
   function L2(de, en) { return { de: de, en: en }; }
   function tr(o) { return o[lang]; }
@@ -38,10 +38,19 @@
     howRgb: L2("RGB-Split: Jede Ebene enthält einen Lichtkanal. Auf Schwarz addieren sich die Lichter wieder zu Weiß.", "RGB split: each layer holds one channel of light. On black, the lights add up to white again."),
     howCmyk: L2("CMYK-Split: Das Bild wird in die vier Druckfarben Cyan, Magenta, Gelb und Schwarz (Key) zerlegt, wie bei einer Druckplatte. Auf weißem Papier multiplizieren sich die Farben wieder. Es ist eine einfache Umrechnung ohne Farbprofil, für echten Druck übernimmt das die Druckerei.",
                   "CMYK split: the image is split into the four print inks cyan, magenta, yellow and black (key), like printing plates. On white paper the inks multiply back together. This is a simple conversion without a colour profile; for real printing, the print shop handles that."),
-    howDepth: L2("Tiefe: Aus dem Bild wird eine Tiefenkarte geschätzt, ganz ohne Server und ohne KI-Modell. Dafür zählen Bildhöhe (unten ist meist näher), Schärfe und Detailreichtum (Nahes ist schärfer) und Dunst (Fernes wirkt heller, blasser und bläulicher). Das Bild wird danach in Nah, Mitte und Fern geteilt, die drei Ebenen addieren sich exakt zum Original, und leicht gegeneinander verschoben entsteht ein Parallax-Effekt. Die Tiefenkarte selbst lässt sich in Graustufen (hell ist nah) oder als Farbverlauf speichern. Es ist eine Schätzung, bei ungewöhnlichen Motiven kann sie danebenliegen.",
-                   "Depth: a depth map is estimated from the image, with no server and no AI model. It looks at height in the frame (lower is usually closer), sharpness and detail (near things are sharper) and haze (distant things look brighter, paler and bluer). The image is then split into near, middle and far; the three layers add up exactly to the original, and shifted slightly against each other they give a parallax effect. The depth map itself can be saved in greyscale (bright is near) or as a colour ramp. It is an estimate and can be off for unusual subjects."),
+    howDepth: L2("Tiefe: Ein KI-Tiefenmodell (Depth Anything V2 Small) berechnet eine Tiefenkarte wie in der Videobearbeitung: Nahes ist hell, Fernes dunkel. Das Modell läuft komplett in deinem Browser, dein Bild verlässt das Gerät nicht. Beim ersten Mal lädt dein Browser das Modell einmalig von dieser Seite (rund 38 MB), danach kommt es aus dem Cache. Die Kanten werden am Foto ausgerichtet. Das Bild wird danach in Nah, Mitte und Fern geteilt, die drei Ebenen addieren sich exakt zum Original, und leicht gegeneinander verschoben entsteht ein Parallax-Effekt.",
+                   "Depth: an AI depth model (Depth Anything V2 Small) computes a depth map like in video editing: near is bright, far is dark. The model runs entirely in your browser, your image never leaves the device. The first time, your browser loads the model once from this site (about 38 MB); after that it comes from the cache. Edges are aligned to the photo. The image is then split into near, middle and far; the three layers add up exactly to the original, and shifted slightly against each other they create a parallax effect."),
     depthH: L2("Tiefenkarte", "Depth map"), depthGray: L2("Tiefenkarte als PNG", "Depth map as PNG"), depthHeat: L2("Tiefenkarte farbig", "Depth map in colour"),
-    depthNote: L2("Hell ist nah, dunkel ist fern. Die Karte wird geschätzt, nicht gemessen.", "Bright is near, dark is far. The map is estimated, not measured."),
+    depthNote: L2("Hell ist nah, dunkel ist fern. Berechnet von einem KI-Modell in deinem Browser.", "Bright is near, dark is far. Computed by an AI model in your browser."),
+    depthNoteOld: L2("Hell ist nah, dunkel ist fern. Das KI-Modell war nicht verfügbar, deshalb nur grob geschätzt.", "Bright is near, dark is far. The AI model was not available, so this is only a rough estimate."),
+    dWaitH: L2("Tiefenkarte wird erstellt", "Creating depth map"),
+    dLoad: L2("KI-Modell wird geladen … {p} %", "Loading AI model … {p} %"),
+    dLoadNote: L2("Nur beim ersten Mal, rund 38 MB von dieser Seite. Dein Bild verlässt das Gerät nicht.", "First time only, about 38 MB from this site. Your image never leaves the device."),
+    dRun: L2("Tiefe wird berechnet …", "Computing depth …"),
+    dRunNote: L2("Das dauert je nach Gerät ein paar Sekunden.", "Depending on your device this takes a few seconds."),
+    dFail: L2("Das KI-Modell konnte nicht geladen werden. Es wird die einfache Schätzung verwendet.", "The AI model could not be loaded. The simple estimate is used instead."),
+    dQual: L2("Detail der Tiefenkarte", "Depth map detail"), dStd: L2("Standard", "Standard"), dFine: L2("Fein", "Fine"),
+    dQualNote: L2("Fein zeigt mehr Details, rechnet aber etwa dreimal so lange.", "Fine shows more detail but takes about three times as long."),
     howTone: L2("Tonwerte: Das Bild wird nach Helligkeit in Schatten, Mitten und Lichter aufgeteilt, mit weichen Übergängen. Die drei Ebenen addieren sich exakt zum Original. Als Graustufen exportiert sind es Luminanzmasken, mit denen man in der Bildbearbeitung gezielt nur die hellen oder dunklen Bereiche bearbeitet.",
                   "Tones: the image is split by brightness into shadows, midtones and highlights, with soft transitions. The three layers add up exactly to the original. Exported as greyscale they are luminosity masks, used in image editing to work on only the bright or dark areas."),
     how2: L2("Bedienung: Ebene mit Maus oder Finger ziehen. Die Zahlentasten wählen eine Ebene, die Pfeiltasten verschieben sie um 1 Pixel (mit Umschalt um 10). „Einrasten“ zieht eine Ebene in ihre Ausgangsposition, sobald sie nah genug ist. Beim Export kannst du die Kanäle farbig oder als Graustufen speichern, Graustufen sind praktisch als Masken in der Bildbearbeitung.",
@@ -134,6 +143,104 @@
     norm(dep, 0.02, 0.98);
     return { w: w, h: h, d: dep };
   }
+  // ---------- KI-Tiefe: Depth Anything V2 Small (Apache 2.0) über ONNX Runtime Web ----------
+  // Modell und Laufzeit liegen im Ordner depth/ dieser Seite. Das Modell ist in zwei Teile geteilt (Upload-Grenze bei GitHub)
+  // und wird im Browser wieder zusammengesetzt. Geladen wird erst, wenn jemand das Werkzeug Tiefe benutzt.
+  var AI = { sess: null, loading: null, queue: Promise.resolve(), prog: null };
+  var MODEL_PARTS = ["depth-anything-v2-small.part1", "depth-anything-v2-small.part2"], MODEL_BYTES = 27258801;
+  function aiBase() { return new URL("depth/", location.href).href; }
+  function loadScript(src) {
+    return new Promise(function (res, rej) {
+      if (window.ort) return res();
+      var sc = document.createElement("script"); sc.src = src; sc.onload = function () { res(); }; sc.onerror = function () { rej(new Error("ort")); };
+      document.head.appendChild(sc);
+    });
+  }
+  function aiSession() {
+    if (AI.sess) return Promise.resolve(AI.sess);
+    if (!AI.loading) AI.loading = (async function () {
+      if (typeof WebAssembly === "undefined") throw new Error("no wasm");
+      await loadScript(aiBase() + "ort.wasm.min.js");
+      var ort = window.ort;
+      ort.env.wasm.wasmPaths = aiBase();
+      ort.env.wasm.numThreads = self.crossOriginIsolated ? Math.min(4, navigator.hardwareConcurrency || 1) : 1;
+      ort.env.wasm.proxy = true;   // rechnet in einem Worker, die Seite bleibt bedienbar
+      var got = 0, chunks = [];
+      for (var k = 0; k < MODEL_PARTS.length; k++) {
+        var r = await fetch(aiBase() + MODEL_PARTS[k]);
+        if (!r.ok) throw new Error("model " + r.status);
+        if (r.body && r.body.getReader) {
+          var rd = r.body.getReader();
+          for (;;) { var c = await rd.read(); if (c.done) break; chunks.push(c.value); got += c.value.length; if (AI.prog) AI.prog(Math.min(1, got / MODEL_BYTES)); }
+        } else { var ab = new Uint8Array(await r.arrayBuffer()); chunks.push(ab); got += ab.length; if (AI.prog) AI.prog(Math.min(1, got / MODEL_BYTES)); }
+      }
+      var buf = new Uint8Array(got), off = 0;
+      chunks.forEach(function (c) { buf.set(c, off); off += c.length; });
+      chunks = null;
+      AI.sess = await ort.InferenceSession.create(buf, { executionProviders: ["wasm"], graphOptimizationLevel: "all" });
+      return AI.sess;
+    })().catch(function (e) { AI.loading = null; throw e; });
+    return AI.loading;
+  }
+  // Modell auf das Bild anwenden. Längere Seite = size, beide Seiten Vielfache von 14. Ergebnis 1 = nah, 0 = fern.
+  function aiDepth(src, size) {
+    var job = AI.queue.then(async function () {
+      var sess = await aiSession(), ort = window.ort;
+      var sc = size / Math.max(src.width, src.height);
+      var w = Math.max(14, Math.round(src.width * sc / 14) * 14), h = Math.max(14, Math.round(src.height * sc / 14) * 14);
+      var c = document.createElement("canvas"); c.width = w; c.height = h;
+      var x = c.getContext("2d"); x.imageSmoothingQuality = "high"; x.drawImage(src, 0, 0, w, h);
+      var d = x.getImageData(0, 0, w, h).data, n = w * h, f = new Float32Array(3 * n), M = [0.485, 0.456, 0.406], SD = [0.229, 0.224, 0.225];
+      for (var i = 0; i < n; i++) for (var k = 0; k < 3; k++) f[k * n + i] = (d[i * 4 + k] / 255 - M[k]) / SD[k];
+      var feeds = {}; feeds[sess.inputNames[0]] = new ort.Tensor("float32", f, [1, 3, h, w]);
+      var out = await sess.run(feeds), o = out[sess.outputNames[0]];
+      var dims = o.dims, ow = dims[dims.length - 1], oh = dims[dims.length - 2];
+      var dep = new Float32Array(o.data);
+      norm(dep, 0.005, 0.995);
+      return { w: ow, h: oh, d: dep };
+    });
+    AI.queue = job.catch(function () {});
+    return job;
+  }
+  // Kanten der Tiefenkarte am Foto ausrichten (Guided Filter nach He et al.), in höchstens 1600 px.
+  function refineDepth(D, src) {
+    var f = Math.min(1, 1600 / Math.max(src.width, src.height)), w = Math.max(2, Math.round(src.width * f)), h = Math.max(2, Math.round(src.height * f));
+    var c = document.createElement("canvas"); c.width = w; c.height = h;
+    var x = c.getContext("2d"); x.imageSmoothingQuality = "high"; x.drawImage(src, 0, 0, w, h);
+    var d = x.getImageData(0, 0, w, h).data, n = w * h, I = new Float32Array(n), i;
+    for (i = 0; i < n; i++) I[i] = (0.2126 * d[i * 4] + 0.7152 * d[i * 4 + 1] + 0.0722 * d[i * 4 + 2]) / 255;
+    var p = depthAt(D, w, h), r = Math.max(2, Math.round(Math.max(w, h) / 200)), eps = 0.002;
+    var mI = boxBlur(I.slice(), w, h, r), mP = boxBlur(p.slice(), w, h, r), II = new Float32Array(n), IP = new Float32Array(n);
+    for (i = 0; i < n; i++) { II[i] = I[i] * I[i]; IP[i] = I[i] * p[i]; }
+    boxBlur(II, w, h, r); boxBlur(IP, w, h, r);
+    var A = new Float32Array(n), B = new Float32Array(n);
+    for (i = 0; i < n; i++) { var vI = II[i] - mI[i] * mI[i], cv = IP[i] - mI[i] * mP[i]; A[i] = cv / (vI + eps); B[i] = mP[i] - A[i] * mI[i]; }
+    boxBlur(A, w, h, r); boxBlur(B, w, h, r);
+    for (i = 0; i < n; i++) p[i] = Math.min(1, Math.max(0, A[i] * I[i] + B[i]));
+    return { w: w, h: h, d: p };
+  }
+  var depthJob = 0;
+  function startDepth() {
+    var job = ++depthJob, img = IMG, size = S.dq === "fine" ? 770 : 518;
+    AI.prog = function (q) { if (job === depthJob) setWait(fmt(t("dLoad"), { p: Math.round(q * 100) }), t("dLoadNote")); };
+    if (AI.sess) setWait(t("dRun"), t("dRunNote"));
+    aiSession().then(function () {
+      if (job === depthJob) setWait(t("dRun"), t("dRunNote"));
+      return aiDepth(img.prev, size);
+    }).then(function (D) {
+      img.depth = refineDepth(D, img.prev); img.depthAI = true; img.depthQ = S.dq;
+    }).catch(function (e) {
+      if (window.console) console.warn("Tiefe: KI nicht verfügbar", e);
+      img.depth = computeDepth(img.prev); img.depthAI = false; img.depthQ = S.dq; img.depthErr = true;
+    }).then(function () {
+      img.dcache = null;
+      if (job === depthJob && V && IMG === img && tool().depth) build();
+    });
+  }
+  function setWait(h, sub) {
+    var a = V && V.root.querySelector("#ch-dst"), b = V && V.root.querySelector("#ch-dsub");
+    if (a) a.textContent = h; if (b) b.textContent = sub || "";
+  }
   function depthAt(D, W, H) {   // Tiefe für ein Bild der Größe W × H, bilinear
     var out = new Float32Array(W * H), sx = D.w / W, sy = D.h / H;
     for (var y = 0; y < H; y++) {
@@ -163,8 +270,8 @@
       }
     };
   }
-  // Farbverlauf fern → nah: tiefes Blau, Petrol, Grün, Gelb, Weißgelb
-  var HEAT = [[24, 22, 58], [33, 86, 128], [42, 150, 120], [214, 196, 70], [255, 246, 214]];
+  // Farbverlauf fern → nah wie eine Wärmebildkamera: Schwarz, Violett, Magenta, Orange, Gelb, Weiß
+  var HEAT = [[6, 4, 16], [52, 14, 102], [150, 28, 128], [226, 84, 38], [255, 186, 40], [255, 250, 226]];
   function depthMap(W, H, heat) {
     var c = document.createElement("canvas"); c.width = W; c.height = H;
     var x = c.getContext("2d"), od = x.createImageData(W, H), o = od.data, D = depthOf(W, H);
@@ -213,7 +320,7 @@
         { k: "h", name: L2("Lichter", "Highlights"), file: L2("lichter", "highlights"), color: "#EFE6CF", render: tone(2) }
       ] },
     { id: "depth", name: L2("Tiefe", "Depth"), short: "tiefe", depth: true,
-      desc: L2("Schätzt eine Tiefenkarte und teilt das Bild in Nah, Mitte und Fern. Leicht verschoben entsteht Parallax.", "Estimates a depth map and splits the image into near, middle and far. Shifted slightly, it gives parallax."),
+      desc: L2("Ein KI-Modell berechnet in deinem Browser eine Tiefenkarte und teilt das Bild in Nah, Mitte und Fern. Leicht verschoben entsteht Parallax.", "An AI model computes a depth map in your browser and splits the image into near, middle and far. Shifted slightly, it gives parallax."),
       icon: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="3" width="20" height="5" fill="#2E3A5C"/><rect x="2" y="9.5" width="20" height="5" fill="#5F8A86"/><rect x="2" y="16" width="20" height="5" fill="#E8D9A8"/></svg>',
       modes: ["tinted", "gray"], grayName: L2("Tiefenmasken", "Depth masks"), graySuffix: "maske", blend: "add",
       spread: [[0.05, 0.015], [0, 0], [-0.04, -0.01]],
@@ -226,7 +333,7 @@
   function tool() { return TOOLS.filter(function (x) { return x.id === S.tool; })[0] || TOOLS[0]; }
 
   // ---------- Zustand ----------
-  var S = { tool: "rgb", mode: "tinted", snap: true };
+  var S = { tool: "rgb", mode: "tinted", snap: true, dq: "std" };
   var IMG = null;   // { name, full (canvas), w, h, prev (canvas), pw, ph }
   var L = null;     // { x:{}, y:{}, on:{}, z:[], active, touched }
   var V = null;     // UI
@@ -400,6 +507,9 @@
     ".ch-lyr.grab{cursor:grabbing}.ch-lyr.off{display:none}.ch-stage.anim .ch-lyr{transition:left .4s ease,top .4s ease}" +
     ".ch-drop{text-align:center;color:#F1EFEA;display:flex;flex-direction:column;align-items:center;gap:10px;padding:20px}" +
     ".ch-drop b{font:600 1.4rem/1.2 var(--f-display)}.ch-drop span{color:rgba(241,239,234,.7)}" +
+    ".ch-wait #ch-dst{color:#F1EFEA;font-weight:600;font-variant-numeric:tabular-nums}.ch-wait #ch-dsub{max-width:36ch;font-size:.9rem}" +
+    ".ch-spin{width:34px;height:34px;border:3px solid rgba(241,239,234,.25);border-top-color:#E8A04A;animation:chspin .9s linear infinite}" +
+    "@keyframes chspin{to{transform:rotate(360deg)}}@media (prefers-reduced-motion:reduce){.ch-spin{animation:none}}" +
     ".ch-pick{font:600 1rem var(--f-body);padding:12px 20px;border:0;background:#F1EFEA;color:#151715;cursor:pointer}" +
     ".ch-side{display:flex;flex-direction:column;gap:14px;min-width:0}" +
     ".ch-box{border:1px solid var(--line);background:var(--card,transparent);padding:14px 16px;display:flex;flex-direction:column;gap:12px}" +
@@ -452,6 +562,14 @@
       return;
     }
     var T = tool();
+    if (T.depth && (!IMG.depth || IMG.depthQ !== S.dq)) {
+      IMG.depth = null; IMG.dcache = null;
+      st.classList.add("empty"); st.style.background = "";
+      st.innerHTML = '<div class="ch-drop ch-wait"><i class="ch-spin" aria-hidden="true"></i><b>' + t("dWaitH") + '</b><span id="ch-dst" aria-live="polite">' + (AI.sess ? t("dRun") : fmt(t("dLoad"), { p: 0 })) + '</span><span id="ch-dsub">' + (AI.sess ? t("dRunNote") : t("dLoadNote")) + "</span></div>";
+      side.innerHTML = toolsBox();
+      startDepth();
+      return;
+    }
     st.classList.remove("empty");
     st.style.background = T.bg || "#000";
     st.innerHTML = "";
@@ -478,8 +596,9 @@
       '<div class="ch-btns">' + T.layers.map(function (l) { return '<button type="button" class="navbtn" data-one="' + l.k + '">' + fmt(t("one"), { n: tr(l.name) }) + "</button>"; }).join("") +
       '<button type="button" class="navbtn" data-act="all">' + t("all") + "</button></div>" +
       '<button type="button" class="ch-save" data-act="comp">' + t("comp") + "</button>" +
-      (T.depth ? '<h3 class="ch-dh">' + t("depthH") + '</h3><div class="ch-dprev" id="ch-dprev"></div><div class="ch-btns"><button type="button" class="navbtn" data-act="dgray">' + t("depthGray") + '</button><button type="button" class="navbtn" data-act="dheat">' + t("depthHeat") + '</button></div><p class="ch-desc">' + t("depthNote") + "</p>" : "") +
-      '<p class="ch-desc">' + fmt(t("compNote"), { w: IMG.w, h: IMG.h }) + '</p><p class="ch-note" id="ch-note">' + (IMG.shrunk ? fmt(t("shrunk"), { w: IMG.w, h: IMG.h }) : "") + "</p></div>";
+      (T.depth ? '<h3 class="ch-dh">' + t("depthH") + '</h3><div class="ch-dprev" id="ch-dprev"></div><div class="ch-btns"><button type="button" class="navbtn" data-act="dgray">' + t("depthGray") + '</button><button type="button" class="navbtn" data-act="dheat">' + t("depthHeat") + '</button></div><p class="ch-desc">' + t(IMG.depthAI ? "depthNote" : "depthNoteOld") + "</p>" +
+        '<div class="ch-desc">' + t("dQual") + '</div><div class="ch-seg">' + ["std", "fine"].map(function (q) { return '<button type="button" data-dq="' + q + '" aria-pressed="' + (S.dq === q) + '">' + t(q === "std" ? "dStd" : "dFine") + "</button>"; }).join("") + '</div><p class="ch-desc">' + t("dQualNote") + "</p>" : "") +
+      '<p class="ch-desc">' + fmt(t("compNote"), { w: IMG.w, h: IMG.h }) + '</p><p class="ch-note" id="ch-note">' + (T.depth && IMG.depthErr && !IMG.depthAI ? t("dFail") : IMG.shrunk ? fmt(t("shrunk"), { w: IMG.w, h: IMG.h }) : "") + "</p></div>";
     if (T.depth) {
       var dp = V.root.querySelector("#ch-dprev"), pf = Math.min(1, 640 / Math.max(IMG.pw, IMG.ph)), a = depthMap(Math.round(IMG.pw * pf), Math.round(IMG.ph * pf), false), b = depthMap(a.width, a.height, true);
       a.setAttribute("aria-label", t("depthH")); dp.appendChild(a); dp.appendChild(b);
@@ -534,6 +653,7 @@
       return;
     }
     if ((b = e.target.closest("[data-tool]"))) { S.tool = b.getAttribute("data-tool"); if (tool().modes.indexOf(S.mode) < 0) S.mode = tool().modes[0]; if (IMG) resetLayers(); build(); return; }
+    if ((b = e.target.closest("[data-dq]"))) { var q = b.getAttribute("data-dq"); if (q !== S.dq) { S.dq = q; build(); } return; }
     if ((b = e.target.closest("[data-sel]"))) { select(b.getAttribute("data-sel")); return; }
     if ((b = e.target.closest("[data-vis]"))) { var k = b.getAttribute("data-vis"); L.on[k] = !L.on[k]; L.touched = true; eyes(); status(); return; }
     if ((b = e.target.closest("[data-mode]"))) { S.mode = b.getAttribute("data-mode"); Array.prototype.forEach.call(V.root.querySelectorAll("[data-mode]"), function (q) { q.setAttribute("aria-pressed", String(q === b)); }); return; }
@@ -570,7 +690,7 @@
     window.removeEventListener("pointercancel", onUp); window.removeEventListener("resize", onResize);
     V.root.removeEventListener("pointerdown", onDown); V.root.removeEventListener("keydown", onKey);
     V.root.removeEventListener("click", onClick); V.root.removeEventListener("change", onChange);
-    drag = null; V = null;
+    drag = null; V = null; depthJob++;
   }
 
   window.Channels = { mount: mount, unmount: unmount, tools: TOOLS };
