@@ -5,7 +5,7 @@
 (function () {
   "use strict";
 
-  var VERSION = "0.2", T = 500, NT = 200, WORLD = T * NT, ZMIN = 0.01, ZMAX = 16;
+  var VERSION = "0.25", T = 500, NT = 200, WORLD = T * NT, ZMIN = 0.01, ZMAX = 16;
   var lang = "de";
   function L2(de, en) { return { de: de, en: en }; }
   var TX = {
@@ -14,6 +14,8 @@
     undo: L2("Rückgängig", "Undo"), redo: L2("Wiederholen", "Redo"),
     zin: L2("Hineinzoomen", "Zoom in"), zout: L2("Herauszoomen", "Zoom out"), home: L2("Zur Mitte", "Back to centre"),
     exp: L2("Exportieren", "Export"), help: L2("Hilfe", "Help"),
+    wind: L2("Windstärke", "Wind strength"), windDir: L2("Windrichtung", "Wind direction"), turb: L2("Turbulenz", "Turbulence"),
+    windNote: L2("Wind verweht die feinen Tropfen weiter als die schweren, die Sprühfahne wird nach hinten dünner und breiter. Turbulenz bringt Böen, die Stärke und Richtung leicht schwanken lassen. Der Pfeil zeigt, wohin der Wind weht.", "Wind carries the fine droplets further than the heavy ones, so the plume gets thinner and wider towards the end. Turbulence adds gusts that make strength and direction waver slightly. The arrow shows where the wind blows."),
     curve: L2("Kurve", "Curve"), pressure: L2("Druck", "Pressure"), spread: L2("Streuung", "Spread"), flow: L2("Menge", "Amount"),
     bright: L2("Helligkeit", "Brightness"), brushes: L2("Pinselarten", "Brush types"), lines: L2("Linien", "Lines"),
     curveNote: L2("Erst eine Linie ziehen, dann die Linie irgendwo greifen und biegen. Anfang und Ende bleiben fest, beim Loslassen wird sie gemalt. Enter malt sie gerade, Esc verwirft sie.", "First drag a line, then grab it anywhere and bend it. Start and end stay fixed, releasing paints it. Enter paints it straight, Esc discards it."),
@@ -157,19 +159,38 @@
         });
       } },
     // Spraydose: einzelne Pixel, weiter sprühend solange gehalten. Streuung: 0 = gebündelt in der Mitte, 100 = gleichmäßig im Kreis.
-    spray: { name: L2("Spraydose", "Spray can"), icon: "spray", note: "sprayNote", settings: ["size", "opacity", "smooth", "spread", "flow"], def: { size: 80, opacity: 100, smooth: 10, spread: 60, flow: 50 },
-      begin: function (E, p) { E.last = p; this.at(E, p, 1); },
+    // Wind: jeder Tropfen wird abhängig von seiner Größe verweht. Feine Tropfen fliegen weit, schwere fallen nah an der Düse.
+    // Je weiter ein Tropfen fliegt, desto mehr weicht er seitlich ab, so entsteht eine Sprühfahne, die nach hinten dünner und breiter wird.
+    // Turbulenz: Böen ändern Stärke und Richtung weich über die Zeit, dazu kleine Abweichungen pro Tropfen.
+    spray: { name: L2("Spraydose", "Spray can"), icon: "spray", note: "sprayNote", settings: ["size", "opacity", "smooth", "spread", "flow", "wind", "windDir", "turb"], def: { size: 80, opacity: 100, smooth: 10, spread: 60, flow: 50, wind: 0, windDir: 0, turb: 30 },
+      begin: function (E, p) { var R = E.R; E.t = 0; E.ph = [R() * 6.28, R() * 6.28, R() * 6.28, R() * 6.28]; E.last = p; this.at(E, p, 1); },
       step: function (E, p) { var self = this; sub(E, p, Math.max(1, E.o.size * 0.25), function (q) { self.at(E, q, 0.6); }); },
       tick: function (E, p) { this.at(E, p, 0.4); },
       at: function (E, q, amt) {
         var o = E.o, r = o.size / 2, n = Math.round(o.flow / 100 * r * 1.3 * amt) + 1, ex = 2.2 - 1.7 * o.spread / 100, R = E.R, pts = [];
-        for (var i = 0; i < n; i++) { var d = r * Math.pow(R(), ex), a = R() * Math.PI * 2; pts.push(Math.floor(q.x + Math.cos(a) * d), Math.floor(q.y + Math.sin(a) * d)); }
+        var W = o.wind / 100, T = (o.turb || 0) / 100, ph = E.ph || [0, 0, 0, 0];
+        E.t = (E.t || 0) + 0.06 * (0.5 + amt);
+        // Böe: weiches Rauschen aus überlagerten Schwingungen (fest pro Strich, damit Vorschauen nicht flackern)
+        var gA = Math.sin(E.t * 1.3 + ph[0]) * 0.6 + Math.sin(E.t * 3.1 + ph[1]) * 0.3 + Math.sin(E.t * 7.3 + ph[2]) * 0.1;
+        var gS = Math.sin(E.t * 1.7 + ph[3]) * 0.6 + Math.sin(E.t * 4.3 + ph[0]) * 0.4;
+        var dir = (o.windDir || 0) * Math.PI / 180 + gA * T * 0.75, str = W * (1 + gS * T * 0.7), reach = o.size * 2.8 * Math.max(0, str);
+        var x0 = q.x - r, y0 = q.y - r, x1 = q.x + r, y1 = q.y + r;
+        for (var i = 0; i < n; i++) {
+          var d = r * Math.pow(R(), ex), a = R() * Math.PI * 2, px = q.x + Math.cos(a) * d, py = q.y + Math.sin(a) * d;
+          if (reach > 0) {
+            var fine = Math.min(1.7, -Math.log(1 - R() * 0.99) * 0.42), drift = reach * fine, da = dir + (R() - 0.5) * T * 0.35;
+            var side = (R() + R() + R() - 1.5) * drift * (0.2 + 0.2 * T);
+            px += Math.cos(da) * drift - Math.sin(da) * side; py += Math.sin(da) * drift + Math.cos(da) * side;
+          }
+          px = Math.floor(px); py = Math.floor(py); pts.push(px, py);
+          if (px < x0) x0 = px; if (py < y0) y0 = py; if (px > x1) x1 = px; if (py > y1) y1 = py;
+        }
         var col = E.col;
-        E.P(q.x - r - 2, q.y - r - 2, q.x + r + 2, q.y + r + 2, function (x) { x.fillStyle = col; for (var k = 0; k < pts.length; k += 2) x.fillRect(pts[k], pts[k + 1], 1, 1); });
+        E.P(x0 - 2, y0 - 2, x1 + 2, y1 + 2, function (x) { x.fillStyle = col; for (var k = 0; k < pts.length; k += 2) x.fillRect(pts[k], pts[k + 1], 1, 1); });
       } }
   };
   var STAMPS = {};   // Platz für Stempel: { id: { name, icon, place(E, p) } }
-  var RANGES = { size: [1, 400, "px"], opacity: [1, 100, " %"], smooth: [0, 100, " %"], pressure: [0, 100, " %"], spread: [0, 100, " %"], flow: [1, 100, " %"] };
+  var RANGES = { wind: [0, 100, " %"], windDir: [0, 359, "°"], turb: [0, 100, " %"], size: [1, 400, "px"], opacity: [1, 100, " %"], smooth: [0, 100, " %"], pressure: [0, 100, " %"], spread: [0, 100, " %"], flow: [1, 100, " %"] };
   function rng(seed) { return function () { seed |= 0; seed = seed + 0x6D2B79F5 | 0; var q = Math.imul(seed ^ seed >>> 15, 1 | seed); q = q + Math.imul(q ^ q >>> 7, 61 | q) ^ q; return ((q ^ q >>> 14) >>> 0) / 4294967296; }; }
 
   // ---------- Dokument: Kacheln (bleiben erhalten, solange die Seite offen ist) ----------
@@ -583,7 +604,8 @@
   }
   function onInput(e) {
     var el = e.target;
-    if (el.dataset.set) { cur()[el.dataset.set] = +el.value; var r = RANGES[el.dataset.set]; V.root.querySelector("#ds-v-" + el.dataset.set).textContent = el.value + r[2]; if (V.curve) curveDraw(); need(); return; }
+    if (el.dataset.set) { cur()[el.dataset.set] = +el.value; var r = RANGES[el.dataset.set]; V.root.querySelector("#ds-v-" + el.dataset.set).textContent = el.value + r[2];
+      if (el.dataset.set === "windDir") { var wa = V.root.querySelector("#ds-warr"); if (wa) wa.style.transform = "rotate(" + el.value + "deg)"; } if (V.curve) curveDraw(); need(); return; }
     if (el.id === "ds-bri") { setHSV(S.h, S.s, +el.value / 100); updateColorUI(); return; }
     if (el.id === "ds-hex") { var m = /^#?([0-9a-f]{6})$/i.exec(el.value.trim()); if (m) { setHex("#" + m[1]); updateColorUI(true); } }
   }
@@ -592,7 +614,7 @@
   function note(s) { var n = V && V.root.querySelector("#ds-note"); if (!n) return; n.textContent = s; n.hidden = !s; clearTimeout(V.noteT); V.noteT = setTimeout(function () { if (V) n.hidden = true; }, 4000); }
   function updateBtns() { if (!V) return; var u = V.root.querySelector('[data-ds="undo"]'), r = V.root.querySelector('[data-ds="redo"]'); if (u) u.disabled = !UNDO.length; if (r) r.disabled = !REDO.length; }
   function updateZoom() { var z = V && V.root.querySelector("#ds-zoom"); if (z) z.textContent = (V.z >= 0.1 ? Math.round(V.z * 100) : (V.z * 100).toFixed(1).replace(".", lang === "de" ? "," : ".")) + " %"; }
-  function sl(k, lab) { var r = RANGES[k], o = cur(); return '<div class="ds-row"><label for="ds-s-' + k + '">' + lab + '<span id="ds-v-' + k + '">' + o[k] + r[2] + '</span></label><input type="range" id="ds-s-' + k + '" data-set="' + k + '" min="' + r[0] + '" max="' + r[1] + '" step="1" value="' + o[k] + '"></div>'; }
+  function sl(k, lab) { var r = RANGES[k], o = cur(); return '<div class="ds-row"><label for="ds-s-' + k + '">' + lab + (k === "windDir" ? '<i class="ds-warr" id="ds-warr" style="transform:rotate(' + o[k] + 'deg)"></i>' : "") + '<span id="ds-v-' + k + '">' + o[k] + r[2] + '</span></label><input type="range" id="ds-s-' + k + '" data-set="' + k + '" min="' + r[0] + '" max="' + r[1] + '" step="1" value="' + o[k] + '"></div>'; }
   function updatePanel(recentOnly, fromHex) {
     if (!V) return;
     V.root.style.setProperty("--dscol", color());
@@ -603,7 +625,7 @@
     p.hidden = false;
     var B = BRUSHES[S.brush], head = TOOLS[tool].line ? toolIcon(tool) + t(tool) + '<small> · ' + B.name[lang] + "</small>" : ICONS[B.icon] + B.name[lang];
     p.innerHTML = "<h3>" + head + "</h3>" + B.settings.map(function (k) { return sl(k, t(k)); }).join("") +
-      '<p class="ds-desc">' + t(B.note) + "</p>" + (TOOLS[tool].line ? '<p class="ds-desc">' + t(tool === "ruler" ? "rulerNote" : "curveNote") + "</p>" : '<p class="ds-desc">' + t("smoothNote") + "</p>") +
+      '<p class="ds-desc">' + t(B.note) + "</p>" + (S.brush === "spray" ? '<p class="ds-desc">' + t("windNote") + "</p>" : "") + (TOOLS[tool].line ? '<p class="ds-desc">' + t(tool === "ruler" ? "rulerNote" : "curveNote") + "</p>" : '<p class="ds-desc">' + t("smoothNote") + "</p>") +
       '<h3 class="ds-h2">' + t("colour") + '</h3><div class="ds-wheelw"><canvas class="ds-wheel" id="ds-wheel" width="380" height="380" aria-label="' + t("colour") + '"></canvas></div>' +
       '<div class="ds-row ds-rgb"><label for="ds-bri">' + t("bright") + '<span id="ds-briv">' + Math.round(S.v * 100) + ' %</span></label><input type="range" id="ds-bri" min="0" max="100" step="1" value="' + Math.round(S.v * 100) + '"></div>' +
       '<div class="ds-col"><span class="ds-orb" style="background:' + color() + '"></span><input type="text" id="ds-hex" value="' + hexCol() + '" maxlength="7" spellcheck="false" aria-label="' + t("colour") + ' Hex"></div>' +
@@ -687,6 +709,7 @@
     ".ds-fi{display:flex;align-items:center;gap:10px;padding:6px 8px;border:1px solid transparent;background:transparent;cursor:pointer;font:600 .9rem var(--f-body);color:#12324F;text-align:left}.ds-fi svg{width:30px;height:30px;flex:none;filter:drop-shadow(0 1px 1.5px rgba(10,50,90,.35))}.ds-fi span{flex:1}" +
     ".ds-fi kbd{font:600 .72rem var(--f-body);color:#3D6688;border:1px solid rgba(14,94,163,.35);padding:0 5px}.ds-fi:hover{background:radial-gradient(circle at 30% 40%,rgba(255,255,255,.95),rgba(140,214,250,.45));border-color:rgba(255,255,255,.95)}" +
     ".ds-fi[aria-pressed=true]{background:radial-gradient(circle at 30% 35%,#fff,rgba(98,203,243,.6));border-color:#62CBF3}" +
+    ".ds-warr{position:relative;display:inline-block;width:22px;height:12px;margin:0 auto 0 8px;align-self:center}.ds-warr::before{content:'';position:absolute;left:1px;right:6px;top:5px;height:2px;background:#0E5EA3}.ds-warr::after{content:'';position:absolute;right:0;top:1px;border-left:8px solid #0E5EA3;border-top:5px solid transparent;border-bottom:5px solid transparent}" +
     ".ds-panel h3 small{font:500 .8rem var(--f-body);color:#3D6688}" +
     ".ds-wheelw{display:flex;justify-content:center}.ds-wheel{width:156px;height:156px;border-radius:50%;cursor:crosshair;touch-action:none;box-shadow:0 0 0 1px rgba(14,94,163,.35),0 3px 10px rgba(10,50,90,.25)}" +
     ".ds-zoom{min-width:56px;text-align:center;font:600 .85rem var(--f-body);font-variant-numeric:tabular-nums}" +
