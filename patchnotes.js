@@ -118,6 +118,9 @@ window.PATCHNOTES = {
       en: ["New game: Space Rogue, starting with the ship editor", "Light and heavy armour (block, slopes, round corner, half), three cockpits, ion thrusters, gyroscope, antenna, battery, reactor, interior floor, wall, door and window, minigun and railgun", "Build, remove, paint, rotate, flip, symmetry, interior and exterior view, airtightness check", "Test flight with per-direction thrust, gyroscope, power, inertia dampers, overheating weapons, damage and destruction"] }
   ],
   flughafen: [
+    { v: "0.67", t: "2026-11-09T21:32:00+01:00",
+      de: ["Großraumjets kommen jetzt schon, wenn eine Piste ab 3.000 m die Großraum-Positionen erreicht. Vorher mussten beide Pisten so lang sein", "Wartet ein Großraumjet, bleiben die Großraum-Positionen für ihn frei und er landet zuerst", "Klick auf eine Großraum-Position zeigt, ob Großraumjets dort parken können"],
+      en: ["Widebody jets now arrive as soon as one runway of 3,000 m or more reaches the widebody stands. Before, both runways had to be that long", "While a widebody is waiting, widebody stands are kept free for it and it lands first", "Clicking a widebody stand shows whether widebodies can park there"] },
     { v: "0.66", t: "2026-11-09T19:01:00+01:00",
       de: ["Hotfix: Positionen, die vor ihren Rollwegen gebaut wurden, drehen sich jetzt selbst zum Rollweg und gelten als angebunden", "Hotfix: Landungen sind auf jeder Piste möglich, nicht nur auf der ersten. Positionen, die nur an der zweiten Piste hängen, werden angeflogen"],
       en: ["Hotfix: stands built before their taxiways now turn to face the taxiway and count as connected", "Hotfix: landings can use any runway, not just the first. Stands linked only to the second runway now receive arrivals"] },

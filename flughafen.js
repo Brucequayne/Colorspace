@@ -5,7 +5,7 @@
   "use strict";
 
   var KEY = "flughafen-v3";
-  var VERSION = "0.66";
+  var VERSION = "0.67";
   var RW_W = 22, TW_W = 14, RD_W = 16, SL_W = 9;
   var DIVERT = 60;
   var SIZE = { stand: [64, 66], term: [124, 46], tower: [30, 30], fire: [52, 38], hangar: [84, 62], deck: [72, 38], park: [72, 48], bus: [44, 22], cab: [62, 22], hotels: [50, 34], hotel: [70, 44], hotell: [96, 74], tank: [44, 44] };
@@ -113,6 +113,7 @@
     wreckBusy: L2("Räumung läuft · noch {s}", "Clearing in progress · {s} left"), wreckDone: L2("Absturzstelle geräumt und sicher. Flugbetrieb läuft wieder.", "Crash site cleared and safe. Flight operations resume."),
     wreckBan: L2("ABSTURZ · Flugbetrieb eingestellt", "CRASH · flight operations suspended"), wreckBan2: L2("RÄUMUNG · noch {s}", "CLEARING · {s} left"), wreckHint: L2("Auf das Wrack klicken und räumen", "Click the wreck and clear it"),
     crashMk: L2("Absturz", "Crash"),
+    wideOk: L2("Großraumjets können hier parken", "Widebody jets can park here"), wideNo: L2("Keine Großraumjets: braucht eine Piste ab 3.000 m mit Weg hierher und zurück", "No widebodies: needs a runway of 3,000 m or more with a route here and back"),
     trBuy: L2("Kaufen", "Buy"), trSell: L2("Verkaufen", "Sell"), trMove: L2("Regler verschieben zum Handeln", "Move the slider to trade"),
     trBuyD: L2("Einkauf am Markt: {a} → {b}", "Buying on the market: {a} → {b}"), trSellD: L2("Rückverkauf an den Markt: {a} → {b}", "Selling back to the market: {a} → {b}"),
     trNow: L2("Füllstand jetzt {p}", "Fill level now {p}"), trPoor: L2("Nicht genug Geld", "Not enough money"),
@@ -794,10 +795,15 @@
     var repF = 1.35 - G.rep / 100 * 0.7;
     return Math.max(4.5, 50 / (cap * land) * repF);
   }
+  function standOkFor(m, k) {
+    if (!m._conn || (TYPES[k].heavy && !m.heavy) || !depRunway(m, k)) return false;
+    return mods("runway").some(function (rw) { return rwFits(rw, k) && (rw._junc || []).some(function (j) { return j.d >= 50 && path(j.n, m._pn); }); });
+  }
+  function typeReachable(k) { return mods("stand").some(function (m) { return standOkFor(m, k); }); }
   function pickType() {
     var s = stats();
-    var ar = mods("runway")[0], dr = mods("runway")[1] || ar;
-    var ok = function (k) { return ar && dr && rwFits(ar, k) && rwFits(dr, k); };
+    // Ein Typ kommt, sobald irgendeine passende Piste eine passende Position erreicht (nicht mehr beide Pisten nötig)
+    var ok = function (k) { return typeReachable(k); };
     var w = { p: Math.max(0.15, 1.2 - 0.12 * s.conn), n: ok("n") ? 0.3 + 0.15 * s.conn : 0, w: (ok("w") && s.heavy) ? 0.1 + 0.14 * s.heavy : 0 };
     var sum = w.p + w.n + w.w, r = Math.random() * sum;
     return r < w.p ? "p" : r < w.p + w.n ? "n" : "w";
@@ -862,7 +868,9 @@
     return best || last;
   }
   function standsFor(type) {   // freie, angebundene Positionen, beste zuerst
-    var L = mods("stand").filter(function (m) { return m._conn && !R.occ[m.id] && (!TYPES[type].heavy || m.heavy); });
+    // Wartet ein Großraumjet, bleiben Großraum-Positionen für ihn frei
+    var wideWaiting = !TYPES[type].heavy && R.holdQ.some(function (h) { return TYPES[h.type].heavy; });
+    var L = mods("stand").filter(function (m) { return m._conn && !R.occ[m.id] && (!TYPES[type].heavy || m.heavy) && !(wideWaiting && m.heavy); });
     L.forEach(function (m) { m._sc = (m.gate && m._term ? 2 : 0) - (m.heavy && !TYPES[type].heavy ? 1.5 : 0) + Math.random() * 0.1; });
     return L.sort(function (a, b) { return b._sc - a._sc; });
   }
@@ -1506,8 +1514,9 @@
     if (!R.holdQ.length) return;
     var q0 = R.q[rws[0].id];
     if (rws.length === 1 && (!rwSoon(r0) || (r0.last === "a" && q0 && q0.length && !q0[0].path))) return;
-    for (var i = 0; i < R.holdQ.length; i++) {
-      var h = R.holdQ[i], cands = standsFor(h.type);
+    var order = R.holdQ.slice().sort(function (a, b) { return (TYPES[b.type].heavy ? 1 : 0) - (TYPES[a.type].heavy ? 1 : 0); });   // Großraumjets zuerst
+    for (var oi = 0; oi < order.length; oi++) {
+      var h = order[oi], i = R.holdQ.indexOf(h), cands = standsFor(h.type);
       for (var ci = 0; ci < cands.length; ci++) {
         var st = cands[ci]; if (!depRunway(st, h.type)) continue;
         for (var ri = 0; ri < rws.length; ri++) {
@@ -2852,6 +2861,7 @@
     function btn(a, label, dis, warn) { return '<button type="button" data-act="' + a + '"' + (warn ? ' class="warn"' : "") + ' aria-disabled="' + dis + '">' + label + "</button>"; }
     if (m.t === "stand") {
       info.push(m._conn ? t("stConn") : m._half ? t("connIn") : t("stNoConn"));
+      if (m.heavy && m._conn) info.push(standOkFor(m, "w") ? t("wideOk") : t("wideNo"));
       if (m._conn) info.push(m.gate && m._term ? t("stGate") : t("stBus"));
       if (!m.gate) acts.push(btn("gate", t("gate") + " · " + eurS(bdef("gate").cost()), !!bdef("gate").lock() || !m._term));
       if (!m.heavy) acts.push(btn("heavy", t("heavy") + " · " + eurS(bdef("heavy").cost()), !!bdef("heavy").lock()));
