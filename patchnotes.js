@@ -86,7 +86,7 @@ window.PATCHNOTES = {
   ],
 
   channels: [
-    { v: "0.25", t: "2026-11-09T03:05:00+01:00",
+    { v: "0.25", t: "2026-11-09T03:00:00+01:00",
       de: ["Neue Tiefenkarte per KI (Depth Anything V2): nah hell, fern dunkel, wie in DaVinci Resolve", "Läuft komplett im Browser, dein Bild verlässt das Gerät nicht", "Modell wird nur beim ersten Mal geladen (ca. 38 MB), danach aus dem Cache", "Kanten werden am Foto ausgerichtet", "Detailstufe wählbar: Standard oder Fein", "Farbige Karte jetzt im Wärmebild-Look"],
       en: ["New AI depth map (Depth Anything V2): near is bright, far is dark, like in DaVinci Resolve", "Runs entirely in the browser, your image never leaves the device", "Model loads only the first time (about 38 MB), then from the cache", "Edges are aligned to the photo", "Choose the detail level: Standard or Fine", "Colour map now has a thermal-camera look"] },
     { v: "0.21", t: "2026-11-08T02:15:00+01:00",

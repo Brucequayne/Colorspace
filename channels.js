@@ -144,11 +144,11 @@
     return { w: w, h: h, d: dep };
   }
   // ---------- KI-Tiefe: Depth Anything V2 Small (Apache 2.0) über ONNX Runtime Web ----------
-  // Modell und Laufzeit liegen im Ordner depth/ dieser Seite. Das Modell ist in zwei Teile geteilt (Upload-Grenze bei GitHub)
+  // Modell und Laufzeit liegen im Ordner depth-ordner/depth/ dieser Seite. Das Modell ist in zwei Teile geteilt (Upload-Grenze bei GitHub)
   // und wird im Browser wieder zusammengesetzt. Geladen wird erst, wenn jemand das Werkzeug Tiefe benutzt.
   var AI = { sess: null, loading: null, queue: Promise.resolve(), prog: null };
   var MODEL_PARTS = ["depth-anything-v2-small.part1", "depth-anything-v2-small.part2"], MODEL_BYTES = 27258801;
-  function aiBase() { return new URL("depth/", location.href).href; }
+  function aiBase() { return new URL("depth-ordner/depth/", location.href).href; }
   function loadScript(src) {
     return new Promise(function (res, rej) {
       if (window.ort) return res();
