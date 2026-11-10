@@ -4,7 +4,7 @@
 (function () {
   "use strict";
 
-  var VERSION = "0.44";
+  var VERSION = "0.44.1";
   var CELL_M = 2.5, PX = 24;              // Meter je Zelle, Pixel je Zelle bei Zoom 1
   var lang = "de";
   function L2(de, en) { return { de: de, en: en }; }
@@ -60,7 +60,7 @@
     hangar: L2("NPC-Schiffe", "NPC ships"), hangarH: L2("Baupläne für spätere KI-Gegner. Noch ohne KI: hier lassen sie sich ansehen und in den Editor laden.", "Blueprints for future AI enemies. No AI yet: view them here and load them into the editor."),
     load: L2("In den Editor laden", "Load into editor"), clsS: L2("Klein", "Small"), clsM: L2("Mittel", "Medium"), clsL: L2("Groß", "Large"),
     fleeT: L2("Der Feind versucht zu entkommen", "The enemy is trying to escape"),
-    shield: L2("Schild", "Shield"), shFill: L2("Schild mit dem eingestellten Anteil neu aufladen", "Recharge the shield to the set share"),
+    shield: L2("Schild", "Shield"), shNoGen: L2("Kein Schildgenerator verbaut: die Reserve fängt nichts ab", "No shield generator installed: the reserve absorbs nothing"), shFill: L2("Schild mit dem eingestellten Anteil neu aufladen", "Recharge the shield to the set share"),
     spawn: L2("Gegner spawnen", "Spawn enemy"), spawned: L2("{n} patrouilliert irgendwo vor dir", "{n} is patrolling somewhere ahead of you"), ko: L2("Kampfunfähig", "Disabled"),
     weld: L2("Schweißgerät", "Welder"), weldOn: L2("repariert {n}: {p} %", "repairing {n}: {p} %"), weldIdle: L2("Linksklick vor einem Block repariert ihn, vor einem Hologramm baut er ihn neu", "Left click facing a block repairs it, facing a hologram rebuilds it"),
     sDim: L2("Abmessungen", "Dimensions"), sCool: L2("Kühlung", "Cooling"), sCoolW: L2("Gekühlt", "Cooled"), weap: L2("Waffen", "weapons"), thrs: L2("Triebwerke", "thrusters"), sCom: L2("Schwerpunkt", "Centre of mass"), comHint: L2("gelb-schwarzer Kreis", "yellow-black circle"),
@@ -1901,11 +1901,11 @@
     lit("#sr-ic-z", FL.damp); lit("#sr-ic-c", FL.cruise); lit("#sr-ic-h", FL.hiOk); lit("#sr-ic-x", FL.oc);
     var ek = me.cap ? me.energy / me.cap : 0, sk = me.cap ? (me.shE || 0) / me.cap : 0, eb = V.root.querySelector("#sr-h-ebar"); if (eb) { eb.style.width = (ek * 100).toFixed(1) + "%"; eb.style.background = ek < 0.2 ? "#E0533F" : "#57D18A"; }
     var sbh = V.root.querySelector("#sr-h-sbar"); if (sbh) sbh.style.width = (sk * 100).toFixed(1) + "%";
-    var shl = V.root.querySelector(".sr-shs"); if (shl) { shl.classList.toggle("off", !me.shGen); var shv = V.root.querySelector("#sr-shp-v"); if (shv) shv.textContent = me.shGen ? FL.shPct + " %" : "–"; }
+    set("sr-shp-v", FL.shPct + " %"); set("sr-shp-n", me.shGen ? "" : t("shNoGen"));
     // Energieanzeige unten in der Mitte
     var be = V.root.querySelector("#sr-be-e"), bs = V.root.querySelector("#sr-be-s");
     if (be) { be.style.width = (ek * 100).toFixed(1) + "%"; be.style.background = ek < 0.2 ? "#E0533F" : "#57D18A"; bs.style.width = (sk * 100).toFixed(1) + "%"; }
-    set("sr-be-t", nf(me.energy) + (me.shGen ? "  ·  " + t("shield") + " " + nf(me.shE || 0) : "") + "  /  " + nf(me.cap));
+    set("sr-be-t", nf(me.energy) + "  ·  " + t("shield") + " " + nf(me.shE || 0) + "  /  " + nf(me.cap));
     set("sr-h-en", nf(me.energy) + " / " + nf(me.cap));
     var ob = V.root.querySelector("#sr-h-ocbar"); if (ob) { ob.style.width = Math.round(FL.ocT / (me.ocMax || 3) * 100) + "%"; ob.style.background = FL.oc ? "#B98AE0" : "#6B7FA0"; }
     var wtxt = g ? t(g) : t("none");
@@ -1966,8 +1966,7 @@
       '<div class="sr-list">' + pal + '</div></aside>' +
       '<aside class="sr-info sr-ed-only" id="sr-info"></aside>' +
       '<div class="sr-hud sr-fl-only"><div class="sr-hr"><small>' + t("speed") + '</small><span><b id="sr-h-sp"></b><em id="sr-h-spb"></em></span></div>' +
-      '<div><small>' + t("energy") + ' <span id="sr-h-en"></span></small><i class="sr-eb sr-eb2"><i id="sr-h-ebar"></i><i id="sr-h-sbar"></i></i>' +
-      '<label class="sr-shs"><small>' + t("shield") + '</small><input type="range" id="sr-shp" min="0" max="100" step="5" value="0"><b id="sr-shp-v">0 %</b><button type="button" data-act="shfill" title="' + t("shFill") + '">↻</button></label></div>' +
+      '<div><small>' + t("energy") + ' <span id="sr-h-en"></span></small><i class="sr-eb sr-eb2"><i id="sr-h-ebar"></i><i id="sr-h-sbar"></i></i></div>' +
       '<div><small>' + t("weapon") + ' (R)</small><b id="sr-h-w"></b></div>' +
       '<div class="sr-ics"><i id="sr-ic-z" title="Z · ' + t("damp") + '"><svg viewBox="0 0 20 20"><path d="M2 10h5M13 10h5M5 7l3 3-3 3M15 7l-3 3 3 3" fill="none" stroke="currentColor" stroke-width="1.8"/></svg><u>Z</u></i><i id="sr-ic-c" title="C · ' + t("cruise") + '"><svg viewBox="0 0 20 20"><path d="M3 14a7 7 0 0 1 14 0" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M10 14l4-5" stroke="currentColor" stroke-width="2"/><circle cx="10" cy="14" r="1.6" fill="currentColor"/></svg><u>C</u></i><i id="sr-ic-h" title="' + (lang === "de" ? "Umschalt" : "Shift") + ' · ' + t("hiLbl") + '"><svg viewBox="0 0 20 20"><path d="M5 11l5-5 5 5M5 16l5-5 5 5" fill="none" stroke="currentColor" stroke-width="1.8"/></svg><u>⇧</u></i><i id="sr-ic-x" title="X · Overcharge"><svg viewBox="0 0 20 20"><path d="M11 2L5 11h4l-1 7 6-9h-4z" fill="currentColor"/></svg><u>X</u><s><s id="sr-h-ocbar"></s></s></i></div>' +
       '<div><small>' + t("air") + ' <span id="sr-h-air"></span></small><i class="sr-eb"><i id="sr-h-airbar"></i></i></div>' +
@@ -1979,7 +1978,8 @@
       '<button type="button" class="sr-ctlb sr-fl-only" data-act="ctl" aria-pressed="false">' + t("controls") + '</button>' +
       '<div class="sr-inv" hidden><div class="sr-inv-box"><div class="sr-inv-h"><div><b>' + t("invT") + '</b><small>' + t("invSub") + '</small></div><button type="button" data-act="inv-x">' + (lang === "de" ? "Schließen (I)" : "Close (I)") + '</button></div>' +
       '<div class="sr-inv-leg">' + RAR.map(function (r) { return '<span style="--rc:' + r.col + '">' + r.n[lang] + "</span>"; }).join("") + '<em class="sr-inv-cnt"></em></div><div class="sr-inv-list"></div></div></div>' +
-      '<div class="sr-ebot sr-fl-only"><div class="sr-ebot-bar"><i id="sr-be-e"></i><i id="sr-be-s"></i></div><span id="sr-be-t"></span></div>' +
+      '<div class="sr-ebot sr-fl-only"><div class="sr-ebot-bar"><i id="sr-be-e"></i><i id="sr-be-s"></i></div><span id="sr-be-t"></span>' +
+      '<label class="sr-shs"><small>' + t("shield") + '</small><input type="range" id="sr-shp" min="0" max="100" step="5" value="0"><b id="sr-shp-v">0 %</b><button type="button" data-act="shfill" title="' + t("shFill") + '">↻</button></label><em id="sr-shp-n"></em></div>' +
       '<div class="sr-tip sr-fl-only" hidden title="' + (lang === "de" ? "Klicken zum Ausblenden" : "Click to dismiss") + '"></div>' +
       '<div class="sr-hint" id="sr-hint"></div><div class="sr-note" hidden></div>' +
       '<div class="sr-io sr-npc" hidden><div class="sr-io-box sr-npc-box"><div class="sr-tbar"><b class="sr-npc-t">' + t("hangar") + '</b><span class="sr-sp"></span><button type="button" data-act="npc-x">' + (lang === "de" ? "Schließen" : "Close") + '</button></div><div class="sr-io-h">' + t("hangarH") + '</div><div class="sr-npc-list"></div></div></div>' +
@@ -2064,11 +2064,13 @@
     ".sr-ctl{border-top:1px solid rgba(38,49,66,.9);padding-top:6px;gap:3px!important}.sr-ctl[hidden]{display:none!important}.sr-ctl small{margin-top:3px}" +
     ".sr-ctl dl{display:grid;grid-template-columns:66px 1fr;gap:2px 7px;margin:0;font-size:.7rem;line-height:1.3}.sr-ctl dt{color:#E8ECEF;font-weight:600;white-space:nowrap}.sr-ctl dd{margin:0;color:#B9C4D4}" +
     ".sr-eb2{display:flex!important}.sr-eb2 i{display:block;height:100%}#sr-h-sbar{background:#4EA3FF;box-shadow:0 0 6px rgba(78,163,255,.6)}" +
-    ".sr-shs{display:flex;align-items:center;gap:5px;margin-top:4px}.sr-shs small{flex:none}.sr-shs input{flex:1;min-width:0;accent-color:#4EA3FF;margin:0}.sr-shs b{font-size:.7rem;min-width:30px;text-align:right;font-variant-numeric:tabular-nums}.sr-shs button{padding:0 5px;font-size:.75rem;line-height:1.3}.sr-shs.off{opacity:.4;pointer-events:none}" +
+    ".sr-shs{display:flex;align-items:center;gap:7px;width:100%;pointer-events:auto;background:rgba(14,19,28,.55);border:1px solid rgba(38,49,66,.8);padding:3px 8px;box-sizing:border-box}.sr-shs small{flex:none;font-size:.66rem;letter-spacing:.08em;text-transform:uppercase;color:#8FB8E8}" +
+    ".sr-shs input{flex:1;min-width:0;accent-color:#4EA3FF;margin:0;cursor:pointer}.sr-shs b{font-size:.72rem;min-width:34px;text-align:right;font-variant-numeric:tabular-nums;color:#DDEBFA}.sr-shs button{padding:0 6px;font-size:.78rem;line-height:1.4}" +
+    ".sr-ebot em{font-style:normal;font-size:.64rem;color:rgba(240,184,96,.85);text-shadow:0 1px 2px rgba(0,0,0,.8)}" +
     ".sr-ebot{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);width:min(340px,calc(100% - 520px));min-width:180px;display:flex!important;flex-direction:column;align-items:center;gap:4px;z-index:2;pointer-events:none}" +
     ".sr-ebot-bar{width:100%;height:7px;background:rgba(20,26,36,.75);border:1px solid rgba(60,75,95,.8);display:flex}.sr-ebot-bar i{display:block;height:100%}#sr-be-s{background:#4EA3FF;box-shadow:0 0 8px rgba(78,163,255,.7)}" +
     ".sr-ebot span{font-size:.7rem;color:rgba(222,230,238,.85);font-variant-numeric:tabular-nums;text-shadow:0 1px 2px rgba(0,0,0,.8);white-space:pre}" +
-    ".sr-tip{position:absolute;left:50%;bottom:58px;transform:translateX(-50%);max-width:min(620px,calc(100% - 480px));text-align:center;font-size:.86rem;line-height:1.4;color:rgba(222,230,238,.86);text-shadow:0 1px 3px rgba(0,0,0,.8);z-index:3;cursor:pointer;opacity:0;transition:opacity .4s ease}" +
+    ".sr-tip{position:absolute;left:50%;bottom:92px;transform:translateX(-50%);max-width:min(620px,calc(100% - 480px));text-align:center;font-size:.86rem;line-height:1.4;color:rgba(222,230,238,.86);text-shadow:0 1px 3px rgba(0,0,0,.8);z-index:3;cursor:pointer;opacity:0;transition:opacity .4s ease}" +
     ".sr-tip[hidden]{display:none!important}.sr-tip.in{opacity:1}.sr-tip.out{opacity:0}" +
     ".sr-inv{position:absolute;inset:0;background:rgba(6,9,14,.55);display:flex;align-items:center;justify-content:center;z-index:7;padding:16px}.sr-inv[hidden]{display:none}" +
     ".sr-inv-box{width:min(820px,100%);max-height:calc(100% - 40px);overflow:auto;background:rgba(18,23,32,.97);border:1px solid #33405A;padding:14px 16px;display:flex;flex-direction:column;gap:10px}" +
@@ -2259,7 +2261,7 @@
   // Schild-Zuweisung: Anteil der Gesamtkapazität wird aus der Schiffsenergie ins Schild umgebucht.
   // Leergeschossene Schilde füllen sich nicht von selbst, erst wenn der Regler neu gesetzt wird (oder ↻).
   function setShield(pct) {
-    var me = FL.me; FL.shPct = pct; if (!me.shGen) return;
+    var me = FL.me; FL.shPct = pct;   // jederzeit einstellbar; ohne Generator bleibt die Reserve nur liegen
     var target = pct / 100 * me.cap, diff = target - (me.shE || 0);
     if (diff > 0) { var take = Math.min(diff, me.energy); me.energy -= take; me.shE = (me.shE || 0) + take; }
     else { me.shE += diff; me.energy = Math.min(me.cap - me.shE, me.energy - diff); }
