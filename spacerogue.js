@@ -4,7 +4,7 @@
 (function () {
   "use strict";
 
-  var VERSION = "0.4";
+  var VERSION = "0.41";
   var CELL_M = 2.5, PX = 24;              // Meter je Zelle, Pixel je Zelle bei Zoom 1
   var lang = "de";
   function L2(de, en) { return { de: de, en: en }; }
@@ -59,6 +59,7 @@
     weldBuild: L2("baut {n} wieder auf", "rebuilding {n}"), weldWait: L2("{n}: erst den Nachbarblock aufbauen", "{n}: rebuild the neighbouring block first"),
     hangar: L2("NPC-Schiffe", "NPC ships"), hangarH: L2("Baupläne für spätere KI-Gegner. Noch ohne KI: hier lassen sie sich ansehen und in den Editor laden.", "Blueprints for future AI enemies. No AI yet: view them here and load them into the editor."),
     load: L2("In den Editor laden", "Load into editor"), clsS: L2("Klein", "Small"), clsM: L2("Mittel", "Medium"), clsL: L2("Groß", "Large"),
+    fleeT: L2("Der Feind versucht zu entkommen", "The enemy is trying to escape"),
     spawn: L2("Gegner spawnen", "Spawn enemy"), spawned: L2("{n} patrouilliert irgendwo vor dir", "{n} is patrolling somewhere ahead of you"), ko: L2("Kampfunfähig", "Disabled"),
     weld: L2("Schweißgerät", "Welder"), weldOn: L2("repariert {n}: {p} %", "repairing {n}: {p} %"), weldIdle: L2("Linksklick vor einem Block repariert ihn, vor einem Hologramm baut er ihn neu", "Left click facing a block repairs it, facing a hologram rebuilds it"),
     sDim: L2("Abmessungen", "Dimensions"), sCool: L2("Kühlung", "Cooling"), sCoolW: L2("Gekühlt", "Cooled"), weap: L2("Waffen", "weapons"), thrs: L2("Triebwerke", "thrusters"), sCom: L2("Schwerpunkt", "Centre of mass"), comHint: L2("gelb-schwarzer Kreis", "yellow-black circle"),
@@ -85,9 +86,10 @@
   }
   armor("l", false); armor("h", true);
   // Kosten in Credits (Cr): im Editor ist alles gratis, im späteren Rogue-like-Modus bezahlt man damit Bau-Upgrades zwischen den Stages
-  var COSTS = { cks: 1200, ckm: 2400, ckl: 4200, ths: 450, thl: 1600, gyr: 700, col: 300, ant: 400, bat: 350, rea: 2000, flo: 15, wal: 25, dor: 60, hat: 150, win: 40, mgn: 900, msl: 1300, tgc: 1600, rgn: 2600 };
+  var COSTS = { cks: 1200, ckm: 2400, ckl: 4200, ckt: 700, ths: 450, thl: 1600, gyr: 700, col: 300, ant: 400, bat: 350, rea: 2000, flo: 15, wal: 25, dor: 60, hat: 150, win: 40, mgn: 900, msl: 1300, tgc: 1600, rgn: 2600 };
   function applyCosts() { Object.keys(T).forEach(function (id) { var ty = T[id]; ty.cost = COSTS[id] || (ty.kind === "armor" ? Math.max(5, Math.round(ty.mass * (ty.heavy ? 26 : 57))) : 100); }); }
   function cr(v) { return nf(Math.round(v)) + " Cr"; }
+  def("ckt", { cat: "catCo", kind: "cock", w: 1, h: 2, mass: 0.9, hp: 150, n: L2("Cockpit winzig 1×2", "Tiny cockpit 1×2"), col: "#9AA5B1" });
   def("cks", { cat: "catCo", kind: "cock", w: 2, h: 3, mass: 1.8, hp: 220, n: L2("Cockpit klein 2×3", "Small cockpit 2×3"), col: "#9AA5B1" });
   def("ckm", { cat: "catCo", kind: "cock", w: 3, h: 4, mass: 4.2, hp: 320, n: L2("Cockpit 3×4", "Cockpit 3×4"), col: "#9AA5B1" });
   def("ckl", { cat: "catCo", kind: "cock", w: 4, h: 5, mass: 7.5, hp: 440, n: L2("Cockpit groß 4×5", "Large cockpit 4×5"), col: "#9AA5B1" });
@@ -441,7 +443,19 @@
     } else if (k === "cock") {
       c.fillStyle = col; c.fillRect(0, 0, w, h);
       c.fillStyle = shade(col, -0.3); c.fillRect(0, h - lw * 2, w, lw * 2); c.fillRect(0, 0, lw * 2, h); c.fillRect(w - lw * 2, 0, lw * 2, h);
-      var cw = w - s * 0.5, ch = s * (ty.h > 3 ? 1.6 : 1.2);
+      var tiny = ty.w === 1, cw = w - s * 0.5, ch = s * (tiny ? 0.95 : ty.h > 3 ? 1.6 : 1.2);
+      if (tiny) {   // 1×2: Kanzel füllt die vordere Zelle, dahinter ein schmaler Sitz
+        c.fillStyle = GLASS; c.beginPath(); c.moveTo(s * 0.16, ch); c.lineTo(s * 0.16, s * 0.4); c.lineTo(w / 2, s * 0.08); c.lineTo(w - s * 0.16, s * 0.4); c.lineTo(w - s * 0.16, ch); c.closePath(); c.fill();
+        c.fillStyle = GLASS2; c.beginPath(); c.moveTo(s * 0.26, ch * 0.88); c.lineTo(s * 0.26, s * 0.44); c.lineTo(w / 2 - s * 0.06, s * 0.22); c.lineTo(w / 2 - s * 0.06, ch * 0.88); c.closePath(); c.fill();
+        if (view === "in") {
+          c.fillStyle = FLOOR; c.fillRect(s * 0.16, ch + lw, w - s * 0.32, h - ch - s * 0.16);
+          var tx2 = w / 2, ty2 = s * 1.45; c.fillStyle = "#5A3E2B"; c.fillRect(tx2 - s * 0.26, ty2 - s * 0.26, s * 0.52, s * 0.52); c.fillStyle = "#7A5A40"; c.fillRect(tx2 - s * 0.19, ty2 - s * 0.18, s * 0.38, s * 0.36);
+          if (opts && opts.pilot) drawAstronaut(c, tx2, ty2 - s * 0.05, -Math.PI / 2, 0, s / 24, false);
+        } else { c.fillStyle = shade(col, -0.12); c.fillRect(s * 0.16, ch + lw, w - s * 0.32, h - ch - s * 0.2); }
+        c.strokeStyle = shade(col, -0.55); c.lineWidth = lw; c.strokeRect(lw / 2, lw / 2, w - lw, h - lw);
+        if (dam) damageMarks(c, w, h, b, s, "full");
+        c.restore(); return;
+      }
       c.fillStyle = GLASS; c.beginPath(); c.moveTo(s * 0.25, ch); c.lineTo(s * 0.25, s * 0.45); c.lineTo(w / 2, s * 0.08); c.lineTo(w - s * 0.25, s * 0.45); c.lineTo(w - s * 0.25, ch); c.closePath(); c.fill();
       c.fillStyle = GLASS2; c.beginPath(); c.moveTo(s * 0.4, ch * 0.9); c.lineTo(s * 0.4, s * 0.5); c.lineTo(w / 2 - s * 0.1, s * 0.25); c.lineTo(w / 2 - s * 0.1, ch * 0.9); c.closePath(); c.fill();
       if (view === "in") {
@@ -1029,9 +1043,32 @@
     var dist = Math.max(320, Math.min(700, Math.max(mv.hw, mv.hh) * 1.25)), dir = me.a + (Math.random() - 0.5) * 1.4;
     bd.x = me.x + Math.sin(dir) * dist; bd.y = me.y - Math.cos(dir) * dist; bd.a = Math.random() * Math.PI * 2;
     bd.enemy = true; bd.npc = sh; bd.offT = 0; bd.seen = false;
-    bd.ai = { state: "patrol", home: { x: bd.x, y: bd.y }, r: 70 + Math.random() * 50, ang: Math.random() * 6.28, dir: Math.random() < 0.5 ? 1 : -1, strafe: 1, st: 3, alert: 0 };
+    var sty = AISTY[Math.floor(Math.random() * AISTY.length)];
+    bd.ai = { state: "patrol", home: { x: bd.x, y: bd.y }, r: 70 + Math.random() * 50, ang: Math.random() * 6.28, dir: Math.random() < 0.5 ? 1 : -1, strafe: 1, st: 3, alert: 0,
+      sty: sty, mor: Math.min(1, sty.mor + (Math.random() - 0.5) * 0.2), n0: bd.blocks.length, fleeRoll: false };
     FL.bodies.push(bd);
-    note(fmt(t("spawned"), { n: sh.n[lang] }));
+    note(fmt(t("spawned"), { n: sh.n[lang] }) + " · " + sty.n[lang]);
+  }
+  // Kampfstile: Draufgänger kommen nah heran, Umkreiser halten Abstand und kreisen, Taktiker liegen dazwischen
+  var AISTY = [
+    { id: "aggro", n: L2("Draufgänger", "Brawler"), rk: 0.45, strafe: 4, orbit: 0, push: 55, mor: 0.9 },
+    { id: "tact", n: L2("Taktiker", "Tactician"), rk: 1, strafe: 9, orbit: 0, push: 40, mor: 0.75 },
+    { id: "orbit", n: L2("Umkreiser", "Circler"), rk: 1.45, strafe: 0, orbit: 30, push: 35, mor: 0.65 }
+  ];
+  // Moral (0–1): sinkt mit jedem Treffer und mit verlorenen Blöcken, erholt sich langsam. Niedrige Moral hält mehr Abstand und flieht eher
+  function aiMorale(bd, dt) {
+    var A = bd.ai, loss = 1 - bd.blocks.length / A.n0, cap = Math.max(0.05, A.sty.mor * (1 - loss * 1.2));
+    A.mor = Math.min(cap, A.mor + dt * 0.01);
+    if (A.hitN) { A.mor = Math.max(0, A.mor - A.hitN * 0.006); A.hitN = 0; }
+    A.mor = Math.min(A.mor, cap);
+  }
+  function aiFleeCheck(bd) {
+    var A = bd.ai, ck = bd.seat; if (!ck || A.fleeRoll || A.state === "flee") return;
+    if (ck.hp / hpMax(bd, ck) < 0.3) {   // Cockpit kurz vor der Zerstörung: im Schnitt 25 % Fluchtversuche, bei schlechter Moral öfter
+      A.fleeRoll = true;
+      var pf = Math.max(0.1, Math.min(0.45, 0.25 + (0.5 - A.mor) * 0.3));
+      if (Math.random() < pf) { A.state = "flee"; FL.bannerN = bd.npc.n[lang]; showBanner(t("fleeT"), "flee"); }
+    }
   }
   function aiTick(bd, dt) {
     var A = bd.ai, me = FL.me; if (bd.dead) return;
@@ -1043,15 +1080,22 @@
     if (A.state === "patrol" && alive && (ds < range || A.hurt)) { A.state = "combat"; A.alert = 1.6; }
     if (A.state === "combat" && (!alive || dist > AI.lose)) { A.state = "patrol"; A.home = { x: bd.x, y: bd.y }; }
     A.hurt = false;
-    var vDes, head, fire = false, aim = null;
-    if (A.state === "combat") {
+    aiMorale(bd, dt); aiFleeCheck(bd);
+    var vDes, head, fire = false, aim = null, Y = A.sty;
+    if (A.state === "flee") {
+      // Flucht: Nase weg vom Spieler, volle Fahrt, kein Feuer
+      var fx = -dx / dist, fy = -dy / dist; head = angTo(fx, fy);
+      vDes = { x: bd.vx + fx * 60, y: bd.vy + fy * 60 };
+    } else if (A.state === "combat") {
       var R = bd.blocks.some(function (b) { return T[b.t].kind === "mg"; }) ? 75 : bd.blocks.some(function (b) { return T[b.t].kind === "ms"; }) ? 130 : 170;
+      R *= Y.rk * (1 + Math.max(0, 0.6 - A.mor) * 1.2);   // Stil und Moral bestimmen den Wunschabstand
       var tl = dist / MG.speed; aim = { x: me.x + (me.vx - bd.vx) * tl, y: me.y + (me.vy - bd.vy) * tl };
       var ax = aim.x - bd.x, ay = aim.y - bd.y; head = angTo(ax, ay);
-      A.st -= dt; if (A.st <= 0) { A.st = 2.5 + Math.random() * 3; A.strafe = Math.random() < 0.5 ? -1 : 1; }
-      var ux = dx / dist, uy = dy / dist, cl = Math.max(-22, Math.min(40, (dist - R) * 0.6));
-      vDes = { x: me.vx + ux * cl - uy * A.strafe * 9, y: me.vy + uy * cl + ux * A.strafe * 9 };
-      fire = Math.abs(angDiff(head, bd.a)) < (bd.tcomp ? TURRET.max : 0.1) && dist < R * 2;
+      A.st -= dt; if (A.st <= 0) { A.st = 2.5 + Math.random() * 3; A.strafe = Math.random() < 0.5 ? -1 : 1; if (Y.orbit && Math.random() < 0.25) A.dir = -A.dir; }
+      var ux = dx / dist, uy = dy / dist, cl = Math.max(-25, Math.min(Y.push, (dist - R) * 0.6));
+      var side = Y.orbit ? Y.orbit * A.dir : Y.strafe * A.strafe;   // Umkreiser fliegen quer zum Spieler
+      vDes = { x: me.vx + ux * cl - uy * side, y: me.vy + uy * cl + ux * side };
+      fire = Math.abs(angDiff(head, bd.a)) < (bd.tcomp ? TURRET.max : 0.1) && dist < R * 2.2;
     } else {
       A.ang += A.dir * dt * AI.patrolV / A.r;
       var px = A.home.x + Math.cos(A.ang) * A.r, py = A.home.y + Math.sin(A.ang) * A.r, tx = -Math.sin(A.ang) * A.dir, ty = Math.cos(A.ang) * A.dir;
@@ -1085,7 +1129,7 @@
     FL.bodies.slice().forEach(function (bd) {
       if (!bd.enemy) return;
       if (!bd.dead && (!bd.cock || (bd.energy <= 0.5 && !bd.prod) || !bd.torque || !bd.thrSum)) {
-        bd.dead = true; bd.ai = null; bd.flames = {}; FL.banner = 3.2; FL.bannerN = bd.npc.n[lang]; showBanner();
+        bd.dead = true; bd.ai = null; bd.flames = {}; FL.banner = 3.2; FL.bannerN = bd.npc.n[lang]; showBanner(t("ko"), "ko");
         dropPerks(bd);
       }
       var inView = Math.abs(bd.x - FL.cam.x) < mv.hw + bd.rad && Math.abs(bd.y - FL.cam.y) < mv.hh + bd.rad;
@@ -1094,8 +1138,9 @@
       if (bd.offT > 30 || far) FL.bodies.splice(FL.bodies.indexOf(bd), 1);
     });
   }
-  function showBanner() {
+  function showBanner(label, kind) {
     var el = V.root.querySelector(".sr-kill"); if (!el) return;
+    el.querySelector("small").textContent = label || t("ko"); el.classList.toggle("flee", kind === "flee");
     el.querySelector("span").textContent = FL.bannerN; el.hidden = false; el.classList.remove("go"); void el.offsetWidth; el.classList.add("go");
     clearTimeout(V.killT); V.killT = setTimeout(function () { if (V) el.hidden = true; }, 3200);
   }
@@ -1104,7 +1149,7 @@
   function audioInit() { try { if (!AC) AC = new (window.AudioContext || window.webkitAudioContext)(); if (AC.state === "suspended") AC.resume(); } catch (e) {} }
   function hitMark(x, y, bd, crit) {
     if (bd === FL.me) return;
-    if (bd.ai) bd.ai.hurt = true;
+    if (bd.ai) { bd.ai.hurt = true; bd.ai.hitN = (bd.ai.hitN || 0) + 1; }
     FL.hits.push({ x: x, y: y, life: 0, crit: !!crit }); if (FL.hits.length > 40) FL.hits.shift();
     if (!AC || AC.state !== "running") return;
     var t0 = AC.currentTime; if (t0 - lastHitS < 0.07) return; lastHitS = t0;
@@ -1166,7 +1211,7 @@
     for (var i = 0; i < b.r; i++) { var nx = h - y, ny = x; x = nx; y = ny; var tw = w; w = h; h = tw; }
     return { x: b.x + x, y: b.y + y };
   }
-  function seatPos(bd) { var b = bd.seat; if (!b) return { x: bd.com[0], y: bd.com[1] }; var ty = T[b.t]; return localPt(b, ty.w / 2, (ty.h > 3 ? 1.6 : 1.2) + 0.95); }
+  function seatPos(bd) { var b = bd.seat; if (!b) return { x: bd.com[0], y: bd.com[1] }; var ty = T[b.t]; return ty.w === 1 ? localPt(b, 0.5, 1.45) : localPt(b, ty.w / 2, (ty.h > 3 ? 1.6 : 1.2) + 0.95); }
   function walkable(bd, x, y) {
     var o = bd.map.get(key(Math.floor(x), Math.floor(y))); if (!o) return false;
     var k = T[o.b.t].kind; return k === "floor" || k === "door" || k === "hatch" || (k === "cock" && o.ly >= 1);
@@ -1865,6 +1910,7 @@
     ".sr-spawn span{display:flex;gap:4px;flex-wrap:wrap}.sr-spawn button{flex:1;padding:5px 6px;font-size:.78rem}" +
     ".sr-kill{position:absolute;left:50%;top:76px;transform:translateX(-50%);display:flex;align-items:center;gap:10px;background:rgba(14,19,28,.92);border:1px solid #3A4658;padding:8px 16px 8px 10px;z-index:5;pointer-events:none}" +
     ".sr-kill[hidden]{display:none}.sr-kill div{display:flex;flex-direction:column}.sr-kill small{font-size:.68rem;letter-spacing:.1em;text-transform:uppercase;color:#F08A78;font-weight:700}.sr-kill span{font-weight:600;color:#E8ECEF}" +
+    ".sr-kill.flee small{color:#F0B860}.sr-kill.flee path:last-child{stroke:#F0B860}" +
     ".sr-kill.go{animation:srKill 3.2s ease both}@keyframes srKill{0%{opacity:0;transform:translate(-50%,-8px)}8%{opacity:1;transform:translate(-50%,0)}85%{opacity:1}100%{opacity:0}}" +
     ".sr-note{position:absolute;left:50%;top:72px;transform:translateX(-50%);background:#E0533F;color:#fff;font-weight:600;padding:8px 14px;z-index:4;font-size:.86rem}" +
     ".sr-ctlb{position:absolute;left:206px;bottom:10px;z-index:3;padding:5px 10px;font-size:.72rem;background:rgba(14,19,28,.6);border:1px solid rgba(38,49,66,.8);color:#B9C4D4}.sr-ctlb[aria-pressed=true]{color:#9FE3BD;border-color:rgba(127,211,164,.55)}" +
@@ -1974,7 +2020,8 @@
   var NPC = [
     { id: 1, n: L2("Jäger", "Jaeger"), cls: "S", code: {"sr":1,"color":"#6A7480","b":[["ckm",-1,-6,0,0,"#C8473A"],["hblk",-2,-6,0,0,"#6A7480"],["hblk",2,-6,0,1,"#6A7480"],["hblk",-2,-5,0,0,"#6A7480"],["hblk",2,-5,0,1,"#6A7480"],["hblk",-2,-4,0,0,"#6A7480"],["hblk",2,-4,0,1,"#6A7480"],["lblk",-2,-3,0,0,"#6A7480"],["lblk",2,-3,0,1,"#6A7480"],["lblk",-2,-2,0,0,"#E3B83F"],["lblk",2,-2,0,1,"#E3B83F"],["win",-2,-1,0,0,"#E3B83F"],["win",2,-1,0,1,"#E3B83F"],["lblk",-2,0,0,0,"#E3B83F"],["lblk",2,0,0,1,"#E3B83F"],["lblk",-2,1,0,0,"#E3B83F"],["lblk",2,1,0,1,"#E3B83F"],["flo",-1,-2,0,0,"#6A7480"],["lblk",-1,1,0,0,"#6A7480"],["flo",0,-2,0,0,"#C8473A"],["flo",0,-1,0,0,"#C8473A"],["lblk",0,1,0,0,"#C8473A"],["flo",1,-2,0,0,"#6A7480"],["lblk",1,1,0,0,"#6A7480"],["gyr",-1,0,0,0,"#6A7480"],["bat",0,0,0,0,"#C8473A"],["bat",1,0,0,0,"#6A7480"],["rea",-1,2,0,0,"#C8473A"],["lblk",1,2,0,0,"#C8473A"],["lblk",1,3,0,0,"#C8473A"],["thl",-2,4,0,0,"#6A7480"],["thl",1,4,0,1,"#6A7480"],["ths",0,4,0,0,"#C8473A"],["ths",-2,-8,2,0,"#E3B83F"],["ths",2,-8,2,1,"#E3B83F"],["lblk",-3,-4,0,0,"#E3B83F"],["lblk",3,-4,0,1,"#E3B83F"],["lblk",-3,-3,0,0,"#E3B83F"],["lblk",3,-3,0,1,"#E3B83F"],["mgn",-3,-6,0,0,"#E3B83F"],["mgn",3,-6,0,1,"#E3B83F"],["hrm2",4,-4,0,0,"#E3B83F"],["hrm2",-4,-4,0,1,"#E3B83F"],["bat",1,-1,0,0,"#6A7480"],["bat",-1,-1,0,1,"#6A7480"],["hrm2",-4,-2,2,0,"#E3B83F"],["hrm2",4,-2,2,1,"#E3B83F"],["ths",-3,-2,0,0,"#E3B83F"],["ths",3,-2,0,1,"#E3B83F"],["ths",-3,2,1,0,"#E3B83F"],["ths",2,2,3,1,"#E3B83F"],["ths",-3,3,1,0,"#E3B83F"],["ths",2,3,3,1,"#E3B83F"]]} },
     { id: 2, n: L2("Falcon", "Falcon"), cls: "M", code: {"sr":1,"color":"#3E6F96","b":[["ckm",-1,-2,0,0],["flo",-1,2,0,0,"#C8473A"],["flo",1,2,0,1,"#C8473A"],["flo",-1,3,0,0,"#C8473A"],["flo",1,3,0,1,"#C8473A"],["flo",-1,4,0,0,"#c0746d"],["flo",1,4,0,1,"#c0746d"],["flo",-1,5,0,0,"#c0746d"],["flo",1,5,0,1,"#c0746d"],["flo",-1,6,0,0,"#c0746d"],["flo",1,6,0,1,"#c0746d"],["flo",-1,7,0,0,"#C8473A"],["flo",1,7,0,1,"#C8473A"],["flo",-1,8,0,0,"#C8473A"],["flo",1,8,0,1,"#C8473A"],["flo",-1,9,0,0,"#C8473A"],["flo",1,9,0,1,"#C8473A"],["flo",-1,10,0,0,"#C8473A"],["flo",1,10,0,1,"#C8473A"],["flo",-1,11,0,0,"#C8473A"],["flo",1,11,0,1,"#C8473A"],["flo",0,11,0,0,"#c0746d"],["flo",0,10,0,0,"#c0746d"],["flo",0,9,0,0,"#c0746d"],["flo",0,8,0,0,"#c0746d"],["flo",0,7,0,0,"#c0746d"],["flo",0,6,0,0,"#c0746d"],["flo",0,5,0,0],["flo",0,4,0,0,"#c0746d"],["flo",0,3,0,0,"#c0746d"],["flo",0,2,0,0,"#c0746d"],["flo",0,12,0,0,"#c0746d"],["flo",0,13,0,0,"#c0746d"],["hrm2",-3,1,0,1,"#3E6F96"],["hrm2",3,1,0,0,"#3E6F96"],["hblk",-2,1,0,1,"#3E6F96"],["hblk",2,1,0,0,"#3E6F96"],["lblk",-3,3,0,1,"#3E6F96"],["lblk",3,3,0,0,"#3E6F96"],["lblk",-3,4,0,1,"#3E6F96"],["lblk",3,4,0,0,"#3E6F96"],["lblk",-3,5,0,1,"#3E6F96"],["lblk",3,5,0,0,"#3E6F96"],["lblk",-3,6,0,1,"#3E6F96"],["lblk",3,6,0,0,"#3E6F96"],["lblk",-3,7,0,1,"#3E6F96"],["lblk",3,7,0,0,"#3E6F96"],["lblk",-3,8,0,1,"#3E6F96"],["lblk",3,8,0,0,"#3E6F96"],["lblk",-3,9,0,1,"#3E6F96"],["lblk",3,9,0,0,"#3E6F96"],["lblk",-3,10,0,1,"#3E6F96"],["lblk",3,10,0,0,"#3E6F96"],["lblk",-3,11,0,1,"#3E6F96"],["lblk",3,11,0,0,"#3E6F96"],["lblk",-3,12,0,1,"#3E6F96"],["lblk",3,12,0,0,"#3E6F96"],["lblk",-3,13,0,1,"#3E6F96"],["lblk",3,13,0,0,"#3E6F96"],["lblk",-3,14,0,1,"#c0746d"],["lblk",3,14,0,0,"#c0746d"],["col",-4,13,0,1,"#3E6F96"],["col",4,13,0,0,"#3E6F96"],["col",-4,12,0,1,"#3E6F96"],["col",4,12,0,0,"#3E6F96"],["col",-4,11,0,1,"#3E6F96"],["col",4,11,0,0,"#3E6F96"],["col",-4,10,0,1,"#3E6F96"],["col",4,10,0,0,"#3E6F96"],["col",-4,9,0,1,"#3E6F96"],["col",4,9,0,0,"#3E6F96"],["thl",-5,14,0,1,"#3E6F96"],["thl",4,14,0,0,"#3E6F96"],["thl",-5,6,2,1,"#3E6F96"],["thl",4,6,2,0,"#3E6F96"],["col",-5,9,2,1,"#3E6F96"],["col",5,9,2,0,"#3E6F96"],["col",-5,10,2,1,"#3E6F96"],["col",5,10,2,0,"#3E6F96"],["col",-5,11,2,1,"#3E6F96"],["col",5,11,2,0,"#3E6F96"],["col",-5,12,2,1,"#3E6F96"],["col",5,12,2,0,"#3E6F96"],["col",-5,13,2,1,"#3E6F96"],["col",5,13,2,0,"#3E6F96"],["lblk",-2,14,2,1,"#c0746d"],["lblk",2,14,2,0,"#c0746d"],["lblk",-1,14,2,1,"#c0746d"],["lblk",1,14,2,0,"#c0746d"],["lblk",0,14,2,1,"#c0746d"],["ths",-7,11,1,1,"#3E6F96"],["ths",6,11,3,0,"#3E6F96"],["ths",-7,12,1,1,"#3E6F96"],["ths",6,12,3,0,"#3E6F96"],["ths",-7,13,1,1,"#3E6F96"],["ths",6,13,3,0,"#3E6F96"],["ths",-6,14,0,1,"#3E6F96"],["ths",6,14,0,0,"#3E6F96"],["col",-2,0,0,1],["col",2,0,0,0],["col",-2,-1,0,1],["col",2,-1,0,0],["mgn",-2,-3,0,1],["mgn",2,-3,0,0],["rea",-2,12,0,1],["rea",1,12,0,0],["bat",-2,11,0,1],["bat",2,11,0,0],["bat",-2,10,0,1],["bat",2,10,0,0],["bat",-2,9,0,1],["bat",2,9,0,0],["bat",-2,8,0,1],["bat",2,8,0,0],["bat",-2,7,0,1],["bat",2,7,0,0],["bat",-2,6,0,1],["bat",2,6,0,0],["gyr",-2,2,0,1],["gyr",2,2,0,0],["ant",-2,15,2,1],["ant",2,15,2,0],["bat",2,5,0,0],["bat",-2,5,0,0],["bat",-2,4,0,0],["bat",-2,3,0,0],["bat",2,3,0,0],["bat",2,4,0,0],["lcor",1,-3,0,0],["lcor",-1,-3,0,1],["lblk",0,-3,0,0],["msl",-6,8,0,0],["msl",6,8,0,1],["msl",-7,8,0,0],["msl",7,8,0,1],["ths",-7,10,1,0],["ths",6,10,3,1]]} },
-    { id: 3, n: L2("Mosquito", "Mosquito"), cls: "S", code: {"sr":1,"color":"#6A7480","b":[["cks",-1,-4,0,0],["lrm3",1,-4,0,0],["lrm3",-2,-4,0,1],["rea",-1,-1,0,1],["bat",-1,1,0,1],["bat",0,1,0,1],["lblk",1,-1,2,1],["lblk",-2,-1,2,1],["lblk",-2,1,2,1],["lblk",-2,2,2,1],["lblk",1,1,2,1],["lblk",1,2,2,1],["ths",-3,0,1,1],["ths",1,0,3,1],["ths",-1,2,0,1],["ths",0,2,0,1],["ths",-3,-2,2,1],["ths",2,-2,2,1],["lrm2",-3,1,2,0],["lrm2",2,1,2,1],["gyr",-2,3,2,1],["gyr",1,3,2,1],["mgn",-1,-6,0,1],["mgn",0,-6,0,1]]} }
+    { id: 3, n: L2("Mosquito", "Mosquito"), cls: "S", code: {"sr":1,"color":"#6A7480","b":[["cks",-1,-4,0,0],["lrm3",1,-4,0,0],["lrm3",-2,-4,0,1],["rea",-1,-1,0,1],["bat",-1,1,0,1],["bat",0,1,0,1],["lblk",1,-1,2,1],["lblk",-2,-1,2,1],["lblk",-2,1,2,1],["lblk",-2,2,2,1],["lblk",1,1,2,1],["lblk",1,2,2,1],["ths",-3,0,1,1],["ths",1,0,3,1],["ths",-1,2,0,1],["ths",0,2,0,1],["ths",-3,-2,2,1],["ths",2,-2,2,1],["lrm2",-3,1,2,0],["lrm2",2,1,2,1],["gyr",-2,3,2,1],["gyr",1,3,2,1],["mgn",-1,-6,0,1],["mgn",0,-6,0,1]]} },
+    { id: 4, n: L2("Dot", "Dot"), cls: "S", code: {"sr":1,"color":"#5E6B5A","b":[["ckt",0,0,0,0,"#E3B83F"],["mgn",0,-2,0,0,"#5E6B5A"],["lblk",-1,0,0,0,"#5E6B5A"],["lblk",-1,1,0,0,"#5E6B5A"],["ths",1,0,2,0,"#5E6B5A"],["lblk",-1,2,0,0,"#5E6B5A"],["gyr",0,2,0,0,"#5E6B5A"],["lblk",1,2,0,0,"#5E6B5A"],["rea",-1,3,0,0,"#5E6B5A"],["bat",1,3,0,0,"#5E6B5A"],["lblk",1,4,0,0,"#5E6B5A"],["ths",0,5,0,0,"#5E6B5A"],["ths",-3,3,1,0,"#5E6B5A"],["ths",2,3,3,0,"#5E6B5A"]]} }
   ];
   function npcBlocks(sh) { return parseShip(JSON.stringify(sh.code)) || []; }
   function shipThumb(blocks, size) {
