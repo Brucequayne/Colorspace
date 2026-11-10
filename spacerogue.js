@@ -4,7 +4,7 @@
 (function () {
   "use strict";
 
-  var VERSION = "0.44.1";
+  var VERSION = "0.44.2";
   var CELL_M = 2.5, PX = 24;              // Meter je Zelle, Pixel je Zelle bei Zoom 1
   var lang = "de";
   function L2(de, en) { return { de: de, en: en }; }
@@ -1180,7 +1180,9 @@
       var rvx = bd.vx - me.vx, rvy = bd.vy - me.vy, closing = rvx * ux + rvy * uy;
       if (dist < (me.rad + bd.rad) * 1.15 + 15 && closing > 0) { vDes.x += qx * 25 - ux * 15; vDes.y += qy * 25 - uy * 15; }
       // Feuern nur, wenn die Nase zufällig oder gewollt passt
-      fire = Math.abs(angDiff(aimHead, bd.a)) < (bd.tcomp ? TURRET.max : 0.1) && dist < R * 2.2;
+      // Feuern, sobald die Geschütze wirklich auf dich zeigen: Toleranz nach deiner Größe in der Entfernung, unabhängig vom Manöver und vom Wunschabstand
+      var tol = Math.max(0.05, Math.atan2(me.rad * 0.55, dist)) + (bd.tcomp ? TURRET.max : 0);
+      fire = Math.abs(angDiff(aimHead, bd.a)) < tol;
     } else {
       A.ang += A.dir * dt * AI.patrolV / A.r;
       var px = A.home.x + Math.cos(A.ang) * A.r, py = A.home.y + Math.sin(A.ang) * A.r, tx = -Math.sin(A.ang) * A.dir, ty = Math.cos(A.ang) * A.dir;
@@ -1192,7 +1194,11 @@
     if (A.state === "flee" && A.fleeT < 5) { var fv = Math.hypot(bd.vx, bd.vy), pv0 = A.pv || 0; if (fv > VHI && fv > pv0) { var lm = Math.max(pv0, VHI); bd.vx *= lm / fv; bd.vy *= lm / fv; fv = lm; } A.pv = fv; }
     else A.pv = Math.hypot(bd.vx, bd.vy);
     turretTick(bd, dt, aim);
-    if (fire) { weapons(bd, dt, "mg", true, aim); if (dist < 300) weapons(bd, dt, "ms", true, aim); weapons(bd, dt, "rg", true, aim); }
+    // jede Waffe in ihrer eigenen Reichweite: Minigun bis ~85 % ihrer Flugweite, Raketen bis 300 m, Railgun bis 90 % ihrer Reichweite
+    // Feuerstöße: kurz vor dem Überhitzen absetzen und erst nach dem Abkühlen weiterschießen, damit die Miniguns nicht sperren
+    var hmax = 0; bd.blocks.forEach(function (b) { if (T[b.t].kind === "mg") hmax = Math.max(hmax, b.oh > 0 ? 1 : b.heat || 0); });
+    if (hmax > MG.warn) A.mgRest = true; else if (hmax < 0.35) A.mgRest = false;
+    if (fire) { if (dist < MG.speed * MG.life * 0.85 && !A.mgRest) weapons(bd, dt, "mg", true, aim); if (dist < 300) weapons(bd, dt, "ms", true, aim); if (dist < RG.range * 0.9) weapons(bd, dt, "rg", true, aim); }
   }
   function aiDrive(bd, dt, vDes, head) {
     if (bd.torque > 0 && bd.energy > 0) {
