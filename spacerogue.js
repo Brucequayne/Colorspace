@@ -4,7 +4,7 @@
 (function () {
   "use strict";
 
-  var VERSION = "0.33";
+  var VERSION = "0.34";
   var CELL_M = 2.5, PX = 24;              // Meter je Zelle, Pixel je Zelle bei Zoom 1
   var lang = "de";
   function L2(de, en) { return { de: de, en: en }; }
@@ -59,7 +59,7 @@
   // kind: armor, cock, thr, gyro, bat, reac, ant, floor, wall, door, win, mg, rg
   // shape: full, ramp1, ramp2, round, half
   var T = {}, CATS = [];
-  function def(id, o) { o.id = id; T[id] = o; return o; }
+  function def(id, o) { o.id = id; o.mass = Math.round(o.mass * 0.7 * 100) / 100; T[id] = o; return o; }   // alle Teile 30 % leichter (v0.34)
   function armor(pre, heavy) {
     var m = heavy ? 3.3 : 0.5, hp = heavy ? 190 : 45, nm = heavy ? L2("schwer", "heavy") : L2("leicht", "light");
     var col = heavy ? "#6A7480" : "#9AA5B1";
@@ -696,7 +696,7 @@
 
   // ---------- Testflug ----------
   var FL = null, BID = 0, ZMIN_FL = 0.2;
-  var MG = { rate: 12, speed: 420, life: 1.25, dmg: 7, heat: 0.042, cool: 0.42, warn: 0.78, lock: 3.2, e: 0.4 };
+  var MG = { rate: 12, speed: 462, life: 1.48, dmg: 7, heat: 0.042, cool: 0.42, warn: 0.78, lock: 3.2, e: 0.4 };
   var MS = { v0: 30, acc: 420, vmax: 340, turn: 0.45, life: 4, dmg: 55, splash: 2.6, sdmg: 28, reload: 2.5, gap: 0.18, e: 6 };
   var RG = { charge: 0.7, cd: 2.2, dmg: 150, range: 700, e: 45 };
   // Anzugluft in Sekunden; Raumluft füllt sich in dichten Räumen auf und entweicht durch Lecks
@@ -795,6 +795,7 @@
     });
     collide();
     enemyBook(dt);
+    trailTick();
     FL.hits = FL.hits.filter(function (h) { h.life += dt; return h.life < 0.35; });
     if (FL.banner > 0) FL.banner -= dt;
     // Geschosse
@@ -1281,10 +1282,41 @@
     if (bd === FL.me && !bd.seat && FL.seated) { FL.seated = false; var sp = seatPos(bd); FL.pilot.x = sp.x; FL.pilot.y = sp.y; }
   }
 
+  // Schweif der Vortriebsdüsen (Schub nach vorne): Punkte bleiben im Raum stehen und verblassen, so sieht man die eigene Bahn
+  var TRAIL = { life: 1.8, step: 0.04, alpha: 0.17 };
+  function trailTick() {
+    FL.bodies.forEach(function (bd) {
+      bd.blocks.forEach(function (b) {
+        var ty = T[b.t]; if (ty.kind !== "thr" || thrustDir(b) !== 0) return;
+        var tr = b.trail || (b.trail = []), fk = bd.flames[0] || 0;
+        while (tr.length && (tr[0] === null || FL.t - tr[0].t > TRAIL.life)) tr.shift();
+        if (fk < 0.05) { if (tr.length && tr[tr.length - 1] !== null) tr.push(null); return; }
+        var last = tr[tr.length - 1]; if (last && FL.t - last.t < TRAIL.step) return;
+        var f = fp(b), p = toWorld(bd, b.x + f[0] / 2 + DV[2][0] * ty.h / 2, b.y + f[1] / 2 + DV[2][1] * ty.h / 2);
+        tr.push({ x: p.x, y: p.y, t: FL.t, k: fk, w: ty.w * CELL_M * 0.32 });
+      });
+    });
+  }
+  function drawTrails(c) {
+    c.lineCap = "butt";
+    FL.bodies.forEach(function (bd) {
+      bd.blocks.forEach(function (b) {
+        var tr = b.trail; if (!tr || tr.length < 2) return;
+        for (var i = 1; i < tr.length; i++) {
+          var a = tr[i - 1], q = tr[i]; if (!a || !q) continue;
+          var age = (FL.t - q.t) / TRAIL.life; if (age >= 1) continue;
+          c.strokeStyle = "rgba(150,200,255," + (TRAIL.alpha * (1 - age) * Math.min(1, q.k * 1.4)) + ")"; c.lineWidth = q.w * (1 - age * 0.6);
+          c.beginPath(); c.moveTo(a.x, a.y); c.lineTo(q.x, q.y); c.stroke();
+        }
+      });
+    });
+    c.lineCap = "butt";
+  }
   function flDraw() {
     var c = V.ctx, W = V.W, H = V.H, z = V.zoom, s = PX * z, ppm = s / CELL_M, tm = performance.now() / 1000;
     drawSpace(c, W, H, FL.cam.x * ppm, FL.cam.y * ppm);
     c.save(); c.translate(W / 2, H / 2); c.scale(ppm, ppm); c.translate(-FL.cam.x, -FL.cam.y);
+    drawTrails(c);
     // Triebwerksflammen unter den Schiffen
     FL.bodies.forEach(function (bd) {
       bd.blocks.forEach(function (b) {
