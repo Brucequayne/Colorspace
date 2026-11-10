@@ -4,7 +4,7 @@
 (function () {
   "use strict";
 
-  var VERSION = "0.34";
+  var VERSION = "0.35";
   var CELL_M = 2.5, PX = 24;              // Meter je Zelle, Pixel je Zelle bei Zoom 1
   var lang = "de";
   function L2(de, en) { return { de: de, en: en }; }
@@ -77,8 +77,8 @@
   def("cks", { cat: "catCo", kind: "cock", w: 2, h: 3, mass: 1.8, hp: 220, n: L2("Cockpit klein 2×3", "Small cockpit 2×3"), col: "#9AA5B1" });
   def("ckm", { cat: "catCo", kind: "cock", w: 3, h: 4, mass: 4.2, hp: 320, n: L2("Cockpit 3×4", "Cockpit 3×4"), col: "#9AA5B1" });
   def("ckl", { cat: "catCo", kind: "cock", w: 4, h: 5, mass: 7.5, hp: 440, n: L2("Cockpit groß 4×5", "Large cockpit 4×5"), col: "#9AA5B1" });
-  def("ths", { cat: "catTh", kind: "thr", w: 1, h: 2, mass: 1.4, hp: 65, thrust: 270, use: 6, n: L2("Ionenantrieb klein 1×2", "Small ion thruster 1×2"), col: "#7E8995" });
-  def("thl", { cat: "catTh", kind: "thr", w: 2, h: 3, mass: 5.2, hp: 170, thrust: 1035, use: 20, n: L2("Ionenantrieb groß 2×3", "Large ion thruster 2×3"), col: "#7E8995" });
+  def("ths", { cat: "catTh", kind: "thr", w: 1, h: 2, mass: 1.4, hp: 65, thrust: 351, use: 6, n: L2("Ionenantrieb klein 1×2", "Small ion thruster 1×2"), col: "#7E8995" });
+  def("thl", { cat: "catTh", kind: "thr", w: 2, h: 3, mass: 5.2, hp: 170, thrust: 1346, use: 20, n: L2("Ionenantrieb groß 2×3", "Large ion thruster 2×3"), col: "#7E8995" });
   def("gyr", { cat: "catTh", kind: "gyro", w: 1, h: 1, mass: 1.1, hp: 65, torque: 17500, use: 3, n: L2("Gyroskop 1×1", "Gyroscope 1×1"), col: "#7E8995" });
   def("col", { cat: "catTh", kind: "cool", w: 1, h: 1, mass: 0.8, hp: 50, n: L2("Kühlblock 1×1", "Cooling block 1×1"), col: "#7E8995" });
   def("ant", { cat: "catTh", kind: "ant", w: 1, h: 3, mass: 0.9, hp: 32, n: L2("Antenne 1×3", "Antenna 1×3"), col: "#7E8995" });
@@ -1164,7 +1164,7 @@
       FL.shots.push({ x: tip.x, y: tip.y, vx: bd.vx + d.x * MG.speed + (Math.random() - 0.5) * 6, vy: bd.vy + d.y * MG.speed + (Math.random() - 0.5) * 6, life: 0, own: bd });
       FL.parts.push({ x: tip.x, y: tip.y, vx: bd.vx, vy: bd.vy, life: 0, max: 0.06, k: "flash", sz: 1.4 });
       var cn2 = (bd.cool && bd.cool.get(b)) || 0;
-      b.heat = (b.heat || 0) + MG.heat / (1 + 0.35 * cn2);
+      b.heat = (b.heat || 0) + MG.heat / (1 + 0.35 * cn2) * (bd === FL.me && FL.oc ? 0.75 : 1);   // Overcharge: 25 % langsamer heiß
       if (b.heat >= 1) { b.heat = 1; b.oh = b.ohMax = MG.lock / (1 + 0.3 * cn2); for (var i = 0; i < 10; i++) FL.parts.push({ x: tip.x, y: tip.y, vx: bd.vx + (Math.random() - 0.5) * 6, vy: bd.vy + (Math.random() - 0.5) * 6, life: 0, max: 1 + Math.random(), k: "smoke", sz: 1 + Math.random() }); }
     });
     // Raketen: je Werfer 2 Schuss, abgefeuert wird nacheinander aus irgendeinem Werfer mit Munition.
@@ -1288,7 +1288,8 @@
     FL.bodies.forEach(function (bd) {
       bd.blocks.forEach(function (b) {
         var ty = T[b.t]; if (ty.kind !== "thr" || thrustDir(b) !== 0) return;
-        var tr = b.trail || (b.trail = []), fk = bd.flames[0] || 0;
+        // Schweif auch im Gleitflug, solange das Schiff fliegt; mit Schub heller
+        var tr = b.trail || (b.trail = []), sp = Math.hypot(bd.vx, bd.vy), fk = Math.max(bd.flames[0] || 0, sp > 2 ? Math.min(0.45, sp / 40) : 0);
         while (tr.length && (tr[0] === null || FL.t - tr[0].t > TRAIL.life)) tr.shift();
         if (fk < 0.05) { if (tr.length && tr[tr.length - 1] !== null) tr.push(null); return; }
         var last = tr[tr.length - 1]; if (last && FL.t - last.t < TRAIL.step) return;
@@ -1382,6 +1383,19 @@
       var a = 1 - h.life / 0.35, r = (4 + h.life * 6) / ppm;
       c.strokeStyle = "rgba(0,0,0," + 0.5 * a + ")"; c.lineWidth = 3 / ppm; c.beginPath(); c.moveTo(h.x - r, h.y - r); c.lineTo(h.x + r, h.y + r); c.moveTo(h.x + r, h.y - r); c.lineTo(h.x - r, h.y + r); c.stroke();
       c.strokeStyle = "rgba(255,255,255," + a + ")"; c.lineWidth = 1.4 / ppm; c.stroke();
+    });
+    // Zielcomputer: roter Ziellaser der Railgun, solange sie lädt
+    FL.bodies.forEach(function (bd) {
+      if (!bd.tcomp) return;
+      bd.blocks.forEach(function (b) {
+        if (T[b.t].kind !== "rg" || !(b.chg > 0)) return;
+        var d = gunDir(bd, b), p = gunTip(bd, b), L = RG.range;
+        for (var q = 2; q < RG.range; q += 2) { var h = hitAt(p.x + d.x * q, p.y + d.y * q, bd); if (h) { L = q; break; } }
+        var k = Math.min(1, b.chg / RG.charge);
+        c.strokeStyle = "rgba(255,60,50," + (0.25 + 0.45 * k) + ")"; c.lineWidth = (0.6 + 0.8 * k) / ppm * 2;
+        c.beginPath(); c.moveTo(p.x, p.y); c.lineTo(p.x + d.x * L, p.y + d.y * L); c.stroke();
+        if (L < RG.range) { c.fillStyle = "rgba(255,90,70," + (0.5 + 0.5 * k) + ")"; c.beginPath(); c.arc(p.x + d.x * L, p.y + d.y * L, 3 / ppm, 0, Math.PI * 2); c.fill(); }
+      });
     });
     // Geschosse, Strahlen, Partikel
     c.strokeStyle = "#FFD27A"; c.lineWidth = 0.5;
