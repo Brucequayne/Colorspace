@@ -4,7 +4,7 @@
 (function () {
   "use strict";
 
-  var VERSION = "0.23";
+  var VERSION = "0.25";
   var CELL_M = 2.5, PX = 24;              // Meter je Zelle, Pixel je Zelle bei Zoom 1
   var lang = "de";
   function L2(de, en) { return { de: de, en: en }; }
@@ -34,7 +34,7 @@
     wNoPow: L2("Keine Energiequelle: Batterie oder Reaktor einbauen.", "No power source: add a battery or reactor."),
     okRooms: L2("{n} Raum/Räume luftdicht", "{n} room(s) airtight"), noRooms: L2("Keine Innenräume", "No interior rooms"),
     hintEd: L2("Linksklick bauen, Ziehen baut Reihen · Rechtsklick abreißen · R drehen · F spiegeln · M Symmetrie · V Innen/Außen · Mausrad zoomt · Mitte/Leertaste + Ziehen verschiebt", "Left click build, drag for rows · right click remove · R rotate · F flip · M symmetry · V interior/exterior · wheel zooms · middle/space + drag pans"),
-    hintFl: L2("Im Sitz: WASD fliegen · Q/E drehen (oder Umschalt + Maus) · Linksklick feuern · R Waffe · Z Trägheitsdämpfer · X Overcharge · Raketen lenken leicht zum Mauszeiger · Zu Fuß: WASD laufen · Linksklick schweißen · F aussteigen/hinsetzen · V Innen/Außen · Rechtsklick: Block beschädigen (Test) · Esc Editor", "Seated: WASD fly · Q/E rotate (or Shift + mouse) · left click fire · R weapon · Z inertia dampers · X overcharge · missiles steer gently toward the cursor · On foot: WASD walk · left click weld · F get up/sit down · V interior/exterior · right click: damage block (test) · Esc editor"),
+    hintFl: L2("Im Sitz: WASD fliegen · Q/E drehen (oder Umschalt + Maus) · Linksklick feuern · R Waffe · Z Trägheitsdämpfer · X Overcharge · Raketen lenken leicht zum Mauszeiger · Zu Fuß: WASD laufen · Linksklick schweißen und Hologramme neu aufbauen · F aussteigen/hinsetzen · Durch eine Luke ins All: WASD Jetpack (kostet Anzugluft), Umschalt gleicht ans Schiff an · V Innen/Außen · Rechtsklick: Block beschädigen (Test) · Esc Editor", "Seated: WASD fly · Q/E rotate (or Shift + mouse) · left click fire · R weapon · Z inertia dampers · X overcharge · missiles steer gently toward the cursor · On foot: WASD walk · left click weld and rebuild holograms · F get up/sit down · Through a hatch into space: WASD jetpack (uses suit air), Shift matches the ship · V interior/exterior · right click: damage block (test) · Esc editor"),
     noCockTest: L2("Zum Testen braucht das Schiff ein Cockpit.", "The ship needs a cockpit to be tested."),
     damp: L2("Trägheitsdämpfer", "Inertia dampers"), on: L2("an", "on"), off: L2("aus", "off"),
     speed: L2("Tempo", "Speed"), energy: L2("Energie", "Power"), weapon: L2("Waffe", "Weapon"), none: L2("keine", "none"),
@@ -43,7 +43,13 @@
     noPower: L2("Keine Energie", "No power"), mg: L2("Minigun", "Minigun"), rg: L2("Railgun", "Railgun"), ms: L2("Leichte Raketen", "Light missiles"),
     targets: L2("Ziele neu", "Reset targets"), exitSeat: L2("Aussteigen (F)", "Get up (F)"), sitDown: L2("Hinsetzen (F)", "Sit down (F)"),
     walking: L2("Zu Fuß · F am Sitz zum Hinsetzen", "On foot · F at the seat to sit down"), tooFar: L2("Zu weit vom Sitz entfernt", "Too far from the seat"),
-    weld: L2("Schweißgerät", "Welder"), weldOn: L2("repariert {n}: {p} %", "repairing {n}: {p} %"), weldIdle: L2("Linksklick vor einem Block repariert ihn", "Left click facing a block repairs it"),
+    air: L2("Luft", "Air"), airRoom: L2("Raumluft", "Cabin air"), airSuit: L2("Anzug", "Suit"), airJet: L2("Anzug · Jetpack", "Suit · jetpack"),
+    airOut: L2("Die Anzugluft ist ausgegangen: Neustart im Cockpit.", "Suit air ran out: restarting in the cockpit."),
+    evaOn: L2("Draußen · Jetpack · Umschalt gleicht ans Schiff an", "Outside · jetpack · Shift matches the ship"), outside: L2("Erst durch eine Luke zurück ins Schiff", "Get back in through a hatch first"),
+    weldBuild: L2("baut {n} wieder auf", "rebuilding {n}"), weldWait: L2("{n}: erst den Nachbarblock aufbauen", "{n}: rebuild the neighbouring block first"),
+    hangar: L2("NPC-Schiffe", "NPC ships"), hangarH: L2("Baupläne für spätere KI-Gegner. Noch ohne KI: hier lassen sie sich ansehen und in den Editor laden.", "Blueprints for future AI enemies. No AI yet: view them here and load them into the editor."),
+    load: L2("In den Editor laden", "Load into editor"), clsS: L2("Klein", "Small"), clsM: L2("Mittel", "Medium"), clsL: L2("Groß", "Large"),
+    weld: L2("Schweißgerät", "Welder"), weldOn: L2("repariert {n}: {p} %", "repairing {n}: {p} %"), weldIdle: L2("Linksklick vor einem Block repariert ihn, vor einem Hologramm baut er ihn neu", "Left click facing a block repairs it, facing a hologram rebuilds it"),
     sDim: L2("Abmessungen", "Dimensions"), sCool: L2("Kühlung", "Cooling"), sCoolW: L2("Gekühlt", "Cooled"), weap: L2("Waffen", "weapons"), thrs: L2("Triebwerke", "thrusters"), sCom: L2("Schwerpunkt", "Centre of mass"), comHint: L2("gelb-schwarzer Kreis", "yellow-black circle"),
     roomCells: L2("{n} Felder", "{n} cells"), color: L2("Farbe", "Colour"), placeHint: L2("Erster Block: frei platzieren", "First block: place anywhere")
   };
@@ -80,12 +86,13 @@
   def("flo", { cat: "catIn", kind: "floor", w: 1, h: 1, mass: 0.18, hp: 32, n: L2("Boden (Innenraum)", "Floor (interior)"), col: "#9AA5B1" });
   def("wal", { cat: "catIn", kind: "wall", w: 1, h: 1, mass: 0.45, hp: 65, n: L2("Innenwand", "Interior wall"), col: "#9AA5B1" });
   def("dor", { cat: "catIn", kind: "door", w: 1, h: 1, mass: 0.6, hp: 75, n: L2("Schiebetür", "Sliding door"), col: "#9AA5B1" });
+  def("hat", { cat: "catIn", kind: "hatch", w: 1, h: 1, mass: 0.9, hp: 90, n: L2("Luke nach außen", "Hatch to outside"), col: "#9AA5B1" });
   def("win", { cat: "catIn", kind: "win", w: 1, h: 1, mass: 0.7, hp: 40, n: L2("Fenster 1×1", "Window 1×1"), col: "#9AA5B1" });
   def("mgn", { cat: "catWe", kind: "mg", w: 1, h: 2, mass: 1.3, hp: 60, n: L2("Minigun 1×2", "Minigun 1×2"), col: "#7E8995" });
   def("msl", { cat: "catWe", kind: "ms", w: 1, h: 2, mass: 1.6, hp: 60, n: L2("Leichte Raketen 1×2", "Light missiles 1×2"), col: "#7E8995" });
   def("rgn", { cat: "catWe", kind: "rg", w: 1, h: 3, mass: 3.8, hp: 120, n: L2("Railgun 1×3", "Railgun 1×3"), col: "#7E8995" });
   CATS = ["catLA", "catHA", "catCo", "catTh", "catEn", "catIn", "catWe"];
-  var MECH = { cock: 1, thr: 1, gyro: 1, ant: 1, bat: 1, reac: 1, door: 1, mg: 1, rg: 1, cool: 1, ms: 1 };
+  var MECH = { cock: 1, thr: 1, gyro: 1, ant: 1, bat: 1, reac: 1, door: 1, hatch: 1, mg: 1, rg: 1, cool: 1, ms: 1 };
   var ROOMABLE = { bat: 1, reac: 1, gyro: 1, cool: 1 };   // Maschinen, die in einem Raum stehen dürfen und dann zum Raum gehören
   function replaceable(newT, o) { return o && T[newT].kind !== "floor" && T[o.b.t].kind === "floor"; }
   var DV = [[0, -1], [1, 0], [0, 1], [-1, 0]];     // N, O, S, W als Zellversatz
@@ -144,19 +151,22 @@
     });
     return comps;
   }
-  // Räume: zusammenhängende Boden- und Türzellen, dicht wenn jede Außenkante abgedichtet ist
-  function rooms(blocks) {
-    var M = buildMap(blocks), seen = new Set(), out = [];
+  // Räume: zusammenhängende Boden-, Tür-, Luken- und Cockpitzellen, dicht wenn jede Außenkante abgedichtet ist.
+  // Cockpit und geschlossene Luken dichten selbst nach außen ab; eine offene Luke ist ein Leck.
+  var ROOMK = { floor: 1, door: 1, hatch: 1, cock: 1 };
+  function rooms(blocks, M) {
+    M = M || buildMap(blocks); var seen = new Set(), out = [];
     M.forEach(function (v, k) {
-      var kd = T[v.b.t].kind; if ((kd !== "floor" && kd !== "door") || seen.has(k)) return;
+      var kd = T[v.b.t].kind; if (!ROOMK[kd] || seen.has(k)) return;
       var cells = [], leaks = [], st = [k]; seen.add(k);
       while (st.length) {
-        var kk = st.pop(), p = kk.split(","), x = +p[0], y = +p[1]; cells.push([x, y]);
+        var kk = st.pop(), p = kk.split(","), x = +p[0], y = +p[1], me = M.get(kk), mk = T[me.b.t].kind; cells.push([x, y]);
         for (var d = 0; d < 4; d++) {
           var nx = x + DV[d][0], ny = y + DV[d][1], nk = key(nx, ny), o = M.get(nk);
-          if (!o) { leaks.push([x, y, d]); continue; }
+          if (!o) { if (mk === "cock" || (mk === "hatch" && !me.b.open)) continue; leaks.push([x, y, d]); continue; }
           var ok = T[o.b.t].kind;
-          if (ok === "floor" || ok === "door" || ROOMABLE[ok]) { if (!seen.has(nk)) { seen.add(nk); st.push(nk); } continue; }
+          // Maschinen gehören nur zum Raum, wenn sie an Boden stehen; außen ans Cockpit gebaute bleiben draußen
+          if (ROOMK[ok] || (ROOMABLE[ok] && mk !== "cock")) { if (!seen.has(nk)) { seen.add(nk); st.push(nk); } continue; }
           if (!edgeRule(T[o.b.t], o.lx, o.ly, dirIn(o.b, (d + 2) % 4)).s) leaks.push([x, y, d]);
         }
       }
@@ -239,10 +249,13 @@
     for (y = -4; y <= 1; y++) m("lblk", -3, y, 0, y % 2 ? "#C8473A" : undefined);
     for (y = -2; y <= 0; y++) m("lblk", -4, y, 0, "#C8473A");
     m("mgn", -3, -6, 0); m("rgn", -4, -5, 0);
-    m("ths", -6, -1, 1);
+    m("ths", -6, 0, 1);
     m("lrmp", -3, 2, 2); m("lrmp", -4, 1, 2);
     m("col", -3, 4, 0); m("col", -3, 5, 0);
     m("msl", -1, -8, 0);
+    // Luken nach außen: an der Stelle der Fenster, davor bleibt eine Lücke in der Seitenpanzerung
+    B = B.filter(function (b) { return !(b.y === -1 && (b.x === -3 || b.x === 3 || b.x === -4 || b.x === 4)); });
+    B.forEach(function (b) { if (b.t === "win") b.t = "hat"; });
     return B;
   }
 
@@ -356,6 +369,8 @@
       else if (k === "wall") { c.fillStyle = shade(col, -0.35); c.fillRect(0, 0, w, h); c.fillStyle = shade(col, -0.15); c.fillRect(w * 0.15, 0, w * 0.7, h); c.strokeStyle = shade(col, -0.55); c.lineWidth = lw; c.strokeRect(lw / 2, lw / 2, w - lw, h - lw); }
       else { c.fillStyle = FLOOR; c.fillRect(0, 0, w, h); c.fillStyle = shade(col, -0.3); c.fillRect(0, 0, w * 0.12, h); c.fillRect(w * 0.88, 0, w * 0.12, h); c.fillStyle = "#D9A21B"; c.fillRect(w * 0.12, h * 0.38, w * 0.37, h * 0.24); c.fillRect(w * 0.51, h * 0.38, w * 0.37, h * 0.24); c.fillStyle = DARK; c.fillRect(w * 0.49, h * 0.38, w * 0.02, h * 0.24); }
       if (k === "door" && view === "out") { c.fillStyle = "#D9A21B"; c.fillRect(w * 0.42, h * 0.1, w * 0.16, h * 0.8); }
+    } else if (k === "hatch") {
+      hatchArt(c, w, h, col, lw, view, opts && opts.open);
     } else if (k === "cock") {
       c.fillStyle = col; c.fillRect(0, 0, w, h);
       c.fillStyle = shade(col, -0.3); c.fillRect(0, h - lw * 2, w, lw * 2); c.fillRect(0, 0, lw * 2, h); c.fillRect(w - lw * 2, 0, lw * 2, h);
@@ -432,6 +447,17 @@
     }
     if (dam && MECH[k] && k !== "cock") damageMarks(c, w, h, b, s, "full");
     c.restore();
+  }
+  // Luke: gelb-schwarzer Warnrahmen, geschlossen mit Schott, offen sieht man ins All
+  function hatchArt(c, w, h, col, lw, view, open) {
+    if (view === "out") roof(c, w, h, col, lw); else { c.fillStyle = FLOOR; c.fillRect(0, 0, w, h); }
+    var b = w * 0.16;
+    c.save(); c.beginPath(); c.rect(0, 0, w, h); c.rect(b, b, w - b * 2, h - b * 2); c.clip("evenodd");
+    c.fillStyle = "#24282E"; c.fillRect(0, 0, w, h); c.fillStyle = "#E3B83F";
+    for (var i = -2; i < 6; i++) { c.beginPath(); c.moveTo(i * w * 0.25, 0); c.lineTo(i * w * 0.25 + w * 0.125, 0); c.lineTo(i * w * 0.25 + w * 0.125 + h, h); c.lineTo(i * w * 0.25 + h, h); c.closePath(); c.fill(); }
+    c.restore();
+    if (open) { c.fillStyle = "#06080C"; c.fillRect(b, b, w - b * 2, h - b * 2); c.fillStyle = "rgba(255,255,255,.7)"; c.fillRect(w * 0.3, h * 0.4, lw, lw); c.fillRect(w * 0.62, h * 0.66, lw, lw); }
+    else { c.fillStyle = shade(col, -0.12); c.fillRect(b, b, w - b * 2, h - b * 2); c.strokeStyle = shade(col, -0.45); c.lineWidth = lw; c.beginPath(); c.moveTo(b, h / 2); c.lineTo(w - b, h / 2); c.stroke(); c.fillStyle = shade(col, -0.35); c.fillRect(w * 0.42, h * 0.3, w * 0.16, h * 0.4); }
   }
   // Astronaut von oben: Helm mit Visier, Schultern, Rucksack, Arme und Füße bewegen sich beim Laufen
   function drawAstronaut(c, x, y, face, ph, sc, weld) {
@@ -586,16 +612,16 @@
     return o;
   }
   // Schiff: erst Innenleben, dann Aufbauten; Panzerung zuletzt, damit Kanten sauber liegen
-  var ORDER = { floor: 0, door: 0, wall: 1, cock: 2, bat: 2, reac: 2, gyro: 2, cool: 2, thr: 3, mg: 3, rg: 3, ms: 3, ant: 3, win: 4, armor: 4 };
+  var ORDER = { floor: 0, door: 0, hatch: 0, wall: 1, cock: 2, bat: 2, reac: 2, gyro: 2, cool: 2, thr: 3, mg: 3, rg: 3, ms: 3, ant: 3, win: 4, armor: 4 };
   // Panzerung (und außen die Dächer) verschmilzt zu einer Hülle: Kanten nur dort, wo die Hülle endet
-  function isHull(k, view) { return k === "armor" || k === "win" || (view === "out" && (k === "floor" || k === "wall" || k === "door")); }
+  function isHull(k, view) { return k === "armor" || k === "win" || (view === "out" && (k === "floor" || k === "wall" || k === "door" || k === "hatch")); }
   function drawShip(c, blocks, s, view, tm, body, M) {
     M = M || buildMap(blocks);
     var sorted = blocks.slice().sort(function (a, b) { return ORDER[T[a.t].kind] - ORDER[T[b.t].kind]; }), hull = [];
     sorted.forEach(function (b) {
       var ty = T[b.t], hpk = b.hp !== undefined ? b.hp / ty.hp : 1, o = null;
       if (isHull(ty.kind, view)) { hull.push(b); return; }
-      if (body) o = { pilot: ty.kind === "cock" && body.ctrl && FL && FL.seated && b === body.seat, batK: body.cap ? body.energy / body.cap : 1, charge: b.chg ? Math.min(1, b.chg / RG.charge) : 0, ammo: b.ammo === undefined ? 2 : b.ammo };
+      if (body) o = { pilot: ty.kind === "cock" && body.ctrl && FL && FL.seated && b === body.seat, batK: body.cap ? body.energy / body.cap : 1, charge: b.chg ? Math.min(1, b.chg / RG.charge) : 0, ammo: b.ammo === undefined ? 2 : b.ammo, open: !!b.open };
       drawBlock(c, b, s, view, hpk, tm, o);
     });
     hull.forEach(function (b) { hullFill(c, b, s, view, b.hp !== undefined ? b.hp / T[b.t].hp : 1); });
@@ -625,6 +651,7 @@
     } else {
       c.fillStyle = shade(col, 0.06); c.fillRect(0, 0, w, h);
       if (k === "door") { c.fillStyle = "#D9A21B"; c.fillRect(w * 0.42, h * 0.12, w * 0.16, h * 0.76); }
+      if (k === "hatch") hatchArt(c, w, h, col, lw, "out", b.open);
     }
     c.restore();
   }
@@ -654,6 +681,8 @@
   var MG = { rate: 12, speed: 420, life: 1.25, dmg: 7, heat: 0.042, cool: 0.42, warn: 0.78, lock: 3.2, e: 0.4 };
   var MS = { v0: 30, acc: 420, vmax: 340, turn: 0.45, life: 4, dmg: 55, splash: 2.6, sdmg: 28, reload: 2.5, gap: 0.18, e: 6 };
   var RG = { charge: 0.7, cd: 2.2, dmg: 150, range: 700, e: 45 };
+  // Anzugluft in Sekunden; Raumluft füllt sich in dichten Räumen auf und entweicht durch Lecks
+  var SUIT = { max: 180, refill: 20, jet: 3, acc: 5, breathe: 0.35 }, AIR = { fill: 0.22, vent: 0.9 }, WELD = 15;
   function makeBody(blocks, ctrl) {
     var bd = { blocks: blocks, x: 0, y: 0, a: 0, vx: 0, vy: 0, w: 0, ctrl: !!ctrl, energy: 0, cap: 0, flames: {} };
     blocks.forEach(function (b) { if (b.hp === undefined) b.hp = T[b.t].hp; });
@@ -665,7 +694,7 @@
     var st = stats(bd.blocks), old = bd.com;
     bd.com = st.com; bd.mass = Math.max(0.5, st.mass); bd.I = Math.max(1, st.I); bd.thr = st.thr; bd.torque = st.torque; bd.prod = st.prod;
     bd.cap = st.cap + (st.cock ? 30 : 0); bd.energy = Math.min(bd.energy, bd.cap);
-    bd.map = buildMap(bd.blocks);
+    bd.map = buildMap(bd.blocks); bd.roomsDirty = true;
     bd.cool = coolMap(bd.blocks, bd.map); bd.ocMax = ocMaxOf(bd.blocks, bd.cool);
     bd.seat = bd.blocks.filter(function (b) { return T[b.t].kind === "cock"; })[0] || null;
     var r = 0; bd.blocks.forEach(function (b) { var f = fp(b); [[b.x, b.y], [b.x + f[0], b.y + f[1]]].forEach(function (p) { r = Math.max(r, Math.hypot(p[0] - bd.com[0], p[1] - bd.com[1])); }); }); bd.rad = r * CELL_M + 2;
@@ -687,6 +716,7 @@
     FL.oc = false; FL.ocT = me.ocMax;
     FL.groups = []; if (st.mg) FL.groups.push("mg"); if (st.ms) FL.groups.push("ms"); if (st.rg) FL.groups.push("rg");
     FL.missiles = []; FL.msRl = 0; FL.msCd = 0;
+    FL.suit = SUIT.max; FL.out = false; FL.eva = null; FL.enterCd = 0; FL.ko = 0; me.lost = []; me.air = new Map();
     spawnTargets();
     S.mode = "fly"; V.zoomEd = V.zoom; V.zoom = Math.min(1.1, Math.max(0.6, V.zoom));
     syncUI();
@@ -720,12 +750,14 @@
     if (FL.oc) { FL.ocT -= dt; if (FL.ocT <= 0) { FL.ocT = 0; FL.oc = false; } }
     else FL.ocT = Math.min(FL.me.ocMax || 3, FL.ocT + dt * 0.5);
     var me = FL.me, k = FL.keys;
+    airTick(me, dt);
+    if (FL.out) evaTick(me, dt);
     FL.bodies.forEach(function (bd) {
       // Energie: Reaktoren laden, Verbraucher ziehen
       bd.energy = Math.min(bd.cap, bd.energy + bd.prod * dt);
       bd.flames = {};
       if (bd === me && bd.ctrl && bd.seat) control(bd, dt, FL.seated);   // ohne Pilot halten nur die Dämpfer das Schiff
-      if (bd === me && !FL.seated) walk(bd, dt);
+      if (bd === me && !FL.seated && !FL.out) walk(bd, dt);
       bd.x += bd.vx * dt; bd.y += bd.vy * dt; bd.a += bd.w * dt;
       bd.blocks.forEach(function (b) {
         var ty = T[b.t];
@@ -766,7 +798,99 @@
     });
     FL.parts = FL.parts.filter(function (q) { q.life += dt; q.x += q.vx * dt; q.y += q.vy * dt; if (q.k === "debris") { q.a += q.w * dt; } return q.life < q.max; });
     if (FL.parts.length > 900) FL.parts.splice(0, FL.parts.length - 900);
-    FL.cam.x = me.x; FL.cam.y = me.y;
+    if (FL.out && FL.eva) { FL.cam.x = FL.eva.x; FL.cam.y = FL.eva.y; } else { FL.cam.x = me.x; FL.cam.y = me.y; }
+  }
+  // ---------- Luft, Luken und Raumanzug ----------
+  // Eine Luke öffnet nur kurz beim Durchgehen und wenn man draußen direkt davor schwebt
+  function hatchNear(bd, b) {
+    if (b.openT > 0) return true;
+    var f = fp(b), cx = b.x + f[0] / 2, cy = b.y + f[1] / 2;
+    if (FL.out && FL.eva) { var l = toLocal(bd, FL.eva.x, FL.eva.y); return Math.hypot(l.x - cx, l.y - cy) < 1.1; }
+    return false;
+  }
+  function pulseHatch(bd, x, y) { var o = bd.map.get(key(Math.floor(x), Math.floor(y))); if (o && T[o.b.t].kind === "hatch") o.b.openT = 0.6; }
+  function airRooms(bd) {
+    if (bd.rooms) bd.rooms.forEach(function (r) { r.cells.forEach(function (c) { bd.air.set(key(c[0], c[1]), r.air); }); });
+    bd.rooms = rooms(bd.blocks, bd.map); bd.roomOf = new Map();
+    bd.rooms.forEach(function (r, i) {
+      var sum = 0, n = 0;
+      r.cells.forEach(function (c) { var kk = key(c[0], c[1]), a = bd.air.get(kk); bd.roomOf.set(kk, r); if (a !== undefined) { sum += a; n++; } });
+      r.air = n ? sum / r.cells.length : (bd.airInit ? 0 : 1);
+    });
+    bd.airInit = true; bd.roomsDirty = false;
+  }
+  function pilotRoom(bd) {
+    if (FL.out) return null;
+    var p = FL.seated ? seatPos(bd) : FL.pilot;
+    return bd.roomOf ? bd.roomOf.get(key(Math.floor(p.x), Math.floor(p.y))) || null : null;
+  }
+  function airTick(bd, dt) {
+    if (!bd.air) bd.air = new Map();
+    bd.blocks.forEach(function (b) { if (T[b.t].kind !== "hatch") return; if (b.openT > 0) b.openT -= dt; var o = hatchNear(bd, b); if (o !== !!b.open) { b.open = o; bd.roomsDirty = true; } });
+    if (bd.roomsDirty || !bd.rooms) airRooms(bd);
+    bd.rooms.forEach(function (r) { r.air = Math.max(0, Math.min(1, r.air + (r.ok ? AIR.fill : -AIR.vent) * dt)); });
+    // Atmen: Raumluft, sobald genug da ist, sonst zieht der Anzug
+    var r = pilotRoom(bd); FL.breath = r && r.air > SUIT.breathe ? "room" : FL.out ? "jet" : "suit";
+    if (FL.breath === "room") FL.suit = Math.min(SUIT.max, FL.suit + SUIT.refill * dt);
+    else FL.suit = Math.max(0, FL.suit - dt * (1 + (FL.out && FL.eva && FL.eva.thr ? SUIT.jet : 0)));
+    if (FL.suit <= 0) {
+      FL.ko += dt;
+      if (FL.ko > 2.5) { FL.ko = 0; FL.suit = SUIT.max; FL.out = false; FL.eva = null; if (bd.seat) { FL.seated = true; var sp = seatPos(bd); FL.pilot.x = sp.x; FL.pilot.y = sp.y; } note(t("airOut")); }
+    } else FL.ko = 0;
+  }
+  // Aussteigen durch eine Luke: ab jetzt fliegt die Figur frei im Raum, mit dem Tempo des Schiffs an dieser Stelle
+  function exitShip(bd, lx, ly) {
+    pulseHatch(bd, FL.pilot.x, FL.pilot.y);
+    var w = toWorld(bd, lx, ly), rx = w.x - bd.x, ry = w.y - bd.y, P = FL.pilot, fa = P.face + bd.a;
+    FL.eva = { x: w.x, y: w.y, vx: bd.vx - bd.w * ry + Math.cos(fa) * 1.2, vy: bd.vy + bd.w * rx + Math.sin(fa) * 1.2, face: fa, ph: 0, thr: false };
+    FL.out = true; FL.enterCd = 0.8; FL.seated = false;
+  }
+  function evaTick(bd, dt) {
+    var E = FL.eva, k = FL.keys, dx = (k.d ? 1 : 0) - (k.a ? 1 : 0), dy = (k.s ? 1 : 0) - (k.w ? 1 : 0), ax = 0, ay = 0;
+    E.thr = false;
+    if (FL.suit > 0) {
+      if (dx || dy) { var l = Math.hypot(dx, dy); ax = dx / l * SUIT.acc; ay = dy / l * SUIT.acc; E.thr = true; }
+      if (k.shift) {   // Tempo an das eigene Schiff angleichen
+        var rvx = bd.vx - E.vx, rvy = bd.vy - E.vy, rl = Math.hypot(rvx, rvy);
+        if (rl > 0.05) { var a = Math.min(SUIT.acc, rl / dt); ax += rvx / rl * a; ay += rvy / rl * a; E.thr = true; }
+      }
+    }
+    E.vx += ax * dt; E.vy += ay * dt; E.x += E.vx * dt; E.y += E.vy * dt;
+    if (E.thr && Math.random() < dt * 30) { var al = Math.hypot(ax, ay) || 1; FL.parts.push({ x: E.x - ax / al * 0.5, y: E.y - ay / al * 0.5, vx: E.vx - ax / al * 6 + (Math.random() - 0.5), vy: E.vy - ay / al * 6 + (Math.random() - 0.5), life: 0, max: 0.35, k: "jet", sz: 0.22 }); }
+    var mw = mouseWorld();
+    if (mw) { var want = Math.atan2(mw.y - E.y, mw.x - E.x), d = Math.atan2(Math.sin(want - E.face), Math.cos(want - E.face)); E.face += d * Math.min(1, dt * 10); }
+    E.ph += E.thr ? dt * 4 : 0;
+    // Schweißen draußen: Punkt vor der Figur im Schiffsraster
+    FL.welding = false; FL.weldB = null; FL.weldG = null;
+    if (FL.fire) { FL.welding = true; var tp = toLocal(bd, E.x + Math.cos(E.face) * 1.6, E.y + Math.sin(E.face) * 1.6); weldAt(bd, tp.x, tp.y, dt); }
+    // Zurück ins Schiff über eine Luke
+    FL.enterCd = Math.max(0, FL.enterCd - dt);
+    var lp = toLocal(bd, E.x, E.y), o = bd.map.get(key(Math.floor(lp.x), Math.floor(lp.y)));
+    if (o && T[o.b.t].kind === "hatch" && FL.enterCd <= 0) {
+      o.b.openT = 0.6; FL.out = false; FL.pilot.x = Math.floor(lp.x) + 0.5; FL.pilot.y = Math.floor(lp.y) + 0.5; FL.pilot.face = E.face - bd.a; FL.eva = null;
+    }
+  }
+  // Schweißgerät: repariert Blöcke (15 HP/s) und baut zerstörte Blöcke an ihrer alten Stelle wieder auf
+  function lostAt(bd, x, y) {
+    var cx = Math.floor(x), cy = Math.floor(y);
+    for (var i = 0; i < bd.lost.length; i++) { var g = bd.lost[i]; if (cellsOf(g).some(function (q) { return q.c[0] === cx && q.c[1] === cy; })) return g; }
+    return null;
+  }
+  function canRebuild(bd, g) { return cellsOf(g).every(function (q) { return !bd.map.has(key(q.c[0], q.c[1])); }) && linked(bd.map, g).length > 0; }
+  function weldAt(bd, lx, ly, dt) {
+    var o = bd.map.get(key(Math.floor(lx), Math.floor(ly))), spark = false;
+    if (o) { var mx = T[o.b.t].hp; FL.weldB = o.b; if (o.b.hp < mx) { o.b.hp = Math.min(mx, o.b.hp + WELD * dt); spark = true; } }
+    else if (bd.lost) {
+      var g = lostAt(bd, lx, ly);
+      if (g) {
+        FL.weldG = g; FL.weldOk = canRebuild(bd, g);
+        if (FL.weldOk) {
+          var nb = { t: g.t, x: g.x, y: g.y, r: g.r, f: g.f, c: g.c, hp: WELD * dt };
+          bd.lost.splice(bd.lost.indexOf(g), 1); bd.blocks.push(nb); recalc(bd); FL.weldB = nb; FL.weldG = null; spark = true;
+        }
+      }
+    }
+    if (spark && Math.random() < dt * 40) { var wp = toWorld(bd, lx, ly), a = Math.random() * 6.28, v = 3 + Math.random() * 6; FL.parts.push({ x: wp.x, y: wp.y, vx: bd.vx + Math.cos(a) * v, vy: bd.vy + Math.sin(a) * v, life: 0, max: 0.15 + Math.random() * 0.2, k: "weld", sz: 0.25 }); }
   }
   // ---------- zu Fuß im Schiff ----------
   function localPt(b, lx, ly) {
@@ -777,7 +901,7 @@
   function seatPos(bd) { var b = bd.seat; if (!b) return { x: bd.com[0], y: bd.com[1] }; var ty = T[b.t]; return localPt(b, ty.w / 2, (ty.h > 3 ? 1.6 : 1.2) + 0.95); }
   function walkable(bd, x, y) {
     var o = bd.map.get(key(Math.floor(x), Math.floor(y))); if (!o) return false;
-    var k = T[o.b.t].kind; return k === "floor" || k === "door" || (k === "cock" && o.ly >= 1);
+    var k = T[o.b.t].kind; return k === "floor" || k === "door" || k === "hatch" || (k === "cock" && o.ly >= 1);
   }
   function canStand(bd, x, y) { var r = 0.24; return walkable(bd, x - r, y - r) && walkable(bd, x + r, y - r) && walkable(bd, x - r, y + r) && walkable(bd, x + r, y + r); }
   function walk(bd, dt) {
@@ -788,23 +912,19 @@
       if (canStand(bd, P.x, P.y + ly * sp)) P.y += ly * sp;
       var want = Math.atan2(ly, lx), d = Math.atan2(Math.sin(want - P.face), Math.cos(want - P.face)); P.face += d * Math.min(1, dt * 14);
       P.ph += dt * 10;
+      // Auf einer Luke Richtung All laufen: aussteigen
+      var cur = bd.map.get(key(Math.floor(P.x), Math.floor(P.y)));
+      if (cur && T[cur.b.t].kind === "hatch") { var nx = P.x + lx * 0.75, ny = P.y + ly * 0.75; if (!bd.map.get(key(Math.floor(nx), Math.floor(ny)))) { exitShip(bd, nx, ny); return; } }
     } else P.ph *= Math.pow(0.001, dt);
-    // Schweißgerät: repariert den Block direkt vor der Figur
-    FL.welding = false; FL.weldB = null;
-    if (FL.fire) {
-      var tx = P.x + Math.cos(P.face) * 0.8, ty = P.y + Math.sin(P.face) * 0.8, o = bd.map.get(key(Math.floor(tx), Math.floor(ty)));
-      FL.welding = true;
-      if (o) {
-        var mx = T[o.b.t].hp; FL.weldB = o.b;
-        if (o.b.hp < mx) {
-          o.b.hp = Math.min(mx, o.b.hp + 30 * dt);
-          if (Math.random() < dt * 40) { var wp = toWorld(bd, tx, ty), a = Math.random() * 6.28, v = 3 + Math.random() * 6; FL.parts.push({ x: wp.x, y: wp.y, vx: bd.vx + Math.cos(a) * v, vy: bd.vy + Math.sin(a) * v, life: 0, max: 0.15 + Math.random() * 0.2, k: "weld", sz: 0.25 }); }
-        }
-      }
-    }
+    // Boden unter den Füßen weggeschossen: die Figur treibt ins All
+    if (!walkable(bd, P.x, P.y)) { exitShip(bd, P.x, P.y); FL.eva.vx -= Math.cos(P.face + bd.a) * 1.2; FL.eva.vy -= Math.sin(P.face + bd.a) * 1.2; return; }
+    // Schweißgerät: repariert oder baut den Block direkt vor der Figur
+    FL.welding = false; FL.weldB = null; FL.weldG = null;
+    if (FL.fire) { FL.welding = true; weldAt(bd, P.x + Math.cos(P.face) * 0.8, P.y + Math.sin(P.face) * 0.8, dt); }
   }
   function toggleSeat() {
     var me = FL.me;
+    if (FL.out) { note(t("outside")); return; }
     if (FL.seated) { FL.seated = false; var sp = seatPos(me); FL.pilot.x = sp.x; FL.pilot.y = sp.y; FL.pilot.face = me.seat ? dirAngle(me.seat) : 0; if (S.view !== "in") { S.view = "in"; syncUI(); } return; }
     if (!me.seat) return;
     var p = seatPos(me); if (Math.hypot(p.x - FL.pilot.x, p.y - FL.pilot.y) > 1.5) { note(t("tooFar")); return; }
@@ -933,6 +1053,7 @@
     for (i = 0; i < 6; i++) FL.parts.push({ x: p.x, y: p.y, vx: bd.vx + (Math.random() - 0.5) * 8, vy: bd.vy + (Math.random() - 0.5) * 8, life: 0, max: 0.35 + Math.random() * 0.3, k: "fire", sz: 1.2 + Math.random() });
     FL.parts.push({ x: p.x, y: p.y, vx: bd.vx, vy: bd.vy, life: 0, max: 0.18, k: "flash", sz: 4 });
     bd.blocks.splice(bd.blocks.indexOf(b), 1);
+    if (bd === FL.me && bd.lost) bd.lost.push(strip(b));
     if (!bd.blocks.length) FL.bodies.splice(FL.bodies.indexOf(bd), 1); else splitBody(bd);
     // Triebwerke und Reaktoren explodieren und beschädigen, was direkt drumherum liegt
     var kd = T[b.t].kind;
@@ -945,6 +1066,7 @@
     var keep = comps.reduce(function (a, c) { return mainScore(c) > mainScore(a) ? c : a; });
     comps.forEach(function (cp) {
       if (cp === keep) return;
+      if (bd === FL.me && bd.lost) cp.forEach(function (b) { bd.lost.push(strip(b)); });
       var nb = { blocks: cp, x: 0, y: 0, a: bd.a, vx: bd.vx, vy: bd.vy, w: bd.w + (Math.random() - 0.5) * 0.8, ctrl: false, energy: 0, cap: 0, flames: {} };
       var st = stats(cp), c = toWorld(bd, st.com[0], st.com[1]);
       recalc(nb, true); nb.x = c.x; nb.y = c.y;
@@ -953,7 +1075,7 @@
       FL.bodies.push(nb);
     });
     bd.blocks = keep; recalc(bd);
-    if (bd === FL.me && !bd.seat) FL.seated = false;
+    if (bd === FL.me && !bd.seat && FL.seated) { FL.seated = false; var sp = seatPos(bd); FL.pilot.x = sp.x; FL.pilot.y = sp.y; }
   }
 
   function flDraw() {
@@ -989,7 +1111,8 @@
     FL.bodies.forEach(function (bd) {
       c.save(); c.translate(bd.x, bd.y); c.rotate(bd.a); c.scale(CELL_M / PX, CELL_M / PX); c.translate(-bd.com[0] * PX, -bd.com[1] * PX);
       drawShip(c, bd.blocks, PX, S.view, tm, bd, bd.map);
-      if (bd === FL.me && !FL.seated) drawAstronaut(c, FL.pilot.x * PX, FL.pilot.y * PX, FL.pilot.face, FL.pilot.ph, PX / 24 * 1.25, FL.welding);
+      if (bd === FL.me && !FL.seated) drawGhosts(c, bd, tm);
+      if (bd === FL.me && !FL.seated && !FL.out) drawAstronaut(c, FL.pilot.x * PX, FL.pilot.y * PX, FL.pilot.face, FL.pilot.ph, PX / 24 * 1.25, FL.welding);
       // Überhitzung und Ladung an den Waffen
       bd.blocks.forEach(function (b) {
         var ty = T[b.t], f = fp(b), cx = (b.x + f[0] / 2) * PX, cy = (b.y + f[1] / 2) * PX;
@@ -1005,6 +1128,7 @@
       });
       c.restore();
     });
+    if (FL.out && FL.eva) { c.save(); c.translate(FL.eva.x, FL.eva.y); c.scale(CELL_M / PX, CELL_M / PX); drawAstronaut(c, 0, 0, FL.eva.face, FL.eva.ph, 1.25, FL.welding); c.restore(); }
     (FL.missiles || []).forEach(function (m) {
       c.save(); c.translate(m.x, m.y); c.rotate(m.h);
       c.fillStyle = "rgba(255,190,90,.85)"; c.beginPath(); c.moveTo(-0.9, -0.28); c.lineTo(-2.4 - Math.random() * 0.8, 0); c.lineTo(-0.9, 0.28); c.closePath(); c.fill();
@@ -1020,6 +1144,7 @@
       if (q.k === "smoke") { c.fillStyle = "rgba(70,70,74," + (0.38 * (1 - k)) + ")"; c.beginPath(); c.arc(q.x, q.y, q.sz * (1 + k * 1.6), 0, Math.PI * 2); c.fill(); }
       else if (q.k === "fire") { c.fillStyle = "rgba(255," + Math.round(200 - k * 140) + ",60," + (0.9 * (1 - k)) + ")"; c.beginPath(); c.arc(q.x, q.y, q.sz * (1 - k * 0.5), 0, Math.PI * 2); c.fill(); }
       else if (q.k === "ocs") { c.fillStyle = "rgba(220,180,255," + (1 - k) + ")"; c.fillRect(q.x, q.y, 0.45, 0.45); }
+      else if (q.k === "jet") { c.fillStyle = "rgba(220,235,255," + (0.8 * (1 - k)) + ")"; c.beginPath(); c.arc(q.x, q.y, q.sz * (1 + k), 0, Math.PI * 2); c.fill(); }
       else if (q.k === "weld") { c.fillStyle = "rgba(170,230,255," + (1 - k) + ")"; c.fillRect(q.x, q.y, 0.35, 0.35); }
       else if (q.k === "spark") { c.fillStyle = "rgba(255,230,160," + (1 - k) + ")"; c.fillRect(q.x, q.y, 0.4, 0.4); }
       else if (q.k === "flash") { c.fillStyle = "rgba(255,240,200," + (1 - k) + ")"; c.beginPath(); c.arc(q.x, q.y, q.sz, 0, Math.PI * 2); c.fill(); }
@@ -1028,6 +1153,21 @@
     c.restore();
     flHud();
   }
+  // Hologramme zerstörter Blöcke in der Nähe der Figur: blau = lässt sich aufbauen, rot = erst Nachbarblock aufbauen
+  function drawGhosts(c, bd, tm) {
+    if (!bd.lost || !bd.lost.length) return;
+    var p = FL.out && FL.eva ? toLocal(bd, FL.eva.x, FL.eva.y) : FL.pilot;
+    bd.lost.forEach(function (g) {
+      var f = fp(g); if (Math.hypot(g.x + f[0] / 2 - p.x, g.y + f[1] / 2 - p.y) > 6) return;
+      var ok = canRebuild(bd, g), on = FL.weldG === g, pulse = 0.5 + 0.5 * Math.sin(tm * 5);
+      c.save(); c.globalAlpha = on ? 0.55 : 0.32; drawBlock(c, g, PX, S.view, 1, tm, null); c.restore();
+      c.fillStyle = ok ? "rgba(90,200,255," + (0.16 + (on ? 0.14 * pulse : 0)) + ")" : "rgba(240,90,70,.2)";
+      c.strokeStyle = ok ? "rgba(140,225,255,.85)" : "rgba(240,110,90,.8)"; c.lineWidth = 1.2; c.setLineDash([4, 3]);
+      cellsOf(g).forEach(function (q) { c.fillRect(q.c[0] * PX, q.c[1] * PX, PX, PX); });
+      c.strokeRect(g.x * PX + 0.6, g.y * PX + 0.6, f[0] * PX - 1.2, f[1] * PX - 1.2); c.setLineDash([]);
+    });
+  }
+  function mmss(sec) { sec = Math.max(0, Math.ceil(sec)); return Math.floor(sec / 60) + ":" + ("0" + sec % 60).slice(-2); }
   function flHud() {
     var me = FL.me, sp = Math.hypot(me.vx, me.vy), g = FL.groups[FL.wsel];
     set("sr-h-sp", nf(sp, 1) + " m/s");
@@ -1042,9 +1182,12 @@
     if (g === "ms") { var am = 0, mx = 0; me.blocks.forEach(function (b) { if (T[b.t].kind === "ms") { am += b.ammo === undefined ? 2 : b.ammo; mx += 2; } }); wtxt += FL.msRl > 0 ? (lang === "de" ? " · lädt " : " · reloading ") + nf(FL.msRl, 1) + " s" : " · " + am + " / " + mx; }
     if (g === "rg") { var cd = 0; me.blocks.forEach(function (b) { if (T[b.t].kind === "rg") cd = Math.max(cd, b.cd || 0); }); wtxt += cd > 0 ? " · " + nf(cd, 1) + " s" : " · bereit".replace("bereit", lang === "de" ? "bereit" : "ready"); }
     set("sr-h-w", wtxt);
-    set("sr-h-seat", !me.seat ? t("cockGone") : FL.seated ? t("seated") : t("walking"));
+    set("sr-h-seat", FL.out ? t("evaOn") : !me.seat ? t("cockGone") : FL.seated ? t("seated") : t("walking"));
+    var ak = FL.suit / SUIT.max, ab = V.root.querySelector("#sr-h-airbar"); if (ab) { ab.style.width = Math.round(ak * 100) + "%"; ab.style.background = FL.breath === "room" ? "#57D18A" : ak < 0.25 ? "#E0533F" : "#E3B83F"; }
+    set("sr-h-air", t(FL.breath === "room" ? "airRoom" : FL.breath === "jet" ? "airJet" : "airSuit") + " · " + mmss(FL.suit));
+    var ae = V.root.querySelector("#sr-h-air"); if (ae) ae.className = FL.breath === "room" ? "on" : ak < 0.25 ? "warn" : "off";
     var sb = V.root.querySelector('[data-act="seat"]'); if (sb) { set("sr-h-seatb", FL.seated ? t("exitSeat") : t("sitDown")); }
-    var wb = V.root.querySelector("#sr-h-weld"); if (wb) { wb.parentNode.hidden = FL.seated; set("sr-h-weld", FL.weldB ? fmt(t("weldOn"), { n: T[FL.weldB.t].n[lang], p: Math.round(FL.weldB.hp / T[FL.weldB.t].hp * 100) }) : t("weldIdle")); }
+    var wb = V.root.querySelector("#sr-h-weld"); if (wb) { wb.parentNode.hidden = FL.seated; set("sr-h-weld", FL.weldG ? fmt(t(FL.weldOk ? "weldBuild" : "weldWait"), { n: T[FL.weldG.t].n[lang] }) : FL.weldB ? fmt(t("weldOn"), { n: T[FL.weldB.t].n[lang], p: Math.round(FL.weldB.hp / T[FL.weldB.t].hp * 100) }) : t("weldIdle")); }
     var se = V.root.querySelector("#sr-h-seat"); if (se) se.className = !me.seat ? "warn" : "";
   }
 
@@ -1068,7 +1211,7 @@
     return '<div class="sr-root">' +
       '<canvas id="sr-cv"></canvas>' +
       '<div class="sr-top"><a class="sr-back" href="#">← ' + t("back") + '</a><b class="sr-ttl">' + t("title") + ' <small>v' + VERSION + '</small></b>' +
-      '<div class="sr-ed-only sr-tbar"><button type="button" data-act="undo">' + t("undo") + '</button><button type="button" data-act="starter">' + t("starter") + '</button><button type="button" data-act="clear">' + t("clear") + '</button><button type="button" data-act="exp">Export</button><button type="button" data-act="imp">Import</button></div>' +
+      '<div class="sr-ed-only sr-tbar"><button type="button" data-act="undo">' + t("undo") + '</button><button type="button" data-act="starter">' + t("starter") + '</button><button type="button" data-act="clear">' + t("clear") + '</button><button type="button" data-act="exp">Export</button><button type="button" data-act="imp">Import</button><button type="button" data-act="npc">' + t("hangar") + '</button></div>' +
       '<div class="sr-sp"></div><div class="sr-seg"><button type="button" data-view="in">' + t("vIn") + '</button><button type="button" data-view="out">' + t("vOut") + '</button></div>' +
       '<button type="button" class="sr-go sr-ed-only" data-act="test">' + t("test") + ' ▸</button><button type="button" class="sr-go sr-fl-only" data-act="edit">◂ ' + t("toEd") + '</button></div>' +
       '<aside class="sr-pal sr-ed-only"><div class="sr-tools"><button type="button" data-tool="build">' + t("tBuild") + '</button><button type="button" data-tool="erase">' + t("tErase") + '</button><button type="button" data-tool="paint">' + t("tPaint") + '</button></div>' +
@@ -1077,10 +1220,11 @@
       '<div class="sr-list">' + pal + '</div></aside>' +
       '<aside class="sr-info sr-ed-only" id="sr-info"></aside>' +
       '<div class="sr-hud sr-fl-only"><div><small>' + t("speed") + '</small><b id="sr-h-sp"></b></div><div><small>' + t("energy") + '</small><b id="sr-h-en"></b><i class="sr-eb"><i id="sr-h-ebar"></i></i></div>' +
-      '<div><small>' + t("weapon") + ' (R)</small><b id="sr-h-w"></b></div><div><small>Z</small><b id="sr-h-damp"></b></div><div><small>X · Overcharge</small><b id="sr-h-oc"></b><i class="sr-eb"><i id="sr-h-ocbar"></i></i></div><div><small>F</small><b id="sr-h-seat"></b></div><div hidden><small>' + t("weld") + '</small><b id="sr-h-weld"></b></div>' +
+      '<div><small>' + t("weapon") + ' (R)</small><b id="sr-h-w"></b></div><div><small>Z</small><b id="sr-h-damp"></b></div><div><small>X · Overcharge</small><b id="sr-h-oc"></b><i class="sr-eb"><i id="sr-h-ocbar"></i></i></div><div><small>F</small><b id="sr-h-seat"></b></div><div><small>' + t("air") + '</small><b id="sr-h-air"></b><i class="sr-eb"><i id="sr-h-airbar"></i></i></div><div hidden><small>' + t("weld") + '</small><b id="sr-h-weld"></b></div>' +
       '<button type="button" data-act="seat" id="sr-h-seatb"></button><button type="button" data-act="targets">' + t("targets") + '</button></div>' +
       '<div class="sr-hint" id="sr-hint"></div><div class="sr-note" hidden></div>' +
-      '<div class="sr-io" hidden><div class="sr-io-box"><div class="sr-io-h"></div><textarea spellcheck="false"></textarea><div class="sr-tbar"><button type="button" data-act="io-copy">' + (lang === "de" ? "Kopieren" : "Copy") + '</button><button type="button" data-act="io-load">' + (lang === "de" ? "Laden" : "Load") + '</button><span class="sr-sp"></span><button type="button" data-act="io-x">' + (lang === "de" ? "Schließen" : "Close") + '</button></div></div></div></div>';
+      '<div class="sr-io sr-npc" hidden><div class="sr-io-box sr-npc-box"><div class="sr-tbar"><b class="sr-npc-t">' + t("hangar") + '</b><span class="sr-sp"></span><button type="button" data-act="npc-x">' + (lang === "de" ? "Schließen" : "Close") + '</button></div><div class="sr-io-h">' + t("hangarH") + '</div><div class="sr-npc-list"></div></div></div>' +
+      '<div class="sr-io sr-exio" hidden><div class="sr-io-box"><div class="sr-io-h"></div><textarea spellcheck="false"></textarea><div class="sr-tbar"><button type="button" data-act="io-copy">' + (lang === "de" ? "Kopieren" : "Copy") + '</button><button type="button" data-act="io-load">' + (lang === "de" ? "Laden" : "Load") + '</button><span class="sr-sp"></span><button type="button" data-act="io-x">' + (lang === "de" ? "Schließen" : "Close") + '</button></div></div></div></div>';
   }
   function syncUI() {
     if (!V) return;
@@ -1147,6 +1291,9 @@
     ".sr-info p{margin:2px 0}.sr-info .ok{color:#7FD3A4}.sr-info .bad{color:#F08A78}.sr-warn{margin:10px 0 0;padding:8px 8px 8px 22px;background:rgba(224,83,63,.12);border-left:3px solid #E0533F;color:#F3C2B8}.sr-warn li{margin:2px 0}" +
     ".sr-hint{position:absolute;left:50%;bottom:10px;transform:translateX(-50%);max-width:calc(100% - 540px);min-width:280px;text-align:center;font-size:.74rem;color:#B9C4D4;background:rgba(14,19,28,.85);border:1px solid #263142;padding:6px 10px;z-index:2}" +
     ".sr-io{position:absolute;inset:0;background:rgba(10,10,10,.72);display:flex;align-items:center;justify-content:center;z-index:6;padding:16px}.sr-io[hidden]{display:none}.sr-io-box{background:#1E1E1E;border:1px solid #3A3A3A;padding:14px;width:min(560px,100%);display:flex;flex-direction:column;gap:10px}.sr-io-h{color:#DDD;font-size:.88rem;line-height:1.45}.sr-io textarea{height:180px;background:#141414;color:#E8E8E8;border:1px solid #3A3A3A;font:12px ui-monospace,Menlo,Consolas,monospace;padding:8px;resize:vertical;border-radius:0}.sr-io .sr-sp{flex:1}" +
+    ".sr-npc-box{width:min(760px,100%);max-height:calc(100% - 32px);overflow:auto}.sr-npc-t{font-size:1rem;color:#EEE}.sr-npc-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:10px}" +
+    ".sr-npc-card{display:flex;gap:12px;background:#141414;border:1px solid #333;padding:10px;align-items:center}.sr-npc-card canvas{background:#0E131C;flex:none}.sr-npc-tx{display:flex;flex-direction:column;gap:4px;min-width:0}" +
+    ".sr-npc-tx small{font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;color:#8FA0B8}.sr-npc-tx b{font-size:1.05rem;color:#EEE}.sr-npc-tx span{font-size:.8rem;color:#B5BCC4}.sr-npc-tx button{align-self:flex-start;margin-top:4px}" +
     ".sr-note{position:absolute;left:50%;top:72px;transform:translateX(-50%);background:#E0533F;color:#fff;font-weight:600;padding:8px 14px;z-index:4;font-size:.86rem}" +
     ".sr-hud{position:absolute;left:12px;top:64px;display:flex;flex-direction:column;gap:8px;background:rgba(14,19,28,.88);border:1px solid #263142;padding:10px 12px;z-index:2;min-width:220px}" +
     ".sr-hud div{display:flex;flex-direction:column;gap:2px}.sr-hud small{font-size:.66rem;letter-spacing:.08em;text-transform:uppercase;color:#8FA0B8}.sr-hud b{font-weight:600;font-variant-numeric:tabular-nums}" +
@@ -1223,6 +1370,34 @@
     if (FL) { FL.keys[k] = false; if (k === "shift") FL.keys.shift = false; }
     V.keys[k] = false;
   }
+  // ---------- NPC-Schiffe: Baupläne aus dem Editor-Export, später als KI-Gegner ----------
+  var NPC = [
+    { id: 1, n: L2("Jäger", "Jaeger"), cls: "S", code: {"sr":1,"color":"#6A7480","b":[["ckm",-1,-6,0,0,"#C8473A"],["hblk",-2,-6,0,0,"#6A7480"],["hblk",2,-6,0,1,"#6A7480"],["hblk",-2,-5,0,0,"#6A7480"],["hblk",2,-5,0,1,"#6A7480"],["hblk",-2,-4,0,0,"#6A7480"],["hblk",2,-4,0,1,"#6A7480"],["lblk",-2,-3,0,0,"#6A7480"],["lblk",2,-3,0,1,"#6A7480"],["lblk",-2,-2,0,0,"#E3B83F"],["lblk",2,-2,0,1,"#E3B83F"],["win",-2,-1,0,0,"#E3B83F"],["win",2,-1,0,1,"#E3B83F"],["lblk",-2,0,0,0,"#E3B83F"],["lblk",2,0,0,1,"#E3B83F"],["lblk",-2,1,0,0,"#E3B83F"],["lblk",2,1,0,1,"#E3B83F"],["flo",-1,-2,0,0,"#6A7480"],["lblk",-1,1,0,0,"#6A7480"],["flo",0,-2,0,0,"#C8473A"],["flo",0,-1,0,0,"#C8473A"],["lblk",0,1,0,0,"#C8473A"],["flo",1,-2,0,0,"#6A7480"],["lblk",1,1,0,0,"#6A7480"],["gyr",-1,0,0,0,"#6A7480"],["bat",0,0,0,0,"#C8473A"],["bat",1,0,0,0,"#6A7480"],["rea",-1,2,0,0,"#C8473A"],["lblk",1,2,0,0,"#C8473A"],["lblk",1,3,0,0,"#C8473A"],["thl",-2,4,0,0,"#6A7480"],["thl",1,4,0,1,"#6A7480"],["ths",0,4,0,0,"#C8473A"],["ths",-2,-8,2,0,"#E3B83F"],["ths",2,-8,2,1,"#E3B83F"],["lblk",-3,-4,0,0,"#E3B83F"],["lblk",3,-4,0,1,"#E3B83F"],["lblk",-3,-3,0,0,"#E3B83F"],["lblk",3,-3,0,1,"#E3B83F"],["mgn",-3,-6,0,0,"#E3B83F"],["mgn",3,-6,0,1,"#E3B83F"],["hrm2",4,-4,0,0,"#E3B83F"],["hrm2",-4,-4,0,1,"#E3B83F"],["bat",1,-1,0,0,"#6A7480"],["bat",-1,-1,0,1,"#6A7480"],["hrm2",-4,-2,2,0,"#E3B83F"],["hrm2",4,-2,2,1,"#E3B83F"],["ths",-3,-2,0,0,"#E3B83F"],["ths",3,-2,0,1,"#E3B83F"],["ths",-3,2,1,0,"#E3B83F"],["ths",2,2,3,1,"#E3B83F"],["ths",-3,3,1,0,"#E3B83F"],["ths",2,3,3,1,"#E3B83F"]]} },
+    { id: 2, n: L2("Falcon", "Falcon"), cls: "M", code: {"sr":1,"color":"#3E6F96","b":[["ckm",-1,-2,0,0],["flo",-1,2,0,0,"#C8473A"],["flo",1,2,0,1,"#C8473A"],["flo",-1,3,0,0,"#C8473A"],["flo",1,3,0,1,"#C8473A"],["flo",-1,4,0,0,"#c0746d"],["flo",1,4,0,1,"#c0746d"],["flo",-1,5,0,0,"#c0746d"],["flo",1,5,0,1,"#c0746d"],["flo",-1,6,0,0,"#c0746d"],["flo",1,6,0,1,"#c0746d"],["flo",-1,7,0,0,"#C8473A"],["flo",1,7,0,1,"#C8473A"],["flo",-1,8,0,0,"#C8473A"],["flo",1,8,0,1,"#C8473A"],["flo",-1,9,0,0,"#C8473A"],["flo",1,9,0,1,"#C8473A"],["flo",-1,10,0,0,"#C8473A"],["flo",1,10,0,1,"#C8473A"],["flo",-1,11,0,0,"#C8473A"],["flo",1,11,0,1,"#C8473A"],["flo",0,11,0,0,"#c0746d"],["flo",0,10,0,0,"#c0746d"],["flo",0,9,0,0,"#c0746d"],["flo",0,8,0,0,"#c0746d"],["flo",0,7,0,0,"#c0746d"],["flo",0,6,0,0,"#c0746d"],["flo",0,5,0,0],["flo",0,4,0,0,"#c0746d"],["flo",0,3,0,0,"#c0746d"],["flo",0,2,0,0,"#c0746d"],["flo",0,12,0,0,"#c0746d"],["flo",0,13,0,0,"#c0746d"],["hrm2",-3,1,0,1,"#3E6F96"],["hrm2",3,1,0,0,"#3E6F96"],["hblk",-2,1,0,1,"#3E6F96"],["hblk",2,1,0,0,"#3E6F96"],["lblk",-3,3,0,1,"#3E6F96"],["lblk",3,3,0,0,"#3E6F96"],["lblk",-3,4,0,1,"#3E6F96"],["lblk",3,4,0,0,"#3E6F96"],["lblk",-3,5,0,1,"#3E6F96"],["lblk",3,5,0,0,"#3E6F96"],["lblk",-3,6,0,1,"#3E6F96"],["lblk",3,6,0,0,"#3E6F96"],["lblk",-3,7,0,1,"#3E6F96"],["lblk",3,7,0,0,"#3E6F96"],["lblk",-3,8,0,1,"#3E6F96"],["lblk",3,8,0,0,"#3E6F96"],["lblk",-3,9,0,1,"#3E6F96"],["lblk",3,9,0,0,"#3E6F96"],["lblk",-3,10,0,1,"#3E6F96"],["lblk",3,10,0,0,"#3E6F96"],["lblk",-3,11,0,1,"#3E6F96"],["lblk",3,11,0,0,"#3E6F96"],["lblk",-3,12,0,1,"#3E6F96"],["lblk",3,12,0,0,"#3E6F96"],["lblk",-3,13,0,1,"#3E6F96"],["lblk",3,13,0,0,"#3E6F96"],["lblk",-3,14,0,1,"#c0746d"],["lblk",3,14,0,0,"#c0746d"],["col",-4,13,0,1,"#3E6F96"],["col",4,13,0,0,"#3E6F96"],["col",-4,12,0,1,"#3E6F96"],["col",4,12,0,0,"#3E6F96"],["col",-4,11,0,1,"#3E6F96"],["col",4,11,0,0,"#3E6F96"],["col",-4,10,0,1,"#3E6F96"],["col",4,10,0,0,"#3E6F96"],["col",-4,9,0,1,"#3E6F96"],["col",4,9,0,0,"#3E6F96"],["thl",-5,14,0,1,"#3E6F96"],["thl",4,14,0,0,"#3E6F96"],["thl",-5,6,2,1,"#3E6F96"],["thl",4,6,2,0,"#3E6F96"],["col",-5,9,2,1,"#3E6F96"],["col",5,9,2,0,"#3E6F96"],["col",-5,10,2,1,"#3E6F96"],["col",5,10,2,0,"#3E6F96"],["col",-5,11,2,1,"#3E6F96"],["col",5,11,2,0,"#3E6F96"],["col",-5,12,2,1,"#3E6F96"],["col",5,12,2,0,"#3E6F96"],["col",-5,13,2,1,"#3E6F96"],["col",5,13,2,0,"#3E6F96"],["lblk",-2,14,2,1,"#c0746d"],["lblk",2,14,2,0,"#c0746d"],["lblk",-1,14,2,1,"#c0746d"],["lblk",1,14,2,0,"#c0746d"],["lblk",0,14,2,1,"#c0746d"],["ths",-7,11,1,1,"#3E6F96"],["ths",6,11,3,0,"#3E6F96"],["ths",-7,12,1,1,"#3E6F96"],["ths",6,12,3,0,"#3E6F96"],["ths",-7,13,1,1,"#3E6F96"],["ths",6,13,3,0,"#3E6F96"],["ths",-6,14,0,1,"#3E6F96"],["ths",6,14,0,0,"#3E6F96"],["col",-2,0,0,1],["col",2,0,0,0],["col",-2,-1,0,1],["col",2,-1,0,0],["mgn",-2,-3,0,1],["mgn",2,-3,0,0],["rea",-2,12,0,1],["rea",1,12,0,0],["bat",-2,11,0,1],["bat",2,11,0,0],["bat",-2,10,0,1],["bat",2,10,0,0],["bat",-2,9,0,1],["bat",2,9,0,0],["bat",-2,8,0,1],["bat",2,8,0,0],["bat",-2,7,0,1],["bat",2,7,0,0],["bat",-2,6,0,1],["bat",2,6,0,0],["gyr",-2,2,0,1],["gyr",2,2,0,0],["ant",-2,15,2,1],["ant",2,15,2,0],["bat",2,5,0,0],["bat",-2,5,0,0],["bat",-2,4,0,0],["bat",-2,3,0,0],["bat",2,3,0,0],["bat",2,4,0,0],["lcor",1,-3,0,0],["lcor",-1,-3,0,1],["lblk",0,-3,0,0],["msl",-6,8,0,0],["msl",6,8,0,1],["msl",-7,8,0,0],["msl",7,8,0,1],["ths",-7,10,1,0],["ths",6,10,3,1]]} },
+    { id: 3, n: L2("Mosquito", "Mosquito"), cls: "S", code: {"sr":1,"color":"#6A7480","b":[["cks",-1,-4,0,0],["lrm3",1,-4,0,0],["lrm3",-2,-4,0,1],["rea",-1,-1,0,1],["bat",-1,1,0,1],["bat",0,1,0,1],["lblk",1,-1,2,1],["lblk",-2,-1,2,1],["lblk",-2,1,2,1],["lblk",-2,2,2,1],["lblk",1,1,2,1],["lblk",1,2,2,1],["ths",-3,0,1,1],["ths",1,0,3,1],["ths",-1,2,0,1],["ths",0,2,0,1],["ths",-3,-2,2,1],["ths",2,-2,2,1],["lrm2",-3,1,2,0],["lrm2",2,1,2,1],["gyr",-2,3,2,1],["gyr",1,3,2,1],["mgn",-1,-6,0,1],["mgn",0,-6,0,1]]} }
+  ];
+  function npcBlocks(sh) { return parseShip(JSON.stringify(sh.code)) || []; }
+  function shipThumb(blocks, size) {
+    var cv = document.createElement("canvas"), dpr = Math.min(2, window.devicePixelRatio || 1); cv.width = cv.height = size * dpr; cv.style.width = cv.style.height = size + "px";
+    var c = cv.getContext("2d"), bb = bounds(blocks); if (!bb) return cv;
+    var bw = bb.x1 - bb.x0, bh = bb.y1 - bb.y0, cs = Math.min((size - 16) / bw, (size - 16) / bh);
+    c.scale(dpr, dpr); c.translate(size / 2 - (bb.x0 + bw / 2) * cs, size / 2 - (bb.y0 + bh / 2) * cs);
+    drawShip(c, blocks, cs, "out", 0, null);
+    return cv;
+  }
+  function openHangar() {
+    var box = V.root.querySelector(".sr-npc"), list = box.querySelector(".sr-npc-list"); box.hidden = false;
+    if (list.childElementCount) return;   // Vorschaubilder nur einmal zeichnen
+    NPC.forEach(function (sh) {
+      var bl = npcBlocks(sh), st = stats(bl), bb = bounds(bl), wp = [];
+      if (st.mg) wp.push(st.mg + "× " + t("mg")); if (st.ms) wp.push(st.ms + "× " + t("ms")); if (st.rg) wp.push(st.rg + "× " + t("rg"));
+      var card = document.createElement("div"); card.className = "sr-npc-card";
+      card.appendChild(shipThumb(bl, 132));
+      var tx = document.createElement("div"); tx.className = "sr-npc-tx";
+      tx.innerHTML = "<small>#" + sh.id + " · " + t("cls" + sh.cls) + "</small><b>" + sh.n[lang] + "</b><span>" + nf(st.n) + " " + t("sBlocks") + " · " + nf(st.mass * 1000) + " kg · " + nf((bb.x1 - bb.x0) * CELL_M, 1) + " × " + nf((bb.y1 - bb.y0) * CELL_M, 1) + "\u00a0m</span><span>" + (wp.join(", ") || t("none")) + '</span><button type="button" data-npc="' + sh.id + '">' + t("load") + "</button>";
+      card.appendChild(tx); list.appendChild(card);
+    });
+  }
   // Schiffscode: kompaktes JSON, damit Entwürfe geteilt und später als Gegner-Blaupausen eingebaut werden können.
   function shipCode() { return JSON.stringify({ sr: 1, color: S.color, b: S.blocks.map(function (b) { var a = [b.t, b.x, b.y, b.r, b.f]; if (b.c) a.push(b.c); return a; }) }); }
   function parseShip(txt) {
@@ -1233,7 +1408,7 @@
     } catch (e) { return null; }
   }
   function openIO(mode) {
-    var io = V.root.querySelector(".sr-io"), ta = io.querySelector("textarea"), h = io.querySelector(".sr-io-h");
+    var io = V.root.querySelector(".sr-exio"), ta = io.querySelector("textarea"), h = io.querySelector(".sr-io-h");
     io.hidden = false;
     io.querySelector('[data-act="io-copy"]').hidden = mode !== "exp"; io.querySelector('[data-act="io-load"]').hidden = mode !== "imp";
     if (mode === "exp") { h.textContent = lang === "de" ? "Schiffscode deines Entwurfs. Kopieren und teilen oder speichern." : "Ship code of your design. Copy and share or keep it."; ta.value = shipCode(); ta.readOnly = true; ta.select(); }
@@ -1246,6 +1421,8 @@
     if (bk) { S.sel = bk.getAttribute("data-blk"); S.tool = "build"; syncUI(); return; }
     if (vw) { S.view = vw.getAttribute("data-view"); syncUI(); return; }
     if (sw) { S.color = sw.getAttribute("data-sw"); S.tool = "paint"; save(); syncUI(); return; }
+    var nb = e.target.closest("[data-npc]");
+    if (nb) { var sh = NPC.filter(function (q) { return String(q.id) === nb.getAttribute("data-npc"); })[0]; if (sh) { pushUndo(); S.blocks = npcBlocks(sh); if (sh.code.color) S.color = sh.code.color; save(); fitCam(); V.root.querySelector(".sr-npc").hidden = true; syncUI(); note(sh.n[lang] + (lang === "de" ? " geladen · Rückgängig holt dein Schiff zurück" : " loaded · Undo brings your ship back")); } return; }
     if (!a) return;
     var act = a.getAttribute("data-act");
     if (act === "rot") S.r = (S.r + 1) % 4;
@@ -1255,9 +1432,11 @@
     else if (act === "clear") { pushUndo(); S.blocks = []; save(); }
     else if (act === "starter") { pushUndo(); S.blocks = starter(); save(); fitCam(); }
     else if (act === "exp" || act === "imp") { openIO(act); return; }
-    else if (act === "io-x") { V.root.querySelector(".sr-io").hidden = true; return; }
-    else if (act === "io-copy") { var ta = V.root.querySelector(".sr-io textarea"); ta.select(); try { navigator.clipboard.writeText(ta.value).then(function () { note(lang === "de" ? "Schiffscode kopiert." : "Ship code copied."); }, function () {}); } catch (er) {} return; }
-    else if (act === "io-load") { var bl = parseShip(V.root.querySelector(".sr-io textarea").value); if (!bl) { note(lang === "de" ? "Code ungültig." : "Invalid code."); return; } pushUndo(); S.blocks = bl; save(); fitCam(); V.root.querySelector(".sr-io").hidden = true; note(lang === "de" ? "Schiff geladen (" + bl.length + " Blöcke)." : "Ship loaded (" + bl.length + " blocks)."); }
+    else if (act === "npc") { openHangar(); return; }
+    else if (act === "npc-x") { V.root.querySelector(".sr-npc").hidden = true; return; }
+    else if (act === "io-x") { V.root.querySelector(".sr-exio").hidden = true; return; }
+    else if (act === "io-copy") { var ta = V.root.querySelector(".sr-exio textarea"); ta.select(); try { navigator.clipboard.writeText(ta.value).then(function () { note(lang === "de" ? "Schiffscode kopiert." : "Ship code copied."); }, function () {}); } catch (er) {} return; }
+    else if (act === "io-load") { var bl = parseShip(V.root.querySelector(".sr-exio textarea").value); if (!bl) { note(lang === "de" ? "Code ungültig." : "Invalid code."); return; } pushUndo(); S.blocks = bl; save(); fitCam(); V.root.querySelector(".sr-exio").hidden = true; note(lang === "de" ? "Schiff geladen (" + bl.length + " Blöcke)." : "Ship loaded (" + bl.length + " blocks)."); }
     else if (act === "test") { startTest(); return; }
     else if (act === "edit") { stopTest(); return; }
     else if (act === "targets") { if (FL) spawnTargets(); return; }
