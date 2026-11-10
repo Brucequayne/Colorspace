@@ -4,7 +4,7 @@
 (function () {
   "use strict";
 
-  var VERSION = "0.3";
+  var VERSION = "0.32";
   var CELL_M = 2.5, PX = 24;              // Meter je Zelle, Pixel je Zelle bei Zoom 1
   var lang = "de";
   function L2(de, en) { return { de: de, en: en }; }
@@ -17,7 +17,7 @@
     catLA: L2("Panzerung leicht", "Light armour"), catHA: L2("Panzerung schwer", "Heavy armour"), catCo: L2("Cockpit", "Cockpit"),
     catTh: L2("Antrieb und Steuerung", "Propulsion"), catEn: L2("Energie", "Power"), catIn: L2("Innenraum", "Interior"), catWe: L2("Waffen", "Weapons"),
     tBuild: L2("Bauen", "Build"), tErase: L2("Abreißen", "Remove"), tPaint: L2("Malen", "Paint"),
-    rot: L2("Drehen (R)", "Rotate (R)"), flip: L2("Spiegeln (F)", "Flip (F)"), sym: L2("Symmetrie (M)", "Symmetry (M)"),
+    rot: L2("Drehen (R)", "Rotate (R)"), flip: L2("Spiegeln (F)", "Flip (F)"), sym: L2("Symmetrie (M)", "Symmetry (M)"), axis: L2("Achse", "Axis"), symIn: L2("im Block", "through block"), symGap: L2("zwischen Blöcken", "between blocks"),
     vIn: L2("Innen", "Interior"), vOut: L2("Außen", "Exterior"), view: L2("Ansicht (V)", "View (V)"),
     undo: L2("Rückgängig", "Undo"), clear: L2("Leeren", "Clear"), starter: L2("Beispielschiff", "Sample ship"),
     test: L2("Schiff testen", "Test ship"), toEd: L2("Zurück zum Editor", "Back to editor"),
@@ -33,7 +33,7 @@
     wLoose: L2("{n} Block/Blöcke nicht verbunden (rot markiert).", "{n} block(s) not connected (marked red)."),
     wNoPow: L2("Keine Energiequelle: Batterie oder Reaktor einbauen.", "No power source: add a battery or reactor."),
     okRooms: L2("{n} Raum/Räume luftdicht", "{n} room(s) airtight"), noRooms: L2("Keine Innenräume", "No interior rooms"),
-    hintEd: L2("Linksklick bauen, Ziehen baut Reihen · Rechtsklick abreißen · R drehen · F spiegeln · M Symmetrie · V Innen/Außen · Mausrad zoomt · Mitte/Leertaste + Ziehen verschiebt", "Left click build, drag for rows · right click remove · R rotate · F flip · M symmetry · V interior/exterior · wheel zooms · middle/space + drag pans"),
+    hintEd: L2("Linksklick bauen, Ziehen baut Reihen · Rechtsklick abreißen · R drehen · F spiegeln · M Symmetrie (aus, im Block, zwischen Blöcken) · V Innen/Außen · Mausrad zoomt · Mitte/Leertaste + Ziehen verschiebt", "Left click build, drag for rows · right click remove · R rotate · F flip · M symmetry · V interior/exterior · wheel zooms · middle/space + drag pans"),
     hintFl: L2("Im Sitz: WASD fliegen · Q/E drehen (oder Umschalt + Maus) · Linksklick feuern · R Waffe · Z Trägheitsdämpfer · X Overcharge · Raketen lenken leicht zum Mauszeiger · Zu Fuß: WASD laufen · Linksklick schweißen und Hologramme neu aufbauen · F aussteigen/hinsetzen · Durch eine Luke ins All: WASD Jetpack (kostet Anzugluft), Umschalt gleicht ans Schiff an · Gegner spawnen links im Feld, Antennen zeigen sie als rote Dreiecke am Rand · V Innen/Außen · Rechtsklick: Block beschädigen (Test) · Esc Editor", "Seated: WASD fly · Q/E rotate (or Shift + mouse) · left click fire · R weapon · Z inertia dampers · X overcharge · missiles steer gently toward the cursor · On foot: WASD walk · left click weld and rebuild holograms · F get up/sit down · Through a hatch into space: WASD jetpack (uses suit air), Shift matches the ship · Spawn enemies in the panel on the left, antennas show them as red triangles at the edge · V interior/exterior · right click: damage block (test) · Esc editor"),
     noCockTest: L2("Zum Testen braucht das Schiff ein Cockpit.", "The ship needs a cockpit to be tested."),
     damp: L2("Trägheitsdämpfer", "Inertia dampers"), on: L2("an", "on"), off: L2("aus", "off"),
@@ -77,9 +77,9 @@
   def("cks", { cat: "catCo", kind: "cock", w: 2, h: 3, mass: 1.8, hp: 220, n: L2("Cockpit klein 2×3", "Small cockpit 2×3"), col: "#9AA5B1" });
   def("ckm", { cat: "catCo", kind: "cock", w: 3, h: 4, mass: 4.2, hp: 320, n: L2("Cockpit 3×4", "Cockpit 3×4"), col: "#9AA5B1" });
   def("ckl", { cat: "catCo", kind: "cock", w: 4, h: 5, mass: 7.5, hp: 440, n: L2("Cockpit groß 4×5", "Large cockpit 4×5"), col: "#9AA5B1" });
-  def("ths", { cat: "catTh", kind: "thr", w: 1, h: 2, mass: 1.4, hp: 65, thrust: 180, use: 6, n: L2("Ionenantrieb klein 1×2", "Small ion thruster 1×2"), col: "#7E8995" });
-  def("thl", { cat: "catTh", kind: "thr", w: 2, h: 3, mass: 5.2, hp: 170, thrust: 690, use: 20, n: L2("Ionenantrieb groß 2×3", "Large ion thruster 2×3"), col: "#7E8995" });
-  def("gyr", { cat: "catTh", kind: "gyro", w: 1, h: 1, mass: 1.1, hp: 65, torque: 14000, use: 3, n: L2("Gyroskop 1×1", "Gyroscope 1×1"), col: "#7E8995" });
+  def("ths", { cat: "catTh", kind: "thr", w: 1, h: 2, mass: 1.4, hp: 65, thrust: 270, use: 6, n: L2("Ionenantrieb klein 1×2", "Small ion thruster 1×2"), col: "#7E8995" });
+  def("thl", { cat: "catTh", kind: "thr", w: 2, h: 3, mass: 5.2, hp: 170, thrust: 1035, use: 20, n: L2("Ionenantrieb groß 2×3", "Large ion thruster 2×3"), col: "#7E8995" });
+  def("gyr", { cat: "catTh", kind: "gyro", w: 1, h: 1, mass: 1.1, hp: 65, torque: 17500, use: 3, n: L2("Gyroskop 1×1", "Gyroscope 1×1"), col: "#7E8995" });
   def("col", { cat: "catTh", kind: "cool", w: 1, h: 1, mass: 0.8, hp: 50, n: L2("Kühlblock 1×1", "Cooling block 1×1"), col: "#7E8995" });
   def("ant", { cat: "catTh", kind: "ant", w: 1, h: 3, mass: 0.9, hp: 32, n: L2("Antenne 1×3", "Antenna 1×3"), col: "#7E8995" });
   def("bat", { cat: "catEn", kind: "bat", w: 1, h: 1, mass: 1.6, hp: 50, cap: 300, n: L2("Batterie 1×1", "Battery 1×1"), col: "#7E8995" });
@@ -224,14 +224,14 @@
   var S = null, V = null, raf = 0, last = 0;
   var SAVE = "spacerogue-ship-v1";
   function freshState() {
-    return { blocks: [], tool: "build", sel: "lblk", r: 0, f: 0, sym: false, view: "in", color: "#C8473A", undo: [], mode: "edit" };
+    return { blocks: [], tool: "build", sel: "lblk", r: 0, f: 0, sym: false, symGap: false, view: "in", color: "#C8473A", undo: [], mode: "edit" };
   }
   function load() {
     S = freshState();
-    try { var j = JSON.parse(localStorage.getItem(SAVE) || "null"); if (j && j.blocks) { S.blocks = j.blocks.filter(function (b) { return T[b.t]; }); if (j.color) S.color = j.color; } } catch (e) {}
+    try { var j = JSON.parse(localStorage.getItem(SAVE) || "null"); if (j && j.blocks) { S.blocks = j.blocks.filter(function (b) { return T[b.t]; }); if (j.color) S.color = j.color; if (j.symGap) S.symGap = true; } } catch (e) {}
     if (!S.blocks.length) S.blocks = starter();
   }
-  function save() { try { localStorage.setItem(SAVE, JSON.stringify({ blocks: S.blocks.map(strip), color: S.color })); } catch (e) {} }
+  function save() { try { localStorage.setItem(SAVE, JSON.stringify({ blocks: S.blocks.map(strip), color: S.color, symGap: !!S.symGap })); } catch (e) {} }
   function strip(b) { var o = { t: b.t, x: b.x, y: b.y, r: b.r, f: b.f }; if (b.c) o.c = b.c; return o; }
   function pushUndo() { S.undo.push(JSON.stringify(S.blocks.map(strip))); if (S.undo.length > 60) S.undo.shift(); }
 
@@ -265,7 +265,9 @@
     var ty = T[tid], w = r % 2 ? ty.h : ty.w, h = r % 2 ? ty.w : ty.h;
     return { t: tid, x: cx - Math.floor((w - 1) / 2), y: cy - Math.floor((h - 1) / 2), r: r, f: f };
   }
-  function mirrorOf(b) { var f = fp(b); return { t: b.t, x: 1 - b.x - f[0], y: b.y, r: (4 - b.r) % 4, f: 1 - b.f, c: b.c }; }
+  // Zwei Achsen: im Block (Mitte von Spalte 0, für ungerade Breiten wie das 3er-Cockpit) oder zwischen Blöcken (zwischen Spalte −1 und 0, für gerade Breiten wie 2er-Blöcke)
+  function symAx() { return S.symGap ? 0 : 0.5; }
+  function mirrorOf(b) { var f = fp(b); return { t: b.t, x: 2 * symAx() - b.x - f[0], y: b.y, r: (4 - b.r) % 4, f: 1 - b.f, c: b.c }; }
   function canPlace(b, M, extra) {
     var cs = cellsOf(b);
     for (var i = 0; i < cs.length; i++) { var k = key(cs[i].c[0], cs[i].c[1]); if (M.has(k) && !replaceable(b.t, M.get(k))) return false; if (extra && extra.has(k)) return false; }
@@ -315,7 +317,9 @@
   }
   function clean(b) { return { t: b.t, x: b.x, y: b.y, r: b.r, f: b.f }; }
   function blockAt(cx, cy, M) { var o = (M || buildMap(S.blocks)).get(key(cx, cy)); return o ? o.b : null; }
-  function mirrorCell(cx) { return 0 - cx; }   // Achse auf Zelle 0: Spiegelung x → 1 − x − 1 = −x
+  // M schaltet durch: aus → im Block → zwischen Blöcken → aus
+  function cycleSym() { if (!S.sym) { S.sym = true; S.symGap = false; } else if (!S.symGap) S.symGap = true; else S.sym = false; save(); }
+  function mirrorCell(cx) { return S.symGap ? -1 - cx : -cx; }
   function eraseAt(cx, cy) {
     var M = buildMap(S.blocks), b = blockAt(cx, cy, M); if (!b) return false;
     pushUndo();
@@ -536,7 +540,7 @@
     for (var gx = x0; gx <= x1; gx++) { c.moveTo(gx * s + 0.5, y0 * s); c.lineTo(gx * s + 0.5, y1 * s); }
     for (var gy = y0; gy <= y1; gy++) { c.moveTo(x0 * s, gy * s + 0.5); c.lineTo(x1 * s, gy * s + 0.5); }
     c.stroke();
-    if (S.sym) { c.strokeStyle = "rgba(227,184,63,.6)"; c.setLineDash([6, 6]); c.lineWidth = 2; c.beginPath(); c.moveTo(0.5 * s, y0 * s); c.lineTo(0.5 * s, y1 * s); c.stroke(); c.setLineDash([]); }
+    if (S.sym) { c.strokeStyle = "rgba(227,184,63,.6)"; c.setLineDash([6, 6]); c.lineWidth = 2; c.beginPath(); c.moveTo(symAx() * s, y0 * s); c.lineTo(symAx() * s, y1 * s); c.stroke(); c.setLineDash([]); }
     var tm = performance.now() / 1000, M = buildMap(S.blocks);
     // Räume einfärben (Innenansicht)
     var R = rooms(S.blocks);
@@ -1403,7 +1407,7 @@
       '<button type="button" class="sr-go sr-ed-only" data-act="test">' + t("test") + ' ▸</button><button type="button" class="sr-go sr-fl-only" data-act="edit">◂ ' + t("toEd") + '</button></div>' +
       '<aside class="sr-pal sr-ed-only"><div class="sr-tools"><button type="button" data-tool="build">' + t("tBuild") + '</button><button type="button" data-tool="erase">' + t("tErase") + '</button><button type="button" data-tool="paint">' + t("tPaint") + '</button></div>' +
       '<div class="sr-paint"><label>' + t("color") + ' <input type="color" id="sr-col"></label><div class="sr-sws">' + sw + '</div></div>' +
-      '<div class="sr-opts"><button type="button" data-act="rot">' + t("rot") + '</button><button type="button" data-act="flip">' + t("flip") + '</button><button type="button" data-act="sym">' + t("sym") + '</button></div>' +
+      '<div class="sr-opts"><button type="button" data-act="rot">' + t("rot") + '</button><button type="button" data-act="flip">' + t("flip") + '</button><button type="button" data-act="sym">' + t("sym") + '</button><button type="button" data-act="symm" class="sr-symm"></button></div>' +
       '<div class="sr-list">' + pal + '</div></aside>' +
       '<aside class="sr-info sr-ed-only" id="sr-info"></aside>' +
       '<div class="sr-hud sr-fl-only"><div><small>' + t("speed") + '</small><b id="sr-h-sp"></b></div><div><small>' + t("energy") + '</small><b id="sr-h-en"></b><i class="sr-eb"><i id="sr-h-ebar"></i></i></div>' +
@@ -1423,6 +1427,7 @@
     r.querySelectorAll("[data-blk]").forEach(function (b) { b.setAttribute("aria-pressed", String(b.getAttribute("data-blk") === S.sel && S.tool === "build")); });
     r.querySelectorAll("[data-view]").forEach(function (b) { b.setAttribute("aria-pressed", String(b.getAttribute("data-view") === S.view)); });
     var sb = r.querySelector('[data-act="sym"]'); if (sb) sb.setAttribute("aria-pressed", String(S.sym));
+    var sm = r.querySelector('[data-act="symm"]'); if (sm) { sm.textContent = t("axis") + ": " + t(S.symGap ? "symGap" : "symIn"); sm.disabled = !S.sym; }
     var fb = r.querySelector('[data-act="flip"]'); if (fb) fb.setAttribute("aria-pressed", String(!!S.f));
     r.querySelector(".sr-paint").hidden = S.tool !== "paint";
     var ci = r.querySelector("#sr-col"); if (ci && ci.value !== S.color) ci.value = S.color;
@@ -1554,7 +1559,7 @@
     if (e.repeat) return;
     if (k === "r") { S.r = (S.r + (e.shiftKey ? 3 : 1)) % 4; syncUI(); }
     else if (k === "f") { S.f = S.f ? 0 : 1; syncUI(); }
-    else if (k === "m") { S.sym = !S.sym; syncUI(); }
+    else if (k === "m") { cycleSym(); syncUI(); }
     else if (k === "v" || k === "tab") { S.view = S.view === "in" ? "out" : "in"; syncUI(); e.preventDefault(); }
     else if (k === "1") { S.tool = "build"; syncUI(); } else if (k === "2") { S.tool = "erase"; syncUI(); } else if (k === "3") { S.tool = "paint"; syncUI(); }
   }
@@ -1624,6 +1629,7 @@
     if (act === "rot") S.r = (S.r + 1) % 4;
     else if (act === "flip") S.f = S.f ? 0 : 1;
     else if (act === "sym") S.sym = !S.sym;
+    else if (act === "symm") { S.symGap = !S.symGap; S.sym = true; save(); }
     else if (act === "undo") undo();
     else if (act === "clear") { pushUndo(); S.blocks = []; save(); }
     else if (act === "starter") { pushUndo(); S.blocks = starter(); save(); fitCam(); }
