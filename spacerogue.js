@@ -4,7 +4,7 @@
 (function () {
   "use strict";
 
-  var VERSION = "0.42";
+  var VERSION = "0.43";
   var CELL_M = 2.5, PX = 24;              // Meter je Zelle, Pixel je Zelle bei Zoom 1
   var lang = "de";
   function L2(de, en) { return { de: de, en: en }; }
@@ -1051,9 +1051,9 @@
   }
   // Kampfstile: Draufgänger kommen nah heran, Umkreiser halten Abstand und kreisen, Taktiker liegen dazwischen
   var AISTY = [
-    { id: "aggro", n: L2("Draufgänger", "Brawler"), rk: 0.45, strafe: 4, orbit: 0, push: 55, mor: 0.9 },
-    { id: "tact", n: L2("Taktiker", "Tactician"), rk: 1, strafe: 9, orbit: 0, push: 40, mor: 0.75 },
-    { id: "orbit", n: L2("Umkreiser", "Circler"), rk: 1.45, strafe: 0, orbit: 30, push: 35, mor: 0.65 }
+    { id: "aggro", n: L2("Draufgänger", "Brawler"), rk: 0.45, strafe: 4, orbit: 0, push: 55, mor: 0.9, man: { chase: 0.4, pass: 0.35, attack: 0.2, brk: 0.05 } },
+    { id: "tact", n: L2("Taktiker", "Tactician"), rk: 1, strafe: 9, orbit: 0, push: 40, mor: 0.75, man: { chase: 0.2, pass: 0.25, attack: 0.35, brk: 0.2 } },
+    { id: "orbit", n: L2("Umkreiser", "Circler"), rk: 1.45, strafe: 0, orbit: 30, push: 35, mor: 0.65, man: { chase: 0.05, pass: 0.2, attack: 0.55, brk: 0.2 } }
   ];
   // Moral (0–1): sinkt mit jedem Treffer und mit verlorenen Blöcken, erholt sich langsam. Niedrige Moral hält mehr Abstand und flieht eher
   function aiMorale(bd, dt) {
@@ -1069,6 +1069,16 @@
       var pf = Math.max(0.1, Math.min(0.45, 0.25 + (0.5 - A.mor) * 0.3));
       if (Math.random() < pf) { A.state = "flee"; FL.bannerN = bd.npc.n[lang]; showBanner(t("fleeT"), "flee"); }
     }
+  }
+  // Manöver im Kampf: Verfolgen (seitlich versetzt), Vorbeiflug (Angriff von der anderen Seite), Angriff (Abstand halten, kreisen) und Ausbrechen.
+  // Nur beim Angriff zielt die Nase dauerhaft auf dich; bei Vorbeiflug und Ausbrechen fliegt sie in Bewegungsrichtung.
+  var MANT = { chase: [3, 5], pass: [6, 9], attack: [3, 6], brk: [1.8, 3] };
+  function pickMan(A) {
+    var w = A.sty.man, x = Math.random(), k;
+    for (k in w) { x -= w[k]; if (x <= 0) break; }
+    if (k === A.man && Math.random() < 0.6) return pickMan(A);   // selten zweimal dasselbe
+    A.man = k; A.side = Math.random() < 0.5 ? -1 : 1; A.passed = false; A.passU = null;
+    A.manT = MANT[k][0] + Math.random() * (MANT[k][1] - MANT[k][0]);
   }
   function aiTick(bd, dt) {
     var A = bd.ai, me = FL.me; if (bd.dead) return;
@@ -1100,12 +1110,40 @@
       var R = bd.blocks.some(function (b) { return T[b.t].kind === "mg"; }) ? 75 : bd.blocks.some(function (b) { return T[b.t].kind === "ms"; }) ? 130 : 170;
       R *= Y.rk * (1 + Math.max(0, 0.6 - A.mor) * 1.2);   // Stil und Moral bestimmen den Wunschabstand
       var tl = dist / MG.speed; aim = { x: me.x + (PV.x - bd.vx) * tl, y: me.y + (PV.y - bd.vy) * tl };
-      var ax = aim.x - bd.x, ay = aim.y - bd.y; head = angTo(ax, ay);
-      A.st -= dt; if (A.st <= 0) { A.st = 2.5 + Math.random() * 3; A.strafe = Math.random() < 0.5 ? -1 : 1; if (Y.orbit && Math.random() < 0.25) A.dir = -A.dir; }
-      var ux = dx / dist, uy = dy / dist, cl = Math.max(-25, Math.min(Y.push, (dist - R) * 0.6));
-      var side = Y.orbit ? Y.orbit * A.dir : Y.strafe * A.strafe;   // Umkreiser fliegen quer zum Spieler
-      vDes = { x: PV.x + ux * cl - uy * side, y: PV.y + uy * cl + ux * side };
-      fire = Math.abs(angDiff(head, bd.a)) < (bd.tcomp ? TURRET.max : 0.1) && dist < R * 2.2;
+      var aimHead = angTo(aim.x - bd.x, aim.y - bd.y);
+      if (!A.man) pickMan(A); A.manT -= dt; if (A.manT <= 0) pickMan(A);
+      var ux = dx / dist, uy = dy / dist, qx = -uy * A.side, qy = ux * A.side, gap = Math.max(22, (me.rad + bd.rad) * 0.7), m = A.man;
+      head = aimHead;
+      if (m === "chase") {
+        // Verfolgen: Zielpunkt hinter dir, aber seitlich versetzt, damit ein Bremsmanöver nicht zum Rammen führt
+        var tx = me.x - ux * R * 0.6 + qx * gap, ty = me.y - uy * R * 0.6 + qy * gap, ex = tx - bd.x, ey = ty - bd.y, el = Math.hypot(ex, ey) || 1, sp = Math.min(Y.push, el * 0.5);
+        vDes = { x: PV.x + ex / el * sp, y: PV.y + ey / el * sp };
+      } else if (m === "pass") {
+        // Vorbeiflug: schräg an dir vorbei auf die andere Seite, dort umdrehen und angreifen
+        if (!A.passU) A.passU = { x: ux, y: uy };
+        var beyond = (A.passU.x * ux + A.passU.y * uy) < 0;
+        if (beyond && !A.passed) { A.passed = true; A.manT = Math.min(A.manT, 1.2); }
+        var px2 = me.x + A.passU.x * (R * 0.9 + 40) + qx * gap * 1.3, py2 = me.y + A.passU.y * (R * 0.9 + 40) + qy * gap * 1.3;
+        var ex2 = px2 - bd.x, ey2 = py2 - bd.y, el2 = Math.hypot(ex2, ey2) || 1, sp2 = Y.push + 15;
+        vDes = { x: PV.x + ex2 / el2 * sp2, y: PV.y + ey2 / el2 * sp2 };
+        if (dist < R * 1.3 || A.passed) head = angTo(vDes.x - PV.x, vDes.y - PV.y);   // im Vorbeiflug zeigt die Nase in Flugrichtung
+        if (A.passed && A.manT < 0.2) { A.man = "attack"; A.manT = 3 + Math.random() * 2; }
+      } else if (m === "brk") {
+        // Ausbrechen: schräg weg, Abstand gewinnen, Nase in Flugrichtung
+        var ang = A.side * (0.9 + Math.random() * 0.01), bx = -ux * Math.cos(ang) + uy * Math.sin(ang), by = -uy * Math.cos(ang) - ux * Math.sin(ang);
+        vDes = { x: PV.x + bx * Y.push, y: PV.y + by * Y.push };
+        head = angTo(bx, by);
+      } else {
+        // Angriff: Wunschabstand halten, seitlich ausweichen oder kreisen
+        A.st -= dt; if (A.st <= 0) { A.st = 2.5 + Math.random() * 3; A.strafe = Math.random() < 0.5 ? -1 : 1; if (Y.orbit && Math.random() < 0.25) A.dir = -A.dir; }
+        var cl = Math.max(-25, Math.min(Y.push, (dist - R) * 0.6)), side = Y.orbit ? Y.orbit * A.dir : Y.strafe * A.strafe;
+        vDes = { x: PV.x + ux * cl - uy * side, y: PV.y + uy * cl + ux * side };
+      }
+      // Kollisionsvermeidung: zu nah und auf Annäherungskurs, dann seitlich wegdrücken
+      var rvx = bd.vx - me.vx, rvy = bd.vy - me.vy, closing = rvx * ux + rvy * uy;
+      if (dist < (me.rad + bd.rad) * 1.15 + 15 && closing > 0) { vDes.x += qx * 25 - ux * 15; vDes.y += qy * 25 - uy * 15; }
+      // Feuern nur, wenn die Nase zufällig oder gewollt passt
+      fire = Math.abs(angDiff(aimHead, bd.a)) < (bd.tcomp ? TURRET.max : 0.1) && dist < R * 2.2;
     } else {
       A.ang += A.dir * dt * AI.patrolV / A.r;
       var px = A.home.x + Math.cos(A.ang) * A.r, py = A.home.y + Math.sin(A.ang) * A.r, tx = -Math.sin(A.ang) * A.dir, ty = Math.cos(A.ang) * A.dir;
