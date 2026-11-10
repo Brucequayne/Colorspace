@@ -1,0 +1,236 @@
+  // ===== 40-zeichnen-bloecke.js · Zeichnen: einzelne Blöcke, Luke, Astronaut, Schadensspuren =====
+  // ---------- Zeichnen der Blöcke ----------
+  var GLASS = "#5FB4D9", GLASS2 = "#9FD8EE", DARK = "#2A2F36", MID = "#4A525C", LIGHT = "#C9D1D9", FLOOR = "#B9BEC4", FLOOR2 = "#A9AFB6", ACC = "#E3B83F";
+  function shade(hex, k) {
+    var n = parseInt(hex.slice(1), 16), r = n >> 16, g = (n >> 8) & 255, b = n & 255;
+    function f(v) { return Math.max(0, Math.min(255, Math.round(k > 0 ? v + (255 - v) * k : v * (1 + k)))); }
+    return "rgb(" + f(r) + "," + f(g) + "," + f(b) + ")";
+  }
+  function shapePath(c, sh, w, h) {
+    c.beginPath();
+    if (sh === "ramp1" || sh === "ramp2" || sh === "ramp3") { c.moveTo(0, 0); c.lineTo(0, h); c.lineTo(w, h); c.closePath(); }
+    else if (sh === "round") { c.moveTo(0, 0); c.arc(0, h, w, -Math.PI / 2, 0); c.lineTo(0, h); c.closePath(); }
+    else if (sh === "half") c.rect(0, h / 2, w, h / 2);
+    else c.rect(0, 0, w, h);
+  }
+  // b: Block, s: Pixel je Zelle, view: "in"/"out", dmg: Anteil Leben (0…1)
+  function drawBlock(c, b, s, view, hpk, tm, opts) {
+    var ty = T[b.t], f = fp(b), w = ty.w * s, h = ty.h * s, k = ty.kind;
+    c.save();
+    c.translate((b.x + f[0] / 2) * s, (b.y + f[1] / 2) * s);
+    c.rotate(b.r * Math.PI / 2); if (b.f) c.scale(-1, 1);
+    if (opts && opts.tw) { c.translate(0, h / 2); c.rotate(b.f ? -opts.tw : opts.tw); c.translate(0, -h / 2); }   // Geschütz schwenkt um sein hinteres Ende
+    c.translate(-w / 2, -h / 2);
+    var col = b.c || ty.col, lw = Math.max(1, s / 16), dam = hpk !== undefined && hpk <= 0.5;
+    c.lineJoin = "miter";
+    if (k === "armor" || k === "win") {
+      if (k === "win") { c.fillStyle = shade(col, -0.15); c.fillRect(0, 0, w, h); c.fillStyle = GLASS; c.fillRect(w * 0.18, h * 0.18, w * 0.64, h * 0.64); c.fillStyle = GLASS2; c.fillRect(w * 0.22, h * 0.22, w * 0.2, h * 0.56); }
+      else {
+        shapePath(c, ty.shape, w, h); c.fillStyle = col; c.fill();
+        c.save(); c.clip();
+        c.fillStyle = shade(col, 0.22); c.fillRect(0, 0, w, lw * 2); c.fillRect(0, 0, lw * 2, h);
+        c.fillStyle = shade(col, -0.25); c.fillRect(0, h - lw * 2, w, lw * 2); c.fillRect(w - lw * 2, 0, lw * 2, h);
+        if (ty.heavy) { c.fillStyle = shade(col, -0.18); c.fillRect(w * 0.3, h * 0.3, w * 0.4, h * 0.4); c.fillStyle = shade(col, 0.1); c.fillRect(w * 0.34, h * 0.34, w * 0.32, h * 0.32); }
+        c.restore();
+      }
+      shapePath(c, k === "win" ? "full" : ty.shape, w, h); c.strokeStyle = shade(col, -0.5); c.lineWidth = lw; c.stroke();
+      if (dam) damageMarks(c, w, h, b, s, ty.shape);
+    } else if (k === "floor" || k === "wall" || k === "door") {
+      if (view === "out") { roof(c, w, h, col, lw); }
+      else if (k === "floor") { c.fillStyle = FLOOR; c.fillRect(0, 0, w, h); c.strokeStyle = FLOOR2; c.lineWidth = lw; c.strokeRect(lw / 2, lw / 2, w - lw, h - lw); c.fillStyle = FLOOR2; c.fillRect(w * 0.45, h * 0.45, w * 0.1, h * 0.1); }
+      else if (k === "wall") { c.fillStyle = shade(col, -0.35); c.fillRect(0, 0, w, h); c.fillStyle = shade(col, -0.15); c.fillRect(w * 0.15, 0, w * 0.7, h); c.strokeStyle = shade(col, -0.55); c.lineWidth = lw; c.strokeRect(lw / 2, lw / 2, w - lw, h - lw); }
+      else { c.fillStyle = FLOOR; c.fillRect(0, 0, w, h); c.fillStyle = shade(col, -0.3); c.fillRect(0, 0, w * 0.12, h); c.fillRect(w * 0.88, 0, w * 0.12, h); c.fillStyle = "#D9A21B"; c.fillRect(w * 0.12, h * 0.38, w * 0.37, h * 0.24); c.fillRect(w * 0.51, h * 0.38, w * 0.37, h * 0.24); c.fillStyle = DARK; c.fillRect(w * 0.49, h * 0.38, w * 0.02, h * 0.24); }
+      if (k === "door" && view === "out") { c.fillStyle = "#D9A21B"; c.fillRect(w * 0.42, h * 0.1, w * 0.16, h * 0.8); }
+    } else if (k === "hatch") {
+      hatchArt(c, w, h, col, lw, view, opts && opts.open);
+    } else if (k === "cock") {
+      c.fillStyle = col; c.fillRect(0, 0, w, h);
+      c.fillStyle = shade(col, -0.3); c.fillRect(0, h - lw * 2, w, lw * 2); c.fillRect(0, 0, lw * 2, h); c.fillRect(w - lw * 2, 0, lw * 2, h);
+      var tiny = ty.w === 1, cw = w - s * 0.5, ch = s * (tiny ? 0.95 : ty.h > 3 ? 1.6 : 1.2);
+      if (tiny) {   // 1×2: Kanzel füllt die vordere Zelle, dahinter ein schmaler Sitz
+        c.fillStyle = GLASS; c.beginPath(); c.moveTo(s * 0.16, ch); c.lineTo(s * 0.16, s * 0.4); c.lineTo(w / 2, s * 0.08); c.lineTo(w - s * 0.16, s * 0.4); c.lineTo(w - s * 0.16, ch); c.closePath(); c.fill();
+        c.fillStyle = GLASS2; c.beginPath(); c.moveTo(s * 0.26, ch * 0.88); c.lineTo(s * 0.26, s * 0.44); c.lineTo(w / 2 - s * 0.06, s * 0.22); c.lineTo(w / 2 - s * 0.06, ch * 0.88); c.closePath(); c.fill();
+        if (view === "in") {
+          c.fillStyle = FLOOR; c.fillRect(s * 0.16, ch + lw, w - s * 0.32, h - ch - s * 0.16);
+          var tx2 = w / 2, ty2 = s * 1.45; c.fillStyle = "#5A3E2B"; c.fillRect(tx2 - s * 0.26, ty2 - s * 0.26, s * 0.52, s * 0.52); c.fillStyle = "#7A5A40"; c.fillRect(tx2 - s * 0.19, ty2 - s * 0.18, s * 0.38, s * 0.36);
+          if (opts && opts.pilot) drawAstronaut(c, tx2, ty2 - s * 0.05, -Math.PI / 2, 0, s / 24, false);
+        } else { c.fillStyle = shade(col, -0.12); c.fillRect(s * 0.16, ch + lw, w - s * 0.32, h - ch - s * 0.2); }
+        c.strokeStyle = shade(col, -0.55); c.lineWidth = lw; c.strokeRect(lw / 2, lw / 2, w - lw, h - lw);
+        if (dam) damageMarks(c, w, h, b, s, "full");
+        c.restore(); return;
+      }
+      var bigCk = ty.h >= 4;
+      c.fillStyle = GLASS; c.beginPath(); c.moveTo(s * 0.25, ch); c.lineTo(s * 0.25, s * 0.45); c.lineTo(w / 2, s * 0.08); c.lineTo(w - s * 0.25, s * 0.45); c.lineTo(w - s * 0.25, ch); c.closePath(); c.fill();
+      c.fillStyle = GLASS2; c.beginPath(); c.moveTo(s * 0.4, ch * 0.9); c.lineTo(s * 0.4, s * 0.5); c.lineTo(w / 2 - s * 0.1, s * 0.25); c.lineTo(w / 2 - s * 0.1, ch * 0.9); c.closePath(); c.fill();
+      if (view === "in") {
+        c.fillStyle = FLOOR; c.fillRect(s * 0.25, ch + lw, cw, h - ch - s * 0.35);
+        c.fillStyle = MID; c.fillRect(s * 0.4, ch + lw, cw - s * 0.3, s * 0.28);
+        c.fillStyle = "#57D18A"; c.fillRect(s * 0.6, ch + lw * 2, s * 0.3, s * 0.12); c.fillStyle = ACC; c.fillRect(w - s * 0.9, ch + lw * 2, s * 0.3, s * 0.12);
+        var sx = w / 2, sy = ch + s * 0.95; c.fillStyle = "#5A3E2B"; c.fillRect(sx - s * 0.32, sy - s * 0.3, s * 0.64, s * 0.62); c.fillStyle = "#7A5A40"; c.fillRect(sx - s * 0.24, sy - s * 0.2, s * 0.48, s * 0.4);
+        if (opts && opts.pilot) drawAstronaut(c, sx, sy - s * 0.05, -Math.PI / 2, 0, s / 24, false);
+      } else { c.fillStyle = shade(col, -0.12); c.fillRect(s * 0.25, ch + lw, cw, h - ch - s * 0.35); c.strokeStyle = shade(col, -0.35); c.lineWidth = lw; for (var gy = ch + s * 0.6; gy < h - s * 0.4; gy += s * 0.7) { c.beginPath(); c.moveTo(s * 0.25, gy); c.lineTo(w - s * 0.25, gy); c.stroke(); } }
+      c.strokeStyle = shade(col, -0.55); c.lineWidth = lw; c.strokeRect(lw / 2, lw / 2, w - lw, h - lw);
+      if (dam) damageMarks(c, w, h, b, s, "full");
+    } else if (k === "thr") {
+      c.fillStyle = shade(col, -0.1); c.fillRect(w * 0.08, 0, w * 0.84, h * 0.62);
+      c.fillStyle = shade(col, 0.2); c.fillRect(w * 0.08, 0, w * 0.84, lw * 2);
+      c.fillStyle = MID; c.beginPath(); c.moveTo(w * 0.16, h * 0.6); c.lineTo(w * 0.84, h * 0.6); c.lineTo(w * 0.96, h); c.lineTo(w * 0.04, h); c.closePath(); c.fill();
+      c.fillStyle = DARK; c.beginPath(); c.moveTo(w * 0.24, h * 0.66); c.lineTo(w * 0.76, h * 0.66); c.lineTo(w * 0.86, h * 0.97); c.lineTo(w * 0.14, h * 0.97); c.closePath(); c.fill();
+      c.fillStyle = "rgba(120,200,255,.9)"; c.fillRect(w * 0.3, h * 0.9, w * 0.4, h * 0.05);
+      c.fillStyle = b.c ? b.c : ACC; c.fillRect(w * 0.2, h * 0.2, w * 0.6, h * 0.08);
+      c.strokeStyle = shade(col, -0.55); c.lineWidth = lw; c.strokeRect(w * 0.08, 0, w * 0.84, h * 0.62);
+    } else if (k === "gyro") {
+      c.fillStyle = shade(col, -0.15); c.fillRect(0, 0, w, h);
+      c.strokeStyle = LIGHT; c.lineWidth = lw * 1.4; c.beginPath(); c.arc(w / 2, h / 2, w * 0.32, 0, Math.PI * 2); c.stroke();
+      var ga = tm * 3; c.strokeStyle = b.c || ACC; c.beginPath(); c.moveTo(w / 2 + Math.cos(ga) * w * 0.3, h / 2 + Math.sin(ga) * h * 0.3); c.lineTo(w / 2 - Math.cos(ga) * w * 0.3, h / 2 - Math.sin(ga) * h * 0.3); c.stroke();
+      c.fillStyle = DARK; c.fillRect(w * 0.44, h * 0.44, w * 0.12, h * 0.12);
+      c.strokeStyle = shade(col, -0.55); c.lineWidth = lw; c.strokeRect(lw / 2, lw / 2, w - lw, h - lw);
+    } else if (k === "bat") {
+      c.fillStyle = shade(col, -0.1); c.fillRect(0, 0, w, h);
+      c.fillStyle = DARK; c.fillRect(w * 0.2, h * 0.15, w * 0.6, h * 0.7);
+      var lv = opts && opts.batK !== undefined ? opts.batK : 1; c.fillStyle = lv < 0.2 ? "#E0533F" : "#57D18A"; c.fillRect(w * 0.26, h * 0.21 + h * 0.58 * (1 - lv), w * 0.48, h * 0.58 * lv);
+      c.fillStyle = b.c || ACC; c.fillRect(w * 0.38, h * 0.06, w * 0.24, h * 0.09);
+      c.strokeStyle = shade(col, -0.55); c.lineWidth = lw; c.strokeRect(lw / 2, lw / 2, w - lw, h - lw);
+    } else if (k === "reac") {
+      c.fillStyle = shade(col, -0.2); c.fillRect(0, 0, w, h);
+      c.fillStyle = shade(col, 0.05); c.fillRect(w * 0.08, h * 0.08, w * 0.84, h * 0.84);
+      var pulse = 0.6 + 0.4 * Math.sin(tm * 4);
+      c.fillStyle = DARK; c.beginPath(); c.arc(w / 2, h / 2, w * 0.3, 0, Math.PI * 2); c.fill();
+      c.fillStyle = "rgba(90,220,255," + (0.55 + 0.35 * pulse) + ")"; c.beginPath(); c.arc(w / 2, h / 2, w * 0.18, 0, Math.PI * 2); c.fill();
+      c.fillStyle = b.c || ACC; [[0.12, 0.12], [0.8, 0.12], [0.12, 0.8], [0.8, 0.8]].forEach(function (q) { c.fillRect(w * q[0], h * q[1], w * 0.08, h * 0.08); });
+      c.strokeStyle = shade(col, -0.55); c.lineWidth = lw; c.strokeRect(lw / 2, lw / 2, w - lw, h - lw);
+    } else if (k === "cool") {
+      c.fillStyle = shade(col, -0.2); c.fillRect(0, 0, w, h);
+      c.fillStyle = "#2E4A5E"; c.fillRect(w * 0.12, h * 0.12, w * 0.76, h * 0.76);
+      c.fillStyle = "#8FD3F2"; for (var fi = 0; fi < 4; fi++) c.fillRect(w * 0.18, h * (0.2 + fi * 0.17), w * 0.64, h * 0.07);
+      c.fillStyle = b.c || "#5FB4D9"; c.fillRect(w * 0.44, 0, w * 0.12, h * 0.12); c.fillRect(w * 0.44, h * 0.88, w * 0.12, h * 0.12); c.fillRect(0, h * 0.44, w * 0.12, h * 0.12); c.fillRect(w * 0.88, h * 0.44, w * 0.12, h * 0.12);
+      c.strokeStyle = shade(col, -0.55); c.lineWidth = lw; c.strokeRect(lw / 2, lw / 2, w - lw, h - lw);
+    } else if (k === "dock") {
+      // Docking-Block: vorne der Andockring mit Klammern, innen eine Schleuse, hinten eine Schiebetür
+      var op2 = opts && opts.dockOpen ? opts.dockOpen : 0, cr = s * 0.55;
+      if (view === "in") { c.fillStyle = FLOOR; c.fillRect(s * 0.14, cr, w - s * 0.28, h - cr - s * 0.16); }
+      else roof(c, w, h, col, lw);
+      c.fillStyle = shade(col, -0.18); c.fillRect(0, 0, s * 0.14, h); c.fillRect(w - s * 0.14, 0, s * 0.14, h);
+      // Andockring
+      c.fillStyle = "#3A414B"; c.fillRect(0, 0, w, cr);
+      c.save(); c.beginPath(); c.rect(s * 0.1, s * 0.08, w - s * 0.2, cr - s * 0.16); c.clip(); c.fillStyle = "#E3B83F";
+      for (var di = -2; di < w / (s * 0.3) + 2; di++) { c.beginPath(); c.moveTo(di * s * 0.3, s * 0.08); c.lineTo(di * s * 0.3 + s * 0.15, s * 0.08); c.lineTo(di * s * 0.3 + s * 0.15 + cr, cr); c.lineTo(di * s * 0.3 + cr, cr); c.closePath(); c.fill(); }
+      c.restore();
+      c.fillStyle = "#1C2027"; c.fillRect(w * 0.25, s * 0.16, w * 0.5, cr - s * 0.32);   // Durchgang
+      c.fillStyle = shade(col, 0.15); [0.08, 0.92].forEach(function (q) { c.fillRect(w * q - s * 0.09, s * 0.02, s * 0.18, cr - s * 0.04); });   // Klammern
+      if (view === "in") {
+        var wy2 = h - s * 0.16, dw2 = w * 0.36, dx2 = (w - dw2) / 2;
+        c.fillStyle = shade(col, -0.25); c.fillRect(0, wy2, dx2, s * 0.16); c.fillRect(dx2 + dw2, wy2, w - dx2 - dw2, s * 0.16);
+        c.fillStyle = "#D9A21B"; c.fillRect(dx2 - dw2 * 0.5 * op2, wy2 + s * 0.04, dw2 / 2, s * 0.08); c.fillRect(dx2 + dw2 / 2 + dw2 * 0.5 * op2, wy2 + s * 0.04, dw2 / 2, s * 0.08);
+        c.fillStyle = op2 > 0.8 ? "#57D18A" : "#E0533F"; c.fillRect(w - s * 0.34, h - s * 0.48, s * 0.12, s * 0.12);   // Statuslampe
+      }
+      c.strokeStyle = shade(col, -0.55); c.lineWidth = lw; c.strokeRect(lw / 2, lw / 2, w - lw, h - lw);
+    } else if (k === "shield") {
+      // Schildgenerator: Gehäuse mit Emitterring, der sanft blau pulsiert
+      c.fillStyle = shade(col, -0.2); c.fillRect(0, 0, w, h);
+      var sr2 = Math.min(w, h) * 0.34, scx = w / 2, scy = h / 2, pu = 0.55 + 0.45 * Math.sin(tm * 2.4 + b.x);
+      var sg = c.createRadialGradient(scx, scy, 0, scx, scy, sr2 * 1.25); sg.addColorStop(0, "rgba(120,190,255," + (0.55 * pu) + ")"); sg.addColorStop(1, "rgba(120,190,255,0)");
+      c.fillStyle = sg; c.fillRect(0, 0, w, h);
+      c.strokeStyle = "#8EC5FF"; c.lineWidth = lw * 1.5; c.beginPath(); c.arc(scx, scy, sr2, 0, Math.PI * 2); c.stroke();
+      c.strokeStyle = shade(col, 0.25); c.lineWidth = lw; c.beginPath(); c.arc(scx, scy, sr2 * 0.55, 0, Math.PI * 2); c.stroke();
+      c.fillStyle = "#DDEEFF"; c.beginPath(); c.arc(scx, scy, sr2 * 0.18, 0, Math.PI * 2); c.fill();
+      c.fillStyle = shade(col, -0.45); [[0.12, 0.12], [0.88, 0.12], [0.12, 0.88], [0.88, 0.88]].forEach(function (q) { c.fillRect(w * q[0] - lw, h * q[1] - lw, lw * 2, lw * 2); });
+      c.strokeStyle = shade(col, -0.55); c.lineWidth = lw; c.strokeRect(lw / 2, lw / 2, w - lw, h - lw);
+    } else if (k === "tcomp") {
+      // Zielcomputer: Gehäuse mit Bildschirm, Fadenkreuz und kreisendem Suchstrich
+      c.fillStyle = col; c.fillRect(0, 0, w, h);
+      c.fillStyle = shade(col, -0.35); c.fillRect(w * 0.12, h * 0.08, w * 0.76, h * 0.5);
+      var cx2 = w / 2, cy2 = h * 0.33, rr = Math.min(w * 0.3, h * 0.2);
+      c.fillStyle = "#0F2A1E"; c.beginPath(); c.arc(cx2, cy2, rr, 0, Math.PI * 2); c.fill();
+      c.strokeStyle = "#57D18A"; c.lineWidth = lw; c.beginPath(); c.arc(cx2, cy2, rr * 0.6, 0, Math.PI * 2); c.moveTo(cx2 - rr, cy2); c.lineTo(cx2 + rr, cy2); c.moveTo(cx2, cy2 - rr); c.lineTo(cx2, cy2 + rr); c.stroke();
+      c.strokeStyle = "rgba(87,209,138,.8)"; c.beginPath(); c.moveTo(cx2, cy2); c.lineTo(cx2 + Math.cos(tm * 3) * rr, cy2 + Math.sin(tm * 3) * rr); c.stroke();
+      c.fillStyle = shade(col, -0.2); for (var ti = 0; ti < 3; ti++) c.fillRect(w * 0.2, h * (0.68 + ti * 0.09), w * 0.6, lw * 1.4);
+      c.fillStyle = Math.sin(tm * 4) > 0 ? "#E3B83F" : "#6E5A20"; c.fillRect(w * 0.72, h * 0.66, w * 0.12, w * 0.12);
+      c.strokeStyle = shade(col, -0.55); c.lineWidth = lw; c.strokeRect(lw / 2, lw / 2, w - lw, h - lw);
+    } else if (k === "ant") {
+      c.fillStyle = shade(col, -0.1); c.fillRect(w * 0.1, h - s, w * 0.8, s);
+      c.fillStyle = LIGHT; c.fillRect(w * 0.44, h * 0.08, w * 0.12, h - s);
+      c.fillRect(w * 0.2, h * 0.3, w * 0.6, lw * 1.5); c.fillRect(w * 0.28, h * 0.5, w * 0.44, lw * 1.5);
+      c.fillStyle = Math.sin(tm * 5) > 0 ? "#E0533F" : "#7A2A20"; c.fillRect(w * 0.42, h * 0.04, w * 0.16, w * 0.16);
+      c.strokeStyle = shade(col, -0.55); c.lineWidth = lw; c.strokeRect(w * 0.1, h - s, w * 0.8, s);
+    } else if (k === "mg") {
+      c.fillStyle = shade(col, -0.1); c.fillRect(w * 0.12, h - s, w * 0.76, s);
+      c.fillStyle = b.c || "#8C4A3A"; c.fillRect(w * 0.2, h - s * 0.85, w * 0.6, s * 0.5);
+      c.fillStyle = DARK; [0.3, 0.5, 0.7].forEach(function (q) { c.fillRect(w * q - w * 0.06, h * 0.06, w * 0.12, h - s * 0.9); });
+      c.fillStyle = MID; c.fillRect(w * 0.18, h * 0.42, w * 0.64, s * 0.14);
+      c.strokeStyle = shade(col, -0.55); c.lineWidth = lw; c.strokeRect(w * 0.12, h - s, w * 0.76, s);
+    } else if (k === "ms") {
+      c.fillStyle = shade(col, -0.12); c.fillRect(w * 0.08, h * 0.3, w * 0.84, h * 0.7);
+      c.fillStyle = b.c || "#8C4A3A"; c.fillRect(w * 0.14, h - s * 0.55, w * 0.72, s * 0.35);
+      [0.3, 0.7].forEach(function (q) { c.fillStyle = DARK; c.fillRect(w * q - w * 0.15, h * 0.06, w * 0.3, h * 0.55); var ready = (opts && opts.ammo !== undefined ? opts.ammo : 2) > (q < 0.5 ? 1 : 0); c.fillStyle = ready ? "#E9ECEE" : "#4A525C"; c.beginPath(); c.moveTo(w * q, h * 0.08); c.lineTo(w * q + w * 0.09, h * 0.2); c.lineTo(w * q - w * 0.09, h * 0.2); c.closePath(); c.fill(); if (ready) { c.fillStyle = "#C8473A"; c.fillRect(w * q - w * 0.09, h * 0.2, w * 0.18, h * 0.06); } });
+      c.strokeStyle = shade(col, -0.55); c.lineWidth = lw; c.strokeRect(w * 0.08, h * 0.3, w * 0.84, h * 0.7);
+    } else if (k === "rg") {
+      c.fillStyle = shade(col, -0.15); c.fillRect(w * 0.08, h - s * 1.2, w * 0.84, s * 1.2);
+      c.fillStyle = b.c || "#3E6F96"; c.fillRect(w * 0.16, h - s * 1.05, w * 0.68, s * 0.5);
+      c.fillStyle = DARK; c.fillRect(w * 0.22, h * 0.04, w * 0.18, h - s * 1.1); c.fillRect(w * 0.6, h * 0.04, w * 0.18, h - s * 1.1);
+      var chg = opts && opts.charge ? opts.charge : 0;
+      c.fillStyle = "rgba(120,220,255," + (0.25 + chg * 0.75) + ")"; c.fillRect(w * 0.42, h * 0.08, w * 0.16, h - s * 1.15);
+      c.strokeStyle = shade(col, -0.55); c.lineWidth = lw; c.strokeRect(w * 0.08, h - s * 1.2, w * 0.84, s * 1.2);
+    }
+    if (k === "cock" && ty.h >= 4 && view === "in") {
+      // große Cockpits: hinten eine Wand mit Schiebetür, dadurch ein eigener, abgeschlossener Raum
+      var wy = h - s * 0.16, dw = w * 0.34, dx0 = (w - dw) / 2, op = opts && opts.ckOpen ? Math.min(1, opts.ckOpen) : 0;
+      c.fillStyle = shade(col, -0.25); c.fillRect(0, wy, dx0, s * 0.16); c.fillRect(dx0 + dw, wy, w - dx0 - dw, s * 0.16);
+      c.fillStyle = "#D9A21B"; c.fillRect(dx0 - dw * 0.5 * op, wy + s * 0.04, dw / 2, s * 0.08); c.fillRect(dx0 + dw / 2 + dw * 0.5 * op, wy + s * 0.04, dw / 2, s * 0.08);
+      c.strokeStyle = shade(col, -0.55); c.lineWidth = lw; c.strokeRect(0, wy, w, s * 0.16);
+    }
+    if (dam && MECH[k] && k !== "cock") damageMarks(c, w, h, b, s, "full");
+    c.restore();
+  }
+  // Luke: gelb-schwarzer Warnrahmen, geschlossen mit Schott, offen sieht man ins All
+  function hatchArt(c, w, h, col, lw, view, open) {
+    if (view === "out") roof(c, w, h, col, lw); else { c.fillStyle = FLOOR; c.fillRect(0, 0, w, h); }
+    var b = w * 0.16;
+    c.save(); c.beginPath(); c.rect(0, 0, w, h); c.rect(b, b, w - b * 2, h - b * 2); c.clip("evenodd");
+    c.fillStyle = "#24282E"; c.fillRect(0, 0, w, h); c.fillStyle = "#E3B83F";
+    for (var i = -2; i < 6; i++) { c.beginPath(); c.moveTo(i * w * 0.25, 0); c.lineTo(i * w * 0.25 + w * 0.125, 0); c.lineTo(i * w * 0.25 + w * 0.125 + h, h); c.lineTo(i * w * 0.25 + h, h); c.closePath(); c.fill(); }
+    c.restore();
+    if (open) { c.fillStyle = "#06080C"; c.fillRect(b, b, w - b * 2, h - b * 2); c.fillStyle = "rgba(255,255,255,.7)"; c.fillRect(w * 0.3, h * 0.4, lw, lw); c.fillRect(w * 0.62, h * 0.66, lw, lw); }
+    else { c.fillStyle = shade(col, -0.12); c.fillRect(b, b, w - b * 2, h - b * 2); c.strokeStyle = shade(col, -0.45); c.lineWidth = lw; c.beginPath(); c.moveTo(b, h / 2); c.lineTo(w - b, h / 2); c.stroke(); c.fillStyle = shade(col, -0.35); c.fillRect(w * 0.42, h * 0.3, w * 0.16, h * 0.4); }
+  }
+  // Astronaut von oben: Helm mit Visier, Schultern, Rucksack, Arme und Füße bewegen sich beim Laufen
+  function drawAstronaut(c, x, y, face, ph, sc, weld, gun) {
+    var sw = Math.sin(ph), cw = Math.cos(ph);
+    c.save(); c.translate(x, y); c.rotate(face); c.scale(sc, sc);
+    c.fillStyle = "rgba(0,0,0,.25)"; c.beginPath(); c.ellipse(1, 1.5, 7, 9.5, 0, 0, Math.PI * 2); c.fill();
+    c.fillStyle = "#3A3F46"; c.beginPath(); c.ellipse(sw * 4.2, -3.6, 3.2, 2.1, 0, 0, Math.PI * 2); c.fill(); c.beginPath(); c.ellipse(-sw * 4.2, 3.6, 3.2, 2.1, 0, 0, Math.PI * 2); c.fill();
+    c.save(); c.rotate(sw * 0.18);
+    c.fillStyle = "#8C96A0"; c.fillRect(-8.5, -4.5, 4, 9);
+    c.fillStyle = "#E3E7EA"; c.beginPath(); c.ellipse(0, 0, 4.6, 8.2, 0, 0, Math.PI * 2); c.fill(); c.strokeStyle = "#9AA3AD"; c.lineWidth = 0.8; c.stroke();
+    c.fillStyle = "#E0743A"; c.beginPath(); c.arc(-0.5, -7.2, 2.2, 0, Math.PI * 2); c.fill(); c.beginPath(); c.arc(-0.5, 7.2, 2.2, 0, Math.PI * 2); c.fill();
+    c.fillStyle = "#D5DADF"; c.beginPath(); c.arc(1.5 - sw * 3.2, -8.8, 1.8, 0, Math.PI * 2); c.fill();
+    var hx = weld || gun ? 6.5 : 1.5 + sw * 3.2, hy = weld || gun ? 4.5 : 8.8; c.beginPath(); c.arc(hx, hy, 1.8, 0, Math.PI * 2); c.fill();
+    if (gun) { c.fillStyle = "#2A2F36"; c.fillRect(6.5, 3.6, 6, 1.8); c.fillRect(6.8, 4.6, 1.6, 2.4); }
+    if (weld) { c.fillStyle = "#3A3F46"; c.fillRect(6, 3.4, 5, 2.2); var g = 0.6 + 0.4 * Math.random(); c.fillStyle = "rgba(150,220,255," + g + ")"; c.beginPath(); c.arc(11.8, 4.5, 1.6 + Math.random(), 0, Math.PI * 2); c.fill(); }
+    c.restore();
+    c.fillStyle = "#F4F6F8"; c.beginPath(); c.arc(0.6, 0, 4.4, 0, Math.PI * 2); c.fill(); c.strokeStyle = "#9AA3AD"; c.lineWidth = 0.7; c.stroke();
+    c.fillStyle = "#3E6F96"; c.beginPath(); c.ellipse(2.6, 0, 2, 3.2, 0, 0, Math.PI * 2); c.fill(); c.fillStyle = "rgba(255,255,255,.55)"; c.fillRect(2.4, -2, 0.9, 1.6);
+    void cw;
+    c.restore();
+  }
+  function roof(c, w, h, col, lw) {
+    c.fillStyle = shade(col, 0.08); c.fillRect(0, 0, w, h);
+    c.strokeStyle = shade(col, -0.2); c.lineWidth = lw; c.strokeRect(lw / 2, lw / 2, w - lw, h - lw);
+    c.fillStyle = shade(col, -0.12); c.fillRect(w * 0.2, h * 0.2, lw * 1.5, lw * 1.5); c.fillRect(w * 0.75, h * 0.75, lw * 1.5, lw * 1.5);
+  }
+  // Beschädigt: leichte Beulen und Risse (Zufall aus der Blockposition, damit es stabil bleibt)
+  function damageMarks(c, w, h, b, s, sh) {
+    var sd = (Math.abs(b.x * 73856093 ^ b.y * 19349663 ^ b.t.length * 83492791) % 997) / 997, v = Math.floor(sd * 4);
+    c.save(); shapePath(c, sh || "full", w, h); c.clip();
+    c.translate(w / 2, h / 2); c.rotate(v * Math.PI / 2); if (sd > 0.5) c.scale(-1, 1); c.translate(-w / 2, -h / 2);
+    // Beule: leicht abgedunkelte, eingedrückte Ecke mit heller Kante
+    c.fillStyle = "rgba(10,12,16,.22)"; c.beginPath(); c.moveTo(w * 0.55, 0); c.lineTo(w, 0); c.lineTo(w, h * 0.42); c.quadraticCurveTo(w * 0.72, h * 0.28, w * 0.55, 0); c.fill();
+    c.strokeStyle = "rgba(255,255,255,.22)"; c.lineWidth = Math.max(0.6, s / 30); c.beginPath(); c.moveTo(w * 0.55, 0); c.quadraticCurveTo(w * 0.72, h * 0.28, w, h * 0.42); c.stroke();
+    // zwei feine Risse
+    c.strokeStyle = "rgba(14,15,18,.6)"; c.lineWidth = Math.max(0.6, s / 28);
+    c.beginPath(); c.moveTo(w * (0.2 + sd * 0.15), h * 0.62); c.lineTo(w * 0.36, h * 0.5); c.lineTo(w * 0.44, h * 0.56); c.lineTo(w * 0.58, h * 0.44);
+    c.moveTo(w * 0.36, h * 0.5); c.lineTo(w * 0.33, h * 0.36);
+    c.stroke();
+    c.restore();
+  }
+

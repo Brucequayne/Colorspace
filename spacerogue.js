@@ -1,3 +1,4 @@
+  // ===== 00-kopf.js · Kopf: Version, Rastermaße, Sprache, kleine Helfer =====
 /* Space Rogue 0.1 – Schiffseditor und Testflug. Für Color Space.
    Top-down wie FTL, modulare Bauteile wie Space Engineers. Alles läuft im Browser.
    Raster: 1 Zelle = 2,5 m. Vorne ist oben (−y). Drehung r: 0…3 im Uhrzeigersinn, f: gespiegelt. */
@@ -12,6 +13,7 @@
   function fmt(s, o) { return s.replace(/\{(\w+)\}/g, function (m, k) { return o[k] !== undefined ? o[k] : m; }); }
   function nf(v, d) { return Number(v).toLocaleString(lang === "de" ? "de-DE" : "en-GB", { minimumFractionDigits: d || 0, maximumFractionDigits: d || 0 }); }
 
+  // ===== 10-texte.js · Texte: alle Beschriftungen (TX) und Spieltipps (TIPS), Deutsch und Englisch =====
   var TX = {
     back: L2("Apps", "Apps"), title: L2("Space Rogue", "Space Rogue"),
     catLA: L2("Panzerung leicht", "Light armour"), catHA: L2("Panzerung schwer", "Heavy armour"), catCo: L2("Cockpit", "Cockpit"),
@@ -73,6 +75,12 @@
     roomCells: L2("{n} Felder", "{n} cells"), color: L2("Farbe", "Colour"), placeHint: L2("Erster Block: frei platzieren", "First block: place anywhere")
   };
 
+  // Spieltipps: außerhalb von Kämpfen alle 60 s ein zufälliger Tipp für 5 s, unten in der Mitte, per Klick wegklickbar
+  var TIPS = {
+    de: ["Seitliche Triebwerke können die Wendigkeit deines Schiffs stark verbessern.", "Overcharge (X) erhöht kurzzeitig deine Triebwerksleistung und die Kühlleistung der Miniguns.", "Mehrere Batterien erhöhen deine Energiekapazität, aber Batterien sind auch sehr schwer.", "Baue einen Zielcomputer ein, damit sich deine Waffen beim Zielen auf den Feind ausrichten können.", "Antennen warnen dich vor feindlichen Schiffen.", "Behalte deine Geschwindigkeit im Auge.", "Ordentliche Bremstriebwerke können dir das Leben retten.", "Die Beschleunigungstriebwerke sind im Kampf am unwichtigsten.", "Wenn du deine Triebwerke benutzt, wirst du von gegnerischen Schiffen schneller entdeckt."],
+    en: ["Side thrusters can greatly improve your ship's agility.", "Overcharge (X) briefly boosts your thruster output and the cooling of your miniguns.", "More batteries raise your energy capacity, but batteries are also very heavy.", "Install a targeting computer so your weapons can swivel towards the enemy as you aim.", "Antennas warn you about enemy ships.", "Keep an eye on your speed.", "Good braking thrusters can save your life.", "Forward thrusters matter least in combat.", "Using your thrusters makes enemy ships spot you sooner."]
+  };
+  // ===== 11-bauteile.js · Bauteile: Definitionen (Masse, HP, Schub …), Kosten, Perk-Haken (PM), Kantenregeln =====
   // ---------- Bauteile ----------
   // kind: armor, cock, thr, gyro, bat, reac, ant, floor, wall, door, win, mg, rg
   // shape: full, ramp1, ramp2, round, half
@@ -145,6 +153,51 @@
     return { c: true, s: true };
   }
 
+  // ===== 12-balance.js · Balance-Werte: Waffen, Anzug, KI, Kollision, Geschütze, Docking – hier wird am Spielgefühl gedreht =====
+  // ===== Waffen: Minigun (MG), Leichte Raketen (MS), Railgun (RG). dmg = Schaden, e = Energie je Schuss
+  var MG = { rate: 12, speed: 462, life: 1.48, dmg: 7, heat: 0.042, cool: 0.42, warn: 0.78, lock: 3.2, e: 0.4 };
+  var MS = { v0: 30, acc: 420, vmax: 340, turn: 0.45, life: 4, dmg: 55, splash: 2.6, sdmg: 28, reload: 2.5, gap: 0.18, e: 6 };
+  var RG = { charge: 0.7, cd: 2.2, dmg: 150, range: 700, e: 67.5 };   // v0.39: +50 % Energie pro Schuss
+  // Anzugluft in Sekunden; Raumluft füllt sich in dichten Räumen auf und entweicht durch Lecks
+  var SUIT = { max: 180, refill: 20, jet: 3, acc: 5, breathe: 0.35 }, AIR = { fill: 0.22, vent: 0.9 }, WELD = 15;
+  // Erkennung: im Gleitflug erst auf 20 m, mit Schub (oder beim Feuern) bis 260 m; zeigt die Nase genau auf mich, doppelt so weit
+  var AI = { glide: 20, loud: 240, patrolV: 15, lose: 950, vk: 0.9 };
+  // Kampfstile: Draufgänger kommen nah heran, Umkreiser halten Abstand und kreisen, Taktiker liegen dazwischen
+  var AISTY = [
+    { id: "aggro", n: L2("Draufgänger", "Brawler"), rk: 0.45, strafe: 4, orbit: 0, push: 55, mor: 0.9, man: { chase: 0.4, pass: 0.35, attack: 0.2, brk: 0.05 } },
+    { id: "tact", n: L2("Taktiker", "Tactician"), rk: 1, strafe: 9, orbit: 0, push: 40, mor: 0.75, man: { chase: 0.2, pass: 0.25, attack: 0.35, brk: 0.2 } },
+    { id: "orbit", n: L2("Umkreiser", "Circler"), rk: 1.45, strafe: 0, orbit: 30, push: 35, mor: 0.65, man: { chase: 0.05, pass: 0.2, attack: 0.55, brk: 0.2 } }
+  ];
+  // ===== KI: Dauer der Manöver in Sekunden [von, bis]
+  var MANT = { chase: [3, 5], pass: [6, 9], attack: [3, 6], brk: [1.8, 3] };
+  // ===== KI: Abstand in Metern, ab dem Gegner dir ausweichen
+  var AVOID = 50;
+  // ===== Kollision: e = Rückprall, dmgV = ab diesem Tempo (m/s) entsteht Schaden, dmgK = Schaden je m/s darüber
+  var COL = { e: 0.3, dmgV: 20, dmgK: 7 };
+  // ===== Geschütze mit Zielcomputer: max = Schwenkwinkel, rate = Schwenktempo
+  var TURRET = { max: 15 * Math.PI / 180, rate: 2.6 };
+  // ===== Optik: Triebwerksschweif und Staub
+  var TRAIL = { life: 1.8, step: 0.04, alpha: 0.17 };
+  var DUST = {
+    near: { f: 1, tile: 60, n: 6, prob: 1, size: 0.22, minPx: 1, maxPx: 2.2, alpha: 0.32, col: "205,212,226", seed: 11 },
+    front: { f: 2.2, tile: 55, n: 1, prob: 0.45, size: 0.5, minPx: 2, maxPx: 5, alpha: 0.16, col: "220,226,236", seed: 37 }
+  };
+  // ===== Zu Fuß: Pistole und Inventargröße
+  var PISTOL = { dmg: MG.dmg * 0.5, speed: MG.speed, cd: 0.22 };
+  var INV = { w: 8, h: 8 };
+  // ===== Andocken: Reichweite, Spalt, Tempo des Autopiloten
+  var DOCK = { range: CELL_M * 1.0 + 0.4, gap: CELL_M * 0.1, v: 1.4, w: 0.45 };
+  // ===== Spieltipps: alle 60 s, 5 s sichtbar
+  var TIP = { every: 60, show: 5 };
+  // ===== 13-npc-schiffe.js · NPC-Schiffe: Baupläne der Gegner (Export-Codes aus dem Editor) =====
+  // ---------- NPC-Schiffe: Baupläne aus dem Editor-Export, später als KI-Gegner ----------
+  var NPC = [
+    { id: 1, n: L2("Jäger", "Jaeger"), cls: "S", code: {"sr":1,"color":"#6A7480","b":[["ckm",-1,-6,0,0,"#C8473A"],["hblk",-2,-6,0,0,"#6A7480"],["hblk",2,-6,0,1,"#6A7480"],["hblk",-2,-5,0,0,"#6A7480"],["hblk",2,-5,0,1,"#6A7480"],["hblk",-2,-4,0,0,"#6A7480"],["hblk",2,-4,0,1,"#6A7480"],["lblk",-2,-3,0,0,"#6A7480"],["lblk",2,-3,0,1,"#6A7480"],["lblk",-2,-2,0,0,"#E3B83F"],["lblk",2,-2,0,1,"#E3B83F"],["win",-2,-1,0,0,"#E3B83F"],["win",2,-1,0,1,"#E3B83F"],["lblk",-2,0,0,0,"#E3B83F"],["lblk",2,0,0,1,"#E3B83F"],["lblk",-2,1,0,0,"#E3B83F"],["lblk",2,1,0,1,"#E3B83F"],["flo",-1,-2,0,0,"#6A7480"],["lblk",-1,1,0,0,"#6A7480"],["flo",0,-2,0,0,"#C8473A"],["flo",0,-1,0,0,"#C8473A"],["lblk",0,1,0,0,"#C8473A"],["flo",1,-2,0,0,"#6A7480"],["lblk",1,1,0,0,"#6A7480"],["gyr",-1,0,0,0,"#6A7480"],["bat",0,0,0,0,"#C8473A"],["bat",1,0,0,0,"#6A7480"],["rea",-1,2,0,0,"#C8473A"],["lblk",1,2,0,0,"#C8473A"],["lblk",1,3,0,0,"#C8473A"],["thl",-2,4,0,0,"#6A7480"],["thl",1,4,0,1,"#6A7480"],["ths",0,4,0,0,"#C8473A"],["ths",-2,-8,2,0,"#E3B83F"],["ths",2,-8,2,1,"#E3B83F"],["lblk",-3,-4,0,0,"#E3B83F"],["lblk",3,-4,0,1,"#E3B83F"],["lblk",-3,-3,0,0,"#E3B83F"],["lblk",3,-3,0,1,"#E3B83F"],["mgn",-3,-6,0,0,"#E3B83F"],["mgn",3,-6,0,1,"#E3B83F"],["hrm2",4,-4,0,0,"#E3B83F"],["hrm2",-4,-4,0,1,"#E3B83F"],["bat",1,-1,0,0,"#6A7480"],["bat",-1,-1,0,1,"#6A7480"],["hrm2",-4,-2,2,0,"#E3B83F"],["hrm2",4,-2,2,1,"#E3B83F"],["ths",-3,-2,0,0,"#E3B83F"],["ths",3,-2,0,1,"#E3B83F"],["ths",-3,2,1,0,"#E3B83F"],["ths",2,2,3,1,"#E3B83F"],["ths",-3,3,1,0,"#E3B83F"],["ths",2,3,3,1,"#E3B83F"]]} },
+    { id: 2, n: L2("Falcon", "Falcon"), cls: "M", code: {"sr":1,"color":"#3E6F96","b":[["ckm",-1,-2,0,0],["flo",-1,2,0,0,"#C8473A"],["flo",1,2,0,1,"#C8473A"],["flo",-1,3,0,0,"#C8473A"],["flo",1,3,0,1,"#C8473A"],["flo",-1,4,0,0,"#c0746d"],["flo",1,4,0,1,"#c0746d"],["flo",-1,5,0,0,"#c0746d"],["flo",1,5,0,1,"#c0746d"],["flo",-1,6,0,0,"#c0746d"],["flo",1,6,0,1,"#c0746d"],["flo",-1,7,0,0,"#C8473A"],["flo",1,7,0,1,"#C8473A"],["flo",-1,8,0,0,"#C8473A"],["flo",1,8,0,1,"#C8473A"],["flo",-1,9,0,0,"#C8473A"],["flo",1,9,0,1,"#C8473A"],["flo",-1,10,0,0,"#C8473A"],["flo",1,10,0,1,"#C8473A"],["flo",-1,11,0,0,"#C8473A"],["flo",1,11,0,1,"#C8473A"],["flo",0,11,0,0,"#c0746d"],["flo",0,10,0,0,"#c0746d"],["flo",0,9,0,0,"#c0746d"],["flo",0,8,0,0,"#c0746d"],["flo",0,7,0,0,"#c0746d"],["flo",0,6,0,0,"#c0746d"],["flo",0,5,0,0],["flo",0,4,0,0,"#c0746d"],["flo",0,3,0,0,"#c0746d"],["flo",0,2,0,0,"#c0746d"],["flo",0,12,0,0,"#c0746d"],["flo",0,13,0,0,"#c0746d"],["hrm2",-3,1,0,1,"#3E6F96"],["hrm2",3,1,0,0,"#3E6F96"],["hblk",-2,1,0,1,"#3E6F96"],["hblk",2,1,0,0,"#3E6F96"],["lblk",-3,3,0,1,"#3E6F96"],["lblk",3,3,0,0,"#3E6F96"],["lblk",-3,4,0,1,"#3E6F96"],["lblk",3,4,0,0,"#3E6F96"],["lblk",-3,5,0,1,"#3E6F96"],["lblk",3,5,0,0,"#3E6F96"],["lblk",-3,6,0,1,"#3E6F96"],["lblk",3,6,0,0,"#3E6F96"],["lblk",-3,7,0,1,"#3E6F96"],["lblk",3,7,0,0,"#3E6F96"],["lblk",-3,8,0,1,"#3E6F96"],["lblk",3,8,0,0,"#3E6F96"],["lblk",-3,9,0,1,"#3E6F96"],["lblk",3,9,0,0,"#3E6F96"],["lblk",-3,10,0,1,"#3E6F96"],["lblk",3,10,0,0,"#3E6F96"],["lblk",-3,11,0,1,"#3E6F96"],["lblk",3,11,0,0,"#3E6F96"],["lblk",-3,12,0,1,"#3E6F96"],["lblk",3,12,0,0,"#3E6F96"],["lblk",-3,13,0,1,"#3E6F96"],["lblk",3,13,0,0,"#3E6F96"],["lblk",-3,14,0,1,"#c0746d"],["lblk",3,14,0,0,"#c0746d"],["col",-4,13,0,1,"#3E6F96"],["col",4,13,0,0,"#3E6F96"],["col",-4,12,0,1,"#3E6F96"],["col",4,12,0,0,"#3E6F96"],["col",-4,11,0,1,"#3E6F96"],["col",4,11,0,0,"#3E6F96"],["col",-4,10,0,1,"#3E6F96"],["col",4,10,0,0,"#3E6F96"],["col",-4,9,0,1,"#3E6F96"],["col",4,9,0,0,"#3E6F96"],["thl",-5,14,0,1,"#3E6F96"],["thl",4,14,0,0,"#3E6F96"],["thl",-5,6,2,1,"#3E6F96"],["thl",4,6,2,0,"#3E6F96"],["col",-5,9,2,1,"#3E6F96"],["col",5,9,2,0,"#3E6F96"],["col",-5,10,2,1,"#3E6F96"],["col",5,10,2,0,"#3E6F96"],["col",-5,11,2,1,"#3E6F96"],["col",5,11,2,0,"#3E6F96"],["col",-5,12,2,1,"#3E6F96"],["col",5,12,2,0,"#3E6F96"],["col",-5,13,2,1,"#3E6F96"],["col",5,13,2,0,"#3E6F96"],["lblk",-2,14,2,1,"#c0746d"],["lblk",2,14,2,0,"#c0746d"],["lblk",-1,14,2,1,"#c0746d"],["lblk",1,14,2,0,"#c0746d"],["lblk",0,14,2,1,"#c0746d"],["ths",-7,11,1,1,"#3E6F96"],["ths",6,11,3,0,"#3E6F96"],["ths",-7,12,1,1,"#3E6F96"],["ths",6,12,3,0,"#3E6F96"],["ths",-7,13,1,1,"#3E6F96"],["ths",6,13,3,0,"#3E6F96"],["ths",-6,14,0,1,"#3E6F96"],["ths",6,14,0,0,"#3E6F96"],["col",-2,0,0,1],["col",2,0,0,0],["col",-2,-1,0,1],["col",2,-1,0,0],["mgn",-2,-3,0,1],["mgn",2,-3,0,0],["rea",-2,12,0,1],["rea",1,12,0,0],["bat",-2,11,0,1],["bat",2,11,0,0],["bat",-2,10,0,1],["bat",2,10,0,0],["bat",-2,9,0,1],["bat",2,9,0,0],["bat",-2,8,0,1],["bat",2,8,0,0],["bat",-2,7,0,1],["bat",2,7,0,0],["bat",-2,6,0,1],["bat",2,6,0,0],["gyr",-2,2,0,1],["gyr",2,2,0,0],["ant",-2,15,2,1],["ant",2,15,2,0],["bat",2,5,0,0],["bat",-2,5,0,0],["bat",-2,4,0,0],["bat",-2,3,0,0],["bat",2,3,0,0],["bat",2,4,0,0],["lcor",1,-3,0,0],["lcor",-1,-3,0,1],["lblk",0,-3,0,0],["msl",-6,8,0,0],["msl",6,8,0,1],["msl",-7,8,0,0],["msl",7,8,0,1],["ths",-7,10,1,0],["ths",6,10,3,1]]} },
+    { id: 3, n: L2("Mosquito", "Mosquito"), cls: "S", code: {"sr":1,"color":"#6A7480","b":[["cks",-1,-4,0,0],["lrm3",1,-4,0,0],["lrm3",-2,-4,0,1],["rea",-1,-1,0,1],["bat",-1,1,0,1],["bat",0,1,0,1],["lblk",1,-1,2,1],["lblk",-2,-1,2,1],["lblk",-2,1,2,1],["lblk",-2,2,2,1],["lblk",1,1,2,1],["lblk",1,2,2,1],["ths",-3,0,1,1],["ths",1,0,3,1],["ths",-1,2,0,1],["ths",0,2,0,1],["ths",-3,-2,2,1],["ths",2,-2,2,1],["lrm2",-3,1,2,0],["lrm2",2,1,2,1],["gyr",-2,3,2,1],["gyr",1,3,2,1],["mgn",-1,-6,0,1],["mgn",0,-6,0,1]]} },
+    { id: 4, n: L2("Dot", "Dot"), cls: "S", code: {"sr":1,"color":"#5E6B5A","b":[["ckt",0,0,0,0,"#E3B83F"],["mgn",0,-2,0,0,"#5E6B5A"],["lblk",-1,0,0,0,"#5E6B5A"],["lblk",-1,1,0,0,"#5E6B5A"],["ths",1,0,2,0,"#5E6B5A"],["lblk",-1,2,0,0,"#5E6B5A"],["gyr",0,2,0,0,"#5E6B5A"],["lblk",1,2,0,0,"#5E6B5A"],["rea",-1,3,0,0,"#5E6B5A"],["bat",1,3,0,0,"#5E6B5A"],["lblk",1,4,0,0,"#5E6B5A"],["ths",0,5,0,0,"#5E6B5A"],["ths",-3,3,1,0,"#5E6B5A"],["ths",2,3,3,0,"#5E6B5A"]]} }
+  ];
+  // ===== 20-schiffslogik.js · Schiffslogik: Geometrie, Verbindungen, Räume/Luftdichtheit, Kühlung, Werte, Schiffscode =====
   // ---------- Geometrie eines Blocks ----------
   function fp(b) { var ty = T[b.t]; return b.r % 2 ? [ty.h, ty.w] : [ty.w, ty.h]; }
   function cellOf(b, lx, ly) {   // lokale Zelle → Schiffszelle
@@ -266,6 +319,22 @@
     return s;
   }
 
+  function mainScore(cp) { return cp.length + (cp.some(function (b) { return T[b.t].kind === "cock"; }) ? 1e5 : 0); }
+  function bounds(bl) {
+    if (!bl.length) return null; var o = { x0: 1e9, y0: 1e9, x1: -1e9, y1: -1e9 };
+    bl.forEach(function (b) { var f = fp(b); o.x0 = Math.min(o.x0, b.x); o.y0 = Math.min(o.y0, b.y); o.x1 = Math.max(o.x1, b.x + f[0]); o.y1 = Math.max(o.y1, b.y + f[1]); });
+    return o;
+  }
+  // Schiffscode: kompaktes JSON, damit Entwürfe geteilt und später als Gegner-Blaupausen eingebaut werden können.
+  function shipCode() { return JSON.stringify({ sr: 1, color: S.color, b: S.blocks.map(function (b) { var a = [b.t, b.x, b.y, b.r, b.f]; if (b.c) a.push(b.c); return a; }) }); }
+  function parseShip(txt) {
+    try {
+      var o = JSON.parse(String(txt).trim()); if (!o || !Array.isArray(o.b)) return null;
+      var out = o.b.filter(function (a) { return Array.isArray(a) && T[a[0]]; }).map(function (a) { var b = { t: a[0], x: a[1] | 0, y: a[2] | 0, r: (a[3] | 0) & 3, f: a[4] ? 1 : 0 }; if (a[5]) b.c = String(a[5]); return b; });
+      return out.length ? out : null;
+    } catch (e) { return null; }
+  }
+  // ===== 30-zustand.js · Zustand: Spielstand, Speichern/Laden, Beispielschiff und Beispielstation =====
   // ---------- Zustand ----------
   var S = null, V = null, raf = 0, last = 0;
   var SAVE = "spacerogue-ship-v1", SAVE_ST = "spacerogue-station-v1";
@@ -335,6 +404,7 @@
     return B;
   }
 
+  // ===== 31-editor.js · Editor: Platzieren, Symmetrie, Reihen, Abreißen, Malen =====
   // ---------- Editor: Platzieren ----------
   function ghostAt(cx, cy, tid, r, f) {
     var ty = T[tid], w = r % 2 ? ty.h : ty.w, h = r % 2 ? ty.w : ty.h;
@@ -413,6 +483,7 @@
     pushUndo(); list.forEach(function (q) { q.c = S.color; }); save(); return true;
   }
 
+  // ===== 40-zeichnen-bloecke.js · Zeichnen: einzelne Blöcke, Luke, Astronaut, Schadensspuren =====
   // ---------- Zeichnen der Blöcke ----------
   var GLASS = "#5FB4D9", GLASS2 = "#9FD8EE", DARK = "#2A2F36", MID = "#4A525C", LIGHT = "#C9D1D9", FLOOR = "#B9BEC4", FLOOR2 = "#A9AFB6", ACC = "#E3B83F";
   function shade(hex, k) {
@@ -648,6 +719,73 @@
     c.restore();
   }
 
+  // ===== 41-zeichnen-schiff.js · Zeichnen: ganzes Schiff mit verschmolzener Hülle =====
+  // Schiff: erst Innenleben, dann Aufbauten; Panzerung zuletzt, damit Kanten sauber liegen
+  var ORDER = { floor: 0, door: 0, hatch: 0, wall: 1, cock: 2, bat: 2, reac: 2, gyro: 2, cool: 2, tcomp: 2, shield: 2, dock: 1, thr: 3, mg: 3, rg: 3, ms: 3, ant: 3, win: 4, armor: 4 };
+  // Panzerung (und außen die Dächer) verschmilzt zu einer Hülle: Kanten nur dort, wo die Hülle endet
+  function isHull(k, view) { return k === "armor" || k === "win" || (view === "out" && (k === "floor" || k === "wall" || k === "door" || k === "hatch")); }
+  function drawShip(c, blocks, s, view, tm, body, M) {
+    M = M || buildMap(blocks);
+    var sorted = blocks.slice().sort(function (a, b) { return ORDER[T[a.t].kind] - ORDER[T[b.t].kind]; }), hull = [];
+    sorted.forEach(function (b) {
+      var ty = T[b.t], hpk = b.hp !== undefined ? b.hp / hpMax(body, b) : 1, o = null;
+      if (isHull(ty.kind, view)) { hull.push(b); return; }
+      if (body) o = { pilot: ty.kind === "cock" && body.ctrl && FL && FL.seated && b === body.seat, batK: body.cap ? body.energy / body.cap : 1, charge: b.chg ? Math.min(1, b.chg / RG.charge) : 0, ammo: b.ammo === undefined ? 2 : b.ammo, open: !!b.open, tw: b.tw || 0, ckOpen: b.ckOpen || 0, dockOpen: b.dockOpen || 0 };
+      drawBlock(c, b, s, view, hpk, tm, o);
+    });
+    hull.forEach(function (b) { hullFill(c, b, s, view, b.hp !== undefined ? b.hp / hpMax(body, b) : 1); });
+    hull.forEach(function (b) { hullEdges(c, b, s, M, view); });
+  }
+  function hullFill(c, b, s, view, hpk) {
+    var ty = T[b.t], f = fp(b), w = ty.w * s, h = ty.h * s, k = ty.kind, col = b.c || ty.col, lw = Math.max(1, s / 16);
+    c.save(); c.translate((b.x + f[0] / 2) * s, (b.y + f[1] / 2) * s); c.rotate(b.r * Math.PI / 2); if (b.f) c.scale(-1, 1); c.translate(-w / 2, -h / 2);
+    if (k === "armor") {
+      shapePath(c, ty.shape, w, h); c.fillStyle = col; c.fill();
+      if (ty.heavy && ty.shape === "full") { c.fillStyle = shade(col, -0.25); [[0.2, 0.2], [0.8, 0.2], [0.2, 0.8], [0.8, 0.8]].forEach(function (q) { c.fillRect(w * q[0] - lw, h * q[1] - lw, lw * 2, lw * 2); }); }
+      c.strokeStyle = shade(col, -0.55); c.lineWidth = lw * 1.2; c.beginPath();
+      if (ty.shape.indexOf("ramp") === 0) { c.moveTo(0, 0); c.lineTo(w, h); }
+      else if (ty.shape === "round") c.arc(0, h, w, -Math.PI / 2, 0);
+      else if (ty.shape === "half") { c.moveTo(0, h / 2); c.lineTo(w, h / 2); c.moveTo(0, h / 2); c.lineTo(0, h); c.moveTo(w, h / 2); c.lineTo(w, h); }
+      c.stroke();
+      if (ty.shape !== "full") {   // Lichtkante an der schrägen Seite
+        c.strokeStyle = shade(col, 0.25); c.lineWidth = lw; c.beginPath();
+        if (ty.shape.indexOf("ramp") === 0) { c.moveTo(lw * 1.4, lw * 3); c.lineTo(w - lw * 2.5, h - lw * 1.2); }
+        else if (ty.shape === "round") c.arc(0, h, w - lw * 1.6, -Math.PI / 2 + 0.12, -0.12);
+        c.stroke();
+      }
+      if (hpk <= 0.5) damageMarks(c, w, h, b, s, ty.shape);
+    } else if (k === "win") {
+      c.fillStyle = shade(col, -0.1); c.fillRect(0, 0, w, h); c.fillStyle = GLASS; c.fillRect(w * 0.18, h * 0.18, w * 0.64, h * 0.64); c.fillStyle = GLASS2; c.fillRect(w * 0.22, h * 0.22, w * 0.2, h * 0.56);
+      if (hpk <= 0.5) damageMarks(c, w, h, b, s, "full");
+    } else {
+      c.fillStyle = shade(col, 0.06); c.fillRect(0, 0, w, h);
+      if (k === "door") { c.fillStyle = "#D9A21B"; c.fillRect(w * 0.42, h * 0.12, w * 0.16, h * 0.76); }
+      if (k === "hatch") hatchArt(c, w, h, col, lw, "out", b.open);
+    }
+    c.restore();
+  }
+  function hullEdges(c, b, s, M, view) {
+    var ty = T[b.t], col = b.c || ty.col, lw = Math.max(1, s / 14), dark = shade(col, -0.55), lite = shade(col, 0.24), shd = shade(col, -0.28);
+    cellsOf(b).forEach(function (q) {
+      var x = q.c[0] * s, y = q.c[1] * s;
+      for (var d = 0; d < 4; d++) {
+        if (!edgeRule(ty, q.lx, q.ly, dirIn(b, d)).s && ty.kind === "armor") continue;
+        var o = M.get(key(q.c[0] + DV[d][0], q.c[1] + DV[d][1]));
+        if (o && o.b === b) continue;
+        var merged = o && isHull(T[o.b.t].kind, view) && edgeRule(T[o.b.t], o.lx, o.ly, dirIn(o.b, (d + 2) % 4)).s;
+        var e = d === 0 ? [x, y, x + s, y, 0, 1] : d === 1 ? [x + s, y, x + s, y + s, -1, 0] : d === 2 ? [x, y + s, x + s, y + s, 0, -1] : [x, y, x, y + s, 1, 0];
+        if (merged) {   // Farbwechsel innerhalb der Hülle: feine Naht
+          if ((d === 1 || d === 2) && (o.b.c || T[o.b.t].col) !== col) { c.strokeStyle = "rgba(0,0,0,.28)"; c.lineWidth = lw * 0.7; c.beginPath(); c.moveTo(e[0], e[1]); c.lineTo(e[2], e[3]); c.stroke(); }
+          continue;
+        }
+        c.strokeStyle = d === 0 || d === 3 ? lite : shd; c.lineWidth = lw * 1.3; c.beginPath(); c.moveTo(e[0] + e[4] * lw * 1.6, e[1] + e[5] * lw * 1.6); c.lineTo(e[2] + e[4] * lw * 1.6, e[3] + e[5] * lw * 1.6); c.stroke();
+        c.strokeStyle = dark; c.lineWidth = lw; c.beginPath(); c.moveTo(e[0] + e[4] * lw * 0.5, e[1] + e[5] * lw * 0.5); c.lineTo(e[2] + e[4] * lw * 0.5, e[3] + e[5] * lw * 0.5); c.stroke();
+      }
+    });
+  }
+  function FONTS() { return getComputedStyle(document.documentElement).getPropertyValue("--f-display") || "sans-serif"; }
+
+  // ===== 42-zeichnen-hintergrund.js · Zeichnen: Sterne und Nebel =====
   // ---------- Hintergrund ----------
   var STARS = null, NEB = null;
   function stars() {
@@ -681,6 +819,7 @@
     });
   }
 
+  // ===== 43-zeichnen-editor.js · Zeichnen: Editor-Ansicht (Raster, Räume, Vorschau, Infokasten) =====
   // ---------- Editor zeichnen ----------
   function edDraw() {
     var c = V.ctx, W = V.W, H = V.H, z = V.zoom, s = PX * z;
@@ -762,84 +901,9 @@
     c.beginPath(); c.moveTo(cx, cy); c.lineTo(ex, ey); c.stroke();
     c.beginPath(); c.moveTo(ex + dx * 8, ey + dy * 8); c.lineTo(ex - dy * 6, ey + dx * 6); c.lineTo(ex + dy * 6, ey - dx * 6); c.closePath(); c.fill();
   }
-  function mainScore(cp) { return cp.length + (cp.some(function (b) { return T[b.t].kind === "cock"; }) ? 1e5 : 0); }
-  function bounds(bl) {
-    if (!bl.length) return null; var o = { x0: 1e9, y0: 1e9, x1: -1e9, y1: -1e9 };
-    bl.forEach(function (b) { var f = fp(b); o.x0 = Math.min(o.x0, b.x); o.y0 = Math.min(o.y0, b.y); o.x1 = Math.max(o.x1, b.x + f[0]); o.y1 = Math.max(o.y1, b.y + f[1]); });
-    return o;
-  }
-  // Schiff: erst Innenleben, dann Aufbauten; Panzerung zuletzt, damit Kanten sauber liegen
-  var ORDER = { floor: 0, door: 0, hatch: 0, wall: 1, cock: 2, bat: 2, reac: 2, gyro: 2, cool: 2, tcomp: 2, shield: 2, dock: 1, thr: 3, mg: 3, rg: 3, ms: 3, ant: 3, win: 4, armor: 4 };
-  // Panzerung (und außen die Dächer) verschmilzt zu einer Hülle: Kanten nur dort, wo die Hülle endet
-  function isHull(k, view) { return k === "armor" || k === "win" || (view === "out" && (k === "floor" || k === "wall" || k === "door" || k === "hatch")); }
-  function drawShip(c, blocks, s, view, tm, body, M) {
-    M = M || buildMap(blocks);
-    var sorted = blocks.slice().sort(function (a, b) { return ORDER[T[a.t].kind] - ORDER[T[b.t].kind]; }), hull = [];
-    sorted.forEach(function (b) {
-      var ty = T[b.t], hpk = b.hp !== undefined ? b.hp / hpMax(body, b) : 1, o = null;
-      if (isHull(ty.kind, view)) { hull.push(b); return; }
-      if (body) o = { pilot: ty.kind === "cock" && body.ctrl && FL && FL.seated && b === body.seat, batK: body.cap ? body.energy / body.cap : 1, charge: b.chg ? Math.min(1, b.chg / RG.charge) : 0, ammo: b.ammo === undefined ? 2 : b.ammo, open: !!b.open, tw: b.tw || 0, ckOpen: b.ckOpen || 0, dockOpen: b.dockOpen || 0 };
-      drawBlock(c, b, s, view, hpk, tm, o);
-    });
-    hull.forEach(function (b) { hullFill(c, b, s, view, b.hp !== undefined ? b.hp / hpMax(body, b) : 1); });
-    hull.forEach(function (b) { hullEdges(c, b, s, M, view); });
-  }
-  function hullFill(c, b, s, view, hpk) {
-    var ty = T[b.t], f = fp(b), w = ty.w * s, h = ty.h * s, k = ty.kind, col = b.c || ty.col, lw = Math.max(1, s / 16);
-    c.save(); c.translate((b.x + f[0] / 2) * s, (b.y + f[1] / 2) * s); c.rotate(b.r * Math.PI / 2); if (b.f) c.scale(-1, 1); c.translate(-w / 2, -h / 2);
-    if (k === "armor") {
-      shapePath(c, ty.shape, w, h); c.fillStyle = col; c.fill();
-      if (ty.heavy && ty.shape === "full") { c.fillStyle = shade(col, -0.25); [[0.2, 0.2], [0.8, 0.2], [0.2, 0.8], [0.8, 0.8]].forEach(function (q) { c.fillRect(w * q[0] - lw, h * q[1] - lw, lw * 2, lw * 2); }); }
-      c.strokeStyle = shade(col, -0.55); c.lineWidth = lw * 1.2; c.beginPath();
-      if (ty.shape.indexOf("ramp") === 0) { c.moveTo(0, 0); c.lineTo(w, h); }
-      else if (ty.shape === "round") c.arc(0, h, w, -Math.PI / 2, 0);
-      else if (ty.shape === "half") { c.moveTo(0, h / 2); c.lineTo(w, h / 2); c.moveTo(0, h / 2); c.lineTo(0, h); c.moveTo(w, h / 2); c.lineTo(w, h); }
-      c.stroke();
-      if (ty.shape !== "full") {   // Lichtkante an der schrägen Seite
-        c.strokeStyle = shade(col, 0.25); c.lineWidth = lw; c.beginPath();
-        if (ty.shape.indexOf("ramp") === 0) { c.moveTo(lw * 1.4, lw * 3); c.lineTo(w - lw * 2.5, h - lw * 1.2); }
-        else if (ty.shape === "round") c.arc(0, h, w - lw * 1.6, -Math.PI / 2 + 0.12, -0.12);
-        c.stroke();
-      }
-      if (hpk <= 0.5) damageMarks(c, w, h, b, s, ty.shape);
-    } else if (k === "win") {
-      c.fillStyle = shade(col, -0.1); c.fillRect(0, 0, w, h); c.fillStyle = GLASS; c.fillRect(w * 0.18, h * 0.18, w * 0.64, h * 0.64); c.fillStyle = GLASS2; c.fillRect(w * 0.22, h * 0.22, w * 0.2, h * 0.56);
-      if (hpk <= 0.5) damageMarks(c, w, h, b, s, "full");
-    } else {
-      c.fillStyle = shade(col, 0.06); c.fillRect(0, 0, w, h);
-      if (k === "door") { c.fillStyle = "#D9A21B"; c.fillRect(w * 0.42, h * 0.12, w * 0.16, h * 0.76); }
-      if (k === "hatch") hatchArt(c, w, h, col, lw, "out", b.open);
-    }
-    c.restore();
-  }
-  function hullEdges(c, b, s, M, view) {
-    var ty = T[b.t], col = b.c || ty.col, lw = Math.max(1, s / 14), dark = shade(col, -0.55), lite = shade(col, 0.24), shd = shade(col, -0.28);
-    cellsOf(b).forEach(function (q) {
-      var x = q.c[0] * s, y = q.c[1] * s;
-      for (var d = 0; d < 4; d++) {
-        if (!edgeRule(ty, q.lx, q.ly, dirIn(b, d)).s && ty.kind === "armor") continue;
-        var o = M.get(key(q.c[0] + DV[d][0], q.c[1] + DV[d][1]));
-        if (o && o.b === b) continue;
-        var merged = o && isHull(T[o.b.t].kind, view) && edgeRule(T[o.b.t], o.lx, o.ly, dirIn(o.b, (d + 2) % 4)).s;
-        var e = d === 0 ? [x, y, x + s, y, 0, 1] : d === 1 ? [x + s, y, x + s, y + s, -1, 0] : d === 2 ? [x, y + s, x + s, y + s, 0, -1] : [x, y, x, y + s, 1, 0];
-        if (merged) {   // Farbwechsel innerhalb der Hülle: feine Naht
-          if ((d === 1 || d === 2) && (o.b.c || T[o.b.t].col) !== col) { c.strokeStyle = "rgba(0,0,0,.28)"; c.lineWidth = lw * 0.7; c.beginPath(); c.moveTo(e[0], e[1]); c.lineTo(e[2], e[3]); c.stroke(); }
-          continue;
-        }
-        c.strokeStyle = d === 0 || d === 3 ? lite : shd; c.lineWidth = lw * 1.3; c.beginPath(); c.moveTo(e[0] + e[4] * lw * 1.6, e[1] + e[5] * lw * 1.6); c.lineTo(e[2] + e[4] * lw * 1.6, e[3] + e[5] * lw * 1.6); c.stroke();
-        c.strokeStyle = dark; c.lineWidth = lw; c.beginPath(); c.moveTo(e[0] + e[4] * lw * 0.5, e[1] + e[5] * lw * 0.5); c.lineTo(e[2] + e[4] * lw * 0.5, e[3] + e[5] * lw * 0.5); c.stroke();
-      }
-    });
-  }
-  function FONTS() { return getComputedStyle(document.documentElement).getPropertyValue("--f-display") || "sans-serif"; }
-
+  // ===== 50-flug.js · Flug: Körper, Start/Ende des Testflugs, Hauptschleife der Simulation (flTick) =====
   // ---------- Testflug ----------
   var FL = null, BID = 0, ZMIN_FL = 0.2, ZMIN_ST = 0.1, VMAX = 500, VHI = 120;
-  var MG = { rate: 12, speed: 462, life: 1.48, dmg: 7, heat: 0.042, cool: 0.42, warn: 0.78, lock: 3.2, e: 0.4 };
-  var MS = { v0: 30, acc: 420, vmax: 340, turn: 0.45, life: 4, dmg: 55, splash: 2.6, sdmg: 28, reload: 2.5, gap: 0.18, e: 6 };
-  var RG = { charge: 0.7, cd: 2.2, dmg: 150, range: 700, e: 67.5 };   // v0.39: +50 % Energie pro Schuss
-  // Anzugluft in Sekunden; Raumluft füllt sich in dichten Räumen auf und entweicht durch Lecks
-  var SUIT = { max: 180, refill: 20, jet: 3, acc: 5, breathe: 0.35 }, AIR = { fill: 0.22, vent: 0.9 }, WELD = 15;
   // Maximale HP eines Blocks; Perks erhöhen sie für das eigene Schiff
   function hpMax(bd, b) { var h = T[b.t].hp; if (bd && bd.player) { h *= 1 + PM.hp; if (T[b.t].kind === "cock") h *= 1 + PM.cockHp; } return h; }
   function makeBody(blocks, ctrl) {
@@ -1019,115 +1083,313 @@
     if (here !== FL.pbLast) { if (here && FL.pbLast !== undefined && !FL.seated) showPlace(here.name || ""); FL.pbLast = here; }
     FL.cam.x = fx + FL.camOff.x; FL.cam.y = fy + FL.camOff.y;
   }
-  // ---------- Luft, Luken und Raumanzug ----------
-  // Eine Luke öffnet nur kurz beim Durchgehen und wenn man draußen direkt davor schwebt
-  // Luken öffnen nur kurz beim Benutzen mit F
-  function hatchNear(bd, b) { return b.openT > 0; }
-  function pulseHatch(bd, x, y) { var o = bd.map.get(key(Math.floor(x), Math.floor(y))); if (o && T[o.b.t].kind === "hatch") o.b.openT = 0.6; }
-  function airRooms(bd) {
-    if (bd.rooms) bd.rooms.forEach(function (r) { r.cells.forEach(function (c) { bd.air.set(key(c[0], c[1]), r.air); }); });
-    bd.rooms = rooms(bd.blocks, bd.map); bd.roomOf = new Map();
-    bd.rooms.forEach(function (r, i) {
-      var sum = 0, n = 0;
-      r.cells.forEach(function (c) { var kk = key(c[0], c[1]), a = bd.air.get(kk); bd.roomOf.set(kk, r); if (a !== undefined) { sum += a; n++; } });
-      r.air = n ? sum / r.cells.length : (bd.airInit ? 0 : 1);
+  // ===== 51-steuerung-waffen.js · Steuerung und Waffen: Schub, Drehen, Minigun/Raketen/Railgun, Geschütze, Zielcomputer =====
+  function dirAngle(b) { var d = dirOut(b, 2); return Math.atan2(DV[d][1], DV[d][0]); }
+  function control(bd, dt, input) {
+    var k = FL.keys, ca = Math.cos(bd.a), sa = Math.sin(bd.a);
+    var vl = { x: bd.vx * ca + bd.vy * sa, y: -bd.vx * sa + bd.vy * ca };    // Tempo im Schiffsrahmen (−y = vorne)
+    var inX = input ? (k.d ? 1 : 0) - (k.a ? 1 : 0) : 0, inY = input ? (k.s ? 1 : 0) - (k.w ? 1 : 0) : 0;
+    var acc = { x: 0, y: 0 }, use = 0, thr = bd.thr, m = bd.mass;
+    // Triebwerke sind träge: nach 0,2 s halbe, nach 1 s volle Leistung; Overcharge +50 % Schub und Verbrauch
+    var sp = bd.spool || (bd.spool = [0, 0, 0, 0]), cmd = [0, 0, 0, 0], oc = FL.oc ? 1.5 : 1;
+    function spoolK(x) { return x < 0.2 ? x * 2.5 : 0.5 + 0.5 * Math.min(1, (x - 0.2) / 0.8); }
+    function axis(inp, v, posD, negD, comp) {   // posD: Richtung mit Schub in +Achse
+      var want = 0, d = -1;
+      if (inp > 0) { d = posD; want = 1; }
+      else if (inp < 0) { d = negD; want = 1; }
+      else if (FL.damp && Math.abs(v) > 0.02 && !(FL.cruise && comp === "y")) {   // Dämpfer: gegensteuern bis Stillstand; im Cruise-Modus nur noch seitlich
+        d = v > 0 ? negD : posD; var need = Math.abs(v) * m / dt; want = thr[d] ? Math.min(1, need / (thr[d] * oc * (bd.player ? 1 + PM.brake + (d === 1 || d === 3 ? PM.side : 0) : 1))) : 0;
+      }
+      if (d < 0 || !thr[d] || !want) return;
+      cmd[d] = want;
+      var sign = (d === posD) ? 1 : -1, pk = 1;
+      if (bd.player) { if (d === 1 || d === 3) pk += PM.side; if (sign * v < 0) pk += PM.brake; }   // Perks: Seitenschub, Bremsschub
+      var eff = want * spoolK(sp[d]), F = thr[d] * oc * eff * pk, a = F / m;
+      if (inp === 0) a = Math.min(a, Math.abs(v) / dt);
+      acc[comp] += sign * a; use += eff * oc * useOf(bd, d) * dt; bd.flames[d] = Math.max(bd.flames[d] || 0, eff);
+    }
+    axis(inX, vl.x, 1, 3, "x"); axis(inY, vl.y, 2, 0, "y");
+    for (var di = 0; di < 4; di++) sp[di] = cmd[di] ? Math.min(1, sp[di] + dt) : Math.max(0, sp[di] - dt * 2.5);
+    // Energie reicht nicht: Schub anteilig kürzen
+    var scale = 1; if (use > bd.energy) { scale = bd.energy > 0 ? bd.energy / use : 0; }
+    bd.energy = Math.max(0, bd.energy - use * scale);
+    acc.x *= scale; acc.y *= scale; for (var fk in bd.flames) bd.flames[fk] *= scale;
+    vl.x += acc.x * dt; vl.y += acc.y * dt;
+    bd.vx = vl.x * ca - vl.y * sa; bd.vy = vl.x * sa + vl.y * ca;
+    // Drehen nur mit Gyroskop; ohne Eingabe stabilisiert es die Drehung
+    if (bd.torque > 0 && bd.energy > 0) {
+      var target = input ? ((k.e ? 1 : 0) - (k.q ? 1 : 0)) * 2.4 : 0;
+      var al = bd.torque / bd.I, dw = target - bd.w, step = Math.sign(dw) * Math.min(Math.abs(dw), al * dt);
+      bd.w += step; if (Math.abs(step) > 1e-4) bd.energy = Math.max(0, bd.energy - 3 * dt * Math.min(1, Math.abs(dw)));
+    }
+    FL.mdx *= Math.pow(0.0005, dt);
+    // Waffen
+    weapons(bd, dt, input ? FL.groups[FL.wsel] : null, FL.fire, null);
+  }
+  // Waffen einer Gruppe abfeuern (Spieler und KI nutzen dieselben Regeln)
+  function weapons(bd, dt, g, firing, aim) {
+    // Mehrere Miniguns setzen versetzt ein: zu Beginn einer Salve bekommt jede einen eigenen Takt-Versatz
+    if (firing && g === "mg" && !bd.mgWas) {
+      var mgs = bd.blocks.filter(function (b) { return T[b.t].kind === "mg"; }), per = 1 / (MG.rate * (bd.player ? 1 + PM.mgRate : 1));
+      mgs.forEach(function (b, i) { b.cool2 = Math.max(b.cool2 || 0, (i / mgs.length) * per + Math.random() * per * 0.15); });
+    }
+    if (g === "mg" || !firing) bd.mgWas = firing && g === "mg";
+    if (firing && g === "mg") bd.blocks.forEach(function (b) {
+      if (T[b.t].kind !== "mg" || b.oh > 0) return;
+      b.firing = true; b.cool2 = (b.cool2 || 0) - dt;
+      if (b.cool2 > 0) return;
+      if (bd.energy < MG.e) return;
+      b.cool2 = 1 / (MG.rate * (bd.player ? 1 + PM.mgRate : 1)); bd.energy -= MG.e;
+      var d = gunDir(bd, b), f = fp(b), tip = gunTip(bd, b);
+      FL.shots.push({ x: tip.x, y: tip.y, vx: bd.vx + d.x * MG.speed + (Math.random() - 0.5) * 6, vy: bd.vy + d.y * MG.speed + (Math.random() - 0.5) * 6, life: 0, own: bd });
+      FL.parts.push({ x: tip.x, y: tip.y, vx: bd.vx, vy: bd.vy, life: 0, max: 0.06, k: "flash", sz: 1.4 });
+      var cn2 = (bd.cool && bd.cool.get(b)) || 0;
+      b.heat = (b.heat || 0) + MG.heat / (1 + 0.35 * cn2) * (bd === FL.me && FL.oc ? 0.75 : 1);   // Overcharge: 25 % langsamer heiß
+      if (b.heat >= 1) { b.heat = 1; b.oh = b.ohMax = MG.lock / (1 + 0.3 * cn2); for (var i = 0; i < 10; i++) FL.parts.push({ x: tip.x, y: tip.y, vx: bd.vx + (Math.random() - 0.5) * 6, vy: bd.vy + (Math.random() - 0.5) * 6, life: 0, max: 1 + Math.random(), k: "smoke", sz: 1 + Math.random() }); }
     });
-    bd.airInit = true; bd.roomsDirty = false;
-  }
-  function pilotRoom(bd) {
-    if (FL.out) return null;
-    var p = FL.seated ? seatPos(bd) : FL.pilot;
-    return bd.roomOf ? bd.roomOf.get(key(Math.floor(p.x), Math.floor(p.y))) || null : null;
-  }
-  function airTick(bd, dt) {
-    if (!bd.air) bd.air = new Map();
-    bd.blocks.forEach(function (b) { if (T[b.t].kind !== "hatch") return; if (b.openT > 0) b.openT -= dt; var o = hatchNear(bd, b); if (o !== !!b.open) { b.open = o; bd.roomsDirty = true; } });
-    if (bd.roomsDirty || !bd.rooms) airRooms(bd);
-    bd.rooms.forEach(function (r) { r.air = Math.max(0, Math.min(1, r.air + (r.ok ? AIR.fill : -AIR.vent) * dt)); });
-    // Atmen: Raumluft, sobald genug da ist, sonst zieht der Anzug
-    var r = pilotRoom(bd); FL.breath = r && r.air > SUIT.breathe ? "room" : FL.out ? "jet" : "suit";
-    if (FL.breath === "room") FL.suit = Math.min(SUIT.max, FL.suit + SUIT.refill * dt);
-    else FL.suit = Math.max(0, FL.suit - dt * (1 + (FL.out && FL.eva && FL.eva.thr ? SUIT.jet : 0)));
-    if (FL.suit <= 0) {
-      FL.ko += dt;
-      if (FL.ko > 2.5) { FL.ko = 0; FL.suit = SUIT.max; FL.out = false; FL.eva = null; if (bd.seat) { FL.seated = true; var sp = seatPos(bd); FL.pilot.x = sp.x; FL.pilot.y = sp.y; } note(t("airOut")); }
-    } else FL.ko = 0;
-  }
-  // Aussteigen durch eine Luke: ab jetzt fliegt die Figur frei im Raum, mit dem Tempo des Schiffs an dieser Stelle
-  function openEdgeKind(k) { return k === "floor" || k === "door"; }
-  function exitShip(bd, lx, ly, push, mdir) {
-    pulseHatch(bd, FL.pilot.x, FL.pilot.y);
-    var w = toWorld(bd, lx, ly), rx = w.x - bd.x, ry = w.y - bd.y, P = FL.pilot, fa = P.face + bd.a, pa = mdir !== undefined ? mdir + bd.a : fa, pk = push ? 1.2 : 0.3;
-    FL.eva = { x: w.x, y: w.y, vx: bd.vx - bd.w * ry + Math.cos(pa) * pk, vy: bd.vy + bd.w * rx + Math.sin(pa) * pk, face: fa, ph: 0, thr: false };
-    FL.out = true; FL.enterCd = 0.8; FL.seated = false;
-  }
-  function enterAt(bd, cx, cy) {
-    FL.pb = bd;
-    var E = FL.eva; FL.out = false; FL.pilot.x = cx + 0.5; FL.pilot.y = cy + 0.5; FL.pilot.face = E ? E.face - bd.a : 0; FL.eva = null; FL.enterCd = 0.5;
-  }
-  // Bezugskörper draußen: eigenes Schiff oder Station, über der man schwebt bzw. die am nächsten ist
-  function evaBody() {
-    var E = FL.eva, best = FL.me, bd2 = Infinity;
-    FL.bodies.forEach(function (b) {
-      if (b !== FL.me && !b.station) return;
-      var lp = toLocal(b, E.x, E.y), d = b.map.has(key(Math.floor(lp.x), Math.floor(lp.y))) ? -1 : Math.hypot(E.x - b.x, E.y - b.y) - b.rad;
-      if (d < bd2) { bd2 = d; best = b; }
-    });
-    return best;
-  }
-  function evaTick(bd, dt) {
-    var E = FL.eva, k = FL.keys, dx = (k.d ? 1 : 0) - (k.a ? 1 : 0), dy = (k.s ? 1 : 0) - (k.w ? 1 : 0), ax = 0, ay = 0;
-    E.thr = false;
-    if (FL.suit > 0) {
-      if (dx || dy) { var l = Math.hypot(dx, dy); ax = dx / l * SUIT.acc; ay = dy / l * SUIT.acc; E.thr = true; }
-      if (k.shift) {   // Tempo an das eigene Schiff angleichen
-        var rvx = bd.vx - E.vx, rvy = bd.vy - E.vy, rl = Math.hypot(rvx, rvy);
-        if (rl > 0.05) { var a = Math.min(SUIT.acc, rl / dt); ax += rvx / rl * a; ay += rvy / rl * a; E.thr = true; }
+    // Raketen: je Werfer 2 Schuss, abgefeuert wird nacheinander aus irgendeinem Werfer mit Munition.
+    // Erst wenn alle leer sind, laden alle gemeinsam nach: 2,5 s je Werfer.
+    bd.msCd = Math.max(0, (bd.msCd || 0) - dt);
+    if (firing && g === "ms" && !(bd.msRl > 0) && bd.msCd <= 0 && bd.energy >= MS.e) {
+      var ls = bd.blocks.filter(function (b) { return T[b.t].kind === "ms" && b.ammo > 0; });
+      if (ls.length) {
+        var lb = ls[(bd.msTurn = ((bd.msTurn || 0) + 1)) % ls.length];
+        lb.ammo--; bd.energy -= MS.e; bd.msCd = MS.gap;
+        var d = dirWorld(bd, dirOut(lb, 0)), tip = muzzle(bd, lb), side = lb.ammo === 1 ? 0.22 : -0.22, nx = -d.y * side * CELL_M, ny = d.x * side * CELL_M;
+        FL.missiles.push({ x: tip.x + nx, y: tip.y + ny, vx: bd.vx + d.x * MS.v0, vy: bd.vy + d.y * MS.v0, h: Math.atan2(d.y, d.x), life: 0, own: bd, aim: aim || null });
+        var left = bd.blocks.reduce(function (a, b) { return a + (T[b.t].kind === "ms" ? b.ammo : 0); }, 0);
+        if (!left) bd.msRl = bd.msRlMax = MS.reload * bd.blocks.filter(function (b) { return T[b.t].kind === "ms"; }).length / (bd.player ? 1 + PM.msRl : 1);
       }
     }
-    E.vx += ax * dt; E.vy += ay * dt; E.x += E.vx * dt; E.y += E.vy * dt;
-    if (E.thr && Math.random() < dt * 30) { var al = Math.hypot(ax, ay) || 1; FL.parts.push({ x: E.x - ax / al * 0.5, y: E.y - ay / al * 0.5, vx: E.vx - ax / al * 6 + (Math.random() - 0.5), vy: E.vy - ay / al * 6 + (Math.random() - 0.5), life: 0, max: 0.35, k: "jet", sz: 0.22 }); }
-    var mw = mouseWorld();
-    if (mw) { var want = Math.atan2(mw.y - E.y, mw.x - E.x), d = Math.atan2(Math.sin(want - E.face), Math.cos(want - E.face)); E.face += d * Math.min(1, dt * 10); }
-    E.ph += E.thr ? dt * 4 : 0;
-    // Schweißen draußen: Punkt vor der Figur im Schiffsraster
-    FL.welding = false; FL.weldB = null; FL.weldG = null;
-    if (FL.fire && FL.slot === 1) { FL.welding = true; var tp = toLocal(bd, E.x + Math.cos(E.face) * 1.6, E.y + Math.sin(E.face) * 1.6); weldAt(bd, tp.x, tp.y, dt); }
-    // Zurück ins Schiff über eine Luke
-    FL.enterCd = Math.max(0, FL.enterCd - dt);
-    var lp = toLocal(bd, E.x, E.y), o = bd.map.get(key(Math.floor(lp.x), Math.floor(lp.y)));
-    // Offenes Schiff: über eine Bodenzelle am offenen Rand schweben, dann steigt man direkt wieder ein
-    if (o && openEdgeKind(T[o.b.t].kind) && FL.enterCd <= 0) {
-      var cx0 = Math.floor(lp.x), cy0 = Math.floor(lp.y), edge = false;
-      for (var dd = 0; dd < 4; dd++) if (!bd.map.has(key(cx0 + DV[dd][0], cy0 + DV[dd][1]))) edge = true;
-      if (edge) enterAt(bd, cx0, cy0);
+    if (firing && g === "rg") bd.blocks.forEach(function (b) {
+      if (T[b.t].kind !== "rg" || b.cd > 0) return;
+      b.holding = true;
+      if (bd.energy < RG.e && !b.chg) return;
+      b.chg = (b.chg || 0) + dt;
+      if (b.chg >= RG.charge) { b.chg = 0; b.cd = RG.cd; bd.energy = Math.max(0, bd.energy - RG.e); fireRail(bd, b); }
+    });
     }
+  function useOf(bd, d) { var u = 0; bd.blocks.forEach(function (b) { var ty = T[b.t]; if (ty.kind === "thr" && thrustDir(b) === d) u += ty.use; }); return u; }
+  // Zielcomputer: Minigun und Railgun schwenken bis 15° zur Zielrichtung (Maus beim Spieler, Vorhaltepunkt bei der KI)
+  function gunMount(bd, b) { var d = dirOut(b, 0), f = fp(b), h = T[b.t].h; return { lx: b.x + f[0] / 2 - DV[d][0] * h / 2, ly: b.y + f[1] / 2 - DV[d][1] * h / 2 }; }
+  function turretTick(bd, dt, aim) {
+    bd.blocks.forEach(function (b) {
+      var k = T[b.t].kind; if (k !== "mg" && k !== "rg") return;
+      var want = 0;
+      if (bd.tcomp && aim) {
+        var m = gunMount(bd, b), mw = toWorld(bd, m.lx, m.ly), d = dirWorld(bd, dirOut(b, 0));
+        want = Math.max(-TURRET.max, Math.min(TURRET.max, angDiff(Math.atan2(aim.y - mw.y, aim.x - mw.x), Math.atan2(d.y, d.x))));
+      }
+      var cur = b.tw || 0, st = TURRET.rate * dt; b.tw = cur + Math.max(-st, Math.min(st, want - cur));
+    });
   }
-  // Schweißgerät: repariert Blöcke (15 HP/s) und baut zerstörte Blöcke an ihrer alten Stelle wieder auf
-  function lostAt(bd, x, y) {
-    var cx = Math.floor(x), cy = Math.floor(y);
-    for (var i = 0; i < bd.lost.length; i++) { var g = bd.lost[i]; if (cellsOf(g).some(function (q) { return q.c[0] === cx && q.c[1] === cy; })) return g; }
+  function gunDir(bd, b) { var d = dirWorld(bd, dirOut(b, 0)), a = b.tw || 0; if (!a) return d; var ca = Math.cos(a), sa = Math.sin(a); return { x: d.x * ca - d.y * sa, y: d.x * sa + d.y * ca }; }
+  function gunTip(bd, b) {
+    if (!b.tw) return muzzle(bd, b);
+    var m = gunMount(bd, b), mw = toWorld(bd, m.lx, m.ly), d = gunDir(bd, b), L = (T[b.t].h + 0.1) * CELL_M;
+    return { x: mw.x + d.x * L, y: mw.y + d.y * L };
+  }
+  function muzzle(bd, b) {
+    var ty = T[b.t], d = dirOut(b, 0), f = fp(b), cx = b.x + f[0] / 2 + DV[d][0] * (ty.h / 2 + 0.1), cy = b.y + f[1] / 2 + DV[d][1] * (ty.h / 2 + 0.1);
+    return toWorld(bd, cx, cy);
+  }
+  function fireRail(bd, b) {
+    var d = gunDir(bd, b), p = gunTip(bd, b), left = RG.dmg, end = { x: p.x + d.x * RG.range, y: p.y + d.y * RG.range }, hits = 0, lastB = null;
+    for (var s = 0; s < RG.range; s += 0.8) {
+      var x = p.x + d.x * s, y = p.y + d.y * s, h = hitAt(x, y, bd);
+      if (h && h.b !== lastB) { lastB = h.b; if (bd === FL.me) hitMark(x, y, h.bd); damage(h.bd, h.b, left, x, y); spark(x, y, 10); left *= 0.55; hits++; if (hits >= 3) { end = { x: x, y: y }; break; } }
+    }
+    FL.beams.push({ x0: p.x, y0: p.y, x1: end.x, y1: end.y, life: 0 });
+  }
+  function mouseWorld() {
+    if (!V.mouse) return null; var ppm = PX * V.zoom / CELL_M;
+    return { x: FL.cam.x + (V.mouse.sx - V.W / 2) / ppm, y: FL.cam.y + (V.mouse.sy - V.H / 2) / ppm };
+  }
+  // ---------- Zielcomputer: Zielerfassung und Vorhaltepunkt ----------
+  // Erfasst wird das Gegnerschiff, das dem Mauszeiger am nächsten ist. Der kleine Kreis zeigt, wohin man zielen muss, damit
+  // Minigun-Geschosse das Ziel bei gleichbleibender Bewegung treffen (Abfangpunkt aus Relativtempo und Geschossgeschwindigkeit).
+  function leadPoint(me, tg) {
+    var rx = tg.x - me.x, ry = tg.y - me.y, vx = tg.vx - me.vx, vy = tg.vy - me.vy, s2 = MG.speed * MG.speed;
+    var a = vx * vx + vy * vy - s2, b = 2 * (rx * vx + ry * vy), c2 = rx * rx + ry * ry, tt;
+    if (Math.abs(a) < 1e-6) tt = -c2 / b; else { var disc = b * b - 4 * a * c2; if (disc < 0) return null; var sq = Math.sqrt(disc), t1 = (-b - sq) / (2 * a), t2 = (-b + sq) / (2 * a); tt = Math.min(t1, t2) > 0 ? Math.min(t1, t2) : Math.max(t1, t2); }
+    if (!(tt > 0) || tt > MG.life) return null;
+    return { x: tg.x + vx * tt, y: tg.y + vy * tt, t: tt };
+  }
+  function drawLead(c, ppm, tm) {
+    var me = FL.me; FL.tgt = null;
+    if (!me.tcomp || !FL.seated || FL.bodies.indexOf(me) < 0) return;
+    var mw = mouseWorld(); if (!mw) return;
+    var best = null, bd2 = 1e18;
+    FL.bodies.forEach(function (bd) { if (!bd.enemy || bd.dead) return; var d = Math.hypot(bd.x - mw.x, bd.y - mw.y); if (d < bd2) { bd2 = d; best = bd; } });
+    if (!best) return; FL.tgt = best;
+    // Erfassungsklammern
+    var r = best.rad * 0.55, L = Math.max(r * 0.3, 6 / ppm);
+    c.strokeStyle = "rgba(255,90,70,.85)"; c.lineWidth = 1.6 / ppm; c.beginPath();
+    [[-1, -1], [1, -1], [1, 1], [-1, 1]].forEach(function (q) { var x0 = best.x + q[0] * r, y0 = best.y + q[1] * r; c.moveTo(x0, y0 - q[1] * L); c.lineTo(x0, y0); c.lineTo(x0 - q[0] * L, y0); });
+    c.stroke();
+    var lp = leadPoint(me, best); if (!lp) return;
+    var rr = Math.max(1.4, 6 / ppm);
+    c.strokeStyle = "rgba(255,120,100,.35)"; c.lineWidth = 1 / ppm; c.setLineDash([4 / ppm, 4 / ppm]); c.beginPath(); c.moveTo(best.x, best.y); c.lineTo(lp.x, lp.y); c.stroke(); c.setLineDash([]);
+    c.strokeStyle = "rgba(255,235,225,.95)"; c.lineWidth = 1.6 / ppm; c.beginPath(); c.arc(lp.x, lp.y, rr, 0, Math.PI * 2); c.stroke();
+    c.fillStyle = "rgba(255,90,70,.95)"; c.beginPath(); c.arc(lp.x, lp.y, rr * 0.25, 0, Math.PI * 2); c.fill();
+  }
+  // ===== 52-schaden.js · Schaden: Treffer, Explosionen, Schild, Zerbrechen, Kollisionen =====
+  // Flächenschaden um einen Punkt (Raketen, explodierende Triebwerke und Reaktoren)
+  function blast(x, y, r, dmg, skip, ns) {
+    FL.parts.push({ x: x, y: y, vx: 0, vy: 0, life: 0, max: 0.22, k: "flash", sz: r * 1.3 });
+    for (var i = 0; i < 10; i++) FL.parts.push({ x: x, y: y, vx: (Math.random() - 0.5) * 14, vy: (Math.random() - 0.5) * 14, life: 0, max: 0.35 + Math.random() * 0.35, k: "fire", sz: 0.8 + Math.random() * r * 0.4 });
+    var hits = [];
+    FL.bodies.forEach(function (bd) {
+      if (bd === skip || Math.abs(x - bd.x) > bd.rad + r || Math.abs(y - bd.y) > bd.rad + r) return;
+      bd.blocks.forEach(function (b) { var p = blockCenter(bd, b), d = Math.hypot(p.x - x, p.y - y); if (d < r) hits.push({ bd: bd, b: b, dmg: dmg * (1 - d / r * 0.7) }); });
+    });
+    hits.forEach(function (h) { var hp2 = blockCenter(h.bd, h.b); damage(h.bd, h.b, h.dmg, hp2.x, hp2.y, ns); });
+  }
+  function hitAt(x, y, own, noFloor) {
+    for (var i = 0; i < FL.bodies.length; i++) {
+      var bd = FL.bodies[i]; if (bd === own) continue;
+      if (Math.abs(x - bd.x) > bd.rad || Math.abs(y - bd.y) > bd.rad) continue;
+      var l = toLocal(bd, x, y), o = bd.map.get(key(Math.floor(l.x), Math.floor(l.y)));
+      if (o && !(noFloor && T[o.b.t].kind === "floor")) return { bd: bd, b: o.b };   // Pistolenkugeln fliegen über Böden hinweg
+    }
     return null;
   }
-  function canRebuild(bd, g) { return cellsOf(g).every(function (q) { return !bd.map.has(key(q.c[0], q.c[1])); }) && linked(bd.map, g).length > 0; }
-  function weldAt(bd, lx, ly, dt) {
-    var o = bd.map.get(key(Math.floor(lx), Math.floor(ly))), spark = false;
-    if (o) { var mx = hpMax(bd, o.b); FL.weldB = o.b; if (o.b.hp < mx) { o.b.hp = Math.min(mx, o.b.hp + WELD * dt); spark = true; } }
-    else if (bd.lost) {
-      var g = lostAt(bd, lx, ly);
-      if (g) {
-        FL.weldG = g; FL.weldOk = canRebuild(bd, g);
-        if (FL.weldOk) {
-          var nb = { t: g.t, x: g.x, y: g.y, r: g.r, f: g.f, c: g.c, hp: WELD * dt };
-          bd.lost.splice(bd.lost.indexOf(g), 1); bd.blocks.push(nb); recalc(bd); FL.weldB = nb; FL.weldG = null; spark = true;
-        }
-      }
-    }
-    if (spark && Math.random() < dt * 40) { var wp = toWorld(bd, lx, ly), a = Math.random() * 6.28, v = 3 + Math.random() * 6; FL.parts.push({ x: wp.x, y: wp.y, vx: bd.vx + Math.cos(a) * v, vy: bd.vy + Math.sin(a) * v, life: 0, max: 0.15 + Math.random() * 0.2, k: "weld", sz: 0.25 }); }
+  function spark(x, y, n) { for (var i = 0; i < n; i++) { var a = Math.random() * 6.28, v = 8 + Math.random() * 18; FL.parts.push({ x: x, y: y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: 0, max: 0.2 + Math.random() * 0.25, k: "spark", sz: 0.4 }); } }
+  // Schaden: bei 0 Leben fällt der Block weg, lose Teile treiben als eigene Trümmer davon
+  // Schild: fängt Treffer ab, solange Schildenergie da ist und mindestens ein Generator arbeitet. Kosten je Schadenspunkt sinken mit mehr Generatoren.
+  function shieldAbsorb(bd, b, dmg, x, y) {
+    if (!(bd.shE > 0) || !bd.shGen) return dmg;
+    var cost = dmg * bd.shEff, p = (x || y) ? { x: x, y: y } : blockCenter(bd, b);
+    if (bd.shE >= cost) { bd.shE -= cost; shieldHit(bd, p.x, p.y); return 0; }
+    var left = dmg - bd.shE / bd.shEff; bd.shE = 0; shieldHit(bd, p.x, p.y); return left;
   }
+  function shieldHit(bd, x, y) {
+    var l = toLocal(bd, x, y); FL.shHits.push({ bd: bd, lx: l.x, ly: l.y, x: x, y: y, t: FL.t });
+    if (FL.shHits.length > 50) FL.shHits.shift();
+  }
+  function damage(bd, b, dmg, x, y, ns) {
+    if (FL.bodies.indexOf(bd) < 0 || bd.blocks.indexOf(b) < 0) return;   // schon zerstört (Kettenreaktion)
+    if (!ns) { dmg = shieldAbsorb(bd, b, dmg, x, y); if (dmg <= 0) return; }
+    b.hp -= dmg;
+    if (b.hp > 0) return;
+    var p = blockCenter(bd, b), col = b.c || T[b.t].col;
+    for (var i = 0; i < 8; i++) { var a = Math.random() * 6.28, v = 4 + Math.random() * 10; FL.parts.push({ x: p.x, y: p.y, vx: bd.vx + Math.cos(a) * v, vy: bd.vy + Math.sin(a) * v, life: 0, max: 1.5 + Math.random(), k: "debris", sz: 0.5 + Math.random() * 0.7, col: col, a: Math.random() * 6, w: (Math.random() - 0.5) * 10 }); }
+    for (i = 0; i < 6; i++) FL.parts.push({ x: p.x, y: p.y, vx: bd.vx + (Math.random() - 0.5) * 8, vy: bd.vy + (Math.random() - 0.5) * 8, life: 0, max: 0.35 + Math.random() * 0.3, k: "fire", sz: 1.2 + Math.random() });
+    FL.parts.push({ x: p.x, y: p.y, vx: bd.vx, vy: bd.vy, life: 0, max: 0.18, k: "flash", sz: 4 });
+    bd.blocks.splice(bd.blocks.indexOf(b), 1);
+    if (bd === FL.me && bd.lost) bd.lost.push(strip(b));
+    if (!bd.blocks.length) FL.bodies.splice(FL.bodies.indexOf(bd), 1); else splitBody(bd);
+    // Triebwerke und Reaktoren explodieren und beschädigen, was direkt drumherum liegt
+    var kd = T[b.t].kind;
+    if (kd === "reac") blast(p.x, p.y, 3.2 * CELL_M, 85, null, true);
+    else if (kd === "thr") blast(p.x, p.y, (T[b.t].w > 1 ? 2.4 : 1.8) * CELL_M, T[b.t].w > 1 ? 60 : 40, null, true);
+  }
+  function splitBody(bd) {
+    var comps = components(bd.blocks);
+    if (comps.length <= 1) { recalc(bd); return; }
+    var keep = comps.reduce(function (a, c) { return mainScore(c) > mainScore(a) ? c : a; });
+    comps.forEach(function (cp) {
+      if (cp === keep) return;
+      if (bd === FL.me && bd.lost) cp.forEach(function (b) { bd.lost.push(strip(b)); });
+      var nb = { blocks: cp, x: 0, y: 0, a: bd.a, vx: bd.vx, vy: bd.vy, w: bd.w + (Math.random() - 0.5) * 0.8, ctrl: false, energy: 0, cap: 0, flames: {} };
+      var st = stats(cp), c = toWorld(bd, st.com[0], st.com[1]);
+      recalc(nb, true); nb.x = c.x; nb.y = c.y;
+      var rx = c.x - bd.x, ry = c.y - bd.y, l = Math.hypot(rx, ry) || 1;
+      nb.vx += -bd.w * ry + rx / l * (2 + Math.random() * 3); nb.vy += bd.w * rx + ry / l * (2 + Math.random() * 3);
+      FL.bodies.push(nb);
+    });
+    bd.blocks = keep; recalc(bd);
+    if (bd === FL.me && !bd.seat && FL.seated) { FL.seated = false; var sp = seatPos(bd); FL.pilot.x = sp.x; FL.pilot.y = sp.y; }
+  }
+
+  // Treffer an fremden Schiffen: kleines x an der Stelle und ein leiser, weicher Klick
+  var AC = null, lastHitS = 0;
+  function audioInit() { try { if (!AC) AC = new (window.AudioContext || window.webkitAudioContext)(); if (AC.state === "suspended") AC.resume(); } catch (e) {} }
+  function hitMark(x, y, bd, crit) {
+    if (bd === FL.me) return;
+    if (bd.ai) { bd.ai.hurt = true; bd.ai.hitN = (bd.ai.hitN || 0) + 1; }
+    FL.hits.push({ x: x, y: y, life: 0, crit: !!crit }); if (FL.hits.length > 40) FL.hits.shift();
+    if (!AC || AC.state !== "running") return;
+    var t0 = AC.currentTime; if (t0 - lastHitS < 0.07) return; lastHitS = t0;
+    try {
+      var o = AC.createOscillator(), g = AC.createGain(), f = AC.createBiquadFilter();
+      o.type = "triangle"; o.frequency.setValueAtTime(560, t0); o.frequency.exponentialRampToValueAtTime(330, t0 + 0.07);
+      f.type = "lowpass"; f.frequency.value = 1800;
+      g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(0.045, t0 + 0.005); g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.09);
+      o.connect(f); f.connect(g); g.connect(AC.destination); o.start(t0); o.stop(t0 + 0.11);
+    } catch (e) {}
+  }
+  // ---------- Kollisionen ----------
+  // Zellen des kleineren Körpers gegen das Raster des größeren; Stoß mit Masse und Trägheit (schwere Schiffe werden weniger abgelenkt).
+  // Über 20 m/s Aufprall gehen an der Stelle Blöcke kaputt.
+  function collide() {
+    var B = FL.bodies, dmg = [];
+    FL.colCd = FL.colCd || {};
+    for (var i = 0; i < B.length; i++) for (var j = i + 1; j < B.length; j++) {
+      var A = B[i], C = B[j], dx = C.x - A.x, dy = C.y - A.y;
+      if (FL.dock && ((FL.dock.a === A && FL.dock.b === C) || (FL.dock.a === C && FL.dock.b === A))) continue;   // Andock-Paar kollidiert nicht
+      if (Math.abs(dx) > A.rad + C.rad || Math.abs(dy) > A.rad + C.rad || Math.hypot(dx, dy) > A.rad + C.rad) continue;
+      var sm = A.cells.length <= C.cells.length ? A : C, bg = sm === A ? C : A;
+      var px = 0, py = 0, n = 0, hs = [], hb = [], ca = Math.cos(sm.a), sa = Math.sin(sm.a);
+      for (var k = 0; k < sm.cells.length; k++) {
+        var cl = sm.cells[k], lx = (cl[0] - sm.com[0]) * CELL_M, ly = (cl[1] - sm.com[1]) * CELL_M, wx = sm.x + lx * ca - ly * sa, wy = sm.y + lx * sa + ly * ca;
+        if (Math.abs(wx - bg.x) > bg.rad || Math.abs(wy - bg.y) > bg.rad) continue;
+        var l = toLocal(bg, wx, wy), q = bg.map.get(key(Math.floor(l.x), Math.floor(l.y)));
+        if (q && (T[cl[2].t].kind === "dock" || T[q.b.t].kind === "dock")) { var fx = l.x - Math.floor(l.x), fy = l.y - Math.floor(l.y); if (fx < 0.05 || fx > 0.95 || fy < 0.05 || fy > 0.95) q = null; }   // Dock-Hitbox 0,9
+        if (q) { px += wx; py += wy; n++; if (hs.indexOf(cl[2]) < 0) hs.push(cl[2]); if (hb.indexOf(q.b) < 0) hb.push(q.b); }
+      }
+      if (!n) continue;
+      px /= n; py /= n;
+      var nx = sm.x - bg.x, ny = sm.y - bg.y, nl = Math.hypot(nx, ny) || 1; nx /= nl; ny /= nl;   // Normale vom großen zum kleinen Körper
+      var rsx = px - sm.x, rsy = py - sm.y, rbx = px - bg.x, rby = py - bg.y;
+      var vsx = sm.vx - sm.w * rsy, vsy = sm.vy + sm.w * rsx, vbx = bg.vx - bg.w * rby, vby = bg.vy + bg.w * rbx;
+      var rvx = vsx - vbx, rvy = vsy - vby, vn = rvx * nx + rvy * ny, sp = Math.hypot(rvx, rvy);
+      if (sm.static && bg.static) continue;
+      var ims = sm.static ? 0 : 1 / sm.mass, imb = bg.static ? 0 : 1 / bg.mass, iIs = sm.static ? 0 : 1 / sm.I, iIb = bg.static ? 0 : 1 / bg.I, rsn = rsx * ny - rsy * nx, rbn = rbx * ny - rby * nx;
+      if (vn < 0) {
+        var jj = -(1 + COL.e) * vn / (ims + imb + rsn * rsn * iIs + rbn * rbn * iIb);
+        sm.vx += jj * nx * ims; sm.vy += jj * ny * ims; sm.w += rsn * jj * iIs;
+        bg.vx -= jj * nx * imb; bg.vy -= jj * ny * imb; bg.w -= rbn * jj * iIb;
+        var pk = Math.min(A.id, C.id) + ":" + Math.max(A.id, C.id);
+        if (sp > COL.dmgV && !(FL.colCd[pk] > FL.t)) {
+          FL.colCd[pk] = FL.t + 0.3;
+          var base = (sp - COL.dmgV) * COL.dmgK, mS = sm.static ? 1e6 : sm.mass, mB = bg.static ? 1e6 : bg.mass, tot = mS + mB;
+          hs.slice(0, 4).forEach(function (b) { dmg.push([sm, b, base * 2 * Math.min(1, mB / tot)]); });
+          hb.slice(0, 4).forEach(function (b) { dmg.push([bg, b, base * 2 * Math.min(1, mS / tot)]); });
+          spark(px, py, 14); FL.parts.push({ x: px, y: py, vx: 0, vy: 0, life: 0, max: 0.2, k: "flash", sz: 2 + sp * 0.05 });
+        } else if (sp > 4) spark(px, py, 3);
+      }
+      // auseinanderschieben, damit nichts ineinander stecken bleibt
+      var corr = Math.min(0.6, 0.06 * n), ws = (ims + imb) ? ims / (ims + imb) : 0.5;
+      sm.x += nx * corr * ws; sm.y += ny * corr * ws; bg.x -= nx * corr * (1 - ws); bg.y -= ny * corr * (1 - ws);
+    }
+    dmg.forEach(function (d) { damage(d[0], d[1], d[2], 0, 0, true); });   // Rammen geht am Schild vorbei
+  }
+  // Schild-Zuweisung: Anteil der Gesamtkapazität wird aus der Schiffsenergie ins Schild umgebucht.
+  // Leergeschossene Schilde füllen sich nicht von selbst, erst wenn der Regler neu gesetzt wird (oder ↻).
+  // Setzt das Ziel; aufgeladen wird danach fließend in 1-%-Schritten mit dem Tempo der Generatoren. Weniger Anteil gibt Energie sofort zurück.
+  function setShield(pct) {
+    var me = FL.me; FL.shPct = pct; FL.shTarget = pct / 100 * me.cap;
+    if ((me.shE || 0) > FL.shTarget) { var back = me.shE - FL.shTarget; me.shE = FL.shTarget; me.energy = Math.min(me.cap - me.shE, me.energy + back); FL.shCharging = false; }
+    else FL.shCharging = FL.shTarget - (me.shE || 0) > 0.5;
+  }
+  function shieldTick(dt) {
+    var me = FL.me; if (!FL.shCharging) return;
+    if (!me.shGen) return;   // ohne Generator lädt nichts
+    var step = me.cap / 100; FL.shAcc += dt * me.shGen;   // shGen = Prozent pro Sekunde
+    while (FL.shAcc >= 1 && FL.shCharging) {
+      FL.shAcc -= 1;
+      var need = Math.min(step, FL.shTarget - me.shE); if (need <= 0.01 || me.energy < need) { if (me.energy < need) FL.shAcc = 0; break; }
+      me.energy -= need; me.shE += need;
+    }
+    if (FL.shTarget - me.shE <= 0.5) { FL.shCharging = false; FL.shAcc = 0; floatTxt(t("shCharged"), "120,190,255"); }
+    else if (Math.random() < dt * 40) {   // Sog-Effekt: blaue Partikel ziehen von außen an die Hülle
+      var a = Math.random() * 6.28, r = me.rad * 0.9 + 6;
+      FL.parts.push({ x: me.x + Math.cos(a) * r, y: me.y + Math.sin(a) * r, vx: me.vx - Math.cos(a) * r * 1.6, vy: me.vy - Math.sin(a) * r * 1.6, life: 0, max: 0.55, k: "suck", sz: 0.35 + Math.random() * 0.3 });
+    }
+  }
+  // ===== 53-ki.js · Gegner-KI: Erkennung, Kampfstile, Moral, Manöver, Ausweichen, Abschüsse =====
   // ---------- Gegner (Kampf-KI) ----------
-  // Erkennung: im Gleitflug erst auf 20 m, mit Schub (oder beim Feuern) bis 260 m; zeigt die Nase genau auf mich, doppelt so weit
-  var AI = { glide: 20, loud: 240, patrolV: 15, lose: 950, vk: 0.9 };
   function angTo(vx, vy) { return Math.atan2(vx, -vy); }   // Schiffswinkel, dessen Vorderseite (−y) in Richtung (vx, vy) zeigt
   function angDiff(a, b) { return Math.atan2(Math.sin(a - b), Math.cos(a - b)); }
   function minView() { var ppm = PX * ZMIN_FL / CELL_M; return { hw: V.W / 2 / ppm, hh: V.H / 2 / ppm }; }
@@ -1144,12 +1406,6 @@
     FL.bodies.push(bd);
     note(fmt(t("spawned"), { n: sh.n[lang] }) + " · " + sty.n[lang]);
   }
-  // Kampfstile: Draufgänger kommen nah heran, Umkreiser halten Abstand und kreisen, Taktiker liegen dazwischen
-  var AISTY = [
-    { id: "aggro", n: L2("Draufgänger", "Brawler"), rk: 0.45, strafe: 4, orbit: 0, push: 55, mor: 0.9, man: { chase: 0.4, pass: 0.35, attack: 0.2, brk: 0.05 } },
-    { id: "tact", n: L2("Taktiker", "Tactician"), rk: 1, strafe: 9, orbit: 0, push: 40, mor: 0.75, man: { chase: 0.2, pass: 0.25, attack: 0.35, brk: 0.2 } },
-    { id: "orbit", n: L2("Umkreiser", "Circler"), rk: 1.45, strafe: 0, orbit: 30, push: 35, mor: 0.65, man: { chase: 0.05, pass: 0.2, attack: 0.55, brk: 0.2 } }
-  ];
   // Moral (0–1): sinkt mit jedem Treffer und mit verlorenen Blöcken, erholt sich langsam. Niedrige Moral hält mehr Abstand und flieht eher
   function aiMorale(bd, dt) {
     var A = bd.ai, loss = 1 - bd.blocks.length / A.n0, cap = Math.max(0.05, A.sty.mor * (1 - loss * 1.2));
@@ -1167,7 +1423,6 @@
   }
   // Manöver im Kampf: Verfolgen (seitlich versetzt), Vorbeiflug (Angriff von der anderen Seite), Angriff (Abstand halten, kreisen) und Ausbrechen.
   // Nur beim Angriff zielt die Nase dauerhaft auf dich; bei Vorbeiflug und Ausbrechen fliegt sie in Bewegungsrichtung.
-  var MANT = { chase: [3, 5], pass: [6, 9], attack: [3, 6], brk: [1.8, 3] };
   function pickMan(A) {
     var w = A.sty.man, x = Math.random(), k;
     for (k in w) { x -= w[k]; if (x <= 0) break; }
@@ -1178,7 +1433,6 @@
   // Kollisionsvermeidung, jeden Frame mit deinem echten Tempo (nicht der verzögerten Schätzung):
   // Annäherung nur so schnell, dass die KI vor dir noch bremsen kann; ab etwa 45 m Abstand zur Hülle kein weiteres Aufschließen mehr
   // und ein kräftiger Schwenk zur Seite.
-  var AVOID = 50;
   function aiAvoid(bd, A, vDes, me) {
     var dx = me.x - bd.x, dy = me.y - bd.y, dist = Math.hypot(dx, dy) || 1, ux = dx / dist, uy = dy / dist;
     var ds = Math.max(0, dist - 0.5 * (me.rad + bd.rad)); if (ds > AVOID + 120) return vDes;
@@ -1336,69 +1590,112 @@
     el.querySelector("span").textContent = FL.bannerN; el.hidden = false; el.classList.remove("go"); void el.offsetWidth; el.classList.add("go");
     clearTimeout(V.killT); V.killT = setTimeout(function () { if (V) el.hidden = true; }, 3200);
   }
-  // Treffer an fremden Schiffen: kleines x an der Stelle und ein leiser, weicher Klick
-  var AC = null, lastHitS = 0;
-  function audioInit() { try { if (!AC) AC = new (window.AudioContext || window.webkitAudioContext)(); if (AC.state === "suspended") AC.resume(); } catch (e) {} }
-  function hitMark(x, y, bd, crit) {
-    if (bd === FL.me) return;
-    if (bd.ai) { bd.ai.hurt = true; bd.ai.hitN = (bd.ai.hitN || 0) + 1; }
-    FL.hits.push({ x: x, y: y, life: 0, crit: !!crit }); if (FL.hits.length > 40) FL.hits.shift();
-    if (!AC || AC.state !== "running") return;
-    var t0 = AC.currentTime; if (t0 - lastHitS < 0.07) return; lastHitS = t0;
-    try {
-      var o = AC.createOscillator(), g = AC.createGain(), f = AC.createBiquadFilter();
-      o.type = "triangle"; o.frequency.setValueAtTime(560, t0); o.frequency.exponentialRampToValueAtTime(330, t0 + 0.07);
-      f.type = "lowpass"; f.frequency.value = 1800;
-      g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(0.045, t0 + 0.005); g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.09);
-      o.connect(f); f.connect(g); g.connect(AC.destination); o.start(t0); o.stop(t0 + 0.11);
-    } catch (e) {}
+  // ===== 54-figur.js · Figur: Luft und Anzug, Luken, Jetpack, Schweißen, Laufen, Werkzeugleiste, Pistole, Inventar =====
+  // ---------- Luft, Luken und Raumanzug ----------
+  // Eine Luke öffnet nur kurz beim Durchgehen und wenn man draußen direkt davor schwebt
+  // Luken öffnen nur kurz beim Benutzen mit F
+  function hatchNear(bd, b) { return b.openT > 0; }
+  function pulseHatch(bd, x, y) { var o = bd.map.get(key(Math.floor(x), Math.floor(y))); if (o && T[o.b.t].kind === "hatch") o.b.openT = 0.6; }
+  function airRooms(bd) {
+    if (bd.rooms) bd.rooms.forEach(function (r) { r.cells.forEach(function (c) { bd.air.set(key(c[0], c[1]), r.air); }); });
+    bd.rooms = rooms(bd.blocks, bd.map); bd.roomOf = new Map();
+    bd.rooms.forEach(function (r, i) {
+      var sum = 0, n = 0;
+      r.cells.forEach(function (c) { var kk = key(c[0], c[1]), a = bd.air.get(kk); bd.roomOf.set(kk, r); if (a !== undefined) { sum += a; n++; } });
+      r.air = n ? sum / r.cells.length : (bd.airInit ? 0 : 1);
+    });
+    bd.airInit = true; bd.roomsDirty = false;
   }
-  // ---------- Kollisionen ----------
-  // Zellen des kleineren Körpers gegen das Raster des größeren; Stoß mit Masse und Trägheit (schwere Schiffe werden weniger abgelenkt).
-  // Über 20 m/s Aufprall gehen an der Stelle Blöcke kaputt.
-  var COL = { e: 0.3, dmgV: 20, dmgK: 7 };
-  function collide() {
-    var B = FL.bodies, dmg = [];
-    FL.colCd = FL.colCd || {};
-    for (var i = 0; i < B.length; i++) for (var j = i + 1; j < B.length; j++) {
-      var A = B[i], C = B[j], dx = C.x - A.x, dy = C.y - A.y;
-      if (FL.dock && ((FL.dock.a === A && FL.dock.b === C) || (FL.dock.a === C && FL.dock.b === A))) continue;   // Andock-Paar kollidiert nicht
-      if (Math.abs(dx) > A.rad + C.rad || Math.abs(dy) > A.rad + C.rad || Math.hypot(dx, dy) > A.rad + C.rad) continue;
-      var sm = A.cells.length <= C.cells.length ? A : C, bg = sm === A ? C : A;
-      var px = 0, py = 0, n = 0, hs = [], hb = [], ca = Math.cos(sm.a), sa = Math.sin(sm.a);
-      for (var k = 0; k < sm.cells.length; k++) {
-        var cl = sm.cells[k], lx = (cl[0] - sm.com[0]) * CELL_M, ly = (cl[1] - sm.com[1]) * CELL_M, wx = sm.x + lx * ca - ly * sa, wy = sm.y + lx * sa + ly * ca;
-        if (Math.abs(wx - bg.x) > bg.rad || Math.abs(wy - bg.y) > bg.rad) continue;
-        var l = toLocal(bg, wx, wy), q = bg.map.get(key(Math.floor(l.x), Math.floor(l.y)));
-        if (q && (T[cl[2].t].kind === "dock" || T[q.b.t].kind === "dock")) { var fx = l.x - Math.floor(l.x), fy = l.y - Math.floor(l.y); if (fx < 0.05 || fx > 0.95 || fy < 0.05 || fy > 0.95) q = null; }   // Dock-Hitbox 0,9
-        if (q) { px += wx; py += wy; n++; if (hs.indexOf(cl[2]) < 0) hs.push(cl[2]); if (hb.indexOf(q.b) < 0) hb.push(q.b); }
+  function pilotRoom(bd) {
+    if (FL.out) return null;
+    var p = FL.seated ? seatPos(bd) : FL.pilot;
+    return bd.roomOf ? bd.roomOf.get(key(Math.floor(p.x), Math.floor(p.y))) || null : null;
+  }
+  function airTick(bd, dt) {
+    if (!bd.air) bd.air = new Map();
+    bd.blocks.forEach(function (b) { if (T[b.t].kind !== "hatch") return; if (b.openT > 0) b.openT -= dt; var o = hatchNear(bd, b); if (o !== !!b.open) { b.open = o; bd.roomsDirty = true; } });
+    if (bd.roomsDirty || !bd.rooms) airRooms(bd);
+    bd.rooms.forEach(function (r) { r.air = Math.max(0, Math.min(1, r.air + (r.ok ? AIR.fill : -AIR.vent) * dt)); });
+    // Atmen: Raumluft, sobald genug da ist, sonst zieht der Anzug
+    var r = pilotRoom(bd); FL.breath = r && r.air > SUIT.breathe ? "room" : FL.out ? "jet" : "suit";
+    if (FL.breath === "room") FL.suit = Math.min(SUIT.max, FL.suit + SUIT.refill * dt);
+    else FL.suit = Math.max(0, FL.suit - dt * (1 + (FL.out && FL.eva && FL.eva.thr ? SUIT.jet : 0)));
+    if (FL.suit <= 0) {
+      FL.ko += dt;
+      if (FL.ko > 2.5) { FL.ko = 0; FL.suit = SUIT.max; FL.out = false; FL.eva = null; if (bd.seat) { FL.seated = true; var sp = seatPos(bd); FL.pilot.x = sp.x; FL.pilot.y = sp.y; } note(t("airOut")); }
+    } else FL.ko = 0;
+  }
+  // Aussteigen durch eine Luke: ab jetzt fliegt die Figur frei im Raum, mit dem Tempo des Schiffs an dieser Stelle
+  function openEdgeKind(k) { return k === "floor" || k === "door"; }
+  function exitShip(bd, lx, ly, push, mdir) {
+    pulseHatch(bd, FL.pilot.x, FL.pilot.y);
+    var w = toWorld(bd, lx, ly), rx = w.x - bd.x, ry = w.y - bd.y, P = FL.pilot, fa = P.face + bd.a, pa = mdir !== undefined ? mdir + bd.a : fa, pk = push ? 1.2 : 0.3;
+    FL.eva = { x: w.x, y: w.y, vx: bd.vx - bd.w * ry + Math.cos(pa) * pk, vy: bd.vy + bd.w * rx + Math.sin(pa) * pk, face: fa, ph: 0, thr: false };
+    FL.out = true; FL.enterCd = 0.8; FL.seated = false;
+  }
+  function enterAt(bd, cx, cy) {
+    FL.pb = bd;
+    var E = FL.eva; FL.out = false; FL.pilot.x = cx + 0.5; FL.pilot.y = cy + 0.5; FL.pilot.face = E ? E.face - bd.a : 0; FL.eva = null; FL.enterCd = 0.5;
+  }
+  // Bezugskörper draußen: eigenes Schiff oder Station, über der man schwebt bzw. die am nächsten ist
+  function evaBody() {
+    var E = FL.eva, best = FL.me, bd2 = Infinity;
+    FL.bodies.forEach(function (b) {
+      if (b !== FL.me && !b.station) return;
+      var lp = toLocal(b, E.x, E.y), d = b.map.has(key(Math.floor(lp.x), Math.floor(lp.y))) ? -1 : Math.hypot(E.x - b.x, E.y - b.y) - b.rad;
+      if (d < bd2) { bd2 = d; best = b; }
+    });
+    return best;
+  }
+  function evaTick(bd, dt) {
+    var E = FL.eva, k = FL.keys, dx = (k.d ? 1 : 0) - (k.a ? 1 : 0), dy = (k.s ? 1 : 0) - (k.w ? 1 : 0), ax = 0, ay = 0;
+    E.thr = false;
+    if (FL.suit > 0) {
+      if (dx || dy) { var l = Math.hypot(dx, dy); ax = dx / l * SUIT.acc; ay = dy / l * SUIT.acc; E.thr = true; }
+      if (k.shift) {   // Tempo an das eigene Schiff angleichen
+        var rvx = bd.vx - E.vx, rvy = bd.vy - E.vy, rl = Math.hypot(rvx, rvy);
+        if (rl > 0.05) { var a = Math.min(SUIT.acc, rl / dt); ax += rvx / rl * a; ay += rvy / rl * a; E.thr = true; }
       }
-      if (!n) continue;
-      px /= n; py /= n;
-      var nx = sm.x - bg.x, ny = sm.y - bg.y, nl = Math.hypot(nx, ny) || 1; nx /= nl; ny /= nl;   // Normale vom großen zum kleinen Körper
-      var rsx = px - sm.x, rsy = py - sm.y, rbx = px - bg.x, rby = py - bg.y;
-      var vsx = sm.vx - sm.w * rsy, vsy = sm.vy + sm.w * rsx, vbx = bg.vx - bg.w * rby, vby = bg.vy + bg.w * rbx;
-      var rvx = vsx - vbx, rvy = vsy - vby, vn = rvx * nx + rvy * ny, sp = Math.hypot(rvx, rvy);
-      if (sm.static && bg.static) continue;
-      var ims = sm.static ? 0 : 1 / sm.mass, imb = bg.static ? 0 : 1 / bg.mass, iIs = sm.static ? 0 : 1 / sm.I, iIb = bg.static ? 0 : 1 / bg.I, rsn = rsx * ny - rsy * nx, rbn = rbx * ny - rby * nx;
-      if (vn < 0) {
-        var jj = -(1 + COL.e) * vn / (ims + imb + rsn * rsn * iIs + rbn * rbn * iIb);
-        sm.vx += jj * nx * ims; sm.vy += jj * ny * ims; sm.w += rsn * jj * iIs;
-        bg.vx -= jj * nx * imb; bg.vy -= jj * ny * imb; bg.w -= rbn * jj * iIb;
-        var pk = Math.min(A.id, C.id) + ":" + Math.max(A.id, C.id);
-        if (sp > COL.dmgV && !(FL.colCd[pk] > FL.t)) {
-          FL.colCd[pk] = FL.t + 0.3;
-          var base = (sp - COL.dmgV) * COL.dmgK, mS = sm.static ? 1e6 : sm.mass, mB = bg.static ? 1e6 : bg.mass, tot = mS + mB;
-          hs.slice(0, 4).forEach(function (b) { dmg.push([sm, b, base * 2 * Math.min(1, mB / tot)]); });
-          hb.slice(0, 4).forEach(function (b) { dmg.push([bg, b, base * 2 * Math.min(1, mS / tot)]); });
-          spark(px, py, 14); FL.parts.push({ x: px, y: py, vx: 0, vy: 0, life: 0, max: 0.2, k: "flash", sz: 2 + sp * 0.05 });
-        } else if (sp > 4) spark(px, py, 3);
-      }
-      // auseinanderschieben, damit nichts ineinander stecken bleibt
-      var corr = Math.min(0.6, 0.06 * n), ws = (ims + imb) ? ims / (ims + imb) : 0.5;
-      sm.x += nx * corr * ws; sm.y += ny * corr * ws; bg.x -= nx * corr * (1 - ws); bg.y -= ny * corr * (1 - ws);
     }
-    dmg.forEach(function (d) { damage(d[0], d[1], d[2], 0, 0, true); });   // Rammen geht am Schild vorbei
+    E.vx += ax * dt; E.vy += ay * dt; E.x += E.vx * dt; E.y += E.vy * dt;
+    if (E.thr && Math.random() < dt * 30) { var al = Math.hypot(ax, ay) || 1; FL.parts.push({ x: E.x - ax / al * 0.5, y: E.y - ay / al * 0.5, vx: E.vx - ax / al * 6 + (Math.random() - 0.5), vy: E.vy - ay / al * 6 + (Math.random() - 0.5), life: 0, max: 0.35, k: "jet", sz: 0.22 }); }
+    var mw = mouseWorld();
+    if (mw) { var want = Math.atan2(mw.y - E.y, mw.x - E.x), d = Math.atan2(Math.sin(want - E.face), Math.cos(want - E.face)); E.face += d * Math.min(1, dt * 10); }
+    E.ph += E.thr ? dt * 4 : 0;
+    // Schweißen draußen: Punkt vor der Figur im Schiffsraster
+    FL.welding = false; FL.weldB = null; FL.weldG = null;
+    if (FL.fire && FL.slot === 1) { FL.welding = true; var tp = toLocal(bd, E.x + Math.cos(E.face) * 1.6, E.y + Math.sin(E.face) * 1.6); weldAt(bd, tp.x, tp.y, dt); }
+    // Zurück ins Schiff über eine Luke
+    FL.enterCd = Math.max(0, FL.enterCd - dt);
+    var lp = toLocal(bd, E.x, E.y), o = bd.map.get(key(Math.floor(lp.x), Math.floor(lp.y)));
+    // Offenes Schiff: über eine Bodenzelle am offenen Rand schweben, dann steigt man direkt wieder ein
+    if (o && openEdgeKind(T[o.b.t].kind) && FL.enterCd <= 0) {
+      var cx0 = Math.floor(lp.x), cy0 = Math.floor(lp.y), edge = false;
+      for (var dd = 0; dd < 4; dd++) if (!bd.map.has(key(cx0 + DV[dd][0], cy0 + DV[dd][1]))) edge = true;
+      if (edge) enterAt(bd, cx0, cy0);
+    }
+  }
+  // Schweißgerät: repariert Blöcke (15 HP/s) und baut zerstörte Blöcke an ihrer alten Stelle wieder auf
+  function lostAt(bd, x, y) {
+    var cx = Math.floor(x), cy = Math.floor(y);
+    for (var i = 0; i < bd.lost.length; i++) { var g = bd.lost[i]; if (cellsOf(g).some(function (q) { return q.c[0] === cx && q.c[1] === cy; })) return g; }
+    return null;
+  }
+  function canRebuild(bd, g) { return cellsOf(g).every(function (q) { return !bd.map.has(key(q.c[0], q.c[1])); }) && linked(bd.map, g).length > 0; }
+  function weldAt(bd, lx, ly, dt) {
+    var o = bd.map.get(key(Math.floor(lx), Math.floor(ly))), spark = false;
+    if (o) { var mx = hpMax(bd, o.b); FL.weldB = o.b; if (o.b.hp < mx) { o.b.hp = Math.min(mx, o.b.hp + WELD * dt); spark = true; } }
+    else if (bd.lost) {
+      var g = lostAt(bd, lx, ly);
+      if (g) {
+        FL.weldG = g; FL.weldOk = canRebuild(bd, g);
+        if (FL.weldOk) {
+          var nb = { t: g.t, x: g.x, y: g.y, r: g.r, f: g.f, c: g.c, hp: WELD * dt };
+          bd.lost.splice(bd.lost.indexOf(g), 1); bd.blocks.push(nb); recalc(bd); FL.weldB = nb; FL.weldG = null; spark = true;
+        }
+      }
+    }
+    if (spark && Math.random() < dt * 40) { var wp = toWorld(bd, lx, ly), a = Math.random() * 6.28, v = 3 + Math.random() * 6; FL.parts.push({ x: wp.x, y: wp.y, vx: bd.vx + Math.cos(a) * v, vy: bd.vy + Math.sin(a) * v, life: 0, max: 0.15 + Math.random() * 0.2, k: "weld", sz: 0.25 }); }
   }
   // ---------- zu Fuß im Schiff ----------
   function localPt(b, lx, ly) {
@@ -1461,274 +1758,8 @@
     var p = seatPos(me); if (Math.hypot(p.x - FL.pilot.x, p.y - FL.pilot.y) > 1.5) { note(t("tooFar")); return; }
     FL.seated = true;
   }
-  function dirAngle(b) { var d = dirOut(b, 2); return Math.atan2(DV[d][1], DV[d][0]); }
-  function control(bd, dt, input) {
-    var k = FL.keys, ca = Math.cos(bd.a), sa = Math.sin(bd.a);
-    var vl = { x: bd.vx * ca + bd.vy * sa, y: -bd.vx * sa + bd.vy * ca };    // Tempo im Schiffsrahmen (−y = vorne)
-    var inX = input ? (k.d ? 1 : 0) - (k.a ? 1 : 0) : 0, inY = input ? (k.s ? 1 : 0) - (k.w ? 1 : 0) : 0;
-    var acc = { x: 0, y: 0 }, use = 0, thr = bd.thr, m = bd.mass;
-    // Triebwerke sind träge: nach 0,2 s halbe, nach 1 s volle Leistung; Overcharge +50 % Schub und Verbrauch
-    var sp = bd.spool || (bd.spool = [0, 0, 0, 0]), cmd = [0, 0, 0, 0], oc = FL.oc ? 1.5 : 1;
-    function spoolK(x) { return x < 0.2 ? x * 2.5 : 0.5 + 0.5 * Math.min(1, (x - 0.2) / 0.8); }
-    function axis(inp, v, posD, negD, comp) {   // posD: Richtung mit Schub in +Achse
-      var want = 0, d = -1;
-      if (inp > 0) { d = posD; want = 1; }
-      else if (inp < 0) { d = negD; want = 1; }
-      else if (FL.damp && Math.abs(v) > 0.02 && !(FL.cruise && comp === "y")) {   // Dämpfer: gegensteuern bis Stillstand; im Cruise-Modus nur noch seitlich
-        d = v > 0 ? negD : posD; var need = Math.abs(v) * m / dt; want = thr[d] ? Math.min(1, need / (thr[d] * oc * (bd.player ? 1 + PM.brake + (d === 1 || d === 3 ? PM.side : 0) : 1))) : 0;
-      }
-      if (d < 0 || !thr[d] || !want) return;
-      cmd[d] = want;
-      var sign = (d === posD) ? 1 : -1, pk = 1;
-      if (bd.player) { if (d === 1 || d === 3) pk += PM.side; if (sign * v < 0) pk += PM.brake; }   // Perks: Seitenschub, Bremsschub
-      var eff = want * spoolK(sp[d]), F = thr[d] * oc * eff * pk, a = F / m;
-      if (inp === 0) a = Math.min(a, Math.abs(v) / dt);
-      acc[comp] += sign * a; use += eff * oc * useOf(bd, d) * dt; bd.flames[d] = Math.max(bd.flames[d] || 0, eff);
-    }
-    axis(inX, vl.x, 1, 3, "x"); axis(inY, vl.y, 2, 0, "y");
-    for (var di = 0; di < 4; di++) sp[di] = cmd[di] ? Math.min(1, sp[di] + dt) : Math.max(0, sp[di] - dt * 2.5);
-    // Energie reicht nicht: Schub anteilig kürzen
-    var scale = 1; if (use > bd.energy) { scale = bd.energy > 0 ? bd.energy / use : 0; }
-    bd.energy = Math.max(0, bd.energy - use * scale);
-    acc.x *= scale; acc.y *= scale; for (var fk in bd.flames) bd.flames[fk] *= scale;
-    vl.x += acc.x * dt; vl.y += acc.y * dt;
-    bd.vx = vl.x * ca - vl.y * sa; bd.vy = vl.x * sa + vl.y * ca;
-    // Drehen nur mit Gyroskop; ohne Eingabe stabilisiert es die Drehung
-    if (bd.torque > 0 && bd.energy > 0) {
-      var target = input ? ((k.e ? 1 : 0) - (k.q ? 1 : 0)) * 2.4 : 0;
-      var al = bd.torque / bd.I, dw = target - bd.w, step = Math.sign(dw) * Math.min(Math.abs(dw), al * dt);
-      bd.w += step; if (Math.abs(step) > 1e-4) bd.energy = Math.max(0, bd.energy - 3 * dt * Math.min(1, Math.abs(dw)));
-    }
-    FL.mdx *= Math.pow(0.0005, dt);
-    // Waffen
-    weapons(bd, dt, input ? FL.groups[FL.wsel] : null, FL.fire, null);
-  }
-  // Waffen einer Gruppe abfeuern (Spieler und KI nutzen dieselben Regeln)
-  function weapons(bd, dt, g, firing, aim) {
-    // Mehrere Miniguns setzen versetzt ein: zu Beginn einer Salve bekommt jede einen eigenen Takt-Versatz
-    if (firing && g === "mg" && !bd.mgWas) {
-      var mgs = bd.blocks.filter(function (b) { return T[b.t].kind === "mg"; }), per = 1 / (MG.rate * (bd.player ? 1 + PM.mgRate : 1));
-      mgs.forEach(function (b, i) { b.cool2 = Math.max(b.cool2 || 0, (i / mgs.length) * per + Math.random() * per * 0.15); });
-    }
-    if (g === "mg" || !firing) bd.mgWas = firing && g === "mg";
-    if (firing && g === "mg") bd.blocks.forEach(function (b) {
-      if (T[b.t].kind !== "mg" || b.oh > 0) return;
-      b.firing = true; b.cool2 = (b.cool2 || 0) - dt;
-      if (b.cool2 > 0) return;
-      if (bd.energy < MG.e) return;
-      b.cool2 = 1 / (MG.rate * (bd.player ? 1 + PM.mgRate : 1)); bd.energy -= MG.e;
-      var d = gunDir(bd, b), f = fp(b), tip = gunTip(bd, b);
-      FL.shots.push({ x: tip.x, y: tip.y, vx: bd.vx + d.x * MG.speed + (Math.random() - 0.5) * 6, vy: bd.vy + d.y * MG.speed + (Math.random() - 0.5) * 6, life: 0, own: bd });
-      FL.parts.push({ x: tip.x, y: tip.y, vx: bd.vx, vy: bd.vy, life: 0, max: 0.06, k: "flash", sz: 1.4 });
-      var cn2 = (bd.cool && bd.cool.get(b)) || 0;
-      b.heat = (b.heat || 0) + MG.heat / (1 + 0.35 * cn2) * (bd === FL.me && FL.oc ? 0.75 : 1);   // Overcharge: 25 % langsamer heiß
-      if (b.heat >= 1) { b.heat = 1; b.oh = b.ohMax = MG.lock / (1 + 0.3 * cn2); for (var i = 0; i < 10; i++) FL.parts.push({ x: tip.x, y: tip.y, vx: bd.vx + (Math.random() - 0.5) * 6, vy: bd.vy + (Math.random() - 0.5) * 6, life: 0, max: 1 + Math.random(), k: "smoke", sz: 1 + Math.random() }); }
-    });
-    // Raketen: je Werfer 2 Schuss, abgefeuert wird nacheinander aus irgendeinem Werfer mit Munition.
-    // Erst wenn alle leer sind, laden alle gemeinsam nach: 2,5 s je Werfer.
-    bd.msCd = Math.max(0, (bd.msCd || 0) - dt);
-    if (firing && g === "ms" && !(bd.msRl > 0) && bd.msCd <= 0 && bd.energy >= MS.e) {
-      var ls = bd.blocks.filter(function (b) { return T[b.t].kind === "ms" && b.ammo > 0; });
-      if (ls.length) {
-        var lb = ls[(bd.msTurn = ((bd.msTurn || 0) + 1)) % ls.length];
-        lb.ammo--; bd.energy -= MS.e; bd.msCd = MS.gap;
-        var d = dirWorld(bd, dirOut(lb, 0)), tip = muzzle(bd, lb), side = lb.ammo === 1 ? 0.22 : -0.22, nx = -d.y * side * CELL_M, ny = d.x * side * CELL_M;
-        FL.missiles.push({ x: tip.x + nx, y: tip.y + ny, vx: bd.vx + d.x * MS.v0, vy: bd.vy + d.y * MS.v0, h: Math.atan2(d.y, d.x), life: 0, own: bd, aim: aim || null });
-        var left = bd.blocks.reduce(function (a, b) { return a + (T[b.t].kind === "ms" ? b.ammo : 0); }, 0);
-        if (!left) bd.msRl = bd.msRlMax = MS.reload * bd.blocks.filter(function (b) { return T[b.t].kind === "ms"; }).length / (bd.player ? 1 + PM.msRl : 1);
-      }
-    }
-    if (firing && g === "rg") bd.blocks.forEach(function (b) {
-      if (T[b.t].kind !== "rg" || b.cd > 0) return;
-      b.holding = true;
-      if (bd.energy < RG.e && !b.chg) return;
-      b.chg = (b.chg || 0) + dt;
-      if (b.chg >= RG.charge) { b.chg = 0; b.cd = RG.cd; bd.energy = Math.max(0, bd.energy - RG.e); fireRail(bd, b); }
-    });
-    }
-  function useOf(bd, d) { var u = 0; bd.blocks.forEach(function (b) { var ty = T[b.t]; if (ty.kind === "thr" && thrustDir(b) === d) u += ty.use; }); return u; }
-  // Zielcomputer: Minigun und Railgun schwenken bis 15° zur Zielrichtung (Maus beim Spieler, Vorhaltepunkt bei der KI)
-  var TURRET = { max: 15 * Math.PI / 180, rate: 2.6 };
-  function gunMount(bd, b) { var d = dirOut(b, 0), f = fp(b), h = T[b.t].h; return { lx: b.x + f[0] / 2 - DV[d][0] * h / 2, ly: b.y + f[1] / 2 - DV[d][1] * h / 2 }; }
-  function turretTick(bd, dt, aim) {
-    bd.blocks.forEach(function (b) {
-      var k = T[b.t].kind; if (k !== "mg" && k !== "rg") return;
-      var want = 0;
-      if (bd.tcomp && aim) {
-        var m = gunMount(bd, b), mw = toWorld(bd, m.lx, m.ly), d = dirWorld(bd, dirOut(b, 0));
-        want = Math.max(-TURRET.max, Math.min(TURRET.max, angDiff(Math.atan2(aim.y - mw.y, aim.x - mw.x), Math.atan2(d.y, d.x))));
-      }
-      var cur = b.tw || 0, st = TURRET.rate * dt; b.tw = cur + Math.max(-st, Math.min(st, want - cur));
-    });
-  }
-  function gunDir(bd, b) { var d = dirWorld(bd, dirOut(b, 0)), a = b.tw || 0; if (!a) return d; var ca = Math.cos(a), sa = Math.sin(a); return { x: d.x * ca - d.y * sa, y: d.x * sa + d.y * ca }; }
-  function gunTip(bd, b) {
-    if (!b.tw) return muzzle(bd, b);
-    var m = gunMount(bd, b), mw = toWorld(bd, m.lx, m.ly), d = gunDir(bd, b), L = (T[b.t].h + 0.1) * CELL_M;
-    return { x: mw.x + d.x * L, y: mw.y + d.y * L };
-  }
-  function muzzle(bd, b) {
-    var ty = T[b.t], d = dirOut(b, 0), f = fp(b), cx = b.x + f[0] / 2 + DV[d][0] * (ty.h / 2 + 0.1), cy = b.y + f[1] / 2 + DV[d][1] * (ty.h / 2 + 0.1);
-    return toWorld(bd, cx, cy);
-  }
-  function fireRail(bd, b) {
-    var d = gunDir(bd, b), p = gunTip(bd, b), left = RG.dmg, end = { x: p.x + d.x * RG.range, y: p.y + d.y * RG.range }, hits = 0, lastB = null;
-    for (var s = 0; s < RG.range; s += 0.8) {
-      var x = p.x + d.x * s, y = p.y + d.y * s, h = hitAt(x, y, bd);
-      if (h && h.b !== lastB) { lastB = h.b; if (bd === FL.me) hitMark(x, y, h.bd); damage(h.bd, h.b, left, x, y); spark(x, y, 10); left *= 0.55; hits++; if (hits >= 3) { end = { x: x, y: y }; break; } }
-    }
-    FL.beams.push({ x0: p.x, y0: p.y, x1: end.x, y1: end.y, life: 0 });
-  }
-  function mouseWorld() {
-    if (!V.mouse) return null; var ppm = PX * V.zoom / CELL_M;
-    return { x: FL.cam.x + (V.mouse.sx - V.W / 2) / ppm, y: FL.cam.y + (V.mouse.sy - V.H / 2) / ppm };
-  }
-  // Flächenschaden um einen Punkt (Raketen, explodierende Triebwerke und Reaktoren)
-  function blast(x, y, r, dmg, skip, ns) {
-    FL.parts.push({ x: x, y: y, vx: 0, vy: 0, life: 0, max: 0.22, k: "flash", sz: r * 1.3 });
-    for (var i = 0; i < 10; i++) FL.parts.push({ x: x, y: y, vx: (Math.random() - 0.5) * 14, vy: (Math.random() - 0.5) * 14, life: 0, max: 0.35 + Math.random() * 0.35, k: "fire", sz: 0.8 + Math.random() * r * 0.4 });
-    var hits = [];
-    FL.bodies.forEach(function (bd) {
-      if (bd === skip || Math.abs(x - bd.x) > bd.rad + r || Math.abs(y - bd.y) > bd.rad + r) return;
-      bd.blocks.forEach(function (b) { var p = blockCenter(bd, b), d = Math.hypot(p.x - x, p.y - y); if (d < r) hits.push({ bd: bd, b: b, dmg: dmg * (1 - d / r * 0.7) }); });
-    });
-    hits.forEach(function (h) { var hp2 = blockCenter(h.bd, h.b); damage(h.bd, h.b, h.dmg, hp2.x, hp2.y, ns); });
-  }
-  function hitAt(x, y, own, noFloor) {
-    for (var i = 0; i < FL.bodies.length; i++) {
-      var bd = FL.bodies[i]; if (bd === own) continue;
-      if (Math.abs(x - bd.x) > bd.rad || Math.abs(y - bd.y) > bd.rad) continue;
-      var l = toLocal(bd, x, y), o = bd.map.get(key(Math.floor(l.x), Math.floor(l.y)));
-      if (o && !(noFloor && T[o.b.t].kind === "floor")) return { bd: bd, b: o.b };   // Pistolenkugeln fliegen über Böden hinweg
-    }
-    return null;
-  }
-  function spark(x, y, n) { for (var i = 0; i < n; i++) { var a = Math.random() * 6.28, v = 8 + Math.random() * 18; FL.parts.push({ x: x, y: y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: 0, max: 0.2 + Math.random() * 0.25, k: "spark", sz: 0.4 }); } }
-  // Schaden: bei 0 Leben fällt der Block weg, lose Teile treiben als eigene Trümmer davon
-  // Schild: fängt Treffer ab, solange Schildenergie da ist und mindestens ein Generator arbeitet. Kosten je Schadenspunkt sinken mit mehr Generatoren.
-  function shieldAbsorb(bd, b, dmg, x, y) {
-    if (!(bd.shE > 0) || !bd.shGen) return dmg;
-    var cost = dmg * bd.shEff, p = (x || y) ? { x: x, y: y } : blockCenter(bd, b);
-    if (bd.shE >= cost) { bd.shE -= cost; shieldHit(bd, p.x, p.y); return 0; }
-    var left = dmg - bd.shE / bd.shEff; bd.shE = 0; shieldHit(bd, p.x, p.y); return left;
-  }
-  function shieldHit(bd, x, y) {
-    var l = toLocal(bd, x, y); FL.shHits.push({ bd: bd, lx: l.x, ly: l.y, x: x, y: y, t: FL.t });
-    if (FL.shHits.length > 50) FL.shHits.shift();
-  }
-  function damage(bd, b, dmg, x, y, ns) {
-    if (FL.bodies.indexOf(bd) < 0 || bd.blocks.indexOf(b) < 0) return;   // schon zerstört (Kettenreaktion)
-    if (!ns) { dmg = shieldAbsorb(bd, b, dmg, x, y); if (dmg <= 0) return; }
-    b.hp -= dmg;
-    if (b.hp > 0) return;
-    var p = blockCenter(bd, b), col = b.c || T[b.t].col;
-    for (var i = 0; i < 8; i++) { var a = Math.random() * 6.28, v = 4 + Math.random() * 10; FL.parts.push({ x: p.x, y: p.y, vx: bd.vx + Math.cos(a) * v, vy: bd.vy + Math.sin(a) * v, life: 0, max: 1.5 + Math.random(), k: "debris", sz: 0.5 + Math.random() * 0.7, col: col, a: Math.random() * 6, w: (Math.random() - 0.5) * 10 }); }
-    for (i = 0; i < 6; i++) FL.parts.push({ x: p.x, y: p.y, vx: bd.vx + (Math.random() - 0.5) * 8, vy: bd.vy + (Math.random() - 0.5) * 8, life: 0, max: 0.35 + Math.random() * 0.3, k: "fire", sz: 1.2 + Math.random() });
-    FL.parts.push({ x: p.x, y: p.y, vx: bd.vx, vy: bd.vy, life: 0, max: 0.18, k: "flash", sz: 4 });
-    bd.blocks.splice(bd.blocks.indexOf(b), 1);
-    if (bd === FL.me && bd.lost) bd.lost.push(strip(b));
-    if (!bd.blocks.length) FL.bodies.splice(FL.bodies.indexOf(bd), 1); else splitBody(bd);
-    // Triebwerke und Reaktoren explodieren und beschädigen, was direkt drumherum liegt
-    var kd = T[b.t].kind;
-    if (kd === "reac") blast(p.x, p.y, 3.2 * CELL_M, 85, null, true);
-    else if (kd === "thr") blast(p.x, p.y, (T[b.t].w > 1 ? 2.4 : 1.8) * CELL_M, T[b.t].w > 1 ? 60 : 40, null, true);
-  }
-  function splitBody(bd) {
-    var comps = components(bd.blocks);
-    if (comps.length <= 1) { recalc(bd); return; }
-    var keep = comps.reduce(function (a, c) { return mainScore(c) > mainScore(a) ? c : a; });
-    comps.forEach(function (cp) {
-      if (cp === keep) return;
-      if (bd === FL.me && bd.lost) cp.forEach(function (b) { bd.lost.push(strip(b)); });
-      var nb = { blocks: cp, x: 0, y: 0, a: bd.a, vx: bd.vx, vy: bd.vy, w: bd.w + (Math.random() - 0.5) * 0.8, ctrl: false, energy: 0, cap: 0, flames: {} };
-      var st = stats(cp), c = toWorld(bd, st.com[0], st.com[1]);
-      recalc(nb, true); nb.x = c.x; nb.y = c.y;
-      var rx = c.x - bd.x, ry = c.y - bd.y, l = Math.hypot(rx, ry) || 1;
-      nb.vx += -bd.w * ry + rx / l * (2 + Math.random() * 3); nb.vy += bd.w * rx + ry / l * (2 + Math.random() * 3);
-      FL.bodies.push(nb);
-    });
-    bd.blocks = keep; recalc(bd);
-    if (bd === FL.me && !bd.seat && FL.seated) { FL.seated = false; var sp = seatPos(bd); FL.pilot.x = sp.x; FL.pilot.y = sp.y; }
-  }
-
-  // Schweif der Vortriebsdüsen (Schub nach vorne): Punkte bleiben im Raum stehen und verblassen, so sieht man die eigene Bahn
-  var TRAIL = { life: 1.8, step: 0.04, alpha: 0.17 };
-  function trailTick() {
-    FL.bodies.forEach(function (bd) {
-      bd.blocks.forEach(function (b) {
-        var ty = T[b.t]; if (ty.kind !== "thr" || thrustDir(b) !== 0) return;
-        // Schweif auch im Gleitflug, solange das Schiff fliegt; mit Schub heller
-        var tr = b.trail || (b.trail = []), sp = Math.hypot(bd.vx, bd.vy), fk = Math.max(bd.flames[0] || 0, sp > 2 ? Math.min(0.45, sp / 40) : 0);
-        while (tr.length && (tr[0] === null || FL.t - tr[0].t > TRAIL.life)) tr.shift();
-        if (fk < 0.05) { if (tr.length && tr[tr.length - 1] !== null) tr.push(null); return; }
-        var last = tr[tr.length - 1]; if (last && FL.t - last.t < TRAIL.step) return;
-        var f = fp(b), p = toWorld(bd, b.x + f[0] / 2 + DV[2][0] * ty.h / 2, b.y + f[1] / 2 + DV[2][1] * ty.h / 2);
-        tr.push({ x: p.x, y: p.y, t: FL.t, k: fk, w: ty.w * CELL_M * 0.32 });
-      });
-    });
-  }
-  function drawTrails(c) {
-    c.lineCap = "butt";
-    FL.bodies.forEach(function (bd) {
-      bd.blocks.forEach(function (b) {
-        var tr = b.trail; if (!tr || tr.length < 2) return;
-        for (var i = 1; i < tr.length; i++) {
-          var a = tr[i - 1], q = tr[i]; if (!a || !q) continue;
-          var age = (FL.t - q.t) / TRAIL.life; if (age >= 1) continue;
-          c.strokeStyle = "rgba(150,200,255," + (TRAIL.alpha * (1 - age) * Math.min(1, q.k * 1.4)) + ")"; c.lineWidth = q.w * (1 - age * 0.6);
-          c.beginPath(); c.moveTo(a.x, a.y); c.lineTo(q.x, q.y); c.stroke();
-        }
-      });
-    });
-    c.lineCap = "butt";
-  }
-  // Staub für das Tempogefühl: eine Schicht auf Höhe der Schiffe (Parallaxe 1) und sehr wenige große, weiche Körner
-  // zwischen Schiff und Kamera (Parallaxe 2,2), die am schnellsten vorbeiziehen. Mit Tempo werden sie zu kurzen Bewegungsstreifen.
-  var DUST = {
-    near: { f: 1, tile: 60, n: 6, prob: 1, size: 0.22, minPx: 1, maxPx: 2.2, alpha: 0.32, col: "205,212,226", seed: 11 },
-    front: { f: 2.2, tile: 55, n: 1, prob: 0.45, size: 0.5, minPx: 2, maxPx: 5, alpha: 0.16, col: "220,226,236", seed: 37 }
-  };
-  function dHash(x, y, i, sd) { var v = Math.sin(x * 127.1 + y * 311.7 + i * 74.7 + sd * 19.3) * 43758.5453; return v - Math.floor(v); }
-  function drawDust(c, W, H, ppm, L) {
-    var sc = ppm * L.f, cx = FL.cam.x, cy = FL.cam.y, hw = W / 2 / sc, hh = H / 2 / sc;
-    var src = FL.out && FL.eva ? FL.eva : FL.me, vx = src.vx || 0, vy = src.vy || 0, vs = Math.hypot(vx, vy);
-    var fade = L.f === 1 ? Math.min(1, ppm / 4) : 1; if (fade <= 0.05) return;
-    // Streifen: Belichtungszeit 35 ms, begrenzt auf 140 px, erst ab spürbarem Tempo
-    var sl = Math.min(140, vs * sc * 0.035), sx = vs > 0 ? -vx / vs * sl : 0, sy = vs > 0 ? -vy / vs * sl : 0, streak = sl > 1.5;
-    var px = Math.max(L.minPx, Math.min(L.maxPx, L.size * sc)), x0 = Math.floor((cx - hw) / L.tile) - 1, x1 = Math.floor((cx + hw) / L.tile) + 1, y0 = Math.floor((cy - hh) / L.tile) - 1, y1 = Math.floor((cy + hh) / L.tile) + 1;
-    if ((x1 - x0) * (y1 - y0) > 900) return;
-    var a = L.alpha * fade * (streak ? Math.max(0.55, 1 - sl / 300) : 1);
-    c.save();
-    c.strokeStyle = "rgba(" + L.col + "," + a + ")"; c.fillStyle = c.strokeStyle; c.lineWidth = px; c.lineCap = "round";
-    if (streak) c.beginPath();
-    for (var ix = x0; ix <= x1; ix++) for (var iy = y0; iy <= y1; iy++) for (var i = 0; i < L.n; i++) {
-      if (L.prob < 1 && dHash(ix, iy, i + 7, L.seed) > L.prob) continue;
-      var ux = (ix + dHash(ix, iy, i, L.seed)) * L.tile, uy = (iy + dHash(ix, iy, i + 3, L.seed)) * L.tile;
-      var X = W / 2 + (ux - cx) * sc, Y = H / 2 + (uy - cy) * sc;
-      if (X < -sl - 10 || X > W + sl + 10 || Y < -sl - 10 || Y > H + sl + 10) continue;
-      if (streak) { c.moveTo(X, Y); c.lineTo(X + sx, Y + sy); } else c.fillRect(X - px / 2, Y - px / 2, px, px);
-    }
-    if (streak) c.stroke();
-    c.restore();
-  }
-  // Eintritt in hohe Geschwindigkeit: kaum spürbares Wackeln (max. 2 px) und kurze chromatische Aberration (SVG-Filter auf dem Canvas)
-  function fxPre(ppm, tm) {
-    var dt = FL.fxT ? Math.min(0.05, tm - FL.fxT) : 0; FL.fxT = tm;
-    var off = { x: 0, y: 0 };
-    if (FL.shake > 0) { FL.shake -= dt; var a = 2 * Math.max(0, FL.shake / 0.7); off.x = (Math.sin(tm * 53) + Math.sin(tm * 31.7)) * 0.5 * a / ppm; off.y = (Math.sin(tm * 47.3) + Math.cos(tm * 29.1)) * 0.5 * a / ppm; }
-    var f = V.root.querySelector("#srCAo1");
-    if (FL.ca > 0 && f) {
-      FL.ca -= dt; var k = Math.max(0, FL.ca / 0.5), me = FL.me, sp = Math.hypot(me.vx, me.vy) || 1, d = 3.2 * k;
-      var dx = (me.vx / sp) * d, dy = (me.vy / sp) * d;
-      f.setAttribute("dx", dx.toFixed(2)); f.setAttribute("dy", dy.toFixed(2));
-      var f2 = V.root.querySelector("#srCAo2"); f2.setAttribute("dx", (-dx).toFixed(2)); f2.setAttribute("dy", (-dy).toFixed(2));
-      if (!V.caOn) { V.cv.style.filter = "url(#srCA)"; V.caOn = true; }
-    } else if (V.caOn) { V.cv.style.filter = ""; V.caOn = false; }
-    return off;
-  }
   // ---------- Werkzeugleiste zu Fuß (1–9) ----------
   // 1 Schweißgerät, 2 Pistole (Einzelschuss, 50 % des Minigun-Schadens), 3–9 frei
-  var PISTOL = { dmg: MG.dmg * 0.5, speed: MG.speed, cd: 0.22 };
   var HOT = [
     { n: L2("Schweißgerät", "Welder"), ic: '<svg viewBox="0 0 24 24"><path d="M4 17l7-7 3 3-7 7H4z" fill="#9AA5B1"/><path d="M14 13l3-3" stroke="#D5DADF" stroke-width="2"/><circle cx="18.5" cy="8.5" r="2.4" fill="#8EE0FF"/><path d="M18.5 3v2M22 8.5h-2M21 4.5l-1.4 1.4" stroke="#8EE0FF" stroke-width="1.4"/></svg>' },
     { n: L2("Pistole", "Pistol"), ic: '<svg viewBox="0 0 24 24"><path d="M3 8h15l2 2v2H11l-1 2h-2l-1 5H4l1-6H3z" fill="#9AA5B1"/><path d="M18 9h3" stroke="#D5DADF" stroke-width="2"/></svg>' }
@@ -1762,7 +1793,6 @@
   }
   // ---------- Charakter-Inventar ----------
   // 8×8 leere Plätze wie in Survival-Spielen; Gegenstände folgen in einem späteren Update
-  var INV = { w: 8, h: 8 };
   function openInv() {
     if (!FL) return; var el = V.root.querySelector(".sr-inv"); el.hidden = false;
     var g = el.querySelector(".sr-inv-grid"); if (!g.childElementCount) { var h = ""; for (var i = 0; i < INV.w * INV.h; i++) h += '<i class="sr-slot"></i>'; g.innerHTML = h; }
@@ -1770,38 +1800,10 @@
   }
   function closeInv() { if (!V) return; V.root.querySelector(".sr-inv").hidden = true; }
   function invOpen() { var el = V && V.root.querySelector(".sr-inv"); return !!(el && !el.hidden); }
-  // ---------- Zielcomputer: Zielerfassung und Vorhaltepunkt ----------
-  // Erfasst wird das Gegnerschiff, das dem Mauszeiger am nächsten ist. Der kleine Kreis zeigt, wohin man zielen muss, damit
-  // Minigun-Geschosse das Ziel bei gleichbleibender Bewegung treffen (Abfangpunkt aus Relativtempo und Geschossgeschwindigkeit).
-  function leadPoint(me, tg) {
-    var rx = tg.x - me.x, ry = tg.y - me.y, vx = tg.vx - me.vx, vy = tg.vy - me.vy, s2 = MG.speed * MG.speed;
-    var a = vx * vx + vy * vy - s2, b = 2 * (rx * vx + ry * vy), c2 = rx * rx + ry * ry, tt;
-    if (Math.abs(a) < 1e-6) tt = -c2 / b; else { var disc = b * b - 4 * a * c2; if (disc < 0) return null; var sq = Math.sqrt(disc), t1 = (-b - sq) / (2 * a), t2 = (-b + sq) / (2 * a); tt = Math.min(t1, t2) > 0 ? Math.min(t1, t2) : Math.max(t1, t2); }
-    if (!(tt > 0) || tt > MG.life) return null;
-    return { x: tg.x + vx * tt, y: tg.y + vy * tt, t: tt };
-  }
-  function drawLead(c, ppm, tm) {
-    var me = FL.me; FL.tgt = null;
-    if (!me.tcomp || !FL.seated || FL.bodies.indexOf(me) < 0) return;
-    var mw = mouseWorld(); if (!mw) return;
-    var best = null, bd2 = 1e18;
-    FL.bodies.forEach(function (bd) { if (!bd.enemy || bd.dead) return; var d = Math.hypot(bd.x - mw.x, bd.y - mw.y); if (d < bd2) { bd2 = d; best = bd; } });
-    if (!best) return; FL.tgt = best;
-    // Erfassungsklammern
-    var r = best.rad * 0.55, L = Math.max(r * 0.3, 6 / ppm);
-    c.strokeStyle = "rgba(255,90,70,.85)"; c.lineWidth = 1.6 / ppm; c.beginPath();
-    [[-1, -1], [1, -1], [1, 1], [-1, 1]].forEach(function (q) { var x0 = best.x + q[0] * r, y0 = best.y + q[1] * r; c.moveTo(x0, y0 - q[1] * L); c.lineTo(x0, y0); c.lineTo(x0 - q[0] * L, y0); });
-    c.stroke();
-    var lp = leadPoint(me, best); if (!lp) return;
-    var rr = Math.max(1.4, 6 / ppm);
-    c.strokeStyle = "rgba(255,120,100,.35)"; c.lineWidth = 1 / ppm; c.setLineDash([4 / ppm, 4 / ppm]); c.beginPath(); c.moveTo(best.x, best.y); c.lineTo(lp.x, lp.y); c.stroke(); c.setLineDash([]);
-    c.strokeStyle = "rgba(255,235,225,.95)"; c.lineWidth = 1.6 / ppm; c.beginPath(); c.arc(lp.x, lp.y, rr, 0, Math.PI * 2); c.stroke();
-    c.fillStyle = "rgba(255,90,70,.95)"; c.beginPath(); c.arc(lp.x, lp.y, rr * 0.25, 0, Math.PI * 2); c.fill();
-  }
+  // ===== 55-andocken.js · Andocken: Dock-Paare finden, Autopilot, Türen, Effekte =====
   // ---------- Andocken ----------
   // Zwei gleich große Docks, Ringe zueinander, Abstand unter einem Block: P startet den Autopiloten, der langsam und sicher ankoppelt.
   // Docks haben eine um 10 % verkleinerte Hitbox, und zwischen dem Paar gibt es keine Kollision, damit nichts klemmt.
-  var DOCK = { range: CELL_M * 1.0 + 0.4, gap: CELL_M * 0.1, v: 1.4, w: 0.45 };
   function dockFace(bd, b) {
     var f = fp(b), d = dirOut(b, 0), lx = b.x + f[0] / 2 + DV[d][0] * f[0] / 2, ly = b.y + f[1] / 2 + DV[d][1] * f[1] / 2;
     var p = toWorld(bd, lx, ly), ca = Math.cos(bd.a), sa = Math.sin(bd.a);
@@ -1881,31 +1883,77 @@
     var tw = c.measureText(txt).width; c.fillStyle = "rgba(14,19,28,.75)"; c.fillRect(fa.x - tw / 2 - 6 / ppm, fa.y - 9 / ppm - 20 / ppm, tw + 12 / ppm, 18 / ppm);
     c.fillStyle = FL.dock && FL.dock.done ? "#9FE3BD" : "#F2C14E"; c.fillText(txt, fa.x, fa.y - 20 / ppm); c.restore();
   }
-  // Spieltipps: außerhalb von Kämpfen alle 60 s ein zufälliger Tipp für 5 s, unten in der Mitte, per Klick wegklickbar
-  var TIPS = {
-    de: ["Seitliche Triebwerke können die Wendigkeit deines Schiffs stark verbessern.", "Overcharge (X) erhöht kurzzeitig deine Triebwerksleistung und die Kühlleistung der Miniguns.", "Mehrere Batterien erhöhen deine Energiekapazität, aber Batterien sind auch sehr schwer.", "Baue einen Zielcomputer ein, damit sich deine Waffen beim Zielen auf den Feind ausrichten können.", "Antennen warnen dich vor feindlichen Schiffen.", "Behalte deine Geschwindigkeit im Auge.", "Ordentliche Bremstriebwerke können dir das Leben retten.", "Die Beschleunigungstriebwerke sind im Kampf am unwichtigsten.", "Wenn du deine Triebwerke benutzt, wirst du von gegnerischen Schiffen schneller entdeckt."],
-    en: ["Side thrusters can greatly improve your ship's agility.", "Overcharge (X) briefly boosts your thruster output and the cooling of your miniguns.", "More batteries raise your energy capacity, but batteries are also very heavy.", "Install a targeting computer so your weapons can swivel towards the enemy as you aim.", "Antennas warn you about enemy ships.", "Keep an eye on your speed.", "Good braking thrusters can save your life.", "Forward thrusters matter least in combat.", "Using your thrusters makes enemy ships spot you sooner."]
-  };
-  var TIP = { every: 60, show: 5 };
-  function inCombat() {
-    var me = FL.me, rg = antRange(me), mv = minView();
-    return FL.bodies.some(function (bd) {
-      if (!bd.enemy || bd.dead || bd.disarmed) return false;
-      if (Math.abs(bd.x - me.x) < mv.hw + bd.rad && Math.abs(bd.y - me.y) < mv.hh + bd.rad) return true;   // im ganz herausgezoomten Bild
-      return rg > 0 && Math.hypot(bd.x - me.x, bd.y - me.y) < rg;   // im Antennenradar
+  // ===== 60-zeichnen-flug.js · Zeichnen: Flugansicht (Schweife, Staub, Effekte, Schiffe, Radar, HUD) =====
+  // Schweif der Vortriebsdüsen (Schub nach vorne): Punkte bleiben im Raum stehen und verblassen, so sieht man die eigene Bahn
+  function trailTick() {
+    FL.bodies.forEach(function (bd) {
+      bd.blocks.forEach(function (b) {
+        var ty = T[b.t]; if (ty.kind !== "thr" || thrustDir(b) !== 0) return;
+        // Schweif auch im Gleitflug, solange das Schiff fliegt; mit Schub heller
+        var tr = b.trail || (b.trail = []), sp = Math.hypot(bd.vx, bd.vy), fk = Math.max(bd.flames[0] || 0, sp > 2 ? Math.min(0.45, sp / 40) : 0);
+        while (tr.length && (tr[0] === null || FL.t - tr[0].t > TRAIL.life)) tr.shift();
+        if (fk < 0.05) { if (tr.length && tr[tr.length - 1] !== null) tr.push(null); return; }
+        var last = tr[tr.length - 1]; if (last && FL.t - last.t < TRAIL.step) return;
+        var f = fp(b), p = toWorld(bd, b.x + f[0] / 2 + DV[2][0] * ty.h / 2, b.y + f[1] / 2 + DV[2][1] * ty.h / 2);
+        tr.push({ x: p.x, y: p.y, t: FL.t, k: fk, w: ty.w * CELL_M * 0.32 });
+      });
     });
   }
-  function tipTick(dt) {
-    var el = V.root.querySelector(".sr-tip"); if (!el) return;
-    if (inCombat()) { FL.tipT = 0; if (!el.hidden) hideTip(el); return; }
-    FL.tipT = (FL.tipT || 0) + dt;
-    if (FL.tipT >= TIP.every) {
-      FL.tipT = 0; var L = TIPS[lang], i; do { i = Math.floor(Math.random() * L.length); } while (L.length > 1 && i === FL.tipLast); FL.tipLast = i;
-      el.textContent = L[i]; el.hidden = false; el.classList.remove("out"); void el.offsetWidth; el.classList.add("in");
-      clearTimeout(V.tipTo); V.tipTo = setTimeout(function () { if (V) hideTip(el); }, TIP.show * 1000);
-    }
+  function drawTrails(c) {
+    c.lineCap = "butt";
+    FL.bodies.forEach(function (bd) {
+      bd.blocks.forEach(function (b) {
+        var tr = b.trail; if (!tr || tr.length < 2) return;
+        for (var i = 1; i < tr.length; i++) {
+          var a = tr[i - 1], q = tr[i]; if (!a || !q) continue;
+          var age = (FL.t - q.t) / TRAIL.life; if (age >= 1) continue;
+          c.strokeStyle = "rgba(150,200,255," + (TRAIL.alpha * (1 - age) * Math.min(1, q.k * 1.4)) + ")"; c.lineWidth = q.w * (1 - age * 0.6);
+          c.beginPath(); c.moveTo(a.x, a.y); c.lineTo(q.x, q.y); c.stroke();
+        }
+      });
+    });
+    c.lineCap = "butt";
   }
-  function hideTip(el) { clearTimeout(V.tipTo); el.classList.remove("in"); el.classList.add("out"); setTimeout(function () { if (V && el.classList.contains("out")) el.hidden = true; }, 400); }
+  // Staub für das Tempogefühl: eine Schicht auf Höhe der Schiffe (Parallaxe 1) und sehr wenige große, weiche Körner
+  // zwischen Schiff und Kamera (Parallaxe 2,2), die am schnellsten vorbeiziehen. Mit Tempo werden sie zu kurzen Bewegungsstreifen.
+  function dHash(x, y, i, sd) { var v = Math.sin(x * 127.1 + y * 311.7 + i * 74.7 + sd * 19.3) * 43758.5453; return v - Math.floor(v); }
+  function drawDust(c, W, H, ppm, L) {
+    var sc = ppm * L.f, cx = FL.cam.x, cy = FL.cam.y, hw = W / 2 / sc, hh = H / 2 / sc;
+    var src = FL.out && FL.eva ? FL.eva : FL.me, vx = src.vx || 0, vy = src.vy || 0, vs = Math.hypot(vx, vy);
+    var fade = L.f === 1 ? Math.min(1, ppm / 4) : 1; if (fade <= 0.05) return;
+    // Streifen: Belichtungszeit 35 ms, begrenzt auf 140 px, erst ab spürbarem Tempo
+    var sl = Math.min(140, vs * sc * 0.035), sx = vs > 0 ? -vx / vs * sl : 0, sy = vs > 0 ? -vy / vs * sl : 0, streak = sl > 1.5;
+    var px = Math.max(L.minPx, Math.min(L.maxPx, L.size * sc)), x0 = Math.floor((cx - hw) / L.tile) - 1, x1 = Math.floor((cx + hw) / L.tile) + 1, y0 = Math.floor((cy - hh) / L.tile) - 1, y1 = Math.floor((cy + hh) / L.tile) + 1;
+    if ((x1 - x0) * (y1 - y0) > 900) return;
+    var a = L.alpha * fade * (streak ? Math.max(0.55, 1 - sl / 300) : 1);
+    c.save();
+    c.strokeStyle = "rgba(" + L.col + "," + a + ")"; c.fillStyle = c.strokeStyle; c.lineWidth = px; c.lineCap = "round";
+    if (streak) c.beginPath();
+    for (var ix = x0; ix <= x1; ix++) for (var iy = y0; iy <= y1; iy++) for (var i = 0; i < L.n; i++) {
+      if (L.prob < 1 && dHash(ix, iy, i + 7, L.seed) > L.prob) continue;
+      var ux = (ix + dHash(ix, iy, i, L.seed)) * L.tile, uy = (iy + dHash(ix, iy, i + 3, L.seed)) * L.tile;
+      var X = W / 2 + (ux - cx) * sc, Y = H / 2 + (uy - cy) * sc;
+      if (X < -sl - 10 || X > W + sl + 10 || Y < -sl - 10 || Y > H + sl + 10) continue;
+      if (streak) { c.moveTo(X, Y); c.lineTo(X + sx, Y + sy); } else c.fillRect(X - px / 2, Y - px / 2, px, px);
+    }
+    if (streak) c.stroke();
+    c.restore();
+  }
+  // Eintritt in hohe Geschwindigkeit: kaum spürbares Wackeln (max. 2 px) und kurze chromatische Aberration (SVG-Filter auf dem Canvas)
+  function fxPre(ppm, tm) {
+    var dt = FL.fxT ? Math.min(0.05, tm - FL.fxT) : 0; FL.fxT = tm;
+    var off = { x: 0, y: 0 };
+    if (FL.shake > 0) { FL.shake -= dt; var a = 2 * Math.max(0, FL.shake / 0.7); off.x = (Math.sin(tm * 53) + Math.sin(tm * 31.7)) * 0.5 * a / ppm; off.y = (Math.sin(tm * 47.3) + Math.cos(tm * 29.1)) * 0.5 * a / ppm; }
+    var f = V.root.querySelector("#srCAo1");
+    if (FL.ca > 0 && f) {
+      FL.ca -= dt; var k = Math.max(0, FL.ca / 0.5), me = FL.me, sp = Math.hypot(me.vx, me.vy) || 1, d = 3.2 * k;
+      var dx = (me.vx / sp) * d, dy = (me.vy / sp) * d;
+      f.setAttribute("dx", dx.toFixed(2)); f.setAttribute("dy", dy.toFixed(2));
+      var f2 = V.root.querySelector("#srCAo2"); f2.setAttribute("dx", (-dx).toFixed(2)); f2.setAttribute("dy", (-dy).toFixed(2));
+      if (!V.caOn) { V.cv.style.filter = "url(#srCA)"; V.caOn = true; }
+    } else if (V.caOn) { V.cv.style.filter = ""; V.caOn = false; }
+    return off;
+  }
   // Kurzer Schriftzug über dem Schiff: 0,5 s sichtbar, bis 1 s ausgeblendet
   function floatTxt(txt, rgb) { if (FL) FL.flt = { txt: txt, t0: FL.t, rgb: rgb || "232,236,239" }; }
   function drawFloat(c, W, H, ppm) {
@@ -2130,6 +2178,7 @@
     var se = V.root.querySelector("#sr-h-seat"); if (se) se.className = !me.seat ? "warn" : "";
   }
 
+  // ===== 70-ui.js · UI: HTML-Aufbau, Infofeld, Spieltipps-Anzeige =====
   // ---------- UI ----------
   function set(id, txt) { var e = document.getElementById(id); if (e && e.textContent !== txt) e.textContent = txt; }
   function note(txt) { var n = V.root.querySelector(".sr-note"); n.textContent = txt; n.hidden = false; clearTimeout(V.noteT); V.noteT = setTimeout(function () { if (V) n.hidden = true; }, 3200); }
@@ -2244,6 +2293,26 @@
       (warn.length ? "<ul class='sr-warn'>" + warn.map(function (w) { return "<li>" + w + "</li>"; }).join("") + "</ul>" : "");
   }
 
+  function inCombat() {
+    var me = FL.me, rg = antRange(me), mv = minView();
+    return FL.bodies.some(function (bd) {
+      if (!bd.enemy || bd.dead || bd.disarmed) return false;
+      if (Math.abs(bd.x - me.x) < mv.hw + bd.rad && Math.abs(bd.y - me.y) < mv.hh + bd.rad) return true;   // im ganz herausgezoomten Bild
+      return rg > 0 && Math.hypot(bd.x - me.x, bd.y - me.y) < rg;   // im Antennenradar
+    });
+  }
+  function tipTick(dt) {
+    var el = V.root.querySelector(".sr-tip"); if (!el) return;
+    if (inCombat()) { FL.tipT = 0; if (!el.hidden) hideTip(el); return; }
+    FL.tipT = (FL.tipT || 0) + dt;
+    if (FL.tipT >= TIP.every) {
+      FL.tipT = 0; var L = TIPS[lang], i; do { i = Math.floor(Math.random() * L.length); } while (L.length > 1 && i === FL.tipLast); FL.tipLast = i;
+      el.textContent = L[i]; el.hidden = false; el.classList.remove("out"); void el.offsetWidth; el.classList.add("in");
+      clearTimeout(V.tipTo); V.tipTo = setTimeout(function () { if (V) hideTip(el); }, TIP.show * 1000);
+    }
+  }
+  function hideTip(el) { clearTimeout(V.tipTo); el.classList.remove("in"); el.classList.add("out"); setTimeout(function () { if (V && el.classList.contains("out")) el.hidden = true; }, 400); }
+  // ===== 71-css.js · CSS: das komplette Aussehen der Oberfläche =====
   var CSS = ".sr-root{position:fixed;inset:0;z-index:30;background:#080B12;color:#E6EAF0;font-family:var(--f-body,system-ui);user-select:none;-webkit-user-select:none;overflow:hidden}" +
     ".sr-root canvas#sr-cv{position:absolute;inset:0;width:100%;height:100%;display:block;cursor:crosshair}" +
     ".sr-top{position:absolute;left:0;right:0;top:0;display:flex;align-items:center;gap:10px;padding:10px 14px;background:linear-gradient(#0E131C,rgba(14,19,28,.92));border-bottom:1px solid #263142;z-index:3;flex-wrap:wrap}" +
@@ -2326,6 +2395,7 @@
     ".sr-root [hidden]{display:none!important}" +
     "@media (max-width:900px){.sr-info{display:none}.sr-hint{max-width:calc(100% - 280px)}}";
 
+  // ===== 72-eingabe.js · Eingabe: Maus, Tastatur, Klicks auf Knöpfe, Regler =====
   // ---------- Eingabe ----------
   function worldMouse(e) {
     var r = V.cv.getBoundingClientRect(), s = PX * V.zoom;
@@ -2411,51 +2481,6 @@
     if (FL) { FL.keys[k] = false; if (k === "shift") FL.keys.shift = false; }
     V.keys[k] = false;
   }
-  // ---------- NPC-Schiffe: Baupläne aus dem Editor-Export, später als KI-Gegner ----------
-  var NPC = [
-    { id: 1, n: L2("Jäger", "Jaeger"), cls: "S", code: {"sr":1,"color":"#6A7480","b":[["ckm",-1,-6,0,0,"#C8473A"],["hblk",-2,-6,0,0,"#6A7480"],["hblk",2,-6,0,1,"#6A7480"],["hblk",-2,-5,0,0,"#6A7480"],["hblk",2,-5,0,1,"#6A7480"],["hblk",-2,-4,0,0,"#6A7480"],["hblk",2,-4,0,1,"#6A7480"],["lblk",-2,-3,0,0,"#6A7480"],["lblk",2,-3,0,1,"#6A7480"],["lblk",-2,-2,0,0,"#E3B83F"],["lblk",2,-2,0,1,"#E3B83F"],["win",-2,-1,0,0,"#E3B83F"],["win",2,-1,0,1,"#E3B83F"],["lblk",-2,0,0,0,"#E3B83F"],["lblk",2,0,0,1,"#E3B83F"],["lblk",-2,1,0,0,"#E3B83F"],["lblk",2,1,0,1,"#E3B83F"],["flo",-1,-2,0,0,"#6A7480"],["lblk",-1,1,0,0,"#6A7480"],["flo",0,-2,0,0,"#C8473A"],["flo",0,-1,0,0,"#C8473A"],["lblk",0,1,0,0,"#C8473A"],["flo",1,-2,0,0,"#6A7480"],["lblk",1,1,0,0,"#6A7480"],["gyr",-1,0,0,0,"#6A7480"],["bat",0,0,0,0,"#C8473A"],["bat",1,0,0,0,"#6A7480"],["rea",-1,2,0,0,"#C8473A"],["lblk",1,2,0,0,"#C8473A"],["lblk",1,3,0,0,"#C8473A"],["thl",-2,4,0,0,"#6A7480"],["thl",1,4,0,1,"#6A7480"],["ths",0,4,0,0,"#C8473A"],["ths",-2,-8,2,0,"#E3B83F"],["ths",2,-8,2,1,"#E3B83F"],["lblk",-3,-4,0,0,"#E3B83F"],["lblk",3,-4,0,1,"#E3B83F"],["lblk",-3,-3,0,0,"#E3B83F"],["lblk",3,-3,0,1,"#E3B83F"],["mgn",-3,-6,0,0,"#E3B83F"],["mgn",3,-6,0,1,"#E3B83F"],["hrm2",4,-4,0,0,"#E3B83F"],["hrm2",-4,-4,0,1,"#E3B83F"],["bat",1,-1,0,0,"#6A7480"],["bat",-1,-1,0,1,"#6A7480"],["hrm2",-4,-2,2,0,"#E3B83F"],["hrm2",4,-2,2,1,"#E3B83F"],["ths",-3,-2,0,0,"#E3B83F"],["ths",3,-2,0,1,"#E3B83F"],["ths",-3,2,1,0,"#E3B83F"],["ths",2,2,3,1,"#E3B83F"],["ths",-3,3,1,0,"#E3B83F"],["ths",2,3,3,1,"#E3B83F"]]} },
-    { id: 2, n: L2("Falcon", "Falcon"), cls: "M", code: {"sr":1,"color":"#3E6F96","b":[["ckm",-1,-2,0,0],["flo",-1,2,0,0,"#C8473A"],["flo",1,2,0,1,"#C8473A"],["flo",-1,3,0,0,"#C8473A"],["flo",1,3,0,1,"#C8473A"],["flo",-1,4,0,0,"#c0746d"],["flo",1,4,0,1,"#c0746d"],["flo",-1,5,0,0,"#c0746d"],["flo",1,5,0,1,"#c0746d"],["flo",-1,6,0,0,"#c0746d"],["flo",1,6,0,1,"#c0746d"],["flo",-1,7,0,0,"#C8473A"],["flo",1,7,0,1,"#C8473A"],["flo",-1,8,0,0,"#C8473A"],["flo",1,8,0,1,"#C8473A"],["flo",-1,9,0,0,"#C8473A"],["flo",1,9,0,1,"#C8473A"],["flo",-1,10,0,0,"#C8473A"],["flo",1,10,0,1,"#C8473A"],["flo",-1,11,0,0,"#C8473A"],["flo",1,11,0,1,"#C8473A"],["flo",0,11,0,0,"#c0746d"],["flo",0,10,0,0,"#c0746d"],["flo",0,9,0,0,"#c0746d"],["flo",0,8,0,0,"#c0746d"],["flo",0,7,0,0,"#c0746d"],["flo",0,6,0,0,"#c0746d"],["flo",0,5,0,0],["flo",0,4,0,0,"#c0746d"],["flo",0,3,0,0,"#c0746d"],["flo",0,2,0,0,"#c0746d"],["flo",0,12,0,0,"#c0746d"],["flo",0,13,0,0,"#c0746d"],["hrm2",-3,1,0,1,"#3E6F96"],["hrm2",3,1,0,0,"#3E6F96"],["hblk",-2,1,0,1,"#3E6F96"],["hblk",2,1,0,0,"#3E6F96"],["lblk",-3,3,0,1,"#3E6F96"],["lblk",3,3,0,0,"#3E6F96"],["lblk",-3,4,0,1,"#3E6F96"],["lblk",3,4,0,0,"#3E6F96"],["lblk",-3,5,0,1,"#3E6F96"],["lblk",3,5,0,0,"#3E6F96"],["lblk",-3,6,0,1,"#3E6F96"],["lblk",3,6,0,0,"#3E6F96"],["lblk",-3,7,0,1,"#3E6F96"],["lblk",3,7,0,0,"#3E6F96"],["lblk",-3,8,0,1,"#3E6F96"],["lblk",3,8,0,0,"#3E6F96"],["lblk",-3,9,0,1,"#3E6F96"],["lblk",3,9,0,0,"#3E6F96"],["lblk",-3,10,0,1,"#3E6F96"],["lblk",3,10,0,0,"#3E6F96"],["lblk",-3,11,0,1,"#3E6F96"],["lblk",3,11,0,0,"#3E6F96"],["lblk",-3,12,0,1,"#3E6F96"],["lblk",3,12,0,0,"#3E6F96"],["lblk",-3,13,0,1,"#3E6F96"],["lblk",3,13,0,0,"#3E6F96"],["lblk",-3,14,0,1,"#c0746d"],["lblk",3,14,0,0,"#c0746d"],["col",-4,13,0,1,"#3E6F96"],["col",4,13,0,0,"#3E6F96"],["col",-4,12,0,1,"#3E6F96"],["col",4,12,0,0,"#3E6F96"],["col",-4,11,0,1,"#3E6F96"],["col",4,11,0,0,"#3E6F96"],["col",-4,10,0,1,"#3E6F96"],["col",4,10,0,0,"#3E6F96"],["col",-4,9,0,1,"#3E6F96"],["col",4,9,0,0,"#3E6F96"],["thl",-5,14,0,1,"#3E6F96"],["thl",4,14,0,0,"#3E6F96"],["thl",-5,6,2,1,"#3E6F96"],["thl",4,6,2,0,"#3E6F96"],["col",-5,9,2,1,"#3E6F96"],["col",5,9,2,0,"#3E6F96"],["col",-5,10,2,1,"#3E6F96"],["col",5,10,2,0,"#3E6F96"],["col",-5,11,2,1,"#3E6F96"],["col",5,11,2,0,"#3E6F96"],["col",-5,12,2,1,"#3E6F96"],["col",5,12,2,0,"#3E6F96"],["col",-5,13,2,1,"#3E6F96"],["col",5,13,2,0,"#3E6F96"],["lblk",-2,14,2,1,"#c0746d"],["lblk",2,14,2,0,"#c0746d"],["lblk",-1,14,2,1,"#c0746d"],["lblk",1,14,2,0,"#c0746d"],["lblk",0,14,2,1,"#c0746d"],["ths",-7,11,1,1,"#3E6F96"],["ths",6,11,3,0,"#3E6F96"],["ths",-7,12,1,1,"#3E6F96"],["ths",6,12,3,0,"#3E6F96"],["ths",-7,13,1,1,"#3E6F96"],["ths",6,13,3,0,"#3E6F96"],["ths",-6,14,0,1,"#3E6F96"],["ths",6,14,0,0,"#3E6F96"],["col",-2,0,0,1],["col",2,0,0,0],["col",-2,-1,0,1],["col",2,-1,0,0],["mgn",-2,-3,0,1],["mgn",2,-3,0,0],["rea",-2,12,0,1],["rea",1,12,0,0],["bat",-2,11,0,1],["bat",2,11,0,0],["bat",-2,10,0,1],["bat",2,10,0,0],["bat",-2,9,0,1],["bat",2,9,0,0],["bat",-2,8,0,1],["bat",2,8,0,0],["bat",-2,7,0,1],["bat",2,7,0,0],["bat",-2,6,0,1],["bat",2,6,0,0],["gyr",-2,2,0,1],["gyr",2,2,0,0],["ant",-2,15,2,1],["ant",2,15,2,0],["bat",2,5,0,0],["bat",-2,5,0,0],["bat",-2,4,0,0],["bat",-2,3,0,0],["bat",2,3,0,0],["bat",2,4,0,0],["lcor",1,-3,0,0],["lcor",-1,-3,0,1],["lblk",0,-3,0,0],["msl",-6,8,0,0],["msl",6,8,0,1],["msl",-7,8,0,0],["msl",7,8,0,1],["ths",-7,10,1,0],["ths",6,10,3,1]]} },
-    { id: 3, n: L2("Mosquito", "Mosquito"), cls: "S", code: {"sr":1,"color":"#6A7480","b":[["cks",-1,-4,0,0],["lrm3",1,-4,0,0],["lrm3",-2,-4,0,1],["rea",-1,-1,0,1],["bat",-1,1,0,1],["bat",0,1,0,1],["lblk",1,-1,2,1],["lblk",-2,-1,2,1],["lblk",-2,1,2,1],["lblk",-2,2,2,1],["lblk",1,1,2,1],["lblk",1,2,2,1],["ths",-3,0,1,1],["ths",1,0,3,1],["ths",-1,2,0,1],["ths",0,2,0,1],["ths",-3,-2,2,1],["ths",2,-2,2,1],["lrm2",-3,1,2,0],["lrm2",2,1,2,1],["gyr",-2,3,2,1],["gyr",1,3,2,1],["mgn",-1,-6,0,1],["mgn",0,-6,0,1]]} },
-    { id: 4, n: L2("Dot", "Dot"), cls: "S", code: {"sr":1,"color":"#5E6B5A","b":[["ckt",0,0,0,0,"#E3B83F"],["mgn",0,-2,0,0,"#5E6B5A"],["lblk",-1,0,0,0,"#5E6B5A"],["lblk",-1,1,0,0,"#5E6B5A"],["ths",1,0,2,0,"#5E6B5A"],["lblk",-1,2,0,0,"#5E6B5A"],["gyr",0,2,0,0,"#5E6B5A"],["lblk",1,2,0,0,"#5E6B5A"],["rea",-1,3,0,0,"#5E6B5A"],["bat",1,3,0,0,"#5E6B5A"],["lblk",1,4,0,0,"#5E6B5A"],["ths",0,5,0,0,"#5E6B5A"],["ths",-3,3,1,0,"#5E6B5A"],["ths",2,3,3,0,"#5E6B5A"]]} }
-  ];
-  function npcBlocks(sh) { return parseShip(JSON.stringify(sh.code)) || []; }
-  function shipThumb(blocks, size) {
-    var cv = document.createElement("canvas"), dpr = Math.min(2, window.devicePixelRatio || 1); cv.width = cv.height = size * dpr; cv.style.width = cv.style.height = size + "px";
-    var c = cv.getContext("2d"), bb = bounds(blocks); if (!bb) return cv;
-    var bw = bb.x1 - bb.x0, bh = bb.y1 - bb.y0, cs = Math.min((size - 16) / bw, (size - 16) / bh);
-    c.scale(dpr, dpr); c.translate(size / 2 - (bb.x0 + bw / 2) * cs, size / 2 - (bb.y0 + bh / 2) * cs);
-    drawShip(c, blocks, cs, "out", 0, null);
-    return cv;
-  }
-  function openHangar() {
-    var box = V.root.querySelector(".sr-npc"), list = box.querySelector(".sr-npc-list"); box.hidden = false;
-    if (list.childElementCount) return;   // Vorschaubilder nur einmal zeichnen
-    NPC.forEach(function (sh) {
-      var bl = npcBlocks(sh), st = stats(bl), bb = bounds(bl), wp = [];
-      if (st.mg) wp.push(st.mg + "× " + t("mg")); if (st.ms) wp.push(st.ms + "× " + t("ms")); if (st.rg) wp.push(st.rg + "× " + t("rg"));
-      var card = document.createElement("div"); card.className = "sr-npc-card";
-      card.appendChild(shipThumb(bl, 132));
-      var tx = document.createElement("div"); tx.className = "sr-npc-tx";
-      tx.innerHTML = "<small>#" + sh.id + " · " + t("cls" + sh.cls) + "</small><b>" + sh.n[lang] + "</b><span>" + nf(st.n) + " " + t("sBlocks") + " · " + nf(st.mass * 1000) + " kg · " + nf((bb.x1 - bb.x0) * CELL_M, 1) + " × " + nf((bb.y1 - bb.y0) * CELL_M, 1) + "\u00a0m</span><span>" + (wp.join(", ") || t("none")) + '</span><button type="button" data-npc="' + sh.id + '">' + t("load") + "</button>";
-      card.appendChild(tx); list.appendChild(card);
-    });
-  }
-  // Schiffscode: kompaktes JSON, damit Entwürfe geteilt und später als Gegner-Blaupausen eingebaut werden können.
-  function shipCode() { return JSON.stringify({ sr: 1, color: S.color, b: S.blocks.map(function (b) { var a = [b.t, b.x, b.y, b.r, b.f]; if (b.c) a.push(b.c); return a; }) }); }
-  function parseShip(txt) {
-    try {
-      var o = JSON.parse(String(txt).trim()); if (!o || !Array.isArray(o.b)) return null;
-      var out = o.b.filter(function (a) { return Array.isArray(a) && T[a[0]]; }).map(function (a) { var b = { t: a[0], x: a[1] | 0, y: a[2] | 0, r: (a[3] | 0) & 3, f: a[4] ? 1 : 0 }; if (a[5]) b.c = String(a[5]); return b; });
-      return out.length ? out : null;
-    } catch (e) { return null; }
-  }
-  function openIO(mode) {
-    var io = V.root.querySelector(".sr-exio"), ta = io.querySelector("textarea"), h = io.querySelector(".sr-io-h");
-    io.hidden = false;
-    io.querySelector('[data-act="io-copy"]').hidden = mode !== "exp"; io.querySelector('[data-act="io-load"]').hidden = mode !== "imp";
-    if (mode === "exp") { h.textContent = lang === "de" ? "Schiffscode deines Entwurfs. Kopieren und teilen oder speichern." : "Ship code of your design. Copy and share or keep it."; ta.value = shipCode(); ta.readOnly = true; ta.select(); }
-    else { h.textContent = lang === "de" ? "Schiffscode einfügen und laden. Der aktuelle Entwurf lässt sich mit Rückgängig zurückholen." : "Paste a ship code and load it. Undo brings back the current design."; ta.value = ""; ta.readOnly = false; ta.focus(); }
-  }
   function undo() { var u = S.undo.pop(); if (!u) return; S.blocks = JSON.parse(u); save(); syncUI(); }
   function onClick(e) {
     var a = e.target.closest("[data-act]"), tl = e.target.closest("[data-tool]"), bk = e.target.closest("[data-blk]"), vw = e.target.closest("[data-view]"), sw = e.target.closest("[data-sw]");
@@ -2502,29 +2527,6 @@
     if (e.target.id === "sr-shp" && FL) setShield(+e.target.value);
     if (e.target.id === "sr-name") { S.names[S.ed] = e.target.value.trim(); save(); }
   }
-  // Schild-Zuweisung: Anteil der Gesamtkapazität wird aus der Schiffsenergie ins Schild umgebucht.
-  // Leergeschossene Schilde füllen sich nicht von selbst, erst wenn der Regler neu gesetzt wird (oder ↻).
-  // Setzt das Ziel; aufgeladen wird danach fließend in 1-%-Schritten mit dem Tempo der Generatoren. Weniger Anteil gibt Energie sofort zurück.
-  function setShield(pct) {
-    var me = FL.me; FL.shPct = pct; FL.shTarget = pct / 100 * me.cap;
-    if ((me.shE || 0) > FL.shTarget) { var back = me.shE - FL.shTarget; me.shE = FL.shTarget; me.energy = Math.min(me.cap - me.shE, me.energy + back); FL.shCharging = false; }
-    else FL.shCharging = FL.shTarget - (me.shE || 0) > 0.5;
-  }
-  function shieldTick(dt) {
-    var me = FL.me; if (!FL.shCharging) return;
-    if (!me.shGen) return;   // ohne Generator lädt nichts
-    var step = me.cap / 100; FL.shAcc += dt * me.shGen;   // shGen = Prozent pro Sekunde
-    while (FL.shAcc >= 1 && FL.shCharging) {
-      FL.shAcc -= 1;
-      var need = Math.min(step, FL.shTarget - me.shE); if (need <= 0.01 || me.energy < need) { if (me.energy < need) FL.shAcc = 0; break; }
-      me.energy -= need; me.shE += need;
-    }
-    if (FL.shTarget - me.shE <= 0.5) { FL.shCharging = false; FL.shAcc = 0; floatTxt(t("shCharged"), "120,190,255"); }
-    else if (Math.random() < dt * 40) {   // Sog-Effekt: blaue Partikel ziehen von außen an die Hülle
-      var a = Math.random() * 6.28, r = me.rad * 0.9 + 6;
-      FL.parts.push({ x: me.x + Math.cos(a) * r, y: me.y + Math.sin(a) * r, vx: me.vx - Math.cos(a) * r * 1.6, vy: me.vy - Math.sin(a) * r * 1.6, life: 0, max: 0.55, k: "suck", sz: 0.35 + Math.random() * 0.3 });
-    }
-  }
   // Infofeld skalieren: CSS-zoom statt Bild-Skalierung, Schrift und Symbole bleiben gestochen scharf (100 bis 150 %)
   function hudScale(k) {
     if (!V) return; k = Math.max(1, Math.min(1.5, k || 1)); V.uis = k;
@@ -2534,6 +2536,37 @@
   }
   function fitCam() { var b = bounds(S.blocks); if (!b) { V.cam = { x: 0.5, y: 0 }; return; } V.cam = { x: (b.x0 + b.x1) / 2, y: (b.y0 + b.y1) / 2 }; }
 
+  // ===== 73-hangar-export.js · Hangar und Export/Import-Fenster =====
+  function npcBlocks(sh) { return parseShip(JSON.stringify(sh.code)) || []; }
+  function shipThumb(blocks, size) {
+    var cv = document.createElement("canvas"), dpr = Math.min(2, window.devicePixelRatio || 1); cv.width = cv.height = size * dpr; cv.style.width = cv.style.height = size + "px";
+    var c = cv.getContext("2d"), bb = bounds(blocks); if (!bb) return cv;
+    var bw = bb.x1 - bb.x0, bh = bb.y1 - bb.y0, cs = Math.min((size - 16) / bw, (size - 16) / bh);
+    c.scale(dpr, dpr); c.translate(size / 2 - (bb.x0 + bw / 2) * cs, size / 2 - (bb.y0 + bh / 2) * cs);
+    drawShip(c, blocks, cs, "out", 0, null);
+    return cv;
+  }
+  function openHangar() {
+    var box = V.root.querySelector(".sr-npc"), list = box.querySelector(".sr-npc-list"); box.hidden = false;
+    if (list.childElementCount) return;   // Vorschaubilder nur einmal zeichnen
+    NPC.forEach(function (sh) {
+      var bl = npcBlocks(sh), st = stats(bl), bb = bounds(bl), wp = [];
+      if (st.mg) wp.push(st.mg + "× " + t("mg")); if (st.ms) wp.push(st.ms + "× " + t("ms")); if (st.rg) wp.push(st.rg + "× " + t("rg"));
+      var card = document.createElement("div"); card.className = "sr-npc-card";
+      card.appendChild(shipThumb(bl, 132));
+      var tx = document.createElement("div"); tx.className = "sr-npc-tx";
+      tx.innerHTML = "<small>#" + sh.id + " · " + t("cls" + sh.cls) + "</small><b>" + sh.n[lang] + "</b><span>" + nf(st.n) + " " + t("sBlocks") + " · " + nf(st.mass * 1000) + " kg · " + nf((bb.x1 - bb.x0) * CELL_M, 1) + " × " + nf((bb.y1 - bb.y0) * CELL_M, 1) + "\u00a0m</span><span>" + (wp.join(", ") || t("none")) + '</span><button type="button" data-npc="' + sh.id + '">' + t("load") + "</button>";
+      card.appendChild(tx); list.appendChild(card);
+    });
+  }
+  function openIO(mode) {
+    var io = V.root.querySelector(".sr-exio"), ta = io.querySelector("textarea"), h = io.querySelector(".sr-io-h");
+    io.hidden = false;
+    io.querySelector('[data-act="io-copy"]').hidden = mode !== "exp"; io.querySelector('[data-act="io-load"]').hidden = mode !== "imp";
+    if (mode === "exp") { h.textContent = lang === "de" ? "Schiffscode deines Entwurfs. Kopieren und teilen oder speichern." : "Ship code of your design. Copy and share or keep it."; ta.value = shipCode(); ta.readOnly = true; ta.select(); }
+    else { h.textContent = lang === "de" ? "Schiffscode einfügen und laden. Der aktuelle Entwurf lässt sich mit Rückgängig zurückholen." : "Paste a ship code and load it. Undo brings back the current design."; ta.value = ""; ta.readOnly = false; ta.focus(); }
+  }
+  // ===== 90-start.js · Start: Layout, Bildschleife, mount/unmount – muss die letzte Datei bleiben =====
   function layout() {
     if (!V) return;
     var dpr = window.devicePixelRatio || 1, r = V.cv.getBoundingClientRect();
