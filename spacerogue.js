@@ -4,7 +4,7 @@
 (function () {
   "use strict";
 
-  var VERSION = "0.44.2";
+  var VERSION = "0.45";
   var CELL_M = 2.5, PX = 24;              // Meter je Zelle, Pixel je Zelle bei Zoom 1
   var lang = "de";
   function L2(de, en) { return { de: de, en: en }; }
@@ -61,6 +61,7 @@
     load: L2("In den Editor laden", "Load into editor"), clsS: L2("Klein", "Small"), clsM: L2("Mittel", "Medium"), clsL: L2("Groß", "Large"),
     fleeT: L2("Der Feind versucht zu entkommen", "The enemy is trying to escape"),
     shield: L2("Schild", "Shield"), shNoGen: L2("Kein Schildgenerator verbaut: die Reserve fängt nichts ab", "No shield generator installed: the reserve absorbs nothing"), shFill: L2("Schild mit dem eingestellten Anteil neu aufladen", "Recharge the shield to the set share"),
+    destroyed: L2("Zerstört", "Destroyed"), kills: L2("Abschüsse", "Kills"), shCharged: L2("Schilde aufgeladen", "Shields charged"),
     spawn: L2("Gegner spawnen", "Spawn enemy"), spawned: L2("{n} patrouilliert irgendwo vor dir", "{n} is patrolling somewhere ahead of you"), ko: L2("Kampfunfähig", "Disabled"),
     weld: L2("Schweißgerät", "Welder"), weldOn: L2("repariert {n}: {p} %", "repairing {n}: {p} %"), weldIdle: L2("Linksklick vor einem Block repariert ihn, vor einem Hologramm baut er ihn neu", "Left click facing a block repairs it, facing a hologram rebuilds it"),
     sDim: L2("Abmessungen", "Dimensions"), sCool: L2("Kühlung", "Cooling"), sCoolW: L2("Gekühlt", "Cooled"), weap: L2("Waffen", "weapons"), thrs: L2("Triebwerke", "thrusters"), sCom: L2("Schwerpunkt", "Centre of mass"), comHint: L2("gelb-schwarzer Kreis", "yellow-black circle"),
@@ -100,8 +101,8 @@
   def("gyr", { cat: "catTh", kind: "gyro", w: 1, h: 1, mass: 1.1, hp: 65, torque: 17500, use: 3, n: L2("Gyroskop 1×1", "Gyroscope 1×1"), col: "#7E8995" });
   def("col", { cat: "catTh", kind: "cool", w: 1, h: 1, mass: 0.8, hp: 50, n: L2("Kühlblock 1×1", "Cooling block 1×1"), col: "#7E8995" });
   def("ant", { cat: "catTh", kind: "ant", w: 1, h: 3, mass: 0.9, hp: 32, n: L2("Antenne 1×3", "Antenna 1×3"), col: "#7E8995" });
-  def("shs", { cat: "catEn", kind: "shield", w: 1, h: 1, mass: 1.3, hp: 60, shk: 0.5, n: L2("Schildgenerator klein 1×1", "Small shield generator 1×1"), col: "#5B7FA6" });
-  def("shl", { cat: "catEn", kind: "shield", w: 2, h: 2, mass: 3.6, hp: 160, shk: 1.5, n: L2("Schildgenerator groß 2×2", "Large shield generator 2×2"), col: "#5B7FA6" });
+  def("shs", { cat: "catEn", kind: "shield", w: 1, h: 1, mass: 1.3, hp: 60, shk: 5, n: L2("Schildgenerator klein 1×1", "Small shield generator 1×1"), col: "#5B7FA6" });
+  def("shl", { cat: "catEn", kind: "shield", w: 2, h: 2, mass: 3.6, hp: 160, shk: 25, n: L2("Schildgenerator groß 2×2", "Large shield generator 2×2"), col: "#5B7FA6" });
   def("bat", { cat: "catEn", kind: "bat", w: 1, h: 1, mass: 1.6, hp: 50, cap: 300, n: L2("Batterie 1×1", "Battery 1×1"), col: "#7E8995" });
   def("rea", { cat: "catEn", kind: "reac", w: 2, h: 2, mass: 4.6, hp: 135, prod: 14, n: L2("Reaktor 2×2", "Reactor 2×2"), col: "#7E8995" });
   def("flo", { cat: "catIn", kind: "floor", w: 1, h: 1, mass: 0.18, hp: 32, n: L2("Boden (Innenraum)", "Floor (interior)"), col: "#9AA5B1" });
@@ -824,7 +825,7 @@
     bd.com = st.com; bd.mass = Math.max(0.5, st.mass); bd.I = Math.max(1, st.I); bd.thr = st.thr; bd.torque = st.torque; bd.prod = st.prod * (pm ? 1 + pm.prod : 1);
     bd.cap = st.cap * (pm ? 1 + pm.batCap : 1) + (st.cock ? 30 : 0);
     var shk = 0; bd.blocks.forEach(function (b) { if (T[b.t].kind === "shield") shk += T[b.t].shk; });
-    bd.shGen = shk; bd.shEff = 1 / (1 + shk);   // Energie je Schadenspunkt: 1 klein → 0,67, 1 groß → 0,4
+    bd.shGen = shk; bd.shEff = 1;   // Ladetempo in % der Kapazität pro Sekunde (klein 5, groß 25, addiert sich); 1 Energie je abgefangenem Schadenspunkt
     bd.shE = Math.min(bd.shE || 0, bd.cap); bd.energy = Math.min(bd.energy, bd.cap - bd.shE);
     bd.map = buildMap(bd.blocks); bd.roomsDirty = true;
     bd.cool = coolMap(bd.blocks, bd.map); bd.ocMax = ocMaxOf(bd.blocks, bd.cool) * (pm ? 1 + pm.oc : 1);
@@ -852,7 +853,8 @@
     FL.groups = []; if (st.mg) FL.groups.push("mg"); if (st.ms) FL.groups.push("ms"); if (st.rg) FL.groups.push("rg");
     FL.missiles = []; FL.hits = []; FL.sig = 0; FL.banner = 0; me.id = ++BID;
     // Sandbox: im Editor-Testflug liegen alle Perks in allen Seltenheiten im Inventar, aber inaktiv
-    FL.drops = []; FL.inv = []; FL.uid = 0; FL.shHits = []; FL.shPct = 0; me.shE = 0;
+    FL.drops = []; FL.inv = []; FL.uid = 0; FL.shHits = []; FL.shPct = 0; me.shE = 0; FL.kills = 0; FL.shTarget = 0; FL.shAcc = 0;
+    var kcb = V.root.querySelector(".sr-kc b"); if (kcb) kcb.textContent = "0";
     PERKS.forEach(function (p, pi) { for (var r = p.legOnly ? 3 : 0; r < 4; r++) FL.inv.push({ uid: ++FL.uid, p: pi, r: r, on: false }); });
     PM = calcPM(FL.inv); me.player = true; recalc(me); me.energy = me.cap;
     FL.suit = SUIT.max; FL.out = false; FL.eva = null; FL.enterCd = 0; FL.ko = 0; me.lost = []; me.air = new Map();
@@ -903,7 +905,8 @@
       if (bd === me) { var fm = 0; for (var fk in bd.flames) fm = Math.max(fm, bd.flames[fk]); if (FL.fire && FL.seated && FL.groups.length) fm = Math.max(fm, 0.6); FL.sig = Math.max(FL.sig * Math.exp(-dt / 1.2), fm); }
       if (bd.ai) aiTick(bd, dt);
       if (bd === me && !FL.seated && !FL.out) walk(bd, dt);
-      var vv = Math.hypot(bd.vx, bd.vy); if (vv > VMAX) { bd.vx *= VMAX / vv; bd.vy *= VMAX / vv; vv = VMAX; }   // Tempolimit 500 m/s
+      var vlim = bd.enemy ? VMAX * AI.vk : VMAX;   // Tempolimit 500 m/s, KI-Schiffe 10 % weniger
+      var vv = Math.hypot(bd.vx, bd.vy); if (vv > vlim) { bd.vx *= vlim / vv; bd.vy *= vlim / vv; vv = vlim; }
       if (bd === me) {
         // Sperre bei 120 m/s: verhindert nur weiteres Beschleunigen, bremst nie ab. Umschalt gibt den Bereich 120–500 m/s frei.
         var pv = bd.pv || 0;
@@ -927,6 +930,7 @@
     enemyBook(dt);
     trailTick();
     tipTick(dt);
+    shieldTick(dt);
     FL.hits = FL.hits.filter(function (h) { h.life += dt; return h.life < 0.35; });
     dropTick(dt);
     if (FL.banner > 0) FL.banner -= dt;
@@ -1069,7 +1073,7 @@
   }
   // ---------- Gegner (Kampf-KI) ----------
   // Erkennung: im Gleitflug erst auf 20 m, mit Schub (oder beim Feuern) bis 260 m; zeigt die Nase genau auf mich, doppelt so weit
-  var AI = { glide: 20, loud: 240, patrolV: 15, lose: 950 };
+  var AI = { glide: 20, loud: 240, patrolV: 15, lose: 950, vk: 0.9 };
   function angTo(vx, vy) { return Math.atan2(vx, -vy); }   // Schiffswinkel, dessen Vorderseite (−y) in Richtung (vx, vy) zeigt
   function angDiff(a, b) { return Math.atan2(Math.sin(a - b), Math.cos(a - b)); }
   function minView() { var ppm = PX * ZMIN_FL / CELL_M; return { hw: V.W / 2 / ppm, hh: V.H / 2 / ppm }; }
@@ -1141,7 +1145,7 @@
       var fx = -dx / dist, fy = -dy / dist; head = angTo(fx, fy);
       A.fleeT = (A.fleeT || 0) + dt;
       vDes = { x: bd.vx + fx * 60, y: bd.vy + fy * 60 };
-      var vcap = A.fleeT < 5 ? VHI - 1 : VMAX, vm = Math.hypot(vDes.x, vDes.y);   // erst bis 120 m/s, frühestens nach 5 s Hochgeschwindigkeit
+      var vcap = (A.fleeT < 5 ? VHI - 1 : VMAX) * AI.vk, vm = Math.hypot(vDes.x, vDes.y);   // erst bis 120 m/s, frühestens nach 5 s Hochgeschwindigkeit
       if (vm > vcap) { vDes.x *= vcap / vm; vDes.y *= vcap / vm; }
     } else if (A.state === "combat") {
       var R = bd.blocks.some(function (b) { return T[b.t].kind === "mg"; }) ? 75 : bd.blocks.some(function (b) { return T[b.t].kind === "ms"; }) ? 130 : 170;
@@ -1191,7 +1195,7 @@
     }
     if (replan || !A.vDes || A.state === "flee") A.vDes = vDes; else vDes = A.vDes;
     aiDrive(bd, dt, vDes, head);
-    if (A.state === "flee" && A.fleeT < 5) { var fv = Math.hypot(bd.vx, bd.vy), pv0 = A.pv || 0; if (fv > VHI && fv > pv0) { var lm = Math.max(pv0, VHI); bd.vx *= lm / fv; bd.vy *= lm / fv; fv = lm; } A.pv = fv; }
+    if (A.state === "flee" && A.fleeT < 5) { var fv = Math.hypot(bd.vx, bd.vy), pv0 = A.pv || 0, vh = VHI * AI.vk; if (fv > vh && fv > pv0) { var lm = Math.max(pv0, vh); bd.vx *= lm / fv; bd.vy *= lm / fv; fv = lm; } A.pv = fv; }
     else A.pv = Math.hypot(bd.vx, bd.vy);
     turretTick(bd, dt, aim);
     // jede Waffe in ihrer eigenen Reichweite: Minigun bis ~85 % ihrer Flugweite, Raketen bis 300 m, Railgun bis 90 % ihrer Reichweite
@@ -1227,9 +1231,15 @@
     var mv = minView();
     FL.bodies.slice().forEach(function (bd) {
       if (!bd.enemy) return;
+      // Zerstört: Cockpit weg, nicht mehr manövrierfähig (kein Gyroskop oder keine Triebwerke) oder keine Energie mehr
       if (!bd.dead && (!bd.cock || (bd.energy <= 0.5 && !bd.prod) || !bd.torque || !bd.thrSum)) {
-        bd.dead = true; bd.ai = null; bd.flames = {}; FL.banner = 3.2; FL.bannerN = bd.npc.n[lang]; showBanner(t("ko"), "ko");
-        dropPerks(bd);
+        bd.dead = true; bd.ai = null; bd.flames = {}; FL.bannerN = bd.npc.n[lang]; showBanner(t("destroyed"), "dead");
+        scoreKill(bd);
+      }
+      // Kampfunfähig: keine funktionierenden Waffen mehr; das Schiff versucht weiter zu fliehen
+      else if (!bd.dead && !bd.disarmed && !bd.blocks.some(function (b) { var k = T[b.t].kind; return k === "mg" || k === "rg" || k === "ms"; })) {
+        bd.disarmed = true; if (bd.ai) { bd.ai.state = "flee"; bd.ai.fleeT = 0; } FL.bannerN = bd.npc.n[lang]; showBanner(t("ko"), "ko");
+        scoreKill(bd);
       }
       var inView = Math.abs(bd.x - FL.cam.x) < mv.hw + bd.rad && Math.abs(bd.y - FL.cam.y) < mv.hh + bd.rad;
       if (inView) { bd.seen = true; bd.offT = 0; } else if (bd.seen) bd.offT += dt;
@@ -1237,9 +1247,14 @@
       if (bd.offT > 30 || far) FL.bodies.splice(FL.bodies.indexOf(bd), 1);
     });
   }
+  // Abschuss: zählt einmal pro Schiff, egal ob erst kampfunfähig und später zerstört
+  function scoreKill(bd) {
+    if (bd.killed) return; bd.killed = true; FL.kills = (FL.kills || 0) + 1; dropPerks(bd);
+    var k = V.root.querySelector(".sr-kc b"); if (k) { k.textContent = FL.kills; var el = k.parentNode; el.classList.remove("pop"); void el.offsetWidth; el.classList.add("pop"); }
+  }
   function showBanner(label, kind) {
     var el = V.root.querySelector(".sr-kill"); if (!el) return;
-    el.querySelector("small").textContent = label || t("ko"); el.classList.toggle("flee", kind === "flee");
+    el.querySelector("small").textContent = label || t("ko"); el.classList.toggle("flee", kind === "flee"); el.classList.toggle("dead", kind === "dead");
     el.querySelector("span").textContent = FL.bannerN; el.hidden = false; el.classList.remove("go"); void el.offsetWidth; el.classList.add("go");
     clearTimeout(V.killT); V.killT = setTimeout(function () { if (V) el.hidden = true; }, 3200);
   }
@@ -1706,7 +1721,7 @@
   function inCombat() {
     var me = FL.me, rg = antRange(me), mv = minView();
     return FL.bodies.some(function (bd) {
-      if (!bd.enemy || bd.dead) return false;
+      if (!bd.enemy || bd.dead || bd.disarmed) return false;
       if (Math.abs(bd.x - me.x) < mv.hw + bd.rad && Math.abs(bd.y - me.y) < mv.hh + bd.rad) return true;   // im ganz herausgezoomten Bild
       return rg > 0 && Math.hypot(bd.x - me.x, bd.y - me.y) < rg;   // im Antennenradar
     });
@@ -1799,7 +1814,7 @@
       if (!bd.enemy) return;
       var yy = bd.y - bd.rad * 0.8 - 14 / ppm;
       if (bd.ai && bd.ai.alert > 0) { c.fillStyle = "rgba(224,83,63," + Math.min(1, bd.ai.alert * 2) + ")"; c.font = "800 " + (20 / ppm) + "px " + FONTS(); c.textAlign = "center"; c.textBaseline = "middle"; c.fillText("!", bd.x, yy); }
-      if (bd.dead) { c.font = "700 " + (11 / ppm) + "px " + FONTS(); c.textAlign = "center"; c.textBaseline = "middle"; var tw = c.measureText(t("ko")).width; c.fillStyle = "rgba(20,24,30,.8)"; c.fillRect(bd.x - tw / 2 - 5 / ppm, yy - 8 / ppm, tw + 10 / ppm, 16 / ppm); c.fillStyle = "#C9D1D9"; c.fillText(t("ko"), bd.x, yy); }
+      if (bd.dead || bd.disarmed) { var lb = t(bd.dead ? "destroyed" : "ko"); c.font = "700 " + (11 / ppm) + "px " + FONTS(); c.textAlign = "center"; c.textBaseline = "middle"; var tw = c.measureText(lb).width; c.fillStyle = "rgba(20,24,30,.8)"; c.fillRect(bd.x - tw / 2 - 5 / ppm, yy - 8 / ppm, tw + 10 / ppm, 16 / ppm); c.fillStyle = bd.dead ? "#F08A78" : "#C9D1D9"; c.fillText(lb, bd.x, yy); }
     });
     // Schildtreffer: dünne blaue Schicht direkt über der Panzerung, nur rund um die Einschlagstelle, blendet in 0,5 s aus
     if (FL.shHits.length) {
@@ -1849,6 +1864,7 @@
       if (q.k === "smoke") { c.fillStyle = "rgba(70,70,74," + (0.38 * (1 - k)) + ")"; c.beginPath(); c.arc(q.x, q.y, q.sz * (1 + k * 1.6), 0, Math.PI * 2); c.fill(); }
       else if (q.k === "fire") { c.fillStyle = "rgba(255," + Math.round(200 - k * 140) + ",60," + (0.9 * (1 - k)) + ")"; c.beginPath(); c.arc(q.x, q.y, q.sz * (1 - k * 0.5), 0, Math.PI * 2); c.fill(); }
       else if (q.k === "ocs") { c.fillStyle = "rgba(220,180,255," + (1 - k) + ")"; c.fillRect(q.x, q.y, 0.45, 0.45); }
+      else if (q.k === "suck") { c.fillStyle = "rgba(110,180,255," + (0.45 * Math.sin(Math.PI * k)) + ")"; c.beginPath(); c.arc(q.x, q.y, q.sz * (1.4 - k), 0, Math.PI * 2); c.fill(); }
       else if (q.k === "jet") { c.fillStyle = "rgba(220,235,255," + (0.8 * (1 - k)) + ")"; c.beginPath(); c.arc(q.x, q.y, q.sz * (1 + k), 0, Math.PI * 2); c.fill(); }
       else if (q.k === "weld") { c.fillStyle = "rgba(170,230,255," + (1 - k) + ")"; c.fillRect(q.x, q.y, 0.35, 0.35); }
       else if (q.k === "spark") { c.fillStyle = "rgba(255,230,160," + (1 - k) + ")"; c.fillRect(q.x, q.y, 0.4, 0.4); }
@@ -1911,7 +1927,7 @@
     // Energieanzeige unten in der Mitte
     var be = V.root.querySelector("#sr-be-e"), bs = V.root.querySelector("#sr-be-s");
     if (be) { be.style.width = (ek * 100).toFixed(1) + "%"; be.style.background = ek < 0.2 ? "#E0533F" : "#57D18A"; bs.style.width = (sk * 100).toFixed(1) + "%"; }
-    set("sr-be-t", nf(me.energy) + "  ·  " + t("shield") + " " + nf(me.shE || 0) + "  /  " + nf(me.cap));
+    set("sr-be-t", t("shield") + " " + Math.floor((me.shE || 0) / me.cap * 100 + 1e-6) + " %  ·  " + nf(me.energy) + "  /  " + nf(me.cap));
     set("sr-h-en", nf(me.energy) + " / " + nf(me.cap));
     var ob = V.root.querySelector("#sr-h-ocbar"); if (ob) { ob.style.width = Math.round(FL.ocT / (me.ocMax || 3) * 100) + "%"; ob.style.background = FL.oc ? "#B98AE0" : "#6B7FA0"; }
     var wtxt = g ? t(g) : t("none");
@@ -1972,7 +1988,7 @@
       '<div class="sr-list">' + pal + '</div></aside>' +
       '<aside class="sr-info sr-ed-only" id="sr-info"></aside>' +
       '<div class="sr-hud sr-fl-only"><div class="sr-hr"><small>' + t("speed") + '</small><span><b id="sr-h-sp"></b><em id="sr-h-spb"></em></span></div>' +
-      '<div><small>' + t("energy") + ' <span id="sr-h-en"></span></small><i class="sr-eb sr-eb2"><i id="sr-h-ebar"></i><i id="sr-h-sbar"></i></i></div>' +
+      '<div><small>' + t("energy") + ' <span id="sr-h-en"></span></small><i class="sr-eb sr-eb2"><i id="sr-h-sbar"></i><i id="sr-h-ebar"></i></i></div>' +
       '<div><small>' + t("weapon") + ' (R)</small><b id="sr-h-w"></b></div>' +
       '<div class="sr-ics"><i id="sr-ic-z" title="Z · ' + t("damp") + '"><svg viewBox="0 0 20 20"><path d="M2 10h5M13 10h5M5 7l3 3-3 3M15 7l-3 3 3 3" fill="none" stroke="currentColor" stroke-width="1.8"/></svg><u>Z</u></i><i id="sr-ic-c" title="C · ' + t("cruise") + '"><svg viewBox="0 0 20 20"><path d="M3 14a7 7 0 0 1 14 0" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M10 14l4-5" stroke="currentColor" stroke-width="2"/><circle cx="10" cy="14" r="1.6" fill="currentColor"/></svg><u>C</u></i><i id="sr-ic-h" title="' + (lang === "de" ? "Umschalt" : "Shift") + ' · ' + t("hiLbl") + '"><svg viewBox="0 0 20 20"><path d="M5 11l5-5 5 5M5 16l5-5 5 5" fill="none" stroke="currentColor" stroke-width="1.8"/></svg><u>⇧</u></i><i id="sr-ic-x" title="X · Overcharge"><svg viewBox="0 0 20 20"><path d="M11 2L5 11h4l-1 7 6-9h-4z" fill="currentColor"/></svg><u>X</u><s><s id="sr-h-ocbar"></s></s></i></div>' +
       '<div><small>' + t("air") + ' <span id="sr-h-air"></span></small><i class="sr-eb"><i id="sr-h-airbar"></i></i></div>' +
@@ -1984,7 +2000,8 @@
       '<button type="button" class="sr-ctlb sr-fl-only" data-act="ctl" aria-pressed="false">' + t("controls") + '</button>' +
       '<div class="sr-inv" hidden><div class="sr-inv-box"><div class="sr-inv-h"><div><b>' + t("invT") + '</b><small>' + t("invSub") + '</small></div><button type="button" data-act="inv-x">' + (lang === "de" ? "Schließen (I)" : "Close (I)") + '</button></div>' +
       '<div class="sr-inv-leg">' + RAR.map(function (r) { return '<span style="--rc:' + r.col + '">' + r.n[lang] + "</span>"; }).join("") + '<em class="sr-inv-cnt"></em></div><div class="sr-inv-list"></div></div></div>' +
-      '<div class="sr-ebot sr-fl-only"><div class="sr-ebot-bar"><i id="sr-be-e"></i><i id="sr-be-s"></i></div><span id="sr-be-t"></span>' +
+      '<div class="sr-kc sr-fl-only"><small>' + t("kills") + '</small><b>0</b></div>' +
+      '<div class="sr-ebot sr-fl-only"><div class="sr-ebot-bar"><i id="sr-be-s"></i><i id="sr-be-e"></i></div><span id="sr-be-t"></span>' +
       '<label class="sr-shs"><small>' + t("shield") + '</small><input type="range" id="sr-shp" min="0" max="100" step="5" value="0"><b id="sr-shp-v">0 %</b><button type="button" data-act="shfill" title="' + t("shFill") + '">↻</button></label><em id="sr-shp-n"></em></div>' +
       '<div class="sr-tip sr-fl-only" hidden title="' + (lang === "de" ? "Klicken zum Ausblenden" : "Click to dismiss") + '"></div>' +
       '<div class="sr-hint" id="sr-hint"></div><div class="sr-note" hidden></div>' +
@@ -2064,6 +2081,10 @@
     ".sr-kill{position:absolute;left:50%;top:76px;transform:translateX(-50%);display:flex;align-items:center;gap:10px;background:rgba(14,19,28,.92);border:1px solid #3A4658;padding:8px 16px 8px 10px;z-index:5;pointer-events:none}" +
     ".sr-kill[hidden]{display:none}.sr-kill div{display:flex;flex-direction:column}.sr-kill small{font-size:.68rem;letter-spacing:.1em;text-transform:uppercase;color:#F08A78;font-weight:700}.sr-kill span{font-weight:600;color:#E8ECEF}" +
     ".sr-kill.flee small{color:#F0B860}.sr-kill.flee path:last-child{stroke:#F0B860}" +
+    ".sr-kill.dead small{color:#FF6A55}" +
+    ".sr-kc{position:absolute;right:12px;top:64px;z-index:3;display:flex!important;align-items:baseline;gap:8px;background:rgba(14,19,28,.6);border:1px solid rgba(38,49,66,.8);padding:6px 12px;pointer-events:none}" +
+    ".sr-kc small{font-size:.66rem;letter-spacing:.1em;text-transform:uppercase;color:#8FA0B8}.sr-kc b{font-size:1.15rem;color:#EEF2F5;font-variant-numeric:tabular-nums;min-width:1ch;text-align:right}" +
+    ".sr-kc.pop b{animation:srKc .6s ease}@keyframes srKc{0%{color:#F2C14E;transform:scale(1.5)}100%{color:#EEF2F5;transform:scale(1)}}" +
     ".sr-kill.go{animation:srKill 3.2s ease both}@keyframes srKill{0%{opacity:0;transform:translate(-50%,-8px)}8%{opacity:1;transform:translate(-50%,0)}85%{opacity:1}100%{opacity:0}}" +
     ".sr-note{position:absolute;left:50%;top:72px;transform:translateX(-50%);background:#E0533F;color:#fff;font-weight:600;padding:8px 14px;z-index:4;font-size:.86rem}" +
     ".sr-ctlb{position:absolute;left:206px;bottom:10px;z-index:3;padding:5px 10px;font-size:.72rem;background:rgba(14,19,28,.6);border:1px solid rgba(38,49,66,.8);color:#B9C4D4}.sr-ctlb[aria-pressed=true]{color:#9FE3BD;border-color:rgba(127,211,164,.55)}" +
@@ -2266,11 +2287,26 @@
   }
   // Schild-Zuweisung: Anteil der Gesamtkapazität wird aus der Schiffsenergie ins Schild umgebucht.
   // Leergeschossene Schilde füllen sich nicht von selbst, erst wenn der Regler neu gesetzt wird (oder ↻).
+  // Setzt das Ziel; aufgeladen wird danach fließend in 1-%-Schritten mit dem Tempo der Generatoren. Weniger Anteil gibt Energie sofort zurück.
   function setShield(pct) {
-    var me = FL.me; FL.shPct = pct;   // jederzeit einstellbar; ohne Generator bleibt die Reserve nur liegen
-    var target = pct / 100 * me.cap, diff = target - (me.shE || 0);
-    if (diff > 0) { var take = Math.min(diff, me.energy); me.energy -= take; me.shE = (me.shE || 0) + take; }
-    else { me.shE += diff; me.energy = Math.min(me.cap - me.shE, me.energy - diff); }
+    var me = FL.me; FL.shPct = pct; FL.shTarget = pct / 100 * me.cap;
+    if ((me.shE || 0) > FL.shTarget) { var back = me.shE - FL.shTarget; me.shE = FL.shTarget; me.energy = Math.min(me.cap - me.shE, me.energy + back); FL.shCharging = false; }
+    else FL.shCharging = FL.shTarget - (me.shE || 0) > 0.5;
+  }
+  function shieldTick(dt) {
+    var me = FL.me; if (!FL.shCharging) return;
+    if (!me.shGen) return;   // ohne Generator lädt nichts
+    var step = me.cap / 100; FL.shAcc += dt * me.shGen;   // shGen = Prozent pro Sekunde
+    while (FL.shAcc >= 1 && FL.shCharging) {
+      FL.shAcc -= 1;
+      var need = Math.min(step, FL.shTarget - me.shE); if (need <= 0.01 || me.energy < need) { if (me.energy < need) FL.shAcc = 0; break; }
+      me.energy -= need; me.shE += need;
+    }
+    if (FL.shTarget - me.shE <= 0.5) { FL.shCharging = false; FL.shAcc = 0; floatTxt(t("shCharged"), "120,190,255"); }
+    else if (Math.random() < dt * 40) {   // Sog-Effekt: blaue Partikel ziehen von außen an die Hülle
+      var a = Math.random() * 6.28, r = me.rad * 0.9 + 6;
+      FL.parts.push({ x: me.x + Math.cos(a) * r, y: me.y + Math.sin(a) * r, vx: me.vx - Math.cos(a) * r * 1.6, vy: me.vy - Math.sin(a) * r * 1.6, life: 0, max: 0.55, k: "suck", sz: 0.35 + Math.random() * 0.3 });
+    }
   }
   // Infofeld skalieren: CSS-zoom statt Bild-Skalierung, Schrift und Symbole bleiben gestochen scharf (100 bis 150 %)
   function hudScale(k) {
