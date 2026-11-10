@@ -4,7 +4,7 @@
 (function () {
   "use strict";
 
-  var VERSION = "0.49.1";
+  var VERSION = "0.49.2";
   var CELL_M = 2.5, PX = 24;              // Meter je Zelle, Pixel je Zelle bei Zoom 1
   var lang = "de";
   function L2(de, en) { return { de: de, en: en }; }
@@ -65,7 +65,7 @@
     dockHint: L2("P · Andocken", "P · Dock"), docking: L2("Andocken …", "Docking …"), docked: L2("Angedockt", "Docked"), dockedHint: L2("Angedockt · P zum Abdocken", "Docked · P to undock"),
     undocked: L2("Abgedockt", "Undocked"), noDock: L2("Kein passender Dock in Reichweite", "No matching dock in range"), dockAbort: L2("Andocken abgebrochen", "Docking aborted"),
     dockStand: L2("Erst aus dem Dock gehen", "Step out of the dock first"), notOnShip: L2("Erst zurück aufs eigene Schiff", "Get back onto your own ship first"),
-    shipDef: L2("Dein Schiff", "Your ship"), stDef: L2("Raumstation", "Space station"), namePh: L2("Name …", "Name …"), emptySlot: L2("leer", "empty"),
+    shipDef: L2("Dein Schiff", "Your ship"), renameT: L2("Schiff umbenennen", "Rename ship"), stDef: L2("Raumstation", "Space station"), namePh: L2("Name …", "Name …"), emptySlot: L2("leer", "empty"),
     spawn: L2("Gegner spawnen", "Spawn enemy"), spawned: L2("{n} patrouilliert irgendwo vor dir", "{n} is patrolling somewhere ahead of you"), ko: L2("Kampfunfähig", "Disabled"),
     edShip: L2("Schiff", "Ship"), edSt: L2("Raumstation", "Space station"), stNoShip: L2("Für den Stationstest brauchst du ein Schiff mit Cockpit im Schiffs-Editor.", "To test the station you need a ship with a cockpit in the ship editor."),
     weld: L2("Schweißgerät", "Welder"), weldOn: L2("repariert {n}: {p} %", "repairing {n}: {p} %"), weldIdle: L2("Linksklick vor einem Block repariert ihn, vor einem Hologramm baut er ihn neu", "Left click facing a block repairs it, facing a hologram rebuilds it"),
@@ -893,10 +893,11 @@
       sta.static = true; sta.station = true; sta.name = S.names.station || t("stDef"); sta.id = ++BID; sta.x = 0; sta.y = me.y - (me.rad + sta.rad + 40); sta.vx = sta.vy = sta.w = 0;
       FL.bodies.push(sta);
     } else if (!stMode) spawnTargets();
+    S.viewEd = S.view; S.view = "out"; FL.seatWas = true;
     S.mode = "fly"; V.zoomEd = V.zoom; V.zoom = Math.min(1.1, Math.max(0.6, V.zoom));
     syncUI();
   }
-  function stopTest() { FL = null; S.mode = "edit"; if (V.zoomEd) V.zoom = V.zoomEd; syncUI(); }
+  function stopTest() { FL = null; S.mode = "edit"; if (V.zoomEd) V.zoom = V.zoomEd; if (S.viewEd) S.view = S.viewEd; syncUI(); }
   // Zielschiffe: Panzerung mit ein paar Maschinenteilen, damit Rauch und Feuer sichtbar werden
   function targetShip() {
     var B = [];
@@ -1444,7 +1445,7 @@
       if (hc && T[hc.b.t].kind === "hatch") { exitShip(pb, FL.pilot.x, FL.pilot.y, false); FL.pb = me; return; }
       if (pb !== me) { note(t("notOnShip")); return; }
     }
-    if (FL.seated) { FL.seated = false; var sp = seatPos(me); FL.pilot.x = sp.x; FL.pilot.y = sp.y; FL.pilot.face = me.seat ? dirAngle(me.seat) : 0; if (S.view !== "in") { S.view = "in"; syncUI(); } return; }
+    if (FL.seated) { FL.seated = false; var sp = seatPos(me); FL.pilot.x = sp.x; FL.pilot.y = sp.y; FL.pilot.face = me.seat ? dirAngle(me.seat) : 0; return; }
     if (!me.seat) return;
     var p = seatPos(me); if (Math.hypot(p.x - FL.pilot.x, p.y - FL.pilot.y) > 1.5) { note(t("tooFar")); return; }
     FL.seated = true;
@@ -2083,6 +2084,9 @@
   function mmss(sec) { sec = Math.max(0, Math.ceil(sec)); return Math.floor(sec / 60) + ":" + ("0" + sec % 60).slice(-2); }
   function flHud() {
     var rootEl = V.root.querySelector(".sr-root"), ft = !FL.seated; if (rootEl.classList.contains("foot") !== ft) { rootEl.classList.toggle("foot", ft); syncHot(); }
+    // Standardansicht: im Cockpit außen, zu Fuß innen (mit V weiterhin umschaltbar)
+    if (FL.seatWas !== FL.seated) { FL.seatWas = FL.seated; S.view = FL.seated ? "out" : "in"; syncUI(); }
+    var snb = V.root.querySelector(".sr-shipn"); if (snb && !snb.classList.contains("edit")) { var nm = FL.me.name || t("shipDef"); if (snb.textContent !== nm) snb.textContent = nm; }
     var me = FL.me, sp = Math.hypot(me.vx, me.vy), g = FL.groups[FL.wsel];
     set("sr-h-sp", nf(sp, 1) + " m/s");
     // Tempo: rotes „Hoch“ über 120 m/s, an der Sperre ein ruhiger Hinweis „⇧ Limit“ (feste Breite, nichts springt)
@@ -2169,6 +2173,7 @@
       '<div class="sr-kill" hidden><svg viewBox="0 0 40 40" width="34" height="34"><path d="M20 5l6 12v12l-6 5-6-5V17z" fill="#6A7480" stroke="#C9D1D9" stroke-width="1.5"/><path d="M11 13l18 18M29 13L11 31" stroke="#E0533F" stroke-width="3"/></svg><div><small>' + t("ko") + '</small><span></span></div></div>' +
       '<label class="sr-uis sr-fl-only" title="' + (lang === "de" ? "Größe des Infofelds" : "Info panel size") + '"><svg viewBox="0 0 20 20" width="14" height="14"><rect x="2" y="3" width="7" height="14" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M12 7h6M12 10h6M12 13h4" stroke="currentColor" stroke-width="1.6"/></svg><input type="range" id="sr-uis" min="1" max="1.5" step="0.05" value="1"><span id="sr-uis-v">100 %</span></label>' +
       '<button type="button" class="sr-ctlb sr-fl-only" data-act="ctl" aria-pressed="false">' + t("controls") + '</button>' +
+      '<button type="button" class="sr-shipn" data-act="rename" title="' + t("renameT") + '"></button><input class="sr-shipn-in" maxlength="28" spellcheck="false" hidden>' +
       '<div class="sr-inv" hidden><div class="sr-inv-box"><div class="sr-inv-h"><div><b>' + t("invT") + '</b><small>' + t("invSub") + '</small></div><span class="sr-inv-cnt"></span><button type="button" data-act="inv-x">' + (lang === "de" ? "Schließen (I)" : "Close (I)") + '</button></div><div class="sr-inv-grid"></div></div></div>' +
       hotHtml() + '<div class="sr-place"></div>' +
       '<div class="sr-kc sr-fl-only"><small>' + t("kills") + '</small><b>0</b></div>' +
@@ -2271,6 +2276,9 @@
     ".sr-kc.pop b{animation:srKc .6s ease}@keyframes srKc{0%{color:#F2C14E;transform:scale(1.5)}100%{color:#EEF2F5;transform:scale(1)}}" +
     ".sr-kill.go{animation:srKill 3.2s ease both}@keyframes srKill{0%{opacity:0;transform:translate(-50%,-8px)}8%{opacity:1;transform:translate(-50%,0)}85%{opacity:1}100%{opacity:0}}" +
     ".sr-note{position:absolute;left:50%;top:72px;transform:translateX(-50%);background:#E0533F;color:#fff;font-weight:600;padding:8px 14px;z-index:4;font-size:.86rem}" +
+    ".sr-shipn,.sr-shipn-in{position:absolute;left:300px;bottom:10px;z-index:3;padding:5px 10px;font-size:.72rem;background:rgba(14,19,28,.6);border:1px solid rgba(38,49,66,.8);color:#E8ECEF;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:none}" +
+    ".sr-shipn::before{content:'✎ ';color:#8FA0B8}.sr-shipn-in{width:200px;font:inherit;font-size:.72rem;border-color:#F2C14E;border-radius:0}.sr-shipn-in[hidden]{display:none!important}" +
+    ".sr-root.fly:not(.foot) .sr-shipn:not([hidden]){display:block}.sr-root.fly:not(.foot) .sr-shipn-in:not([hidden]){display:block}" +
     ".sr-ctlb{position:absolute;left:206px;bottom:10px;z-index:3;padding:5px 10px;font-size:.72rem;background:rgba(14,19,28,.6);border:1px solid rgba(38,49,66,.8);color:#B9C4D4}.sr-ctlb[aria-pressed=true]{color:#9FE3BD;border-color:rgba(127,211,164,.55)}" +
     ".sr-ctl{border-top:1px solid rgba(38,49,66,.9);padding-top:6px;gap:3px!important}.sr-ctl[hidden]{display:none!important}.sr-ctl small{margin-top:3px}" +
     ".sr-ctl dl{display:grid;grid-template-columns:66px 1fr;gap:2px 7px;margin:0;font-size:.7rem;line-height:1.3}.sr-ctl dt{color:#E8ECEF;font-weight:600;white-space:nowrap}.sr-ctl dd{margin:0;color:#B9C4D4}" +
@@ -2346,7 +2354,13 @@
   }
   function onUp(e) { if (!V) return; V.pan = null; V.down = null; if (FL) FL.fire = false; if (V.row) { placeRow(); V.row = null; syncUI(); } }
   function onWheel(e) { e.preventDefault(); var k = e.deltaY < 0 ? 1.12 : 1 / 1.12; V.zoom = Math.max(S.mode === "fly" ? ZMIN_FL : S.ed === "station" ? ZMIN_ST : 0.3, Math.min(3, V.zoom * k)); }
+  function finishRename(ok) {
+    var ib = V.root.querySelector(".sr-shipn-in"), bb = V.root.querySelector(".sr-shipn"); if (!ib || ib.hidden) return;
+    if (ok && FL) { var v = ib.value.trim(); FL.me.name = v || t("shipDef"); S.names.ship = v; save(); }
+    ib.hidden = true; bb.hidden = false; bb.classList.remove("edit"); ib.blur();
+  }
   function onKey(e) {
+    if (V && e.target.classList && e.target.classList.contains("sr-shipn-in")) { if (e.key === "Enter") finishRename(true); else if (e.key === "Escape") finishRename(false); e.stopPropagation(); return; }
     if (!V || e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA") return;
     var k = e.key.toLowerCase();
     if (S.mode === "fly") {
@@ -2459,6 +2473,7 @@
     else if (act === "inv") { openInv(); return; }
     else if (act === "shfill") { if (FL) setShield(FL.shPct); a.blur(); return; }
     else if (act === "inv-x") { closeInv(); return; }
+    else if (act === "rename") { var ib = V.root.querySelector(".sr-shipn-in"), bb = V.root.querySelector(".sr-shipn"); bb.classList.add("edit"); bb.hidden = true; ib.hidden = false; ib.value = FL.me.name || ""; ib.focus(); ib.select(); return; }
     else if (act === "ctl") { var cp = V.root.querySelector(".sr-ctl"), cb = V.root.querySelector(".sr-ctlb"); cp.hidden = !cp.hidden; cb.setAttribute("aria-pressed", String(!cp.hidden)); if (!cp.hidden) V.root.querySelector(".sr-hud").scrollTop = 1e5; cb.blur(); return; }
     else if (act === "npc-x") { V.root.querySelector(".sr-npc").hidden = true; return; }
     else if (act === "io-x") { V.root.querySelector(".sr-exio").hidden = true; return; }
@@ -2544,7 +2559,8 @@
     V.cv.addEventListener("wheel", onWheel, { passive: false }); V.cv.addEventListener("contextmenu", function (e) { e.preventDefault(); });
     V.cv.addEventListener("pointerleave", function () { if (V && S.mode !== "fly") V.mouse = null; });
     el.addEventListener("click", onClick); el.addEventListener("input", onInput);
-    el.addEventListener("change", function (e) { if (e.target.type === "range") e.target.blur(); });   // Regler loslassen gibt WASD wieder frei
+    el.addEventListener("change", function (e) { if (e.target.type === "range") e.target.blur(); });
+    el.addEventListener("focusout", function (e) { if (e.target.classList && e.target.classList.contains("sr-shipn-in")) finishRename(true); });   // Regler loslassen gibt WASD wieder frei
     window.addEventListener("keydown", onKey); window.addEventListener("keyup", onKeyUp); window.addEventListener("resize", layout);
     window.addEventListener("blur", releaseKeys);
     last = 0; raf = requestAnimationFrame(loop);
