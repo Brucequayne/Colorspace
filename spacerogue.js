@@ -4,7 +4,7 @@
 (function () {
   "use strict";
 
-  var VERSION = "0.39.3";
+  var VERSION = "0.4";
   var CELL_M = 2.5, PX = 24;              // Meter je Zelle, Pixel je Zelle bei Zoom 1
   var lang = "de";
   function L2(de, en) { return { de: de, en: en }; }
@@ -39,6 +39,8 @@
     cruise: L2("Cruise-Modus", "Cruise mode"), cruiseOn: L2("Cruise an: Das Schiff bremst nicht mehr von selbst, seitlich bleibt der Kurs stabil", "Cruise on: the ship no longer brakes by itself, sideways the course stays stable"), cruiseOff: L2("Cruise aus: Die Dämpfer bremsen wieder in alle Richtungen", "Cruise off: dampers brake in all directions again"),
     hiSpeed: L2("Hohe Geschwindigkeit", "High speed"),
     hiOn: L2("Hochgeschwindigkeit frei", "High speed unlocked"), hiOff: L2("Hochgeschwindigkeit gesperrt", "High speed locked"),
+    invT: L2("Inventar · Perks", "Inventory · Perks"), invSub: L2("Spiel pausiert · Klick aktiviert oder deaktiviert einen Perk · I oder Esc schließt", "Game paused · click to activate or deactivate a perk · I or Esc closes"),
+    invActive: L2("{n} von {m} aktiv", "{n} of {m} active"), perksBtn: L2("Perks (I)", "Perks (I)"), sCost: L2("Kosten", "Cost"), costFree: L2("im Editor kostenlos", "free in the editor"),
     ocOn: L2("Overcharge aktiv", "Overcharge active"), ocOff: L2("Overcharge aus", "Overcharge off"), controls: L2("Steuerung", "Controls"),
     crFloatOn: L2("Cruise Control an", "Cruise control on"), crFloatOff: L2("Cruise Control aus", "Cruise control off"),
     hSeat: L2("Im Cockpit", "In cockpit"), hWalk: L2("Zu Fuß", "On foot"), hOut: L2("Draußen · Jetpack", "Outside · jetpack"), hGone: L2("Cockpit zerstört", "Cockpit destroyed"),
@@ -82,6 +84,10 @@
     });
   }
   armor("l", false); armor("h", true);
+  // Kosten in Credits (Cr): im Editor ist alles gratis, im späteren Rogue-like-Modus bezahlt man damit Bau-Upgrades zwischen den Stages
+  var COSTS = { cks: 1200, ckm: 2400, ckl: 4200, ths: 450, thl: 1600, gyr: 700, col: 300, ant: 400, bat: 350, rea: 2000, flo: 15, wal: 25, dor: 60, hat: 150, win: 40, mgn: 900, msl: 1300, tgc: 1600, rgn: 2600 };
+  function applyCosts() { Object.keys(T).forEach(function (id) { var ty = T[id]; ty.cost = COSTS[id] || (ty.kind === "armor" ? Math.max(5, Math.round(ty.mass * (ty.heavy ? 26 : 57))) : 100); }); }
+  function cr(v) { return nf(Math.round(v)) + " Cr"; }
   def("cks", { cat: "catCo", kind: "cock", w: 2, h: 3, mass: 1.8, hp: 220, n: L2("Cockpit klein 2×3", "Small cockpit 2×3"), col: "#9AA5B1" });
   def("ckm", { cat: "catCo", kind: "cock", w: 3, h: 4, mass: 4.2, hp: 320, n: L2("Cockpit 3×4", "Cockpit 3×4"), col: "#9AA5B1" });
   def("ckl", { cat: "catCo", kind: "cock", w: 4, h: 5, mass: 7.5, hp: 440, n: L2("Cockpit groß 4×5", "Large cockpit 4×5"), col: "#9AA5B1" });
@@ -101,6 +107,45 @@
   def("msl", { cat: "catWe", kind: "ms", w: 1, h: 2, mass: 1.6, hp: 60, n: L2("Leichte Raketen 1×2", "Light missiles 1×2"), col: "#7E8995" });
   def("tgc", { cat: "catWe", kind: "tcomp", w: 1, h: 2, mass: 0.8, hp: 45, n: L2("Zielcomputer 1×2", "Targeting computer 1×2"), col: "#7E8995" });
   def("rgn", { cat: "catWe", kind: "rg", w: 1, h: 3, mass: 3.8, hp: 120, n: L2("Railgun 1×3", "Railgun 1×3"), col: "#7E8995" });
+  applyCosts();
+  // ---------- Perks ----------
+  // Seltenheit: gewöhnlich (silber) bekommt den kleinsten Wert der Spanne, legendär (gold) den größten, selten und episch liegen bei 1/3 und 2/3
+  var RAR = [
+    { n: L2("Gewöhnlich", "Common"), col: "#C3CAD3", rgb: "195,202,211", w: 60 },
+    { n: L2("Selten", "Rare"), col: "#4EA3FF", rgb: "78,163,255", w: 27 },
+    { n: L2("Episch", "Epic"), col: "#B26BFF", rgb: "178,107,255", w: 10 },
+    { n: L2("Legendär", "Legendary"), col: "#F2C14E", rgb: "242,193,78", w: 3 }
+  ];
+  var PERKS = [
+    { id: "side", lo: 20, hi: 100, n: L2("Seitenschub", "Side thrust"), d: L2("Seitliche Triebwerke: +{v} Schub", "Side thrusters: +{v} thrust") },
+    { id: "brake", lo: 20, hi: 100, n: L2("Bremskraft", "Braking power"), d: L2("Bremsschub in jede Richtung: +{v}", "Braking thrust in every direction: +{v}") },
+    { id: "mgRate", lo: 20, hi: 50, n: L2("Minigun-Feuerrate", "Minigun fire rate"), d: L2("Minigun feuert {v} schneller", "Minigun fires {v} faster") },
+    { id: "batCap", lo: 10, hi: 50, n: L2("Batteriespeicher", "Battery storage"), d: L2("Batterien speichern {v} mehr Energie", "Batteries store {v} more energy") },
+    { id: "luck", lo: 10, hi: 25, n: L2("Glücksfund", "Lucky find"), d: L2("Chance auf legendäre Perks: +{v}", "Chance of legendary perks: +{v}") },
+    { id: "msRl", lo: 20, hi: 75, n: L2("Raketen-Nachladen", "Missile reload"), d: L2("Raketen laden {v} schneller nach", "Missiles reload {v} faster") },
+    { id: "hp", lo: 10, hi: 40, n: L2("Verstärkte Struktur", "Reinforced structure"), d: L2("Alle Blöcke: +{v} HP", "All blocks: +{v} HP") },
+    { id: "prod", lo: 10, hi: 50, n: L2("Reaktor-Tuning", "Reactor tuning"), d: L2("Reaktor-Output: +{v}", "Reactor output: +{v}") },
+    { id: "walk", fixed: 1, n: L2("Flinke Füße", "Quick feet"), d: L2("Dein Charakter läuft im Schiff doppelt so schnell", "Your character moves twice as fast inside ships"), tag: "2×" },
+    { id: "radar", lo: 25, hi: 100, n: L2("Radarreichweite", "Radar range"), d: L2("Antennenreichweite: +{v}", "Antenna range: +{v}") },
+    { id: "oc", lo: 25, hi: 100, n: L2("Overcharge-Dauer", "Overcharge duration"), d: L2("Overcharge hält {v} länger", "Overcharge lasts {v} longer") },
+    { id: "msDmg", lo: 10, hi: 50, n: L2("Raketenschaden", "Missile damage"), d: L2("Leichte Raketen: +{v} Schaden", "Light missiles: +{v} damage") },
+    { id: "cockHp", lo: 10, hi: 50, n: L2("Gepanzertes Cockpit", "Armoured cockpit"), d: L2("Cockpit: +{v} HP", "Cockpit: +{v} HP") },
+    { id: "msTurn", lo: 10, hi: 100, n: L2("Raketenlenkung", "Missile steering"), d: L2("Leichte Raketen: +{v} Kurvenleistung", "Light missiles: +{v} turning") },
+    { id: "crit", lo: 1, hi: 10, n: L2("Kritische Treffer", "Critical hits"), d: L2("Minigun: {v} Chance auf kritische Treffer (doppelter Schaden)", "Minigun: {v} chance of critical hits (double damage)") },
+    { id: "batW", fixed: 1, legOnly: true, n: L2("Schwerelose Zellen", "Weightless cells"), d: L2("Deine Batterien wiegen nichts mehr", "Your batteries weigh nothing"), tag: "0 kg" },
+    { id: "heavyW", lo: 20, hi: 50, n: L2("Leichtbau-Panzerung", "Lightweight plating"), d: L2("Schwere Panzerung wiegt {v} weniger", "Heavy armour weighs {v} less") }
+  ];
+  var PM = {};   // Summe der aktiven Perk-Werte (als Anteil, 0,2 = 20 %)
+  function perkVal(p, r) { return p.fixed ? p.fixed : Math.round(p.lo + (p.hi - p.lo) * r / 3); }
+  function perkTxt(p, r) { return p.d[lang].replace("{v}", perkVal(p, r) + " %"); }
+  function perkTag(p, r) { return p.tag || "+" + perkVal(p, r) + " %"; }
+  function calcPM(inv) {
+    var m = {}; PERKS.forEach(function (p) { m[p.id] = 0; });
+    (inv || []).forEach(function (it) { if (!it.on) return; var p = PERKS[it.p]; m[p.id] += p.fixed ? 1 : perkVal(p, it.r) / 100; });
+    m.walk = m.walk > 0; m.batW = m.batW > 0; m.heavyW = Math.min(0.9, m.heavyW);
+    return m;
+  }
+  PM = calcPM([]);
   CATS = ["catLA", "catHA", "catCo", "catTh", "catEn", "catIn", "catWe"];
   var MECH = { cock: 1, thr: 1, gyro: 1, ant: 1, bat: 1, reac: 1, door: 1, hatch: 1, mg: 1, rg: 1, cool: 1, ms: 1, tcomp: 1 };
   var ROOMABLE = { bat: 1, reac: 1, gyro: 1, cool: 1, tcomp: 1 };   // Maschinen, die in einem Raum stehen dürfen und dann zum Raum gehören
@@ -207,11 +252,18 @@
   }
   // ---------- Werte eines Schiffs ----------
   function thrustDir(b) { return dirOut(b, 0); }     // Schub zeigt zur Montageseite, Düse nach hinten
-  function stats(blocks) {
+  // Masse eines Blocks; Perks können sie für das eigene Schiff senken (Batterien, schwere Panzerung)
+  function massOf(ty, mod) {
+    if (!mod) return ty.mass;
+    if (ty.kind === "bat" && mod.batW) return 0;
+    if (ty.kind === "armor" && ty.heavy && mod.heavyW) return ty.mass * Math.max(0, 1 - mod.heavyW);
+    return ty.mass;
+  }
+  function stats(blocks, mod) {
     var s = { mass: 0, thr: [0, 0, 0, 0], torque: 0, cap: 0, prod: 0, use: 0, n: blocks.length, cock: 0, gyro: 0, com: [0, 0], I: 0, mg: 0, rg: 0, ms: 0 };
     blocks.forEach(function (b) {
       var ty = T[b.t], f = fp(b), cx = b.x + f[0] / 2, cy = b.y + f[1] / 2;
-      s.mass += ty.mass; s.com[0] += cx * ty.mass; s.com[1] += cy * ty.mass;
+      var ms = massOf(ty, mod); s.mass += ms; s.com[0] += cx * ms; s.com[1] += cy * ms; s.cost = (s.cost || 0) + (ty.cost || 0);
       if (ty.kind === "thr") { s.thr[thrustDir(b)] += ty.thrust; s.use += ty.use; }
       if (ty.kind === "gyro") { s.torque += ty.torque; s.gyro++; s.use += ty.use; }
       if (ty.kind === "bat") s.cap += ty.cap;
@@ -221,10 +273,10 @@
       if (ty.kind === "rg") s.rg++;
       if (ty.kind === "ms") s.ms++;
     });
-    if (s.mass) { s.com[0] /= s.mass; s.com[1] /= s.mass; }
+    if (s.mass) { s.com[0] /= s.mass; s.com[1] /= s.mass; } else if (blocks.length) { s.com = [blocks[0].x + 0.5, blocks[0].y + 0.5]; }
     blocks.forEach(function (b) {
       var ty = T[b.t], f = fp(b), dx = (b.x + f[0] / 2 - s.com[0]) * CELL_M, dy = (b.y + f[1] / 2 - s.com[1]) * CELL_M;
-      s.I += ty.mass * (dx * dx + dy * dy + (f[0] * f[0] + f[1] * f[1]) * CELL_M * CELL_M / 12);
+      s.I += massOf(ty, mod) * (dx * dx + dy * dy + (f[0] * f[0] + f[1] * f[1]) * CELL_M * CELL_M / 12);
     });
     return s;
   }
@@ -623,7 +675,7 @@
     if (V.mouse && !V.pan && !V.row) {
       var hb2 = blockAt(Math.floor(V.mouse.x), Math.floor(V.mouse.y), M);
       if (hb2) {
-        var ty2 = T[hb2.t], txt = ty2.n[lang] + " · " + kg(ty2.mass) + " · " + ty2.hp + " HP";
+        var ty2 = T[hb2.t], txt = ty2.n[lang] + " · " + kg(ty2.mass) + " · " + ty2.hp + " HP · " + cr(ty2.cost);
         c.font = "600 12px " + FONTS(); var tw = c.measureText(txt).width + 16, tx = Math.min(V.W - tw - 6, V.mouse.sx + 16), ty3 = Math.min(V.H - 30, V.mouse.sy + 18);
         c.fillStyle = "rgba(14,19,28,.94)"; c.fillRect(tx, ty3, tw, 24); c.strokeStyle = "#33415A"; c.lineWidth = 1; c.strokeRect(tx + 0.5, ty3 + 0.5, tw - 1, 23);
         c.fillStyle = "#E6EAF0"; c.textAlign = "left"; c.textBaseline = "middle"; c.fillText(txt, tx + 8, ty3 + 12.5); c.textBaseline = "alphabetic";
@@ -653,12 +705,12 @@
     M = M || buildMap(blocks);
     var sorted = blocks.slice().sort(function (a, b) { return ORDER[T[a.t].kind] - ORDER[T[b.t].kind]; }), hull = [];
     sorted.forEach(function (b) {
-      var ty = T[b.t], hpk = b.hp !== undefined ? b.hp / ty.hp : 1, o = null;
+      var ty = T[b.t], hpk = b.hp !== undefined ? b.hp / hpMax(body, b) : 1, o = null;
       if (isHull(ty.kind, view)) { hull.push(b); return; }
       if (body) o = { pilot: ty.kind === "cock" && body.ctrl && FL && FL.seated && b === body.seat, batK: body.cap ? body.energy / body.cap : 1, charge: b.chg ? Math.min(1, b.chg / RG.charge) : 0, ammo: b.ammo === undefined ? 2 : b.ammo, open: !!b.open, tw: b.tw || 0 };
       drawBlock(c, b, s, view, hpk, tm, o);
     });
-    hull.forEach(function (b) { hullFill(c, b, s, view, b.hp !== undefined ? b.hp / T[b.t].hp : 1); });
+    hull.forEach(function (b) { hullFill(c, b, s, view, b.hp !== undefined ? b.hp / hpMax(body, b) : 1); });
     hull.forEach(function (b) { hullEdges(c, b, s, M, view); });
   }
   function hullFill(c, b, s, view, hpk) {
@@ -717,6 +769,8 @@
   var RG = { charge: 0.7, cd: 2.2, dmg: 150, range: 700, e: 67.5 };   // v0.39: +50 % Energie pro Schuss
   // Anzugluft in Sekunden; Raumluft füllt sich in dichten Räumen auf und entweicht durch Lecks
   var SUIT = { max: 180, refill: 20, jet: 3, acc: 5, breathe: 0.35 }, AIR = { fill: 0.22, vent: 0.9 }, WELD = 15;
+  // Maximale HP eines Blocks; Perks erhöhen sie für das eigene Schiff
+  function hpMax(bd, b) { var h = T[b.t].hp; if (bd && bd.player) { h *= 1 + PM.hp; if (T[b.t].kind === "cock") h *= 1 + PM.cockHp; } return h; }
   function makeBody(blocks, ctrl) {
     var bd = { blocks: blocks, x: 0, y: 0, a: 0, vx: 0, vy: 0, w: 0, ctrl: !!ctrl, energy: 0, cap: 0, flames: {} };
     blocks.forEach(function (b) { if (b.hp === undefined) b.hp = T[b.t].hp; });
@@ -725,11 +779,11 @@
     return bd;
   }
   function recalc(bd, first) {
-    var st = stats(bd.blocks), old = bd.com;
-    bd.com = st.com; bd.mass = Math.max(0.5, st.mass); bd.I = Math.max(1, st.I); bd.thr = st.thr; bd.torque = st.torque; bd.prod = st.prod;
-    bd.cap = st.cap + (st.cock ? 30 : 0); bd.energy = Math.min(bd.energy, bd.cap);
+    var pm = bd.player ? PM : null, st = stats(bd.blocks, pm), old = bd.com;
+    bd.com = st.com; bd.mass = Math.max(0.5, st.mass); bd.I = Math.max(1, st.I); bd.thr = st.thr; bd.torque = st.torque; bd.prod = st.prod * (pm ? 1 + pm.prod : 1);
+    bd.cap = st.cap * (pm ? 1 + pm.batCap : 1) + (st.cock ? 30 : 0); bd.energy = Math.min(bd.energy, bd.cap);
     bd.map = buildMap(bd.blocks); bd.roomsDirty = true;
-    bd.cool = coolMap(bd.blocks, bd.map); bd.ocMax = ocMaxOf(bd.blocks, bd.cool);
+    bd.cool = coolMap(bd.blocks, bd.map); bd.ocMax = ocMaxOf(bd.blocks, bd.cool) * (pm ? 1 + pm.oc : 1);
     bd.seat = bd.blocks.filter(function (b) { return T[b.t].kind === "cock"; })[0] || null;
     bd.cock = st.cock; bd.thrSum = st.thr[0] + st.thr[1] + st.thr[2] + st.thr[3]; bd.nAnt = bd.blocks.filter(function (b) { return T[b.t].kind === "ant"; }).length; bd.tcomp = bd.blocks.some(function (b) { return T[b.t].kind === "tcomp"; });
     bd.cells = []; bd.map.forEach(function (v, k) { var q = k.split(","); bd.cells.push([+q[0] + 0.5, +q[1] + 0.5, v.b]); });
@@ -753,6 +807,10 @@
     FL.oc = false; FL.ocT = me.ocMax;
     FL.groups = []; if (st.mg) FL.groups.push("mg"); if (st.ms) FL.groups.push("ms"); if (st.rg) FL.groups.push("rg");
     FL.missiles = []; FL.hits = []; FL.sig = 0; FL.banner = 0; me.id = ++BID;
+    // Sandbox: im Editor-Testflug liegen alle Perks in allen Seltenheiten im Inventar, aber inaktiv
+    FL.drops = []; FL.inv = []; FL.uid = 0;
+    PERKS.forEach(function (p, pi) { for (var r = p.legOnly ? 3 : 0; r < 4; r++) FL.inv.push({ uid: ++FL.uid, p: pi, r: r, on: false }); });
+    PM = calcPM(FL.inv); me.player = true; recalc(me); me.energy = me.cap;
     FL.suit = SUIT.max; FL.out = false; FL.eva = null; FL.enterCd = 0; FL.ko = 0; me.lost = []; me.air = new Map();
     spawnTargets();
     S.mode = "fly"; V.zoomEd = V.zoom; V.zoom = Math.min(1.1, Math.max(0.6, V.zoom));
@@ -813,7 +871,7 @@
         if (ty.kind === "mg") { var cn = (bd.cool && bd.cool.get(b)) || 0; if (b.oh > 0) { b.oh -= dt; if (b.oh <= 0) { b.oh = 0; b.heat = 0; } } else if (!b.firing) b.heat = Math.max(0, (b.heat || 0) - MG.cool * (1 + 0.6 * cn) * dt); b.firing = false; }
         if (ty.kind === "ms" && b.ammo === undefined) b.ammo = 2;
         if (ty.kind === "rg") { if (b.cd > 0) b.cd -= dt; if (!b.holding) b.chg = 0; b.holding = false; }
-        var hk = b.hp / ty.hp;
+        var hk = b.hp / hpMax(bd, b);
         if (MECH[ty.kind] && hk < 0.5 && Math.random() < dt * (hk < 0.25 ? 5 : 2.5)) { var p = blockCenter(bd, b); FL.parts.push({ x: p.x + (Math.random() - 0.5) * 2, y: p.y + (Math.random() - 0.5) * 2, vx: bd.vx + (Math.random() - 0.5) * 3, vy: bd.vy - 1.5 - Math.random() * 2, life: 0, max: 1.4 + Math.random() * 0.8, k: "smoke", sz: 0.5 + Math.random() * 0.5 }); }
         if (MECH[ty.kind] && hk < 0.25 && Math.random() < dt * 9) { var q = blockCenter(bd, b); FL.parts.push({ x: q.x + (Math.random() - 0.5) * 1.6, y: q.y + (Math.random() - 0.5) * 1.6, vx: bd.vx + (Math.random() - 0.5) * 4, vy: bd.vy + (Math.random() - 0.5) * 4, life: 0, max: 0.4 + Math.random() * 0.3, k: "fire", sz: 0.45 + Math.random() * 0.45 }); }
       });
@@ -823,6 +881,7 @@
     trailTick();
     tipTick(dt);
     FL.hits = FL.hits.filter(function (h) { h.life += dt; return h.life < 0.35; });
+    dropTick(dt);
     if (FL.banner > 0) FL.banner -= dt;
     // Geschosse
     FL.shots = FL.shots.filter(function (p) {
@@ -830,7 +889,7 @@
       var steps = Math.ceil(Math.hypot(p.vx, p.vy) * dt / 1.0);
       for (var i = 0; i < steps; i++) {
         p.x += p.vx * dt / steps; p.y += p.vy * dt / steps;
-        var hit = hitAt(p.x, p.y, p.own); if (hit) { if (p.own === FL.me) hitMark(p.x, p.y, hit.bd); damage(hit.bd, hit.b, MG.dmg, p.x, p.y); spark(p.x, p.y, 5); return false; }
+        var hit = hitAt(p.x, p.y, p.own); if (hit) { var crit = p.own.player && Math.random() < PM.crit; if (p.own === FL.me) hitMark(p.x, p.y, hit.bd, crit); damage(hit.bd, hit.b, MG.dmg * (crit ? 2 : 1), p.x, p.y); spark(p.x, p.y, crit ? 10 : 5); return false; }
       }
       return true;
     });
@@ -838,9 +897,10 @@
     // Leichte Raketen: starke Beschleunigung, lenken nur ganz leicht zum Mauszeiger
     var mw = mouseWorld();
     FL.missiles = (FL.missiles || []).filter(function (m) {
-      m.life += dt; if (m.life > MS.life) { blast(m.x, m.y, MS.splash, MS.sdmg, m.own); return false; }
+      var mk = m.own && m.own.player ? 1 + PM.msDmg : 1;
+      m.life += dt; if (m.life > MS.life) { blast(m.x, m.y, MS.splash, MS.sdmg * mk, m.own); return false; }
       var tg = m.own === FL.me ? mw : (m.own.ai && !m.own.dead ? { x: FL.me.x, y: FL.me.y } : null);
-      if (tg) { var want = Math.atan2(tg.y - m.y, tg.x - m.x), dh = Math.atan2(Math.sin(want - m.h), Math.cos(want - m.h)); m.h += Math.max(-MS.turn * dt, Math.min(MS.turn * dt, dh)); }
+      if (tg) { var want = Math.atan2(tg.y - m.y, tg.x - m.x), dh = Math.atan2(Math.sin(want - m.h), Math.cos(want - m.h)); var trn = MS.turn * (m.own && m.own.player ? 1 + PM.msTurn : 1); m.h += Math.max(-trn * dt, Math.min(trn * dt, dh)); }
       var sp = Math.hypot(m.vx, m.vy), ns = Math.min(MS.vmax, sp + MS.acc * dt);
       // Geschwindigkeit dreht mit der Nase mit
       m.vx = Math.cos(m.h) * ns; m.vy = Math.sin(m.h) * ns;
@@ -848,7 +908,7 @@
       var steps = Math.ceil(ns * dt / 1.0);
       for (var i = 0; i < steps; i++) {
         m.x += m.vx * dt / steps; m.y += m.vy * dt / steps;
-        var hit = hitAt(m.x, m.y, m.own); if (hit) { if (m.own === FL.me) hitMark(m.x, m.y, hit.bd); damage(hit.bd, hit.b, MS.dmg, m.x, m.y); blast(m.x, m.y, MS.splash, MS.sdmg, null); return false; }
+        var hit = hitAt(m.x, m.y, m.own); if (hit) { if (m.own === FL.me) hitMark(m.x, m.y, hit.bd); damage(hit.bd, hit.b, MS.dmg * mk, m.x, m.y); blast(m.x, m.y, MS.splash, MS.sdmg * mk, null); return false; }
       }
       return true;
     });
@@ -944,7 +1004,7 @@
   function canRebuild(bd, g) { return cellsOf(g).every(function (q) { return !bd.map.has(key(q.c[0], q.c[1])); }) && linked(bd.map, g).length > 0; }
   function weldAt(bd, lx, ly, dt) {
     var o = bd.map.get(key(Math.floor(lx), Math.floor(ly))), spark = false;
-    if (o) { var mx = T[o.b.t].hp; FL.weldB = o.b; if (o.b.hp < mx) { o.b.hp = Math.min(mx, o.b.hp + WELD * dt); spark = true; } }
+    if (o) { var mx = hpMax(bd, o.b); FL.weldB = o.b; if (o.b.hp < mx) { o.b.hp = Math.min(mx, o.b.hp + WELD * dt); spark = true; } }
     else if (bd.lost) {
       var g = lostAt(bd, lx, ly);
       if (g) {
@@ -1026,6 +1086,7 @@
       if (!bd.enemy) return;
       if (!bd.dead && (!bd.cock || (bd.energy <= 0.5 && !bd.prod) || !bd.torque || !bd.thrSum)) {
         bd.dead = true; bd.ai = null; bd.flames = {}; FL.banner = 3.2; FL.bannerN = bd.npc.n[lang]; showBanner();
+        dropPerks(bd);
       }
       var inView = Math.abs(bd.x - FL.cam.x) < mv.hw + bd.rad && Math.abs(bd.y - FL.cam.y) < mv.hh + bd.rad;
       if (inView) { bd.seen = true; bd.offT = 0; } else if (bd.seen) bd.offT += dt;
@@ -1041,10 +1102,10 @@
   // Treffer an fremden Schiffen: kleines x an der Stelle und ein leiser, weicher Klick
   var AC = null, lastHitS = 0;
   function audioInit() { try { if (!AC) AC = new (window.AudioContext || window.webkitAudioContext)(); if (AC.state === "suspended") AC.resume(); } catch (e) {} }
-  function hitMark(x, y, bd) {
+  function hitMark(x, y, bd, crit) {
     if (bd === FL.me) return;
     if (bd.ai) bd.ai.hurt = true;
-    FL.hits.push({ x: x, y: y, life: 0 }); if (FL.hits.length > 40) FL.hits.shift();
+    FL.hits.push({ x: x, y: y, life: 0, crit: !!crit }); if (FL.hits.length > 40) FL.hits.shift();
     if (!AC || AC.state !== "running") return;
     var t0 = AC.currentTime; if (t0 - lastHitS < 0.07) return; lastHitS = t0;
     try {
@@ -1114,7 +1175,7 @@
   function walk(bd, dt) {
     var P = FL.pilot, k = FL.keys, dx = (k.d ? 1 : 0) - (k.a ? 1 : 0), dy = (k.s ? 1 : 0) - (k.w ? 1 : 0);
     if (dx || dy) {   // Bildschirmrichtung → Schiffsrahmen
-      var l = Math.hypot(dx, dy), ca = Math.cos(bd.a), sa = Math.sin(bd.a), lx = (dx * ca + dy * sa) / l, ly = (-dx * sa + dy * ca) / l, sp = 2.2 * dt;
+      var l = Math.hypot(dx, dy), ca = Math.cos(bd.a), sa = Math.sin(bd.a), lx = (dx * ca + dy * sa) / l, ly = (-dx * sa + dy * ca) / l, sp = 2.2 * dt * (PM.walk ? 2 : 1);
       if (canStand(bd, P.x + lx * sp, P.y)) P.x += lx * sp;
       if (canStand(bd, P.x, P.y + ly * sp)) P.y += ly * sp;
       var want = Math.atan2(ly, lx), d = Math.atan2(Math.sin(want - P.face), Math.cos(want - P.face)); P.face += d * Math.min(1, dt * 14);
@@ -1151,11 +1212,13 @@
       if (inp > 0) { d = posD; want = 1; }
       else if (inp < 0) { d = negD; want = 1; }
       else if (FL.damp && Math.abs(v) > 0.02 && !(FL.cruise && comp === "y")) {   // Dämpfer: gegensteuern bis Stillstand; im Cruise-Modus nur noch seitlich
-        d = v > 0 ? negD : posD; var need = Math.abs(v) * m / dt; want = thr[d] ? Math.min(1, need / (thr[d] * oc)) : 0;
+        d = v > 0 ? negD : posD; var need = Math.abs(v) * m / dt; want = thr[d] ? Math.min(1, need / (thr[d] * oc * (bd.player ? 1 + PM.brake + (d === 1 || d === 3 ? PM.side : 0) : 1))) : 0;
       }
       if (d < 0 || !thr[d] || !want) return;
       cmd[d] = want;
-      var eff = want * spoolK(sp[d]), F = thr[d] * oc * eff, a = F / m, sign = (d === posD) ? 1 : -1;
+      var sign = (d === posD) ? 1 : -1, pk = 1;
+      if (bd.player) { if (d === 1 || d === 3) pk += PM.side; if (sign * v < 0) pk += PM.brake; }   // Perks: Seitenschub, Bremsschub
+      var eff = want * spoolK(sp[d]), F = thr[d] * oc * eff * pk, a = F / m;
       if (inp === 0) a = Math.min(a, Math.abs(v) / dt);
       acc[comp] += sign * a; use += eff * oc * useOf(bd, d) * dt; bd.flames[d] = Math.max(bd.flames[d] || 0, eff);
     }
@@ -1184,7 +1247,7 @@
       b.firing = true; b.cool2 = (b.cool2 || 0) - dt;
       if (b.cool2 > 0) return;
       if (bd.energy < MG.e) return;
-      b.cool2 = 1 / MG.rate; bd.energy -= MG.e;
+      b.cool2 = 1 / (MG.rate * (bd.player ? 1 + PM.mgRate : 1)); bd.energy -= MG.e;
       var d = gunDir(bd, b), f = fp(b), tip = gunTip(bd, b);
       FL.shots.push({ x: tip.x, y: tip.y, vx: bd.vx + d.x * MG.speed + (Math.random() - 0.5) * 6, vy: bd.vy + d.y * MG.speed + (Math.random() - 0.5) * 6, life: 0, own: bd });
       FL.parts.push({ x: tip.x, y: tip.y, vx: bd.vx, vy: bd.vy, life: 0, max: 0.06, k: "flash", sz: 1.4 });
@@ -1203,7 +1266,7 @@
         var d = dirWorld(bd, dirOut(lb, 0)), tip = muzzle(bd, lb), side = lb.ammo === 1 ? 0.22 : -0.22, nx = -d.y * side * CELL_M, ny = d.x * side * CELL_M;
         FL.missiles.push({ x: tip.x + nx, y: tip.y + ny, vx: bd.vx + d.x * MS.v0, vy: bd.vy + d.y * MS.v0, h: Math.atan2(d.y, d.x), life: 0, own: bd, aim: aim || null });
         var left = bd.blocks.reduce(function (a, b) { return a + (T[b.t].kind === "ms" ? b.ammo : 0); }, 0);
-        if (!left) bd.msRl = bd.msRlMax = MS.reload * bd.blocks.filter(function (b) { return T[b.t].kind === "ms"; }).length;
+        if (!left) bd.msRl = bd.msRlMax = MS.reload * bd.blocks.filter(function (b) { return T[b.t].kind === "ms"; }).length / (bd.player ? 1 + PM.msRl : 1);
       }
     }
     if (firing && g === "rg") bd.blocks.forEach(function (b) {
@@ -1382,6 +1445,88 @@
     } else if (V.caOn) { V.cv.style.filter = ""; V.caOn = false; }
     return off;
   }
+  // ---------- Perk-Drops und Inventar ----------
+  // Besiegte Schiffe lassen Perks fallen (kleine Schiffe 1, mittlere 2). Drüberfliegen sammelt sie ein, dann öffnet sich das Inventar und das Spiel pausiert.
+  function rollRarity() {
+    var w = RAR.map(function (r, i) { return r.w * (i === 3 ? 1 + PM.luck : 1); }), sum = w.reduce(function (a, b) { return a + b; }, 0), x = Math.random() * sum;
+    for (var i = 0; i < 4; i++) { x -= w[i]; if (x <= 0) return i; } return 0;
+  }
+  function dropPerks(bd) {
+    var n = bd.npc && bd.npc.cls === "M" ? 2 : 1;
+    for (var i = 0; i < n; i++) {
+      var r = rollRarity(), pool = []; PERKS.forEach(function (p, pi) { if (!p.legOnly || r === 3) pool.push(pi); });
+      var a = Math.random() * 6.28, v = 2 + Math.random() * 3;
+      FL.drops.push({ x: bd.x, y: bd.y, vx: bd.vx * 0.6 + Math.cos(a) * v, vy: bd.vy * 0.6 + Math.sin(a) * v, p: pool[Math.floor(Math.random() * pool.length)], r: r, ph: Math.random() * 6 });
+    }
+  }
+  function dropTick(dt) {
+    var me = FL.me, alive = FL.bodies.indexOf(me) >= 0;
+    FL.drops = FL.drops.filter(function (d) {
+      var dmp = Math.pow(0.85, dt); d.vx *= dmp; d.vy *= dmp; d.x += d.vx * dt; d.y += d.vy * dt; d.ph += dt;
+      if (Math.hypot(d.x - FL.cam.x, d.y - FL.cam.y) > 4000) return false;
+      var got = false;
+      if (alive && Math.hypot(d.x - me.x, d.y - me.y) < me.rad + 3) {
+        var l = toLocal(me, d.x, d.y), cx = Math.floor(l.x), cy = Math.floor(l.y);
+        for (var ox = -1; ox <= 1 && !got; ox++) for (var oy = -1; oy <= 1 && !got; oy++) if (me.map.has(key(cx + ox, cy + oy))) got = true;
+      }
+      if (!got && FL.out && FL.eva && Math.hypot(d.x - FL.eva.x, d.y - FL.eva.y) < 3) got = true;
+      if (got) pickPerk(d);
+      return !got;
+    });
+  }
+  function pickPerk(d) {
+    var it = { uid: ++FL.uid, p: d.p, r: d.r, on: false, isNew: true };
+    FL.inv.push(it); spark(d.x, d.y, 12);
+    floatTxt(PERKS[d.p].n[lang] + " · " + RAR[d.r].n[lang], RAR[d.r].rgb);
+    openInv(it.uid);
+  }
+  function drawDrops(c, ppm, tm) {
+    FL.drops.forEach(function (d) {
+      var R = RAR[d.r], pulse = 0.75 + 0.25 * Math.sin(d.ph * 4), rr = Math.max(3.2, 9 / ppm) * pulse;
+      var g = c.createRadialGradient(d.x, d.y, 0, d.x, d.y, rr * 2.4); g.addColorStop(0, "rgba(" + R.rgb + ",.55)"); g.addColorStop(1, "rgba(" + R.rgb + ",0)");
+      c.fillStyle = g; c.beginPath(); c.arc(d.x, d.y, rr * 2.4, 0, Math.PI * 2); c.fill();
+      var k = Math.max(1.1, 4 / ppm);
+      c.save(); c.translate(d.x, d.y); c.rotate(d.ph * 0.8);
+      c.fillStyle = R.col; c.beginPath(); c.moveTo(0, -k * 1.4); c.lineTo(k, 0); c.lineTo(0, k * 1.4); c.lineTo(-k, 0); c.closePath(); c.fill();
+      c.fillStyle = "rgba(255,255,255,.85)"; c.beginPath(); c.moveTo(0, -k * 0.6); c.lineTo(k * 0.4, 0); c.lineTo(0, k * 0.6); c.lineTo(-k * 0.4, 0); c.closePath(); c.fill();
+      c.restore();
+    });
+  }
+  // Perk-Wechsel: Werte neu berechnen; HP bleiben anteilig erhalten
+  function applyPerks() {
+    var me = FL.me, old = me.blocks.map(function (b) { return hpMax(me, b); });
+    PM = calcPM(FL.inv); recalc(me);
+    me.blocks.forEach(function (b, i) { b.hp = b.hp * hpMax(me, b) / old[i]; });
+    syncInv();
+  }
+  function openInv(hl) {
+    if (!FL) return; FL.paused = true; FL.fire = false; FL.keys = {};
+    var el = V.root.querySelector(".sr-inv"); el.hidden = false; FL.invHl = hl || 0; renderInv();
+  }
+  function closeInv() { if (!FL) return; FL.paused = false; V.root.querySelector(".sr-inv").hidden = true; FL.inv.forEach(function (it) { it.isNew = false; }); last = 0; }
+  function renderInv() {
+    var list = V.root.querySelector(".sr-inv-list"), rows = [];
+    PERKS.forEach(function (p, pi) {
+      var its = FL.inv.filter(function (it) { return it.p === pi; }); if (!its.length) return;
+      its.sort(function (a, b) { return a.r - b.r || a.uid - b.uid; });
+      rows.push('<div class="sr-inv-row"><div class="sr-inv-n"><b>' + p.n[lang] + "</b><span>" + (p.fixed ? p.d[lang] : p.d[lang].replace("{v}", p.lo + "–" + p.hi + " %")) + '</span></div><div class="sr-inv-chips">' + its.map(function (it) {
+        return '<button type="button" class="sr-chip' + (it.on ? " on" : "") + (it.uid === FL.invHl ? " new" : "") + '" data-perk="' + it.uid + '" style="--rc:' + RAR[it.r].col + ";--rr:" + RAR[it.r].rgb + '" title="' + RAR[it.r].n[lang] + ": " + perkTxt(p, it.r) + '">' + perkTag(p, it.r) + "</button>";
+      }).join("") + "</div></div>");
+    });
+    list.innerHTML = rows.join("");
+    var nw = list.querySelector(".sr-chip.new"); if (nw && nw.scrollIntoView) nw.scrollIntoView({ block: "center" }); else list.parentNode.scrollTop = 0;
+    syncInv();
+  }
+  function syncInv() {
+    var n = FL.inv.filter(function (it) { return it.on; }).length, el = V.root.querySelector(".sr-inv-cnt");
+    if (el) el.textContent = fmt(t("invActive"), { n: n, m: FL.inv.length });
+    var hb = V.root.querySelector('[data-act="inv"]'); if (hb) hb.textContent = t("perksBtn") + (n ? " · " + n : "");
+  }
+  function togglePerk(uid) {
+    var it = FL.inv.filter(function (q) { return q.uid === uid; })[0]; if (!it) return;
+    it.on = !it.on; applyPerks();
+    var b = V.root.querySelector('[data-perk="' + uid + '"]'); if (b) b.classList.toggle("on", it.on);
+  }
   // Spieltipps: außerhalb von Kämpfen alle 60 s ein zufälliger Tipp für 5 s, unten in der Mitte, per Klick wegklickbar
   var TIPS = {
     de: ["Seitliche Triebwerke können die Wendigkeit deines Schiffs stark verbessern.", "Overcharge (X) erhöht kurzzeitig deine Triebwerksleistung und die Kühlleistung der Miniguns.", "Mehrere Batterien erhöhen deine Energiekapazität, aber Batterien sind auch sehr schwer.", "Baue einen Zielcomputer ein, damit sich deine Waffen beim Zielen auf den Feind ausrichten können.", "Antennen warnen dich vor feindlichen Schiffen.", "Behalte deine Geschwindigkeit im Auge.", "Ordentliche Bremstriebwerke können dir das Leben retten.", "Die Beschleunigungstriebwerke sind im Kampf am unwichtigsten.", "Wenn du deine Triebwerke benutzt, wirst du von gegnerischen Schiffen schneller entdeckt."],
@@ -1425,6 +1570,7 @@
     drawDust(c, W, H, ppm, DUST.near);
     c.save(); c.translate(W / 2, H / 2); c.scale(ppm, ppm); c.translate(-FL.cam.x, -FL.cam.y);
     drawTrails(c);
+    drawDrops(c, ppm, tm);
     // Triebwerksflammen unter den Schiffen
     FL.bodies.forEach(function (bd) {
       bd.blocks.forEach(function (b) {
@@ -1487,9 +1633,9 @@
     });
     // Treffermarker: kleines x
     FL.hits.forEach(function (h) {
-      var a = 1 - h.life / 0.35, r = (4 + h.life * 6) / ppm;
+      var a = 1 - h.life / 0.35, r = (h.crit ? 7 + h.life * 10 : 4 + h.life * 6) / ppm;
       c.strokeStyle = "rgba(0,0,0," + 0.5 * a + ")"; c.lineWidth = 3 / ppm; c.beginPath(); c.moveTo(h.x - r, h.y - r); c.lineTo(h.x + r, h.y + r); c.moveTo(h.x + r, h.y - r); c.lineTo(h.x - r, h.y + r); c.stroke();
-      c.strokeStyle = "rgba(255,255,255," + a + ")"; c.lineWidth = 1.4 / ppm; c.stroke();
+      c.strokeStyle = h.crit ? "rgba(255,210,80," + a + ")" : "rgba(255,255,255," + a + ")"; c.lineWidth = (h.crit ? 2 : 1.4) / ppm; c.stroke();
     });
     // Zielcomputer: roter Ziellaser der Railgun, solange sie lädt
     FL.bodies.forEach(function (bd) {
@@ -1527,7 +1673,7 @@
     flHud();
   }
   // Antennen: Gegner außerhalb des Bildes, aber in Antennenreichweite, als rotes Dreieck am Bildschirmrand
-  function antRange(bd) { return bd.nAnt ? Math.min(1800, 600 + 300 * (bd.nAnt - 1)) : 0; }
+  function antRange(bd) { return bd.nAnt ? Math.min(1800, 600 + 300 * (bd.nAnt - 1)) * (bd.player ? 1 + PM.radar : 1) : 0; }
   function radarEdges(c, W, H, ppm) {
     var me = FL.me, rg = antRange(me); if (!rg || FL.bodies.indexOf(me) < 0) return;
     FL.bodies.forEach(function (bd) {
@@ -1582,7 +1728,7 @@
     set("sr-h-air", (FL.breath === "room" ? "" : t(FL.breath === "jet" ? "airJet" : "airSuit") + " · ") + mmss(FL.suit));
     var ae = V.root.querySelector("#sr-h-air"); if (ae) ae.className = FL.breath === "room" ? "on" : ak < 0.25 ? "warn" : "off";
     var sb = V.root.querySelector('[data-act="seat"]'); if (sb) { set("sr-h-seatb", FL.seated ? t("exitSeat") : t("sitDown")); }
-    var wb = V.root.querySelector("#sr-h-weld"); if (wb) { wb.parentNode.hidden = FL.seated; set("sr-h-weld", FL.weldG ? fmt(t(FL.weldOk ? "weldBuild" : "weldWait"), { n: T[FL.weldG.t].n[lang] }) : FL.weldB ? fmt(t("weldOn"), { n: T[FL.weldB.t].n[lang], p: Math.round(FL.weldB.hp / T[FL.weldB.t].hp * 100) }) : t("hWeldIdle")); }
+    var wb = V.root.querySelector("#sr-h-weld"); if (wb) { wb.parentNode.hidden = FL.seated; set("sr-h-weld", FL.weldG ? fmt(t(FL.weldOk ? "weldBuild" : "weldWait"), { n: T[FL.weldG.t].n[lang] }) : FL.weldB ? fmt(t("weldOn"), { n: T[FL.weldB.t].n[lang], p: Math.round(FL.weldB.hp / hpMax(FL.me, FL.weldB) * 100) }) : t("hWeldIdle")); }
     var se = V.root.querySelector("#sr-h-seat"); if (se) se.className = !me.seat ? "warn" : "";
   }
 
@@ -1599,7 +1745,7 @@
   // Kompakte Steuerungsliste (Taste · Aktion) für das Infofeld
   function ctlHtml() {
     var de = lang === "de", G = [
-      [de ? "Im Sitz" : "Seated", [["WASD", de ? "Fliegen" : "Fly"], ["Q / E", de ? "Drehen" : "Rotate"], [de ? "Linksklick" : "Left click", de ? "Feuern" : "Fire"], ["R", de ? "Waffe wechseln" : "Switch weapon"], ["Z", de ? "Trägheitsdämpfer" : "Inertia dampers"], ["C", "Cruise Control"], ["X", "Overcharge"], [de ? "Umschalt" : "Shift", de ? "Hochgeschw. freigeben" : "Unlock high speed"], ["F", de ? "Aufstehen / Hinsetzen" : "Get up / sit down"], ["V", de ? "Innen / Außen" : "Inside / outside"]]],
+      [de ? "Im Sitz" : "Seated", [["WASD", de ? "Fliegen" : "Fly"], ["Q / E", de ? "Drehen" : "Rotate"], [de ? "Linksklick" : "Left click", de ? "Feuern" : "Fire"], ["R", de ? "Waffe wechseln" : "Switch weapon"], ["Z", de ? "Trägheitsdämpfer" : "Inertia dampers"], ["C", "Cruise Control"], ["X", "Overcharge"], [de ? "Umschalt" : "Shift", de ? "Hochgeschw. freigeben" : "Unlock high speed"], ["F", de ? "Aufstehen / Hinsetzen" : "Get up / sit down"], ["V", de ? "Innen / Außen" : "Inside / outside"], ["I", de ? "Inventar und Perks (pausiert)" : "Inventory and perks (pauses)"]]],
       [de ? "Zu Fuß" : "On foot", [["WASD", de ? "Laufen" : "Walk"], [de ? "Linksklick" : "Left click", de ? "Schweißen, Hologramm aufbauen" : "Weld, rebuild hologram"], [de ? "Luke" : "Hatch", de ? "Durchgehen: ins All" : "Walk through: into space"]]],
       [de ? "Draußen" : "Outside", [["WASD", "Jetpack"], [de ? "Umschalt" : "Shift", de ? "Tempo ans Schiff" : "Match ship speed"]]],
       ["Test", [[de ? "Rechtsklick" : "Right click", de ? "Block beschädigen" : "Damage block"], [de ? "Mausrad" : "Wheel", "Zoom"], ["Esc", de ? "Zurück zum Editor" : "Back to editor"]]]
@@ -1609,7 +1755,7 @@
   function html() {
     var pal = CATS.map(function (cat) {
       return '<div class="sr-cat"><h4>' + t(cat) + '</h4><div class="sr-grid">' + Object.keys(T).filter(function (id) { return T[id].cat === cat; }).map(function (id) {
-        return '<button type="button" class="sr-blk" data-blk="' + id + '" title="' + T[id].n[lang] + " · " + kg(T[id].mass) + " · " + T[id].hp + ' HP"><img alt="" src="' + icon(id) + '"><span>' + T[id].n[lang] + "</span><small>" + kg(T[id].mass) + "</small></button>";
+        return '<button type="button" class="sr-blk" data-blk="' + id + '" title="' + T[id].n[lang] + " · " + kg(T[id].mass) + " · " + T[id].hp + " HP · " + cr(T[id].cost) + '"><img alt="" src="' + icon(id) + '"><span>' + T[id].n[lang] + "</span><small>" + kg(T[id].mass) + "</small></button>";
       }).join("") + "</div></div>";
     }).join("");
     var sw = ["#C8473A", "#E3B83F", "#57A06A", "#3E6F96", "#7B4BA8", "#E9ECEE", "#9AA5B1", "#6A7480", "#2A2F36"].map(function (c) { return '<button type="button" class="sr-sw" data-sw="' + c + '" style="background:' + c + '" aria-label="' + c + '"></button>'; }).join("");
@@ -1635,11 +1781,13 @@
       '<div class="sr-ics"><i id="sr-ic-z" title="Z · ' + t("damp") + '"><svg viewBox="0 0 20 20"><path d="M2 10h5M13 10h5M5 7l3 3-3 3M15 7l-3 3 3 3" fill="none" stroke="currentColor" stroke-width="1.8"/></svg><u>Z</u></i><i id="sr-ic-c" title="C · ' + t("cruise") + '"><svg viewBox="0 0 20 20"><path d="M3 14a7 7 0 0 1 14 0" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M10 14l4-5" stroke="currentColor" stroke-width="2"/><circle cx="10" cy="14" r="1.6" fill="currentColor"/></svg><u>C</u></i><i id="sr-ic-h" title="' + (lang === "de" ? "Umschalt" : "Shift") + ' · ' + t("hiLbl") + '"><svg viewBox="0 0 20 20"><path d="M5 11l5-5 5 5M5 16l5-5 5 5" fill="none" stroke="currentColor" stroke-width="1.8"/></svg><u>⇧</u></i><i id="sr-ic-x" title="X · Overcharge"><svg viewBox="0 0 20 20"><path d="M11 2L5 11h4l-1 7 6-9h-4z" fill="currentColor"/></svg><u>X</u><s><s id="sr-h-ocbar"></s></s></i></div>' +
       '<div><small>' + t("air") + ' <span id="sr-h-air"></span></small><i class="sr-eb"><i id="sr-h-airbar"></i></i></div>' +
       '<div><small>F <span id="sr-h-seat"></span></small></div><div hidden><small>' + t("weld") + '</small><b id="sr-h-weld"></b></div>' +
-      '<button type="button" data-act="seat" id="sr-h-seatb"></button><button type="button" data-act="targets">' + t("targets") + '</button>' +
+      '<button type="button" data-act="seat" id="sr-h-seatb"></button><button type="button" data-act="targets">' + t("targets") + '</button><button type="button" data-act="inv" class="sr-invb">' + t("perksBtn") + '</button>' +
       '<div class="sr-spawn"><small>' + t("spawn") + '</small><span>' + NPC.map(function (q) { return '<button type="button" data-spawn="' + q.id + '">' + q.n[lang] + '</button>'; }).join("") + '</span></div>' + ctlHtml() + '</div>' +
       '<div class="sr-kill" hidden><svg viewBox="0 0 40 40" width="34" height="34"><path d="M20 5l6 12v12l-6 5-6-5V17z" fill="#6A7480" stroke="#C9D1D9" stroke-width="1.5"/><path d="M11 13l18 18M29 13L11 31" stroke="#E0533F" stroke-width="3"/></svg><div><small>' + t("ko") + '</small><span></span></div></div>' +
       '<label class="sr-uis sr-fl-only" title="' + (lang === "de" ? "Größe des Infofelds" : "Info panel size") + '"><svg viewBox="0 0 20 20" width="14" height="14"><rect x="2" y="3" width="7" height="14" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M12 7h6M12 10h6M12 13h4" stroke="currentColor" stroke-width="1.6"/></svg><input type="range" id="sr-uis" min="1" max="1.5" step="0.05" value="1"><span id="sr-uis-v">100 %</span></label>' +
       '<button type="button" class="sr-ctlb sr-fl-only" data-act="ctl" aria-pressed="false">' + t("controls") + '</button>' +
+      '<div class="sr-inv" hidden><div class="sr-inv-box"><div class="sr-inv-h"><div><b>' + t("invT") + '</b><small>' + t("invSub") + '</small></div><button type="button" data-act="inv-x">' + (lang === "de" ? "Schließen (I)" : "Close (I)") + '</button></div>' +
+      '<div class="sr-inv-leg">' + RAR.map(function (r) { return '<span style="--rc:' + r.col + '">' + r.n[lang] + "</span>"; }).join("") + '<em class="sr-inv-cnt"></em></div><div class="sr-inv-list"></div></div></div>' +
       '<div class="sr-tip sr-fl-only" hidden title="' + (lang === "de" ? "Klicken zum Ausblenden" : "Click to dismiss") + '"></div>' +
       '<div class="sr-hint" id="sr-hint"></div><div class="sr-note" hidden></div>' +
       '<div class="sr-io sr-npc" hidden><div class="sr-io-box sr-npc-box"><div class="sr-tbar"><b class="sr-npc-t">' + t("hangar") + '</b><span class="sr-sp"></span><button type="button" data-act="npc-x">' + (lang === "de" ? "Schließen" : "Close") + '</button></div><div class="sr-io-h">' + t("hangarH") + '</div><div class="sr-npc-list"></div></div></div>' +
@@ -1678,7 +1826,7 @@
     if (!st.cap && !st.prod) warn.push(t("wNoPow"));
     var wdeg = st.torque ? nf(st.torque / Math.max(1, st.I) * 57.3) + " °/s²" : "–";
     document.getElementById("sr-info").innerHTML =
-      "<h4>" + t("sBlocks") + "</h4>" + row(t("sBlocks"), nf(st.n)) + row(t("sMass"), nf(st.mass * 1000) + " kg") +
+      "<h4>" + t("sBlocks") + "</h4>" + row(t("sBlocks"), nf(st.n)) + row(t("sMass"), nf(st.mass * 1000) + " kg") + row(t("sCost"), cr(st.cost || 0) + '<br><small style="color:#7FD3A4;font-weight:400">' + t("costFree") + "</small>") +
       row(t("sDim"), dimTxt()) + row(t("sCom"), t("comHint")) +
       "<h4>" + t("sThr") + "</h4>" + row("↑ " + t("dF"), acc(0)) + row("↓ " + t("dB"), acc(2)) + row("← " + t("dL"), acc(3)) + row("→ " + t("dR"), acc(1)) +
       "<h4>" + t("sGyro") + "</h4>" + row("Gyro", st.gyro ? st.gyro + " × · " + wdeg : "–") +
@@ -1724,6 +1872,15 @@
     ".sr-ctl dl{display:grid;grid-template-columns:66px 1fr;gap:2px 7px;margin:0;font-size:.7rem;line-height:1.3}.sr-ctl dt{color:#E8ECEF;font-weight:600;white-space:nowrap}.sr-ctl dd{margin:0;color:#B9C4D4}" +
     ".sr-tip{position:absolute;left:50%;bottom:22px;transform:translateX(-50%);max-width:min(620px,calc(100% - 480px));text-align:center;font-size:.86rem;line-height:1.4;color:rgba(222,230,238,.86);text-shadow:0 1px 3px rgba(0,0,0,.8);z-index:3;cursor:pointer;opacity:0;transition:opacity .4s ease}" +
     ".sr-tip[hidden]{display:none!important}.sr-tip.in{opacity:1}.sr-tip.out{opacity:0}" +
+    ".sr-inv{position:absolute;inset:0;background:rgba(6,9,14,.55);display:flex;align-items:center;justify-content:center;z-index:7;padding:16px}.sr-inv[hidden]{display:none}" +
+    ".sr-inv-box{width:min(820px,100%);max-height:calc(100% - 40px);overflow:auto;background:rgba(18,23,32,.97);border:1px solid #33405A;padding:14px 16px;display:flex;flex-direction:column;gap:10px}" +
+    ".sr-inv-h{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}.sr-inv-h>div{display:flex;flex-direction:column;gap:3px}.sr-inv-h b{font-size:1.05rem;color:#EEF2F5}.sr-inv-h small{font-size:.76rem;color:#8FA0B8}" +
+    ".sr-inv-leg{display:flex;flex-wrap:wrap;gap:12px;align-items:center;font-size:.72rem;color:#B9C4D4;border-bottom:1px solid #263142;padding-bottom:8px}.sr-inv-leg span::before{content:'';display:inline-block;width:9px;height:9px;background:var(--rc);margin-right:5px;box-shadow:0 0 6px var(--rc)}.sr-inv-leg em{margin-left:auto;font-style:normal;color:#E8ECEF}" +
+    ".sr-inv-list{display:flex;flex-direction:column;gap:2px}.sr-inv-row{display:flex;align-items:center;gap:12px;padding:5px 0;border-bottom:1px solid rgba(38,49,66,.6)}" +
+    ".sr-inv-n{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}.sr-inv-n b{font-size:.86rem;color:#E8ECEF}.sr-inv-n span{font-size:.72rem;color:#8FA0B8}.sr-inv-chips{display:flex;flex-wrap:wrap;gap:5px;justify-content:flex-end;max-width:55%}" +
+    ".sr-inv .sr-chip{min-width:62px;padding:5px 8px;font-size:.76rem;font-weight:700;font-variant-numeric:tabular-nums;background:rgba(var(--rr),.07);border:1px solid rgba(var(--rr),.35);color:rgba(var(--rr),.6);cursor:pointer}" +
+    ".sr-inv .sr-chip:hover{border-color:rgba(var(--rr),.7);color:rgba(var(--rr),.9)}.sr-inv .sr-chip.on{background:rgba(var(--rr),.28);border-color:var(--rc);color:#fff;box-shadow:0 0 10px rgba(var(--rr),.55),inset 0 0 8px rgba(var(--rr),.35)}" +
+    ".sr-inv .sr-chip.new{outline:2px dashed rgba(var(--rr),.9);outline-offset:2px}" +
     ".sr-uis{position:absolute;left:12px;bottom:10px;z-index:3;align-items:center;gap:7px;background:rgba(14,19,28,.6);border:1px solid rgba(38,49,66,.8);padding:5px 9px;color:#8FA0B8;font-size:.72rem;font-variant-numeric:tabular-nums;cursor:pointer}" +
     ".sr-uis input{width:96px;accent-color:#7FD3A4;margin:0}.sr-uis span{min-width:36px;text-align:right}" +
     ".sr-hud{overflow-y:auto;scrollbar-width:thin;position:absolute;left:12px;top:64px;display:flex;flex-direction:column;gap:7px;background:rgba(14,19,28,.6);border:1px solid rgba(38,49,66,.8);padding:8px 10px;z-index:2;width:176px;box-sizing:border-box;font-size:.84rem}" +
@@ -1783,6 +1940,8 @@
     if (!V || e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA") return;
     var k = e.key.toLowerCase();
     if (S.mode === "fly") {
+      if (FL && FL.paused) { if (k === "escape" || k === "i") closeInv(); e.preventDefault(); return; }
+      if (k === "i") { openInv(); return; }
       if (k === "escape") { stopTest(); return; }
       if (["w", "a", "s", "d", "q", "e"].indexOf(k) >= 0) { FL.keys[k] = true; e.preventDefault(); }
       if (k === "shift") { FL.keys.shift = true; if (!e.repeat && !FL.out) { FL.hiOk = !FL.hiOk; if (FL.hiOk) FL.ca = Math.max(FL.ca || 0, 0.3); floatTxt(t(FL.hiOk ? "hiOn" : "hiOff")); } }
@@ -1863,6 +2022,7 @@
     if (vw) { S.view = vw.getAttribute("data-view"); syncUI(); return; }
     if (sw) { S.color = sw.getAttribute("data-sw"); S.tool = "paint"; save(); syncUI(); return; }
     if (e.target.closest(".sr-tip")) { hideTip(e.target.closest(".sr-tip")); return; }
+    var pc = e.target.closest("[data-perk]"); if (pc) { togglePerk(+pc.getAttribute("data-perk")); return; }
     var spb = e.target.closest("[data-spawn]");
     if (spb) { spawnEnemy(+spb.getAttribute("data-spawn")); spb.blur(); return; }
     var nb = e.target.closest("[data-npc]");
@@ -1878,6 +2038,8 @@
     else if (act === "starter") { pushUndo(); S.blocks = starter(); save(); fitCam(); }
     else if (act === "exp" || act === "imp") { openIO(act); return; }
     else if (act === "npc") { openHangar(); return; }
+    else if (act === "inv") { openInv(); return; }
+    else if (act === "inv-x") { closeInv(); return; }
     else if (act === "ctl") { var cp = V.root.querySelector(".sr-ctl"), cb = V.root.querySelector(".sr-ctlb"); cp.hidden = !cp.hidden; cb.setAttribute("aria-pressed", String(!cp.hidden)); if (!cp.hidden) V.root.querySelector(".sr-hud").scrollTop = 1e5; cb.blur(); return; }
     else if (act === "npc-x") { V.root.querySelector(".sr-npc").hidden = true; return; }
     else if (act === "io-x") { V.root.querySelector(".sr-exio").hidden = true; return; }
@@ -1914,7 +2076,7 @@
     raf = requestAnimationFrame(loop);
     var dt = Math.min(0.05, (now - (last || now)) / 1000); last = now;
     var dpr = window.devicePixelRatio || 1; V.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    if (S.mode === "fly" && FL) { var g = dt; while (g > 0) { var d = Math.min(1 / 120, g); flTick(d); g -= d; } flDraw(); }
+    if (S.mode === "fly" && FL) { var g = FL.paused ? 0 : dt; while (g > 0) { var d = Math.min(1 / 120, g); flTick(d); g -= d; } flDraw(); }
     else {
       var k = V.keys, sp = 14 / V.zoom * dt;
       if (k.w || k.arrowup) V.cam.y -= sp; if (k.s || k.arrowdown) V.cam.y += sp; if (k.a || k.arrowleft) V.cam.x -= sp; if (k.d || k.arrowright) V.cam.x += sp;
