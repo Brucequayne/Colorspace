@@ -113,6 +113,9 @@ window.PATCHNOTES = {
       en: ["New game: sketch main and distributor roads with smoothed mouse input", "Pick a city style: USA, Europe or Japan", "Side streets, houses, parking lots, cars, trees and road markings are generated procedurally", "Paint parks, water and special buildings in green, blue and red, then regenerate", "Bridges over rivers, railway with station, stadium, cathedral, opera, harbour, airport and more", "Save the city as PNG"] }
   ],
   spacerogue: [
+    { v: "0.49.3", t: "2026-11-10T23:59:00+01:00",
+      de: ["Luken an Raumstationen funktionieren jetzt: Mit F kommst du hinaus und über der Luke mit F auch wieder hinein", "Wand der Station weggeschossen: Durch das Loch kommst du nicht nur hinaus, sondern an derselben Stelle auch wieder hinein", "Zu Fuß schaut deine Figur immer dorthin, wo die Maus zielt, nicht mehr in die Laufrichtung"],
+      en: ["Station hatches now work: press F to step out and F over the hatch to get back in", "Shot a hole in a station wall: you can now get back in through the same hole, not just out", "On foot your character always faces where the mouse aims, no longer the walking direction"] },
     { v: "0.49.2", t: "2026-11-10T23:50:00+01:00",
       de: ["Standardansicht folgt dem Sitzplatz: Im Cockpit siehst du dein Schiff von außen, sobald du aufstehst, wechselt die Ansicht nach innen, und umgekehrt (mit V weiterhin frei umschaltbar)", "Im Cockpit steht unten neben „Steuerung“ jetzt der Schiffsname; ein Klick darauf benennt das Schiff um (Enter speichert, Esc bricht ab)"],
       en: ["The default view follows your seat: in the cockpit you see the ship from outside, once you stand up it switches inside, and back again (V still toggles freely)", "While seated, the ship's name now sits next to “Controls” at the bottom; click it to rename the ship (Enter saves, Esc cancels)"] },

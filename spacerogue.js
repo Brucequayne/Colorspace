@@ -4,7 +4,7 @@
 (function () {
   "use strict";
 
-  var VERSION = "0.49.2";
+  var VERSION = "0.49.3";
   var CELL_M = 2.5, PX = 24;              // Meter je Zelle, Pixel je Zelle bei Zoom 1
   var lang = "de";
   function L2(de, en) { return { de: de, en: en }; }
@@ -929,7 +929,9 @@
     // Schiebetür großer Cockpits öffnet, wenn man zu Fuß in ihre Nähe kommt
     if (me.seat && T[me.seat.t].h >= 4) { var sb = me.seat, sf = fp(sb), bdir = dirOut(sb, 2), dcx = sb.x + sf[0] / 2 + DV[bdir][0] * (sf[0] / 2 - 0.2), dcy = sb.y + sf[1] / 2 + DV[bdir][1] * (sf[1] / 2 - 0.2);
       var near = !FL.seated && !FL.out && Math.hypot(FL.pilot.x - dcx, FL.pilot.y - dcy) < 1.3; sb.ckOpen = Math.max(0, Math.min(1, (sb.ckOpen || 0) + (near ? dt : -dt) * 4)); }
-    if (FL.out) evaTick(me, dt);
+    // Luken aller eigenen Körper schließen nach dem Durchgehen wieder (auch die der Station, wenn man nicht dort ist)
+    FL.bodies.forEach(function (b) { if (b === (FL.pb || me) || (b !== me && !b.station)) return; b.blocks.forEach(function (hb) { if (T[hb.t].kind !== "hatch") return; if (hb.openT > 0) hb.openT -= dt; var o = hb.openT > 0; if (o !== !!hb.open) { hb.open = o; b.roomsDirty = true; } }); });
+    if (FL.out) evaTick(evaBody(), dt);
     FL.bodies.slice().forEach(function (bd) {
       if (bd.msRl > 0) { bd.msRl -= dt; if (bd.msRl <= 0) { bd.msRl = 0; bd.blocks.forEach(function (b) { if (T[b.t].kind === "ms") b.ammo = 2; }); } }
       // Energie: Reaktoren laden, Verbraucher ziehen
@@ -1053,15 +1055,25 @@
   }
   // Aussteigen durch eine Luke: ab jetzt fliegt die Figur frei im Raum, mit dem Tempo des Schiffs an dieser Stelle
   function openEdgeKind(k) { return k === "floor" || k === "door"; }
-  function exitShip(bd, lx, ly, push) {
+  function exitShip(bd, lx, ly, push, mdir) {
     pulseHatch(bd, FL.pilot.x, FL.pilot.y);
-    var w = toWorld(bd, lx, ly), rx = w.x - bd.x, ry = w.y - bd.y, P = FL.pilot, fa = P.face + bd.a, pk = push ? 1.2 : 0.3;
-    FL.eva = { x: w.x, y: w.y, vx: bd.vx - bd.w * ry + Math.cos(fa) * pk, vy: bd.vy + bd.w * rx + Math.sin(fa) * pk, face: fa, ph: 0, thr: false };
+    var w = toWorld(bd, lx, ly), rx = w.x - bd.x, ry = w.y - bd.y, P = FL.pilot, fa = P.face + bd.a, pa = mdir !== undefined ? mdir + bd.a : fa, pk = push ? 1.2 : 0.3;
+    FL.eva = { x: w.x, y: w.y, vx: bd.vx - bd.w * ry + Math.cos(pa) * pk, vy: bd.vy + bd.w * rx + Math.sin(pa) * pk, face: fa, ph: 0, thr: false };
     FL.out = true; FL.enterCd = 0.8; FL.seated = false;
   }
   function enterAt(bd, cx, cy) {
     FL.pb = bd;
     var E = FL.eva; FL.out = false; FL.pilot.x = cx + 0.5; FL.pilot.y = cy + 0.5; FL.pilot.face = E ? E.face - bd.a : 0; FL.eva = null; FL.enterCd = 0.5;
+  }
+  // Bezugskörper draußen: eigenes Schiff oder Station, über der man schwebt bzw. die am nächsten ist
+  function evaBody() {
+    var E = FL.eva, best = FL.me, bd2 = Infinity;
+    FL.bodies.forEach(function (b) {
+      if (b !== FL.me && !b.station) return;
+      var lp = toLocal(b, E.x, E.y), d = b.map.has(key(Math.floor(lp.x), Math.floor(lp.y))) ? -1 : Math.hypot(E.x - b.x, E.y - b.y) - b.rad;
+      if (d < bd2) { bd2 = d; best = b; }
+    });
+    return best;
   }
   function evaTick(bd, dt) {
     var E = FL.eva, k = FL.keys, dx = (k.d ? 1 : 0) - (k.a ? 1 : 0), dy = (k.s ? 1 : 0) - (k.w ? 1 : 0), ax = 0, ay = 0;
@@ -1406,7 +1418,6 @@
       var l = Math.hypot(dx, dy), ca = Math.cos(bd.a), sa = Math.sin(bd.a), lx = (dx * ca + dy * sa) / l, ly = (-dx * sa + dy * ca) / l, sp = 2.2 * dt * (PM.walk ? 2 : 1) * (k.shift ? 1.8 : 1);   // Umschalt: sprinten
       if (canStand(bd, P.x + lx * sp, P.y)) P.x += lx * sp;
       if (canStand(bd, P.x, P.y + ly * sp)) P.y += ly * sp;
-      var want = Math.atan2(ly, lx), d = Math.atan2(Math.sin(want - P.face), Math.cos(want - P.face)); P.face += d * Math.min(1, dt * 14);
       P.ph += dt * 10;
       var cur = bd.map.get(key(Math.floor(P.x), Math.floor(P.y)));
       // Angedockt: vom Andockring direkt in den Dock des anderen Körpers hinübergehen
@@ -1423,20 +1434,20 @@
         }
       }
       // Offenes Schiff: Boden oder Tür ohne Wand zum All, dort direkt hinaustreten (Luken nur mit F)
-      if (cur && openEdgeKind(T[cur.b.t].kind)) { var nx = P.x + lx * 0.75, ny = P.y + ly * 0.75; if (!bd.map.get(key(Math.floor(nx), Math.floor(ny)))) { exitShip(bd, nx, ny, true); return; } }
+      if (cur && openEdgeKind(T[cur.b.t].kind)) { var nx = P.x + lx * 0.75, ny = P.y + ly * 0.75; if (!bd.map.get(key(Math.floor(nx), Math.floor(ny)))) { exitShip(bd, nx, ny, true, Math.atan2(ly, lx)); return; } }
     } else P.ph *= Math.pow(0.001, dt);
     // Boden unter den Füßen weggeschossen: die Figur treibt ins All
     if (!walkable(bd, P.x, P.y)) { exitShip(bd, P.x, P.y); FL.eva.vx -= Math.cos(P.face + bd.a) * 1.2; FL.eva.vy -= Math.sin(P.face + bd.a) * 1.2; return; }
     // Schweißgerät: repariert oder baut den Block direkt vor der Figur
     FL.welding = false; FL.weldB = null; FL.weldG = null;
-    if (FL.slot === 2) { var mw2 = mouseWorld(); if (mw2) { var lm = toLocal(bd, mw2.x, mw2.y), wa = Math.atan2(lm.y - P.y, lm.x - P.x), dd2 = Math.atan2(Math.sin(wa - P.face), Math.cos(wa - P.face)); P.face += dd2 * Math.min(1, dt * 16); } }   // mit der Pistole zur Maus schauen
+    { var mw2 = mouseWorld(); if (mw2) { var lm = toLocal(bd, mw2.x, mw2.y), wa = Math.atan2(lm.y - P.y, lm.x - P.x), dd2 = Math.atan2(Math.sin(wa - P.face), Math.cos(wa - P.face)); P.face += dd2 * Math.min(1, dt * 16); } }   // zu Fuß immer zur Maus schauen
     if (FL.fire && FL.slot === 1) { FL.welding = true; weldAt(bd, P.x + Math.cos(P.face) * 0.8, P.y + Math.sin(P.face) * 0.8, dt); }
   }
   function toggleSeat() {
     var me = FL.me;
     if (FL.out) {   // draußen: über einer Luke mit F wieder hinein
-      var lp = toLocal(me, FL.eva.x, FL.eva.y), o = me.map.get(key(Math.floor(lp.x), Math.floor(lp.y)));
-      if (o && T[o.b.t].kind === "hatch") { o.b.openT = 0.6; enterAt(me, Math.floor(lp.x), Math.floor(lp.y)); } else note(t("outside"));
+      var eb = evaBody(), lp = toLocal(eb, FL.eva.x, FL.eva.y), o = eb.map.get(key(Math.floor(lp.x), Math.floor(lp.y)));
+      if (o && T[o.b.t].kind === "hatch") { o.b.openT = 0.6; enterAt(eb, Math.floor(lp.x), Math.floor(lp.y)); } else note(t("outside"));
       return;
     }
     var pb = FL.pb || me;
