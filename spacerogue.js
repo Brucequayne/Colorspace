@@ -4,7 +4,7 @@
 (function () {
   "use strict";
 
-  var VERSION = "0.45";
+  var VERSION = "0.46";
   var CELL_M = 2.5, PX = 24;              // Meter je Zelle, Pixel je Zelle bei Zoom 1
   var lang = "de";
   function L2(de, en) { return { de: de, en: en }; }
@@ -72,7 +72,7 @@
   // kind: armor, cock, thr, gyro, bat, reac, ant, floor, wall, door, win, mg, rg
   // shape: full, ramp1, ramp2, round, half
   var T = {}, CATS = [];
-  function def(id, o) { o.id = id; o.mass = Math.round(o.mass * 0.7 * 100) / 100; T[id] = o; return o; }   // alle Teile 30 % leichter (v0.34)
+  function def(id, o) { o.id = id; o.mass = Math.round(o.mass * 0.7 * 0.75 * 1000) / 1000; T[id] = o; return o; }   // alle Teile leichter: −30 % (v0.34), nochmals −25 % (v0.46)
   function armor(pre, heavy) {
     var m = heavy ? 3.3 : 0.5, hp = heavy ? 190 : 45, nm = heavy ? L2("schwer", "heavy") : L2("leicht", "light");
     var col = heavy ? "#6A7480" : "#9AA5B1";
@@ -1121,6 +1121,32 @@
     A.man = k; A.side = Math.random() < 0.5 ? -1 : 1; A.passed = false; A.passU = null;
     A.manT = MANT[k][0] + Math.random() * (MANT[k][1] - MANT[k][0]);
   }
+  // Kollisionsvermeidung, jeden Frame mit deinem echten Tempo (nicht der verzögerten Schätzung):
+  // Annäherung nur so schnell, dass die KI vor dir noch bremsen kann; ab etwa 45 m Abstand zur Hülle kein weiteres Aufschließen mehr
+  // und ein kräftiger Schwenk zur Seite.
+  var AVOID = 50;
+  function aiAvoid(bd, A, vDes, me) {
+    var dx = me.x - bd.x, dy = me.y - bd.y, dist = Math.hypot(dx, dy) || 1, ux = dx / dist, uy = dy / dist;
+    var ds = Math.max(0, dist - 0.5 * (me.rad + bd.rad)); if (ds > AVOID + 120) return vDes;
+    var v = { x: vDes.x, y: vDes.y }, rel = (v.x - me.vx) * ux + (v.y - me.vy) * uy;   // gewünschte Annäherung relativ zu dir
+    var aB = Math.max(2, bd.thrSum / 4 / bd.mass * 0.5);   // vorsichtig angesetzte Bremsverzögerung
+    var maxC = ds > AVOID ? Math.sqrt(2 * aB * (ds - AVOID)) : (ds - AVOID) * 0.5;
+    if (rel > maxC) { v.x -= ux * (rel - maxC); v.y -= uy * (rel - maxC); }
+    if (ds < AVOID) { var sd = A.side || 1, k = 1 - ds / AVOID; v.x += -uy * sd * 35 * k; v.y += ux * sd * 35 * k; }
+    // Vorausschau: Bleibt der aktuelle Kurs so, wie nah kommen wir uns in den nächsten 3 s? Zu nah: kräftig seitlich und abbremsen
+    var rx = bd.x - me.x, ry = bd.y - me.y, wx = bd.vx - me.vx, wy = bd.vy - me.vy, w2 = wx * wx + wy * wy;
+    if (w2 > 1) {
+      var tca = -(rx * wx + ry * wy) / w2;
+      if (tca > 0 && tca < 3) {
+        var mx = rx + wx * tca, my = ry + wy * tca, miss = Math.hypot(mx, my), safe = 0.5 * (me.rad + bd.rad) + 20;
+        if (miss < safe) {
+          var ml = miss || 1, ex = miss > 0.5 ? mx / ml : -uy * (A.side || 1), ey = miss > 0.5 ? my / ml : ux * (A.side || 1), urg = (1 - miss / safe) * (1 - tca / 3);
+          v.x += ex * 45 * urg - wx * 0.6 * urg; v.y += ey * 45 * urg - wy * 0.6 * urg;
+        }
+      }
+    }
+    return v;
+  }
   function aiTick(bd, dt) {
     var A = bd.ai, me = FL.me; if (bd.dead) return;
     var alive = FL.bodies.indexOf(me) >= 0 && me.blocks.length;
@@ -1180,9 +1206,6 @@
         var cl = Math.max(-25, Math.min(Y.push, (dist - R) * 0.6)), side = Y.orbit ? Y.orbit * A.dir : Y.strafe * A.strafe;
         vDes = { x: PV.x + ux * cl - uy * side, y: PV.y + uy * cl + ux * side };
       }
-      // Kollisionsvermeidung: zu nah und auf Annäherungskurs, dann seitlich wegdrücken
-      var rvx = bd.vx - me.vx, rvy = bd.vy - me.vy, closing = rvx * ux + rvy * uy;
-      if (dist < (me.rad + bd.rad) * 1.15 + 15 && closing > 0) { vDes.x += qx * 25 - ux * 15; vDes.y += qy * 25 - uy * 15; }
       // Feuern nur, wenn die Nase zufällig oder gewollt passt
       // Feuern, sobald die Geschütze wirklich auf dich zeigen: Toleranz nach deiner Größe in der Entfernung, unabhängig vom Manöver und vom Wunschabstand
       var tol = Math.max(0.05, Math.atan2(me.rad * 0.55, dist)) + (bd.tcomp ? TURRET.max : 0);
@@ -1194,6 +1217,7 @@
       head = angTo(vDes.x, vDes.y);
     }
     if (replan || !A.vDes || A.state === "flee") A.vDes = vDes; else vDes = A.vDes;
+    if (A.state === "combat") vDes = aiAvoid(bd, A, vDes, me);
     aiDrive(bd, dt, vDes, head);
     if (A.state === "flee" && A.fleeT < 5) { var fv = Math.hypot(bd.vx, bd.vy), pv0 = A.pv || 0, vh = VHI * AI.vk; if (fv > vh && fv > pv0) { var lm = Math.max(pv0, vh); bd.vx *= lm / fv; bd.vy *= lm / fv; fv = lm; } A.pv = fv; }
     else A.pv = Math.hypot(bd.vx, bd.vy);
