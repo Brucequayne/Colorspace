@@ -4,7 +4,7 @@
 (function () {
   "use strict";
 
-  var VERSION = "0.48";
+  var VERSION = "0.49";
   var CELL_M = 2.5, PX = 24;              // Meter je Zelle, Pixel je Zelle bei Zoom 1
   var lang = "de";
   function L2(de, en) { return { de: de, en: en }; }
@@ -65,6 +65,7 @@
     dockHint: L2("P · Andocken", "P · Dock"), docking: L2("Andocken …", "Docking …"), docked: L2("Angedockt", "Docked"), dockedHint: L2("Angedockt · P zum Abdocken", "Docked · P to undock"),
     undocked: L2("Abgedockt", "Undocked"), noDock: L2("Kein passender Dock in Reichweite", "No matching dock in range"), dockAbort: L2("Andocken abgebrochen", "Docking aborted"),
     dockStand: L2("Erst aus dem Dock gehen", "Step out of the dock first"), notOnShip: L2("Erst zurück aufs eigene Schiff", "Get back onto your own ship first"),
+    shipDef: L2("Dein Schiff", "Your ship"), stDef: L2("Raumstation", "Space station"), namePh: L2("Name …", "Name …"), emptySlot: L2("leer", "empty"),
     spawn: L2("Gegner spawnen", "Spawn enemy"), spawned: L2("{n} patrouilliert irgendwo vor dir", "{n} is patrolling somewhere ahead of you"), ko: L2("Kampfunfähig", "Disabled"),
     edShip: L2("Schiff", "Ship"), edSt: L2("Raumstation", "Space station"), stNoShip: L2("Für den Stationstest brauchst du ein Schiff mit Cockpit im Schiffs-Editor.", "To test the station you need a ship with a cockpit in the ship editor."),
     weld: L2("Schweißgerät", "Welder"), weldOn: L2("repariert {n}: {p} %", "repairing {n}: {p} %"), weldIdle: L2("Linksklick vor einem Block repariert ihn, vor einem Hologramm baut er ihn neu", "Left click facing a block repairs it, facing a hologram rebuilds it"),
@@ -269,20 +270,21 @@
   var S = null, V = null, raf = 0, last = 0;
   var SAVE = "spacerogue-ship-v1", SAVE_ST = "spacerogue-station-v1";
   function freshState() {
-    return { blocks: [], ed: "ship", ship: [], station: [], tool: "build", sel: "lblk", r: 0, f: 0, sym: false, symGap: false, view: "in", color: "#C8473A", undo: [], mode: "edit" };
+    return { blocks: [], ed: "ship", ship: [], station: [], names: { ship: "", station: "" }, tool: "build", sel: "lblk", r: 0, f: 0, sym: false, symGap: false, view: "in", color: "#C8473A", undo: [], mode: "edit" };
   }
   function load() {
     S = freshState();
     try { var j = JSON.parse(localStorage.getItem(SAVE) || "null"); if (j && j.blocks) { S.blocks = j.blocks.filter(function (b) { return T[b.t]; }); if (j.color) S.color = j.color; if (j.symGap) S.symGap = true; } } catch (e) {}
     if (!S.blocks.length) S.blocks = starter();
     S.ship = S.blocks;
-    try { var js = JSON.parse(localStorage.getItem(SAVE_ST) || "null"); if (js && js.blocks) S.station = js.blocks.filter(function (b) { return T[b.t] && !/^(thr|cock|gyro)$/.test(T[b.t].kind); }); if (js && js.ed === "station") { S.ed = "station"; S.blocks = S.station; } } catch (e) {}
+    try { var jn = JSON.parse(localStorage.getItem(SAVE) || "null"); if (jn && jn.name) S.names.ship = jn.name; } catch (e) {}
+    try { var js = JSON.parse(localStorage.getItem(SAVE_ST) || "null"); if (js && js.blocks) S.station = js.blocks.filter(function (b) { return T[b.t] && !/^(thr|cock|gyro)$/.test(T[b.t].kind); }); if (js && js.name) S.names.station = js.name; if (js && js.ed === "station") { S.ed = "station"; S.blocks = S.station; } } catch (e) {}
   }
   function save() {
     if (S.ed === "station") S.station = S.blocks; else S.ship = S.blocks;
     try {
-      localStorage.setItem(SAVE, JSON.stringify({ blocks: S.ship.map(strip), color: S.color, symGap: !!S.symGap }));
-      localStorage.setItem(SAVE_ST, JSON.stringify({ blocks: S.station.map(strip), ed: S.ed }));
+      localStorage.setItem(SAVE, JSON.stringify({ blocks: S.ship.map(strip), color: S.color, symGap: !!S.symGap, name: S.names.ship }));
+      localStorage.setItem(SAVE_ST, JSON.stringify({ blocks: S.station.map(strip), ed: S.ed, name: S.names.station }));
     } catch (e) {}
   }
   // Editor-Modus umschalten: Schiff oder Raumstation, jeder mit eigenem Entwurf
@@ -606,7 +608,7 @@
     else { c.fillStyle = shade(col, -0.12); c.fillRect(b, b, w - b * 2, h - b * 2); c.strokeStyle = shade(col, -0.45); c.lineWidth = lw; c.beginPath(); c.moveTo(b, h / 2); c.lineTo(w - b, h / 2); c.stroke(); c.fillStyle = shade(col, -0.35); c.fillRect(w * 0.42, h * 0.3, w * 0.16, h * 0.4); }
   }
   // Astronaut von oben: Helm mit Visier, Schultern, Rucksack, Arme und Füße bewegen sich beim Laufen
-  function drawAstronaut(c, x, y, face, ph, sc, weld) {
+  function drawAstronaut(c, x, y, face, ph, sc, weld, gun) {
     var sw = Math.sin(ph), cw = Math.cos(ph);
     c.save(); c.translate(x, y); c.rotate(face); c.scale(sc, sc);
     c.fillStyle = "rgba(0,0,0,.25)"; c.beginPath(); c.ellipse(1, 1.5, 7, 9.5, 0, 0, Math.PI * 2); c.fill();
@@ -616,7 +618,8 @@
     c.fillStyle = "#E3E7EA"; c.beginPath(); c.ellipse(0, 0, 4.6, 8.2, 0, 0, Math.PI * 2); c.fill(); c.strokeStyle = "#9AA3AD"; c.lineWidth = 0.8; c.stroke();
     c.fillStyle = "#E0743A"; c.beginPath(); c.arc(-0.5, -7.2, 2.2, 0, Math.PI * 2); c.fill(); c.beginPath(); c.arc(-0.5, 7.2, 2.2, 0, Math.PI * 2); c.fill();
     c.fillStyle = "#D5DADF"; c.beginPath(); c.arc(1.5 - sw * 3.2, -8.8, 1.8, 0, Math.PI * 2); c.fill();
-    var hx = weld ? 6.5 : 1.5 + sw * 3.2, hy = weld ? 4.5 : 8.8; c.beginPath(); c.arc(hx, hy, 1.8, 0, Math.PI * 2); c.fill();
+    var hx = weld || gun ? 6.5 : 1.5 + sw * 3.2, hy = weld || gun ? 4.5 : 8.8; c.beginPath(); c.arc(hx, hy, 1.8, 0, Math.PI * 2); c.fill();
+    if (gun) { c.fillStyle = "#2A2F36"; c.fillRect(6.5, 3.6, 6, 1.8); c.fillRect(6.8, 4.6, 1.6, 2.4); }
     if (weld) { c.fillStyle = "#3A3F46"; c.fillRect(6, 3.4, 5, 2.2); var g = 0.6 + 0.4 * Math.random(); c.fillStyle = "rgba(150,220,255," + g + ")"; c.beginPath(); c.arc(11.8, 4.5, 1.6 + Math.random(), 0, Math.PI * 2); c.fill(); }
     c.restore();
     c.fillStyle = "#F4F6F8"; c.beginPath(); c.arc(0.6, 0, 4.4, 0, Math.PI * 2); c.fill(); c.strokeStyle = "#9AA3AD"; c.lineWidth = 0.7; c.stroke();
@@ -881,13 +884,13 @@
     FL.missiles = []; FL.hits = []; FL.sig = 0; FL.banner = 0; me.id = ++BID;
     FL.items = []; FL.pb = me; FL.dock = null; FL.shHits = []; FL.shPct = 0; me.shE = 0; FL.kills = 0; FL.shTarget = 0; FL.shAcc = 0;
     var kcb = V.root.querySelector(".sr-kc b"); if (kcb) kcb.textContent = "0";
-    me.player = true; recalc(me); me.energy = me.cap;
+    me.player = true; recalc(me); me.energy = me.cap; me.name = S.names.ship || t("shipDef"); FL.slot = 1; FL.pbLast = undefined;
     FL.suit = SUIT.max; FL.out = false; FL.eva = null; FL.enterCd = 0; FL.ko = 0; me.lost = []; me.air = new Map();
     if (stMode && S.station.length) {
       // Raumstation: statischer Körper vor dem Schiff, bewegt sich nie, auch nicht durch Stöße
       var sc = components(S.station), sm = sc.reduce(function (a, b) { return b.length > a.length ? b : a; });
       var sta = makeBody(sm.map(function (b) { return { t: b.t, x: b.x, y: b.y, r: b.r, f: b.f, c: b.c }; }), false);
-      sta.static = true; sta.station = true; sta.id = ++BID; sta.x = 0; sta.y = me.y - (me.rad + sta.rad + 40); sta.vx = sta.vy = sta.w = 0;
+      sta.static = true; sta.station = true; sta.name = S.names.station || t("stDef"); sta.id = ++BID; sta.x = 0; sta.y = me.y - (me.rad + sta.rad + 40); sta.vx = sta.vy = sta.w = 0;
       FL.bodies.push(sta);
     } else if (!stMode) spawnTargets();
     S.mode = "fly"; V.zoomEd = V.zoom; V.zoom = Math.min(1.1, Math.max(0.6, V.zoom));
@@ -972,7 +975,7 @@
       var steps = Math.ceil(Math.hypot(p.vx, p.vy) * dt / 1.0);
       for (var i = 0; i < steps; i++) {
         p.x += p.vx * dt / steps; p.y += p.vy * dt / steps;
-        var hit = hitAt(p.x, p.y, p.own); if (hit) { var crit = p.own.player && Math.random() < PM.crit; if (p.own === FL.me) hitMark(p.x, p.y, hit.bd, crit); damage(hit.bd, hit.b, MG.dmg * (crit ? 2 : 1), p.x, p.y); spark(p.x, p.y, crit ? 10 : 5); return false; }
+        var hit = hitAt(p.x, p.y, p.own); if (hit) { var crit = p.own.player && Math.random() < PM.crit; if (p.own === FL.me || p.pl) hitMark(p.x, p.y, hit.bd, crit); damage(hit.bd, hit.b, (p.dmg || MG.dmg) * (crit ? 2 : 1), p.x, p.y); spark(p.x, p.y, crit ? 10 : 5); return false; }
       }
       return true;
     });
@@ -999,13 +1002,18 @@
     if (FL.parts.length > 900) FL.parts.splice(0, FL.parts.length - 900);
     // Dynamische Kamera: schaut ein Stück in Richtung Maus, das Schiff rückt dabei Richtung Bildrand (höchstens 30 % des halben Bildes)
     var tox = 0, toy = 0, ppm = PX * V.zoom / CELL_M;
-    if (V.mouse && (FL.seated || FL.out)) {
+    if (V.mouse) {
       tox = Math.max(-0.3 * V.W / 2, Math.min(0.3 * V.W / 2, (V.mouse.sx - V.W / 2) * 0.35)) / ppm;
       toy = Math.max(-0.3 * V.H / 2, Math.min(0.3 * V.H / 2, (V.mouse.sy - V.H / 2) * 0.35)) / ppm;
     }
     FL.camOff = FL.camOff || { x: 0, y: 0 }; var ck = 1 - Math.exp(-dt * 3.5);
     FL.camOff.x += (tox - FL.camOff.x) * ck; FL.camOff.y += (toy - FL.camOff.y) * ck;
-    var fx = FL.out && FL.eva ? FL.eva.x : me.x, fy = FL.out && FL.eva ? FL.eva.y : me.y;
+    var fx = me.x, fy = me.y;
+    if (FL.out && FL.eva) { fx = FL.eva.x; fy = FL.eva.y; }
+    else if (!FL.seated) { var pw = toWorld(FL.pb || me, FL.pilot.x, FL.pilot.y); fx = pw.x; fy = pw.y; }   // zu Fuß folgt die Kamera der Figur
+    // Schwelle überschritten (anderer Körper betreten): Name einblenden
+    var here = FL.out ? null : (FL.pb || me);
+    if (here !== FL.pbLast) { if (here && FL.pbLast !== undefined && !FL.seated) showPlace(here.name || ""); FL.pbLast = here; }
     FL.cam.x = fx + FL.camOff.x; FL.cam.y = fy + FL.camOff.y;
   }
   // ---------- Luft, Luken und Raumanzug ----------
@@ -1071,7 +1079,7 @@
     E.ph += E.thr ? dt * 4 : 0;
     // Schweißen draußen: Punkt vor der Figur im Schiffsraster
     FL.welding = false; FL.weldB = null; FL.weldG = null;
-    if (FL.fire) { FL.welding = true; var tp = toLocal(bd, E.x + Math.cos(E.face) * 1.6, E.y + Math.sin(E.face) * 1.6); weldAt(bd, tp.x, tp.y, dt); }
+    if (FL.fire && FL.slot === 1) { FL.welding = true; var tp = toLocal(bd, E.x + Math.cos(E.face) * 1.6, E.y + Math.sin(E.face) * 1.6); weldAt(bd, tp.x, tp.y, dt); }
     // Zurück ins Schiff über eine Luke
     FL.enterCd = Math.max(0, FL.enterCd - dt);
     var lp = toLocal(bd, E.x, E.y), o = bd.map.get(key(Math.floor(lp.x), Math.floor(lp.y)));
@@ -1394,7 +1402,7 @@
   function walk(bd, dt) {
     var P = FL.pilot, k = FL.keys, dx = (k.d ? 1 : 0) - (k.a ? 1 : 0), dy = (k.s ? 1 : 0) - (k.w ? 1 : 0);
     if (dx || dy) {   // Bildschirmrichtung → Schiffsrahmen
-      var l = Math.hypot(dx, dy), ca = Math.cos(bd.a), sa = Math.sin(bd.a), lx = (dx * ca + dy * sa) / l, ly = (-dx * sa + dy * ca) / l, sp = 2.2 * dt * (PM.walk ? 2 : 1);
+      var l = Math.hypot(dx, dy), ca = Math.cos(bd.a), sa = Math.sin(bd.a), lx = (dx * ca + dy * sa) / l, ly = (-dx * sa + dy * ca) / l, sp = 2.2 * dt * (PM.walk ? 2 : 1) * (k.shift ? 1.8 : 1);   // Umschalt: sprinten
       if (canStand(bd, P.x + lx * sp, P.y)) P.x += lx * sp;
       if (canStand(bd, P.x, P.y + ly * sp)) P.y += ly * sp;
       var want = Math.atan2(ly, lx), d = Math.atan2(Math.sin(want - P.face), Math.cos(want - P.face)); P.face += d * Math.min(1, dt * 14);
@@ -1420,7 +1428,8 @@
     if (!walkable(bd, P.x, P.y)) { exitShip(bd, P.x, P.y); FL.eva.vx -= Math.cos(P.face + bd.a) * 1.2; FL.eva.vy -= Math.sin(P.face + bd.a) * 1.2; return; }
     // Schweißgerät: repariert oder baut den Block direkt vor der Figur
     FL.welding = false; FL.weldB = null; FL.weldG = null;
-    if (FL.fire) { FL.welding = true; weldAt(bd, P.x + Math.cos(P.face) * 0.8, P.y + Math.sin(P.face) * 0.8, dt); }
+    if (FL.slot === 2) { var mw2 = mouseWorld(); if (mw2) { var lm = toLocal(bd, mw2.x, mw2.y), wa = Math.atan2(lm.y - P.y, lm.x - P.x), dd2 = Math.atan2(Math.sin(wa - P.face), Math.cos(wa - P.face)); P.face += dd2 * Math.min(1, dt * 16); } }   // mit der Pistole zur Maus schauen
+    if (FL.fire && FL.slot === 1) { FL.welding = true; weldAt(bd, P.x + Math.cos(P.face) * 0.8, P.y + Math.sin(P.face) * 0.8, dt); }
   }
   function toggleSeat() {
     var me = FL.me;
@@ -1705,6 +1714,37 @@
     } else if (V.caOn) { V.cv.style.filter = ""; V.caOn = false; }
     return off;
   }
+  // ---------- Werkzeugleiste zu Fuß (1–9) ----------
+  // 1 Schweißgerät, 2 Pistole (Einzelschuss, 50 % des Minigun-Schadens), 3–9 frei
+  var PISTOL = { dmg: MG.dmg * 0.5, speed: MG.speed, cd: 0.22 };
+  var HOT = [
+    { n: L2("Schweißgerät", "Welder"), ic: '<svg viewBox="0 0 24 24"><path d="M4 17l7-7 3 3-7 7H4z" fill="#9AA5B1"/><path d="M14 13l3-3" stroke="#D5DADF" stroke-width="2"/><circle cx="18.5" cy="8.5" r="2.4" fill="#8EE0FF"/><path d="M18.5 3v2M22 8.5h-2M21 4.5l-1.4 1.4" stroke="#8EE0FF" stroke-width="1.4"/></svg>' },
+    { n: L2("Pistole", "Pistol"), ic: '<svg viewBox="0 0 24 24"><path d="M3 8h15l2 2v2H11l-1 2h-2l-1 5H4l1-6H3z" fill="#9AA5B1"/><path d="M18 9h3" stroke="#D5DADF" stroke-width="2"/></svg>' }
+  ];
+  function firePistol() {
+    if ((FL.pcd || 0) > FL.t) return; FL.pcd = FL.t + PISTOL.cd;
+    var mw = mouseWorld(); if (!mw) return;
+    var ox, oy, vx0, vy0, own;
+    if (FL.out && FL.eva) { ox = FL.eva.x; oy = FL.eva.y; vx0 = FL.eva.vx; vy0 = FL.eva.vy; own = FL.me; }
+    else { var pb = FL.pb || FL.me, P = FL.pilot, w = toWorld(pb, P.x, P.y); ox = w.x; oy = w.y; vx0 = pb.vx; vy0 = pb.vy; own = pb; }
+    var a = Math.atan2(mw.y - oy, mw.x - ox), dx = Math.cos(a), dy = Math.sin(a);
+    FL.shots.push({ x: ox + dx * 0.9, y: oy + dy * 0.9, vx: vx0 + dx * PISTOL.speed, vy: vy0 + dy * PISTOL.speed, life: 0, own: own, pl: true, dmg: PISTOL.dmg });
+    FL.parts.push({ x: ox + dx * 1.1, y: oy + dy * 1.1, vx: vx0, vy: vy0, life: 0, max: 0.06, k: "flash", sz: 0.5 });
+  }
+  function syncHot() {
+    var el = V.root.querySelector(".sr-hot"); if (!el || !FL) return;
+    el.querySelectorAll("i").forEach(function (q, i) { q.classList.toggle("on", FL.slot === i + 1); });
+    var nm = HOT[FL.slot - 1]; set("sr-hot-n", nm ? nm.n[lang] : t("emptySlot"));
+  }
+  function hotHtml() {
+    var h = ""; for (var i = 0; i < 9; i++) h += '<i title="' + (HOT[i] ? HOT[i].n[lang] : "") + '"><u>' + (i + 1) + "</u>" + (HOT[i] ? HOT[i].ic : "") + "</i>";
+    return '<div class="sr-hot"><div class="sr-hot-row">' + h + '</div><span id="sr-hot-n"></span></div>';
+  }
+  // Ortsname beim Überschreiten der Schwelle: 3 s sichtbar, bis 4 s ausgeblendet
+  function showPlace(name) {
+    var el = V.root.querySelector(".sr-place"); if (!el) return;
+    el.textContent = name; el.classList.remove("go"); void el.offsetWidth; el.classList.add("go");
+  }
   // ---------- Charakter-Inventar ----------
   // 8×8 leere Plätze wie in Survival-Spielen; Gegenstände folgen in einem späteren Update
   var INV = { w: 8, h: 8 };
@@ -1899,7 +1939,7 @@
       c.save(); c.translate(bd.x, bd.y); c.rotate(bd.a); c.scale(CELL_M / PX, CELL_M / PX); c.translate(-bd.com[0] * PX, -bd.com[1] * PX);
       drawShip(c, bd.blocks, PX, bd.enemy ? "out" : S.view, tm, bd, bd.map);
       if (bd === FL.me && !FL.seated && (FL.pb || FL.me) === FL.me) drawGhosts(c, bd, tm);
-      if (bd === (FL.pb || FL.me) && !FL.seated && !FL.out) drawAstronaut(c, FL.pilot.x * PX, FL.pilot.y * PX, FL.pilot.face, FL.pilot.ph, PX / 24 * 1.25, FL.welding);
+      if (bd === (FL.pb || FL.me) && !FL.seated && !FL.out) drawAstronaut(c, FL.pilot.x * PX, FL.pilot.y * PX, FL.pilot.face, FL.pilot.ph, PX / 24 * 1.25, FL.welding, FL.slot === 2);
       // Überhitzung und Ladung an den Waffen
       bd.blocks.forEach(function (b) {
         var ty = T[b.t], f = fp(b), cx = (b.x + f[0] / 2) * PX, cy = (b.y + f[1] / 2) * PX;
@@ -1915,7 +1955,7 @@
       });
       c.restore();
     });
-    if (FL.out && FL.eva) { c.save(); c.translate(FL.eva.x, FL.eva.y); c.scale(CELL_M / PX, CELL_M / PX); drawAstronaut(c, 0, 0, FL.eva.face, FL.eva.ph, 1.25, FL.welding); c.restore(); }
+    if (FL.out && FL.eva) { c.save(); c.translate(FL.eva.x, FL.eva.y); c.scale(CELL_M / PX, CELL_M / PX); drawAstronaut(c, 0, 0, FL.eva.face, FL.eva.ph, 1.25, FL.welding, FL.slot === 2); c.restore(); }
     (FL.missiles || []).forEach(function (m) {
       c.save(); c.translate(m.x, m.y); c.rotate(m.h);
       c.fillStyle = "rgba(255,190,90,.85)"; c.beginPath(); c.moveTo(-0.9, -0.28); c.lineTo(-2.4 - Math.random() * 0.8, 0); c.lineTo(-0.9, 0.28); c.closePath(); c.fill();
@@ -2028,6 +2068,7 @@
   }
   function mmss(sec) { sec = Math.max(0, Math.ceil(sec)); return Math.floor(sec / 60) + ":" + ("0" + sec % 60).slice(-2); }
   function flHud() {
+    var rootEl = V.root.querySelector(".sr-root"), ft = !FL.seated; if (rootEl.classList.contains("foot") !== ft) { rootEl.classList.toggle("foot", ft); syncHot(); }
     var me = FL.me, sp = Math.hypot(me.vx, me.vy), g = FL.groups[FL.wsel];
     set("sr-h-sp", nf(sp, 1) + " m/s");
     // Tempo: rotes „Hoch“ über 120 m/s, an der Sperre ein ruhiger Hinweis „⇧ Limit“ (feste Breite, nichts springt)
@@ -2056,7 +2097,7 @@
     set("sr-h-air", (FL.breath === "room" ? "" : t(FL.breath === "jet" ? "airJet" : "airSuit") + " · ") + mmss(FL.suit));
     var ae = V.root.querySelector("#sr-h-air"); if (ae) ae.className = FL.breath === "room" ? "on" : ak < 0.25 ? "warn" : "off";
     var sb = V.root.querySelector('[data-act="seat"]'); if (sb) { set("sr-h-seatb", FL.seated ? t("exitSeat") : t("sitDown")); }
-    var wb = V.root.querySelector("#sr-h-weld"); if (wb) { wb.parentNode.hidden = FL.seated; set("sr-h-weld", FL.weldG ? fmt(t(FL.weldOk ? "weldBuild" : "weldWait"), { n: T[FL.weldG.t].n[lang] }) : FL.weldB ? fmt(t("weldOn"), { n: T[FL.weldB.t].n[lang], p: Math.round(FL.weldB.hp / hpMax(FL.me, FL.weldB) * 100) }) : t("hWeldIdle")); }
+    var wb = V.root.querySelector("#sr-h-weld"); if (wb) { wb.parentNode.hidden = FL.seated || FL.slot !== 1; set("sr-h-weld", FL.weldG ? fmt(t(FL.weldOk ? "weldBuild" : "weldWait"), { n: T[FL.weldG.t].n[lang] }) : FL.weldB ? fmt(t("weldOn"), { n: T[FL.weldB.t].n[lang], p: Math.round(FL.weldB.hp / hpMax(FL.me, FL.weldB) * 100) }) : t("hWeldIdle")); }
     var se = V.root.querySelector("#sr-h-seat"); if (se) se.className = !me.seat ? "warn" : "";
   }
 
@@ -2074,7 +2115,7 @@
   function ctlHtml() {
     var de = lang === "de", G = [
       [de ? "Im Sitz" : "Seated", [["WASD", de ? "Fliegen" : "Fly"], ["Q / E", de ? "Drehen" : "Rotate"], [de ? "Linksklick" : "Left click", de ? "Feuern" : "Fire"], ["R", de ? "Waffe wechseln" : "Switch weapon"], ["Z", de ? "Trägheitsdämpfer" : "Inertia dampers"], ["C", "Cruise Control"], ["X", "Overcharge"], [de ? "Umschalt" : "Shift", de ? "Hochgeschw. freigeben" : "Unlock high speed"], ["F", de ? "Aufstehen / Hinsetzen" : "Get up / sit down"], ["V", de ? "Innen / Außen" : "Inside / outside"], ["I", de ? "Inventar" : "Inventory"], ["P", de ? "Andocken / Abdocken" : "Dock / undock"]]],
-      [de ? "Zu Fuß" : "On foot", [["WASD", de ? "Laufen" : "Walk"], [de ? "Linksklick" : "Left click", de ? "Schweißen, Hologramm aufbauen" : "Weld, rebuild hologram"], [de ? "F auf Luke" : "F on hatch", de ? "Aussteigen (auch durch die Decke)" : "Exit (also through the ceiling)"], [de ? "Offener Rand" : "Open edge", de ? "Direkt hinaus und hinein" : "Step straight out and in"]]],
+      [de ? "Zu Fuß" : "On foot", [["WASD", de ? "Laufen" : "Walk"], [de ? "Umschalt" : "Shift", de ? "Sprinten" : "Sprint"], ["1–9", de ? "Werkzeug wählen" : "Select tool"], [de ? "Linksklick" : "Left click", de ? "1 Schweißen · 2 Pistole" : "1 weld · 2 pistol"], [de ? "F auf Luke" : "F on hatch", de ? "Aussteigen (auch durch die Decke)" : "Exit (also through the ceiling)"], [de ? "Offener Rand" : "Open edge", de ? "Direkt hinaus und hinein" : "Step straight out and in"]]],
       [de ? "Draußen" : "Outside", [["WASD", "Jetpack"], [de ? "Umschalt" : "Shift", de ? "Tempo ans Schiff" : "Match ship speed"], [de ? "F über Luke" : "F above hatch", de ? "Einsteigen" : "Get in"]]],
       ["Test", [[de ? "Rechtsklick" : "Right click", de ? "Block beschädigen" : "Damage block"], [de ? "Mausrad" : "Wheel", "Zoom"], ["Esc", de ? "Zurück zum Editor" : "Back to editor"]]]
     ];
@@ -2095,7 +2136,7 @@
       '<feColorMatrix in="SourceGraphic" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 1 0 0 0 0 0 1 0" result="b"/><feOffset id="srCAo2" in="b" dx="0" dy="0" result="bo"/>' +
       '<feBlend in="ro" in2="g" mode="screen" result="rg"/><feBlend in="rg" in2="bo" mode="screen"/></filter></svg>' +
       '<div class="sr-top"><a class="sr-back" href="#">← ' + t("back") + '</a><b class="sr-ttl">' + t("title") + ' <small>v' + VERSION + '</small></b>' +
-      '<div class="sr-ed-only sr-tbar"><span class="sr-seg"><button type="button" data-act="ed-ship">' + t("edShip") + '</button><button type="button" data-act="ed-st">' + t("edSt") + '</button></span><button type="button" data-act="undo">' + t("undo") + '</button><button type="button" data-act="starter">' + t("starter") + '</button><button type="button" data-act="clear">' + t("clear") + '</button><button type="button" data-act="exp">Export</button><button type="button" data-act="imp">Import</button><button type="button" data-act="npc">' + t("hangar") + '</button></div>' +
+      '<div class="sr-ed-only sr-tbar"><span class="sr-seg"><button type="button" data-act="ed-ship">' + t("edShip") + '</button><button type="button" data-act="ed-st">' + t("edSt") + '</button></span><input id="sr-name" class="sr-name" maxlength="28" spellcheck="false" placeholder="' + t("namePh") + '"><button type="button" data-act="undo">' + t("undo") + '</button><button type="button" data-act="starter">' + t("starter") + '</button><button type="button" data-act="clear">' + t("clear") + '</button><button type="button" data-act="exp">Export</button><button type="button" data-act="imp">Import</button><button type="button" data-act="npc">' + t("hangar") + '</button></div>' +
       '<div class="sr-sp"></div><div class="sr-seg"><button type="button" data-view="in">' + t("vIn") + '</button><button type="button" data-view="out">' + t("vOut") + '</button></div>' +
       '<button type="button" class="sr-go sr-ed-only" data-act="test">' + t("test") + ' ▸</button><button type="button" class="sr-go sr-fl-only" data-act="edit">◂ ' + t("toEd") + '</button></div>' +
       '<aside class="sr-pal sr-ed-only"><div class="sr-tools"><button type="button" data-tool="build">' + t("tBuild") + '</button><button type="button" data-tool="erase">' + t("tErase") + '</button><button type="button" data-tool="paint">' + t("tPaint") + '</button></div>' +
@@ -2115,6 +2156,7 @@
       '<label class="sr-uis sr-fl-only" title="' + (lang === "de" ? "Größe des Infofelds" : "Info panel size") + '"><svg viewBox="0 0 20 20" width="14" height="14"><rect x="2" y="3" width="7" height="14" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M12 7h6M12 10h6M12 13h4" stroke="currentColor" stroke-width="1.6"/></svg><input type="range" id="sr-uis" min="1" max="1.5" step="0.05" value="1"><span id="sr-uis-v">100 %</span></label>' +
       '<button type="button" class="sr-ctlb sr-fl-only" data-act="ctl" aria-pressed="false">' + t("controls") + '</button>' +
       '<div class="sr-inv" hidden><div class="sr-inv-box"><div class="sr-inv-h"><div><b>' + t("invT") + '</b><small>' + t("invSub") + '</small></div><span class="sr-inv-cnt"></span><button type="button" data-act="inv-x">' + (lang === "de" ? "Schließen (I)" : "Close (I)") + '</button></div><div class="sr-inv-grid"></div></div></div>' +
+      hotHtml() + '<div class="sr-place"></div>' +
       '<div class="sr-kc sr-fl-only"><small>' + t("kills") + '</small><b>0</b></div>' +
       '<div class="sr-ebot sr-fl-only"><div class="sr-ebot-bar"><i id="sr-be-s"></i><i id="sr-be-e"></i></div><span id="sr-be-t"></span>' +
       '<label class="sr-shs"><small>' + t("shield") + '</small><input type="range" id="sr-shp" min="0" max="100" step="5" value="0"><b id="sr-shp-v">0 %</b><button type="button" data-act="shfill" title="' + t("shFill") + '">↻</button></label><em id="sr-shp-n"></em></div>' +
@@ -2131,6 +2173,8 @@
     r.querySelectorAll("[data-blk]").forEach(function (b) { b.setAttribute("aria-pressed", String(b.getAttribute("data-blk") === S.sel && S.tool === "build")); });
     r.querySelectorAll("[data-view]").forEach(function (b) { b.setAttribute("aria-pressed", String(b.getAttribute("data-view") === S.view)); });
     r.querySelector(".sr-root").classList.toggle("st", S.ed === "station");
+    r.querySelector(".sr-root").classList.toggle("foot", !!(FL && !FL.seated)); if (FL) syncHot();
+    var ni = r.querySelector("#sr-name"); if (ni && document.activeElement !== ni) ni.value = S.names[S.ed] || "";
     var tb = r.querySelector('[data-act="test"]'); if (tb) tb.textContent = t(S.ed === "station" ? "testSt" : "test") + " ▸";
     var es = r.querySelector('[data-act="ed-ship"]'), et = r.querySelector('[data-act="ed-st"]'); if (es) { es.setAttribute("aria-pressed", String(S.ed !== "station")); et.setAttribute("aria-pressed", String(S.ed === "station")); }
     var sb = r.querySelector('[data-act="sym"]'); if (sb) sb.setAttribute("aria-pressed", String(S.sym));
@@ -2201,7 +2245,14 @@
     ".sr-kill[hidden]{display:none}.sr-kill div{display:flex;flex-direction:column}.sr-kill small{font-size:.68rem;letter-spacing:.1em;text-transform:uppercase;color:#F08A78;font-weight:700}.sr-kill span{font-weight:600;color:#E8ECEF}" +
     ".sr-kill.flee small{color:#F0B860}.sr-kill.flee path:last-child{stroke:#F0B860}" +
     ".sr-kill.dead small{color:#FF6A55}" +
-    ".sr-root.fly .sr-kc,.sr-root.fly .sr-ebot{display:flex}.sr-kc{position:absolute;right:12px;top:64px;z-index:3;align-items:baseline;gap:8px;background:rgba(14,19,28,.6);border:1px solid rgba(38,49,66,.8);padding:6px 12px;pointer-events:none}" +
+    ".sr-root.fly .sr-kc,.sr-root.fly .sr-ebot{display:flex}.sr-root.fly.foot .sr-ebot{display:none}.sr-hot{display:none}.sr-root.fly.foot .sr-hot{display:flex}" +
+    ".sr-hot{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);flex-direction:column;align-items:center;gap:5px;z-index:3;pointer-events:none}.sr-hot-row{display:flex;gap:4px}" +
+    ".sr-hot i{position:relative;width:46px;height:46px;display:flex;align-items:center;justify-content:center;background:rgba(14,19,28,.62);border:1px solid rgba(70,86,110,.7)}.sr-hot i svg{width:28px;height:28px}" +
+    ".sr-hot i u{position:absolute;left:3px;top:1px;text-decoration:none;font-size:.6rem;font-weight:700;color:#8FA0B8}.sr-hot i.on{border-color:#F2C14E;box-shadow:0 0 8px rgba(242,193,78,.45);background:rgba(60,50,25,.55)}.sr-hot i.on u{color:#F2C14E}" +
+    ".sr-hot span{font-size:.72rem;color:rgba(222,230,238,.85);text-shadow:0 1px 2px rgba(0,0,0,.8)}" +
+    ".sr-place{position:absolute;left:50%;top:26%;transform:translateX(-50%);font-size:1.7rem;font-weight:600;letter-spacing:.06em;color:#EEF2F5;text-shadow:0 2px 8px rgba(0,0,0,.85);pointer-events:none;opacity:0;z-index:4;white-space:nowrap}" +
+    ".sr-place.go{animation:srPlace 4s ease forwards}@keyframes srPlace{0%{opacity:0;transform:translate(-50%,6px)}8%{opacity:1;transform:translate(-50%,0)}75%{opacity:1}100%{opacity:0}}" +
+    ".sr-kc{position:absolute;right:12px;top:64px;z-index:3;align-items:baseline;gap:8px;background:rgba(14,19,28,.6);border:1px solid rgba(38,49,66,.8);padding:6px 12px;pointer-events:none}" +
     ".sr-kc small{font-size:.66rem;letter-spacing:.1em;text-transform:uppercase;color:#8FA0B8}.sr-kc b{font-size:1.15rem;color:#EEF2F5;font-variant-numeric:tabular-nums;min-width:1ch;text-align:right}" +
     ".sr-kc.pop b{animation:srKc .6s ease}@keyframes srKc{0%{color:#F2C14E;transform:scale(1.5)}100%{color:#EEF2F5;transform:scale(1)}}" +
     ".sr-kill.go{animation:srKill 3.2s ease both}@keyframes srKill{0%{opacity:0;transform:translate(-50%,-8px)}8%{opacity:1;transform:translate(-50%,0)}85%{opacity:1}100%{opacity:0}}" +
@@ -2223,6 +2274,7 @@
     ".sr-inv-h{display:flex;justify-content:space-between;align-items:flex-start;gap:14px}.sr-inv-h>div{display:flex;flex-direction:column;gap:3px}.sr-inv-h b{font-size:1.05rem;color:#EEF2F5}.sr-inv-h small{font-size:.74rem;color:#8FA0B8}.sr-inv-cnt{margin-left:auto;font-size:.78rem;color:#C9D1D9;font-variant-numeric:tabular-nums;padding-top:3px}" +
     ".sr-inv-grid{display:grid;grid-template-columns:repeat(8,48px);grid-auto-rows:48px;gap:4px}.sr-slot{display:block;background:rgba(38,49,66,.45);border:1px solid rgba(70,86,110,.6);box-shadow:inset 0 0 0 1px rgba(0,0,0,.25)}.sr-slot:hover{border-color:rgba(140,165,200,.8);background:rgba(50,64,86,.55)}" +
     "@media (max-width:520px){.sr-inv-grid{grid-template-columns:repeat(8,34px);grid-auto-rows:34px;gap:3px}}" +
+    ".sr-name{width:150px;margin-right:6px;padding:5px 8px;background:rgba(14,19,28,.7);border:1px solid #3A4658;color:#E8ECEF;font:inherit;font-size:.8rem;border-radius:0}" +
     ".sr-root.st .sr-blk[data-kind=thr],.sr-root.st .sr-blk[data-kind=cock],.sr-root.st .sr-blk[data-kind=gyro]{display:none}.sr-seg{display:inline-flex;margin-right:6px}.sr-seg button{border-radius:0}.sr-seg button[aria-pressed=true]{background:#2E6B4C;border-color:#57D18A;color:#fff}" +
     ".sr-uis{position:absolute;left:12px;bottom:10px;z-index:3;align-items:center;gap:7px;background:rgba(14,19,28,.6);border:1px solid rgba(38,49,66,.8);padding:5px 9px;color:#8FA0B8;font-size:.72rem;font-variant-numeric:tabular-nums;cursor:pointer}" +
     ".sr-uis input{width:96px;accent-color:#7FD3A4;margin:0}.sr-uis span{min-width:36px;text-align:right}" +
@@ -2251,7 +2303,7 @@
     var m = worldMouse(e); V.mouse = m;
     if (S.mode === "fly") {
       audioInit();
-      if (e.button === 0) FL.fire = true;
+      if (e.button === 0) { FL.fire = true; if (!FL.seated && FL.slot === 2) firePistol(); }
       if (e.button === 2) { var ppm = PX * V.zoom / CELL_M, wx = FL.cam.x + (m.sx - V.W / 2) / ppm, wy = FL.cam.y + (m.sy - V.H / 2) / ppm, h = hitAt(wx, wy, null); if (h) { damage(h.bd, h.b, T[h.b.t].hp * 0.26, wx, wy); spark(wx, wy, 6); } }
       return;
     }
@@ -2288,10 +2340,15 @@
       if (k === "escape" && invOpen()) { closeInv(); return; }
       if (k === "escape") { stopTest(); return; }
       if (["w", "a", "s", "d", "q", "e"].indexOf(k) >= 0) { FL.keys[k] = true; e.preventDefault(); }
-      if (k === "shift") { FL.keys.shift = true; if (!e.repeat && !FL.out) { FL.hiOk = !FL.hiOk; if (FL.hiOk) FL.ca = Math.max(FL.ca || 0, 0.3); floatTxt(t(FL.hiOk ? "hiOn" : "hiOff")); } }
+      if (k === "shift") { FL.keys.shift = true; if (!e.repeat && FL.seated && !FL.out) { FL.hiOk = !FL.hiOk; if (FL.hiOk) FL.ca = Math.max(FL.ca || 0, 0.3); floatTxt(t(FL.hiOk ? "hiOn" : "hiOff")); } }
       if (e.repeat) return;
+      // zu Fuß und draußen: Zahlentasten wählen das Werkzeug; Schiffstasten wirken nur im Cockpit
+      if (!FL.seated && /^[1-9]$/.test(k)) { FL.slot = +k; syncHot(); return; }
+      if (k === "f") { toggleSeat(); return; }
+      if (k === "v" || k === "tab") { S.view = S.view === "in" ? "out" : "in"; syncUI(); e.preventDefault(); return; }
+      if (!FL.seated) return;
       if (k === "z") FL.damp = !FL.damp;
-      if (k === "p") { if (FL.seated && !FL.out) dockKey(); return; }
+      if (k === "p") { if (!FL.out) dockKey(); return; }
       if (k === "c") { FL.cruise = !FL.cruise; floatTxt(t(FL.cruise ? "crFloatOn" : "crFloatOff")); }
       if (k === "x") { if (FL.oc) { FL.oc = false; floatTxt(t("ocOff"), "201,160,245"); } else if (FL.ocT > 0.3) { FL.oc = true; floatTxt(t("ocOn"), "201,160,245"); } }
       if (k === "r" && FL.groups.length) FL.wsel = (FL.wsel + 1) % FL.groups.length;
@@ -2403,6 +2460,7 @@
     if (e.target.id === "sr-col") { S.color = e.target.value; S.tool = "paint"; save(); syncUI(); }
     if (e.target.id === "sr-uis") { hudScale(+e.target.value); try { localStorage.setItem("spacerogue-ui", String(V.uis)); } catch (er) {} }
     if (e.target.id === "sr-shp" && FL) setShield(+e.target.value);
+    if (e.target.id === "sr-name") { S.names[S.ed] = e.target.value.trim(); save(); }
   }
   // Schild-Zuweisung: Anteil der Gesamtkapazität wird aus der Schiffsenergie ins Schild umgebucht.
   // Leergeschossene Schilde füllen sich nicht von selbst, erst wenn der Regler neu gesetzt wird (oder ↻).
