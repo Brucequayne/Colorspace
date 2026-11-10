@@ -4,7 +4,7 @@
 (function () {
   "use strict";
 
-  var VERSION = "0.37";
+  var VERSION = "0.38";
   var CELL_M = 2.5, PX = 24;              // Meter je Zelle, Pixel je Zelle bei Zoom 1
   var lang = "de";
   function L2(de, en) { return { de: de, en: en }; }
@@ -34,10 +34,12 @@
     wNoPow: L2("Keine Energiequelle: Batterie oder Reaktor einbauen.", "No power source: add a battery or reactor."),
     okRooms: L2("{n} Raum/Räume luftdicht", "{n} room(s) airtight"), noRooms: L2("Keine Innenräume", "No interior rooms"),
     hintEd: L2("Linksklick bauen, Ziehen baut Reihen · Rechtsklick abreißen · R drehen · F spiegeln · M Symmetrie (aus, im Block, zwischen Blöcken) · V Innen/Außen · Mausrad zoomt · Mitte/Leertaste + Ziehen verschiebt", "Left click build, drag for rows · right click remove · R rotate · F flip · M symmetry · V interior/exterior · wheel zooms · middle/space + drag pans"),
-    hintFl: L2("Im Sitz: WASD fliegen · Q/E drehen (oder Umschalt + Maus) · Linksklick feuern · R Waffe · Z Trägheitsdämpfer · C Cruise (kein Selbstbremsen) · X Overcharge · Raketen lenken leicht zum Mauszeiger · Zu Fuß: WASD laufen · Linksklick schweißen und Hologramme neu aufbauen · F aussteigen/hinsetzen · Durch eine Luke ins All: WASD Jetpack (kostet Anzugluft), Umschalt gleicht ans Schiff an · Gegner spawnen links im Feld, Antennen zeigen sie als rote Dreiecke am Rand · V Innen/Außen · Rechtsklick: Block beschädigen (Test) · Esc Editor", "Seated: WASD fly · Q/E rotate (or Shift + mouse) · left click fire · R weapon · Z inertia dampers · C cruise (no auto-braking) · X overcharge · missiles steer gently toward the cursor · On foot: WASD walk · left click weld and rebuild holograms · F get up/sit down · Through a hatch into space: WASD jetpack (uses suit air), Shift matches the ship · Spawn enemies in the panel on the left, antennas show them as red triangles at the edge · V interior/exterior · right click: damage block (test) · Esc editor"),
+    hintFl: L2("Im Sitz: WASD fliegen · Q/E drehen · Umschalt gibt Hochgeschwindigkeit über 120 m/s frei · Linksklick feuern · R Waffe · Z Trägheitsdämpfer · C Cruise (kein Selbstbremsen) · X Overcharge · Raketen lenken leicht zum Mauszeiger · Zu Fuß: WASD laufen · Linksklick schweißen und Hologramme neu aufbauen · F aussteigen/hinsetzen · Durch eine Luke ins All: WASD Jetpack (kostet Anzugluft), Umschalt gleicht ans Schiff an · Gegner spawnen links im Feld, Antennen zeigen sie als rote Dreiecke am Rand · V Innen/Außen · Rechtsklick: Block beschädigen (Test) · Esc Editor", "Seated: WASD fly · Q/E rotate · Shift unlocks high speed above 120 m/s · left click fire · R weapon · Z inertia dampers · C cruise (no auto-braking) · X overcharge · missiles steer gently toward the cursor · On foot: WASD walk · left click weld and rebuild holograms · F get up/sit down · Through a hatch into space: WASD jetpack (uses suit air), Shift matches the ship · Spawn enemies in the panel on the left, antennas show them as red triangles at the edge · V interior/exterior · right click: damage block (test) · Esc editor"),
     noCockTest: L2("Zum Testen braucht das Schiff ein Cockpit.", "The ship needs a cockpit to be tested."),
     cruise: L2("Cruise-Modus", "Cruise mode"), cruiseOn: L2("Cruise an: Das Schiff bremst nicht mehr von selbst, seitlich bleibt der Kurs stabil", "Cruise on: the ship no longer brakes by itself, sideways the course stays stable"), cruiseOff: L2("Cruise aus: Die Dämpfer bremsen wieder in alle Richtungen", "Cruise off: dampers brake in all directions again"),
     hiSpeed: L2("Hohe Geschwindigkeit", "High speed"),
+    hiOn: L2("Hochgeschwindigkeit frei: 120 bis 500 m/s", "High speed unlocked: 120 to 500 m/s"), hiOff: L2("Hochgeschwindigkeit gesperrt: Beschleunigen nur bis 120 m/s", "High speed locked: acceleration only up to 120 m/s"),
+    hiLbl: L2("Hochgeschwindigkeit", "High speed"), hiFree: L2("frei", "unlocked"), hiLock: L2("gesperrt (120 m/s)", "locked (120 m/s)"),
     damp: L2("Trägheitsdämpfer", "Inertia dampers"), on: L2("an", "on"), off: L2("aus", "off"),
     speed: L2("Tempo", "Speed"), energy: L2("Energie", "Power"), weapon: L2("Waffe", "Weapon"), none: L2("keine", "none"),
     seated: L2("Im Cockpit", "In cockpit"), unseated: L2("Nicht im Cockpit · F zum Hinsetzen", "Not in cockpit · F to sit down"),
@@ -525,15 +527,23 @@
     if (STARS) return STARS;
     STARS = [];
     for (var l = 0; l < 3; l++) { var a = []; for (var i = 0; i < 220; i++) a.push([Math.random(), Math.random(), Math.random() * 0.8 + 0.3]); STARS.push(a); }
-    var cv = document.createElement("canvas"); cv.width = cv.height = 512; var g = cv.getContext("2d");
-    var gr = g.createRadialGradient(170, 200, 10, 170, 200, 260); gr.addColorStop(0, "rgba(90,60,140,.35)"); gr.addColorStop(1, "rgba(90,60,140,0)"); g.fillStyle = gr; g.fillRect(0, 0, 512, 512);
-    gr = g.createRadialGradient(380, 360, 10, 380, 360, 220); gr.addColorStop(0, "rgba(40,110,150,.28)"); gr.addColorStop(1, "rgba(40,110,150,0)"); g.fillStyle = gr; g.fillRect(0, 0, 512, 512);
+    // Nebel als nahtlos kachelbare Textur: jede Wolke wird mit Umbruch an allen Rändern gezeichnet, so gibt es nirgends eine Kante
+    var N = 1024, cv = document.createElement("canvas"); cv.width = cv.height = N; var g = cv.getContext("2d");
+    [[0.30, 0.34, 0.36, "90,60,140", 0.30], [0.72, 0.68, 0.30, "40,110,150", 0.24], [0.82, 0.18, 0.22, "70,50,120", 0.16], [0.15, 0.82, 0.26, "35,80,130", 0.16], [0.55, 0.45, 0.18, "110,70,150", 0.10]].forEach(function (q) {
+      for (var ox = -1; ox <= 1; ox++) for (var oy = -1; oy <= 1; oy++) {
+        var x = (q[0] + ox) * N, y = (q[1] + oy) * N, r = q[2] * N, gr = g.createRadialGradient(x, y, 0, x, y, r);
+        gr.addColorStop(0, "rgba(" + q[3] + "," + q[4] + ")"); gr.addColorStop(1, "rgba(" + q[3] + ",0)"); g.fillStyle = gr; g.fillRect(x - r, y - r, r * 2, r * 2);
+      }
+    });
     NEB = cv; return STARS;
   }
   function drawSpace(c, W, H, ox, oy) {
     c.fillStyle = "#080B12"; c.fillRect(0, 0, W, H);
     stars();
-    var nw = Math.max(W, H) * 1.4; c.globalAlpha = 0.9; c.drawImage(NEB, -((ox * 0.02) % nw) - nw * 0.2, -((oy * 0.02) % nw) - nw * 0.2, nw, nw); c.globalAlpha = 1;
+    var nw = Math.max(W, H) * 1.6, nx = -(((ox * 0.02) % nw) + nw) % nw, ny = -(((oy * 0.02) % nw) + nw) % nw;   // Kacheln lückenlos, in jede Richtung endlos
+    c.globalAlpha = 0.9;
+    for (var tx = nx; tx < W; tx += nw) for (var ty = ny; ty < H; ty += nw) c.drawImage(NEB, tx, ty, nw + 1, nw + 1);
+    c.globalAlpha = 1;
     STARS.forEach(function (layer, li) {
       var par = [0.05, 0.12, 0.25][li], sz = [1, 1.4, 2][li];
       c.fillStyle = ["rgba(200,210,230,.5)", "rgba(220,228,245,.7)", "rgba(255,255,255,.9)"][li];
@@ -784,7 +794,14 @@
       if (bd === me) { var fm = 0; for (var fk in bd.flames) fm = Math.max(fm, bd.flames[fk]); if (FL.fire && FL.seated && FL.groups.length) fm = Math.max(fm, 0.6); FL.sig = Math.max(FL.sig * Math.exp(-dt / 1.2), fm); }
       if (bd.ai) aiTick(bd, dt);
       if (bd === me && !FL.seated && !FL.out) walk(bd, dt);
-      var vv = Math.hypot(bd.vx, bd.vy); if (vv > VMAX) { bd.vx *= VMAX / vv; bd.vy *= VMAX / vv; }   // Tempolimit 500 m/s
+      var vv = Math.hypot(bd.vx, bd.vy); if (vv > VMAX) { bd.vx *= VMAX / vv; bd.vy *= VMAX / vv; vv = VMAX; }   // Tempolimit 500 m/s
+      if (bd === me) {
+        // Sperre bei 120 m/s: verhindert nur weiteres Beschleunigen, bremst nie ab. Umschalt gibt den Bereich 120–500 m/s frei.
+        var pv = bd.pv || 0;
+        if (!FL.hiOk && vv > VHI && vv > pv) { var lim = Math.max(pv, VHI); bd.vx *= lim / vv; bd.vy *= lim / vv; vv = lim; }
+        if (FL.hiOk && pv <= VHI && vv > VHI) { FL.shake = 0.7; FL.ca = Math.max(FL.ca || 0, 0.5); }   // Eintritt in hohe Geschwindigkeit
+        bd.pv = vv;
+      }
       bd.x += bd.vx * dt; bd.y += bd.vy * dt; bd.a += bd.w * dt;
       bd.blocks.forEach(function (b) {
         var ty = T[b.t];
@@ -1147,7 +1164,6 @@
     // Drehen nur mit Gyroskop; ohne Eingabe stabilisiert es die Drehung
     if (bd.torque > 0 && bd.energy > 0) {
       var target = input ? ((k.e ? 1 : 0) - (k.q ? 1 : 0)) * 2.4 : 0;
-      if (input && k.shift && FL.mdx) target = Math.max(-3, Math.min(3, FL.mdx * 0.08));
       var al = bd.torque / bd.I, dw = target - bd.w, step = Math.sign(dw) * Math.min(Math.abs(dw), al * dt);
       bd.w += step; if (Math.abs(step) > 1e-4) bd.energy = Math.max(0, bd.energy - 3 * dt * Math.min(1, Math.abs(dw)));
     }
@@ -1345,8 +1361,24 @@
     if (streak) c.stroke();
     c.restore();
   }
+  // Eintritt in hohe Geschwindigkeit: kaum spürbares Wackeln (max. 2 px) und kurze chromatische Aberration (SVG-Filter auf dem Canvas)
+  function fxPre(ppm, tm) {
+    var dt = FL.fxT ? Math.min(0.05, tm - FL.fxT) : 0; FL.fxT = tm;
+    var off = { x: 0, y: 0 };
+    if (FL.shake > 0) { FL.shake -= dt; var a = 2 * Math.max(0, FL.shake / 0.7); off.x = (Math.sin(tm * 53) + Math.sin(tm * 31.7)) * 0.5 * a / ppm; off.y = (Math.sin(tm * 47.3) + Math.cos(tm * 29.1)) * 0.5 * a / ppm; }
+    var f = V.root.querySelector("#srCAo1");
+    if (FL.ca > 0 && f) {
+      FL.ca -= dt; var k = Math.max(0, FL.ca / 0.5), me = FL.me, sp = Math.hypot(me.vx, me.vy) || 1, d = 3.2 * k;
+      var dx = (me.vx / sp) * d, dy = (me.vy / sp) * d;
+      f.setAttribute("dx", dx.toFixed(2)); f.setAttribute("dy", dy.toFixed(2));
+      var f2 = V.root.querySelector("#srCAo2"); f2.setAttribute("dx", (-dx).toFixed(2)); f2.setAttribute("dy", (-dy).toFixed(2));
+      if (!V.caOn) { V.cv.style.filter = "url(#srCA)"; V.caOn = true; }
+    } else if (V.caOn) { V.cv.style.filter = ""; V.caOn = false; }
+    return off;
+  }
   function flDraw() {
     var c = V.ctx, W = V.W, H = V.H, z = V.zoom, s = PX * z, ppm = s / CELL_M, tm = performance.now() / 1000;
+    var shk = fxPre(ppm, tm); FL.cam.x += shk.x; FL.cam.y += shk.y;
     drawSpace(c, W, H, FL.cam.x * ppm, FL.cam.y * ppm);
     drawDust(c, W, H, ppm, DUST.near);
     c.save(); c.translate(W / 2, H / 2); c.scale(ppm, ppm); c.translate(-FL.cam.x, -FL.cam.y);
@@ -1448,6 +1480,7 @@
     c.restore();
     drawDust(c, W, H, ppm, DUST.front);
     radarEdges(c, W, H, ppm);
+    FL.cam.x -= shk.x; FL.cam.y -= shk.y;
     flHud();
   }
   // Antennen: Gegner außerhalb des Bildes, aber in Antennenreichweite, als rotes Dreieck am Bildschirmrand
@@ -1488,6 +1521,7 @@
     set("sr-h-sp", nf(sp, 1) + " m/s");
     // ab 120 m/s: Tempo leuchtet rot und meldet hohe Geschwindigkeit
     var spEl = V.root.querySelector("#sr-h-sp"); if (spEl) { var hi = sp >= VHI; spEl.classList.toggle("hi", hi); spEl.setAttribute("data-hi", hi ? t("hiSpeed") + (sp >= VMAX - 0.5 ? " · max" : "") : ""); spEl.parentNode.classList.toggle("hiBox", hi); }
+    set("sr-h-hi", t("hiLbl") + ": " + t(FL.hiOk ? "hiFree" : "hiLock")); var hiEl = V.root.querySelector("#sr-h-hi"); if (hiEl) hiEl.className = FL.hiOk ? "warn" : "";
     set("sr-h-cr", t("cruise") + ": " + t(FL.cruise ? "on" : "off")); var crEl = V.root.querySelector("#sr-h-cr"); if (crEl) crEl.className = FL.cruise ? "off" : "";
     set("sr-h-damp", t("damp") + ": " + t(FL.damp ? "on" : "off")); var dEl = V.root.querySelector("#sr-h-damp"); if (dEl) dEl.className = FL.damp ? "on" : "off";
     var ek = me.cap ? me.energy / me.cap : 0, eb = V.root.querySelector("#sr-h-ebar"); if (eb) { eb.style.width = Math.round(ek * 100) + "%"; eb.style.background = ek < 0.2 ? "#E0533F" : "#57D18A"; }
@@ -1528,6 +1562,11 @@
     var sw = ["#C8473A", "#E3B83F", "#57A06A", "#3E6F96", "#7B4BA8", "#E9ECEE", "#9AA5B1", "#6A7480", "#2A2F36"].map(function (c) { return '<button type="button" class="sr-sw" data-sw="' + c + '" style="background:' + c + '" aria-label="' + c + '"></button>'; }).join("");
     return '<div class="sr-root">' +
       '<canvas id="sr-cv"></canvas>' +
+      '<svg width="0" height="0" style="position:absolute" aria-hidden="true"><filter id="srCA" x="0" y="0" width="100%" height="100%" color-interpolation-filters="sRGB">' +
+      '<feColorMatrix in="SourceGraphic" type="matrix" values="1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0" result="r"/><feOffset id="srCAo1" in="r" dx="0" dy="0" result="ro"/>' +
+      '<feColorMatrix in="SourceGraphic" type="matrix" values="0 0 0 0 0 0 1 0 0 0 0 0 0 0 0 0 0 0 1 0" result="g"/>' +
+      '<feColorMatrix in="SourceGraphic" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 1 0 0 0 0 0 1 0" result="b"/><feOffset id="srCAo2" in="b" dx="0" dy="0" result="bo"/>' +
+      '<feBlend in="ro" in2="g" mode="screen" result="rg"/><feBlend in="rg" in2="bo" mode="screen"/></filter></svg>' +
       '<div class="sr-top"><a class="sr-back" href="#">← ' + t("back") + '</a><b class="sr-ttl">' + t("title") + ' <small>v' + VERSION + '</small></b>' +
       '<div class="sr-ed-only sr-tbar"><button type="button" data-act="undo">' + t("undo") + '</button><button type="button" data-act="starter">' + t("starter") + '</button><button type="button" data-act="clear">' + t("clear") + '</button><button type="button" data-act="exp">Export</button><button type="button" data-act="imp">Import</button><button type="button" data-act="npc">' + t("hangar") + '</button></div>' +
       '<div class="sr-sp"></div><div class="sr-seg"><button type="button" data-view="in">' + t("vIn") + '</button><button type="button" data-view="out">' + t("vOut") + '</button></div>' +
@@ -1538,7 +1577,7 @@
       '<div class="sr-list">' + pal + '</div></aside>' +
       '<aside class="sr-info sr-ed-only" id="sr-info"></aside>' +
       '<div class="sr-hud sr-fl-only"><div><small>' + t("speed") + '</small><b id="sr-h-sp"></b></div><div><small>' + t("energy") + '</small><b id="sr-h-en"></b><i class="sr-eb"><i id="sr-h-ebar"></i></i></div>' +
-      '<div><small>' + t("weapon") + ' (R)</small><b id="sr-h-w"></b></div><div><small>Z</small><b id="sr-h-damp"></b></div><div><small>C</small><b id="sr-h-cr"></b></div><div><small>X · Overcharge</small><b id="sr-h-oc"></b><i class="sr-eb"><i id="sr-h-ocbar"></i></i></div><div><small>F</small><b id="sr-h-seat"></b></div><div><small>' + t("air") + '</small><b id="sr-h-air"></b><i class="sr-eb"><i id="sr-h-airbar"></i></i></div><div hidden><small>' + t("weld") + '</small><b id="sr-h-weld"></b></div>' +
+      '<div><small>' + t("weapon") + ' (R)</small><b id="sr-h-w"></b></div><div><small>Z</small><b id="sr-h-damp"></b></div><div><small>C</small><b id="sr-h-cr"></b></div><div><small>' + (lang === "de" ? "Umschalt" : "Shift") + '</small><b id="sr-h-hi"></b></div><div><small>X · Overcharge</small><b id="sr-h-oc"></b><i class="sr-eb"><i id="sr-h-ocbar"></i></i></div><div><small>F</small><b id="sr-h-seat"></b></div><div><small>' + t("air") + '</small><b id="sr-h-air"></b><i class="sr-eb"><i id="sr-h-airbar"></i></i></div><div hidden><small>' + t("weld") + '</small><b id="sr-h-weld"></b></div>' +
       '<button type="button" data-act="seat" id="sr-h-seatb"></button><button type="button" data-act="targets">' + t("targets") + '</button>' +
       '<div class="sr-spawn"><small>' + t("spawn") + '</small><span>' + NPC.map(function (q) { return '<button type="button" data-spawn="' + q.id + '">' + q.n[lang] + '</button>'; }).join("") + '</span></div></div>' +
       '<div class="sr-kill" hidden><svg viewBox="0 0 40 40" width="34" height="34"><path d="M20 5l6 12v12l-6 5-6-5V17z" fill="#6A7480" stroke="#C9D1D9" stroke-width="1.5"/><path d="M11 13l18 18M29 13L11 31" stroke="#E0533F" stroke-width="3"/></svg><div><small>' + t("ko") + '</small><span></span></div></div>' +
@@ -1673,7 +1712,7 @@
     if (S.mode === "fly") {
       if (k === "escape") { stopTest(); return; }
       if (["w", "a", "s", "d", "q", "e"].indexOf(k) >= 0) { FL.keys[k] = true; e.preventDefault(); }
-      if (k === "shift") FL.keys.shift = true;
+      if (k === "shift") { FL.keys.shift = true; if (!e.repeat && !FL.out) { FL.hiOk = !FL.hiOk; if (FL.hiOk) FL.ca = Math.max(FL.ca || 0, 0.3); note(t(FL.hiOk ? "hiOn" : "hiOff")); } }
       if (e.repeat) return;
       if (k === "z") FL.damp = !FL.damp;
       if (k === "c") { FL.cruise = !FL.cruise; note(t(FL.cruise ? "cruiseOn" : "cruiseOff")); }
