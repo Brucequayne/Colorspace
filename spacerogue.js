@@ -4,7 +4,7 @@
 (function () {
   "use strict";
 
-  var VERSION = "0.39.2";
+  var VERSION = "0.39.3";
   var CELL_M = 2.5, PX = 24;              // Meter je Zelle, Pixel je Zelle bei Zoom 1
   var lang = "de";
   function L2(de, en) { return { de: de, en: en }; }
@@ -821,6 +821,7 @@
     collide();
     enemyBook(dt);
     trailTick();
+    tipTick(dt);
     FL.hits = FL.hits.filter(function (h) { h.life += dt; return h.life < 0.35; });
     if (FL.banner > 0) FL.banner -= dt;
     // Geschosse
@@ -1381,6 +1382,31 @@
     } else if (V.caOn) { V.cv.style.filter = ""; V.caOn = false; }
     return off;
   }
+  // Spieltipps: außerhalb von Kämpfen alle 60 s ein zufälliger Tipp für 5 s, unten in der Mitte, per Klick wegklickbar
+  var TIPS = {
+    de: ["Seitliche Triebwerke können die Wendigkeit deines Schiffs stark verbessern.", "Overcharge (X) erhöht kurzzeitig deine Triebwerksleistung und die Kühlleistung der Miniguns.", "Mehrere Batterien erhöhen deine Energiekapazität, aber Batterien sind auch sehr schwer.", "Baue einen Zielcomputer ein, damit sich deine Waffen beim Zielen auf den Feind ausrichten können.", "Antennen warnen dich vor feindlichen Schiffen.", "Behalte deine Geschwindigkeit im Auge.", "Ordentliche Bremstriebwerke können dir das Leben retten.", "Die Beschleunigungstriebwerke sind im Kampf am unwichtigsten.", "Wenn du deine Triebwerke benutzt, wirst du von gegnerischen Schiffen schneller entdeckt."],
+    en: ["Side thrusters can greatly improve your ship's agility.", "Overcharge (X) briefly boosts your thruster output and the cooling of your miniguns.", "More batteries raise your energy capacity, but batteries are also very heavy.", "Install a targeting computer so your weapons can swivel towards the enemy as you aim.", "Antennas warn you about enemy ships.", "Keep an eye on your speed.", "Good braking thrusters can save your life.", "Forward thrusters matter least in combat.", "Using your thrusters makes enemy ships spot you sooner."]
+  };
+  var TIP = { every: 60, show: 5 };
+  function inCombat() {
+    var me = FL.me, rg = antRange(me), mv = minView();
+    return FL.bodies.some(function (bd) {
+      if (!bd.enemy || bd.dead) return false;
+      if (Math.abs(bd.x - me.x) < mv.hw + bd.rad && Math.abs(bd.y - me.y) < mv.hh + bd.rad) return true;   // im ganz herausgezoomten Bild
+      return rg > 0 && Math.hypot(bd.x - me.x, bd.y - me.y) < rg;   // im Antennenradar
+    });
+  }
+  function tipTick(dt) {
+    var el = V.root.querySelector(".sr-tip"); if (!el) return;
+    if (inCombat()) { FL.tipT = 0; if (!el.hidden) hideTip(el); return; }
+    FL.tipT = (FL.tipT || 0) + dt;
+    if (FL.tipT >= TIP.every) {
+      FL.tipT = 0; var L = TIPS[lang], i; do { i = Math.floor(Math.random() * L.length); } while (L.length > 1 && i === FL.tipLast); FL.tipLast = i;
+      el.textContent = L[i]; el.hidden = false; el.classList.remove("out"); void el.offsetWidth; el.classList.add("in");
+      clearTimeout(V.tipTo); V.tipTo = setTimeout(function () { if (V) hideTip(el); }, TIP.show * 1000);
+    }
+  }
+  function hideTip(el) { clearTimeout(V.tipTo); el.classList.remove("in"); el.classList.add("out"); setTimeout(function () { if (V && el.classList.contains("out")) el.hidden = true; }, 400); }
   // Kurzer Schriftzug über dem Schiff: 0,5 s sichtbar, bis 1 s ausgeblendet
   function floatTxt(txt, rgb) { if (FL) FL.flt = { txt: txt, t0: FL.t, rgb: rgb || "232,236,239" }; }
   function drawFloat(c, W, H, ppm) {
@@ -1614,6 +1640,7 @@
       '<div class="sr-kill" hidden><svg viewBox="0 0 40 40" width="34" height="34"><path d="M20 5l6 12v12l-6 5-6-5V17z" fill="#6A7480" stroke="#C9D1D9" stroke-width="1.5"/><path d="M11 13l18 18M29 13L11 31" stroke="#E0533F" stroke-width="3"/></svg><div><small>' + t("ko") + '</small><span></span></div></div>' +
       '<label class="sr-uis sr-fl-only" title="' + (lang === "de" ? "Größe des Infofelds" : "Info panel size") + '"><svg viewBox="0 0 20 20" width="14" height="14"><rect x="2" y="3" width="7" height="14" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M12 7h6M12 10h6M12 13h4" stroke="currentColor" stroke-width="1.6"/></svg><input type="range" id="sr-uis" min="1" max="1.5" step="0.05" value="1"><span id="sr-uis-v">100 %</span></label>' +
       '<button type="button" class="sr-ctlb sr-fl-only" data-act="ctl" aria-pressed="false">' + t("controls") + '</button>' +
+      '<div class="sr-tip sr-fl-only" hidden title="' + (lang === "de" ? "Klicken zum Ausblenden" : "Click to dismiss") + '"></div>' +
       '<div class="sr-hint" id="sr-hint"></div><div class="sr-note" hidden></div>' +
       '<div class="sr-io sr-npc" hidden><div class="sr-io-box sr-npc-box"><div class="sr-tbar"><b class="sr-npc-t">' + t("hangar") + '</b><span class="sr-sp"></span><button type="button" data-act="npc-x">' + (lang === "de" ? "Schließen" : "Close") + '</button></div><div class="sr-io-h">' + t("hangarH") + '</div><div class="sr-npc-list"></div></div></div>' +
       '<div class="sr-io sr-exio" hidden><div class="sr-io-box"><div class="sr-io-h"></div><textarea spellcheck="false"></textarea><div class="sr-tbar"><button type="button" data-act="io-copy">' + (lang === "de" ? "Kopieren" : "Copy") + '</button><button type="button" data-act="io-load">' + (lang === "de" ? "Laden" : "Load") + '</button><span class="sr-sp"></span><button type="button" data-act="io-x">' + (lang === "de" ? "Schließen" : "Close") + '</button></div></div></div></div>';
@@ -1695,6 +1722,8 @@
     ".sr-ctlb{position:absolute;left:206px;bottom:10px;z-index:3;padding:5px 10px;font-size:.72rem;background:rgba(14,19,28,.6);border:1px solid rgba(38,49,66,.8);color:#B9C4D4}.sr-ctlb[aria-pressed=true]{color:#9FE3BD;border-color:rgba(127,211,164,.55)}" +
     ".sr-ctl{border-top:1px solid rgba(38,49,66,.9);padding-top:6px;gap:3px!important}.sr-ctl[hidden]{display:none!important}.sr-ctl small{margin-top:3px}" +
     ".sr-ctl dl{display:grid;grid-template-columns:66px 1fr;gap:2px 7px;margin:0;font-size:.7rem;line-height:1.3}.sr-ctl dt{color:#E8ECEF;font-weight:600;white-space:nowrap}.sr-ctl dd{margin:0;color:#B9C4D4}" +
+    ".sr-tip{position:absolute;left:50%;bottom:22px;transform:translateX(-50%);max-width:min(620px,calc(100% - 480px));text-align:center;font-size:.86rem;line-height:1.4;color:rgba(222,230,238,.86);text-shadow:0 1px 3px rgba(0,0,0,.8);z-index:3;cursor:pointer;opacity:0;transition:opacity .4s ease}" +
+    ".sr-tip[hidden]{display:none!important}.sr-tip.in{opacity:1}.sr-tip.out{opacity:0}" +
     ".sr-uis{position:absolute;left:12px;bottom:10px;z-index:3;align-items:center;gap:7px;background:rgba(14,19,28,.6);border:1px solid rgba(38,49,66,.8);padding:5px 9px;color:#8FA0B8;font-size:.72rem;font-variant-numeric:tabular-nums;cursor:pointer}" +
     ".sr-uis input{width:96px;accent-color:#7FD3A4;margin:0}.sr-uis span{min-width:36px;text-align:right}" +
     ".sr-hud{overflow-y:auto;scrollbar-width:thin;position:absolute;left:12px;top:64px;display:flex;flex-direction:column;gap:7px;background:rgba(14,19,28,.6);border:1px solid rgba(38,49,66,.8);padding:8px 10px;z-index:2;width:176px;box-sizing:border-box;font-size:.84rem}" +
@@ -1833,6 +1862,7 @@
     if (bk) { S.sel = bk.getAttribute("data-blk"); S.tool = "build"; syncUI(); return; }
     if (vw) { S.view = vw.getAttribute("data-view"); syncUI(); return; }
     if (sw) { S.color = sw.getAttribute("data-sw"); S.tool = "paint"; save(); syncUI(); return; }
+    if (e.target.closest(".sr-tip")) { hideTip(e.target.closest(".sr-tip")); return; }
     var spb = e.target.closest("[data-spawn]");
     if (spb) { spawnEnemy(+spb.getAttribute("data-spawn")); spb.blur(); return; }
     var nb = e.target.closest("[data-npc]");
