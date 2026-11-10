@@ -4,7 +4,7 @@
 (function () {
   "use strict";
 
-  var VERSION = "0.47";
+  var VERSION = "0.48";
   var CELL_M = 2.5, PX = 24;              // Meter je Zelle, Pixel je Zelle bei Zoom 1
   var lang = "de";
   function L2(de, en) { return { de: de, en: en }; }
@@ -62,6 +62,9 @@
     fleeT: L2("Der Feind versucht zu entkommen", "The enemy is trying to escape"),
     shield: L2("Schild", "Shield"), shNoGen: L2("Kein Schildgenerator verbaut: die Reserve fängt nichts ab", "No shield generator installed: the reserve absorbs nothing"), shFill: L2("Schild mit dem eingestellten Anteil neu aufladen", "Recharge the shield to the set share"),
     destroyed: L2("Zerstört", "Destroyed"), kills: L2("Abschüsse", "Kills"), shCharged: L2("Schilde aufgeladen", "Shields charged"),
+    dockHint: L2("P · Andocken", "P · Dock"), docking: L2("Andocken …", "Docking …"), docked: L2("Angedockt", "Docked"), dockedHint: L2("Angedockt · P zum Abdocken", "Docked · P to undock"),
+    undocked: L2("Abgedockt", "Undocked"), noDock: L2("Kein passender Dock in Reichweite", "No matching dock in range"), dockAbort: L2("Andocken abgebrochen", "Docking aborted"),
+    dockStand: L2("Erst aus dem Dock gehen", "Step out of the dock first"), notOnShip: L2("Erst zurück aufs eigene Schiff", "Get back onto your own ship first"),
     spawn: L2("Gegner spawnen", "Spawn enemy"), spawned: L2("{n} patrouilliert irgendwo vor dir", "{n} is patrolling somewhere ahead of you"), ko: L2("Kampfunfähig", "Disabled"),
     edShip: L2("Schiff", "Ship"), edSt: L2("Raumstation", "Space station"), stNoShip: L2("Für den Stationstest brauchst du ein Schiff mit Cockpit im Schiffs-Editor.", "To test the station you need a ship with a cockpit in the ship editor."),
     weld: L2("Schweißgerät", "Welder"), weldOn: L2("repariert {n}: {p} %", "repairing {n}: {p} %"), weldIdle: L2("Linksklick vor einem Block repariert ihn, vor einem Hologramm baut er ihn neu", "Left click facing a block repairs it, facing a hologram rebuilds it"),
@@ -89,7 +92,7 @@
   }
   armor("l", false); armor("h", true);
   // Kosten in Credits (Cr): im Editor ist alles gratis, im späteren Rogue-like-Modus bezahlt man damit Bau-Upgrades zwischen den Stages
-  var COSTS = { cks: 1200, ckm: 2400, ckl: 4200, ckt: 700, ths: 450, thf: 650, shs: 1400, shl: 3800, thl: 1600, gyr: 700, col: 300, ant: 400, bat: 350, rea: 2000, flo: 15, wal: 25, dor: 60, hat: 150, win: 40, mgn: 900, msl: 1300, tgc: 1600, rgn: 2600 };
+  var COSTS = { cks: 1200, ckm: 2400, ckl: 4200, ckt: 700, dk3: 2200, dk4: 3400, ths: 450, thf: 650, shs: 1400, shl: 3800, thl: 1600, gyr: 700, col: 300, ant: 400, bat: 350, rea: 2000, flo: 15, wal: 25, dor: 60, hat: 150, win: 40, mgn: 900, msl: 1300, tgc: 1600, rgn: 2600 };
   function applyCosts() { Object.keys(T).forEach(function (id) { var ty = T[id]; ty.cost = COSTS[id] || (ty.kind === "armor" ? Math.max(5, Math.round(ty.mass * (ty.heavy ? 26 : 57))) : 100); }); }
   function cr(v) { return nf(Math.round(v)) + " Cr"; }
   def("ckt", { cat: "catCo", kind: "cock", w: 1, h: 2, mass: 0.9, hp: 150, n: L2("Cockpit winzig 1×2", "Tiny cockpit 1×2"), col: "#9AA5B1" });
@@ -102,6 +105,8 @@
   def("gyr", { cat: "catTh", kind: "gyro", w: 1, h: 1, mass: 1.1, hp: 65, torque: 17500, use: 3, n: L2("Gyroskop 1×1", "Gyroscope 1×1"), col: "#7E8995" });
   def("col", { cat: "catTh", kind: "cool", w: 1, h: 1, mass: 0.8, hp: 50, n: L2("Kühlblock 1×1", "Cooling block 1×1"), col: "#7E8995" });
   def("ant", { cat: "catTh", kind: "ant", w: 1, h: 3, mass: 0.9, hp: 32, n: L2("Antenne 1×3", "Antenna 1×3"), col: "#7E8995" });
+  def("dk3", { cat: "catIn", kind: "dock", w: 3, h: 4, mass: 3.2, hp: 260, n: L2("Docking-Block 3×4", "Docking block 3×4"), col: "#8A95A3" });
+  def("dk4", { cat: "catIn", kind: "dock", w: 4, h: 5, mass: 4.8, hp: 380, n: L2("Docking-Block 4×5", "Docking block 4×5"), col: "#8A95A3" });
   def("shs", { cat: "catEn", kind: "shield", w: 1, h: 1, mass: 1.3, hp: 60, shk: 5, n: L2("Schildgenerator klein 1×1", "Small shield generator 1×1"), col: "#5B7FA6" });
   def("shl", { cat: "catEn", kind: "shield", w: 2, h: 2, mass: 3.6, hp: 160, shk: 25, n: L2("Schildgenerator groß 2×2", "Large shield generator 2×2"), col: "#5B7FA6" });
   def("bat", { cat: "catEn", kind: "bat", w: 1, h: 1, mass: 1.6, hp: 50, cap: 300, n: L2("Batterie 1×1", "Battery 1×1"), col: "#7E8995" });
@@ -119,7 +124,7 @@
   // Perks wurden in v0.47 abgeschafft. PM bleibt als neutrales Objekt (alles 0), damit die Werte-Haken im Code nichts verändern.
   var PM = { side: 0, brake: 0, mgRate: 0, batCap: 0, msRl: 0, hp: 0, prod: 0, walk: false, radar: 0, oc: 0, msDmg: 0, cockHp: 0, msTurn: 0, crit: 0, batW: false, heavyW: 0 };
   CATS = ["catLA", "catHA", "catCo", "catTh", "catEn", "catIn", "catWe"];
-  var MECH = { cock: 1, thr: 1, gyro: 1, ant: 1, bat: 1, reac: 1, door: 1, hatch: 1, mg: 1, rg: 1, cool: 1, ms: 1, tcomp: 1, shield: 1 };
+  var MECH = { cock: 1, thr: 1, gyro: 1, ant: 1, bat: 1, reac: 1, door: 1, hatch: 1, mg: 1, rg: 1, cool: 1, ms: 1, tcomp: 1, shield: 1, dock: 1 };
   var ROOMABLE = { bat: 1, reac: 1, gyro: 1, cool: 1, tcomp: 1, shield: 1 };   // Maschinen, die in einem Raum stehen dürfen und dann zum Raum gehören
   function replaceable(newT, o) { return o && T[newT].kind !== "floor" && T[o.b.t].kind === "floor"; }
   var DV = [[0, -1], [1, 0], [0, 1], [-1, 0]];     // N, O, S, W als Zellversatz
@@ -180,7 +185,7 @@
   }
   // Räume: zusammenhängende Boden-, Tür-, Luken- und Cockpitzellen, dicht wenn jede Außenkante abgedichtet ist.
   // Cockpit und geschlossene Luken dichten selbst nach außen ab; eine offene Luke ist ein Leck.
-  var ROOMK = { floor: 1, door: 1, hatch: 1, cock: 1 };
+  var ROOMK = { floor: 1, door: 1, hatch: 1, cock: 1, dock: 1 };
   function rooms(blocks, M) {
     M = M || buildMap(blocks); var seen = new Set(), out = [];
     M.forEach(function (v, k) {
@@ -191,11 +196,14 @@
         if (mk === "hatch" && me.b.open) leaks.push([x, y, 0]);   // offene Luke (auch in der Decke) lässt die Luft raus
         for (var d = 0; d < 4; d++) {
           var nx = x + DV[d][0], ny = y + DV[d][1], nk = key(nx, ny), o = M.get(nk);
-          if (!o) { if (mk === "cock" || mk === "hatch") continue; leaks.push([x, y, d]); continue; }
+          if (!o) { if (mk === "cock" || mk === "hatch" || mk === "dock") continue; leaks.push([x, y, d]); continue; }
           var ok = T[o.b.t].kind;
           // Cockpits sind links, rechts und vorne geschlossen; kleine öffnen sich nach hinten, große haben hinten eine Schiebetür (eigener Raum)
           if (mk === "cock" && o.b !== me.b && !(T[me.b.t].h < 4 && d === dirOut(me.b, 2))) continue;
           if (ok === "cock" && o.b !== me.b && !(T[o.b.t].h < 4 && (d + 2) % 4 === dirOut(o.b, 2))) continue;
+          // Docks: ringsum geschlossen, hinten eine Schiebetür, die erst nach vollständigem Andocken öffnet
+          if (mk === "dock" && o.b !== me.b && !(d === dirOut(me.b, 2) && me.b.dockOpen > 0.5)) continue;
+          if (ok === "dock" && o.b !== me.b && !((d + 2) % 4 === dirOut(o.b, 2) && o.b.dockOpen > 0.5)) continue;
           // Maschinen gehören nur zum Raum, wenn sie an Boden stehen; außen ans Cockpit gebaute bleiben draußen
           if (ROOMK[ok] || (ROOMABLE[ok] && mk !== "cock")) { if (!seen.has(nk)) { seen.add(nk); st.push(nk); } continue; }
           if (!edgeRule(T[o.b.t], o.lx, o.ly, dirIn(o.b, (d + 2) % 4)).s) leaks.push([x, y, d]);
@@ -268,7 +276,7 @@
     try { var j = JSON.parse(localStorage.getItem(SAVE) || "null"); if (j && j.blocks) { S.blocks = j.blocks.filter(function (b) { return T[b.t]; }); if (j.color) S.color = j.color; if (j.symGap) S.symGap = true; } } catch (e) {}
     if (!S.blocks.length) S.blocks = starter();
     S.ship = S.blocks;
-    try { var js = JSON.parse(localStorage.getItem(SAVE_ST) || "null"); if (js && js.blocks) S.station = js.blocks.filter(function (b) { return T[b.t] && T[b.t].kind !== "thr"; }); if (js && js.ed === "station") { S.ed = "station"; S.blocks = S.station; } } catch (e) {}
+    try { var js = JSON.parse(localStorage.getItem(SAVE_ST) || "null"); if (js && js.blocks) S.station = js.blocks.filter(function (b) { return T[b.t] && !/^(thr|cock|gyro)$/.test(T[b.t].kind); }); if (js && js.ed === "station") { S.ed = "station"; S.blocks = S.station; } } catch (e) {}
   }
   function save() {
     if (S.ed === "station") S.station = S.blocks; else S.ship = S.blocks;
@@ -292,7 +300,7 @@
   function setEd(m) {
     if (S.ed === m) return; save();
     S.ed = m; S.blocks = m === "station" ? S.station : S.ship; S.undo = [];
-    if (m === "station" && T[S.sel].kind === "thr") S.sel = "lblk";
+    if (m === "station" && /^(thr|cock|gyro)$/.test(T[S.sel].kind)) S.sel = "lblk";
     if (m === "station" && !S.blocks.length) { S.blocks = S.station = starterStation(); }
     V.zoom = m === "station" ? Math.max(ZMIN_ST, Math.min(V.zoom, 0.8)) : Math.max(0.3, V.zoom);
     save(); fitCam(); syncUI();
@@ -508,6 +516,26 @@
       c.fillStyle = "#2E4A5E"; c.fillRect(w * 0.12, h * 0.12, w * 0.76, h * 0.76);
       c.fillStyle = "#8FD3F2"; for (var fi = 0; fi < 4; fi++) c.fillRect(w * 0.18, h * (0.2 + fi * 0.17), w * 0.64, h * 0.07);
       c.fillStyle = b.c || "#5FB4D9"; c.fillRect(w * 0.44, 0, w * 0.12, h * 0.12); c.fillRect(w * 0.44, h * 0.88, w * 0.12, h * 0.12); c.fillRect(0, h * 0.44, w * 0.12, h * 0.12); c.fillRect(w * 0.88, h * 0.44, w * 0.12, h * 0.12);
+      c.strokeStyle = shade(col, -0.55); c.lineWidth = lw; c.strokeRect(lw / 2, lw / 2, w - lw, h - lw);
+    } else if (k === "dock") {
+      // Docking-Block: vorne der Andockring mit Klammern, innen eine Schleuse, hinten eine Schiebetür
+      var op2 = opts && opts.dockOpen ? opts.dockOpen : 0, cr = s * 0.55;
+      if (view === "in") { c.fillStyle = FLOOR; c.fillRect(s * 0.14, cr, w - s * 0.28, h - cr - s * 0.16); }
+      else roof(c, w, h, col, lw);
+      c.fillStyle = shade(col, -0.18); c.fillRect(0, 0, s * 0.14, h); c.fillRect(w - s * 0.14, 0, s * 0.14, h);
+      // Andockring
+      c.fillStyle = "#3A414B"; c.fillRect(0, 0, w, cr);
+      c.save(); c.beginPath(); c.rect(s * 0.1, s * 0.08, w - s * 0.2, cr - s * 0.16); c.clip(); c.fillStyle = "#E3B83F";
+      for (var di = -2; di < w / (s * 0.3) + 2; di++) { c.beginPath(); c.moveTo(di * s * 0.3, s * 0.08); c.lineTo(di * s * 0.3 + s * 0.15, s * 0.08); c.lineTo(di * s * 0.3 + s * 0.15 + cr, cr); c.lineTo(di * s * 0.3 + cr, cr); c.closePath(); c.fill(); }
+      c.restore();
+      c.fillStyle = "#1C2027"; c.fillRect(w * 0.25, s * 0.16, w * 0.5, cr - s * 0.32);   // Durchgang
+      c.fillStyle = shade(col, 0.15); [0.08, 0.92].forEach(function (q) { c.fillRect(w * q - s * 0.09, s * 0.02, s * 0.18, cr - s * 0.04); });   // Klammern
+      if (view === "in") {
+        var wy2 = h - s * 0.16, dw2 = w * 0.36, dx2 = (w - dw2) / 2;
+        c.fillStyle = shade(col, -0.25); c.fillRect(0, wy2, dx2, s * 0.16); c.fillRect(dx2 + dw2, wy2, w - dx2 - dw2, s * 0.16);
+        c.fillStyle = "#D9A21B"; c.fillRect(dx2 - dw2 * 0.5 * op2, wy2 + s * 0.04, dw2 / 2, s * 0.08); c.fillRect(dx2 + dw2 / 2 + dw2 * 0.5 * op2, wy2 + s * 0.04, dw2 / 2, s * 0.08);
+        c.fillStyle = op2 > 0.8 ? "#57D18A" : "#E0533F"; c.fillRect(w - s * 0.34, h - s * 0.48, s * 0.12, s * 0.12);   // Statuslampe
+      }
       c.strokeStyle = shade(col, -0.55); c.lineWidth = lw; c.strokeRect(lw / 2, lw / 2, w - lw, h - lw);
     } else if (k === "shield") {
       // Schildgenerator: Gehäuse mit Emitterring, der sanft blau pulsiert
@@ -738,7 +766,7 @@
     return o;
   }
   // Schiff: erst Innenleben, dann Aufbauten; Panzerung zuletzt, damit Kanten sauber liegen
-  var ORDER = { floor: 0, door: 0, hatch: 0, wall: 1, cock: 2, bat: 2, reac: 2, gyro: 2, cool: 2, tcomp: 2, shield: 2, thr: 3, mg: 3, rg: 3, ms: 3, ant: 3, win: 4, armor: 4 };
+  var ORDER = { floor: 0, door: 0, hatch: 0, wall: 1, cock: 2, bat: 2, reac: 2, gyro: 2, cool: 2, tcomp: 2, shield: 2, dock: 1, thr: 3, mg: 3, rg: 3, ms: 3, ant: 3, win: 4, armor: 4 };
   // Panzerung (und außen die Dächer) verschmilzt zu einer Hülle: Kanten nur dort, wo die Hülle endet
   function isHull(k, view) { return k === "armor" || k === "win" || (view === "out" && (k === "floor" || k === "wall" || k === "door" || k === "hatch")); }
   function drawShip(c, blocks, s, view, tm, body, M) {
@@ -747,7 +775,7 @@
     sorted.forEach(function (b) {
       var ty = T[b.t], hpk = b.hp !== undefined ? b.hp / hpMax(body, b) : 1, o = null;
       if (isHull(ty.kind, view)) { hull.push(b); return; }
-      if (body) o = { pilot: ty.kind === "cock" && body.ctrl && FL && FL.seated && b === body.seat, batK: body.cap ? body.energy / body.cap : 1, charge: b.chg ? Math.min(1, b.chg / RG.charge) : 0, ammo: b.ammo === undefined ? 2 : b.ammo, open: !!b.open, tw: b.tw || 0, ckOpen: b.ckOpen || 0 };
+      if (body) o = { pilot: ty.kind === "cock" && body.ctrl && FL && FL.seated && b === body.seat, batK: body.cap ? body.energy / body.cap : 1, charge: b.chg ? Math.min(1, b.chg / RG.charge) : 0, ammo: b.ammo === undefined ? 2 : b.ammo, open: !!b.open, tw: b.tw || 0, ckOpen: b.ckOpen || 0, dockOpen: b.dockOpen || 0 };
       drawBlock(c, b, s, view, hpk, tm, o);
     });
     hull.forEach(function (b) { hullFill(c, b, s, view, b.hp !== undefined ? b.hp / hpMax(body, b) : 1); });
@@ -851,7 +879,7 @@
     FL.oc = false; FL.ocT = me.ocMax;
     FL.groups = []; if (st.mg) FL.groups.push("mg"); if (st.ms) FL.groups.push("ms"); if (st.rg) FL.groups.push("rg");
     FL.missiles = []; FL.hits = []; FL.sig = 0; FL.banner = 0; me.id = ++BID;
-    FL.items = []; FL.shHits = []; FL.shPct = 0; me.shE = 0; FL.kills = 0; FL.shTarget = 0; FL.shAcc = 0;
+    FL.items = []; FL.pb = me; FL.dock = null; FL.shHits = []; FL.shPct = 0; me.shE = 0; FL.kills = 0; FL.shTarget = 0; FL.shAcc = 0;
     var kcb = V.root.querySelector(".sr-kc b"); if (kcb) kcb.textContent = "0";
     me.player = true; recalc(me); me.energy = me.cap;
     FL.suit = SUIT.max; FL.out = false; FL.eva = null; FL.enterCd = 0; FL.ko = 0; me.lost = []; me.air = new Map();
@@ -893,7 +921,7 @@
     if (FL.oc) { FL.ocT -= dt; if (FL.ocT <= 0) { FL.ocT = 0; FL.oc = false; } }
     else FL.ocT = Math.min(FL.me.ocMax || 3, FL.ocT + dt * 0.5);
     var me = FL.me, k = FL.keys;
-    airTick(me, dt);
+    airTick(FL.pb || me, dt);
     // Schiebetür großer Cockpits öffnet, wenn man zu Fuß in ihre Nähe kommt
     if (me.seat && T[me.seat.t].h >= 4) { var sb = me.seat, sf = fp(sb), bdir = dirOut(sb, 2), dcx = sb.x + sf[0] / 2 + DV[bdir][0] * (sf[0] / 2 - 0.2), dcy = sb.y + sf[1] / 2 + DV[bdir][1] * (sf[1] / 2 - 0.2);
       var near = !FL.seated && !FL.out && Math.hypot(FL.pilot.x - dcx, FL.pilot.y - dcy) < 1.3; sb.ckOpen = Math.max(0, Math.min(1, (sb.ckOpen || 0) + (near ? dt : -dt) * 4)); }
@@ -904,10 +932,10 @@
       bd.energy = Math.min(bd.cap - (bd.shE || 0), bd.energy + bd.prod * dt);   // der Schildanteil ist reserviert
       bd.flames = {};
       if (bd === me) turretTick(bd, dt, FL.seated && !FL.out ? mouseWorld() : null);
-      if (bd === me && bd.ctrl && bd.seat) control(bd, dt, FL.seated);   // ohne Pilot halten nur die Dämpfer das Schiff
+      if (bd === me && bd.ctrl && bd.seat && !FL.dock) control(bd, dt, FL.seated);   // ohne Pilot halten nur die Dämpfer das Schiff; beim Andocken steuert der Autopilot
       if (bd === me) { var fm = 0; for (var fk in bd.flames) fm = Math.max(fm, bd.flames[fk]); if (FL.fire && FL.seated && FL.groups.length) fm = Math.max(fm, 0.6); FL.sig = Math.max(FL.sig * Math.exp(-dt / 1.2), fm); }
       if (bd.ai) aiTick(bd, dt);
-      if (bd === me && !FL.seated && !FL.out) walk(bd, dt);
+      if (bd === (FL.pb || me) && !FL.seated && !FL.out) walk(bd, dt);
       var vlim = bd.enemy ? VMAX * AI.vk : VMAX;   // Tempolimit 500 m/s, KI-Schiffe 10 % weniger
       var vv = Math.hypot(bd.vx, bd.vy); if (vv > vlim) { bd.vx *= vlim / vv; bd.vy *= vlim / vv; vv = vlim; }
       if (bd === me) {
@@ -933,6 +961,7 @@
     collide();
     enemyBook(dt);
     trailTick();
+    dockTick(dt);
     tipTick(dt);
     shieldTick(dt);
     FL.hits = FL.hits.filter(function (h) { h.life += dt; return h.life < 0.35; });
@@ -1022,6 +1051,7 @@
     FL.out = true; FL.enterCd = 0.8; FL.seated = false;
   }
   function enterAt(bd, cx, cy) {
+    FL.pb = bd;
     var E = FL.eva; FL.out = false; FL.pilot.x = cx + 0.5; FL.pilot.y = cy + 0.5; FL.pilot.face = E ? E.face - bd.a : 0; FL.eva = null; FL.enterCd = 0.5;
   }
   function evaTick(bd, dt) {
@@ -1311,6 +1341,7 @@
     FL.colCd = FL.colCd || {};
     for (var i = 0; i < B.length; i++) for (var j = i + 1; j < B.length; j++) {
       var A = B[i], C = B[j], dx = C.x - A.x, dy = C.y - A.y;
+      if (FL.dock && ((FL.dock.a === A && FL.dock.b === C) || (FL.dock.a === C && FL.dock.b === A))) continue;   // Andock-Paar kollidiert nicht
       if (Math.abs(dx) > A.rad + C.rad || Math.abs(dy) > A.rad + C.rad || Math.hypot(dx, dy) > A.rad + C.rad) continue;
       var sm = A.cells.length <= C.cells.length ? A : C, bg = sm === A ? C : A;
       var px = 0, py = 0, n = 0, hs = [], hb = [], ca = Math.cos(sm.a), sa = Math.sin(sm.a);
@@ -1318,6 +1349,7 @@
         var cl = sm.cells[k], lx = (cl[0] - sm.com[0]) * CELL_M, ly = (cl[1] - sm.com[1]) * CELL_M, wx = sm.x + lx * ca - ly * sa, wy = sm.y + lx * sa + ly * ca;
         if (Math.abs(wx - bg.x) > bg.rad || Math.abs(wy - bg.y) > bg.rad) continue;
         var l = toLocal(bg, wx, wy), q = bg.map.get(key(Math.floor(l.x), Math.floor(l.y)));
+        if (q && (T[cl[2].t].kind === "dock" || T[q.b.t].kind === "dock")) { var fx = l.x - Math.floor(l.x), fy = l.y - Math.floor(l.y); if (fx < 0.05 || fx > 0.95 || fy < 0.05 || fy > 0.95) q = null; }   // Dock-Hitbox 0,9
         if (q) { px += wx; py += wy; n++; if (hs.indexOf(cl[2]) < 0) hs.push(cl[2]); if (hb.indexOf(q.b) < 0) hb.push(q.b); }
       }
       if (!n) continue;
@@ -1356,7 +1388,7 @@
   function seatPos(bd) { var b = bd.seat; if (!b) return { x: bd.com[0], y: bd.com[1] }; var ty = T[b.t]; return ty.w === 1 ? localPt(b, 0.5, 1.45) : localPt(b, ty.w / 2, (ty.h > 3 ? 1.6 : 1.2) + 0.95); }
   function walkable(bd, x, y) {
     var o = bd.map.get(key(Math.floor(x), Math.floor(y))); if (!o) return false;
-    var k = T[o.b.t].kind; return k === "floor" || k === "door" || k === "hatch" || (k === "cock" && o.ly >= 1);
+    var k = T[o.b.t].kind; return k === "floor" || k === "door" || k === "hatch" || (k === "cock" && o.ly >= 1) || (k === "dock" && o.b.dockOpen > 0.8);
   }
   function canStand(bd, x, y) { var r = 0.24; return walkable(bd, x - r, y - r) && walkable(bd, x + r, y - r) && walkable(bd, x - r, y + r) && walkable(bd, x + r, y + r); }
   function walk(bd, dt) {
@@ -1367,8 +1399,21 @@
       if (canStand(bd, P.x, P.y + ly * sp)) P.y += ly * sp;
       var want = Math.atan2(ly, lx), d = Math.atan2(Math.sin(want - P.face), Math.cos(want - P.face)); P.face += d * Math.min(1, dt * 14);
       P.ph += dt * 10;
-      // Offenes Schiff: Boden oder Tür ohne Wand zum All, dort direkt hinaustreten (Luken nur mit F)
       var cur = bd.map.get(key(Math.floor(P.x), Math.floor(P.y)));
+      // Angedockt: vom Andockring direkt in den Dock des anderen Körpers hinübergehen
+      if (cur && T[cur.b.t].kind === "dock" && FL.dock && FL.dock.done) {
+        var tx2 = P.x + lx * 0.75, ty2 = P.y + ly * 0.75;
+        if (!bd.map.get(key(Math.floor(tx2), Math.floor(ty2)))) {
+          var ob = bd === FL.dock.a ? FL.dock.b : FL.dock.a, wpt = toWorld(bd, tx2, ty2), l2 = toLocal(ob, wpt.x, wpt.y);
+          if (walkable(ob, l2.x, l2.y)) {
+            // ein Stück weiter in den anderen Dock schieben, bis die Figur sicher steht
+            var w3 = toWorld(bd, P.x + lx * 1.6, P.y + ly * 1.6), l3 = toLocal(ob, w3.x, w3.y), qx = l2.x, qy = l2.y;
+            for (var st2 = 0; st2 <= 10 && !canStand(ob, qx, qy); st2++) { qx = l2.x + (l3.x - l2.x) * st2 / 10; qy = l2.y + (l3.y - l2.y) * st2 / 10; }
+            if (canStand(ob, qx, qy)) { FL.pb = ob; P.x = qx; P.y = qy; P.face += bd.a - ob.a; return; }
+          }
+        }
+      }
+      // Offenes Schiff: Boden oder Tür ohne Wand zum All, dort direkt hinaustreten (Luken nur mit F)
       if (cur && openEdgeKind(T[cur.b.t].kind)) { var nx = P.x + lx * 0.75, ny = P.y + ly * 0.75; if (!bd.map.get(key(Math.floor(nx), Math.floor(ny)))) { exitShip(bd, nx, ny, true); return; } }
     } else P.ph *= Math.pow(0.001, dt);
     // Boden unter den Füßen weggeschossen: die Figur treibt ins All
@@ -1384,9 +1429,11 @@
       if (o && T[o.b.t].kind === "hatch") { o.b.openT = 0.6; enterAt(me, Math.floor(lp.x), Math.floor(lp.y)); } else note(t("outside"));
       return;
     }
+    var pb = FL.pb || me;
     if (!FL.seated) {   // zu Fuß auf einer Luke: mit F hinaus (auch durch die Decke, wenn die Luke mitten im Raum liegt)
-      var hc = me.map.get(key(Math.floor(FL.pilot.x), Math.floor(FL.pilot.y)));
-      if (hc && T[hc.b.t].kind === "hatch") { exitShip(me, FL.pilot.x, FL.pilot.y, false); return; }
+      var hc = pb.map.get(key(Math.floor(FL.pilot.x), Math.floor(FL.pilot.y)));
+      if (hc && T[hc.b.t].kind === "hatch") { exitShip(pb, FL.pilot.x, FL.pilot.y, false); FL.pb = me; return; }
+      if (pb !== me) { note(t("notOnShip")); return; }
     }
     if (FL.seated) { FL.seated = false; var sp = seatPos(me); FL.pilot.x = sp.x; FL.pilot.y = sp.y; FL.pilot.face = me.seat ? dirAngle(me.seat) : 0; if (S.view !== "in") { S.view = "in"; syncUI(); } return; }
     if (!me.seat) return;
@@ -1668,6 +1715,117 @@
   }
   function closeInv() { if (!V) return; V.root.querySelector(".sr-inv").hidden = true; }
   function invOpen() { var el = V && V.root.querySelector(".sr-inv"); return !!(el && !el.hidden); }
+  // ---------- Zielcomputer: Zielerfassung und Vorhaltepunkt ----------
+  // Erfasst wird das Gegnerschiff, das dem Mauszeiger am nächsten ist. Der kleine Kreis zeigt, wohin man zielen muss, damit
+  // Minigun-Geschosse das Ziel bei gleichbleibender Bewegung treffen (Abfangpunkt aus Relativtempo und Geschossgeschwindigkeit).
+  function leadPoint(me, tg) {
+    var rx = tg.x - me.x, ry = tg.y - me.y, vx = tg.vx - me.vx, vy = tg.vy - me.vy, s2 = MG.speed * MG.speed;
+    var a = vx * vx + vy * vy - s2, b = 2 * (rx * vx + ry * vy), c2 = rx * rx + ry * ry, tt;
+    if (Math.abs(a) < 1e-6) tt = -c2 / b; else { var disc = b * b - 4 * a * c2; if (disc < 0) return null; var sq = Math.sqrt(disc), t1 = (-b - sq) / (2 * a), t2 = (-b + sq) / (2 * a); tt = Math.min(t1, t2) > 0 ? Math.min(t1, t2) : Math.max(t1, t2); }
+    if (!(tt > 0) || tt > MG.life) return null;
+    return { x: tg.x + vx * tt, y: tg.y + vy * tt, t: tt };
+  }
+  function drawLead(c, ppm, tm) {
+    var me = FL.me; FL.tgt = null;
+    if (!me.tcomp || !FL.seated || FL.bodies.indexOf(me) < 0) return;
+    var mw = mouseWorld(); if (!mw) return;
+    var best = null, bd2 = 1e18;
+    FL.bodies.forEach(function (bd) { if (!bd.enemy || bd.dead) return; var d = Math.hypot(bd.x - mw.x, bd.y - mw.y); if (d < bd2) { bd2 = d; best = bd; } });
+    if (!best) return; FL.tgt = best;
+    // Erfassungsklammern
+    var r = best.rad * 0.55, L = Math.max(r * 0.3, 6 / ppm);
+    c.strokeStyle = "rgba(255,90,70,.85)"; c.lineWidth = 1.6 / ppm; c.beginPath();
+    [[-1, -1], [1, -1], [1, 1], [-1, 1]].forEach(function (q) { var x0 = best.x + q[0] * r, y0 = best.y + q[1] * r; c.moveTo(x0, y0 - q[1] * L); c.lineTo(x0, y0); c.lineTo(x0 - q[0] * L, y0); });
+    c.stroke();
+    var lp = leadPoint(me, best); if (!lp) return;
+    var rr = Math.max(1.4, 6 / ppm);
+    c.strokeStyle = "rgba(255,120,100,.35)"; c.lineWidth = 1 / ppm; c.setLineDash([4 / ppm, 4 / ppm]); c.beginPath(); c.moveTo(best.x, best.y); c.lineTo(lp.x, lp.y); c.stroke(); c.setLineDash([]);
+    c.strokeStyle = "rgba(255,235,225,.95)"; c.lineWidth = 1.6 / ppm; c.beginPath(); c.arc(lp.x, lp.y, rr, 0, Math.PI * 2); c.stroke();
+    c.fillStyle = "rgba(255,90,70,.95)"; c.beginPath(); c.arc(lp.x, lp.y, rr * 0.25, 0, Math.PI * 2); c.fill();
+  }
+  // ---------- Andocken ----------
+  // Zwei gleich große Docks, Ringe zueinander, Abstand unter einem Block: P startet den Autopiloten, der langsam und sicher ankoppelt.
+  // Docks haben eine um 10 % verkleinerte Hitbox, und zwischen dem Paar gibt es keine Kollision, damit nichts klemmt.
+  var DOCK = { range: CELL_M * 1.0 + 0.4, gap: CELL_M * 0.1, v: 1.4, w: 0.45 };
+  function dockFace(bd, b) {
+    var f = fp(b), d = dirOut(b, 0), lx = b.x + f[0] / 2 + DV[d][0] * f[0] / 2, ly = b.y + f[1] / 2 + DV[d][1] * f[1] / 2;
+    var p = toWorld(bd, lx, ly), ca = Math.cos(bd.a), sa = Math.sin(bd.a);
+    return { x: p.x, y: p.y, dx: DV[d][0] * ca - DV[d][1] * sa, dy: DV[d][0] * sa + DV[d][1] * ca, lx: lx, ly: ly };
+  }
+  function findDockPair() {
+    var me = FL.me, best = null;
+    me.blocks.forEach(function (a) {
+      if (T[a.t].kind !== "dock") return; var fa = dockFace(me, a);
+      FL.bodies.forEach(function (ob) {
+        if (ob === me || ob.enemy) return;
+        ob.blocks.forEach(function (b) {
+          if (b.t !== a.t) return; var fb = dockFace(ob, b), dist = Math.hypot(fa.x - fb.x, fa.y - fb.y), dot = fa.dx * fb.dx + fa.dy * fb.dy;
+          if (dist < DOCK.range && dot < -0.9 && (!best || dist < best.dist)) best = { a: me, da: a, b: ob, db: b, dist: dist };
+        });
+      });
+    });
+    return best;
+  }
+  function dockKey() {
+    if (FL.dock) {   // Abdocken
+      if (!FL.dock.done) { FL.dock = null; floatTxt(t("dockAbort")); return; }
+      if ((FL.pb || FL.me) !== FL.me) { note(t("notOnShip")); return; }
+      var cur = FL.me.map.get(key(Math.floor(FL.pilot.x), Math.floor(FL.pilot.y)));
+      if (!FL.seated && cur && T[cur.b.t].kind === "dock") { note(t("dockStand")); return; }
+      var D = FL.dock; D.da.dockOpen = 0; D.db.dockOpen = 0; FL.me.static = false; FL.me.roomsDirty = true; D.b.roomsDirty = true;
+      var fb = dockFace(D.b, D.db); FL.me.vx = D.b.vx + fb.dx * 0.8; FL.me.vy = D.b.vy + fb.dy * 0.8; FL.me.w = 0;
+      FL.dock = null; floatTxt(t("undocked")); return;
+    }
+    var pr = findDockPair(); if (!pr) { floatTxt(t("noDock")); return; }
+    FL.dock = pr; pr.done = false; pr.hiss = false; floatTxt(t("docking"));
+  }
+  function dockTick(dt) {
+    var D = FL.dock, me = FL.me;
+    // Türen der Docks: öffnen erst, wenn vollständig angedockt
+    FL.bodies.forEach(function (bd) { bd.blocks.forEach(function (b) { if (T[b.t].kind !== "dock") return; var want = D && D.done && (b === D.da || b === D.db) ? 1 : 0, o0 = b.dockOpen || 0;
+      b.dockOpen = Math.max(0, Math.min(1, o0 + (want ? dt : -dt) * 1.6)); if ((o0 > 0.5) !== (b.dockOpen > 0.5)) bd.roomsDirty = true; }); });
+    if (!D) return;
+    if (FL.bodies.indexOf(D.b) < 0 || me.blocks.indexOf(D.da) < 0 || D.b.blocks.indexOf(D.db) < 0) { FL.dock = null; me.static = false; return; }
+    if (D.done) { me.vx = D.b.vx; me.vy = D.b.vy; me.w = 0; return; }
+    // Zielpose: Ring an Ring mit kleinem Spalt, Docks genau gegenüber
+    var fb = dockFace(D.b, D.db), fa = dockFace(me, D.da);
+    var aErr = angDiff(Math.atan2(-fb.dy, -fb.dx), Math.atan2(fa.dy, fa.dx));
+    var tx = fb.x + fb.dx * DOCK.gap, ty = fb.y + fb.dy * DOCK.gap, ex = tx - fa.x, ey = ty - fa.y, el = Math.hypot(ex, ey);
+    me.w = Math.max(-DOCK.w, Math.min(DOCK.w, aErr * 2));
+    var sp = Math.min(DOCK.v, el * 1.2); me.vx = D.b.vx + (el > 1e-4 ? ex / el * sp : 0); me.vy = D.b.vy + (el > 1e-4 ? ey / el * sp : 0);
+    if (!D.hiss && el < 0.45) { D.hiss = true; hissSound(); dockSteam(fb, D.b); }
+    if (el < 0.03 && Math.abs(aErr) < 0.004) {
+      me.a += aErr; fa = dockFace(me, D.da); me.x += tx - fa.x; me.y += ty - fa.y;
+      me.vx = D.b.vx; me.vy = D.b.vy; me.w = 0; D.done = true; me.static = !!D.b.static; floatTxt(t("docked"), "127,211,164");
+    }
+  }
+  function dockSteam(fb, ob) {
+    for (var i = 0; i < 26; i++) {
+      var sd = (Math.random() - 0.5) * CELL_M * 2.4, px = fb.x - fb.dy * sd, py = fb.y + fb.dx * sd, side = Math.random() < 0.5 ? -1 : 1, v = 2 + Math.random() * 4;
+      FL.parts.push({ x: px, y: py, vx: ob.vx - fb.dy * side * v + fb.dx * (Math.random() - 0.5), vy: ob.vy + fb.dx * side * v + fb.dy * (Math.random() - 0.5), life: -Math.random() * 0.4, max: 1.1 + Math.random() * 0.6, k: "steam", sz: 0.5 + Math.random() * 0.6 });
+    }
+  }
+  function hissSound() {
+    audioInit(); if (!AC || AC.state !== "running") return;
+    try {
+      var t0 = AC.currentTime, len = 0.9, buf = AC.createBuffer(1, Math.floor(AC.sampleRate * len), AC.sampleRate), dd = buf.getChannelData(0);
+      for (var i = 0; i < dd.length; i++) dd[i] = Math.random() * 2 - 1;
+      var src = AC.createBufferSource(), f = AC.createBiquadFilter(), g = AC.createGain();
+      src.buffer = buf; f.type = "bandpass"; f.frequency.value = 3800; f.Q.value = 0.9;
+      g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(0.05, t0 + 0.05); g.gain.exponentialRampToValueAtTime(0.0001, t0 + len);
+      src.connect(f); f.connect(g); g.connect(AC.destination); src.start(t0); src.stop(t0 + len);
+    } catch (e) {}
+  }
+  // Andock-Hinweis am Dock, solange ein passendes Gegenstück in Reichweite ist
+  function drawDockHint(c, ppm) {
+    if (!FL.seated) return;
+    var pr = FL.dock ? null : findDockPair(); FL.dockReady = !!pr;
+    var txt = FL.dock ? (FL.dock.done ? t("dockedHint") : t("docking")) : pr ? t("dockHint") : ""; if (!txt) return;
+    var D = FL.dock || pr, fa = dockFace(FL.me, D.da);
+    c.save(); c.font = "600 " + (12 / ppm) + "px " + FONTS(); c.textAlign = "center"; c.textBaseline = "middle";
+    var tw = c.measureText(txt).width; c.fillStyle = "rgba(14,19,28,.75)"; c.fillRect(fa.x - tw / 2 - 6 / ppm, fa.y - 9 / ppm - 20 / ppm, tw + 12 / ppm, 18 / ppm);
+    c.fillStyle = FL.dock && FL.dock.done ? "#9FE3BD" : "#F2C14E"; c.fillText(txt, fa.x, fa.y - 20 / ppm); c.restore();
+  }
   // Spieltipps: außerhalb von Kämpfen alle 60 s ein zufälliger Tipp für 5 s, unten in der Mitte, per Klick wegklickbar
   var TIPS = {
     de: ["Seitliche Triebwerke können die Wendigkeit deines Schiffs stark verbessern.", "Overcharge (X) erhöht kurzzeitig deine Triebwerksleistung und die Kühlleistung der Miniguns.", "Mehrere Batterien erhöhen deine Energiekapazität, aber Batterien sind auch sehr schwer.", "Baue einen Zielcomputer ein, damit sich deine Waffen beim Zielen auf den Feind ausrichten können.", "Antennen warnen dich vor feindlichen Schiffen.", "Behalte deine Geschwindigkeit im Auge.", "Ordentliche Bremstriebwerke können dir das Leben retten.", "Die Beschleunigungstriebwerke sind im Kampf am unwichtigsten.", "Wenn du deine Triebwerke benutzt, wirst du von gegnerischen Schiffen schneller entdeckt."],
@@ -1740,8 +1898,8 @@
     FL.bodies.forEach(function (bd) {
       c.save(); c.translate(bd.x, bd.y); c.rotate(bd.a); c.scale(CELL_M / PX, CELL_M / PX); c.translate(-bd.com[0] * PX, -bd.com[1] * PX);
       drawShip(c, bd.blocks, PX, bd.enemy ? "out" : S.view, tm, bd, bd.map);
-      if (bd === FL.me && !FL.seated) drawGhosts(c, bd, tm);
-      if (bd === FL.me && !FL.seated && !FL.out) drawAstronaut(c, FL.pilot.x * PX, FL.pilot.y * PX, FL.pilot.face, FL.pilot.ph, PX / 24 * 1.25, FL.welding);
+      if (bd === FL.me && !FL.seated && (FL.pb || FL.me) === FL.me) drawGhosts(c, bd, tm);
+      if (bd === (FL.pb || FL.me) && !FL.seated && !FL.out) drawAstronaut(c, FL.pilot.x * PX, FL.pilot.y * PX, FL.pilot.face, FL.pilot.ph, PX / 24 * 1.25, FL.welding);
       // Überhitzung und Ladung an den Waffen
       bd.blocks.forEach(function (b) {
         var ty = T[b.t], f = fp(b), cx = (b.x + f[0] / 2) * PX, cy = (b.y + f[1] / 2) * PX;
@@ -1791,6 +1949,8 @@
       });
       c.restore();
     }
+    drawLead(c, ppm, tm);
+    drawDockHint(c, ppm);
     // Treffermarker: kleines x
     FL.hits.forEach(function (h) {
       var a = 1 - h.life / 0.35, r = (h.crit ? 7 + h.life * 10 : 4 + h.life * 6) / ppm;
@@ -1819,6 +1979,7 @@
       if (q.k === "smoke") { c.fillStyle = "rgba(70,70,74," + (0.38 * (1 - k)) + ")"; c.beginPath(); c.arc(q.x, q.y, q.sz * (1 + k * 1.6), 0, Math.PI * 2); c.fill(); }
       else if (q.k === "fire") { c.fillStyle = "rgba(255," + Math.round(200 - k * 140) + ",60," + (0.9 * (1 - k)) + ")"; c.beginPath(); c.arc(q.x, q.y, q.sz * (1 - k * 0.5), 0, Math.PI * 2); c.fill(); }
       else if (q.k === "ocs") { c.fillStyle = "rgba(220,180,255," + (1 - k) + ")"; c.fillRect(q.x, q.y, 0.45, 0.45); }
+      else if (q.k === "steam") { if (q.life < 0) return; c.fillStyle = "rgba(225,232,240," + (0.38 * (1 - k)) + ")"; c.beginPath(); c.arc(q.x, q.y, q.sz * (1 + k * 2.2), 0, Math.PI * 2); c.fill(); }
       else if (q.k === "suck") { c.fillStyle = "rgba(110,180,255," + (0.45 * Math.sin(Math.PI * k)) + ")"; c.beginPath(); c.arc(q.x, q.y, q.sz * (1.4 - k), 0, Math.PI * 2); c.fill(); }
       else if (q.k === "jet") { c.fillStyle = "rgba(220,235,255," + (0.8 * (1 - k)) + ")"; c.beginPath(); c.arc(q.x, q.y, q.sz * (1 + k), 0, Math.PI * 2); c.fill(); }
       else if (q.k === "weld") { c.fillStyle = "rgba(170,230,255," + (1 - k) + ")"; c.fillRect(q.x, q.y, 0.35, 0.35); }
@@ -1912,7 +2073,7 @@
   // Kompakte Steuerungsliste (Taste · Aktion) für das Infofeld
   function ctlHtml() {
     var de = lang === "de", G = [
-      [de ? "Im Sitz" : "Seated", [["WASD", de ? "Fliegen" : "Fly"], ["Q / E", de ? "Drehen" : "Rotate"], [de ? "Linksklick" : "Left click", de ? "Feuern" : "Fire"], ["R", de ? "Waffe wechseln" : "Switch weapon"], ["Z", de ? "Trägheitsdämpfer" : "Inertia dampers"], ["C", "Cruise Control"], ["X", "Overcharge"], [de ? "Umschalt" : "Shift", de ? "Hochgeschw. freigeben" : "Unlock high speed"], ["F", de ? "Aufstehen / Hinsetzen" : "Get up / sit down"], ["V", de ? "Innen / Außen" : "Inside / outside"], ["I", de ? "Inventar" : "Inventory"]]],
+      [de ? "Im Sitz" : "Seated", [["WASD", de ? "Fliegen" : "Fly"], ["Q / E", de ? "Drehen" : "Rotate"], [de ? "Linksklick" : "Left click", de ? "Feuern" : "Fire"], ["R", de ? "Waffe wechseln" : "Switch weapon"], ["Z", de ? "Trägheitsdämpfer" : "Inertia dampers"], ["C", "Cruise Control"], ["X", "Overcharge"], [de ? "Umschalt" : "Shift", de ? "Hochgeschw. freigeben" : "Unlock high speed"], ["F", de ? "Aufstehen / Hinsetzen" : "Get up / sit down"], ["V", de ? "Innen / Außen" : "Inside / outside"], ["I", de ? "Inventar" : "Inventory"], ["P", de ? "Andocken / Abdocken" : "Dock / undock"]]],
       [de ? "Zu Fuß" : "On foot", [["WASD", de ? "Laufen" : "Walk"], [de ? "Linksklick" : "Left click", de ? "Schweißen, Hologramm aufbauen" : "Weld, rebuild hologram"], [de ? "F auf Luke" : "F on hatch", de ? "Aussteigen (auch durch die Decke)" : "Exit (also through the ceiling)"], [de ? "Offener Rand" : "Open edge", de ? "Direkt hinaus und hinein" : "Step straight out and in"]]],
       [de ? "Draußen" : "Outside", [["WASD", "Jetpack"], [de ? "Umschalt" : "Shift", de ? "Tempo ans Schiff" : "Match ship speed"], [de ? "F über Luke" : "F above hatch", de ? "Einsteigen" : "Get in"]]],
       ["Test", [[de ? "Rechtsklick" : "Right click", de ? "Block beschädigen" : "Damage block"], [de ? "Mausrad" : "Wheel", "Zoom"], ["Esc", de ? "Zurück zum Editor" : "Back to editor"]]]
@@ -2062,7 +2223,7 @@
     ".sr-inv-h{display:flex;justify-content:space-between;align-items:flex-start;gap:14px}.sr-inv-h>div{display:flex;flex-direction:column;gap:3px}.sr-inv-h b{font-size:1.05rem;color:#EEF2F5}.sr-inv-h small{font-size:.74rem;color:#8FA0B8}.sr-inv-cnt{margin-left:auto;font-size:.78rem;color:#C9D1D9;font-variant-numeric:tabular-nums;padding-top:3px}" +
     ".sr-inv-grid{display:grid;grid-template-columns:repeat(8,48px);grid-auto-rows:48px;gap:4px}.sr-slot{display:block;background:rgba(38,49,66,.45);border:1px solid rgba(70,86,110,.6);box-shadow:inset 0 0 0 1px rgba(0,0,0,.25)}.sr-slot:hover{border-color:rgba(140,165,200,.8);background:rgba(50,64,86,.55)}" +
     "@media (max-width:520px){.sr-inv-grid{grid-template-columns:repeat(8,34px);grid-auto-rows:34px;gap:3px}}" +
-    ".sr-root.st .sr-blk[data-kind=thr]{display:none}.sr-seg{display:inline-flex;margin-right:6px}.sr-seg button{border-radius:0}.sr-seg button[aria-pressed=true]{background:#2E6B4C;border-color:#57D18A;color:#fff}" +
+    ".sr-root.st .sr-blk[data-kind=thr],.sr-root.st .sr-blk[data-kind=cock],.sr-root.st .sr-blk[data-kind=gyro]{display:none}.sr-seg{display:inline-flex;margin-right:6px}.sr-seg button{border-radius:0}.sr-seg button[aria-pressed=true]{background:#2E6B4C;border-color:#57D18A;color:#fff}" +
     ".sr-uis{position:absolute;left:12px;bottom:10px;z-index:3;align-items:center;gap:7px;background:rgba(14,19,28,.6);border:1px solid rgba(38,49,66,.8);padding:5px 9px;color:#8FA0B8;font-size:.72rem;font-variant-numeric:tabular-nums;cursor:pointer}" +
     ".sr-uis input{width:96px;accent-color:#7FD3A4;margin:0}.sr-uis span{min-width:36px;text-align:right}" +
     ".sr-hud{overflow-y:auto;scrollbar-width:thin;position:absolute;left:12px;top:64px;display:flex;flex-direction:column;gap:7px;background:rgba(14,19,28,.6);border:1px solid rgba(38,49,66,.8);padding:8px 10px;z-index:2;width:176px;box-sizing:border-box;font-size:.84rem}" +
@@ -2130,6 +2291,7 @@
       if (k === "shift") { FL.keys.shift = true; if (!e.repeat && !FL.out) { FL.hiOk = !FL.hiOk; if (FL.hiOk) FL.ca = Math.max(FL.ca || 0, 0.3); floatTxt(t(FL.hiOk ? "hiOn" : "hiOff")); } }
       if (e.repeat) return;
       if (k === "z") FL.damp = !FL.damp;
+      if (k === "p") { if (FL.seated && !FL.out) dockKey(); return; }
       if (k === "c") { FL.cruise = !FL.cruise; floatTxt(t(FL.cruise ? "crFloatOn" : "crFloatOff")); }
       if (k === "x") { if (FL.oc) { FL.oc = false; floatTxt(t("ocOff"), "201,160,245"); } else if (FL.ocT > 0.3) { FL.oc = true; floatTxt(t("ocOn"), "201,160,245"); } }
       if (k === "r" && FL.groups.length) FL.wsel = (FL.wsel + 1) % FL.groups.length;
@@ -2230,7 +2392,7 @@
     else if (act === "npc-x") { V.root.querySelector(".sr-npc").hidden = true; return; }
     else if (act === "io-x") { V.root.querySelector(".sr-exio").hidden = true; return; }
     else if (act === "io-copy") { var ta = V.root.querySelector(".sr-exio textarea"); ta.select(); try { navigator.clipboard.writeText(ta.value).then(function () { note(lang === "de" ? "Schiffscode kopiert." : "Ship code copied."); }, function () {}); } catch (er) {} return; }
-    else if (act === "io-load") { var bl = parseShip(V.root.querySelector(".sr-exio textarea").value); if (bl && S.ed === "station") bl = bl.filter(function (b) { return T[b.t].kind !== "thr"; }); if (!bl) { note(lang === "de" ? "Code ungültig." : "Invalid code."); return; } pushUndo(); S.blocks = bl; save(); fitCam(); V.root.querySelector(".sr-exio").hidden = true; note(lang === "de" ? "Schiff geladen (" + bl.length + " Blöcke)." : "Ship loaded (" + bl.length + " blocks)."); }
+    else if (act === "io-load") { var bl = parseShip(V.root.querySelector(".sr-exio textarea").value); if (bl && S.ed === "station") bl = bl.filter(function (b) { return !/^(thr|cock|gyro)$/.test(T[b.t].kind); }); if (!bl) { note(lang === "de" ? "Code ungültig." : "Invalid code."); return; } pushUndo(); S.blocks = bl; save(); fitCam(); V.root.querySelector(".sr-exio").hidden = true; note(lang === "de" ? "Schiff geladen (" + bl.length + " Blöcke)." : "Ship loaded (" + bl.length + " blocks)."); }
     else if (act === "test") { startTest(); return; }
     else if (act === "edit") { stopTest(); return; }
     else if (act === "targets") { if (FL) spawnTargets(); return; }
@@ -2324,5 +2486,5 @@
     document.body.style.overflow = V.ovOld || "";
     FL = null; if (S) S.mode = "edit"; V = null;
   }
-  window.SpaceRogue = { mount: mount, unmount: unmount, _debug: function () { return { S: S, V: V, FL: FL, T: T, stats: stats, rooms: rooms, components: components, starter: starter, startTest: startTest, damage: damage }; } };
+  window.SpaceRogue = { mount: mount, unmount: unmount, _debug: function () { return { S: S, V: V, FL: FL, T: T, stats: stats, rooms: rooms, components: components, starter: starter, startTest: startTest, damage: damage, dockFace: dockFace }; } };
 })();
