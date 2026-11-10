@@ -4,7 +4,7 @@
 (function () {
   "use strict";
 
-  var VERSION = "0.32";
+  var VERSION = "0.33";
   var CELL_M = 2.5, PX = 24;              // Meter je Zelle, Pixel je Zelle bei Zoom 1
   var lang = "de";
   function L2(de, en) { return { de: de, en: en }; }
@@ -91,10 +91,11 @@
   def("win", { cat: "catIn", kind: "win", w: 1, h: 1, mass: 0.7, hp: 40, n: L2("Fenster 1×1", "Window 1×1"), col: "#9AA5B1" });
   def("mgn", { cat: "catWe", kind: "mg", w: 1, h: 2, mass: 1.3, hp: 60, n: L2("Minigun 1×2", "Minigun 1×2"), col: "#7E8995" });
   def("msl", { cat: "catWe", kind: "ms", w: 1, h: 2, mass: 1.6, hp: 60, n: L2("Leichte Raketen 1×2", "Light missiles 1×2"), col: "#7E8995" });
+  def("tgc", { cat: "catWe", kind: "tcomp", w: 1, h: 2, mass: 0.8, hp: 45, n: L2("Zielcomputer 1×2", "Targeting computer 1×2"), col: "#7E8995" });
   def("rgn", { cat: "catWe", kind: "rg", w: 1, h: 3, mass: 3.8, hp: 120, n: L2("Railgun 1×3", "Railgun 1×3"), col: "#7E8995" });
   CATS = ["catLA", "catHA", "catCo", "catTh", "catEn", "catIn", "catWe"];
-  var MECH = { cock: 1, thr: 1, gyro: 1, ant: 1, bat: 1, reac: 1, door: 1, hatch: 1, mg: 1, rg: 1, cool: 1, ms: 1 };
-  var ROOMABLE = { bat: 1, reac: 1, gyro: 1, cool: 1 };   // Maschinen, die in einem Raum stehen dürfen und dann zum Raum gehören
+  var MECH = { cock: 1, thr: 1, gyro: 1, ant: 1, bat: 1, reac: 1, door: 1, hatch: 1, mg: 1, rg: 1, cool: 1, ms: 1, tcomp: 1 };
+  var ROOMABLE = { bat: 1, reac: 1, gyro: 1, cool: 1, tcomp: 1 };   // Maschinen, die in einem Raum stehen dürfen und dann zum Raum gehören
   function replaceable(newT, o) { return o && T[newT].kind !== "floor" && T[o.b.t].kind === "floor"; }
   var DV = [[0, -1], [1, 0], [0, 1], [-1, 0]];     // N, O, S, W als Zellversatz
 
@@ -353,6 +354,7 @@
     c.save();
     c.translate((b.x + f[0] / 2) * s, (b.y + f[1] / 2) * s);
     c.rotate(b.r * Math.PI / 2); if (b.f) c.scale(-1, 1);
+    if (opts && opts.tw) { c.translate(0, h / 2); c.rotate(b.f ? -opts.tw : opts.tw); c.translate(0, -h / 2); }   // Geschütz schwenkt um sein hinteres Ende
     c.translate(-w / 2, -h / 2);
     var col = b.c || ty.col, lw = Math.max(1, s / 16), dam = hpk !== undefined && hpk <= 0.5;
     c.lineJoin = "miter";
@@ -424,6 +426,17 @@
       c.fillStyle = "#2E4A5E"; c.fillRect(w * 0.12, h * 0.12, w * 0.76, h * 0.76);
       c.fillStyle = "#8FD3F2"; for (var fi = 0; fi < 4; fi++) c.fillRect(w * 0.18, h * (0.2 + fi * 0.17), w * 0.64, h * 0.07);
       c.fillStyle = b.c || "#5FB4D9"; c.fillRect(w * 0.44, 0, w * 0.12, h * 0.12); c.fillRect(w * 0.44, h * 0.88, w * 0.12, h * 0.12); c.fillRect(0, h * 0.44, w * 0.12, h * 0.12); c.fillRect(w * 0.88, h * 0.44, w * 0.12, h * 0.12);
+      c.strokeStyle = shade(col, -0.55); c.lineWidth = lw; c.strokeRect(lw / 2, lw / 2, w - lw, h - lw);
+    } else if (k === "tcomp") {
+      // Zielcomputer: Gehäuse mit Bildschirm, Fadenkreuz und kreisendem Suchstrich
+      c.fillStyle = col; c.fillRect(0, 0, w, h);
+      c.fillStyle = shade(col, -0.35); c.fillRect(w * 0.12, h * 0.08, w * 0.76, h * 0.5);
+      var cx2 = w / 2, cy2 = h * 0.33, rr = Math.min(w * 0.3, h * 0.2);
+      c.fillStyle = "#0F2A1E"; c.beginPath(); c.arc(cx2, cy2, rr, 0, Math.PI * 2); c.fill();
+      c.strokeStyle = "#57D18A"; c.lineWidth = lw; c.beginPath(); c.arc(cx2, cy2, rr * 0.6, 0, Math.PI * 2); c.moveTo(cx2 - rr, cy2); c.lineTo(cx2 + rr, cy2); c.moveTo(cx2, cy2 - rr); c.lineTo(cx2, cy2 + rr); c.stroke();
+      c.strokeStyle = "rgba(87,209,138,.8)"; c.beginPath(); c.moveTo(cx2, cy2); c.lineTo(cx2 + Math.cos(tm * 3) * rr, cy2 + Math.sin(tm * 3) * rr); c.stroke();
+      c.fillStyle = shade(col, -0.2); for (var ti = 0; ti < 3; ti++) c.fillRect(w * 0.2, h * (0.68 + ti * 0.09), w * 0.6, lw * 1.4);
+      c.fillStyle = Math.sin(tm * 4) > 0 ? "#E3B83F" : "#6E5A20"; c.fillRect(w * 0.72, h * 0.66, w * 0.12, w * 0.12);
       c.strokeStyle = shade(col, -0.55); c.lineWidth = lw; c.strokeRect(lw / 2, lw / 2, w - lw, h - lw);
     } else if (k === "ant") {
       c.fillStyle = shade(col, -0.1); c.fillRect(w * 0.1, h - s, w * 0.8, s);
@@ -617,7 +630,7 @@
     return o;
   }
   // Schiff: erst Innenleben, dann Aufbauten; Panzerung zuletzt, damit Kanten sauber liegen
-  var ORDER = { floor: 0, door: 0, hatch: 0, wall: 1, cock: 2, bat: 2, reac: 2, gyro: 2, cool: 2, thr: 3, mg: 3, rg: 3, ms: 3, ant: 3, win: 4, armor: 4 };
+  var ORDER = { floor: 0, door: 0, hatch: 0, wall: 1, cock: 2, bat: 2, reac: 2, gyro: 2, cool: 2, tcomp: 2, thr: 3, mg: 3, rg: 3, ms: 3, ant: 3, win: 4, armor: 4 };
   // Panzerung (und außen die Dächer) verschmilzt zu einer Hülle: Kanten nur dort, wo die Hülle endet
   function isHull(k, view) { return k === "armor" || k === "win" || (view === "out" && (k === "floor" || k === "wall" || k === "door" || k === "hatch")); }
   function drawShip(c, blocks, s, view, tm, body, M) {
@@ -626,7 +639,7 @@
     sorted.forEach(function (b) {
       var ty = T[b.t], hpk = b.hp !== undefined ? b.hp / ty.hp : 1, o = null;
       if (isHull(ty.kind, view)) { hull.push(b); return; }
-      if (body) o = { pilot: ty.kind === "cock" && body.ctrl && FL && FL.seated && b === body.seat, batK: body.cap ? body.energy / body.cap : 1, charge: b.chg ? Math.min(1, b.chg / RG.charge) : 0, ammo: b.ammo === undefined ? 2 : b.ammo, open: !!b.open };
+      if (body) o = { pilot: ty.kind === "cock" && body.ctrl && FL && FL.seated && b === body.seat, batK: body.cap ? body.energy / body.cap : 1, charge: b.chg ? Math.min(1, b.chg / RG.charge) : 0, ammo: b.ammo === undefined ? 2 : b.ammo, open: !!b.open, tw: b.tw || 0 };
       drawBlock(c, b, s, view, hpk, tm, o);
     });
     hull.forEach(function (b) { hullFill(c, b, s, view, b.hp !== undefined ? b.hp / T[b.t].hp : 1); });
@@ -702,7 +715,7 @@
     bd.map = buildMap(bd.blocks); bd.roomsDirty = true;
     bd.cool = coolMap(bd.blocks, bd.map); bd.ocMax = ocMaxOf(bd.blocks, bd.cool);
     bd.seat = bd.blocks.filter(function (b) { return T[b.t].kind === "cock"; })[0] || null;
-    bd.cock = st.cock; bd.thrSum = st.thr[0] + st.thr[1] + st.thr[2] + st.thr[3]; bd.nAnt = bd.blocks.filter(function (b) { return T[b.t].kind === "ant"; }).length;
+    bd.cock = st.cock; bd.thrSum = st.thr[0] + st.thr[1] + st.thr[2] + st.thr[3]; bd.nAnt = bd.blocks.filter(function (b) { return T[b.t].kind === "ant"; }).length; bd.tcomp = bd.blocks.some(function (b) { return T[b.t].kind === "tcomp"; });
     bd.cells = []; bd.map.forEach(function (v, k) { var q = k.split(","); bd.cells.push([+q[0] + 0.5, +q[1] + 0.5, v.b]); });
     if (!bd.id) bd.id = ++BID;
     var r = 0; bd.blocks.forEach(function (b) { var f = fp(b); [[b.x, b.y], [b.x + f[0], b.y + f[1]]].forEach(function (p) { r = Math.max(r, Math.hypot(p[0] - bd.com[0], p[1] - bd.com[1])); }); }); bd.rad = r * CELL_M + 2;
@@ -764,6 +777,7 @@
       // Energie: Reaktoren laden, Verbraucher ziehen
       bd.energy = Math.min(bd.cap, bd.energy + bd.prod * dt);
       bd.flames = {};
+      if (bd === me) turretTick(bd, dt, FL.seated && !FL.out ? mouseWorld() : null);
       if (bd === me && bd.ctrl && bd.seat) control(bd, dt, FL.seated);   // ohne Pilot halten nur die Dämpfer das Schiff
       if (bd === me) { var fm = 0; for (var fk in bd.flames) fm = Math.max(fm, bd.flames[fk]); if (FL.fire && FL.seated && FL.groups.length) fm = Math.max(fm, 0.6); FL.sig = Math.max(FL.sig * Math.exp(-dt / 1.2), fm); }
       if (bd.ai) aiTick(bd, dt);
@@ -813,7 +827,16 @@
     });
     FL.parts = FL.parts.filter(function (q) { q.life += dt; q.x += q.vx * dt; q.y += q.vy * dt; if (q.k === "debris") { q.a += q.w * dt; } return q.life < q.max; });
     if (FL.parts.length > 900) FL.parts.splice(0, FL.parts.length - 900);
-    if (FL.out && FL.eva) { FL.cam.x = FL.eva.x; FL.cam.y = FL.eva.y; } else { FL.cam.x = me.x; FL.cam.y = me.y; }
+    // Dynamische Kamera: schaut ein Stück in Richtung Maus, das Schiff rückt dabei Richtung Bildrand (höchstens 30 % des halben Bildes)
+    var tox = 0, toy = 0, ppm = PX * V.zoom / CELL_M;
+    if (V.mouse && (FL.seated || FL.out)) {
+      tox = Math.max(-0.3 * V.W / 2, Math.min(0.3 * V.W / 2, (V.mouse.sx - V.W / 2) * 0.35)) / ppm;
+      toy = Math.max(-0.3 * V.H / 2, Math.min(0.3 * V.H / 2, (V.mouse.sy - V.H / 2) * 0.35)) / ppm;
+    }
+    FL.camOff = FL.camOff || { x: 0, y: 0 }; var ck = 1 - Math.exp(-dt * 3.5);
+    FL.camOff.x += (tox - FL.camOff.x) * ck; FL.camOff.y += (toy - FL.camOff.y) * ck;
+    var fx = FL.out && FL.eva ? FL.eva.x : me.x, fy = FL.out && FL.eva ? FL.eva.y : me.y;
+    FL.cam.x = fx + FL.camOff.x; FL.cam.y = fy + FL.camOff.y;
   }
   // ---------- Luft, Luken und Raumanzug ----------
   // Eine Luke öffnet nur kurz beim Durchgehen und wenn man draußen direkt davor schwebt
@@ -941,7 +964,7 @@
       A.st -= dt; if (A.st <= 0) { A.st = 2.5 + Math.random() * 3; A.strafe = Math.random() < 0.5 ? -1 : 1; }
       var ux = dx / dist, uy = dy / dist, cl = Math.max(-22, Math.min(40, (dist - R) * 0.6));
       vDes = { x: me.vx + ux * cl - uy * A.strafe * 9, y: me.vy + uy * cl + ux * A.strafe * 9 };
-      fire = Math.abs(angDiff(head, bd.a)) < 0.1 && dist < R * 2;
+      fire = Math.abs(angDiff(head, bd.a)) < (bd.tcomp ? TURRET.max : 0.1) && dist < R * 2;
     } else {
       A.ang += A.dir * dt * AI.patrolV / A.r;
       var px = A.home.x + Math.cos(A.ang) * A.r, py = A.home.y + Math.sin(A.ang) * A.r, tx = -Math.sin(A.ang) * A.dir, ty = Math.cos(A.ang) * A.dir;
@@ -949,6 +972,7 @@
       head = angTo(vDes.x, vDes.y);
     }
     aiDrive(bd, dt, vDes, head);
+    turretTick(bd, dt, aim);
     if (fire) { weapons(bd, dt, "mg", true, aim); if (dist < 300) weapons(bd, dt, "ms", true, aim); weapons(bd, dt, "rg", true, aim); }
   }
   function aiDrive(bd, dt, vDes, head) {
@@ -1135,7 +1159,7 @@
       if (b.cool2 > 0) return;
       if (bd.energy < MG.e) return;
       b.cool2 = 1 / MG.rate; bd.energy -= MG.e;
-      var d = dirWorld(bd, dirOut(b, 0)), f = fp(b), tip = muzzle(bd, b);
+      var d = gunDir(bd, b), f = fp(b), tip = gunTip(bd, b);
       FL.shots.push({ x: tip.x, y: tip.y, vx: bd.vx + d.x * MG.speed + (Math.random() - 0.5) * 6, vy: bd.vy + d.y * MG.speed + (Math.random() - 0.5) * 6, life: 0, own: bd });
       FL.parts.push({ x: tip.x, y: tip.y, vx: bd.vx, vy: bd.vy, life: 0, max: 0.06, k: "flash", sz: 1.4 });
       var cn2 = (bd.cool && bd.cool.get(b)) || 0;
@@ -1165,12 +1189,32 @@
     });
     }
   function useOf(bd, d) { var u = 0; bd.blocks.forEach(function (b) { var ty = T[b.t]; if (ty.kind === "thr" && thrustDir(b) === d) u += ty.use; }); return u; }
+  // Zielcomputer: Minigun und Railgun schwenken bis 15° zur Zielrichtung (Maus beim Spieler, Vorhaltepunkt bei der KI)
+  var TURRET = { max: 15 * Math.PI / 180, rate: 2.6 };
+  function gunMount(bd, b) { var d = dirOut(b, 0), f = fp(b), h = T[b.t].h; return { lx: b.x + f[0] / 2 - DV[d][0] * h / 2, ly: b.y + f[1] / 2 - DV[d][1] * h / 2 }; }
+  function turretTick(bd, dt, aim) {
+    bd.blocks.forEach(function (b) {
+      var k = T[b.t].kind; if (k !== "mg" && k !== "rg") return;
+      var want = 0;
+      if (bd.tcomp && aim) {
+        var m = gunMount(bd, b), mw = toWorld(bd, m.lx, m.ly), d = dirWorld(bd, dirOut(b, 0));
+        want = Math.max(-TURRET.max, Math.min(TURRET.max, angDiff(Math.atan2(aim.y - mw.y, aim.x - mw.x), Math.atan2(d.y, d.x))));
+      }
+      var cur = b.tw || 0, st = TURRET.rate * dt; b.tw = cur + Math.max(-st, Math.min(st, want - cur));
+    });
+  }
+  function gunDir(bd, b) { var d = dirWorld(bd, dirOut(b, 0)), a = b.tw || 0; if (!a) return d; var ca = Math.cos(a), sa = Math.sin(a); return { x: d.x * ca - d.y * sa, y: d.x * sa + d.y * ca }; }
+  function gunTip(bd, b) {
+    if (!b.tw) return muzzle(bd, b);
+    var m = gunMount(bd, b), mw = toWorld(bd, m.lx, m.ly), d = gunDir(bd, b), L = (T[b.t].h + 0.1) * CELL_M;
+    return { x: mw.x + d.x * L, y: mw.y + d.y * L };
+  }
   function muzzle(bd, b) {
     var ty = T[b.t], d = dirOut(b, 0), f = fp(b), cx = b.x + f[0] / 2 + DV[d][0] * (ty.h / 2 + 0.1), cy = b.y + f[1] / 2 + DV[d][1] * (ty.h / 2 + 0.1);
     return toWorld(bd, cx, cy);
   }
   function fireRail(bd, b) {
-    var d = dirWorld(bd, dirOut(b, 0)), p = muzzle(bd, b), left = RG.dmg, end = { x: p.x + d.x * RG.range, y: p.y + d.y * RG.range }, hits = 0, lastB = null;
+    var d = gunDir(bd, b), p = gunTip(bd, b), left = RG.dmg, end = { x: p.x + d.x * RG.range, y: p.y + d.y * RG.range }, hits = 0, lastB = null;
     for (var s = 0; s < RG.range; s += 0.8) {
       var x = p.x + d.x * s, y = p.y + d.y * s, h = hitAt(x, y, bd);
       if (h && h.b !== lastB) { lastB = h.b; if (bd === FL.me) hitMark(x, y, h.bd); damage(h.bd, h.b, left, x, y); spark(x, y, 10); left *= 0.55; hits++; if (hits >= 3) { end = { x: x, y: y }; break; } }
