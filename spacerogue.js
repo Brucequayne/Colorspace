@@ -4,7 +4,7 @@
 (function () {
   "use strict";
 
-  var VERSION = "0.39";
+  var VERSION = "0.39.1";
   var CELL_M = 2.5, PX = 24;              // Meter je Zelle, Pixel je Zelle bei Zoom 1
   var lang = "de";
   function L2(de, en) { return { de: de, en: en }; }
@@ -34,7 +34,7 @@
     wNoPow: L2("Keine Energiequelle: Batterie oder Reaktor einbauen.", "No power source: add a battery or reactor."),
     okRooms: L2("{n} Raum/Räume luftdicht", "{n} room(s) airtight"), noRooms: L2("Keine Innenräume", "No interior rooms"),
     hintEd: L2("Linksklick bauen, Ziehen baut Reihen · Rechtsklick abreißen · R drehen · F spiegeln · M Symmetrie (aus, im Block, zwischen Blöcken) · V Innen/Außen · Mausrad zoomt · Mitte/Leertaste + Ziehen verschiebt", "Left click build, drag for rows · right click remove · R rotate · F flip · M symmetry · V interior/exterior · wheel zooms · middle/space + drag pans"),
-    hintFl: L2("Im Sitz: WASD fliegen · Q/E drehen · Umschalt gibt Hochgeschwindigkeit über 120 m/s frei · Linksklick feuern · R Waffe · Z Trägheitsdämpfer · C Cruise (kein Selbstbremsen) · X Overcharge · Raketen lenken leicht zum Mauszeiger · Zu Fuß: WASD laufen · Linksklick schweißen und Hologramme neu aufbauen · F aussteigen/hinsetzen · Durch eine Luke ins All: WASD Jetpack (kostet Anzugluft), Umschalt gleicht ans Schiff an · Gegner spawnen links im Feld, Antennen zeigen sie als rote Dreiecke am Rand · V Innen/Außen · Rechtsklick: Block beschädigen (Test) · Esc Editor", "Seated: WASD fly · Q/E rotate · Shift unlocks high speed above 120 m/s · left click fire · R weapon · Z inertia dampers · C cruise (no auto-braking) · X overcharge · missiles steer gently toward the cursor · On foot: WASD walk · left click weld and rebuild holograms · F get up/sit down · Through a hatch into space: WASD jetpack (uses suit air), Shift matches the ship · Spawn enemies in the panel on the left, antennas show them as red triangles at the edge · V interior/exterior · right click: damage block (test) · Esc editor"),
+    hintFl: L2("Im Sitz: WASD fliegen · Q/E drehen · Umschalt gibt Hochgeschwindigkeit über 120 m/s frei (erlischt unter 120 m/s) · Linksklick feuern · R Waffe · Z Trägheitsdämpfer · C Cruise (kein Selbstbremsen) · X Overcharge · Raketen lenken leicht zum Mauszeiger · Zu Fuß: WASD laufen · Linksklick schweißen und Hologramme neu aufbauen · F aussteigen/hinsetzen · Durch eine Luke ins All: WASD Jetpack (kostet Anzugluft), Umschalt gleicht ans Schiff an · Gegner spawnen links im Feld, Antennen zeigen sie als rote Dreiecke am Rand · V Innen/Außen · Rechtsklick: Block beschädigen (Test) · Esc Editor", "Seated: WASD fly · Q/E rotate · Shift unlocks high speed above 120 m/s (expires below 120 m/s) · left click fire · R weapon · Z inertia dampers · C cruise (no auto-braking) · X overcharge · missiles steer gently toward the cursor · On foot: WASD walk · left click weld and rebuild holograms · F get up/sit down · Through a hatch into space: WASD jetpack (uses suit air), Shift matches the ship · Spawn enemies in the panel on the left, antennas show them as red triangles at the edge · V interior/exterior · right click: damage block (test) · Esc editor"),
     noCockTest: L2("Zum Testen braucht das Schiff ein Cockpit.", "The ship needs a cockpit to be tested."),
     cruise: L2("Cruise-Modus", "Cruise mode"), cruiseOn: L2("Cruise an: Das Schiff bremst nicht mehr von selbst, seitlich bleibt der Kurs stabil", "Cruise on: the ship no longer brakes by itself, sideways the course stays stable"), cruiseOff: L2("Cruise aus: Die Dämpfer bremsen wieder in alle Richtungen", "Cruise off: dampers brake in all directions again"),
     hiSpeed: L2("Hohe Geschwindigkeit", "High speed"),
@@ -1601,6 +1601,7 @@
       '<button type="button" data-act="seat" id="sr-h-seatb"></button><button type="button" data-act="targets">' + t("targets") + '</button>' +
       '<div class="sr-spawn"><small>' + t("spawn") + '</small><span>' + NPC.map(function (q) { return '<button type="button" data-spawn="' + q.id + '">' + q.n[lang] + '</button>'; }).join("") + '</span></div></div>' +
       '<div class="sr-kill" hidden><svg viewBox="0 0 40 40" width="34" height="34"><path d="M20 5l6 12v12l-6 5-6-5V17z" fill="#6A7480" stroke="#C9D1D9" stroke-width="1.5"/><path d="M11 13l18 18M29 13L11 31" stroke="#E0533F" stroke-width="3"/></svg><div><small>' + t("ko") + '</small><span></span></div></div>' +
+      '<label class="sr-uis sr-fl-only" title="' + (lang === "de" ? "Größe des Infofelds" : "Info panel size") + '"><svg viewBox="0 0 20 20" width="14" height="14"><rect x="2" y="3" width="7" height="14" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M12 7h6M12 10h6M12 13h4" stroke="currentColor" stroke-width="1.6"/></svg><input type="range" id="sr-uis" min="1" max="1.5" step="0.05" value="1"><span id="sr-uis-v">100 %</span></label>' +
       '<div class="sr-hint" id="sr-hint"></div><div class="sr-note" hidden></div>' +
       '<div class="sr-io sr-npc" hidden><div class="sr-io-box sr-npc-box"><div class="sr-tbar"><b class="sr-npc-t">' + t("hangar") + '</b><span class="sr-sp"></span><button type="button" data-act="npc-x">' + (lang === "de" ? "Schließen" : "Close") + '</button></div><div class="sr-io-h">' + t("hangarH") + '</div><div class="sr-npc-list"></div></div></div>' +
       '<div class="sr-io sr-exio" hidden><div class="sr-io-box"><div class="sr-io-h"></div><textarea spellcheck="false"></textarea><div class="sr-tbar"><button type="button" data-act="io-copy">' + (lang === "de" ? "Kopieren" : "Copy") + '</button><button type="button" data-act="io-load">' + (lang === "de" ? "Laden" : "Load") + '</button><span class="sr-sp"></span><button type="button" data-act="io-x">' + (lang === "de" ? "Schließen" : "Close") + '</button></div></div></div></div>';
@@ -1679,7 +1680,9 @@
     ".sr-kill[hidden]{display:none}.sr-kill div{display:flex;flex-direction:column}.sr-kill small{font-size:.68rem;letter-spacing:.1em;text-transform:uppercase;color:#F08A78;font-weight:700}.sr-kill span{font-weight:600;color:#E8ECEF}" +
     ".sr-kill.go{animation:srKill 3.2s ease both}@keyframes srKill{0%{opacity:0;transform:translate(-50%,-8px)}8%{opacity:1;transform:translate(-50%,0)}85%{opacity:1}100%{opacity:0}}" +
     ".sr-note{position:absolute;left:50%;top:72px;transform:translateX(-50%);background:#E0533F;color:#fff;font-weight:600;padding:8px 14px;z-index:4;font-size:.86rem}" +
-    ".sr-hud{position:absolute;left:12px;top:64px;display:flex;flex-direction:column;gap:7px;background:rgba(14,19,28,.6);border:1px solid rgba(38,49,66,.8);padding:8px 10px;z-index:2;width:176px;box-sizing:border-box;font-size:.84rem}" +
+    ".sr-uis{position:absolute;left:12px;bottom:10px;z-index:3;align-items:center;gap:7px;background:rgba(14,19,28,.6);border:1px solid rgba(38,49,66,.8);padding:5px 9px;color:#8FA0B8;font-size:.72rem;font-variant-numeric:tabular-nums;cursor:pointer}" +
+    ".sr-uis input{width:96px;accent-color:#7FD3A4;margin:0}.sr-uis span{min-width:36px;text-align:right}" +
+    ".sr-hud{overflow-y:auto;scrollbar-width:thin;position:absolute;left:12px;top:64px;display:flex;flex-direction:column;gap:7px;background:rgba(14,19,28,.6);border:1px solid rgba(38,49,66,.8);padding:8px 10px;z-index:2;width:176px;box-sizing:border-box;font-size:.84rem}" +
     ".sr-hud .sr-hr span{display:flex;align-items:baseline;justify-content:space-between;gap:6px;white-space:nowrap}.sr-hud em{font-style:normal;font-size:.62rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:1px 5px;min-width:0}" +
     ".sr-hud em.lim{color:#F0B860;background:rgba(240,184,96,.12)}.sr-hud em.hi{color:#FF8A78;background:rgba(255,80,60,.16);animation:srHi 1s ease-in-out infinite}.sr-hud b.hi{color:#FF6A55}" +
     ".sr-ics{flex-direction:row!important;gap:5px!important}.sr-ics>i{flex:1;position:relative;display:flex;flex-direction:column;align-items:center;gap:1px;padding:4px 0 3px;background:rgba(38,49,66,.55);color:#6E7D93;border:1px solid transparent}" +
@@ -1840,7 +1843,17 @@
     else if (act === "seat") { if (FL) toggleSeat(); a.blur(); return; }
     syncUI();
   }
-  function onInput(e) { if (e.target.id === "sr-col") { S.color = e.target.value; S.tool = "paint"; save(); syncUI(); } }
+  function onInput(e) {
+    if (e.target.id === "sr-col") { S.color = e.target.value; S.tool = "paint"; save(); syncUI(); }
+    if (e.target.id === "sr-uis") { hudScale(+e.target.value); try { localStorage.setItem("spacerogue-ui", String(V.uis)); } catch (er) {} }
+  }
+  // Infofeld skalieren: CSS-zoom statt Bild-Skalierung, Schrift und Symbole bleiben gestochen scharf (100 bis 150 %)
+  function hudScale(k) {
+    if (!V) return; k = Math.max(1, Math.min(1.5, k || 1)); V.uis = k;
+    var h = V.root.querySelector(".sr-hud"), sl = V.root.querySelector("#sr-uis"), lb = V.root.querySelector("#sr-uis-v");
+    if (h) { h.style.zoom = k; h.style.top = (64 / k) + "px"; h.style.left = (12 / k) + "px"; h.style.maxHeight = Math.max(200, ((V.H || 800) - 64 - 52) / k) + "px"; }
+    if (sl && +sl.value !== k) sl.value = k; if (lb) lb.textContent = Math.round(k * 100) + " %";
+  }
   function fitCam() { var b = bounds(S.blocks); if (!b) { V.cam = { x: 0.5, y: 0 }; return; } V.cam = { x: (b.x0 + b.x1) / 2, y: (b.y0 + b.y1) / 2 }; }
 
   function layout() {
@@ -1848,6 +1861,7 @@
     var dpr = window.devicePixelRatio || 1, r = V.cv.getBoundingClientRect();
     V.W = r.width; V.H = r.height; V.cv.width = Math.round(r.width * dpr); V.cv.height = Math.round(r.height * dpr);
     V.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    hudScale(V.uis);
   }
   function loop(now) {
     if (!V) return;
@@ -1873,6 +1887,7 @@
     V.ctx = V.cv.getContext("2d");
     document.body.style.overflow = "hidden";
     fitCam(); layout(); syncUI();
+    var us = 1; try { us = parseFloat(localStorage.getItem("spacerogue-ui")) || 1; } catch (e) {} hudScale(us);
     V.cv.addEventListener("pointerdown", onDown); window.addEventListener("pointermove", onMove); window.addEventListener("pointerup", onUp); window.addEventListener("pointercancel", onUp);
     V.cv.addEventListener("wheel", onWheel, { passive: false }); V.cv.addEventListener("contextmenu", function (e) { e.preventDefault(); });
     V.cv.addEventListener("pointerleave", function () { if (V && S.mode !== "fly") V.mouse = null; });
