@@ -4,7 +4,7 @@
 (function () {
   "use strict";
 
-  var VERSION = "0.43";
+  var VERSION = "0.44";
   var CELL_M = 2.5, PX = 24;              // Meter je Zelle, Pixel je Zelle bei Zoom 1
   var lang = "de";
   function L2(de, en) { return { de: de, en: en }; }
@@ -55,11 +55,12 @@
     walking: L2("Zu Fuß · F am Sitz zum Hinsetzen", "On foot · F at the seat to sit down"), tooFar: L2("Zu weit vom Sitz entfernt", "Too far from the seat"),
     air: L2("Luft", "Air"), airRoom: L2("Raumluft", "Cabin air"), airSuit: L2("Anzug", "Suit"), airJet: L2("Anzug · Jetpack", "Suit · jetpack"),
     airOut: L2("Die Anzugluft ist ausgegangen: Neustart im Cockpit.", "Suit air ran out: restarting in the cockpit."),
-    evaOn: L2("Draußen · Jetpack · Umschalt gleicht ans Schiff an", "Outside · jetpack · Shift matches the ship"), outside: L2("Erst durch eine Luke zurück ins Schiff", "Get back in through a hatch first"),
+    evaOn: L2("Draußen · Jetpack · Umschalt gleicht ans Schiff an", "Outside · jetpack · Shift matches the ship"), outside: L2("Über einer Luke F drücken, um einzusteigen", "Press F above a hatch to get in"),
     weldBuild: L2("baut {n} wieder auf", "rebuilding {n}"), weldWait: L2("{n}: erst den Nachbarblock aufbauen", "{n}: rebuild the neighbouring block first"),
     hangar: L2("NPC-Schiffe", "NPC ships"), hangarH: L2("Baupläne für spätere KI-Gegner. Noch ohne KI: hier lassen sie sich ansehen und in den Editor laden.", "Blueprints for future AI enemies. No AI yet: view them here and load them into the editor."),
     load: L2("In den Editor laden", "Load into editor"), clsS: L2("Klein", "Small"), clsM: L2("Mittel", "Medium"), clsL: L2("Groß", "Large"),
     fleeT: L2("Der Feind versucht zu entkommen", "The enemy is trying to escape"),
+    shield: L2("Schild", "Shield"), shFill: L2("Schild mit dem eingestellten Anteil neu aufladen", "Recharge the shield to the set share"),
     spawn: L2("Gegner spawnen", "Spawn enemy"), spawned: L2("{n} patrouilliert irgendwo vor dir", "{n} is patrolling somewhere ahead of you"), ko: L2("Kampfunfähig", "Disabled"),
     weld: L2("Schweißgerät", "Welder"), weldOn: L2("repariert {n}: {p} %", "repairing {n}: {p} %"), weldIdle: L2("Linksklick vor einem Block repariert ihn, vor einem Hologramm baut er ihn neu", "Left click facing a block repairs it, facing a hologram rebuilds it"),
     sDim: L2("Abmessungen", "Dimensions"), sCool: L2("Kühlung", "Cooling"), sCoolW: L2("Gekühlt", "Cooled"), weap: L2("Waffen", "weapons"), thrs: L2("Triebwerke", "thrusters"), sCom: L2("Schwerpunkt", "Centre of mass"), comHint: L2("gelb-schwarzer Kreis", "yellow-black circle"),
@@ -86,7 +87,7 @@
   }
   armor("l", false); armor("h", true);
   // Kosten in Credits (Cr): im Editor ist alles gratis, im späteren Rogue-like-Modus bezahlt man damit Bau-Upgrades zwischen den Stages
-  var COSTS = { cks: 1200, ckm: 2400, ckl: 4200, ckt: 700, ths: 450, thl: 1600, gyr: 700, col: 300, ant: 400, bat: 350, rea: 2000, flo: 15, wal: 25, dor: 60, hat: 150, win: 40, mgn: 900, msl: 1300, tgc: 1600, rgn: 2600 };
+  var COSTS = { cks: 1200, ckm: 2400, ckl: 4200, ckt: 700, ths: 450, thf: 650, shs: 1400, shl: 3800, thl: 1600, gyr: 700, col: 300, ant: 400, bat: 350, rea: 2000, flo: 15, wal: 25, dor: 60, hat: 150, win: 40, mgn: 900, msl: 1300, tgc: 1600, rgn: 2600 };
   function applyCosts() { Object.keys(T).forEach(function (id) { var ty = T[id]; ty.cost = COSTS[id] || (ty.kind === "armor" ? Math.max(5, Math.round(ty.mass * (ty.heavy ? 26 : 57))) : 100); }); }
   function cr(v) { return nf(Math.round(v)) + " Cr"; }
   def("ckt", { cat: "catCo", kind: "cock", w: 1, h: 2, mass: 0.9, hp: 150, n: L2("Cockpit winzig 1×2", "Tiny cockpit 1×2"), col: "#9AA5B1" });
@@ -94,10 +95,13 @@
   def("ckm", { cat: "catCo", kind: "cock", w: 3, h: 4, mass: 4.2, hp: 320, n: L2("Cockpit 3×4", "Cockpit 3×4"), col: "#9AA5B1" });
   def("ckl", { cat: "catCo", kind: "cock", w: 4, h: 5, mass: 7.5, hp: 440, n: L2("Cockpit groß 4×5", "Large cockpit 4×5"), col: "#9AA5B1" });
   def("ths", { cat: "catTh", kind: "thr", w: 1, h: 2, mass: 1.4, hp: 65, thrust: 421, use: 6, n: L2("Ionenantrieb klein 1×2", "Small ion thruster 1×2"), col: "#7E8995" });
+  def("thf", { cat: "catTh", kind: "thr", w: 1, h: 1, mass: 0.9, hp: 45, thrust: 421, use: 9, n: L2("Hochleistungs-Triebwerk 1×1", "High-output thruster 1×1"), col: "#7E8995" });
   def("thl", { cat: "catTh", kind: "thr", w: 2, h: 3, mass: 5.2, hp: 170, thrust: 1615, use: 20, n: L2("Ionenantrieb groß 2×3", "Large ion thruster 2×3"), col: "#7E8995" });
   def("gyr", { cat: "catTh", kind: "gyro", w: 1, h: 1, mass: 1.1, hp: 65, torque: 17500, use: 3, n: L2("Gyroskop 1×1", "Gyroscope 1×1"), col: "#7E8995" });
   def("col", { cat: "catTh", kind: "cool", w: 1, h: 1, mass: 0.8, hp: 50, n: L2("Kühlblock 1×1", "Cooling block 1×1"), col: "#7E8995" });
   def("ant", { cat: "catTh", kind: "ant", w: 1, h: 3, mass: 0.9, hp: 32, n: L2("Antenne 1×3", "Antenna 1×3"), col: "#7E8995" });
+  def("shs", { cat: "catEn", kind: "shield", w: 1, h: 1, mass: 1.3, hp: 60, shk: 0.5, n: L2("Schildgenerator klein 1×1", "Small shield generator 1×1"), col: "#5B7FA6" });
+  def("shl", { cat: "catEn", kind: "shield", w: 2, h: 2, mass: 3.6, hp: 160, shk: 1.5, n: L2("Schildgenerator groß 2×2", "Large shield generator 2×2"), col: "#5B7FA6" });
   def("bat", { cat: "catEn", kind: "bat", w: 1, h: 1, mass: 1.6, hp: 50, cap: 300, n: L2("Batterie 1×1", "Battery 1×1"), col: "#7E8995" });
   def("rea", { cat: "catEn", kind: "reac", w: 2, h: 2, mass: 4.6, hp: 135, prod: 14, n: L2("Reaktor 2×2", "Reactor 2×2"), col: "#7E8995" });
   def("flo", { cat: "catIn", kind: "floor", w: 1, h: 1, mass: 0.18, hp: 32, n: L2("Boden (Innenraum)", "Floor (interior)"), col: "#9AA5B1" });
@@ -149,8 +153,8 @@
   }
   PM = calcPM([]);
   CATS = ["catLA", "catHA", "catCo", "catTh", "catEn", "catIn", "catWe"];
-  var MECH = { cock: 1, thr: 1, gyro: 1, ant: 1, bat: 1, reac: 1, door: 1, hatch: 1, mg: 1, rg: 1, cool: 1, ms: 1, tcomp: 1 };
-  var ROOMABLE = { bat: 1, reac: 1, gyro: 1, cool: 1, tcomp: 1 };   // Maschinen, die in einem Raum stehen dürfen und dann zum Raum gehören
+  var MECH = { cock: 1, thr: 1, gyro: 1, ant: 1, bat: 1, reac: 1, door: 1, hatch: 1, mg: 1, rg: 1, cool: 1, ms: 1, tcomp: 1, shield: 1 };
+  var ROOMABLE = { bat: 1, reac: 1, gyro: 1, cool: 1, tcomp: 1, shield: 1 };   // Maschinen, die in einem Raum stehen dürfen und dann zum Raum gehören
   function replaceable(newT, o) { return o && T[newT].kind !== "floor" && T[o.b.t].kind === "floor"; }
   var DV = [[0, -1], [1, 0], [0, 1], [-1, 0]];     // N, O, S, W als Zellversatz
 
@@ -218,10 +222,14 @@
       var cells = [], leaks = [], st = [k]; seen.add(k);
       while (st.length) {
         var kk = st.pop(), p = kk.split(","), x = +p[0], y = +p[1], me = M.get(kk), mk = T[me.b.t].kind; cells.push([x, y]);
+        if (mk === "hatch" && me.b.open) leaks.push([x, y, 0]);   // offene Luke (auch in der Decke) lässt die Luft raus
         for (var d = 0; d < 4; d++) {
           var nx = x + DV[d][0], ny = y + DV[d][1], nk = key(nx, ny), o = M.get(nk);
-          if (!o) { if (mk === "cock" || (mk === "hatch" && !me.b.open)) continue; leaks.push([x, y, d]); continue; }
+          if (!o) { if (mk === "cock" || mk === "hatch") continue; leaks.push([x, y, d]); continue; }
           var ok = T[o.b.t].kind;
+          // Cockpits sind links, rechts und vorne geschlossen; kleine öffnen sich nach hinten, große haben hinten eine Schiebetür (eigener Raum)
+          if (mk === "cock" && o.b !== me.b && !(T[me.b.t].h < 4 && d === dirOut(me.b, 2))) continue;
+          if (ok === "cock" && o.b !== me.b && !(T[o.b.t].h < 4 && (d + 2) % 4 === dirOut(o.b, 2))) continue;
           // Maschinen gehören nur zum Raum, wenn sie an Boden stehen; außen ans Cockpit gebaute bleiben draußen
           if (ROOMK[ok] || (ROOMABLE[ok] && mk !== "cock")) { if (!seen.has(nk)) { seen.add(nk); st.push(nk); } continue; }
           if (!edgeRule(T[o.b.t], o.lx, o.ly, dirIn(o.b, (d + 2) % 4)).s) leaks.push([x, y, d]);
@@ -456,6 +464,7 @@
         if (dam) damageMarks(c, w, h, b, s, "full");
         c.restore(); return;
       }
+      var bigCk = ty.h >= 4;
       c.fillStyle = GLASS; c.beginPath(); c.moveTo(s * 0.25, ch); c.lineTo(s * 0.25, s * 0.45); c.lineTo(w / 2, s * 0.08); c.lineTo(w - s * 0.25, s * 0.45); c.lineTo(w - s * 0.25, ch); c.closePath(); c.fill();
       c.fillStyle = GLASS2; c.beginPath(); c.moveTo(s * 0.4, ch * 0.9); c.lineTo(s * 0.4, s * 0.5); c.lineTo(w / 2 - s * 0.1, s * 0.25); c.lineTo(w / 2 - s * 0.1, ch * 0.9); c.closePath(); c.fill();
       if (view === "in") {
@@ -501,6 +510,17 @@
       c.fillStyle = "#8FD3F2"; for (var fi = 0; fi < 4; fi++) c.fillRect(w * 0.18, h * (0.2 + fi * 0.17), w * 0.64, h * 0.07);
       c.fillStyle = b.c || "#5FB4D9"; c.fillRect(w * 0.44, 0, w * 0.12, h * 0.12); c.fillRect(w * 0.44, h * 0.88, w * 0.12, h * 0.12); c.fillRect(0, h * 0.44, w * 0.12, h * 0.12); c.fillRect(w * 0.88, h * 0.44, w * 0.12, h * 0.12);
       c.strokeStyle = shade(col, -0.55); c.lineWidth = lw; c.strokeRect(lw / 2, lw / 2, w - lw, h - lw);
+    } else if (k === "shield") {
+      // Schildgenerator: Gehäuse mit Emitterring, der sanft blau pulsiert
+      c.fillStyle = shade(col, -0.2); c.fillRect(0, 0, w, h);
+      var sr2 = Math.min(w, h) * 0.34, scx = w / 2, scy = h / 2, pu = 0.55 + 0.45 * Math.sin(tm * 2.4 + b.x);
+      var sg = c.createRadialGradient(scx, scy, 0, scx, scy, sr2 * 1.25); sg.addColorStop(0, "rgba(120,190,255," + (0.55 * pu) + ")"); sg.addColorStop(1, "rgba(120,190,255,0)");
+      c.fillStyle = sg; c.fillRect(0, 0, w, h);
+      c.strokeStyle = "#8EC5FF"; c.lineWidth = lw * 1.5; c.beginPath(); c.arc(scx, scy, sr2, 0, Math.PI * 2); c.stroke();
+      c.strokeStyle = shade(col, 0.25); c.lineWidth = lw; c.beginPath(); c.arc(scx, scy, sr2 * 0.55, 0, Math.PI * 2); c.stroke();
+      c.fillStyle = "#DDEEFF"; c.beginPath(); c.arc(scx, scy, sr2 * 0.18, 0, Math.PI * 2); c.fill();
+      c.fillStyle = shade(col, -0.45); [[0.12, 0.12], [0.88, 0.12], [0.12, 0.88], [0.88, 0.88]].forEach(function (q) { c.fillRect(w * q[0] - lw, h * q[1] - lw, lw * 2, lw * 2); });
+      c.strokeStyle = shade(col, -0.55); c.lineWidth = lw; c.strokeRect(lw / 2, lw / 2, w - lw, h - lw);
     } else if (k === "tcomp") {
       // Zielcomputer: Gehäuse mit Bildschirm, Fadenkreuz und kreisendem Suchstrich
       c.fillStyle = col; c.fillRect(0, 0, w, h);
@@ -536,6 +556,13 @@
       var chg = opts && opts.charge ? opts.charge : 0;
       c.fillStyle = "rgba(120,220,255," + (0.25 + chg * 0.75) + ")"; c.fillRect(w * 0.42, h * 0.08, w * 0.16, h - s * 1.15);
       c.strokeStyle = shade(col, -0.55); c.lineWidth = lw; c.strokeRect(w * 0.08, h - s * 1.2, w * 0.84, s * 1.2);
+    }
+    if (k === "cock" && ty.h >= 4 && view === "in") {
+      // große Cockpits: hinten eine Wand mit Schiebetür, dadurch ein eigener, abgeschlossener Raum
+      var wy = h - s * 0.16, dw = w * 0.34, dx0 = (w - dw) / 2, op = opts && opts.ckOpen ? Math.min(1, opts.ckOpen) : 0;
+      c.fillStyle = shade(col, -0.25); c.fillRect(0, wy, dx0, s * 0.16); c.fillRect(dx0 + dw, wy, w - dx0 - dw, s * 0.16);
+      c.fillStyle = "#D9A21B"; c.fillRect(dx0 - dw * 0.5 * op, wy + s * 0.04, dw / 2, s * 0.08); c.fillRect(dx0 + dw / 2 + dw * 0.5 * op, wy + s * 0.04, dw / 2, s * 0.08);
+      c.strokeStyle = shade(col, -0.55); c.lineWidth = lw; c.strokeRect(0, wy, w, s * 0.16);
     }
     if (dam && MECH[k] && k !== "cock") damageMarks(c, w, h, b, s, "full");
     c.restore();
@@ -712,7 +739,7 @@
     return o;
   }
   // Schiff: erst Innenleben, dann Aufbauten; Panzerung zuletzt, damit Kanten sauber liegen
-  var ORDER = { floor: 0, door: 0, hatch: 0, wall: 1, cock: 2, bat: 2, reac: 2, gyro: 2, cool: 2, tcomp: 2, thr: 3, mg: 3, rg: 3, ms: 3, ant: 3, win: 4, armor: 4 };
+  var ORDER = { floor: 0, door: 0, hatch: 0, wall: 1, cock: 2, bat: 2, reac: 2, gyro: 2, cool: 2, tcomp: 2, shield: 2, thr: 3, mg: 3, rg: 3, ms: 3, ant: 3, win: 4, armor: 4 };
   // Panzerung (und außen die Dächer) verschmilzt zu einer Hülle: Kanten nur dort, wo die Hülle endet
   function isHull(k, view) { return k === "armor" || k === "win" || (view === "out" && (k === "floor" || k === "wall" || k === "door" || k === "hatch")); }
   function drawShip(c, blocks, s, view, tm, body, M) {
@@ -721,7 +748,7 @@
     sorted.forEach(function (b) {
       var ty = T[b.t], hpk = b.hp !== undefined ? b.hp / hpMax(body, b) : 1, o = null;
       if (isHull(ty.kind, view)) { hull.push(b); return; }
-      if (body) o = { pilot: ty.kind === "cock" && body.ctrl && FL && FL.seated && b === body.seat, batK: body.cap ? body.energy / body.cap : 1, charge: b.chg ? Math.min(1, b.chg / RG.charge) : 0, ammo: b.ammo === undefined ? 2 : b.ammo, open: !!b.open, tw: b.tw || 0 };
+      if (body) o = { pilot: ty.kind === "cock" && body.ctrl && FL && FL.seated && b === body.seat, batK: body.cap ? body.energy / body.cap : 1, charge: b.chg ? Math.min(1, b.chg / RG.charge) : 0, ammo: b.ammo === undefined ? 2 : b.ammo, open: !!b.open, tw: b.tw || 0, ckOpen: b.ckOpen || 0 };
       drawBlock(c, b, s, view, hpk, tm, o);
     });
     hull.forEach(function (b) { hullFill(c, b, s, view, b.hp !== undefined ? b.hp / hpMax(body, b) : 1); });
@@ -795,7 +822,10 @@
   function recalc(bd, first) {
     var pm = bd.player ? PM : null, st = stats(bd.blocks, pm), old = bd.com;
     bd.com = st.com; bd.mass = Math.max(0.5, st.mass); bd.I = Math.max(1, st.I); bd.thr = st.thr; bd.torque = st.torque; bd.prod = st.prod * (pm ? 1 + pm.prod : 1);
-    bd.cap = st.cap * (pm ? 1 + pm.batCap : 1) + (st.cock ? 30 : 0); bd.energy = Math.min(bd.energy, bd.cap);
+    bd.cap = st.cap * (pm ? 1 + pm.batCap : 1) + (st.cock ? 30 : 0);
+    var shk = 0; bd.blocks.forEach(function (b) { if (T[b.t].kind === "shield") shk += T[b.t].shk; });
+    bd.shGen = shk; bd.shEff = 1 / (1 + shk);   // Energie je Schadenspunkt: 1 klein → 0,67, 1 groß → 0,4
+    bd.shE = Math.min(bd.shE || 0, bd.cap); bd.energy = Math.min(bd.energy, bd.cap - bd.shE);
     bd.map = buildMap(bd.blocks); bd.roomsDirty = true;
     bd.cool = coolMap(bd.blocks, bd.map); bd.ocMax = ocMaxOf(bd.blocks, bd.cool) * (pm ? 1 + pm.oc : 1);
     bd.seat = bd.blocks.filter(function (b) { return T[b.t].kind === "cock"; })[0] || null;
@@ -822,7 +852,7 @@
     FL.groups = []; if (st.mg) FL.groups.push("mg"); if (st.ms) FL.groups.push("ms"); if (st.rg) FL.groups.push("rg");
     FL.missiles = []; FL.hits = []; FL.sig = 0; FL.banner = 0; me.id = ++BID;
     // Sandbox: im Editor-Testflug liegen alle Perks in allen Seltenheiten im Inventar, aber inaktiv
-    FL.drops = []; FL.inv = []; FL.uid = 0;
+    FL.drops = []; FL.inv = []; FL.uid = 0; FL.shHits = []; FL.shPct = 0; me.shE = 0;
     PERKS.forEach(function (p, pi) { for (var r = p.legOnly ? 3 : 0; r < 4; r++) FL.inv.push({ uid: ++FL.uid, p: pi, r: r, on: false }); });
     PM = calcPM(FL.inv); me.player = true; recalc(me); me.energy = me.cap;
     FL.suit = SUIT.max; FL.out = false; FL.eva = null; FL.enterCd = 0; FL.ko = 0; me.lost = []; me.air = new Map();
@@ -859,11 +889,14 @@
     else FL.ocT = Math.min(FL.me.ocMax || 3, FL.ocT + dt * 0.5);
     var me = FL.me, k = FL.keys;
     airTick(me, dt);
+    // Schiebetür großer Cockpits öffnet, wenn man zu Fuß in ihre Nähe kommt
+    if (me.seat && T[me.seat.t].h >= 4) { var sb = me.seat, sf = fp(sb), bdir = dirOut(sb, 2), dcx = sb.x + sf[0] / 2 + DV[bdir][0] * (sf[0] / 2 - 0.2), dcy = sb.y + sf[1] / 2 + DV[bdir][1] * (sf[1] / 2 - 0.2);
+      var near = !FL.seated && !FL.out && Math.hypot(FL.pilot.x - dcx, FL.pilot.y - dcy) < 1.3; sb.ckOpen = Math.max(0, Math.min(1, (sb.ckOpen || 0) + (near ? dt : -dt) * 4)); }
     if (FL.out) evaTick(me, dt);
     FL.bodies.slice().forEach(function (bd) {
       if (bd.msRl > 0) { bd.msRl -= dt; if (bd.msRl <= 0) { bd.msRl = 0; bd.blocks.forEach(function (b) { if (T[b.t].kind === "ms") b.ammo = 2; }); } }
       // Energie: Reaktoren laden, Verbraucher ziehen
-      bd.energy = Math.min(bd.cap, bd.energy + bd.prod * dt);
+      bd.energy = Math.min(bd.cap - (bd.shE || 0), bd.energy + bd.prod * dt);   // der Schildanteil ist reserviert
       bd.flames = {};
       if (bd === me) turretTick(bd, dt, FL.seated && !FL.out ? mouseWorld() : null);
       if (bd === me && bd.ctrl && bd.seat) control(bd, dt, FL.seated);   // ohne Pilot halten nur die Dämpfer das Schiff
@@ -941,12 +974,8 @@
   }
   // ---------- Luft, Luken und Raumanzug ----------
   // Eine Luke öffnet nur kurz beim Durchgehen und wenn man draußen direkt davor schwebt
-  function hatchNear(bd, b) {
-    if (b.openT > 0) return true;
-    var f = fp(b), cx = b.x + f[0] / 2, cy = b.y + f[1] / 2;
-    if (FL.out && FL.eva) { var l = toLocal(bd, FL.eva.x, FL.eva.y); return Math.hypot(l.x - cx, l.y - cy) < 1.1; }
-    return false;
-  }
+  // Luken öffnen nur kurz beim Benutzen mit F
+  function hatchNear(bd, b) { return b.openT > 0; }
   function pulseHatch(bd, x, y) { var o = bd.map.get(key(Math.floor(x), Math.floor(y))); if (o && T[o.b.t].kind === "hatch") o.b.openT = 0.6; }
   function airRooms(bd) {
     if (bd.rooms) bd.rooms.forEach(function (r) { r.cells.forEach(function (c) { bd.air.set(key(c[0], c[1]), r.air); }); });
@@ -978,11 +1007,15 @@
     } else FL.ko = 0;
   }
   // Aussteigen durch eine Luke: ab jetzt fliegt die Figur frei im Raum, mit dem Tempo des Schiffs an dieser Stelle
-  function exitShip(bd, lx, ly) {
+  function openEdgeKind(k) { return k === "floor" || k === "door"; }
+  function exitShip(bd, lx, ly, push) {
     pulseHatch(bd, FL.pilot.x, FL.pilot.y);
-    var w = toWorld(bd, lx, ly), rx = w.x - bd.x, ry = w.y - bd.y, P = FL.pilot, fa = P.face + bd.a;
-    FL.eva = { x: w.x, y: w.y, vx: bd.vx - bd.w * ry + Math.cos(fa) * 1.2, vy: bd.vy + bd.w * rx + Math.sin(fa) * 1.2, face: fa, ph: 0, thr: false };
+    var w = toWorld(bd, lx, ly), rx = w.x - bd.x, ry = w.y - bd.y, P = FL.pilot, fa = P.face + bd.a, pk = push ? 1.2 : 0.3;
+    FL.eva = { x: w.x, y: w.y, vx: bd.vx - bd.w * ry + Math.cos(fa) * pk, vy: bd.vy + bd.w * rx + Math.sin(fa) * pk, face: fa, ph: 0, thr: false };
     FL.out = true; FL.enterCd = 0.8; FL.seated = false;
+  }
+  function enterAt(bd, cx, cy) {
+    var E = FL.eva; FL.out = false; FL.pilot.x = cx + 0.5; FL.pilot.y = cy + 0.5; FL.pilot.face = E ? E.face - bd.a : 0; FL.eva = null; FL.enterCd = 0.5;
   }
   function evaTick(bd, dt) {
     var E = FL.eva, k = FL.keys, dx = (k.d ? 1 : 0) - (k.a ? 1 : 0), dy = (k.s ? 1 : 0) - (k.w ? 1 : 0), ax = 0, ay = 0;
@@ -1005,8 +1038,11 @@
     // Zurück ins Schiff über eine Luke
     FL.enterCd = Math.max(0, FL.enterCd - dt);
     var lp = toLocal(bd, E.x, E.y), o = bd.map.get(key(Math.floor(lp.x), Math.floor(lp.y)));
-    if (o && T[o.b.t].kind === "hatch" && FL.enterCd <= 0) {
-      o.b.openT = 0.6; FL.out = false; FL.pilot.x = Math.floor(lp.x) + 0.5; FL.pilot.y = Math.floor(lp.y) + 0.5; FL.pilot.face = E.face - bd.a; FL.eva = null;
+    // Offenes Schiff: über eine Bodenzelle am offenen Rand schweben, dann steigt man direkt wieder ein
+    if (o && openEdgeKind(T[o.b.t].kind) && FL.enterCd <= 0) {
+      var cx0 = Math.floor(lp.x), cy0 = Math.floor(lp.y), edge = false;
+      for (var dd = 0; dd < 4; dd++) if (!bd.map.has(key(cx0 + DV[dd][0], cy0 + DV[dd][1]))) edge = true;
+      if (edge) enterAt(bd, cx0, cy0);
     }
   }
   // Schweißgerät: repariert Blöcke (15 HP/s) und baut zerstörte Blöcke an ihrer alten Stelle wieder auf
@@ -1046,6 +1082,7 @@
     var sty = AISTY[Math.floor(Math.random() * AISTY.length)];
     bd.ai = { state: "patrol", home: { x: bd.x, y: bd.y }, r: 70 + Math.random() * 50, ang: Math.random() * 6.28, dir: Math.random() < 0.5 ? 1 : -1, strafe: 1, st: 3, alert: 0,
       sty: sty, mor: Math.min(1, sty.mor + (Math.random() - 0.5) * 0.2), n0: bd.blocks.length, fleeRoll: false };
+    if (bd.shGen) bd.shE = Math.min(bd.cap * 0.5, bd.energy), bd.energy -= bd.shE;   // Gegner mit Generator reservieren die Hälfte fürs Schild
     FL.bodies.push(bd);
     note(fmt(t("spawned"), { n: sh.n[lang] }) + " · " + sty.n[lang]);
   }
@@ -1259,7 +1296,7 @@
       var corr = Math.min(0.6, 0.06 * n), ws = ims / (ims + imb);
       sm.x += nx * corr * ws; sm.y += ny * corr * ws; bg.x -= nx * corr * (1 - ws); bg.y -= ny * corr * (1 - ws);
     }
-    dmg.forEach(function (d) { damage(d[0], d[1], d[2], 0, 0); });
+    dmg.forEach(function (d) { damage(d[0], d[1], d[2], 0, 0, true); });   // Rammen geht am Schild vorbei
   }
   // ---------- zu Fuß im Schiff ----------
   function localPt(b, lx, ly) {
@@ -1281,9 +1318,9 @@
       if (canStand(bd, P.x, P.y + ly * sp)) P.y += ly * sp;
       var want = Math.atan2(ly, lx), d = Math.atan2(Math.sin(want - P.face), Math.cos(want - P.face)); P.face += d * Math.min(1, dt * 14);
       P.ph += dt * 10;
-      // Auf einer Luke Richtung All laufen: aussteigen
+      // Offenes Schiff: Boden oder Tür ohne Wand zum All, dort direkt hinaustreten (Luken nur mit F)
       var cur = bd.map.get(key(Math.floor(P.x), Math.floor(P.y)));
-      if (cur && T[cur.b.t].kind === "hatch") { var nx = P.x + lx * 0.75, ny = P.y + ly * 0.75; if (!bd.map.get(key(Math.floor(nx), Math.floor(ny)))) { exitShip(bd, nx, ny); return; } }
+      if (cur && openEdgeKind(T[cur.b.t].kind)) { var nx = P.x + lx * 0.75, ny = P.y + ly * 0.75; if (!bd.map.get(key(Math.floor(nx), Math.floor(ny)))) { exitShip(bd, nx, ny, true); return; } }
     } else P.ph *= Math.pow(0.001, dt);
     // Boden unter den Füßen weggeschossen: die Figur treibt ins All
     if (!walkable(bd, P.x, P.y)) { exitShip(bd, P.x, P.y); FL.eva.vx -= Math.cos(P.face + bd.a) * 1.2; FL.eva.vy -= Math.sin(P.face + bd.a) * 1.2; return; }
@@ -1293,7 +1330,15 @@
   }
   function toggleSeat() {
     var me = FL.me;
-    if (FL.out) { note(t("outside")); return; }
+    if (FL.out) {   // draußen: über einer Luke mit F wieder hinein
+      var lp = toLocal(me, FL.eva.x, FL.eva.y), o = me.map.get(key(Math.floor(lp.x), Math.floor(lp.y)));
+      if (o && T[o.b.t].kind === "hatch") { o.b.openT = 0.6; enterAt(me, Math.floor(lp.x), Math.floor(lp.y)); } else note(t("outside"));
+      return;
+    }
+    if (!FL.seated) {   // zu Fuß auf einer Luke: mit F hinaus (auch durch die Decke, wenn die Luke mitten im Raum liegt)
+      var hc = me.map.get(key(Math.floor(FL.pilot.x), Math.floor(FL.pilot.y)));
+      if (hc && T[hc.b.t].kind === "hatch") { exitShip(me, FL.pilot.x, FL.pilot.y, false); return; }
+    }
     if (FL.seated) { FL.seated = false; var sp = seatPos(me); FL.pilot.x = sp.x; FL.pilot.y = sp.y; FL.pilot.face = me.seat ? dirAngle(me.seat) : 0; if (S.view !== "in") { S.view = "in"; syncUI(); } return; }
     if (!me.seat) return;
     var p = seatPos(me); if (Math.hypot(p.x - FL.pilot.x, p.y - FL.pilot.y) > 1.5) { note(t("tooFar")); return; }
@@ -1343,6 +1388,12 @@
   }
   // Waffen einer Gruppe abfeuern (Spieler und KI nutzen dieselben Regeln)
   function weapons(bd, dt, g, firing, aim) {
+    // Mehrere Miniguns setzen versetzt ein: zu Beginn einer Salve bekommt jede einen eigenen Takt-Versatz
+    if (firing && g === "mg" && !bd.mgWas) {
+      var mgs = bd.blocks.filter(function (b) { return T[b.t].kind === "mg"; }), per = 1 / (MG.rate * (bd.player ? 1 + PM.mgRate : 1));
+      mgs.forEach(function (b, i) { b.cool2 = Math.max(b.cool2 || 0, (i / mgs.length) * per + Math.random() * per * 0.15); });
+    }
+    if (g === "mg" || !firing) bd.mgWas = firing && g === "mg";
     if (firing && g === "mg") bd.blocks.forEach(function (b) {
       if (T[b.t].kind !== "mg" || b.oh > 0) return;
       b.firing = true; b.cool2 = (b.cool2 || 0) - dt;
@@ -1416,7 +1467,7 @@
     return { x: FL.cam.x + (V.mouse.sx - V.W / 2) / ppm, y: FL.cam.y + (V.mouse.sy - V.H / 2) / ppm };
   }
   // Flächenschaden um einen Punkt (Raketen, explodierende Triebwerke und Reaktoren)
-  function blast(x, y, r, dmg, skip) {
+  function blast(x, y, r, dmg, skip, ns) {
     FL.parts.push({ x: x, y: y, vx: 0, vy: 0, life: 0, max: 0.22, k: "flash", sz: r * 1.3 });
     for (var i = 0; i < 10; i++) FL.parts.push({ x: x, y: y, vx: (Math.random() - 0.5) * 14, vy: (Math.random() - 0.5) * 14, life: 0, max: 0.35 + Math.random() * 0.35, k: "fire", sz: 0.8 + Math.random() * r * 0.4 });
     var hits = [];
@@ -1424,7 +1475,7 @@
       if (bd === skip || Math.abs(x - bd.x) > bd.rad + r || Math.abs(y - bd.y) > bd.rad + r) return;
       bd.blocks.forEach(function (b) { var p = blockCenter(bd, b), d = Math.hypot(p.x - x, p.y - y); if (d < r) hits.push({ bd: bd, b: b, dmg: dmg * (1 - d / r * 0.7) }); });
     });
-    hits.forEach(function (h) { damage(h.bd, h.b, h.dmg, x, y); });
+    hits.forEach(function (h) { var hp2 = blockCenter(h.bd, h.b); damage(h.bd, h.b, h.dmg, hp2.x, hp2.y, ns); });
   }
   function hitAt(x, y, own) {
     for (var i = 0; i < FL.bodies.length; i++) {
@@ -1437,8 +1488,20 @@
   }
   function spark(x, y, n) { for (var i = 0; i < n; i++) { var a = Math.random() * 6.28, v = 8 + Math.random() * 18; FL.parts.push({ x: x, y: y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: 0, max: 0.2 + Math.random() * 0.25, k: "spark", sz: 0.4 }); } }
   // Schaden: bei 0 Leben fällt der Block weg, lose Teile treiben als eigene Trümmer davon
-  function damage(bd, b, dmg, x, y) {
+  // Schild: fängt Treffer ab, solange Schildenergie da ist und mindestens ein Generator arbeitet. Kosten je Schadenspunkt sinken mit mehr Generatoren.
+  function shieldAbsorb(bd, b, dmg, x, y) {
+    if (!(bd.shE > 0) || !bd.shGen) return dmg;
+    var cost = dmg * bd.shEff, p = (x || y) ? { x: x, y: y } : blockCenter(bd, b);
+    if (bd.shE >= cost) { bd.shE -= cost; shieldHit(bd, p.x, p.y); return 0; }
+    var left = dmg - bd.shE / bd.shEff; bd.shE = 0; shieldHit(bd, p.x, p.y); return left;
+  }
+  function shieldHit(bd, x, y) {
+    var l = toLocal(bd, x, y); FL.shHits.push({ bd: bd, lx: l.x, ly: l.y, x: x, y: y, t: FL.t });
+    if (FL.shHits.length > 50) FL.shHits.shift();
+  }
+  function damage(bd, b, dmg, x, y, ns) {
     if (FL.bodies.indexOf(bd) < 0 || bd.blocks.indexOf(b) < 0) return;   // schon zerstört (Kettenreaktion)
+    if (!ns) { dmg = shieldAbsorb(bd, b, dmg, x, y); if (dmg <= 0) return; }
     b.hp -= dmg;
     if (b.hp > 0) return;
     var p = blockCenter(bd, b), col = b.c || T[b.t].col;
@@ -1450,8 +1513,8 @@
     if (!bd.blocks.length) FL.bodies.splice(FL.bodies.indexOf(bd), 1); else splitBody(bd);
     // Triebwerke und Reaktoren explodieren und beschädigen, was direkt drumherum liegt
     var kd = T[b.t].kind;
-    if (kd === "reac") blast(p.x, p.y, 3.2 * CELL_M, 85, null);
-    else if (kd === "thr") blast(p.x, p.y, (T[b.t].w > 1 ? 2.4 : 1.8) * CELL_M, T[b.t].w > 1 ? 60 : 40, null);
+    if (kd === "reac") blast(p.x, p.y, 3.2 * CELL_M, 85, null, true);
+    else if (kd === "thr") blast(p.x, p.y, (T[b.t].w > 1 ? 2.4 : 1.8) * CELL_M, T[b.t].w > 1 ? 60 : 40, null, true);
   }
   function splitBody(bd) {
     var comps = components(bd.blocks);
@@ -1732,6 +1795,26 @@
       if (bd.ai && bd.ai.alert > 0) { c.fillStyle = "rgba(224,83,63," + Math.min(1, bd.ai.alert * 2) + ")"; c.font = "800 " + (20 / ppm) + "px " + FONTS(); c.textAlign = "center"; c.textBaseline = "middle"; c.fillText("!", bd.x, yy); }
       if (bd.dead) { c.font = "700 " + (11 / ppm) + "px " + FONTS(); c.textAlign = "center"; c.textBaseline = "middle"; var tw = c.measureText(t("ko")).width; c.fillStyle = "rgba(20,24,30,.8)"; c.fillRect(bd.x - tw / 2 - 5 / ppm, yy - 8 / ppm, tw + 10 / ppm, 16 / ppm); c.fillStyle = "#C9D1D9"; c.fillText(t("ko"), bd.x, yy); }
     });
+    // Schildtreffer: dünne blaue Schicht direkt über der Panzerung, nur rund um die Einschlagstelle, blendet in 0,5 s aus
+    if (FL.shHits.length) {
+      c.save(); c.globalCompositeOperation = "lighter";
+      FL.shHits = FL.shHits.filter(function (h) {
+        var age = FL.t - h.t, bd = h.bd; if (age > 0.5 || FL.bodies.indexOf(bd) < 0) return false;
+        var a = 1 - age / 0.5, R2 = 2.3, ca = Math.cos(bd.a), sa = Math.sin(bd.a), half = CELL_M * 0.5 + 0.35;
+        c.save(); c.translate(bd.x, bd.y); c.rotate(bd.a);
+        bd.cells.forEach(function (q) {
+          var d = Math.hypot(q[0] - h.lx, q[1] - h.ly); if (d > R2) return;
+          var k = Math.pow(1 - d / R2, 1.6) * a, lx = (q[0] - bd.com[0]) * CELL_M, ly = (q[1] - bd.com[1]) * CELL_M;
+          c.fillStyle = "rgba(80,160,255," + (0.32 * k) + ")"; c.fillRect(lx - half, ly - half, half * 2, half * 2);
+        });
+        var hx = (h.lx - bd.com[0]) * CELL_M, hy = (h.ly - bd.com[1]) * CELL_M, rr = 0.6 + (1 - a) * 1.6;
+        c.strokeStyle = "rgba(170,215,255," + (0.85 * a) + ")"; c.lineWidth = 0.25; c.beginPath(); c.arc(hx, hy, rr, 0, Math.PI * 2); c.stroke();
+        c.fillStyle = "rgba(210,235,255," + (0.7 * a) + ")"; c.beginPath(); c.arc(hx, hy, 0.35 * a + 0.1, 0, Math.PI * 2); c.fill();
+        c.restore();
+        return true;
+      });
+      c.restore();
+    }
     // Treffermarker: kleines x
     FL.hits.forEach(function (h) {
       var a = 1 - h.life / 0.35, r = (h.crit ? 7 + h.life * 10 : 4 + h.life * 6) / ppm;
@@ -1816,7 +1899,13 @@
     var spEl = V.root.querySelector("#sr-h-sp"); if (spEl) spEl.className = hiNow ? "hi" : "";
     function lit(id, on) { var e = V.root.querySelector(id); if (e && e.classList.contains("lit") !== !!on) e.classList.toggle("lit", !!on); }
     lit("#sr-ic-z", FL.damp); lit("#sr-ic-c", FL.cruise); lit("#sr-ic-h", FL.hiOk); lit("#sr-ic-x", FL.oc);
-    var ek = me.cap ? me.energy / me.cap : 0, eb = V.root.querySelector("#sr-h-ebar"); if (eb) { eb.style.width = Math.round(ek * 100) + "%"; eb.style.background = ek < 0.2 ? "#E0533F" : "#57D18A"; }
+    var ek = me.cap ? me.energy / me.cap : 0, sk = me.cap ? (me.shE || 0) / me.cap : 0, eb = V.root.querySelector("#sr-h-ebar"); if (eb) { eb.style.width = (ek * 100).toFixed(1) + "%"; eb.style.background = ek < 0.2 ? "#E0533F" : "#57D18A"; }
+    var sbh = V.root.querySelector("#sr-h-sbar"); if (sbh) sbh.style.width = (sk * 100).toFixed(1) + "%";
+    var shl = V.root.querySelector(".sr-shs"); if (shl) { shl.classList.toggle("off", !me.shGen); var shv = V.root.querySelector("#sr-shp-v"); if (shv) shv.textContent = me.shGen ? FL.shPct + " %" : "–"; }
+    // Energieanzeige unten in der Mitte
+    var be = V.root.querySelector("#sr-be-e"), bs = V.root.querySelector("#sr-be-s");
+    if (be) { be.style.width = (ek * 100).toFixed(1) + "%"; be.style.background = ek < 0.2 ? "#E0533F" : "#57D18A"; bs.style.width = (sk * 100).toFixed(1) + "%"; }
+    set("sr-be-t", nf(me.energy) + (me.shGen ? "  ·  " + t("shield") + " " + nf(me.shE || 0) : "") + "  /  " + nf(me.cap));
     set("sr-h-en", nf(me.energy) + " / " + nf(me.cap));
     var ob = V.root.querySelector("#sr-h-ocbar"); if (ob) { ob.style.width = Math.round(FL.ocT / (me.ocMax || 3) * 100) + "%"; ob.style.background = FL.oc ? "#B98AE0" : "#6B7FA0"; }
     var wtxt = g ? t(g) : t("none");
@@ -1847,8 +1936,8 @@
   function ctlHtml() {
     var de = lang === "de", G = [
       [de ? "Im Sitz" : "Seated", [["WASD", de ? "Fliegen" : "Fly"], ["Q / E", de ? "Drehen" : "Rotate"], [de ? "Linksklick" : "Left click", de ? "Feuern" : "Fire"], ["R", de ? "Waffe wechseln" : "Switch weapon"], ["Z", de ? "Trägheitsdämpfer" : "Inertia dampers"], ["C", "Cruise Control"], ["X", "Overcharge"], [de ? "Umschalt" : "Shift", de ? "Hochgeschw. freigeben" : "Unlock high speed"], ["F", de ? "Aufstehen / Hinsetzen" : "Get up / sit down"], ["V", de ? "Innen / Außen" : "Inside / outside"], ["I", de ? "Inventar und Perks (pausiert)" : "Inventory and perks (pauses)"]]],
-      [de ? "Zu Fuß" : "On foot", [["WASD", de ? "Laufen" : "Walk"], [de ? "Linksklick" : "Left click", de ? "Schweißen, Hologramm aufbauen" : "Weld, rebuild hologram"], [de ? "Luke" : "Hatch", de ? "Durchgehen: ins All" : "Walk through: into space"]]],
-      [de ? "Draußen" : "Outside", [["WASD", "Jetpack"], [de ? "Umschalt" : "Shift", de ? "Tempo ans Schiff" : "Match ship speed"]]],
+      [de ? "Zu Fuß" : "On foot", [["WASD", de ? "Laufen" : "Walk"], [de ? "Linksklick" : "Left click", de ? "Schweißen, Hologramm aufbauen" : "Weld, rebuild hologram"], [de ? "F auf Luke" : "F on hatch", de ? "Aussteigen (auch durch die Decke)" : "Exit (also through the ceiling)"], [de ? "Offener Rand" : "Open edge", de ? "Direkt hinaus und hinein" : "Step straight out and in"]]],
+      [de ? "Draußen" : "Outside", [["WASD", "Jetpack"], [de ? "Umschalt" : "Shift", de ? "Tempo ans Schiff" : "Match ship speed"], [de ? "F über Luke" : "F above hatch", de ? "Einsteigen" : "Get in"]]],
       ["Test", [[de ? "Rechtsklick" : "Right click", de ? "Block beschädigen" : "Damage block"], [de ? "Mausrad" : "Wheel", "Zoom"], ["Esc", de ? "Zurück zum Editor" : "Back to editor"]]]
     ];
     return '<div class="sr-ctl" hidden>' + G.map(function (g) { return "<small>" + g[0] + "</small><dl>" + g[1].map(function (r) { return "<dt>" + r[0] + "</dt><dd>" + r[1] + "</dd>"; }).join("") + "</dl>"; }).join("") + "</div>";
@@ -1877,7 +1966,8 @@
       '<div class="sr-list">' + pal + '</div></aside>' +
       '<aside class="sr-info sr-ed-only" id="sr-info"></aside>' +
       '<div class="sr-hud sr-fl-only"><div class="sr-hr"><small>' + t("speed") + '</small><span><b id="sr-h-sp"></b><em id="sr-h-spb"></em></span></div>' +
-      '<div><small>' + t("energy") + ' <span id="sr-h-en"></span></small><i class="sr-eb"><i id="sr-h-ebar"></i></i></div>' +
+      '<div><small>' + t("energy") + ' <span id="sr-h-en"></span></small><i class="sr-eb sr-eb2"><i id="sr-h-ebar"></i><i id="sr-h-sbar"></i></i>' +
+      '<label class="sr-shs"><small>' + t("shield") + '</small><input type="range" id="sr-shp" min="0" max="100" step="5" value="0"><b id="sr-shp-v">0 %</b><button type="button" data-act="shfill" title="' + t("shFill") + '">↻</button></label></div>' +
       '<div><small>' + t("weapon") + ' (R)</small><b id="sr-h-w"></b></div>' +
       '<div class="sr-ics"><i id="sr-ic-z" title="Z · ' + t("damp") + '"><svg viewBox="0 0 20 20"><path d="M2 10h5M13 10h5M5 7l3 3-3 3M15 7l-3 3 3 3" fill="none" stroke="currentColor" stroke-width="1.8"/></svg><u>Z</u></i><i id="sr-ic-c" title="C · ' + t("cruise") + '"><svg viewBox="0 0 20 20"><path d="M3 14a7 7 0 0 1 14 0" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M10 14l4-5" stroke="currentColor" stroke-width="2"/><circle cx="10" cy="14" r="1.6" fill="currentColor"/></svg><u>C</u></i><i id="sr-ic-h" title="' + (lang === "de" ? "Umschalt" : "Shift") + ' · ' + t("hiLbl") + '"><svg viewBox="0 0 20 20"><path d="M5 11l5-5 5 5M5 16l5-5 5 5" fill="none" stroke="currentColor" stroke-width="1.8"/></svg><u>⇧</u></i><i id="sr-ic-x" title="X · Overcharge"><svg viewBox="0 0 20 20"><path d="M11 2L5 11h4l-1 7 6-9h-4z" fill="currentColor"/></svg><u>X</u><s><s id="sr-h-ocbar"></s></s></i></div>' +
       '<div><small>' + t("air") + ' <span id="sr-h-air"></span></small><i class="sr-eb"><i id="sr-h-airbar"></i></i></div>' +
@@ -1889,6 +1979,7 @@
       '<button type="button" class="sr-ctlb sr-fl-only" data-act="ctl" aria-pressed="false">' + t("controls") + '</button>' +
       '<div class="sr-inv" hidden><div class="sr-inv-box"><div class="sr-inv-h"><div><b>' + t("invT") + '</b><small>' + t("invSub") + '</small></div><button type="button" data-act="inv-x">' + (lang === "de" ? "Schließen (I)" : "Close (I)") + '</button></div>' +
       '<div class="sr-inv-leg">' + RAR.map(function (r) { return '<span style="--rc:' + r.col + '">' + r.n[lang] + "</span>"; }).join("") + '<em class="sr-inv-cnt"></em></div><div class="sr-inv-list"></div></div></div>' +
+      '<div class="sr-ebot sr-fl-only"><div class="sr-ebot-bar"><i id="sr-be-e"></i><i id="sr-be-s"></i></div><span id="sr-be-t"></span></div>' +
       '<div class="sr-tip sr-fl-only" hidden title="' + (lang === "de" ? "Klicken zum Ausblenden" : "Click to dismiss") + '"></div>' +
       '<div class="sr-hint" id="sr-hint"></div><div class="sr-note" hidden></div>' +
       '<div class="sr-io sr-npc" hidden><div class="sr-io-box sr-npc-box"><div class="sr-tbar"><b class="sr-npc-t">' + t("hangar") + '</b><span class="sr-sp"></span><button type="button" data-act="npc-x">' + (lang === "de" ? "Schließen" : "Close") + '</button></div><div class="sr-io-h">' + t("hangarH") + '</div><div class="sr-npc-list"></div></div></div>' +
@@ -1972,7 +2063,12 @@
     ".sr-ctlb{position:absolute;left:206px;bottom:10px;z-index:3;padding:5px 10px;font-size:.72rem;background:rgba(14,19,28,.6);border:1px solid rgba(38,49,66,.8);color:#B9C4D4}.sr-ctlb[aria-pressed=true]{color:#9FE3BD;border-color:rgba(127,211,164,.55)}" +
     ".sr-ctl{border-top:1px solid rgba(38,49,66,.9);padding-top:6px;gap:3px!important}.sr-ctl[hidden]{display:none!important}.sr-ctl small{margin-top:3px}" +
     ".sr-ctl dl{display:grid;grid-template-columns:66px 1fr;gap:2px 7px;margin:0;font-size:.7rem;line-height:1.3}.sr-ctl dt{color:#E8ECEF;font-weight:600;white-space:nowrap}.sr-ctl dd{margin:0;color:#B9C4D4}" +
-    ".sr-tip{position:absolute;left:50%;bottom:22px;transform:translateX(-50%);max-width:min(620px,calc(100% - 480px));text-align:center;font-size:.86rem;line-height:1.4;color:rgba(222,230,238,.86);text-shadow:0 1px 3px rgba(0,0,0,.8);z-index:3;cursor:pointer;opacity:0;transition:opacity .4s ease}" +
+    ".sr-eb2{display:flex!important}.sr-eb2 i{display:block;height:100%}#sr-h-sbar{background:#4EA3FF;box-shadow:0 0 6px rgba(78,163,255,.6)}" +
+    ".sr-shs{display:flex;align-items:center;gap:5px;margin-top:4px}.sr-shs small{flex:none}.sr-shs input{flex:1;min-width:0;accent-color:#4EA3FF;margin:0}.sr-shs b{font-size:.7rem;min-width:30px;text-align:right;font-variant-numeric:tabular-nums}.sr-shs button{padding:0 5px;font-size:.75rem;line-height:1.3}.sr-shs.off{opacity:.4;pointer-events:none}" +
+    ".sr-ebot{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);width:min(340px,calc(100% - 520px));min-width:180px;display:flex!important;flex-direction:column;align-items:center;gap:4px;z-index:2;pointer-events:none}" +
+    ".sr-ebot-bar{width:100%;height:7px;background:rgba(20,26,36,.75);border:1px solid rgba(60,75,95,.8);display:flex}.sr-ebot-bar i{display:block;height:100%}#sr-be-s{background:#4EA3FF;box-shadow:0 0 8px rgba(78,163,255,.7)}" +
+    ".sr-ebot span{font-size:.7rem;color:rgba(222,230,238,.85);font-variant-numeric:tabular-nums;text-shadow:0 1px 2px rgba(0,0,0,.8);white-space:pre}" +
+    ".sr-tip{position:absolute;left:50%;bottom:58px;transform:translateX(-50%);max-width:min(620px,calc(100% - 480px));text-align:center;font-size:.86rem;line-height:1.4;color:rgba(222,230,238,.86);text-shadow:0 1px 3px rgba(0,0,0,.8);z-index:3;cursor:pointer;opacity:0;transition:opacity .4s ease}" +
     ".sr-tip[hidden]{display:none!important}.sr-tip.in{opacity:1}.sr-tip.out{opacity:0}" +
     ".sr-inv{position:absolute;inset:0;background:rgba(6,9,14,.55);display:flex;align-items:center;justify-content:center;z-index:7;padding:16px}.sr-inv[hidden]{display:none}" +
     ".sr-inv-box{width:min(820px,100%);max-height:calc(100% - 40px);overflow:auto;background:rgba(18,23,32,.97);border:1px solid #33405A;padding:14px 16px;display:flex;flex-direction:column;gap:10px}" +
@@ -2142,6 +2238,7 @@
     else if (act === "exp" || act === "imp") { openIO(act); return; }
     else if (act === "npc") { openHangar(); return; }
     else if (act === "inv") { openInv(); return; }
+    else if (act === "shfill") { if (FL) setShield(FL.shPct); a.blur(); return; }
     else if (act === "inv-x") { closeInv(); return; }
     else if (act === "ctl") { var cp = V.root.querySelector(".sr-ctl"), cb = V.root.querySelector(".sr-ctlb"); cp.hidden = !cp.hidden; cb.setAttribute("aria-pressed", String(!cp.hidden)); if (!cp.hidden) V.root.querySelector(".sr-hud").scrollTop = 1e5; cb.blur(); return; }
     else if (act === "npc-x") { V.root.querySelector(".sr-npc").hidden = true; return; }
@@ -2157,6 +2254,15 @@
   function onInput(e) {
     if (e.target.id === "sr-col") { S.color = e.target.value; S.tool = "paint"; save(); syncUI(); }
     if (e.target.id === "sr-uis") { hudScale(+e.target.value); try { localStorage.setItem("spacerogue-ui", String(V.uis)); } catch (er) {} }
+    if (e.target.id === "sr-shp" && FL) setShield(+e.target.value);
+  }
+  // Schild-Zuweisung: Anteil der Gesamtkapazität wird aus der Schiffsenergie ins Schild umgebucht.
+  // Leergeschossene Schilde füllen sich nicht von selbst, erst wenn der Regler neu gesetzt wird (oder ↻).
+  function setShield(pct) {
+    var me = FL.me; FL.shPct = pct; if (!me.shGen) return;
+    var target = pct / 100 * me.cap, diff = target - (me.shE || 0);
+    if (diff > 0) { var take = Math.min(diff, me.energy); me.energy -= take; me.shE = (me.shE || 0) + take; }
+    else { me.shE += diff; me.energy = Math.min(me.cap - me.shE, me.energy - diff); }
   }
   // Infofeld skalieren: CSS-zoom statt Bild-Skalierung, Schrift und Symbole bleiben gestochen scharf (100 bis 150 %)
   function hudScale(k) {
@@ -2203,6 +2309,7 @@
     V.cv.addEventListener("wheel", onWheel, { passive: false }); V.cv.addEventListener("contextmenu", function (e) { e.preventDefault(); });
     V.cv.addEventListener("pointerleave", function () { if (V && S.mode !== "fly") V.mouse = null; });
     el.addEventListener("click", onClick); el.addEventListener("input", onInput);
+    el.addEventListener("change", function (e) { if (e.target.type === "range") e.target.blur(); });   // Regler loslassen gibt WASD wieder frei
     window.addEventListener("keydown", onKey); window.addEventListener("keyup", onKeyUp); window.addEventListener("resize", layout);
     window.addEventListener("blur", releaseKeys);
     last = 0; raf = requestAnimationFrame(loop);
