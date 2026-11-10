@@ -4,7 +4,7 @@
 (function () {
   "use strict";
 
-  var VERSION = "0.41";
+  var VERSION = "0.42";
   var CELL_M = 2.5, PX = 24;              // Meter je Zelle, Pixel je Zelle bei Zoom 1
   var lang = "de";
   function L2(de, en) { return { de: de, en: en }; }
@@ -1081,20 +1081,30 @@
     if (A.state === "combat" && (!alive || dist > AI.lose)) { A.state = "patrol"; A.home = { x: bd.x, y: bd.y }; }
     A.hurt = false;
     aiMorale(bd, dt); aiFleeCheck(bd);
+    // Wahrnehmung mit Verzögerung: Die KI sieht deine Position, schätzt dein Tempo aber nur geglättet (~0,8 s),
+    // und plant ihre Wunschbewegung nur alle 0,35–0,6 s neu. So reagiert sie träger auf deine Manöver.
+    var pk = 1 - Math.exp(-dt / 0.8);
+    if (A.pvx === undefined) { A.pvx = me.vx; A.pvy = me.vy; }
+    A.pvx += (me.vx - A.pvx) * pk; A.pvy += (me.vy - A.pvy) * pk;
+    var PV = { x: A.pvx, y: A.pvy };
+    A.plan = (A.plan || 0) - dt; var replan = A.plan <= 0; if (replan) A.plan = 0.35 + Math.random() * 0.25;
     var vDes, head, fire = false, aim = null, Y = A.sty;
     if (A.state === "flee") {
       // Flucht: Nase weg vom Spieler, volle Fahrt, kein Feuer
       var fx = -dx / dist, fy = -dy / dist; head = angTo(fx, fy);
+      A.fleeT = (A.fleeT || 0) + dt;
       vDes = { x: bd.vx + fx * 60, y: bd.vy + fy * 60 };
+      var vcap = A.fleeT < 5 ? VHI - 1 : VMAX, vm = Math.hypot(vDes.x, vDes.y);   // erst bis 120 m/s, frühestens nach 5 s Hochgeschwindigkeit
+      if (vm > vcap) { vDes.x *= vcap / vm; vDes.y *= vcap / vm; }
     } else if (A.state === "combat") {
       var R = bd.blocks.some(function (b) { return T[b.t].kind === "mg"; }) ? 75 : bd.blocks.some(function (b) { return T[b.t].kind === "ms"; }) ? 130 : 170;
       R *= Y.rk * (1 + Math.max(0, 0.6 - A.mor) * 1.2);   // Stil und Moral bestimmen den Wunschabstand
-      var tl = dist / MG.speed; aim = { x: me.x + (me.vx - bd.vx) * tl, y: me.y + (me.vy - bd.vy) * tl };
+      var tl = dist / MG.speed; aim = { x: me.x + (PV.x - bd.vx) * tl, y: me.y + (PV.y - bd.vy) * tl };
       var ax = aim.x - bd.x, ay = aim.y - bd.y; head = angTo(ax, ay);
       A.st -= dt; if (A.st <= 0) { A.st = 2.5 + Math.random() * 3; A.strafe = Math.random() < 0.5 ? -1 : 1; if (Y.orbit && Math.random() < 0.25) A.dir = -A.dir; }
       var ux = dx / dist, uy = dy / dist, cl = Math.max(-25, Math.min(Y.push, (dist - R) * 0.6));
       var side = Y.orbit ? Y.orbit * A.dir : Y.strafe * A.strafe;   // Umkreiser fliegen quer zum Spieler
-      vDes = { x: me.vx + ux * cl - uy * side, y: me.vy + uy * cl + ux * side };
+      vDes = { x: PV.x + ux * cl - uy * side, y: PV.y + uy * cl + ux * side };
       fire = Math.abs(angDiff(head, bd.a)) < (bd.tcomp ? TURRET.max : 0.1) && dist < R * 2.2;
     } else {
       A.ang += A.dir * dt * AI.patrolV / A.r;
@@ -1102,22 +1112,30 @@
       vDes = { x: tx * AI.patrolV + (px - bd.x) * 0.3, y: ty * AI.patrolV + (py - bd.y) * 0.3 };
       head = angTo(vDes.x, vDes.y);
     }
+    if (replan || !A.vDes || A.state === "flee") A.vDes = vDes; else vDes = A.vDes;
     aiDrive(bd, dt, vDes, head);
+    if (A.state === "flee" && A.fleeT < 5) { var fv = Math.hypot(bd.vx, bd.vy), pv0 = A.pv || 0; if (fv > VHI && fv > pv0) { var lm = Math.max(pv0, VHI); bd.vx *= lm / fv; bd.vy *= lm / fv; fv = lm; } A.pv = fv; }
+    else A.pv = Math.hypot(bd.vx, bd.vy);
     turretTick(bd, dt, aim);
     if (fire) { weapons(bd, dt, "mg", true, aim); if (dist < 300) weapons(bd, dt, "ms", true, aim); weapons(bd, dt, "rg", true, aim); }
   }
   function aiDrive(bd, dt, vDes, head) {
     if (bd.torque > 0 && bd.energy > 0) {
-      var wT = Math.max(-1.8, Math.min(1.8, angDiff(head, bd.a) * 2.2)), al = bd.torque / bd.I, dw = wT - bd.w, step = Math.sign(dw) * Math.min(Math.abs(dw), al * dt);
+      var wT = Math.max(-1.5, Math.min(1.5, angDiff(head, bd.a) * 1.5)), al = bd.torque / bd.I, dw = wT - bd.w, step = Math.sign(dw) * Math.min(Math.abs(dw), al * dt);
       bd.w += step; if (Math.abs(step) > 1e-4) bd.energy = Math.max(0, bd.energy - 3 * dt * Math.min(1, Math.abs(dw)));
     }
     var ca = Math.cos(bd.a), sa = Math.sin(bd.a), dvx = vDes.x - bd.vx, dvy = vDes.y - bd.vy, lx = dvx * ca + dvy * sa, ly = -dvx * sa + dvy * ca, acc = { x: 0, y: 0 }, use = 0;
+    // Triebwerke laufen wie beim Spieler an: 50 % nach 0,2 s, voller Schub nach 1 s
+    var sp = bd.spool || (bd.spool = [0, 0, 0, 0]), cmd = [0, 0, 0, 0];
+    function spK(x) { return x < 0.2 ? x * 2.5 : 0.5 + 0.5 * Math.min(1, (x - 0.2) / 0.8); }
     [[lx, 1, 3, "x"], [ly, 2, 0, "y"]].forEach(function (q) {
       var v = q[0]; if (Math.abs(v) < 0.08) return;
       var d = v > 0 ? q[1] : q[2], th = bd.thr[d]; if (!th) return;
-      var amax = th / bd.mass, a = Math.min(Math.abs(v) * 2.5, amax), eff = a / amax;
+      cmd[d] = 1;
+      var amax = th / bd.mass, a = Math.min(Math.abs(v) * 1.2, amax) * spK(sp[d]), eff = a / amax;
       acc[q[3]] += (v > 0 ? 1 : -1) * a; use += eff * useOf(bd, d) * dt; bd.flames[d] = Math.max(bd.flames[d] || 0, eff);
     });
+    for (var di = 0; di < 4; di++) sp[di] = cmd[di] ? Math.min(1, sp[di] + dt) : Math.max(0, sp[di] - dt * 2.5);
     var sc = use > bd.energy ? (bd.energy > 0 ? bd.energy / use : 0) : 1;
     bd.energy = Math.max(0, bd.energy - use * sc); for (var fk in bd.flames) bd.flames[fk] *= sc;
     var axw = acc.x * sc, ayw = acc.y * sc;
