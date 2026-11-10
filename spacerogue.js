@@ -4,7 +4,7 @@
 (function () {
   "use strict";
 
-  var VERSION = "0.38";
+  var VERSION = "0.39";
   var CELL_M = 2.5, PX = 24;              // Meter je Zelle, Pixel je Zelle bei Zoom 1
   var lang = "de";
   function L2(de, en) { return { de: de, en: en }; }
@@ -38,7 +38,10 @@
     noCockTest: L2("Zum Testen braucht das Schiff ein Cockpit.", "The ship needs a cockpit to be tested."),
     cruise: L2("Cruise-Modus", "Cruise mode"), cruiseOn: L2("Cruise an: Das Schiff bremst nicht mehr von selbst, seitlich bleibt der Kurs stabil", "Cruise on: the ship no longer brakes by itself, sideways the course stays stable"), cruiseOff: L2("Cruise aus: Die Dämpfer bremsen wieder in alle Richtungen", "Cruise off: dampers brake in all directions again"),
     hiSpeed: L2("Hohe Geschwindigkeit", "High speed"),
-    hiOn: L2("Hochgeschwindigkeit frei: 120 bis 500 m/s", "High speed unlocked: 120 to 500 m/s"), hiOff: L2("Hochgeschwindigkeit gesperrt: Beschleunigen nur bis 120 m/s", "High speed locked: acceleration only up to 120 m/s"),
+    hiOn: L2("Hochgeschwindigkeit frei", "High speed unlocked"), hiOff: L2("Hochgeschwindigkeit gesperrt", "High speed locked"),
+    crFloatOn: L2("Cruise Control an", "Cruise control on"), crFloatOff: L2("Cruise Control aus", "Cruise control off"),
+    hSeat: L2("Im Cockpit", "In cockpit"), hWalk: L2("Zu Fuß", "On foot"), hOut: L2("Draußen · Jetpack", "Outside · jetpack"), hGone: L2("Cockpit zerstört", "Cockpit destroyed"),
+    hWeldIdle: L2("Linksklick: reparieren", "Left click: repair"), hiBadge: L2("Hoch", "High"), limBadge: L2("⇧ Limit", "⇧ limit"),
     hiLbl: L2("Hochgeschwindigkeit", "High speed"), hiFree: L2("frei", "unlocked"), hiLock: L2("gesperrt (120 m/s)", "locked (120 m/s)"),
     damp: L2("Trägheitsdämpfer", "Inertia dampers"), on: L2("an", "on"), off: L2("aus", "off"),
     speed: L2("Tempo", "Speed"), energy: L2("Energie", "Power"), weapon: L2("Waffe", "Weapon"), none: L2("keine", "none"),
@@ -710,7 +713,7 @@
   var FL = null, BID = 0, ZMIN_FL = 0.2, VMAX = 500, VHI = 120;
   var MG = { rate: 12, speed: 462, life: 1.48, dmg: 7, heat: 0.042, cool: 0.42, warn: 0.78, lock: 3.2, e: 0.4 };
   var MS = { v0: 30, acc: 420, vmax: 340, turn: 0.45, life: 4, dmg: 55, splash: 2.6, sdmg: 28, reload: 2.5, gap: 0.18, e: 6 };
-  var RG = { charge: 0.7, cd: 2.2, dmg: 150, range: 700, e: 45 };
+  var RG = { charge: 0.7, cd: 2.2, dmg: 150, range: 700, e: 67.5 };   // v0.39: +50 % Energie pro Schuss
   // Anzugluft in Sekunden; Raumluft füllt sich in dichten Räumen auf und entweicht durch Lecks
   var SUIT = { max: 180, refill: 20, jet: 3, acc: 5, breathe: 0.35 }, AIR = { fill: 0.22, vent: 0.9 }, WELD = 15;
   function makeBody(blocks, ctrl) {
@@ -800,6 +803,7 @@
         var pv = bd.pv || 0;
         if (!FL.hiOk && vv > VHI && vv > pv) { var lim = Math.max(pv, VHI); bd.vx *= lim / vv; bd.vy *= lim / vv; vv = lim; }
         if (FL.hiOk && pv <= VHI && vv > VHI) { FL.shake = 0.7; FL.ca = Math.max(FL.ca || 0, 0.5); }   // Eintritt in hohe Geschwindigkeit
+        if (FL.hiOk && pv >= VHI && vv < VHI) FL.hiOk = false;   // wieder unter 120 m/s: Freigabe erlischt, beim nächsten Mal erneut Umschalt
         bd.pv = vv;
       }
       bd.x += bd.vx * dt; bd.y += bd.vy * dt; bd.a += bd.w * dt;
@@ -1376,6 +1380,17 @@
     } else if (V.caOn) { V.cv.style.filter = ""; V.caOn = false; }
     return off;
   }
+  // Kurzer Schriftzug über dem Schiff: 0,5 s sichtbar, bis 1 s ausgeblendet
+  function floatTxt(txt) { if (FL) FL.flt = { txt: txt, t0: FL.t }; }
+  function drawFloat(c, W, H, ppm) {
+    var f = FL.flt; if (!f) return;
+    var age = FL.t - f.t0; if (age >= 1) { FL.flt = null; return; }
+    var a = age < 0.5 ? 1 : 1 - (age - 0.5) / 0.5, me = FL.me;
+    var x = W / 2 + (me.x - FL.cam.x) * ppm, y = H / 2 + (me.y - FL.cam.y) * ppm - Math.max(40, me.rad * ppm * 0.85) - 14 - age * 10;
+    c.save(); c.font = "600 13px " + FONTS(); c.textAlign = "center"; c.textBaseline = "middle";
+    c.fillStyle = "rgba(0,0,0," + 0.5 * a + ")"; c.fillText(f.txt, x + 1, y + 1);
+    c.fillStyle = "rgba(232,236,239," + a + ")"; c.fillText(f.txt, x, y); c.restore();
+  }
   function flDraw() {
     var c = V.ctx, W = V.W, H = V.H, z = V.zoom, s = PX * z, ppm = s / CELL_M, tm = performance.now() / 1000;
     var shk = fxPre(ppm, tm); FL.cam.x += shk.x; FL.cam.y += shk.y;
@@ -1480,6 +1495,7 @@
     c.restore();
     drawDust(c, W, H, ppm, DUST.front);
     radarEdges(c, W, H, ppm);
+    drawFloat(c, W, H, ppm);
     FL.cam.x -= shk.x; FL.cam.y -= shk.y;
     flHud();
   }
@@ -1519,27 +1535,27 @@
   function flHud() {
     var me = FL.me, sp = Math.hypot(me.vx, me.vy), g = FL.groups[FL.wsel];
     set("sr-h-sp", nf(sp, 1) + " m/s");
-    // ab 120 m/s: Tempo leuchtet rot und meldet hohe Geschwindigkeit
-    var spEl = V.root.querySelector("#sr-h-sp"); if (spEl) { var hi = sp >= VHI; spEl.classList.toggle("hi", hi); spEl.setAttribute("data-hi", hi ? t("hiSpeed") + (sp >= VMAX - 0.5 ? " · max" : "") : ""); spEl.parentNode.classList.toggle("hiBox", hi); }
-    set("sr-h-hi", t("hiLbl") + ": " + t(FL.hiOk ? "hiFree" : "hiLock")); var hiEl = V.root.querySelector("#sr-h-hi"); if (hiEl) hiEl.className = FL.hiOk ? "warn" : "";
-    set("sr-h-cr", t("cruise") + ": " + t(FL.cruise ? "on" : "off")); var crEl = V.root.querySelector("#sr-h-cr"); if (crEl) crEl.className = FL.cruise ? "off" : "";
-    set("sr-h-damp", t("damp") + ": " + t(FL.damp ? "on" : "off")); var dEl = V.root.querySelector("#sr-h-damp"); if (dEl) dEl.className = FL.damp ? "on" : "off";
+    // Tempo: rotes „Hoch“ über 120 m/s, an der Sperre ein ruhiger Hinweis „⇧ Limit“ (feste Breite, nichts springt)
+    var hiNow = sp > VHI + 0.3, atLim = !FL.hiOk && sp >= VHI - 1;
+    set("sr-h-spb", hiNow ? t("hiBadge") + (sp >= VMAX - 0.5 ? " · max" : "") : atLim ? t("limBadge") : "");
+    var spb = V.root.querySelector("#sr-h-spb"); if (spb) spb.className = hiNow ? "hi" : atLim ? "lim" : "";
+    var spEl = V.root.querySelector("#sr-h-sp"); if (spEl) spEl.className = hiNow ? "hi" : "";
+    function lit(id, on) { var e = V.root.querySelector(id); if (e && e.classList.contains("lit") !== !!on) e.classList.toggle("lit", !!on); }
+    lit("#sr-ic-z", FL.damp); lit("#sr-ic-c", FL.cruise); lit("#sr-ic-h", FL.hiOk); lit("#sr-ic-x", FL.oc);
     var ek = me.cap ? me.energy / me.cap : 0, eb = V.root.querySelector("#sr-h-ebar"); if (eb) { eb.style.width = Math.round(ek * 100) + "%"; eb.style.background = ek < 0.2 ? "#E0533F" : "#57D18A"; }
     set("sr-h-en", nf(me.energy) + " / " + nf(me.cap));
-    set("sr-h-oc", (FL.oc ? t("on") : t("off")) + " · " + nf(FL.ocT, 1) + " / " + nf(me.ocMax || 3, 1) + " s");
     var ob = V.root.querySelector("#sr-h-ocbar"); if (ob) { ob.style.width = Math.round(FL.ocT / (me.ocMax || 3) * 100) + "%"; ob.style.background = FL.oc ? "#B98AE0" : "#6B7FA0"; }
-    var oe = V.root.querySelector("#sr-h-oc"); if (oe) oe.className = FL.oc ? "on" : "";
     var wtxt = g ? t(g) : t("none");
     if (g === "mg") { var h = 0, oh = 0; me.blocks.forEach(function (b) { if (T[b.t].kind === "mg") { h = Math.max(h, b.heat || 0); oh = Math.max(oh, b.oh || 0); } }); wtxt += oh > 0 ? " · !!! " + nf(oh, 1) + " s" : " · " + Math.round(h * 100) + " %"; }
     if (g === "ms") { var am = 0, mx = 0; me.blocks.forEach(function (b) { if (T[b.t].kind === "ms") { am += b.ammo === undefined ? 2 : b.ammo; mx += 2; } }); wtxt += me.msRl > 0 ? (lang === "de" ? " · lädt " : " · reloading ") + nf(me.msRl, 1) + " s" : " · " + am + " / " + mx; }
     if (g === "rg") { var cd = 0; me.blocks.forEach(function (b) { if (T[b.t].kind === "rg") cd = Math.max(cd, b.cd || 0); }); wtxt += cd > 0 ? " · " + nf(cd, 1) + " s" : " · bereit".replace("bereit", lang === "de" ? "bereit" : "ready"); }
     set("sr-h-w", wtxt);
-    set("sr-h-seat", FL.out ? t("evaOn") : !me.seat ? t("cockGone") : FL.seated ? t("seated") : t("walking"));
+    set("sr-h-seat", FL.out ? t("hOut") : !me.seat ? t("hGone") : FL.seated ? t("hSeat") : t("hWalk"));
     var ak = FL.suit / SUIT.max, ab = V.root.querySelector("#sr-h-airbar"); if (ab) { ab.style.width = Math.round(ak * 100) + "%"; ab.style.background = FL.breath === "room" ? "#57D18A" : ak < 0.25 ? "#E0533F" : "#E3B83F"; }
-    set("sr-h-air", t(FL.breath === "room" ? "airRoom" : FL.breath === "jet" ? "airJet" : "airSuit") + " · " + mmss(FL.suit));
+    set("sr-h-air", (FL.breath === "room" ? "" : t(FL.breath === "jet" ? "airJet" : "airSuit") + " · ") + mmss(FL.suit));
     var ae = V.root.querySelector("#sr-h-air"); if (ae) ae.className = FL.breath === "room" ? "on" : ak < 0.25 ? "warn" : "off";
     var sb = V.root.querySelector('[data-act="seat"]'); if (sb) { set("sr-h-seatb", FL.seated ? t("exitSeat") : t("sitDown")); }
-    var wb = V.root.querySelector("#sr-h-weld"); if (wb) { wb.parentNode.hidden = FL.seated; set("sr-h-weld", FL.weldG ? fmt(t(FL.weldOk ? "weldBuild" : "weldWait"), { n: T[FL.weldG.t].n[lang] }) : FL.weldB ? fmt(t("weldOn"), { n: T[FL.weldB.t].n[lang], p: Math.round(FL.weldB.hp / T[FL.weldB.t].hp * 100) }) : t("weldIdle")); }
+    var wb = V.root.querySelector("#sr-h-weld"); if (wb) { wb.parentNode.hidden = FL.seated; set("sr-h-weld", FL.weldG ? fmt(t(FL.weldOk ? "weldBuild" : "weldWait"), { n: T[FL.weldG.t].n[lang] }) : FL.weldB ? fmt(t("weldOn"), { n: T[FL.weldB.t].n[lang], p: Math.round(FL.weldB.hp / T[FL.weldB.t].hp * 100) }) : t("hWeldIdle")); }
     var se = V.root.querySelector("#sr-h-seat"); if (se) se.className = !me.seat ? "warn" : "";
   }
 
@@ -1576,8 +1592,12 @@
       '<div class="sr-opts"><button type="button" data-act="rot">' + t("rot") + '</button><button type="button" data-act="flip">' + t("flip") + '</button><button type="button" data-act="sym">' + t("sym") + '</button><button type="button" data-act="symm" class="sr-symm"></button></div>' +
       '<div class="sr-list">' + pal + '</div></aside>' +
       '<aside class="sr-info sr-ed-only" id="sr-info"></aside>' +
-      '<div class="sr-hud sr-fl-only"><div><small>' + t("speed") + '</small><b id="sr-h-sp"></b></div><div><small>' + t("energy") + '</small><b id="sr-h-en"></b><i class="sr-eb"><i id="sr-h-ebar"></i></i></div>' +
-      '<div><small>' + t("weapon") + ' (R)</small><b id="sr-h-w"></b></div><div><small>Z</small><b id="sr-h-damp"></b></div><div><small>C</small><b id="sr-h-cr"></b></div><div><small>' + (lang === "de" ? "Umschalt" : "Shift") + '</small><b id="sr-h-hi"></b></div><div><small>X · Overcharge</small><b id="sr-h-oc"></b><i class="sr-eb"><i id="sr-h-ocbar"></i></i></div><div><small>F</small><b id="sr-h-seat"></b></div><div><small>' + t("air") + '</small><b id="sr-h-air"></b><i class="sr-eb"><i id="sr-h-airbar"></i></i></div><div hidden><small>' + t("weld") + '</small><b id="sr-h-weld"></b></div>' +
+      '<div class="sr-hud sr-fl-only"><div class="sr-hr"><small>' + t("speed") + '</small><span><b id="sr-h-sp"></b><em id="sr-h-spb"></em></span></div>' +
+      '<div><small>' + t("energy") + ' <span id="sr-h-en"></span></small><i class="sr-eb"><i id="sr-h-ebar"></i></i></div>' +
+      '<div><small>' + t("weapon") + ' (R)</small><b id="sr-h-w"></b></div>' +
+      '<div class="sr-ics"><i id="sr-ic-z" title="Z · ' + t("damp") + '"><svg viewBox="0 0 20 20"><path d="M2 10h5M13 10h5M5 7l3 3-3 3M15 7l-3 3 3 3" fill="none" stroke="currentColor" stroke-width="1.8"/></svg><u>Z</u></i><i id="sr-ic-c" title="C · ' + t("cruise") + '"><svg viewBox="0 0 20 20"><path d="M3 14a7 7 0 0 1 14 0" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M10 14l4-5" stroke="currentColor" stroke-width="2"/><circle cx="10" cy="14" r="1.6" fill="currentColor"/></svg><u>C</u></i><i id="sr-ic-h" title="' + (lang === "de" ? "Umschalt" : "Shift") + ' · ' + t("hiLbl") + '"><svg viewBox="0 0 20 20"><path d="M5 11l5-5 5 5M5 16l5-5 5 5" fill="none" stroke="currentColor" stroke-width="1.8"/></svg><u>⇧</u></i><i id="sr-ic-x" title="X · Overcharge"><svg viewBox="0 0 20 20"><path d="M11 2L5 11h4l-1 7 6-9h-4z" fill="currentColor"/></svg><u>X</u><s><s id="sr-h-ocbar"></s></s></i></div>' +
+      '<div><small>' + t("air") + ' <span id="sr-h-air"></span></small><i class="sr-eb"><i id="sr-h-airbar"></i></i></div>' +
+      '<div><small>F <span id="sr-h-seat"></span></small></div><div hidden><small>' + t("weld") + '</small><b id="sr-h-weld"></b></div>' +
       '<button type="button" data-act="seat" id="sr-h-seatb"></button><button type="button" data-act="targets">' + t("targets") + '</button>' +
       '<div class="sr-spawn"><small>' + t("spawn") + '</small><span>' + NPC.map(function (q) { return '<button type="button" data-spawn="' + q.id + '">' + q.n[lang] + '</button>'; }).join("") + '</span></div></div>' +
       '<div class="sr-kill" hidden><svg viewBox="0 0 40 40" width="34" height="34"><path d="M20 5l6 12v12l-6 5-6-5V17z" fill="#6A7480" stroke="#C9D1D9" stroke-width="1.5"/><path d="M11 13l18 18M29 13L11 31" stroke="#E0533F" stroke-width="3"/></svg><div><small>' + t("ko") + '</small><span></span></div></div>' +
@@ -1659,11 +1679,17 @@
     ".sr-kill[hidden]{display:none}.sr-kill div{display:flex;flex-direction:column}.sr-kill small{font-size:.68rem;letter-spacing:.1em;text-transform:uppercase;color:#F08A78;font-weight:700}.sr-kill span{font-weight:600;color:#E8ECEF}" +
     ".sr-kill.go{animation:srKill 3.2s ease both}@keyframes srKill{0%{opacity:0;transform:translate(-50%,-8px)}8%{opacity:1;transform:translate(-50%,0)}85%{opacity:1}100%{opacity:0}}" +
     ".sr-note{position:absolute;left:50%;top:72px;transform:translateX(-50%);background:#E0533F;color:#fff;font-weight:600;padding:8px 14px;z-index:4;font-size:.86rem}" +
-    ".sr-hud{position:absolute;left:12px;top:64px;display:flex;flex-direction:column;gap:8px;background:rgba(14,19,28,.88);border:1px solid #263142;padding:10px 12px;z-index:2;min-width:220px}" +
+    ".sr-hud{position:absolute;left:12px;top:64px;display:flex;flex-direction:column;gap:7px;background:rgba(14,19,28,.6);border:1px solid rgba(38,49,66,.8);padding:8px 10px;z-index:2;width:176px;box-sizing:border-box;font-size:.84rem}" +
+    ".sr-hud .sr-hr span{display:flex;align-items:baseline;justify-content:space-between;gap:6px;white-space:nowrap}.sr-hud em{font-style:normal;font-size:.62rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:1px 5px;min-width:0}" +
+    ".sr-hud em.lim{color:#F0B860;background:rgba(240,184,96,.12)}.sr-hud em.hi{color:#FF8A78;background:rgba(255,80,60,.16);animation:srHi 1s ease-in-out infinite}.sr-hud b.hi{color:#FF6A55}" +
+    ".sr-ics{flex-direction:row!important;gap:5px!important}.sr-ics>i{flex:1;position:relative;display:flex;flex-direction:column;align-items:center;gap:1px;padding:4px 0 3px;background:rgba(38,49,66,.55);color:#6E7D93;border:1px solid transparent}" +
+    ".sr-ics svg{width:16px;height:16px}.sr-ics u{text-decoration:none;font-size:.6rem;font-weight:700}.sr-ics>i.lit{color:#9FE3BD;border-color:rgba(127,211,164,.55);box-shadow:0 0 8px rgba(127,211,164,.35);background:rgba(40,80,60,.45)}" +
+    "#sr-ic-x.lit{color:#D4B0F5;border-color:rgba(185,138,224,.6);box-shadow:0 0 8px rgba(185,138,224,.4);background:rgba(70,45,95,.45)}#sr-ic-h.lit{color:#FFB09F;border-color:rgba(255,120,95,.55);box-shadow:0 0 8px rgba(255,100,80,.35);background:rgba(90,40,35,.45)}" +
+    ".sr-ics s{position:absolute;left:3px;right:3px;bottom:1px;height:2px;background:rgba(0,0,0,.35);text-decoration:none}.sr-ics s s{left:0;right:auto;bottom:0;width:0;height:100%}" +
+    ".sr-hud small span{text-transform:none;letter-spacing:0;color:#C9D1D9;font-variant-numeric:tabular-nums;float:right}.sr-hud small span.warn{color:#F08A78}.sr-hud small span.on{color:#7FD3A4}.sr-hud small span.off{color:#F0B860}" +
     ".sr-hud div{display:flex;flex-direction:column;gap:2px}.sr-hud small{font-size:.66rem;letter-spacing:.08em;text-transform:uppercase;color:#8FA0B8}.sr-hud b{font-weight:600;font-variant-numeric:tabular-nums}" +
-    ".sr-hud b.hi{color:#FF6A55;animation:srHi 1s ease-in-out infinite}.sr-hud b.hi::after{content:attr(data-hi);display:block;font-size:.66rem;letter-spacing:.1em;text-transform:uppercase;color:#FF8A78;margin-top:2px}" +
-    ".sr-hud div.hiBox{animation:srHiBox 1s ease-in-out infinite}@keyframes srHi{0%,100%{text-shadow:0 0 0 rgba(255,80,60,0)}50%{text-shadow:0 0 10px rgba(255,80,60,.9)}}@keyframes srHiBox{0%,100%{box-shadow:inset 3px 0 0 rgba(255,80,60,.35)}50%{box-shadow:inset 3px 0 0 rgba(255,80,60,1)}}" +
-    ".sr-hud b.on{color:#7FD3A4}.sr-hud b.off{color:#F0B860}.sr-hud b.warn{color:#F08A78}.sr-hud div[hidden]{display:none}.sr-eb{display:block;height:6px;background:#263142}.sr-eb i{display:block;height:100%;width:0}" +
+        ".sr-hud div.hiBox{animation:srHiBox 1s ease-in-out infinite}@keyframes srHi{0%,100%{text-shadow:0 0 0 rgba(255,80,60,0)}50%{text-shadow:0 0 10px rgba(255,80,60,.9)}}@keyframes srHiBox{0%,100%{box-shadow:inset 3px 0 0 rgba(255,80,60,.35)}50%{box-shadow:inset 3px 0 0 rgba(255,80,60,1)}}" +
+    ".sr-hud b.on{color:#7FD3A4}.sr-hud b.off{color:#F0B860}.sr-hud b.warn{color:#F08A78}.sr-hud div[hidden]{display:none}.sr-eb{display:block;height:4px;background:rgba(38,49,66,.9)}.sr-eb i{display:block;height:100%;width:0}" +
     ".sr-root .sr-fl-only{display:none}.sr-root.fly .sr-fl-only{display:flex}.sr-root.fly .sr-ed-only{display:none}.sr-root.fly .sr-hud{display:flex}.sr-root.fly .sr-hint{max-width:calc(100% - 40px)}" +
     ".sr-root [hidden]{display:none!important}" +
     "@media (max-width:900px){.sr-info{display:none}.sr-hint{max-width:calc(100% - 280px)}}";
@@ -1712,10 +1738,10 @@
     if (S.mode === "fly") {
       if (k === "escape") { stopTest(); return; }
       if (["w", "a", "s", "d", "q", "e"].indexOf(k) >= 0) { FL.keys[k] = true; e.preventDefault(); }
-      if (k === "shift") { FL.keys.shift = true; if (!e.repeat && !FL.out) { FL.hiOk = !FL.hiOk; if (FL.hiOk) FL.ca = Math.max(FL.ca || 0, 0.3); note(t(FL.hiOk ? "hiOn" : "hiOff")); } }
+      if (k === "shift") { FL.keys.shift = true; if (!e.repeat && !FL.out) { FL.hiOk = !FL.hiOk; if (FL.hiOk) FL.ca = Math.max(FL.ca || 0, 0.3); floatTxt(t(FL.hiOk ? "hiOn" : "hiOff")); } }
       if (e.repeat) return;
       if (k === "z") FL.damp = !FL.damp;
-      if (k === "c") { FL.cruise = !FL.cruise; note(t(FL.cruise ? "cruiseOn" : "cruiseOff")); }
+      if (k === "c") { FL.cruise = !FL.cruise; floatTxt(t(FL.cruise ? "crFloatOn" : "crFloatOff")); }
       if (k === "x") { if (FL.oc) FL.oc = false; else if (FL.ocT > 0.3) FL.oc = true; }
       if (k === "r" && FL.groups.length) FL.wsel = (FL.wsel + 1) % FL.groups.length;
       if (k === "f") toggleSeat();
