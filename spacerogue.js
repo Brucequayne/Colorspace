@@ -4,7 +4,7 @@
 (function () {
   "use strict";
 
-  var VERSION = "0.46";
+  var VERSION = "0.47";
   var CELL_M = 2.5, PX = 24;              // Meter je Zelle, Pixel je Zelle bei Zoom 1
   var lang = "de";
   function L2(de, en) { return { de: de, en: en }; }
@@ -20,7 +20,7 @@
     rot: L2("Drehen (R)", "Rotate (R)"), flip: L2("Spiegeln (F)", "Flip (F)"), sym: L2("Symmetrie (M)", "Symmetry (M)"), axis: L2("Achse", "Axis"), symIn: L2("im Block", "through block"), symGap: L2("zwischen Blöcken", "between blocks"),
     vIn: L2("Innen", "Interior"), vOut: L2("Außen", "Exterior"), view: L2("Ansicht (V)", "View (V)"),
     undo: L2("Rückgängig", "Undo"), clear: L2("Leeren", "Clear"), starter: L2("Beispielschiff", "Sample ship"),
-    test: L2("Schiff testen", "Test ship"), toEd: L2("Zurück zum Editor", "Back to editor"),
+    test: L2("Schiff testen", "Test ship"), testSt: L2("Station testen", "Test station"), toEd: L2("Zurück zum Editor", "Back to editor"),
     dir: L2("FLUGRICHTUNG", "FORWARD"),
     sMass: L2("Masse", "Mass"), sThr: L2("Schub und Beschleunigung", "Thrust and acceleration"),
     dF: L2("Vorwärts", "Forward"), dB: L2("Rückwärts", "Backward"), dL: L2("Links", "Left"), dR: L2("Rechts", "Right"),
@@ -39,8 +39,8 @@
     cruise: L2("Cruise-Modus", "Cruise mode"), cruiseOn: L2("Cruise an: Das Schiff bremst nicht mehr von selbst, seitlich bleibt der Kurs stabil", "Cruise on: the ship no longer brakes by itself, sideways the course stays stable"), cruiseOff: L2("Cruise aus: Die Dämpfer bremsen wieder in alle Richtungen", "Cruise off: dampers brake in all directions again"),
     hiSpeed: L2("Hohe Geschwindigkeit", "High speed"),
     hiOn: L2("Hochgeschwindigkeit frei", "High speed unlocked"), hiOff: L2("Hochgeschwindigkeit gesperrt", "High speed locked"),
-    invT: L2("Inventar · Perks", "Inventory · Perks"), invSub: L2("Spiel pausiert · Klick aktiviert oder deaktiviert einen Perk · I oder Esc schließt", "Game paused · click to activate or deactivate a perk · I or Esc closes"),
-    invActive: L2("{n} von {m} aktiv", "{n} of {m} active"), perksBtn: L2("Perks (I)", "Perks (I)"), sCost: L2("Kosten", "Cost"), costFree: L2("im Editor kostenlos", "free in the editor"),
+    invT: L2("Inventar", "Inventory"), invSub: L2("64 Plätze · Gegenstände folgen in einem späteren Update · I oder Esc schließt", "64 slots · items will follow in a later update · I or Esc closes"),
+    perksBtn: L2("Inventar (I)", "Inventory (I)"), sCost: L2("Kosten", "Cost"), costFree: L2("im Editor kostenlos", "free in the editor"),
     ocOn: L2("Overcharge aktiv", "Overcharge active"), ocOff: L2("Overcharge aus", "Overcharge off"), controls: L2("Steuerung", "Controls"),
     crFloatOn: L2("Cruise Control an", "Cruise control on"), crFloatOff: L2("Cruise Control aus", "Cruise control off"),
     hSeat: L2("Im Cockpit", "In cockpit"), hWalk: L2("Zu Fuß", "On foot"), hOut: L2("Draußen · Jetpack", "Outside · jetpack"), hGone: L2("Cockpit zerstört", "Cockpit destroyed"),
@@ -63,6 +63,7 @@
     shield: L2("Schild", "Shield"), shNoGen: L2("Kein Schildgenerator verbaut: die Reserve fängt nichts ab", "No shield generator installed: the reserve absorbs nothing"), shFill: L2("Schild mit dem eingestellten Anteil neu aufladen", "Recharge the shield to the set share"),
     destroyed: L2("Zerstört", "Destroyed"), kills: L2("Abschüsse", "Kills"), shCharged: L2("Schilde aufgeladen", "Shields charged"),
     spawn: L2("Gegner spawnen", "Spawn enemy"), spawned: L2("{n} patrouilliert irgendwo vor dir", "{n} is patrolling somewhere ahead of you"), ko: L2("Kampfunfähig", "Disabled"),
+    edShip: L2("Schiff", "Ship"), edSt: L2("Raumstation", "Space station"), stNoShip: L2("Für den Stationstest brauchst du ein Schiff mit Cockpit im Schiffs-Editor.", "To test the station you need a ship with a cockpit in the ship editor."),
     weld: L2("Schweißgerät", "Welder"), weldOn: L2("repariert {n}: {p} %", "repairing {n}: {p} %"), weldIdle: L2("Linksklick vor einem Block repariert ihn, vor einem Hologramm baut er ihn neu", "Left click facing a block repairs it, facing a hologram rebuilds it"),
     sDim: L2("Abmessungen", "Dimensions"), sCool: L2("Kühlung", "Cooling"), sCoolW: L2("Gekühlt", "Cooled"), weap: L2("Waffen", "weapons"), thrs: L2("Triebwerke", "thrusters"), sCom: L2("Schwerpunkt", "Centre of mass"), comHint: L2("gelb-schwarzer Kreis", "yellow-black circle"),
     roomCells: L2("{n} Felder", "{n} cells"), color: L2("Farbe", "Colour"), placeHint: L2("Erster Block: frei platzieren", "First block: place anywhere")
@@ -115,44 +116,8 @@
   def("tgc", { cat: "catWe", kind: "tcomp", w: 1, h: 2, mass: 0.8, hp: 45, n: L2("Zielcomputer 1×2", "Targeting computer 1×2"), col: "#7E8995" });
   def("rgn", { cat: "catWe", kind: "rg", w: 1, h: 3, mass: 3.8, hp: 120, n: L2("Railgun 1×3", "Railgun 1×3"), col: "#7E8995" });
   applyCosts();
-  // ---------- Perks ----------
-  // Seltenheit: gewöhnlich (silber) bekommt den kleinsten Wert der Spanne, legendär (gold) den größten, selten und episch liegen bei 1/3 und 2/3
-  var RAR = [
-    { n: L2("Gewöhnlich", "Common"), col: "#C3CAD3", rgb: "195,202,211", w: 60 },
-    { n: L2("Selten", "Rare"), col: "#4EA3FF", rgb: "78,163,255", w: 27 },
-    { n: L2("Episch", "Epic"), col: "#B26BFF", rgb: "178,107,255", w: 10 },
-    { n: L2("Legendär", "Legendary"), col: "#F2C14E", rgb: "242,193,78", w: 3 }
-  ];
-  var PERKS = [
-    { id: "side", lo: 20, hi: 100, n: L2("Seitenschub", "Side thrust"), d: L2("Seitliche Triebwerke: +{v} Schub", "Side thrusters: +{v} thrust") },
-    { id: "brake", lo: 20, hi: 100, n: L2("Bremskraft", "Braking power"), d: L2("Bremsschub in jede Richtung: +{v}", "Braking thrust in every direction: +{v}") },
-    { id: "mgRate", lo: 20, hi: 50, n: L2("Minigun-Feuerrate", "Minigun fire rate"), d: L2("Minigun feuert {v} schneller", "Minigun fires {v} faster") },
-    { id: "batCap", lo: 10, hi: 50, n: L2("Batteriespeicher", "Battery storage"), d: L2("Batterien speichern {v} mehr Energie", "Batteries store {v} more energy") },
-    { id: "luck", lo: 10, hi: 25, n: L2("Glücksfund", "Lucky find"), d: L2("Chance auf legendäre Perks: +{v}", "Chance of legendary perks: +{v}") },
-    { id: "msRl", lo: 20, hi: 75, n: L2("Raketen-Nachladen", "Missile reload"), d: L2("Raketen laden {v} schneller nach", "Missiles reload {v} faster") },
-    { id: "hp", lo: 10, hi: 40, n: L2("Verstärkte Struktur", "Reinforced structure"), d: L2("Alle Blöcke: +{v} HP", "All blocks: +{v} HP") },
-    { id: "prod", lo: 10, hi: 50, n: L2("Reaktor-Tuning", "Reactor tuning"), d: L2("Reaktor-Output: +{v}", "Reactor output: +{v}") },
-    { id: "walk", fixed: 1, n: L2("Flinke Füße", "Quick feet"), d: L2("Dein Charakter läuft im Schiff doppelt so schnell", "Your character moves twice as fast inside ships"), tag: "2×" },
-    { id: "radar", lo: 25, hi: 100, n: L2("Radarreichweite", "Radar range"), d: L2("Antennenreichweite: +{v}", "Antenna range: +{v}") },
-    { id: "oc", lo: 25, hi: 100, n: L2("Overcharge-Dauer", "Overcharge duration"), d: L2("Overcharge hält {v} länger", "Overcharge lasts {v} longer") },
-    { id: "msDmg", lo: 10, hi: 50, n: L2("Raketenschaden", "Missile damage"), d: L2("Leichte Raketen: +{v} Schaden", "Light missiles: +{v} damage") },
-    { id: "cockHp", lo: 10, hi: 50, n: L2("Gepanzertes Cockpit", "Armoured cockpit"), d: L2("Cockpit: +{v} HP", "Cockpit: +{v} HP") },
-    { id: "msTurn", lo: 10, hi: 100, n: L2("Raketenlenkung", "Missile steering"), d: L2("Leichte Raketen: +{v} Kurvenleistung", "Light missiles: +{v} turning") },
-    { id: "crit", lo: 1, hi: 10, n: L2("Kritische Treffer", "Critical hits"), d: L2("Minigun: {v} Chance auf kritische Treffer (doppelter Schaden)", "Minigun: {v} chance of critical hits (double damage)") },
-    { id: "batW", fixed: 1, legOnly: true, n: L2("Schwerelose Zellen", "Weightless cells"), d: L2("Deine Batterien wiegen nichts mehr", "Your batteries weigh nothing"), tag: "0 kg" },
-    { id: "heavyW", lo: 20, hi: 50, n: L2("Leichtbau-Panzerung", "Lightweight plating"), d: L2("Schwere Panzerung wiegt {v} weniger", "Heavy armour weighs {v} less") }
-  ];
-  var PM = {};   // Summe der aktiven Perk-Werte (als Anteil, 0,2 = 20 %)
-  function perkVal(p, r) { return p.fixed ? p.fixed : Math.round(p.lo + (p.hi - p.lo) * r / 3); }
-  function perkTxt(p, r) { return p.d[lang].replace("{v}", perkVal(p, r) + " %"); }
-  function perkTag(p, r) { return p.tag || "+" + perkVal(p, r) + " %"; }
-  function calcPM(inv) {
-    var m = {}; PERKS.forEach(function (p) { m[p.id] = 0; });
-    (inv || []).forEach(function (it) { if (!it.on) return; var p = PERKS[it.p]; m[p.id] += p.fixed ? 1 : perkVal(p, it.r) / 100; });
-    m.walk = m.walk > 0; m.batW = m.batW > 0; m.heavyW = Math.min(0.9, m.heavyW);
-    return m;
-  }
-  PM = calcPM([]);
+  // Perks wurden in v0.47 abgeschafft. PM bleibt als neutrales Objekt (alles 0), damit die Werte-Haken im Code nichts verändern.
+  var PM = { side: 0, brake: 0, mgRate: 0, batCap: 0, msRl: 0, hp: 0, prod: 0, walk: false, radar: 0, oc: 0, msDmg: 0, cockHp: 0, msTurn: 0, crit: 0, batW: false, heavyW: 0 };
   CATS = ["catLA", "catHA", "catCo", "catTh", "catEn", "catIn", "catWe"];
   var MECH = { cock: 1, thr: 1, gyro: 1, ant: 1, bat: 1, reac: 1, door: 1, hatch: 1, mg: 1, rg: 1, cool: 1, ms: 1, tcomp: 1, shield: 1 };
   var ROOMABLE = { bat: 1, reac: 1, gyro: 1, cool: 1, tcomp: 1, shield: 1 };   // Maschinen, die in einem Raum stehen dürfen und dann zum Raum gehören
@@ -294,16 +259,44 @@
 
   // ---------- Zustand ----------
   var S = null, V = null, raf = 0, last = 0;
-  var SAVE = "spacerogue-ship-v1";
+  var SAVE = "spacerogue-ship-v1", SAVE_ST = "spacerogue-station-v1";
   function freshState() {
-    return { blocks: [], tool: "build", sel: "lblk", r: 0, f: 0, sym: false, symGap: false, view: "in", color: "#C8473A", undo: [], mode: "edit" };
+    return { blocks: [], ed: "ship", ship: [], station: [], tool: "build", sel: "lblk", r: 0, f: 0, sym: false, symGap: false, view: "in", color: "#C8473A", undo: [], mode: "edit" };
   }
   function load() {
     S = freshState();
     try { var j = JSON.parse(localStorage.getItem(SAVE) || "null"); if (j && j.blocks) { S.blocks = j.blocks.filter(function (b) { return T[b.t]; }); if (j.color) S.color = j.color; if (j.symGap) S.symGap = true; } } catch (e) {}
     if (!S.blocks.length) S.blocks = starter();
+    S.ship = S.blocks;
+    try { var js = JSON.parse(localStorage.getItem(SAVE_ST) || "null"); if (js && js.blocks) S.station = js.blocks.filter(function (b) { return T[b.t] && T[b.t].kind !== "thr"; }); if (js && js.ed === "station") { S.ed = "station"; S.blocks = S.station; } } catch (e) {}
   }
-  function save() { try { localStorage.setItem(SAVE, JSON.stringify({ blocks: S.blocks.map(strip), color: S.color, symGap: !!S.symGap })); } catch (e) {} }
+  function save() {
+    if (S.ed === "station") S.station = S.blocks; else S.ship = S.blocks;
+    try {
+      localStorage.setItem(SAVE, JSON.stringify({ blocks: S.ship.map(strip), color: S.color, symGap: !!S.symGap }));
+      localStorage.setItem(SAVE_ST, JSON.stringify({ blocks: S.station.map(strip), ed: S.ed }));
+    } catch (e) {}
+  }
+  // Editor-Modus umschalten: Schiff oder Raumstation, jeder mit eigenem Entwurf
+  // Beispielstation: gepanzerter Raum mit Boden, Reaktor, Batterie, Schildgenerator und einer Deckenluke in der Mitte
+  function starterStation() {
+    var B = [], occ = {};
+    function put(t, x, y) { var ty = T[t]; for (var i = 0; i < ty.w; i++) for (var j = 0; j < ty.h; j++) occ[(x + i) + "," + (y + j)] = 1; B.push({ t: t, x: x, y: y, r: 0, f: 0, c: t === "lblk" ? "#6A7480" : undefined }); }
+    put("rea", -4, -3); put("bat", 4, -3); put("bat", 4, -2); put("shs", 4, 3); put("hat", 0, 0);
+    for (var x = -5; x <= 5; x++) for (var y = -4; y <= 4; y++) {
+      if (occ[x + "," + y]) continue;
+      put(Math.abs(x) === 5 || Math.abs(y) === 4 ? "lblk" : "flo", x, y);
+    }
+    return B.map(function (b) { if (!b.c) delete b.c; return b; });
+  }
+  function setEd(m) {
+    if (S.ed === m) return; save();
+    S.ed = m; S.blocks = m === "station" ? S.station : S.ship; S.undo = [];
+    if (m === "station" && T[S.sel].kind === "thr") S.sel = "lblk";
+    if (m === "station" && !S.blocks.length) { S.blocks = S.station = starterStation(); }
+    V.zoom = m === "station" ? Math.max(ZMIN_ST, Math.min(V.zoom, 0.8)) : Math.max(0.3, V.zoom);
+    save(); fitCam(); syncUI();
+  }
   function strip(b) { var o = { t: b.t, x: b.x, y: b.y, r: b.r, f: b.f }; if (b.c) o.c = b.c; return o; }
   function pushUndo() { S.undo.push(JSON.stringify(S.blocks.map(strip))); if (S.undo.length > 60) S.undo.shift(); }
 
@@ -372,6 +365,11 @@
   function rowList() {
     var R0 = V.row; if (!R0) return [];
     var ty = T[S.sel], fw = S.r % 2 ? ty.h : ty.w, fh = S.r % 2 ? ty.w : ty.h, dx = R0.ex - R0.sx, dy = R0.ey - R0.sy, out = [];
+    if (R0.area && S.ed === "station") {   // Stations-Editor: mit Umschalt eine ganze Fläche ziehen
+      var nx = Math.floor(Math.abs(dx) / fw) + 1, ny = Math.floor(Math.abs(dy) / fh) + 1, gx = dx < 0 ? -1 : 1, gy = dy < 0 ? -1 : 1;
+      for (var j = 0; j < Math.min(ny, 40); j++) for (var i2 = 0; i2 < Math.min(nx, 40); i2++) out.push(ghostAt(R0.sx + gx * fw * i2, R0.sy + gy * fh * j, S.sel, S.r, S.f));
+      return out;
+    }
     var horiz = Math.abs(dx) >= Math.abs(dy), step = horiz ? fw : fh, n = Math.floor(Math.abs(horiz ? dx : dy) / step) + 1, sg = (horiz ? dx : dy) < 0 ? -1 : 1;
     for (var i = 0; i < Math.min(n, 60); i++) out.push(ghostAt(R0.sx + (horiz ? sg * step * i : 0), R0.sy + (horiz ? 0 : sg * step * i), S.sel, S.r, S.f));
     return out;
@@ -379,7 +377,7 @@
   function placeRow() {
     var L = rowList(), n = 0; if (!L.length) return;
     pushUndo();
-    for (var pass = 0; pass < 2; pass++) L.forEach(function (g) { if (!g.done && tryPlace(g, true)) { g.done = true; n++; } });   // zweiter Durchgang für Teile, die erst über Nachbarn Anschluss finden
+    for (var pass = 0; pass < (L.length > 60 ? 6 : 2); pass++) L.forEach(function (g) { if (!g.done && tryPlace(g, true)) { g.done = true; n++; } });   // zweiter Durchgang für Teile, die erst über Nachbarn Anschluss finden
     if (!n) { S.undo.pop(); if (S.blocks.length) note(lang === "de" ? "Hier passt der Block nicht oder hat keinen Anschluss." : "The block does not fit here or has no connection."); }
   }
   function canPlaceWith(b, M, extra) {
@@ -687,10 +685,10 @@
       c.fillStyle = "#E3B83F"; c.beginPath(); c.moveTo(mx, my); c.arc(mx, my, rr, -Math.PI / 2, 0); c.closePath(); c.fill(); c.beginPath(); c.moveTo(mx, my); c.arc(mx, my, rr, Math.PI / 2, Math.PI); c.closePath(); c.fill();
       c.strokeStyle = "#E3B83F"; c.lineWidth = 1.5; c.beginPath(); c.arc(mx, my, rr, 0, Math.PI * 2); c.stroke();
     }
-    // Flugrichtung
-    var bb = bounds(S.blocks), ax = bb ? (bb.x0 + bb.x1) / 2 : 0.5, ay = bb ? bb.y0 - 1.6 : -3;
-    c.fillStyle = "rgba(227,184,63,.9)"; c.beginPath(); c.moveTo(ax * s, (ay - 1.2) * s); c.lineTo((ax - 0.7) * s, ay * s); c.lineTo((ax + 0.7) * s, ay * s); c.closePath(); c.fill();
-    c.fillStyle = "rgba(227,184,63,.9)"; c.font = "700 " + Math.max(10, 0.45 * s) + "px " + FONTS(); c.textAlign = "center"; c.fillText(t("dir"), ax * s, (ay + 0.7) * s);
+    // Flugrichtung (nur Schiffe)
+    var bb = S.ed === "station" ? null : bounds(S.blocks), ax = bb ? (bb.x0 + bb.x1) / 2 : 0.5, ay = bb ? bb.y0 - 1.6 : -3;
+    if (bb) { c.fillStyle = "rgba(227,184,63,.9)"; c.beginPath(); c.moveTo(ax * s, (ay - 1.2) * s); c.lineTo((ax - 0.7) * s, ay * s); c.lineTo((ax + 0.7) * s, ay * s); c.closePath(); c.fill();
+      c.fillStyle = "rgba(227,184,63,.9)"; c.font = "700 " + Math.max(10, 0.45 * s) + "px " + FONTS(); c.textAlign = "center"; c.fillText(t("dir"), ax * s, (ay + 0.7) * s); }
     // Vorschau
     if (V.mouse && !V.pan) {
       var cx = Math.floor(V.mouse.x), cy = Math.floor(V.mouse.y);
@@ -805,7 +803,7 @@
   function FONTS() { return getComputedStyle(document.documentElement).getPropertyValue("--f-display") || "sans-serif"; }
 
   // ---------- Testflug ----------
-  var FL = null, BID = 0, ZMIN_FL = 0.2, VMAX = 500, VHI = 120;
+  var FL = null, BID = 0, ZMIN_FL = 0.2, ZMIN_ST = 0.1, VMAX = 500, VHI = 120;
   var MG = { rate: 12, speed: 462, life: 1.48, dmg: 7, heat: 0.042, cool: 0.42, warn: 0.78, lock: 3.2, e: 0.4 };
   var MS = { v0: 30, acc: 420, vmax: 340, turn: 0.45, life: 4, dmg: 55, splash: 2.6, sdmg: 28, reload: 2.5, gap: 0.18, e: 6 };
   var RG = { charge: 0.7, cd: 2.2, dmg: 150, range: 700, e: 67.5 };   // v0.39: +50 % Energie pro Schuss
@@ -842,9 +840,10 @@
   function blockCenter(bd, b) { var f = fp(b); return toWorld(bd, b.x + f[0] / 2, b.y + f[1] / 2); }
 
   function startTest() {
-    var st = stats(S.blocks);
-    if (!st.cock) { note(t("noCockTest")); return; }
-    var comps = components(S.blocks), main = comps.reduce(function (a, b) { return mainScore(b) > mainScore(a) ? b : a; });
+    save();
+    var stMode = S.ed === "station", src = stMode ? S.ship : S.blocks, st = stats(src);
+    if (!st.cock) { note(t(stMode ? "stNoShip" : "noCockTest")); return; }
+    var comps = components(src), main = comps.reduce(function (a, b) { return mainScore(b) > mainScore(a) ? b : a; });
     var copy = main.map(function (b) { return { t: b.t, x: b.x, y: b.y, r: b.r, f: b.f, c: b.c }; });
     var me = makeBody(copy, true);
     FL = { bodies: [me], me: me, shots: [], beams: [], parts: [], seated: true, damp: true, wsel: 0, groups: [], keys: {}, mdx: 0, cam: { x: 0, y: 0 }, zoom: 1, t: 0 };
@@ -852,13 +851,17 @@
     FL.oc = false; FL.ocT = me.ocMax;
     FL.groups = []; if (st.mg) FL.groups.push("mg"); if (st.ms) FL.groups.push("ms"); if (st.rg) FL.groups.push("rg");
     FL.missiles = []; FL.hits = []; FL.sig = 0; FL.banner = 0; me.id = ++BID;
-    // Sandbox: im Editor-Testflug liegen alle Perks in allen Seltenheiten im Inventar, aber inaktiv
-    FL.drops = []; FL.inv = []; FL.uid = 0; FL.shHits = []; FL.shPct = 0; me.shE = 0; FL.kills = 0; FL.shTarget = 0; FL.shAcc = 0;
+    FL.items = []; FL.shHits = []; FL.shPct = 0; me.shE = 0; FL.kills = 0; FL.shTarget = 0; FL.shAcc = 0;
     var kcb = V.root.querySelector(".sr-kc b"); if (kcb) kcb.textContent = "0";
-    PERKS.forEach(function (p, pi) { for (var r = p.legOnly ? 3 : 0; r < 4; r++) FL.inv.push({ uid: ++FL.uid, p: pi, r: r, on: false }); });
-    PM = calcPM(FL.inv); me.player = true; recalc(me); me.energy = me.cap;
+    me.player = true; recalc(me); me.energy = me.cap;
     FL.suit = SUIT.max; FL.out = false; FL.eva = null; FL.enterCd = 0; FL.ko = 0; me.lost = []; me.air = new Map();
-    spawnTargets();
+    if (stMode && S.station.length) {
+      // Raumstation: statischer Körper vor dem Schiff, bewegt sich nie, auch nicht durch Stöße
+      var sc = components(S.station), sm = sc.reduce(function (a, b) { return b.length > a.length ? b : a; });
+      var sta = makeBody(sm.map(function (b) { return { t: b.t, x: b.x, y: b.y, r: b.r, f: b.f, c: b.c }; }), false);
+      sta.static = true; sta.station = true; sta.id = ++BID; sta.x = 0; sta.y = me.y - (me.rad + sta.rad + 40); sta.vx = sta.vy = sta.w = 0;
+      FL.bodies.push(sta);
+    } else if (!stMode) spawnTargets();
     S.mode = "fly"; V.zoomEd = V.zoom; V.zoom = Math.min(1.1, Math.max(0.6, V.zoom));
     syncUI();
   }
@@ -878,7 +881,7 @@
     return B;
   }
   function spawnTargets() {
-    FL.bodies = FL.bodies.filter(function (b) { return b === FL.me || b.enemy; });
+    FL.bodies = FL.bodies.filter(function (b) { return b === FL.me || b.enemy || b.station; });
     [[0, -110, 0.2], [85, -70, -0.6], [-95, -55, 0.9]].forEach(function (p) {
       var bd = makeBody(targetShip(), false); bd.x = FL.me.x + p[0]; bd.y = FL.me.y + p[1]; bd.a = p[2]; bd.w = (Math.random() - 0.5) * 0.15; bd.target = true;
       FL.bodies.push(bd);
@@ -915,6 +918,7 @@
         if (FL.hiOk && pv >= VHI && vv < VHI) FL.hiOk = false;   // wieder unter 120 m/s: Freigabe erlischt, beim nächsten Mal erneut Umschalt
         bd.pv = vv;
       }
+      if (bd.static) { bd.vx = bd.vy = bd.w = 0; }
       bd.x += bd.vx * dt; bd.y += bd.vy * dt; bd.a += bd.w * dt;
       bd.blocks.forEach(function (b) {
         var ty = T[b.t];
@@ -932,7 +936,6 @@
     tipTick(dt);
     shieldTick(dt);
     FL.hits = FL.hits.filter(function (h) { h.life += dt; return h.life < 0.35; });
-    dropTick(dt);
     if (FL.banner > 0) FL.banner -= dt;
     // Geschosse
     FL.shots = FL.shots.filter(function (p) {
@@ -1273,7 +1276,7 @@
   }
   // Abschuss: zählt einmal pro Schiff, egal ob erst kampfunfähig und später zerstört
   function scoreKill(bd) {
-    if (bd.killed) return; bd.killed = true; FL.kills = (FL.kills || 0) + 1; dropPerks(bd);
+    if (bd.killed) return; bd.killed = true; FL.kills = (FL.kills || 0) + 1;
     var k = V.root.querySelector(".sr-kc b"); if (k) { k.textContent = FL.kills; var el = k.parentNode; el.classList.remove("pop"); void el.offsetWidth; el.classList.add("pop"); }
   }
   function showBanner(label, kind) {
@@ -1323,22 +1326,23 @@
       var rsx = px - sm.x, rsy = py - sm.y, rbx = px - bg.x, rby = py - bg.y;
       var vsx = sm.vx - sm.w * rsy, vsy = sm.vy + sm.w * rsx, vbx = bg.vx - bg.w * rby, vby = bg.vy + bg.w * rbx;
       var rvx = vsx - vbx, rvy = vsy - vby, vn = rvx * nx + rvy * ny, sp = Math.hypot(rvx, rvy);
-      var ims = 1 / sm.mass, imb = 1 / bg.mass, rsn = rsx * ny - rsy * nx, rbn = rbx * ny - rby * nx;
+      if (sm.static && bg.static) continue;
+      var ims = sm.static ? 0 : 1 / sm.mass, imb = bg.static ? 0 : 1 / bg.mass, iIs = sm.static ? 0 : 1 / sm.I, iIb = bg.static ? 0 : 1 / bg.I, rsn = rsx * ny - rsy * nx, rbn = rbx * ny - rby * nx;
       if (vn < 0) {
-        var jj = -(1 + COL.e) * vn / (ims + imb + rsn * rsn / sm.I + rbn * rbn / bg.I);
-        sm.vx += jj * nx * ims; sm.vy += jj * ny * ims; sm.w += rsn * jj / sm.I;
-        bg.vx -= jj * nx * imb; bg.vy -= jj * ny * imb; bg.w -= rbn * jj / bg.I;
+        var jj = -(1 + COL.e) * vn / (ims + imb + rsn * rsn * iIs + rbn * rbn * iIb);
+        sm.vx += jj * nx * ims; sm.vy += jj * ny * ims; sm.w += rsn * jj * iIs;
+        bg.vx -= jj * nx * imb; bg.vy -= jj * ny * imb; bg.w -= rbn * jj * iIb;
         var pk = Math.min(A.id, C.id) + ":" + Math.max(A.id, C.id);
         if (sp > COL.dmgV && !(FL.colCd[pk] > FL.t)) {
           FL.colCd[pk] = FL.t + 0.3;
-          var base = (sp - COL.dmgV) * COL.dmgK, tot = sm.mass + bg.mass;
-          hs.slice(0, 4).forEach(function (b) { dmg.push([sm, b, base * 2 * bg.mass / tot]); });
-          hb.slice(0, 4).forEach(function (b) { dmg.push([bg, b, base * 2 * sm.mass / tot]); });
+          var base = (sp - COL.dmgV) * COL.dmgK, mS = sm.static ? 1e6 : sm.mass, mB = bg.static ? 1e6 : bg.mass, tot = mS + mB;
+          hs.slice(0, 4).forEach(function (b) { dmg.push([sm, b, base * 2 * Math.min(1, mB / tot)]); });
+          hb.slice(0, 4).forEach(function (b) { dmg.push([bg, b, base * 2 * Math.min(1, mS / tot)]); });
           spark(px, py, 14); FL.parts.push({ x: px, y: py, vx: 0, vy: 0, life: 0, max: 0.2, k: "flash", sz: 2 + sp * 0.05 });
         } else if (sp > 4) spark(px, py, 3);
       }
       // auseinanderschieben, damit nichts ineinander stecken bleibt
-      var corr = Math.min(0.6, 0.06 * n), ws = ims / (ims + imb);
+      var corr = Math.min(0.6, 0.06 * n), ws = (ims + imb) ? ims / (ims + imb) : 0.5;
       sm.x += nx * corr * ws; sm.y += ny * corr * ws; bg.x -= nx * corr * (1 - ws); bg.y -= ny * corr * (1 - ws);
     }
     dmg.forEach(function (d) { damage(d[0], d[1], d[2], 0, 0, true); });   // Rammen geht am Schild vorbei
@@ -1654,88 +1658,16 @@
     } else if (V.caOn) { V.cv.style.filter = ""; V.caOn = false; }
     return off;
   }
-  // ---------- Perk-Drops und Inventar ----------
-  // Besiegte Schiffe lassen Perks fallen (kleine Schiffe 1, mittlere 2). Drüberfliegen sammelt sie ein, dann öffnet sich das Inventar und das Spiel pausiert.
-  function rollRarity() {
-    var w = RAR.map(function (r, i) { return r.w * (i === 3 ? 1 + PM.luck : 1); }), sum = w.reduce(function (a, b) { return a + b; }, 0), x = Math.random() * sum;
-    for (var i = 0; i < 4; i++) { x -= w[i]; if (x <= 0) return i; } return 0;
+  // ---------- Charakter-Inventar ----------
+  // 8×8 leere Plätze wie in Survival-Spielen; Gegenstände folgen in einem späteren Update
+  var INV = { w: 8, h: 8 };
+  function openInv() {
+    if (!FL) return; var el = V.root.querySelector(".sr-inv"); el.hidden = false;
+    var g = el.querySelector(".sr-inv-grid"); if (!g.childElementCount) { var h = ""; for (var i = 0; i < INV.w * INV.h; i++) h += '<i class="sr-slot"></i>'; g.innerHTML = h; }
+    var n = (FL.items || []).length; el.querySelector(".sr-inv-cnt").textContent = n + " / " + (INV.w * INV.h);
   }
-  function dropPerks(bd) {
-    var n = bd.npc && bd.npc.cls === "M" ? 2 : 1;
-    for (var i = 0; i < n; i++) {
-      var r = rollRarity(), pool = []; PERKS.forEach(function (p, pi) { if (!p.legOnly || r === 3) pool.push(pi); });
-      var a = Math.random() * 6.28, v = 2 + Math.random() * 3;
-      FL.drops.push({ x: bd.x, y: bd.y, vx: bd.vx * 0.6 + Math.cos(a) * v, vy: bd.vy * 0.6 + Math.sin(a) * v, p: pool[Math.floor(Math.random() * pool.length)], r: r, ph: Math.random() * 6 });
-    }
-  }
-  function dropTick(dt) {
-    var me = FL.me, alive = FL.bodies.indexOf(me) >= 0;
-    FL.drops = FL.drops.filter(function (d) {
-      var dmp = Math.pow(0.85, dt); d.vx *= dmp; d.vy *= dmp; d.x += d.vx * dt; d.y += d.vy * dt; d.ph += dt;
-      if (Math.hypot(d.x - FL.cam.x, d.y - FL.cam.y) > 4000) return false;
-      var got = false;
-      if (alive && Math.hypot(d.x - me.x, d.y - me.y) < me.rad + 3) {
-        var l = toLocal(me, d.x, d.y), cx = Math.floor(l.x), cy = Math.floor(l.y);
-        for (var ox = -1; ox <= 1 && !got; ox++) for (var oy = -1; oy <= 1 && !got; oy++) if (me.map.has(key(cx + ox, cy + oy))) got = true;
-      }
-      if (!got && FL.out && FL.eva && Math.hypot(d.x - FL.eva.x, d.y - FL.eva.y) < 3) got = true;
-      if (got) pickPerk(d);
-      return !got;
-    });
-  }
-  function pickPerk(d) {
-    var it = { uid: ++FL.uid, p: d.p, r: d.r, on: false, isNew: true };
-    FL.inv.push(it); spark(d.x, d.y, 12);
-    floatTxt(PERKS[d.p].n[lang] + " · " + RAR[d.r].n[lang], RAR[d.r].rgb);
-    openInv(it.uid);
-  }
-  function drawDrops(c, ppm, tm) {
-    FL.drops.forEach(function (d) {
-      var R = RAR[d.r], pulse = 0.75 + 0.25 * Math.sin(d.ph * 4), rr = Math.max(3.2, 9 / ppm) * pulse;
-      var g = c.createRadialGradient(d.x, d.y, 0, d.x, d.y, rr * 2.4); g.addColorStop(0, "rgba(" + R.rgb + ",.55)"); g.addColorStop(1, "rgba(" + R.rgb + ",0)");
-      c.fillStyle = g; c.beginPath(); c.arc(d.x, d.y, rr * 2.4, 0, Math.PI * 2); c.fill();
-      var k = Math.max(1.1, 4 / ppm);
-      c.save(); c.translate(d.x, d.y); c.rotate(d.ph * 0.8);
-      c.fillStyle = R.col; c.beginPath(); c.moveTo(0, -k * 1.4); c.lineTo(k, 0); c.lineTo(0, k * 1.4); c.lineTo(-k, 0); c.closePath(); c.fill();
-      c.fillStyle = "rgba(255,255,255,.85)"; c.beginPath(); c.moveTo(0, -k * 0.6); c.lineTo(k * 0.4, 0); c.lineTo(0, k * 0.6); c.lineTo(-k * 0.4, 0); c.closePath(); c.fill();
-      c.restore();
-    });
-  }
-  // Perk-Wechsel: Werte neu berechnen; HP bleiben anteilig erhalten
-  function applyPerks() {
-    var me = FL.me, old = me.blocks.map(function (b) { return hpMax(me, b); });
-    PM = calcPM(FL.inv); recalc(me);
-    me.blocks.forEach(function (b, i) { b.hp = b.hp * hpMax(me, b) / old[i]; });
-    syncInv();
-  }
-  function openInv(hl) {
-    if (!FL) return; FL.paused = true; FL.fire = false; FL.keys = {};
-    var el = V.root.querySelector(".sr-inv"); el.hidden = false; FL.invHl = hl || 0; renderInv();
-  }
-  function closeInv() { if (!FL) return; FL.paused = false; V.root.querySelector(".sr-inv").hidden = true; FL.inv.forEach(function (it) { it.isNew = false; }); last = 0; }
-  function renderInv() {
-    var list = V.root.querySelector(".sr-inv-list"), rows = [];
-    PERKS.forEach(function (p, pi) {
-      var its = FL.inv.filter(function (it) { return it.p === pi; }); if (!its.length) return;
-      its.sort(function (a, b) { return a.r - b.r || a.uid - b.uid; });
-      rows.push('<div class="sr-inv-row"><div class="sr-inv-n"><b>' + p.n[lang] + "</b><span>" + (p.fixed ? p.d[lang] : p.d[lang].replace("{v}", p.lo + "–" + p.hi + " %")) + '</span></div><div class="sr-inv-chips">' + its.map(function (it) {
-        return '<button type="button" class="sr-chip' + (it.on ? " on" : "") + (it.uid === FL.invHl ? " new" : "") + '" data-perk="' + it.uid + '" style="--rc:' + RAR[it.r].col + ";--rr:" + RAR[it.r].rgb + '" title="' + RAR[it.r].n[lang] + ": " + perkTxt(p, it.r) + '">' + perkTag(p, it.r) + "</button>";
-      }).join("") + "</div></div>");
-    });
-    list.innerHTML = rows.join("");
-    var nw = list.querySelector(".sr-chip.new"); if (nw && nw.scrollIntoView) nw.scrollIntoView({ block: "center" }); else list.parentNode.scrollTop = 0;
-    syncInv();
-  }
-  function syncInv() {
-    var n = FL.inv.filter(function (it) { return it.on; }).length, el = V.root.querySelector(".sr-inv-cnt");
-    if (el) el.textContent = fmt(t("invActive"), { n: n, m: FL.inv.length });
-    var hb = V.root.querySelector('[data-act="inv"]'); if (hb) hb.textContent = t("perksBtn") + (n ? " · " + n : "");
-  }
-  function togglePerk(uid) {
-    var it = FL.inv.filter(function (q) { return q.uid === uid; })[0]; if (!it) return;
-    it.on = !it.on; applyPerks();
-    var b = V.root.querySelector('[data-perk="' + uid + '"]'); if (b) b.classList.toggle("on", it.on);
-  }
+  function closeInv() { if (!V) return; V.root.querySelector(".sr-inv").hidden = true; }
+  function invOpen() { var el = V && V.root.querySelector(".sr-inv"); return !!(el && !el.hidden); }
   // Spieltipps: außerhalb von Kämpfen alle 60 s ein zufälliger Tipp für 5 s, unten in der Mitte, per Klick wegklickbar
   var TIPS = {
     de: ["Seitliche Triebwerke können die Wendigkeit deines Schiffs stark verbessern.", "Overcharge (X) erhöht kurzzeitig deine Triebwerksleistung und die Kühlleistung der Miniguns.", "Mehrere Batterien erhöhen deine Energiekapazität, aber Batterien sind auch sehr schwer.", "Baue einen Zielcomputer ein, damit sich deine Waffen beim Zielen auf den Feind ausrichten können.", "Antennen warnen dich vor feindlichen Schiffen.", "Behalte deine Geschwindigkeit im Auge.", "Ordentliche Bremstriebwerke können dir das Leben retten.", "Die Beschleunigungstriebwerke sind im Kampf am unwichtigsten.", "Wenn du deine Triebwerke benutzt, wirst du von gegnerischen Schiffen schneller entdeckt."],
@@ -1779,7 +1711,6 @@
     drawDust(c, W, H, ppm, DUST.near);
     c.save(); c.translate(W / 2, H / 2); c.scale(ppm, ppm); c.translate(-FL.cam.x, -FL.cam.y);
     drawTrails(c);
-    drawDrops(c, ppm, tm);
     // Triebwerksflammen unter den Schiffen
     FL.bodies.forEach(function (bd) {
       bd.blocks.forEach(function (b) {
@@ -1981,7 +1912,7 @@
   // Kompakte Steuerungsliste (Taste · Aktion) für das Infofeld
   function ctlHtml() {
     var de = lang === "de", G = [
-      [de ? "Im Sitz" : "Seated", [["WASD", de ? "Fliegen" : "Fly"], ["Q / E", de ? "Drehen" : "Rotate"], [de ? "Linksklick" : "Left click", de ? "Feuern" : "Fire"], ["R", de ? "Waffe wechseln" : "Switch weapon"], ["Z", de ? "Trägheitsdämpfer" : "Inertia dampers"], ["C", "Cruise Control"], ["X", "Overcharge"], [de ? "Umschalt" : "Shift", de ? "Hochgeschw. freigeben" : "Unlock high speed"], ["F", de ? "Aufstehen / Hinsetzen" : "Get up / sit down"], ["V", de ? "Innen / Außen" : "Inside / outside"], ["I", de ? "Inventar und Perks (pausiert)" : "Inventory and perks (pauses)"]]],
+      [de ? "Im Sitz" : "Seated", [["WASD", de ? "Fliegen" : "Fly"], ["Q / E", de ? "Drehen" : "Rotate"], [de ? "Linksklick" : "Left click", de ? "Feuern" : "Fire"], ["R", de ? "Waffe wechseln" : "Switch weapon"], ["Z", de ? "Trägheitsdämpfer" : "Inertia dampers"], ["C", "Cruise Control"], ["X", "Overcharge"], [de ? "Umschalt" : "Shift", de ? "Hochgeschw. freigeben" : "Unlock high speed"], ["F", de ? "Aufstehen / Hinsetzen" : "Get up / sit down"], ["V", de ? "Innen / Außen" : "Inside / outside"], ["I", de ? "Inventar" : "Inventory"]]],
       [de ? "Zu Fuß" : "On foot", [["WASD", de ? "Laufen" : "Walk"], [de ? "Linksklick" : "Left click", de ? "Schweißen, Hologramm aufbauen" : "Weld, rebuild hologram"], [de ? "F auf Luke" : "F on hatch", de ? "Aussteigen (auch durch die Decke)" : "Exit (also through the ceiling)"], [de ? "Offener Rand" : "Open edge", de ? "Direkt hinaus und hinein" : "Step straight out and in"]]],
       [de ? "Draußen" : "Outside", [["WASD", "Jetpack"], [de ? "Umschalt" : "Shift", de ? "Tempo ans Schiff" : "Match ship speed"], [de ? "F über Luke" : "F above hatch", de ? "Einsteigen" : "Get in"]]],
       ["Test", [[de ? "Rechtsklick" : "Right click", de ? "Block beschädigen" : "Damage block"], [de ? "Mausrad" : "Wheel", "Zoom"], ["Esc", de ? "Zurück zum Editor" : "Back to editor"]]]
@@ -1991,7 +1922,7 @@
   function html() {
     var pal = CATS.map(function (cat) {
       return '<div class="sr-cat"><h4>' + t(cat) + '</h4><div class="sr-grid">' + Object.keys(T).filter(function (id) { return T[id].cat === cat; }).map(function (id) {
-        return '<button type="button" class="sr-blk" data-blk="' + id + '" title="' + T[id].n[lang] + " · " + kg(T[id].mass) + " · " + T[id].hp + " HP · " + cr(T[id].cost) + '"><img alt="" src="' + icon(id) + '"><span>' + T[id].n[lang] + "</span><small>" + kg(T[id].mass) + "</small></button>";
+        return '<button type="button" class="sr-blk" data-blk="' + id + '" data-kind="' + T[id].kind + '" title="' + T[id].n[lang] + " · " + kg(T[id].mass) + " · " + T[id].hp + " HP · " + cr(T[id].cost) + '"><img alt="" src="' + icon(id) + '"><span>' + T[id].n[lang] + "</span><small>" + kg(T[id].mass) + "</small></button>";
       }).join("") + "</div></div>";
     }).join("");
     var sw = ["#C8473A", "#E3B83F", "#57A06A", "#3E6F96", "#7B4BA8", "#E9ECEE", "#9AA5B1", "#6A7480", "#2A2F36"].map(function (c) { return '<button type="button" class="sr-sw" data-sw="' + c + '" style="background:' + c + '" aria-label="' + c + '"></button>'; }).join("");
@@ -2003,7 +1934,7 @@
       '<feColorMatrix in="SourceGraphic" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 1 0 0 0 0 0 1 0" result="b"/><feOffset id="srCAo2" in="b" dx="0" dy="0" result="bo"/>' +
       '<feBlend in="ro" in2="g" mode="screen" result="rg"/><feBlend in="rg" in2="bo" mode="screen"/></filter></svg>' +
       '<div class="sr-top"><a class="sr-back" href="#">← ' + t("back") + '</a><b class="sr-ttl">' + t("title") + ' <small>v' + VERSION + '</small></b>' +
-      '<div class="sr-ed-only sr-tbar"><button type="button" data-act="undo">' + t("undo") + '</button><button type="button" data-act="starter">' + t("starter") + '</button><button type="button" data-act="clear">' + t("clear") + '</button><button type="button" data-act="exp">Export</button><button type="button" data-act="imp">Import</button><button type="button" data-act="npc">' + t("hangar") + '</button></div>' +
+      '<div class="sr-ed-only sr-tbar"><span class="sr-seg"><button type="button" data-act="ed-ship">' + t("edShip") + '</button><button type="button" data-act="ed-st">' + t("edSt") + '</button></span><button type="button" data-act="undo">' + t("undo") + '</button><button type="button" data-act="starter">' + t("starter") + '</button><button type="button" data-act="clear">' + t("clear") + '</button><button type="button" data-act="exp">Export</button><button type="button" data-act="imp">Import</button><button type="button" data-act="npc">' + t("hangar") + '</button></div>' +
       '<div class="sr-sp"></div><div class="sr-seg"><button type="button" data-view="in">' + t("vIn") + '</button><button type="button" data-view="out">' + t("vOut") + '</button></div>' +
       '<button type="button" class="sr-go sr-ed-only" data-act="test">' + t("test") + ' ▸</button><button type="button" class="sr-go sr-fl-only" data-act="edit">◂ ' + t("toEd") + '</button></div>' +
       '<aside class="sr-pal sr-ed-only"><div class="sr-tools"><button type="button" data-tool="build">' + t("tBuild") + '</button><button type="button" data-tool="erase">' + t("tErase") + '</button><button type="button" data-tool="paint">' + t("tPaint") + '</button></div>' +
@@ -2022,8 +1953,7 @@
       '<div class="sr-kill" hidden><svg viewBox="0 0 40 40" width="34" height="34"><path d="M20 5l6 12v12l-6 5-6-5V17z" fill="#6A7480" stroke="#C9D1D9" stroke-width="1.5"/><path d="M11 13l18 18M29 13L11 31" stroke="#E0533F" stroke-width="3"/></svg><div><small>' + t("ko") + '</small><span></span></div></div>' +
       '<label class="sr-uis sr-fl-only" title="' + (lang === "de" ? "Größe des Infofelds" : "Info panel size") + '"><svg viewBox="0 0 20 20" width="14" height="14"><rect x="2" y="3" width="7" height="14" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M12 7h6M12 10h6M12 13h4" stroke="currentColor" stroke-width="1.6"/></svg><input type="range" id="sr-uis" min="1" max="1.5" step="0.05" value="1"><span id="sr-uis-v">100 %</span></label>' +
       '<button type="button" class="sr-ctlb sr-fl-only" data-act="ctl" aria-pressed="false">' + t("controls") + '</button>' +
-      '<div class="sr-inv" hidden><div class="sr-inv-box"><div class="sr-inv-h"><div><b>' + t("invT") + '</b><small>' + t("invSub") + '</small></div><button type="button" data-act="inv-x">' + (lang === "de" ? "Schließen (I)" : "Close (I)") + '</button></div>' +
-      '<div class="sr-inv-leg">' + RAR.map(function (r) { return '<span style="--rc:' + r.col + '">' + r.n[lang] + "</span>"; }).join("") + '<em class="sr-inv-cnt"></em></div><div class="sr-inv-list"></div></div></div>' +
+      '<div class="sr-inv" hidden><div class="sr-inv-box"><div class="sr-inv-h"><div><b>' + t("invT") + '</b><small>' + t("invSub") + '</small></div><span class="sr-inv-cnt"></span><button type="button" data-act="inv-x">' + (lang === "de" ? "Schließen (I)" : "Close (I)") + '</button></div><div class="sr-inv-grid"></div></div></div>' +
       '<div class="sr-kc sr-fl-only"><small>' + t("kills") + '</small><b>0</b></div>' +
       '<div class="sr-ebot sr-fl-only"><div class="sr-ebot-bar"><i id="sr-be-s"></i><i id="sr-be-e"></i></div><span id="sr-be-t"></span>' +
       '<label class="sr-shs"><small>' + t("shield") + '</small><input type="range" id="sr-shp" min="0" max="100" step="5" value="0"><b id="sr-shp-v">0 %</b><button type="button" data-act="shfill" title="' + t("shFill") + '">↻</button></label><em id="sr-shp-n"></em></div>' +
@@ -2039,6 +1969,9 @@
     r.querySelectorAll("[data-tool]").forEach(function (b) { b.setAttribute("aria-pressed", String(b.getAttribute("data-tool") === S.tool)); });
     r.querySelectorAll("[data-blk]").forEach(function (b) { b.setAttribute("aria-pressed", String(b.getAttribute("data-blk") === S.sel && S.tool === "build")); });
     r.querySelectorAll("[data-view]").forEach(function (b) { b.setAttribute("aria-pressed", String(b.getAttribute("data-view") === S.view)); });
+    r.querySelector(".sr-root").classList.toggle("st", S.ed === "station");
+    var tb = r.querySelector('[data-act="test"]'); if (tb) tb.textContent = t(S.ed === "station" ? "testSt" : "test") + " ▸";
+    var es = r.querySelector('[data-act="ed-ship"]'), et = r.querySelector('[data-act="ed-st"]'); if (es) { es.setAttribute("aria-pressed", String(S.ed !== "station")); et.setAttribute("aria-pressed", String(S.ed === "station")); }
     var sb = r.querySelector('[data-act="sym"]'); if (sb) sb.setAttribute("aria-pressed", String(S.sym));
     var sm = r.querySelector('[data-act="symm"]'); if (sm) { sm.textContent = t("axis") + ": " + t(S.symGap ? "symGap" : "symIn"); sm.disabled = !S.sym; }
     var fb = r.querySelector('[data-act="flip"]'); if (fb) fb.setAttribute("aria-pressed", String(!!S.f));
@@ -2056,10 +1989,11 @@
     function row(l, v) { return "<div><span>" + l + "</span><b>" + v + "</b></div>"; }
     function acc(i) { return st.thr[i] ? nf(st.thr[i]) + " kN · " + nf(st.thr[i] / m, 1) + " m/s²" : "–"; }
     var warn = [];
-    if (!st.cock) warn.push(t("wNoCock"));
-    if (!st.gyro) warn.push(t("wNoGyro"));
+    var isSt = S.ed === "station";   // Stationen brauchen weder Cockpit noch Gyroskop noch Triebwerke
+    if (!st.cock && !isSt) warn.push(t("wNoCock"));
+    if (!st.gyro && !isSt) warn.push(t("wNoGyro"));
     var miss = [[0, "dF"], [2, "dB"], [3, "dL"], [1, "dR"]].filter(function (q) { return !st.thr[q[0]]; }).map(function (q) { return t(q[1]); });
-    if (miss.length) warn.push(fmt(t("wNoThr"), { d: miss.join(", ") }));
+    if (miss.length && !isSt) warn.push(fmt(t("wNoThr"), { d: miss.join(", ") }));
     var leaks = R.filter(function (x) { return !x.ok; }).length; if (leaks) warn.push(fmt(t("wLeak"), { n: leaks }));
     if (loose > 0) warn.push(fmt(t("wLoose"), { n: loose }));
     if (!st.cap && !st.prod) warn.push(t("wNoPow"));
@@ -2067,8 +2001,8 @@
     document.getElementById("sr-info").innerHTML =
       "<h4>" + t("sBlocks") + "</h4>" + row(t("sBlocks"), nf(st.n)) + row(t("sMass"), nf(st.mass * 1000) + " kg") + row(t("sCost"), cr(st.cost || 0) + '<br><small style="color:#7FD3A4;font-weight:400">' + t("costFree") + "</small>") +
       row(t("sDim"), dimTxt()) + row(t("sCom"), t("comHint")) +
-      "<h4>" + t("sThr") + "</h4>" + row("↑ " + t("dF"), acc(0)) + row("↓ " + t("dB"), acc(2)) + row("← " + t("dL"), acc(3)) + row("→ " + t("dR"), acc(1)) +
-      "<h4>" + t("sGyro") + "</h4>" + row("Gyro", st.gyro ? st.gyro + " × · " + wdeg : "–") +
+      (isSt ? "" : "<h4>" + t("sThr") + "</h4>" + row("↑ " + t("dF"), acc(0)) + row("↓ " + t("dB"), acc(2)) + row("← " + t("dL"), acc(3)) + row("→ " + t("dR"), acc(1)) +
+      "<h4>" + t("sGyro") + "</h4>" + row("Gyro", st.gyro ? st.gyro + " × · " + wdeg : "–")) +
       "<h4>" + t("sCool") + "</h4>" + row(t("sCoolW"), coolTxt()) + row("Overcharge", nf(ocMaxOf(S.blocks, coolMap(S.blocks)), 1) + " s") +
       "<h4>" + t("sEn") + "</h4>" + row(t("sProd"), nf(st.prod) + " E/s") + row(t("sStore"), nf(st.cap) + " E") + row(t("sUse"), nf(st.use) + " E/s") +
       "<h4>" + t("sRooms") + "</h4><p class='" + (leaks ? "bad" : "ok") + "'>" + (R.length ? fmt(t("okRooms"), { n: R.length - leaks }) + (leaks ? " · " + leaks + " ✕" : "") + " · " + fmt(t("roomCells"), { n: R.reduce(function (a, r) { return a + r.cells.length; }, 0) }) : t("noRooms")) + "</p>" +
@@ -2106,7 +2040,7 @@
     ".sr-kill[hidden]{display:none}.sr-kill div{display:flex;flex-direction:column}.sr-kill small{font-size:.68rem;letter-spacing:.1em;text-transform:uppercase;color:#F08A78;font-weight:700}.sr-kill span{font-weight:600;color:#E8ECEF}" +
     ".sr-kill.flee small{color:#F0B860}.sr-kill.flee path:last-child{stroke:#F0B860}" +
     ".sr-kill.dead small{color:#FF6A55}" +
-    ".sr-kc{position:absolute;right:12px;top:64px;z-index:3;display:flex!important;align-items:baseline;gap:8px;background:rgba(14,19,28,.6);border:1px solid rgba(38,49,66,.8);padding:6px 12px;pointer-events:none}" +
+    ".sr-root.fly .sr-kc,.sr-root.fly .sr-ebot{display:flex}.sr-kc{position:absolute;right:12px;top:64px;z-index:3;align-items:baseline;gap:8px;background:rgba(14,19,28,.6);border:1px solid rgba(38,49,66,.8);padding:6px 12px;pointer-events:none}" +
     ".sr-kc small{font-size:.66rem;letter-spacing:.1em;text-transform:uppercase;color:#8FA0B8}.sr-kc b{font-size:1.15rem;color:#EEF2F5;font-variant-numeric:tabular-nums;min-width:1ch;text-align:right}" +
     ".sr-kc.pop b{animation:srKc .6s ease}@keyframes srKc{0%{color:#F2C14E;transform:scale(1.5)}100%{color:#EEF2F5;transform:scale(1)}}" +
     ".sr-kill.go{animation:srKill 3.2s ease both}@keyframes srKill{0%{opacity:0;transform:translate(-50%,-8px)}8%{opacity:1;transform:translate(-50%,0)}85%{opacity:1}100%{opacity:0}}" +
@@ -2118,20 +2052,17 @@
     ".sr-shs{display:flex;align-items:center;gap:7px;width:100%;pointer-events:auto;background:rgba(14,19,28,.55);border:1px solid rgba(38,49,66,.8);padding:3px 8px;box-sizing:border-box}.sr-shs small{flex:none;font-size:.66rem;letter-spacing:.08em;text-transform:uppercase;color:#8FB8E8}" +
     ".sr-shs input{flex:1;min-width:0;accent-color:#4EA3FF;margin:0;cursor:pointer}.sr-shs b{font-size:.72rem;min-width:34px;text-align:right;font-variant-numeric:tabular-nums;color:#DDEBFA}.sr-shs button{padding:0 6px;font-size:.78rem;line-height:1.4}" +
     ".sr-ebot em{font-style:normal;font-size:.64rem;color:rgba(240,184,96,.85);text-shadow:0 1px 2px rgba(0,0,0,.8)}" +
-    ".sr-ebot{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);width:min(340px,calc(100% - 520px));min-width:180px;display:flex!important;flex-direction:column;align-items:center;gap:4px;z-index:2;pointer-events:none}" +
+    ".sr-ebot{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);width:min(340px,calc(100% - 520px));min-width:180px;flex-direction:column;align-items:center;gap:4px;z-index:2;pointer-events:none}" +
     ".sr-ebot-bar{width:100%;height:7px;background:rgba(20,26,36,.75);border:1px solid rgba(60,75,95,.8);display:flex}.sr-ebot-bar i{display:block;height:100%}#sr-be-s{background:#4EA3FF;box-shadow:0 0 8px rgba(78,163,255,.7)}" +
     ".sr-ebot span{font-size:.7rem;color:rgba(222,230,238,.85);font-variant-numeric:tabular-nums;text-shadow:0 1px 2px rgba(0,0,0,.8);white-space:pre}" +
     ".sr-tip{position:absolute;left:50%;bottom:92px;transform:translateX(-50%);max-width:min(620px,calc(100% - 480px));text-align:center;font-size:.86rem;line-height:1.4;color:rgba(222,230,238,.86);text-shadow:0 1px 3px rgba(0,0,0,.8);z-index:3;cursor:pointer;opacity:0;transition:opacity .4s ease}" +
     ".sr-tip[hidden]{display:none!important}.sr-tip.in{opacity:1}.sr-tip.out{opacity:0}" +
-    ".sr-inv{position:absolute;inset:0;background:rgba(6,9,14,.55);display:flex;align-items:center;justify-content:center;z-index:7;padding:16px}.sr-inv[hidden]{display:none}" +
-    ".sr-inv-box{width:min(820px,100%);max-height:calc(100% - 40px);overflow:auto;background:rgba(18,23,32,.97);border:1px solid #33405A;padding:14px 16px;display:flex;flex-direction:column;gap:10px}" +
-    ".sr-inv-h{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}.sr-inv-h>div{display:flex;flex-direction:column;gap:3px}.sr-inv-h b{font-size:1.05rem;color:#EEF2F5}.sr-inv-h small{font-size:.76rem;color:#8FA0B8}" +
-    ".sr-inv-leg{display:flex;flex-wrap:wrap;gap:12px;align-items:center;font-size:.72rem;color:#B9C4D4;border-bottom:1px solid #263142;padding-bottom:8px}.sr-inv-leg span::before{content:'';display:inline-block;width:9px;height:9px;background:var(--rc);margin-right:5px;box-shadow:0 0 6px var(--rc)}.sr-inv-leg em{margin-left:auto;font-style:normal;color:#E8ECEF}" +
-    ".sr-inv-list{display:flex;flex-direction:column;gap:2px}.sr-inv-row{display:flex;align-items:center;gap:12px;padding:5px 0;border-bottom:1px solid rgba(38,49,66,.6)}" +
-    ".sr-inv-n{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}.sr-inv-n b{font-size:.86rem;color:#E8ECEF}.sr-inv-n span{font-size:.72rem;color:#8FA0B8}.sr-inv-chips{display:flex;flex-wrap:wrap;gap:5px;justify-content:flex-end;max-width:55%}" +
-    ".sr-inv .sr-chip{min-width:62px;padding:5px 8px;font-size:.76rem;font-weight:700;font-variant-numeric:tabular-nums;background:rgba(var(--rr),.07);border:1px solid rgba(var(--rr),.35);color:rgba(var(--rr),.6);cursor:pointer}" +
-    ".sr-inv .sr-chip:hover{border-color:rgba(var(--rr),.7);color:rgba(var(--rr),.9)}.sr-inv .sr-chip.on{background:rgba(var(--rr),.28);border-color:var(--rc);color:#fff;box-shadow:0 0 10px rgba(var(--rr),.55),inset 0 0 8px rgba(var(--rr),.35)}" +
-    ".sr-inv .sr-chip.new{outline:2px dashed rgba(var(--rr),.9);outline-offset:2px}" +
+    ".sr-inv{position:absolute;inset:0;background:rgba(6,9,14,.35);display:flex;align-items:center;justify-content:center;z-index:7;padding:16px}.sr-inv[hidden]{display:none}" +
+    ".sr-inv-box{background:rgba(18,23,32,.96);border:1px solid #33405A;padding:14px 16px;display:flex;flex-direction:column;gap:12px;max-width:100%;max-height:calc(100% - 40px);overflow:auto}" +
+    ".sr-inv-h{display:flex;justify-content:space-between;align-items:flex-start;gap:14px}.sr-inv-h>div{display:flex;flex-direction:column;gap:3px}.sr-inv-h b{font-size:1.05rem;color:#EEF2F5}.sr-inv-h small{font-size:.74rem;color:#8FA0B8}.sr-inv-cnt{margin-left:auto;font-size:.78rem;color:#C9D1D9;font-variant-numeric:tabular-nums;padding-top:3px}" +
+    ".sr-inv-grid{display:grid;grid-template-columns:repeat(8,48px);grid-auto-rows:48px;gap:4px}.sr-slot{display:block;background:rgba(38,49,66,.45);border:1px solid rgba(70,86,110,.6);box-shadow:inset 0 0 0 1px rgba(0,0,0,.25)}.sr-slot:hover{border-color:rgba(140,165,200,.8);background:rgba(50,64,86,.55)}" +
+    "@media (max-width:520px){.sr-inv-grid{grid-template-columns:repeat(8,34px);grid-auto-rows:34px;gap:3px}}" +
+    ".sr-root.st .sr-blk[data-kind=thr]{display:none}.sr-seg{display:inline-flex;margin-right:6px}.sr-seg button{border-radius:0}.sr-seg button[aria-pressed=true]{background:#2E6B4C;border-color:#57D18A;color:#fff}" +
     ".sr-uis{position:absolute;left:12px;bottom:10px;z-index:3;align-items:center;gap:7px;background:rgba(14,19,28,.6);border:1px solid rgba(38,49,66,.8);padding:5px 9px;color:#8FA0B8;font-size:.72rem;font-variant-numeric:tabular-nums;cursor:pointer}" +
     ".sr-uis input{width:96px;accent-color:#7FD3A4;margin:0}.sr-uis span{min-width:36px;text-align:right}" +
     ".sr-hud{overflow-y:auto;scrollbar-width:thin;position:absolute;left:12px;top:64px;display:flex;flex-direction:column;gap:7px;background:rgba(14,19,28,.6);border:1px solid rgba(38,49,66,.8);padding:8px 10px;z-index:2;width:176px;box-sizing:border-box;font-size:.84rem}" +
@@ -2168,7 +2099,7 @@
     V.down = e.button;
     if (e.button === 2) { if (eraseAt(cx, cy)) syncUI(); V.lastCell = key(cx, cy); return; }
     if (e.button !== 0) return;
-    if (S.tool === "build") { V.row = { sx: cx, sy: cy, ex: cx, ey: cy }; }
+    if (S.tool === "build") { V.row = { sx: cx, sy: cy, ex: cx, ey: cy, area: e.shiftKey }; }
     else if (S.tool === "erase") { if (eraseAt(cx, cy)) syncUI(); }
     else if (S.tool === "paint") { if (paintAt(cx, cy)) syncUI(); }
     V.lastCell = key(cx, cy);
@@ -2180,19 +2111,20 @@
     if (V.pan) { var s = PX * V.zoom; V.cam.x = V.pan.cx - (e.clientX - V.pan.x) / s; V.cam.y = V.pan.cy - (e.clientY - V.pan.y) / s; return; }
     V.mouse = m;
     if (V.down === undefined || V.down === null) return;
+    if (V.row) V.row.area = e.shiftKey;
     var cx = Math.floor(m.x), cy = Math.floor(m.y), kk = key(cx, cy); if (kk === V.lastCell) return; V.lastCell = kk;
     if (V.down === 2 || S.tool === "erase") { if (eraseAt(cx, cy)) syncUI(); }
     else if (S.tool === "paint") { if (paintAt(cx, cy)) syncUI(); }
     else if (S.tool === "build" && V.row) { V.row.ex = cx; V.row.ey = cy; }
   }
   function onUp(e) { if (!V) return; V.pan = null; V.down = null; if (FL) FL.fire = false; if (V.row) { placeRow(); V.row = null; syncUI(); } }
-  function onWheel(e) { e.preventDefault(); var k = e.deltaY < 0 ? 1.12 : 1 / 1.12; V.zoom = Math.max(S.mode === "fly" ? ZMIN_FL : 0.3, Math.min(3, V.zoom * k)); }
+  function onWheel(e) { e.preventDefault(); var k = e.deltaY < 0 ? 1.12 : 1 / 1.12; V.zoom = Math.max(S.mode === "fly" ? ZMIN_FL : S.ed === "station" ? ZMIN_ST : 0.3, Math.min(3, V.zoom * k)); }
   function onKey(e) {
     if (!V || e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA") return;
     var k = e.key.toLowerCase();
     if (S.mode === "fly") {
-      if (FL && FL.paused) { if (k === "escape" || k === "i") closeInv(); e.preventDefault(); return; }
-      if (k === "i") { openInv(); return; }
+      if (k === "i") { if (invOpen()) closeInv(); else openInv(); return; }
+      if (k === "escape" && invOpen()) { closeInv(); return; }
       if (k === "escape") { stopTest(); return; }
       if (["w", "a", "s", "d", "q", "e"].indexOf(k) >= 0) { FL.keys[k] = true; e.preventDefault(); }
       if (k === "shift") { FL.keys.shift = true; if (!e.repeat && !FL.out) { FL.hiOk = !FL.hiOk; if (FL.hiOk) FL.ca = Math.max(FL.ca || 0, 0.3); floatTxt(t(FL.hiOk ? "hiOn" : "hiOff")); } }
@@ -2274,11 +2206,10 @@
     if (vw) { S.view = vw.getAttribute("data-view"); syncUI(); return; }
     if (sw) { S.color = sw.getAttribute("data-sw"); S.tool = "paint"; save(); syncUI(); return; }
     if (e.target.closest(".sr-tip")) { hideTip(e.target.closest(".sr-tip")); return; }
-    var pc = e.target.closest("[data-perk]"); if (pc) { togglePerk(+pc.getAttribute("data-perk")); return; }
     var spb = e.target.closest("[data-spawn]");
     if (spb) { spawnEnemy(+spb.getAttribute("data-spawn")); spb.blur(); return; }
     var nb = e.target.closest("[data-npc]");
-    if (nb) { var sh = NPC.filter(function (q) { return String(q.id) === nb.getAttribute("data-npc"); })[0]; if (sh) { pushUndo(); S.blocks = npcBlocks(sh); if (sh.code.color) S.color = sh.code.color; save(); fitCam(); V.root.querySelector(".sr-npc").hidden = true; syncUI(); note(sh.n[lang] + (lang === "de" ? " geladen · Rückgängig holt dein Schiff zurück" : " loaded · Undo brings your ship back")); } return; }
+    if (nb) { var sh = NPC.filter(function (q) { return String(q.id) === nb.getAttribute("data-npc"); })[0]; if (sh) { setEd("ship"); pushUndo(); S.blocks = npcBlocks(sh); if (sh.code.color) S.color = sh.code.color; save(); fitCam(); V.root.querySelector(".sr-npc").hidden = true; syncUI(); note(sh.n[lang] + (lang === "de" ? " geladen · Rückgängig holt dein Schiff zurück" : " loaded · Undo brings your ship back")); } return; }
     if (!a) return;
     var act = a.getAttribute("data-act");
     if (act === "rot") S.r = (S.r + 1) % 4;
@@ -2287,9 +2218,11 @@
     else if (act === "symm") { S.symGap = !S.symGap; S.sym = true; save(); }
     else if (act === "undo") undo();
     else if (act === "clear") { pushUndo(); S.blocks = []; save(); }
-    else if (act === "starter") { pushUndo(); S.blocks = starter(); save(); fitCam(); }
+    else if (act === "starter") { pushUndo(); S.blocks = S.ed === "station" ? starterStation() : starter(); save(); fitCam(); }
     else if (act === "exp" || act === "imp") { openIO(act); return; }
     else if (act === "npc") { openHangar(); return; }
+    else if (act === "ed-ship") { setEd("ship"); return; }
+    else if (act === "ed-st") { setEd("station"); return; }
     else if (act === "inv") { openInv(); return; }
     else if (act === "shfill") { if (FL) setShield(FL.shPct); a.blur(); return; }
     else if (act === "inv-x") { closeInv(); return; }
@@ -2297,7 +2230,7 @@
     else if (act === "npc-x") { V.root.querySelector(".sr-npc").hidden = true; return; }
     else if (act === "io-x") { V.root.querySelector(".sr-exio").hidden = true; return; }
     else if (act === "io-copy") { var ta = V.root.querySelector(".sr-exio textarea"); ta.select(); try { navigator.clipboard.writeText(ta.value).then(function () { note(lang === "de" ? "Schiffscode kopiert." : "Ship code copied."); }, function () {}); } catch (er) {} return; }
-    else if (act === "io-load") { var bl = parseShip(V.root.querySelector(".sr-exio textarea").value); if (!bl) { note(lang === "de" ? "Code ungültig." : "Invalid code."); return; } pushUndo(); S.blocks = bl; save(); fitCam(); V.root.querySelector(".sr-exio").hidden = true; note(lang === "de" ? "Schiff geladen (" + bl.length + " Blöcke)." : "Ship loaded (" + bl.length + " blocks)."); }
+    else if (act === "io-load") { var bl = parseShip(V.root.querySelector(".sr-exio textarea").value); if (bl && S.ed === "station") bl = bl.filter(function (b) { return T[b.t].kind !== "thr"; }); if (!bl) { note(lang === "de" ? "Code ungültig." : "Invalid code."); return; } pushUndo(); S.blocks = bl; save(); fitCam(); V.root.querySelector(".sr-exio").hidden = true; note(lang === "de" ? "Schiff geladen (" + bl.length + " Blöcke)." : "Ship loaded (" + bl.length + " blocks)."); }
     else if (act === "test") { startTest(); return; }
     else if (act === "edit") { stopTest(); return; }
     else if (act === "targets") { if (FL) spawnTargets(); return; }
