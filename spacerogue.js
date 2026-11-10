@@ -4,7 +4,7 @@
 (function () {
   "use strict";
 
-  var VERSION = "0.49";
+  var VERSION = "0.49.1";
   var CELL_M = 2.5, PX = 24;              // Meter je Zelle, Pixel je Zelle bei Zoom 1
   var lang = "de";
   function L2(de, en) { return { de: de, en: en }; }
@@ -975,7 +975,7 @@
       var steps = Math.ceil(Math.hypot(p.vx, p.vy) * dt / 1.0);
       for (var i = 0; i < steps; i++) {
         p.x += p.vx * dt / steps; p.y += p.vy * dt / steps;
-        var hit = hitAt(p.x, p.y, p.own); if (hit) { var crit = p.own.player && Math.random() < PM.crit; if (p.own === FL.me || p.pl) hitMark(p.x, p.y, hit.bd, crit); damage(hit.bd, hit.b, (p.dmg || MG.dmg) * (crit ? 2 : 1), p.x, p.y); spark(p.x, p.y, crit ? 10 : 5); return false; }
+        var hit = p.pl ? hitAt(p.x, p.y, null, true) : hitAt(p.x, p.y, p.own); if (hit) { var crit = p.own && p.own.player && Math.random() < PM.crit; if (p.own === FL.me || p.pl) hitMark(p.x, p.y, hit.bd, crit); damage(hit.bd, hit.b, (p.dmg || MG.dmg) * (crit ? 2 : 1), p.x, p.y); spark(p.x, p.y, crit ? 10 : 5); return false; }
       }
       return true;
     });
@@ -1582,12 +1582,12 @@
     });
     hits.forEach(function (h) { var hp2 = blockCenter(h.bd, h.b); damage(h.bd, h.b, h.dmg, hp2.x, hp2.y, ns); });
   }
-  function hitAt(x, y, own) {
+  function hitAt(x, y, own, noFloor) {
     for (var i = 0; i < FL.bodies.length; i++) {
       var bd = FL.bodies[i]; if (bd === own) continue;
       if (Math.abs(x - bd.x) > bd.rad || Math.abs(y - bd.y) > bd.rad) continue;
       var l = toLocal(bd, x, y), o = bd.map.get(key(Math.floor(l.x), Math.floor(l.y)));
-      if (o) return { bd: bd, b: o.b };
+      if (o && !(noFloor && T[o.b.t].kind === "floor")) return { bd: bd, b: o.b };   // Pistolenkugeln fliegen über Böden hinweg
     }
     return null;
   }
@@ -1724,12 +1724,15 @@
   function firePistol() {
     if ((FL.pcd || 0) > FL.t) return; FL.pcd = FL.t + PISTOL.cd;
     var mw = mouseWorld(); if (!mw) return;
-    var ox, oy, vx0, vy0, own;
-    if (FL.out && FL.eva) { ox = FL.eva.x; oy = FL.eva.y; vx0 = FL.eva.vx; vy0 = FL.eva.vy; own = FL.me; }
-    else { var pb = FL.pb || FL.me, P = FL.pilot, w = toWorld(pb, P.x, P.y); ox = w.x; oy = w.y; vx0 = pb.vx; vy0 = pb.vy; own = pb; }
-    var a = Math.atan2(mw.y - oy, mw.x - ox), dx = Math.cos(a), dy = Math.sin(a);
-    FL.shots.push({ x: ox + dx * 0.9, y: oy + dy * 0.9, vx: vx0 + dx * PISTOL.speed, vy: vy0 + dy * PISTOL.speed, life: 0, own: own, pl: true, dmg: PISTOL.dmg });
-    FL.parts.push({ x: ox + dx * 1.1, y: oy + dy * 1.1, vx: vx0, vy: vy0, life: 0, max: 0.06, k: "flash", sz: 0.5 });
+    // Mündung der Pistole: in der Hand vor der Figur (Figurmaßstab: 1 Einheit ≈ 0,13 m)
+    var ox, oy, vx0, vy0, fw;
+    if (FL.out && FL.eva) { ox = FL.eva.x; oy = FL.eva.y; vx0 = FL.eva.vx; vy0 = FL.eva.vy; fw = FL.eva.face; }
+    else { var pb = FL.pb || FL.me, P = FL.pilot, w = toWorld(pb, P.x, P.y); ox = w.x; oy = w.y; vx0 = pb.vx; vy0 = pb.vy; fw = P.face + pb.a; }
+    var u = CELL_M / 24 * 1.25, cf = Math.cos(fw), sf = Math.sin(fw), mx = ox + (12.8 * cf - 4.5 * sf) * u, my = oy + (12.8 * sf + 4.5 * cf) * u;
+    var a = Math.atan2(mw.y - my, mw.x - mx), da = Math.atan2(Math.sin(a - fw), Math.cos(a - fw)); if (Math.abs(da) > 0.5) a = fw + Math.sign(da) * 0.5;   // nur grob in Blickrichtung
+    var dx = Math.cos(a), dy = Math.sin(a);
+    FL.shots.push({ x: mx, y: my, vx: vx0 + dx * PISTOL.speed, vy: vy0 + dy * PISTOL.speed, life: 0, own: null, pl: true, dmg: PISTOL.dmg });   // volle Kollision, auch eigenes Schiff
+    FL.parts.push({ x: mx + dx * 0.1, y: my + dy * 0.1, vx: vx0, vy: vy0, life: 0, max: 0.04, k: "flash", sz: 0.18 });
   }
   function syncHot() {
     var el = V.root.querySelector(".sr-hot"); if (!el || !FL) return;
@@ -1938,6 +1941,13 @@
     FL.bodies.forEach(function (bd) {
       c.save(); c.translate(bd.x, bd.y); c.rotate(bd.a); c.scale(CELL_M / PX, CELL_M / PX); c.translate(-bd.com[0] * PX, -bd.com[1] * PX);
       drawShip(c, bd.blocks, PX, bd.enemy ? "out" : S.view, tm, bd, bd.map);
+      if (bd === FL.me && S.view === "in") {
+        // Angedockt und niemand an Bord: Licht aus; beim Betreten gehen die Lampen kurz flackernd an
+        var dark = FL.dock && FL.dock.done && (FL.out || (FL.pb || FL.me) !== FL.me), lt = bd.light === undefined ? 1 : bd.light;
+        lt = dark ? Math.max(0, lt - 0.02) : Math.min(1, lt + 0.035); bd.light = lt;
+        var fl = !dark && lt < 1 && lt > 0.15 && Math.sin(tm * 60) > 0.6 ? 0.25 : 0;
+        if (lt < 1) { c.fillStyle = "rgba(4,6,12," + (0.78 * (1 - lt) + fl) + ")"; bd.cells.forEach(function (q) { c.fillRect((q[0] - 0.5) * PX, (q[1] - 0.5) * PX, PX, PX); }); }
+      }
       if (bd === FL.me && !FL.seated && (FL.pb || FL.me) === FL.me) drawGhosts(c, bd, tm);
       if (bd === (FL.pb || FL.me) && !FL.seated && !FL.out) drawAstronaut(c, FL.pilot.x * PX, FL.pilot.y * PX, FL.pilot.face, FL.pilot.ph, PX / 24 * 1.25, FL.welding, FL.slot === 2);
       // Überhitzung und Ladung an den Waffen
@@ -2012,7 +2022,11 @@
     });
     // Geschosse, Strahlen, Partikel
     c.strokeStyle = "#FFD27A"; c.lineWidth = 0.5;
-    FL.shots.forEach(function (p) { var l = Math.hypot(p.vx, p.vy) || 1; c.beginPath(); c.moveTo(p.x, p.y); c.lineTo(p.x - p.vx / l * 2.4, p.y - p.vy / l * 2.4); c.stroke(); });
+    FL.shots.forEach(function (p) { if (p.pl) return; var l = Math.hypot(p.vx, p.vy) || 1; c.beginPath(); c.moveTo(p.x, p.y); c.lineTo(p.x - p.vx / l * 2.4, p.y - p.vy / l * 2.4); c.stroke(); });
+    // Pistolenkugeln: kleiner und kürzer
+    var lw0 = c.lineWidth; c.lineWidth = 0.14; c.strokeStyle = "#FFE3A0";
+    FL.shots.forEach(function (p) { if (!p.pl) return; var l = Math.hypot(p.vx, p.vy) || 1; c.beginPath(); c.moveTo(p.x, p.y); c.lineTo(p.x - p.vx / l * 0.9, p.y - p.vy / l * 0.9); c.stroke(); });
+    c.lineWidth = lw0;
     FL.beams.forEach(function (b) { var a = 1 - b.life / 0.3; c.strokeStyle = "rgba(140,230,255," + a + ")"; c.lineWidth = 1.4 * a + 0.2; c.beginPath(); c.moveTo(b.x0, b.y0); c.lineTo(b.x1, b.y1); c.stroke(); c.strokeStyle = "rgba(255,255,255," + a + ")"; c.lineWidth = 0.4; c.stroke(); });
     FL.parts.forEach(function (q) {
       var k = q.life / q.max;
