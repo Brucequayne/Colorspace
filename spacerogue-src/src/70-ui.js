@@ -21,8 +21,9 @@
   }
   function html() {
     var pal = CATS.map(function (cat) {
-      return '<div class="sr-cat"><h4>' + t(cat) + '</h4><div class="sr-grid">' + Object.keys(T).filter(function (id) { return T[id].cat === cat; }).map(function (id) {
-        return '<button type="button" class="sr-blk" data-blk="' + id + '" data-kind="' + T[id].kind + '" title="' + T[id].n[lang] + " · " + kg(T[id].mass) + " · " + T[id].hp + " HP · " + cr(T[id].cost) + wTip(id) + '"><img alt="" src="' + icon(id) + '"><span>' + T[id].n[lang] + "</span><small>" + kg(T[id].mass) + "</small><small class=\"sr-pr\">" + cr(T[id].cost) + "</small></button>";
+      var ids = Object.keys(T).filter(function (id) { return T[id].cat === cat; }), onlyDev = ids.length && ids.every(function (id) { return T[id].dev; });
+      return '<div class="sr-cat"' + (onlyDev ? " data-dev" : "") + '><h4>' + t(cat) + '</h4><div class="sr-grid">' + ids.map(function (id) {
+        return '<button type="button" class="sr-blk" data-blk="' + id + '" data-kind="' + T[id].kind + '"' + (T[id].dev ? " data-dev" : "") + ' title="' + T[id].n[lang] + " · " + kg(T[id].mass) + " · " + T[id].hp + " HP · " + cr(T[id].cost) + wTip(id) + '"><img alt="" src="' + icon(id) + '"><span>' + T[id].n[lang] + "</span><small>" + kg(T[id].mass) + "</small><small class=\"sr-pr\">" + cr(T[id].cost) + "</small></button>";
       }).join("") + "</div></div>";
     }).join("");
     var sw = ["#C8473A", "#E3B83F", "#57A06A", "#3E6F96", "#7B4BA8", "#E9ECEE", "#9AA5B1", "#6A7480", "#2A2F36"].map(function (c) { return '<button type="button" class="sr-sw" data-sw="' + c + '" style="background:' + c + '" aria-label="' + c + '"></button>'; }).join("");
@@ -34,7 +35,7 @@
       '<feColorMatrix in="SourceGraphic" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 1 0 0 0 0 0 1 0" result="b"/><feOffset id="srCAo2" in="b" dx="0" dy="0" result="bo"/>' +
       '<feBlend in="ro" in2="g" mode="screen" result="rg"/><feBlend in="rg" in2="bo" mode="screen"/></filter></svg>' +
       '<div class="sr-top"><a class="sr-back" href="#">← ' + t("back") + '</a><b class="sr-ttl">' + t("title") + ' <small>v' + VERSION + '</small></b>' +
-      '<div class="sr-ed-only sr-tbar"><span class="sr-seg"><button type="button" data-act="ed-ship">' + t("edShip") + '</button><button type="button" data-act="ed-st">' + t("edSt") + '</button></span><input id="sr-name" class="sr-name" maxlength="28" spellcheck="false" placeholder="' + t("namePh") + '"><button type="button" data-act="undo">' + t("undo") + '</button><button type="button" data-act="starter">' + t("starter") + '</button><button type="button" data-act="clear">' + t("clear") + '</button><button type="button" data-act="exp">Export</button><button type="button" data-act="imp">Import</button><button type="button" data-act="npc">' + t("hangar") + '</button></div>' +
+      '<div class="sr-ed-only sr-tbar"><span class="sr-seg"><button type="button" data-act="ed-ship">' + t("edShip") + '</button><button type="button" data-act="ed-st">' + t("edSt") + '</button></span><input id="sr-name" class="sr-name" maxlength="28" spellcheck="false" placeholder="' + t("namePh") + '"><button type="button" data-act="undo">' + t("undo") + '</button><button type="button" data-act="starter">' + t("starter") + '</button><button type="button" data-act="clear">' + t("clear") + '</button><button type="button" data-act="exp">Export</button><button type="button" data-act="imp">Import</button><button type="button" data-act="npc">' + t("hangar") + '</button><button type="button" class="sr-dev-only" data-act="dev-lock">' + t("devLock") + '</button></div>' +
       '<div class="sr-sp"></div><div class="sr-seg"><button type="button" data-view="in">' + t("vIn") + '</button><button type="button" data-view="out">' + t("vOut") + '</button></div>' +
       '<button type="button" class="sr-go sr-ed-only" data-act="test">' + t("test") + ' ▸</button><button type="button" class="sr-go sr-fl-only" data-act="edit">◂ ' + t("toEd") + '</button></div>' +
       '<aside class="sr-pal sr-ed-only"><div class="sr-tools"><button type="button" data-tool="build">' + t("tBuild") + '</button><button type="button" data-tool="erase">' + t("tErase") + '</button><button type="button" data-tool="paint">' + t("tPaint") + '</button></div>' +
@@ -62,7 +63,8 @@
       '<div class="sr-tip sr-fl-only" hidden title="' + (lang === "de" ? "Klicken zum Ausblenden" : "Click to dismiss") + '"></div>' +
       '<div class="sr-hint" id="sr-hint"></div><div class="sr-note" hidden></div>' +
       '<div class="sr-io sr-npc" hidden><div class="sr-io-box sr-npc-box"><div class="sr-tbar"><b class="sr-npc-t">' + t("hangar") + '</b><span class="sr-sp"></span><button type="button" data-act="npc-x">' + (lang === "de" ? "Schließen" : "Close") + '</button></div><div class="sr-io-h">' + t("hangarH") + '</div><div class="sr-npc-list"></div></div></div>' +
-      '<div class="sr-io sr-exio" hidden><div class="sr-io-box"><div class="sr-io-h"></div><textarea spellcheck="false"></textarea><div class="sr-tbar"><button type="button" data-act="io-copy">' + (lang === "de" ? "Kopieren" : "Copy") + '</button><button type="button" data-act="io-load">' + (lang === "de" ? "Laden" : "Load") + '</button><span class="sr-sp"></span><button type="button" data-act="io-x">' + (lang === "de" ? "Schließen" : "Close") + '</button></div></div></div></div>';
+      '<div class="sr-io sr-dev" hidden><div class="sr-io-box sr-dev-box"><div class="sr-io-h">' + t("devH") + '</div><input class="sr-dev-in" type="password" inputmode="numeric" autocomplete="off" maxlength="6" spellcheck="false" aria-label="Code"><div class="sr-tbar"><span class="sr-dev-msg"></span><span class="sr-sp"></span><button type="button" data-act="dev-x">' + t("cancel") + '</button></div></div></div>' +
+      '<div class="sr-io sr-exio" hidden><div class="sr-io-box"><div class="sr-io-h"></div><textarea spellcheck="false"></textarea><div class="sr-tbar"><button type="button" data-act="io-copy">' + (lang === "de" ? "Kopieren" : "Copy") + '</button><button type="button" data-act="io-load">' + (lang === "de" ? "Laden" : "Load") + '</button><button type="button" data-act="io-txt">' + t("txtSave") + '</button><button type="button" data-act="io-open">' + t("txtOpen") + '</button><input type="file" class="sr-io-file" accept=".txt,text/plain" hidden><span class="sr-sp"></span><button type="button" data-act="io-x">' + (lang === "de" ? "Schließen" : "Close") + '</button></div></div></div></div>';
   }
   function syncUI() {
     if (!V) return;
@@ -72,6 +74,7 @@
     r.querySelectorAll("[data-blk]").forEach(function (b) { b.setAttribute("aria-pressed", String(b.getAttribute("data-blk") === S.sel && S.tool === "build")); });
     r.querySelectorAll("[data-view]").forEach(function (b) { b.setAttribute("aria-pressed", String(b.getAttribute("data-view") === S.view)); });
     r.querySelector(".sr-root").classList.toggle("st", S.ed === "station");
+    if (S.ed !== "station" && T[S.sel] && T[S.sel].dev) S.sel = "lblk";   // Dev-Bauteile gibt es im Schiffsbau nicht
     r.querySelector(".sr-root").classList.toggle("foot", !!(FL && !FL.seated)); if (FL) syncHot();
     var ni = r.querySelector("#sr-name"); if (ni && document.activeElement !== ni) ni.value = S.names[S.ed] || "";
     var tb = r.querySelector('[data-act="test"]'); if (tb) tb.textContent = t(S.ed === "station" ? "testSt" : "test") + " ▸";
@@ -106,7 +109,7 @@
     function row(l, v) { return "<div><span>" + l + "</span><b>" + v + "</b></div>"; }
     function acc(i) { return st.thr[i] ? nf(st.thr[i]) + " kN · " + nf(st.thr[i] / m, 1) + " m/s²" : "–"; }
     var warn = [];
-    var isSt = S.ed === "station";   // Stationen brauchen weder Cockpit noch Gyroskop noch Triebwerke
+    var isSt = S.ed === "station" && !st.cock;   // Strukturen ohne Cockpit brauchen weder Gyroskop noch Triebwerke; mit Cockpit (Missionsschiff) volle Werte
     if (!st.cock && !isSt) warn.push(t("wNoCock"));
     if (!st.gyro && !isSt) warn.push(t("wNoGyro"));
     var miss = [[0, "dF"], [2, "dB"], [3, "dL"], [1, "dR"]].filter(function (q) { return !st.thr[q[0]]; }).map(function (q) { return t(q[1]); });

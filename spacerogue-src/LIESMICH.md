@@ -80,3 +80,7 @@ Folgen für Änderungen:
   verrutschte Ansicht zu Fuß sind geblieben. Der Perk-Haken `PM` in `11-bauteile.js` bleibt für spätere Upgrades.
 - v0.51.0: Waffengruppen je Typ (`WGROUPS`, `grpOf` in `12-balance.js`), Geschütze (`GUN`), Waffenkennzahlen (`wStats`),
   Maschinenpistole (`SMG`, `fireHand` in `54-figur.js`), Einrichtung (Art `deco`, Zeichnung `decoArt`), Panzerung 1×2.
+- v0.52: Der Raumstation-Editor ist jetzt das „Developer Tool“ (intern weiter `S.ed === "station"`, Speicherschlüssel unverändert),
+  gesperrt mit 6-stelligem Code (Prüfwert `DEV_H` in `30-zustand.js`, Freischaltung in `localStorage` unter `spacerogue-dev`).
+  Dort sind alle Bauteile erlaubt. Bauteile mit `dev: true` in `11-bauteile.js` erscheinen nur im Developer Tool.
+  Export/Import können .txt-Dateien speichern und öffnen (`saveTxt`/`openTxt` in `73-hangar-export.js`).

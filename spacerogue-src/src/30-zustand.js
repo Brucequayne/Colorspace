@@ -11,7 +11,7 @@
     if (!S.blocks.length) S.blocks = starter();
     S.ship = S.blocks;
     try { var jn = JSON.parse(localStorage.getItem(SAVE) || "null"); if (jn && jn.name) S.names.ship = jn.name; } catch (e) {}
-    try { var js = JSON.parse(localStorage.getItem(SAVE_ST) || "null"); if (js && js.blocks) S.station = js.blocks.filter(function (b) { return T[b.t] && !/^(thr|cock|gyro)$/.test(T[b.t].kind); }); if (js && js.name) S.names.station = js.name; if (js && js.ed === "station") { S.ed = "station"; S.blocks = S.station; } } catch (e) {}
+    try { var js = JSON.parse(localStorage.getItem(SAVE_ST) || "null"); if (js && js.blocks) S.station = js.blocks.filter(function (b) { return T[b.t]; }); if (js && js.name) S.names.station = js.name; if (js && js.ed === "station" && devOk()) { S.ed = "station"; S.blocks = S.station; } } catch (e) {}
   }
   function save() {
     if (S.ed === "station") S.station = S.blocks; else S.ship = S.blocks;
@@ -32,10 +32,25 @@
     }
     return B.map(function (b) { if (!b.c) delete b.c; return b; });
   }
+  // ===== Developer Tool (früher Raumstation-Editor, v0.52): gesperrt mit 6-stelligem Code, Freischaltung bleibt auf dem Gerät gespeichert.
+  //       Hier gibt es alle Bauteile, auch die mit dev: true in 11-bauteile.js (im normalen Schiffsbau ausgeblendet).
+  //       Hinweis: Der Code ist nur eine Sperre, kein echter Schutz – im Browser lässt sich jedes Skript lesen. Deshalb steht hier nur sein Prüfwert.
+  var DEV_SAVE = "spacerogue-dev", DEV_H = 2355165527;
+  function devHash(s) { var h = 2166136261; for (var i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; } return h >>> 0; }
+  function devOk() { try { return localStorage.getItem(DEV_SAVE) === String(DEV_H); } catch (e) { return !!(V && V.devOk); } }
+  function devTry(code) {
+    if (devHash(String(code)) !== DEV_H) return false;
+    try { localStorage.setItem(DEV_SAVE, String(DEV_H)); } catch (e) {}
+    if (V) V.devOk = true; return true;
+  }
+  function devLock() { try { localStorage.removeItem(DEV_SAVE); } catch (e) {} if (V) V.devOk = false; if (S.ed === "station") setEd("ship"); note(t("devLocked")); }
+  function openDev() { var d = V.root.querySelector(".sr-dev"), i = d.querySelector("input"); d.hidden = false; i.value = ""; i.focus(); }
   function setEd(m) {
-    if (S.ed === m) return; save();
+    if (S.ed === m) return;
+    if (m === "station" && !devOk()) { openDev(); return; }   // erst Code, dann Developer Tool
+    save();
     S.ed = m; S.blocks = m === "station" ? S.station : S.ship; S.undo = [];
-    if (m === "station" && /^(thr|cock|gyro)$/.test(T[S.sel].kind)) S.sel = "lblk";
+    if (m !== "station" && T[S.sel].dev) S.sel = "lblk";
     if (m === "station" && !S.blocks.length) { S.blocks = S.station = starterStation(); }
     V.zoom = m === "station" ? Math.max(ZMIN_ST, Math.min(V.zoom, 0.8)) : Math.max(0.3, V.zoom);
     save(); fitCam(); syncUI();

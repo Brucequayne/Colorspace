@@ -35,7 +35,7 @@
     V.cv.addEventListener("wheel", onWheel, { passive: false }); V.cv.addEventListener("contextmenu", function (e) { e.preventDefault(); });
     V.cv.addEventListener("pointerleave", function () { if (V && S.mode !== "fly") V.mouse = null; });
     el.addEventListener("click", onClick); el.addEventListener("input", onInput);
-    el.addEventListener("change", function (e) { if (e.target.type === "range") e.target.blur(); });
+    el.addEventListener("change", function (e) { if (e.target.type === "range") e.target.blur(); if (e.target.classList && e.target.classList.contains("sr-io-file")) { openTxt(e.target.files && e.target.files[0]); e.target.value = ""; } });
     el.addEventListener("focusout", function (e) { if (e.target.classList && e.target.classList.contains("sr-shipn-in")) finishRename(true); });   // Regler loslassen gibt WASD wieder frei
     window.addEventListener("keydown", onKey); window.addEventListener("keyup", onKeyUp); window.addEventListener("resize", layout);
     window.addEventListener("blur", releaseKeys);

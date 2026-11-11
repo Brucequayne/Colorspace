@@ -7,7 +7,7 @@
     rot: L2("Drehen (R)", "Rotate (R)"), flip: L2("Spiegeln (F)", "Flip (F)"), sym: L2("Symmetrie (M)", "Symmetry (M)"), axis: L2("Achse", "Axis"), symIn: L2("im Block", "through block"), symGap: L2("zwischen Blöcken", "between blocks"),
     vIn: L2("Innen", "Interior"), vOut: L2("Außen", "Exterior"), view: L2("Ansicht (V)", "View (V)"),
     undo: L2("Rückgängig", "Undo"), clear: L2("Leeren", "Clear"), starter: L2("Beispielschiff", "Sample ship"),
-    test: L2("Schiff testen", "Test ship"), testSt: L2("Station testen", "Test station"), toEd: L2("Zurück zum Editor", "Back to editor"),
+    test: L2("Schiff testen", "Test ship"), testSt: L2("Struktur testen", "Test structure"), toEd: L2("Zurück zum Editor", "Back to editor"),
     dir: L2("FLUGRICHTUNG", "FORWARD"),
     sMass: L2("Masse", "Mass"), sThr: L2("Schub und Beschleunigung", "Thrust and acceleration"),
     dF: L2("Vorwärts", "Forward"), dB: L2("Rückwärts", "Backward"), dL: L2("Links", "Left"), dR: L2("Rechts", "Right"),
@@ -55,7 +55,7 @@
     dockStand: L2("Erst aus dem Dock gehen", "Step out of the dock first"), notOnShip: L2("Erst zurück aufs eigene Schiff", "Get back onto your own ship first"),
     shipDef: L2("Dein Schiff", "Your ship"), renameT: L2("Schiff umbenennen", "Rename ship"), stDef: L2("Raumstation", "Space station"), namePh: L2("Name …", "Name …"), emptySlot: L2("leer", "empty"),
     spawn: L2("Gegner spawnen", "Spawn enemy"), spawned: L2("{n} patrouilliert irgendwo vor dir", "{n} is patrolling somewhere ahead of you"), ko: L2("Kampfunfähig", "Disabled"),
-    edShip: L2("Schiff", "Ship"), edSt: L2("Raumstation", "Space station"), stNoShip: L2("Für den Stationstest brauchst du ein Schiff mit Cockpit im Schiffs-Editor.", "To test the station you need a ship with a cockpit in the ship editor."),
+    edShip: L2("Schiff", "Ship"), edSt: L2("Developer Tool", "Developer Tool"), devH: L2("Das Developer Tool ist gesperrt. Gib den 6-stelligen Code ein.", "The Developer Tool is locked. Enter the 6-digit code."), devBad: L2("Falscher Code.", "Wrong code."), devOn: L2("Developer Tool freigeschaltet.", "Developer Tool unlocked."), devLock: L2("Sperren", "Lock"), devLocked: L2("Developer Tool wieder gesperrt.", "Developer Tool locked again."), txtSave: L2("Als .txt speichern", "Save as .txt"), txtOpen: L2(".txt öffnen", "Open .txt"), cancel: L2("Abbrechen", "Cancel"), stNoShip: L2("Für den Stationstest brauchst du ein Schiff mit Cockpit im Schiffs-Editor.", "To test the station you need a ship with a cockpit in the ship editor."),
     weld: L2("Schweißgerät", "Welder"), weldOn: L2("repariert {n}: {p} %", "repairing {n}: {p} %"), weldIdle: L2("Linksklick vor einem Block repariert ihn, vor einem Hologramm baut er ihn neu", "Left click facing a block repairs it, facing a hologram rebuilds it"),
     sDim: L2("Abmessungen", "Dimensions"), sCool: L2("Kühlung", "Cooling"), sCoolW: L2("Gekühlt", "Cooled"), weap: L2("Waffen", "weapons"), thrs: L2("Triebwerke", "thrusters"), sCom: L2("Schwerpunkt", "Centre of mass"), comHint: L2("gelb-schwarzer Kreis", "yellow-black circle"),
     roomCells: L2("{n} Felder", "{n} cells"), color: L2("Farbe", "Colour"), placeHint: L2("Erster Block: frei platzieren", "First block: place anywhere")

@@ -5,7 +5,7 @@
 (function () {
   "use strict";
 
-  var VERSION = "0.51.0";
+  var VERSION = "0.52";
   var CELL_M = 2.5, PX = 24;              // Meter je Zelle, Pixel je Zelle bei Zoom 1
   var lang = "de";
   function L2(de, en) { return { de: de, en: en }; }
@@ -22,7 +22,7 @@
     rot: L2("Drehen (R)", "Rotate (R)"), flip: L2("Spiegeln (F)", "Flip (F)"), sym: L2("Symmetrie (M)", "Symmetry (M)"), axis: L2("Achse", "Axis"), symIn: L2("im Block", "through block"), symGap: L2("zwischen Blöcken", "between blocks"),
     vIn: L2("Innen", "Interior"), vOut: L2("Außen", "Exterior"), view: L2("Ansicht (V)", "View (V)"),
     undo: L2("Rückgängig", "Undo"), clear: L2("Leeren", "Clear"), starter: L2("Beispielschiff", "Sample ship"),
-    test: L2("Schiff testen", "Test ship"), testSt: L2("Station testen", "Test station"), toEd: L2("Zurück zum Editor", "Back to editor"),
+    test: L2("Schiff testen", "Test ship"), testSt: L2("Struktur testen", "Test structure"), toEd: L2("Zurück zum Editor", "Back to editor"),
     dir: L2("FLUGRICHTUNG", "FORWARD"),
     sMass: L2("Masse", "Mass"), sThr: L2("Schub und Beschleunigung", "Thrust and acceleration"),
     dF: L2("Vorwärts", "Forward"), dB: L2("Rückwärts", "Backward"), dL: L2("Links", "Left"), dR: L2("Rechts", "Right"),
@@ -70,7 +70,7 @@
     dockStand: L2("Erst aus dem Dock gehen", "Step out of the dock first"), notOnShip: L2("Erst zurück aufs eigene Schiff", "Get back onto your own ship first"),
     shipDef: L2("Dein Schiff", "Your ship"), renameT: L2("Schiff umbenennen", "Rename ship"), stDef: L2("Raumstation", "Space station"), namePh: L2("Name …", "Name …"), emptySlot: L2("leer", "empty"),
     spawn: L2("Gegner spawnen", "Spawn enemy"), spawned: L2("{n} patrouilliert irgendwo vor dir", "{n} is patrolling somewhere ahead of you"), ko: L2("Kampfunfähig", "Disabled"),
-    edShip: L2("Schiff", "Ship"), edSt: L2("Raumstation", "Space station"), stNoShip: L2("Für den Stationstest brauchst du ein Schiff mit Cockpit im Schiffs-Editor.", "To test the station you need a ship with a cockpit in the ship editor."),
+    edShip: L2("Schiff", "Ship"), edSt: L2("Developer Tool", "Developer Tool"), devH: L2("Das Developer Tool ist gesperrt. Gib den 6-stelligen Code ein.", "The Developer Tool is locked. Enter the 6-digit code."), devBad: L2("Falscher Code.", "Wrong code."), devOn: L2("Developer Tool freigeschaltet.", "Developer Tool unlocked."), devLock: L2("Sperren", "Lock"), devLocked: L2("Developer Tool wieder gesperrt.", "Developer Tool locked again."), txtSave: L2("Als .txt speichern", "Save as .txt"), txtOpen: L2(".txt öffnen", "Open .txt"), cancel: L2("Abbrechen", "Cancel"), stNoShip: L2("Für den Stationstest brauchst du ein Schiff mit Cockpit im Schiffs-Editor.", "To test the station you need a ship with a cockpit in the ship editor."),
     weld: L2("Schweißgerät", "Welder"), weldOn: L2("repariert {n}: {p} %", "repairing {n}: {p} %"), weldIdle: L2("Linksklick vor einem Block repariert ihn, vor einem Hologramm baut er ihn neu", "Left click facing a block repairs it, facing a hologram rebuilds it"),
     sDim: L2("Abmessungen", "Dimensions"), sCool: L2("Kühlung", "Cooling"), sCoolW: L2("Gekühlt", "Cooled"), weap: L2("Waffen", "weapons"), thrs: L2("Triebwerke", "thrusters"), sCom: L2("Schwerpunkt", "Centre of mass"), comHint: L2("gelb-schwarzer Kreis", "yellow-black circle"),
     roomCells: L2("{n} Felder", "{n} cells"), color: L2("Farbe", "Colour"), placeHint: L2("Erster Block: frei platzieren", "First block: place anywhere")
@@ -388,7 +388,7 @@
     if (!S.blocks.length) S.blocks = starter();
     S.ship = S.blocks;
     try { var jn = JSON.parse(localStorage.getItem(SAVE) || "null"); if (jn && jn.name) S.names.ship = jn.name; } catch (e) {}
-    try { var js = JSON.parse(localStorage.getItem(SAVE_ST) || "null"); if (js && js.blocks) S.station = js.blocks.filter(function (b) { return T[b.t] && !/^(thr|cock|gyro)$/.test(T[b.t].kind); }); if (js && js.name) S.names.station = js.name; if (js && js.ed === "station") { S.ed = "station"; S.blocks = S.station; } } catch (e) {}
+    try { var js = JSON.parse(localStorage.getItem(SAVE_ST) || "null"); if (js && js.blocks) S.station = js.blocks.filter(function (b) { return T[b.t]; }); if (js && js.name) S.names.station = js.name; if (js && js.ed === "station" && devOk()) { S.ed = "station"; S.blocks = S.station; } } catch (e) {}
   }
   function save() {
     if (S.ed === "station") S.station = S.blocks; else S.ship = S.blocks;
@@ -409,10 +409,25 @@
     }
     return B.map(function (b) { if (!b.c) delete b.c; return b; });
   }
+  // ===== Developer Tool (früher Raumstation-Editor, v0.52): gesperrt mit 6-stelligem Code, Freischaltung bleibt auf dem Gerät gespeichert.
+  //       Hier gibt es alle Bauteile, auch die mit dev: true in 11-bauteile.js (im normalen Schiffsbau ausgeblendet).
+  //       Hinweis: Der Code ist nur eine Sperre, kein echter Schutz – im Browser lässt sich jedes Skript lesen. Deshalb steht hier nur sein Prüfwert.
+  var DEV_SAVE = "spacerogue-dev", DEV_H = 2355165527;
+  function devHash(s) { var h = 2166136261; for (var i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; } return h >>> 0; }
+  function devOk() { try { return localStorage.getItem(DEV_SAVE) === String(DEV_H); } catch (e) { return !!(V && V.devOk); } }
+  function devTry(code) {
+    if (devHash(String(code)) !== DEV_H) return false;
+    try { localStorage.setItem(DEV_SAVE, String(DEV_H)); } catch (e) {}
+    if (V) V.devOk = true; return true;
+  }
+  function devLock() { try { localStorage.removeItem(DEV_SAVE); } catch (e) {} if (V) V.devOk = false; if (S.ed === "station") setEd("ship"); note(t("devLocked")); }
+  function openDev() { var d = V.root.querySelector(".sr-dev"), i = d.querySelector("input"); d.hidden = false; i.value = ""; i.focus(); }
   function setEd(m) {
-    if (S.ed === m) return; save();
+    if (S.ed === m) return;
+    if (m === "station" && !devOk()) { openDev(); return; }   // erst Code, dann Developer Tool
+    save();
     S.ed = m; S.blocks = m === "station" ? S.station : S.ship; S.undo = [];
-    if (m === "station" && /^(thr|cock|gyro)$/.test(T[S.sel].kind)) S.sel = "lblk";
+    if (m !== "station" && T[S.sel].dev) S.sel = "lblk";
     if (m === "station" && !S.blocks.length) { S.blocks = S.station = starterStation(); }
     V.zoom = m === "station" ? Math.max(ZMIN_ST, Math.min(V.zoom, 0.8)) : Math.max(0.3, V.zoom);
     save(); fitCam(); syncUI();
@@ -2342,8 +2357,9 @@
   }
   function html() {
     var pal = CATS.map(function (cat) {
-      return '<div class="sr-cat"><h4>' + t(cat) + '</h4><div class="sr-grid">' + Object.keys(T).filter(function (id) { return T[id].cat === cat; }).map(function (id) {
-        return '<button type="button" class="sr-blk" data-blk="' + id + '" data-kind="' + T[id].kind + '" title="' + T[id].n[lang] + " · " + kg(T[id].mass) + " · " + T[id].hp + " HP · " + cr(T[id].cost) + wTip(id) + '"><img alt="" src="' + icon(id) + '"><span>' + T[id].n[lang] + "</span><small>" + kg(T[id].mass) + "</small><small class=\"sr-pr\">" + cr(T[id].cost) + "</small></button>";
+      var ids = Object.keys(T).filter(function (id) { return T[id].cat === cat; }), onlyDev = ids.length && ids.every(function (id) { return T[id].dev; });
+      return '<div class="sr-cat"' + (onlyDev ? " data-dev" : "") + '><h4>' + t(cat) + '</h4><div class="sr-grid">' + ids.map(function (id) {
+        return '<button type="button" class="sr-blk" data-blk="' + id + '" data-kind="' + T[id].kind + '"' + (T[id].dev ? " data-dev" : "") + ' title="' + T[id].n[lang] + " · " + kg(T[id].mass) + " · " + T[id].hp + " HP · " + cr(T[id].cost) + wTip(id) + '"><img alt="" src="' + icon(id) + '"><span>' + T[id].n[lang] + "</span><small>" + kg(T[id].mass) + "</small><small class=\"sr-pr\">" + cr(T[id].cost) + "</small></button>";
       }).join("") + "</div></div>";
     }).join("");
     var sw = ["#C8473A", "#E3B83F", "#57A06A", "#3E6F96", "#7B4BA8", "#E9ECEE", "#9AA5B1", "#6A7480", "#2A2F36"].map(function (c) { return '<button type="button" class="sr-sw" data-sw="' + c + '" style="background:' + c + '" aria-label="' + c + '"></button>'; }).join("");
@@ -2355,7 +2371,7 @@
       '<feColorMatrix in="SourceGraphic" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 1 0 0 0 0 0 1 0" result="b"/><feOffset id="srCAo2" in="b" dx="0" dy="0" result="bo"/>' +
       '<feBlend in="ro" in2="g" mode="screen" result="rg"/><feBlend in="rg" in2="bo" mode="screen"/></filter></svg>' +
       '<div class="sr-top"><a class="sr-back" href="#">← ' + t("back") + '</a><b class="sr-ttl">' + t("title") + ' <small>v' + VERSION + '</small></b>' +
-      '<div class="sr-ed-only sr-tbar"><span class="sr-seg"><button type="button" data-act="ed-ship">' + t("edShip") + '</button><button type="button" data-act="ed-st">' + t("edSt") + '</button></span><input id="sr-name" class="sr-name" maxlength="28" spellcheck="false" placeholder="' + t("namePh") + '"><button type="button" data-act="undo">' + t("undo") + '</button><button type="button" data-act="starter">' + t("starter") + '</button><button type="button" data-act="clear">' + t("clear") + '</button><button type="button" data-act="exp">Export</button><button type="button" data-act="imp">Import</button><button type="button" data-act="npc">' + t("hangar") + '</button></div>' +
+      '<div class="sr-ed-only sr-tbar"><span class="sr-seg"><button type="button" data-act="ed-ship">' + t("edShip") + '</button><button type="button" data-act="ed-st">' + t("edSt") + '</button></span><input id="sr-name" class="sr-name" maxlength="28" spellcheck="false" placeholder="' + t("namePh") + '"><button type="button" data-act="undo">' + t("undo") + '</button><button type="button" data-act="starter">' + t("starter") + '</button><button type="button" data-act="clear">' + t("clear") + '</button><button type="button" data-act="exp">Export</button><button type="button" data-act="imp">Import</button><button type="button" data-act="npc">' + t("hangar") + '</button><button type="button" class="sr-dev-only" data-act="dev-lock">' + t("devLock") + '</button></div>' +
       '<div class="sr-sp"></div><div class="sr-seg"><button type="button" data-view="in">' + t("vIn") + '</button><button type="button" data-view="out">' + t("vOut") + '</button></div>' +
       '<button type="button" class="sr-go sr-ed-only" data-act="test">' + t("test") + ' ▸</button><button type="button" class="sr-go sr-fl-only" data-act="edit">◂ ' + t("toEd") + '</button></div>' +
       '<aside class="sr-pal sr-ed-only"><div class="sr-tools"><button type="button" data-tool="build">' + t("tBuild") + '</button><button type="button" data-tool="erase">' + t("tErase") + '</button><button type="button" data-tool="paint">' + t("tPaint") + '</button></div>' +
@@ -2383,7 +2399,8 @@
       '<div class="sr-tip sr-fl-only" hidden title="' + (lang === "de" ? "Klicken zum Ausblenden" : "Click to dismiss") + '"></div>' +
       '<div class="sr-hint" id="sr-hint"></div><div class="sr-note" hidden></div>' +
       '<div class="sr-io sr-npc" hidden><div class="sr-io-box sr-npc-box"><div class="sr-tbar"><b class="sr-npc-t">' + t("hangar") + '</b><span class="sr-sp"></span><button type="button" data-act="npc-x">' + (lang === "de" ? "Schließen" : "Close") + '</button></div><div class="sr-io-h">' + t("hangarH") + '</div><div class="sr-npc-list"></div></div></div>' +
-      '<div class="sr-io sr-exio" hidden><div class="sr-io-box"><div class="sr-io-h"></div><textarea spellcheck="false"></textarea><div class="sr-tbar"><button type="button" data-act="io-copy">' + (lang === "de" ? "Kopieren" : "Copy") + '</button><button type="button" data-act="io-load">' + (lang === "de" ? "Laden" : "Load") + '</button><span class="sr-sp"></span><button type="button" data-act="io-x">' + (lang === "de" ? "Schließen" : "Close") + '</button></div></div></div></div>';
+      '<div class="sr-io sr-dev" hidden><div class="sr-io-box sr-dev-box"><div class="sr-io-h">' + t("devH") + '</div><input class="sr-dev-in" type="password" inputmode="numeric" autocomplete="off" maxlength="6" spellcheck="false" aria-label="Code"><div class="sr-tbar"><span class="sr-dev-msg"></span><span class="sr-sp"></span><button type="button" data-act="dev-x">' + t("cancel") + '</button></div></div></div>' +
+      '<div class="sr-io sr-exio" hidden><div class="sr-io-box"><div class="sr-io-h"></div><textarea spellcheck="false"></textarea><div class="sr-tbar"><button type="button" data-act="io-copy">' + (lang === "de" ? "Kopieren" : "Copy") + '</button><button type="button" data-act="io-load">' + (lang === "de" ? "Laden" : "Load") + '</button><button type="button" data-act="io-txt">' + t("txtSave") + '</button><button type="button" data-act="io-open">' + t("txtOpen") + '</button><input type="file" class="sr-io-file" accept=".txt,text/plain" hidden><span class="sr-sp"></span><button type="button" data-act="io-x">' + (lang === "de" ? "Schließen" : "Close") + '</button></div></div></div></div>';
   }
   function syncUI() {
     if (!V) return;
@@ -2393,6 +2410,7 @@
     r.querySelectorAll("[data-blk]").forEach(function (b) { b.setAttribute("aria-pressed", String(b.getAttribute("data-blk") === S.sel && S.tool === "build")); });
     r.querySelectorAll("[data-view]").forEach(function (b) { b.setAttribute("aria-pressed", String(b.getAttribute("data-view") === S.view)); });
     r.querySelector(".sr-root").classList.toggle("st", S.ed === "station");
+    if (S.ed !== "station" && T[S.sel] && T[S.sel].dev) S.sel = "lblk";   // Dev-Bauteile gibt es im Schiffsbau nicht
     r.querySelector(".sr-root").classList.toggle("foot", !!(FL && !FL.seated)); if (FL) syncHot();
     var ni = r.querySelector("#sr-name"); if (ni && document.activeElement !== ni) ni.value = S.names[S.ed] || "";
     var tb = r.querySelector('[data-act="test"]'); if (tb) tb.textContent = t(S.ed === "station" ? "testSt" : "test") + " ▸";
@@ -2427,7 +2445,7 @@
     function row(l, v) { return "<div><span>" + l + "</span><b>" + v + "</b></div>"; }
     function acc(i) { return st.thr[i] ? nf(st.thr[i]) + " kN · " + nf(st.thr[i] / m, 1) + " m/s²" : "–"; }
     var warn = [];
-    var isSt = S.ed === "station";   // Stationen brauchen weder Cockpit noch Gyroskop noch Triebwerke
+    var isSt = S.ed === "station" && !st.cock;   // Strukturen ohne Cockpit brauchen weder Gyroskop noch Triebwerke; mit Cockpit (Missionsschiff) volle Werte
     if (!st.cock && !isSt) warn.push(t("wNoCock"));
     if (!st.gyro && !isSt) warn.push(t("wNoGyro"));
     var miss = [[0, "dF"], [2, "dB"], [3, "dL"], [1, "dR"]].filter(function (q) { return !st.thr[q[0]]; }).map(function (q) { return t(q[1]); });
@@ -2532,7 +2550,7 @@
     ".sr-inv-grid{display:grid;grid-template-columns:repeat(8,48px);grid-auto-rows:48px;gap:4px}.sr-slot{display:block;background:rgba(38,49,66,.45);border:1px solid rgba(70,86,110,.6);box-shadow:inset 0 0 0 1px rgba(0,0,0,.25)}.sr-slot:hover{border-color:rgba(140,165,200,.8);background:rgba(50,64,86,.55)}" +
     "@media (max-width:520px){.sr-inv-grid{grid-template-columns:repeat(8,34px);grid-auto-rows:34px;gap:3px}}" +
     ".sr-name{width:150px;margin-right:6px;padding:5px 8px;background:rgba(14,19,28,.7);border:1px solid #3A4658;color:#E8ECEF;font:inherit;font-size:.8rem;border-radius:0}" +
-    ".sr-root.st .sr-blk[data-kind=thr],.sr-root.st .sr-blk[data-kind=cock],.sr-root.st .sr-blk[data-kind=gyro]{display:none}.sr-seg{display:inline-flex;margin-right:6px}.sr-seg button{border-radius:0}.sr-seg button[aria-pressed=true]{background:#2E6B4C;border-color:#57D18A;color:#fff}" +
+    ".sr-root:not(.st) .sr-blk[data-dev],.sr-root:not(.st) .sr-cat[data-dev],.sr-root:not(.st) .sr-dev-only{display:none}.sr-dev-box{width:min(340px,100%)}.sr-dev-in{background:#141414;color:#E8E8E8;border:1px solid #3A3A3A;border-radius:0;font:600 22px ui-monospace,Menlo,Consolas,monospace;letter-spacing:.5em;padding:10px 12px;text-align:center}.sr-dev-in:focus{outline:none;border-color:#57D18A}.sr-dev-msg{color:#E07A6A;font-size:.85rem}.sr-seg{display:inline-flex;margin-right:6px}.sr-seg button{border-radius:0}.sr-seg button[aria-pressed=true]{background:#2E6B4C;border-color:#57D18A;color:#fff}" +
     ".sr-uis{position:absolute;left:12px;bottom:10px;z-index:3;align-items:center;gap:7px;background:rgba(14,19,28,.6);border:1px solid rgba(38,49,66,.8);padding:5px 9px;color:#8FA0B8;font-size:.72rem;font-variant-numeric:tabular-nums;cursor:pointer}" +
     ".sr-uis input{width:96px;accent-color:#7FD3A4;margin:0}.sr-uis span{min-width:36px;text-align:right}" +
     ".sr-hud{overflow-y:auto;scrollbar-width:thin;position:absolute;left:12px;top:64px;display:flex;flex-direction:column;gap:7px;background:rgba(14,19,28,.6);border:1px solid rgba(38,49,66,.8);padding:8px 10px;z-index:2;width:176px;box-sizing:border-box;font-size:.84rem}" +
@@ -2671,7 +2689,11 @@
     else if (act === "npc-x") { V.root.querySelector(".sr-npc").hidden = true; return; }
     else if (act === "io-x") { V.root.querySelector(".sr-exio").hidden = true; return; }
     else if (act === "io-copy") { var ta = V.root.querySelector(".sr-exio textarea"); ta.select(); try { navigator.clipboard.writeText(ta.value).then(function () { note(lang === "de" ? "Schiffscode kopiert." : "Ship code copied."); }, function () {}); } catch (er) {} return; }
-    else if (act === "io-load") { var bl = parseShip(V.root.querySelector(".sr-exio textarea").value); if (bl && S.ed === "station") bl = bl.filter(function (b) { return !/^(thr|cock|gyro)$/.test(T[b.t].kind); }); if (!bl) { note(lang === "de" ? "Code ungültig." : "Invalid code."); return; } pushUndo(); S.blocks = bl; save(); fitCam(); V.root.querySelector(".sr-exio").hidden = true; note(lang === "de" ? "Schiff geladen (" + bl.length + " Blöcke)." : "Ship loaded (" + bl.length + " blocks)."); }
+    else if (act === "dev-x") { V.root.querySelector(".sr-dev").hidden = true; return; }
+    else if (act === "dev-lock") { devLock(); return; }
+    else if (act === "io-txt") { saveTxt(V.root.querySelector(".sr-exio textarea").value); return; }
+    else if (act === "io-open") { V.root.querySelector(".sr-io-file").click(); return; }
+    else if (act === "io-load") { var bl = parseShip(V.root.querySelector(".sr-exio textarea").value); if (bl && S.ed !== "station") bl = bl.filter(function (b) { return !T[b.t].dev; });   /* Dev-Bauteile nur im Developer Tool */ if (!bl) { note(lang === "de" ? "Code ungültig." : "Invalid code."); return; } pushUndo(); S.blocks = bl; save(); fitCam(); V.root.querySelector(".sr-exio").hidden = true; note(lang === "de" ? "Schiff geladen (" + bl.length + " Blöcke)." : "Ship loaded (" + bl.length + " blocks)."); }
     else if (act === "test") { startTest(); return; }
     else if (act === "edit") { stopTest(); return; }
     else if (act === "targets") { if (FL) spawnTargets(); return; }
@@ -2683,6 +2705,13 @@
     if (e.target.id === "sr-uis") { hudScale(+e.target.value); try { localStorage.setItem("spacerogue-ui", String(V.uis)); } catch (er) {} }
     if (e.target.id === "sr-shp" && FL) setShield(+e.target.value);
     if (e.target.id === "sr-name") { S.names[S.ed] = e.target.value.trim(); save(); }
+    if (e.target.classList && e.target.classList.contains("sr-dev-in")) {   // Code: sobald 6 Ziffern drin sind, wird geprüft
+      var dv = e.target.value.replace(/\D/g, "").slice(0, 6), dm = V.root.querySelector(".sr-dev-msg"); if (dv !== e.target.value) e.target.value = dv; dm.textContent = "";
+      if (dv.length === 6) {
+        if (devTry(dv)) { V.root.querySelector(".sr-dev").hidden = true; e.target.value = ""; note(t("devOn")); setEd("station"); }
+        else { dm.textContent = t("devBad"); e.target.value = ""; }
+      }
+    }
   }
   // Infofeld skalieren: CSS-zoom statt Bild-Skalierung, Schrift und Symbole bleiben gestochen scharf (100 bis 150 %)
   function hudScale(k) {
@@ -2716,10 +2745,25 @@
       card.appendChild(tx); list.appendChild(card);
     });
   }
+  // .txt speichern: Dateiname = Name im Namensfeld (z. B. Mission_1_Ship_1), sonst Schiff/Struktur
+  function saveTxt(code) {
+    var nm = (S.names[S.ed] || (S.ed === "station" ? "Struktur" : "Schiff")).replace(/[^\w\-. ]+/g, "_").replace(/\s+/g, "_") || "Schiff";
+    try {
+      var a = document.createElement("a"), url = URL.createObjectURL(new Blob([code], { type: "text/plain" }));
+      a.href = url; a.download = nm + ".txt"; document.body.appendChild(a); a.click(); a.remove(); setTimeout(function () { URL.revokeObjectURL(url); }, 2000);
+      note((lang === "de" ? "Gespeichert: " : "Saved: ") + nm + ".txt");
+    } catch (e) { note(lang === "de" ? "Speichern nicht möglich." : "Could not save."); }
+  }
+  // .txt öffnen: Inhalt landet im Importfeld, der Dateiname wird zum Namen
+  function openTxt(f) {
+    if (!f) return; var rd = new FileReader();
+    rd.onload = function () { var ta = V.root.querySelector(".sr-exio textarea"); ta.readOnly = false; ta.value = String(rd.result || ""); var nm = f.name.replace(/\.txt$/i, "").slice(0, 28); S.names[S.ed] = nm; save(); syncUI(); };
+    rd.readAsText(f);
+  }
   function openIO(mode) {
     var io = V.root.querySelector(".sr-exio"), ta = io.querySelector("textarea"), h = io.querySelector(".sr-io-h");
     io.hidden = false;
-    io.querySelector('[data-act="io-copy"]').hidden = mode !== "exp"; io.querySelector('[data-act="io-load"]').hidden = mode !== "imp";
+    io.querySelector('[data-act="io-copy"]').hidden = mode !== "exp"; io.querySelector('[data-act="io-load"]').hidden = mode !== "imp"; io.querySelector('[data-act="io-txt"]').hidden = mode !== "exp"; io.querySelector('[data-act="io-open"]').hidden = mode !== "imp";
     if (mode === "exp") { h.textContent = lang === "de" ? "Schiffscode deines Entwurfs. Kopieren und teilen oder speichern." : "Ship code of your design. Copy and share or keep it."; ta.value = shipCode(); ta.readOnly = true; ta.select(); }
     else { h.textContent = lang === "de" ? "Schiffscode einfügen und laden. Der aktuelle Entwurf lässt sich mit Rückgängig zurückholen." : "Paste a ship code and load it. Undo brings back the current design."; ta.value = ""; ta.readOnly = false; ta.focus(); }
   }
@@ -2760,7 +2804,7 @@
     V.cv.addEventListener("wheel", onWheel, { passive: false }); V.cv.addEventListener("contextmenu", function (e) { e.preventDefault(); });
     V.cv.addEventListener("pointerleave", function () { if (V && S.mode !== "fly") V.mouse = null; });
     el.addEventListener("click", onClick); el.addEventListener("input", onInput);
-    el.addEventListener("change", function (e) { if (e.target.type === "range") e.target.blur(); });
+    el.addEventListener("change", function (e) { if (e.target.type === "range") e.target.blur(); if (e.target.classList && e.target.classList.contains("sr-io-file")) { openTxt(e.target.files && e.target.files[0]); e.target.value = ""; } });
     el.addEventListener("focusout", function (e) { if (e.target.classList && e.target.classList.contains("sr-shipn-in")) finishRename(true); });   // Regler loslassen gibt WASD wieder frei
     window.addEventListener("keydown", onKey); window.addEventListener("keyup", onKeyUp); window.addEventListener("resize", layout);
     window.addEventListener("blur", releaseKeys);

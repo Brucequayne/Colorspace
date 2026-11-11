@@ -117,7 +117,11 @@
     else if (act === "npc-x") { V.root.querySelector(".sr-npc").hidden = true; return; }
     else if (act === "io-x") { V.root.querySelector(".sr-exio").hidden = true; return; }
     else if (act === "io-copy") { var ta = V.root.querySelector(".sr-exio textarea"); ta.select(); try { navigator.clipboard.writeText(ta.value).then(function () { note(lang === "de" ? "Schiffscode kopiert." : "Ship code copied."); }, function () {}); } catch (er) {} return; }
-    else if (act === "io-load") { var bl = parseShip(V.root.querySelector(".sr-exio textarea").value); if (bl && S.ed === "station") bl = bl.filter(function (b) { return !/^(thr|cock|gyro)$/.test(T[b.t].kind); }); if (!bl) { note(lang === "de" ? "Code ungültig." : "Invalid code."); return; } pushUndo(); S.blocks = bl; save(); fitCam(); V.root.querySelector(".sr-exio").hidden = true; note(lang === "de" ? "Schiff geladen (" + bl.length + " Blöcke)." : "Ship loaded (" + bl.length + " blocks)."); }
+    else if (act === "dev-x") { V.root.querySelector(".sr-dev").hidden = true; return; }
+    else if (act === "dev-lock") { devLock(); return; }
+    else if (act === "io-txt") { saveTxt(V.root.querySelector(".sr-exio textarea").value); return; }
+    else if (act === "io-open") { V.root.querySelector(".sr-io-file").click(); return; }
+    else if (act === "io-load") { var bl = parseShip(V.root.querySelector(".sr-exio textarea").value); if (bl && S.ed !== "station") bl = bl.filter(function (b) { return !T[b.t].dev; });   /* Dev-Bauteile nur im Developer Tool */ if (!bl) { note(lang === "de" ? "Code ungültig." : "Invalid code."); return; } pushUndo(); S.blocks = bl; save(); fitCam(); V.root.querySelector(".sr-exio").hidden = true; note(lang === "de" ? "Schiff geladen (" + bl.length + " Blöcke)." : "Ship loaded (" + bl.length + " blocks)."); }
     else if (act === "test") { startTest(); return; }
     else if (act === "edit") { stopTest(); return; }
     else if (act === "targets") { if (FL) spawnTargets(); return; }
@@ -129,6 +133,13 @@
     if (e.target.id === "sr-uis") { hudScale(+e.target.value); try { localStorage.setItem("spacerogue-ui", String(V.uis)); } catch (er) {} }
     if (e.target.id === "sr-shp" && FL) setShield(+e.target.value);
     if (e.target.id === "sr-name") { S.names[S.ed] = e.target.value.trim(); save(); }
+    if (e.target.classList && e.target.classList.contains("sr-dev-in")) {   // Code: sobald 6 Ziffern drin sind, wird geprüft
+      var dv = e.target.value.replace(/\D/g, "").slice(0, 6), dm = V.root.querySelector(".sr-dev-msg"); if (dv !== e.target.value) e.target.value = dv; dm.textContent = "";
+      if (dv.length === 6) {
+        if (devTry(dv)) { V.root.querySelector(".sr-dev").hidden = true; e.target.value = ""; note(t("devOn")); setEd("station"); }
+        else { dm.textContent = t("devBad"); e.target.value = ""; }
+      }
+    }
   }
   // Infofeld skalieren: CSS-zoom statt Bild-Skalierung, Schrift und Symbole bleiben gestochen scharf (100 bis 150 %)
   function hudScale(k) {

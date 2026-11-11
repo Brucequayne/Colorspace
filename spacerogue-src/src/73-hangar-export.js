@@ -21,10 +21,25 @@
       card.appendChild(tx); list.appendChild(card);
     });
   }
+  // .txt speichern: Dateiname = Name im Namensfeld (z. B. Mission_1_Ship_1), sonst Schiff/Struktur
+  function saveTxt(code) {
+    var nm = (S.names[S.ed] || (S.ed === "station" ? "Struktur" : "Schiff")).replace(/[^\w\-. ]+/g, "_").replace(/\s+/g, "_") || "Schiff";
+    try {
+      var a = document.createElement("a"), url = URL.createObjectURL(new Blob([code], { type: "text/plain" }));
+      a.href = url; a.download = nm + ".txt"; document.body.appendChild(a); a.click(); a.remove(); setTimeout(function () { URL.revokeObjectURL(url); }, 2000);
+      note((lang === "de" ? "Gespeichert: " : "Saved: ") + nm + ".txt");
+    } catch (e) { note(lang === "de" ? "Speichern nicht möglich." : "Could not save."); }
+  }
+  // .txt öffnen: Inhalt landet im Importfeld, der Dateiname wird zum Namen
+  function openTxt(f) {
+    if (!f) return; var rd = new FileReader();
+    rd.onload = function () { var ta = V.root.querySelector(".sr-exio textarea"); ta.readOnly = false; ta.value = String(rd.result || ""); var nm = f.name.replace(/\.txt$/i, "").slice(0, 28); S.names[S.ed] = nm; save(); syncUI(); };
+    rd.readAsText(f);
+  }
   function openIO(mode) {
     var io = V.root.querySelector(".sr-exio"), ta = io.querySelector("textarea"), h = io.querySelector(".sr-io-h");
     io.hidden = false;
-    io.querySelector('[data-act="io-copy"]').hidden = mode !== "exp"; io.querySelector('[data-act="io-load"]').hidden = mode !== "imp";
+    io.querySelector('[data-act="io-copy"]').hidden = mode !== "exp"; io.querySelector('[data-act="io-load"]').hidden = mode !== "imp"; io.querySelector('[data-act="io-txt"]').hidden = mode !== "exp"; io.querySelector('[data-act="io-open"]').hidden = mode !== "imp";
     if (mode === "exp") { h.textContent = lang === "de" ? "Schiffscode deines Entwurfs. Kopieren und teilen oder speichern." : "Ship code of your design. Copy and share or keep it."; ta.value = shipCode(); ta.readOnly = true; ta.select(); }
     else { h.textContent = lang === "de" ? "Schiffscode einfügen und laden. Der aktuelle Entwurf lässt sich mit Rückgängig zurückholen." : "Paste a ship code and load it. Undo brings back the current design."; ta.value = ""; ta.readOnly = false; ta.focus(); }
   }
