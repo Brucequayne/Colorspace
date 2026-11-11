@@ -5,7 +5,7 @@
 (function () {
   "use strict";
 
-  var VERSION = "0.50.2";
+  var VERSION = "0.51.0";
   var CELL_M = 2.5, PX = 24;              // Meter je Zelle, Pixel je Zelle bei Zoom 1
   var lang = "de";
   function L2(de, en) { return { de: de, en: en }; }
@@ -17,7 +17,7 @@
   var TX = {
     back: L2("Apps", "Apps"), title: L2("Space Rogue", "Space Rogue"),
     catLA: L2("Panzerung leicht", "Light armour"), catHA: L2("Panzerung schwer", "Heavy armour"), catCo: L2("Cockpit", "Cockpit"),
-    catTh: L2("Antrieb und Steuerung", "Propulsion"), catEn: L2("Energie", "Power"), catIn: L2("Innenraum", "Interior"), catWe: L2("Waffen", "Weapons"),
+    catTh: L2("Antrieb und Steuerung", "Propulsion"), catEn: L2("Energie", "Power"), catIn: L2("Innenraum", "Interior"), catWe: L2("Waffen", "Weapons"), catDe: L2("Einrichtung", "Furniture"),
     tBuild: L2("Bauen", "Build"), tErase: L2("Abreißen", "Remove"), tPaint: L2("Malen", "Paint"),
     rot: L2("Drehen (R)", "Rotate (R)"), flip: L2("Spiegeln (F)", "Flip (F)"), sym: L2("Symmetrie (M)", "Symmetry (M)"), axis: L2("Achse", "Axis"), symIn: L2("im Block", "through block"), symGap: L2("zwischen Blöcken", "between blocks"),
     vIn: L2("Innen", "Interior"), vOut: L2("Außen", "Exterior"), view: L2("Ansicht (V)", "View (V)"),
@@ -52,7 +52,8 @@
     speed: L2("Tempo", "Speed"), energy: L2("Energie", "Power"), weapon: L2("Waffe", "Weapon"), none: L2("keine", "none"),
     seated: L2("Im Cockpit", "In cockpit"), unseated: L2("Nicht im Cockpit · F zum Hinsetzen", "Not in cockpit · F to sit down"),
     cockGone: L2("Cockpit zerstört · Steuerung verloren", "Cockpit destroyed · control lost"),
-    noPower: L2("Keine Energie", "No power"), mg: L2("Minigun", "Minigun"), rg: L2("Railgun", "Railgun"), ms: L2("Raketen", "Missiles"),
+    noPower: L2("Keine Energie", "No power"), mg: L2("Minigun", "Minigun"), rg: L2("Railgun", "Railgun"), ms: L2("Raketen", "Missiles"), msl: L2("Leichte Raketen", "Light missiles"), msh: L2("Schwere Raketen", "Heavy missiles"), g25: L2("25-mm-Geschütz", "25 mm cannon"), g120: L2("120-mm-Geschütz", "120 mm cannon"), gunsN: L2("Geschütze", "cannons"),
+    sWeap: L2("Waffen", "Weapons"), wDmg: L2("Schaden", "Damage"), wRpm: L2("Feuerrate", "Fire rate"), wDps: L2("DPS", "DPS"), wEach: L2("je Waffe", "each"), wTotal: L2("Gesamt", "Total"), wNone: L2("keine Waffen", "no weapons"), wReady: L2("bereit", "ready"),
     targets: L2("Ziele neu", "Reset targets"), exitSeat: L2("Aussteigen (F)", "Get up (F)"), sitDown: L2("Hinsetzen (F)", "Sit down (F)"),
     walking: L2("Zu Fuß · F am Sitz zum Hinsetzen", "On foot · F at the seat to sit down"), tooFar: L2("Zu weit vom Sitz entfernt", "Too far from the seat"),
     air: L2("Luft", "Air"), airRoom: L2("Raumluft", "Cabin air"), airSuit: L2("Anzug", "Suit"), airJet: L2("Anzug · Jetpack", "Suit · jetpack"),
@@ -94,14 +95,15 @@
      ["rm2", "ramp2", 1, 2, L2("Rampe 1×2", "Slope 1×2"), 1],
      ["rm3", "ramp3", 1, 3, L2("Rampe 1×3", "Slope 1×3"), 1.5],
      ["cor", "round", 1, 1, L2("Ecke rund 1×1", "Round corner 1×1"), 0.8],
-     ["hlf", "half", 1, 1, L2("Halb 1×1", "Half 1×1"), 0.5]].forEach(function (a) {
+     ["hlf", "half", 1, 1, L2("Halb 1×1", "Half 1×1"), 0.5],
+     ["bl2", "full", 1, 2, L2("Block 1×2", "Block 1×2"), 2]].forEach(function (a) {
       def(pre + a[0], { cat: heavy ? "catHA" : "catLA", kind: "armor", shape: a[1], w: a[2], h: a[3], mass: Math.round(m * a[5] * 100) / 100, hp: Math.round(hp * Math.max(0.6, a[5])), col: col, heavy: heavy,
         n: L2(a[4].de + " " + nm.de, a[4].en + " " + nm.en) });
     });
   }
   armor("l", false); armor("h", true);
   // Kosten in Credits (Cr): im Editor ist alles gratis; die Preise stehen in der Bauteilliste und im Infofeld
-  var COSTS = { cks: 1200, ckm: 2400, ckl: 4200, ckt: 700, dk3: 2200, dk4: 3400, ths: 450, thf: 650, shs: 1400, shl: 3800, thl: 1600, gyr: 700, col: 300, ant: 400, bat: 350, rea: 2000, flo: 15, wal: 25, dor: 60, hat: 150, win: 40, mgn: 900, msl: 1300, msh: 2400, tgc: 1600, rgn: 2600 };
+  var COSTS = { cks: 1200, ckm: 2400, ckl: 4200, ckt: 700, dk3: 2200, dk4: 3400, ths: 450, thf: 650, shs: 1400, shl: 3800, thl: 1600, gyr: 700, col: 300, ant: 400, bat: 350, rea: 2000, flo: 15, wal: 25, dor: 60, hat: 150, win: 40, mgn: 900, msl: 1300, msh: 2400, g25: 1800, g120: 3600, stu: 40, tis: 80, bet: 120, dbt: 180, toi: 150, dus: 200, tgc: 1600, rgn: 2600 };
   function applyCosts() { Object.keys(T).forEach(function (id) { var ty = T[id]; ty.cost = COSTS[id] || (ty.kind === "armor" ? Math.max(5, Math.round(ty.mass * (ty.heavy ? 26 : 57))) : 100); }); }
   function cr(v) { return nf(Math.round(v)) + " Cr"; }
   def("ckt", { cat: "catCo", kind: "cock", w: 1, h: 2, mass: 0.9, hp: 150, n: L2("Cockpit winzig 1×2", "Tiny cockpit 1×2"), col: "#9AA5B1" });
@@ -132,11 +134,23 @@
   function msMax(b) { return T[b.t].rk || 2; }   // Magazingröße eines Raketenwerfers
   def("tgc", { cat: "catWe", kind: "tcomp", w: 1, h: 2, mass: 0.8, hp: 45, n: L2("Zielcomputer 1×2", "Targeting computer 1×2"), col: "#7E8995" });
   def("rgn", { cat: "catWe", kind: "rg", w: 1, h: 3, mass: 3.8, hp: 120, n: L2("Railgun 1×3", "Railgun 1×3"), col: "#7E8995" });
+  // Geschütze (v0.51): Einzelschuss mit schweren Projektilen, Werte in GUN (12-balance.js)
+  def("g25", { cat: "catWe", kind: "gun", w: 1, h: 2, mass: 2.2, hp: 85, n: L2("25-mm-Geschütz 1×2", "25 mm cannon 1×2"), col: "#7E8995" });
+  def("g120", { cat: "catWe", kind: "gun", w: 1, h: 3, mass: 5.4, hp: 150, n: L2("120-mm-Geschütz 1×3", "120 mm cannon 1×3"), col: "#7E8995" });
+  // Einrichtung (v0.51): rein dekorativ, gehört zum Raum (Luft), lässt sich aber nicht betreten. dk = Art der Zeichnung
+  def("stu", { cat: "catDe", kind: "deco", dk: "chair", w: 1, h: 1, mass: 0.12, hp: 20, n: L2("Stuhl 1×1", "Chair 1×1"), col: "#9AA5B1" });
+  def("tis", { cat: "catDe", kind: "deco", dk: "table", w: 2, h: 1, mass: 0.3, hp: 30, n: L2("Tisch 2×1", "Table 2×1"), col: "#9AA5B1" });
+  def("bet", { cat: "catDe", kind: "deco", dk: "bed", w: 1, h: 2, mass: 0.4, hp: 30, n: L2("Bett 1×2", "Bed 1×2"), col: "#9AA5B1" });
+  def("dbt", { cat: "catDe", kind: "deco", dk: "bed2", w: 1, h: 2, mass: 0.55, hp: 35, n: L2("Doppelbett 1×2", "Double bed 1×2"), col: "#9AA5B1" });
+  def("toi", { cat: "catDe", kind: "deco", dk: "wc", w: 1, h: 1, mass: 0.25, hp: 25, n: L2("Toilette 1×1", "Toilet 1×1"), col: "#9AA5B1" });
+  def("dus", { cat: "catDe", kind: "deco", dk: "shower", w: 1, h: 1, mass: 0.3, hp: 25, n: L2("Dusche 1×1", "Shower 1×1"), col: "#9AA5B1" });
   applyCosts();
+  // Panzerung 1×2: so schwer wie zwei einzelne Blöcke, aber 15 % günstiger
+  T.lbl2.cost = Math.round(T.lblk.cost * 2 * 0.85); T.hbl2.cost = Math.round(T.hblk.cost * 2 * 0.85);
   // Perks wurden in v0.47 abgeschafft. PM bleibt als neutrales Objekt (alles 0), damit die Werte-Haken im Code nichts verändern.
   var PM = { side: 0, brake: 0, mgRate: 0, batCap: 0, msRl: 0, hp: 0, prod: 0, walk: false, radar: 0, oc: 0, msDmg: 0, cockHp: 0, msTurn: 0, crit: 0, batW: false, heavyW: 0 };
-  CATS = ["catLA", "catHA", "catCo", "catTh", "catEn", "catIn", "catWe"];
-  var MECH = { cock: 1, thr: 1, gyro: 1, ant: 1, bat: 1, reac: 1, door: 1, hatch: 1, mg: 1, rg: 1, cool: 1, ms: 1, tcomp: 1, shield: 1, dock: 1 };
+  CATS = ["catLA", "catHA", "catCo", "catTh", "catEn", "catIn", "catDe", "catWe"];
+  var MECH = { cock: 1, thr: 1, gyro: 1, ant: 1, bat: 1, reac: 1, door: 1, hatch: 1, mg: 1, rg: 1, gun: 1, cool: 1, ms: 1, tcomp: 1, shield: 1, dock: 1 };
   var ROOMABLE = { bat: 1, reac: 1, gyro: 1, cool: 1, tcomp: 1, shield: 1 };   // Maschinen, die in einem Raum stehen dürfen und dann zum Raum gehören
   function replaceable(newT, o) { return o && T[newT].kind !== "floor" && T[o.b.t].kind === "floor"; }
   var DV = [[0, -1], [1, 0], [0, 1], [-1, 0]];     // N, O, S, W als Zellversatz
@@ -151,7 +165,7 @@
       return { c: true, s: true };
     }
     if (k === "thr") return { c: d !== 2, s: true };                       // Düse hinten verbindet nicht
-    if (k === "mg" || k === "rg" || k === "ant" || k === "ms") return { c: last && d !== 0, s: true };   // nur am hinteren Ende
+    if (k === "mg" || k === "rg" || k === "gun" || k === "ant" || k === "ms") return { c: last && d !== 0, s: true };   // nur am hinteren Ende
     if (k === "cock") return { c: true, s: true };                         // auch vorne an der Kanzel lässt sich anbauen
     return { c: true, s: true };
   }
@@ -187,6 +201,29 @@
   };
   // ===== Zu Fuß: Pistole und Inventargröße
   var PISTOL = { dmg: MG.dmg * 0.5, speed: MG.speed, cd: 0.22 };
+  // Maschinenpistole (Slot 3): Dauerfeuer bei gehaltener Maustaste, etwas Streuung
+  var SMG = { dmg: MG.dmg * 0.35, speed: MG.speed, cd: 60 / 660, spread: 0.07 };
+  // ===== Geschütze (v0.51): rpm = Schuss pro Minute, Projektile 50 % schneller als die der Minigun, life = Flugzeit (s), e = Energie je Schuss
+  //       120 mm: zusätzlich kleine Explosion (splash = Radius in m, sdmg = Schaden am Rand der Explosion)
+  var GUN = {
+    g25: { rpm: 100, dmg: 38, speed: MG.speed * 1.5, life: 1.25, e: 3 },
+    g120: { rpm: 20, dmg: 190, speed: MG.speed * 1.5, life: 1.5, e: 16, splash: 2.2, sdmg: 40 }
+  };
+  // Kennzahlen je Waffenblock für Editor und Infofeld: Schaden je Projektil, Feuerrate (Schuss/min) und DPS (Schaden pro Sekunde)
+  // Raketen: Feuerrate über einen ganzen Nachladezyklus (ein Werfer leert sein Magazin und lädt nach). Railgun: Aufladen plus Abklingzeit.
+  function wStats(id) {
+    var ty = T[id]; if (!ty) return null; var k = ty.kind, dmg, rpm;
+    if (k === "mg") { dmg = MG.dmg; rpm = MG.rate * 60; }
+    else if (k === "gun") { dmg = GUN[id].dmg; rpm = GUN[id].rpm; }
+    else if (k === "ms") { dmg = MS.dmg * (ty.mk || 1); rpm = 60 * (ty.rk || 2) / MS.reload; }
+    else if (k === "rg") { dmg = RG.dmg; rpm = 60 / (RG.charge + RG.cd); }
+    else return null;
+    return { dmg: dmg, rpm: rpm, dps: dmg * rpm / 60 };
+  }
+  // Waffengruppe eines Blocks (Taste R schaltet durch): Minigun, je Geschütz- und Raketentyp eine eigene Gruppe, Railgun
+  var WGROUPS = ["mg", "g25", "g120", "msl", "msh", "rg"];
+  function grpOf(b) { var k = T[b.t].kind; return k === "mg" ? "mg" : k === "rg" ? "rg" : (k === "gun" || k === "ms") ? b.t : null; }
+  function grpSpeed(g) { return GUN[g] ? GUN[g] : { speed: MG.speed, life: MG.life }; }
   var INV = { w: 8, h: 8 };
   // ===== Andocken: Reichweite, Spalt, Tempo des Autopiloten
   var DOCK = { range: CELL_M * 1.0 + 0.4, gap: CELL_M * 0.1, v: 1.4, w: 0.45 };
@@ -242,7 +279,7 @@
   }
   // Räume: zusammenhängende Boden-, Tür-, Luken- und Cockpitzellen, dicht wenn jede Außenkante abgedichtet ist.
   // Cockpit und geschlossene Luken dichten selbst nach außen ab; eine offene Luke ist ein Leck.
-  var ROOMK = { floor: 1, door: 1, hatch: 1, cock: 1, dock: 1 };
+  var ROOMK = { floor: 1, door: 1, hatch: 1, cock: 1, dock: 1, deco: 1 };
   function rooms(blocks, M) {
     M = M || buildMap(blocks); var seen = new Set(), out = [];
     M.forEach(function (v, k) {
@@ -313,6 +350,7 @@
       if (ty.kind === "mg") s.mg++;
       if (ty.kind === "rg") s.rg++;
       if (ty.kind === "ms") s.ms++;
+      if (ty.kind === "gun") s.gun = (s.gun || 0) + 1;
     });
     if (s.mass) { s.com[0] /= s.mass; s.com[1] /= s.mass; } else if (blocks.length) { s.com = [blocks[0].x + 0.5, blocks[0].y + 0.5]; }
     blocks.forEach(function (b) {
@@ -658,6 +696,26 @@
       } else
       [0.3, 0.7].forEach(function (q) { c.fillStyle = DARK; c.fillRect(w * q - w * 0.15, h * 0.06, w * 0.3, h * 0.55); var ready = (opts && opts.ammo !== undefined ? opts.ammo : 2) > (q < 0.5 ? 1 : 0); c.fillStyle = ready ? "#E9ECEE" : "#4A525C"; c.beginPath(); c.moveTo(w * q, h * 0.08); c.lineTo(w * q + w * 0.09, h * 0.2); c.lineTo(w * q - w * 0.09, h * 0.2); c.closePath(); c.fill(); if (ready) { c.fillStyle = "#C8473A"; c.fillRect(w * q - w * 0.09, h * 0.2, w * 0.18, h * 0.06); } });
       c.strokeStyle = shade(col, -0.55); c.lineWidth = lw; c.strokeRect(w * 0.08, h * 0.3, w * 0.84, h * 0.7);
+    } else if (k === "gun") {
+      if (ty.h === 2) {   // 25 mm: kompakter Sockel, ein dickes Rohr mit Mündungsbremse
+        c.fillStyle = shade(col, -0.12); c.fillRect(w * 0.1, h - s, w * 0.8, s);
+        c.fillStyle = b.c || "#8C4A3A"; c.fillRect(w * 0.2, h - s * 0.8, w * 0.6, s * 0.4);
+        c.fillStyle = MID; c.beginPath(); c.arc(w / 2, h - s * 0.55, s * 0.24, 0, Math.PI * 2); c.fill();
+        c.fillStyle = DARK; c.fillRect(w * 0.38, h * 0.1, w * 0.24, h - s * 0.75);
+        c.fillStyle = MID; c.fillRect(w * 0.32, h * 0.04, w * 0.36, s * 0.22);
+        c.strokeStyle = shade(col, -0.55); c.lineWidth = lw; c.strokeRect(w * 0.1, h - s, w * 0.8, s);
+      } else {            // 120 mm: breiter Turm mit Panzerplatten, langes schweres Rohr
+        c.fillStyle = shade(col, -0.1); c.fillRect(w * 0.04, h - s * 1.3, w * 0.92, s * 1.3);
+        c.fillStyle = shade(col, -0.28); c.fillRect(w * 0.04, h - s * 1.3, w * 0.92, s * 0.12);
+        c.fillStyle = b.c || "#8C4A3A"; c.fillRect(w * 0.14, h - s * 0.62, w * 0.72, s * 0.36);
+        c.fillStyle = MID; c.beginPath(); c.arc(w / 2, h - s * 0.85, s * 0.34, 0, Math.PI * 2); c.fill();
+        c.fillStyle = DARK; c.fillRect(w * 0.33, h * 0.06, w * 0.34, h - s * 1.25);
+        c.fillStyle = shade(col, -0.35); c.fillRect(w * 0.3, h * 0.42, w * 0.4, s * 0.2);
+        c.fillStyle = MID; c.fillRect(w * 0.27, h * 0.02, w * 0.46, s * 0.26);
+        c.strokeStyle = shade(col, -0.55); c.lineWidth = lw; c.strokeRect(w * 0.04, h - s * 1.3, w * 0.92, s * 1.3);
+      }
+    } else if (k === "deco") {
+      decoArt(c, ty.dk, w, h, s, lw, b.c);
     } else if (k === "rg") {
       c.fillStyle = shade(col, -0.15); c.fillRect(w * 0.08, h - s * 1.2, w * 0.84, s * 1.2);
       c.fillStyle = b.c || "#3E6F96"; c.fillRect(w * 0.16, h - s * 1.05, w * 0.68, s * 0.5);
@@ -675,6 +733,46 @@
     }
     if (dam && MECH[k] && k !== "cock") damageMarks(c, w, h, b, s, "full");
     c.restore();
+  }
+  // Einrichtung von oben: Boden darunter, dann das Möbelstück. acc = Akzentfarbe (Pinsel), sonst eigene Standardfarbe
+  function decoArt(c, dk, w, h, s, lw, acc) {
+    c.fillStyle = FLOOR; c.fillRect(0, 0, w, h); c.strokeStyle = FLOOR2; c.lineWidth = lw; c.strokeRect(lw / 2, lw / 2, w - lw, h - lw);
+    var ol = "rgba(30,34,40,.55)";
+    function box(x, y, bw, bh, f) { c.fillStyle = f; c.fillRect(x, y, bw, bh); c.strokeStyle = ol; c.lineWidth = lw; c.strokeRect(x, y, bw, bh); }
+    if (dk === "chair") {
+      var cc = acc || "#3E6F96";
+      box(w * 0.24, h * 0.3, w * 0.52, h * 0.5, cc); box(w * 0.22, h * 0.16, w * 0.56, h * 0.14, shade(cc, -0.3));
+      c.fillStyle = shade(cc, 0.2); c.fillRect(w * 0.3, h * 0.36, w * 0.4, h * 0.08);
+    } else if (dk === "table") {
+      var tc = acc || "#8A6A4A";
+      box(w * 0.06, h * 0.14, w * 0.88, h * 0.72, tc);
+      c.fillStyle = shade(tc, 0.14); c.fillRect(w * 0.1, h * 0.2, w * 0.8, h * 0.08);
+      c.fillStyle = "#E9ECEE"; c.beginPath(); c.arc(w * 0.3, h * 0.55, s * 0.13, 0, Math.PI * 2); c.fill(); c.beginPath(); c.arc(w * 0.68, h * 0.5, s * 0.1, 0, Math.PI * 2); c.fill();
+      c.fillStyle = "#5FB4D9"; c.beginPath(); c.arc(w * 0.68, h * 0.5, s * 0.06, 0, Math.PI * 2); c.fill();
+    } else if (dk === "bed" || dk === "bed2") {
+      var bc = acc || (dk === "bed" ? "#3E6F96" : "#7B4BA8"), dbl = dk === "bed2";
+      box(w * 0.08, h * 0.04, w * 0.84, h * 0.92, "#6A7480");
+      box(w * 0.12, h * 0.07, w * 0.76, h * 0.86, "#E4E8EC");
+      if (dbl) { box(w * 0.15, h * 0.1, w * 0.33, h * 0.13, "#FFFFFF"); box(w * 0.52, h * 0.1, w * 0.33, h * 0.13, "#FFFFFF"); }
+      else box(w * 0.2, h * 0.1, w * 0.6, h * 0.13, "#FFFFFF");
+      box(w * 0.12, h * 0.32, w * 0.76, h * 0.61, bc);
+      c.fillStyle = shade(bc, 0.18); c.fillRect(w * 0.12, h * 0.32, w * 0.76, h * 0.06);
+      if (dbl) { c.strokeStyle = shade(bc, -0.3); c.lineWidth = lw; c.beginPath(); c.moveTo(w / 2, h * 0.4); c.lineTo(w / 2, h * 0.9); c.stroke(); }
+    } else if (dk === "wc") {
+      box(w * 0.26, h * 0.1, w * 0.48, h * 0.2, "#E9ECEE");
+      c.fillStyle = "#F4F6F8"; c.beginPath(); c.ellipse(w / 2, h * 0.58, w * 0.24, h * 0.3, 0, 0, Math.PI * 2); c.fill(); c.strokeStyle = ol; c.lineWidth = lw; c.stroke();
+      c.fillStyle = "#9FC7D9"; c.beginPath(); c.ellipse(w / 2, h * 0.6, w * 0.13, h * 0.17, 0, 0, Math.PI * 2); c.fill();
+      c.fillStyle = "#9AA5B1"; c.fillRect(w * 0.44, h * 0.15, w * 0.12, h * 0.05);
+    } else if (dk === "shower") {
+      c.fillStyle = "#CFE3EC"; c.fillRect(w * 0.08, h * 0.08, w * 0.84, h * 0.84);
+      c.strokeStyle = "rgba(120,150,170,.6)"; c.lineWidth = lw * 0.7; c.beginPath();
+      for (var i = 1; i < 4; i++) { c.moveTo(w * 0.08 + w * 0.21 * i, h * 0.08); c.lineTo(w * 0.08 + w * 0.21 * i, h * 0.92); c.moveTo(w * 0.08, h * 0.08 + h * 0.21 * i); c.lineTo(w * 0.92, h * 0.08 + h * 0.21 * i); }
+      c.stroke();
+      c.fillStyle = "#6A7480"; c.beginPath(); c.arc(w / 2, h / 2, s * 0.08, 0, Math.PI * 2); c.fill();
+      c.fillStyle = "#9AA5B1"; c.beginPath(); c.arc(w * 0.22, h * 0.22, s * 0.11, 0, Math.PI * 2); c.fill();
+      c.strokeStyle = "rgba(140,200,230,.9)"; c.lineWidth = lw * 2; c.beginPath(); c.moveTo(w * 0.92, h * 0.08); c.lineTo(w * 0.92, h * 0.92); c.stroke();
+      c.strokeStyle = ol; c.lineWidth = lw; c.strokeRect(w * 0.08, h * 0.08, w * 0.84, h * 0.84);
+    }
   }
   // Luke: gelb-schwarzer Warnrahmen, geschlossen mit Schott, offen sieht man ins All
   function hatchArt(c, w, h, col, lw, view, open) {
@@ -699,7 +797,7 @@
     c.fillStyle = "#E0743A"; c.beginPath(); c.arc(-0.5, -7.2, 2.2, 0, Math.PI * 2); c.fill(); c.beginPath(); c.arc(-0.5, 7.2, 2.2, 0, Math.PI * 2); c.fill();
     c.fillStyle = "#D5DADF"; c.beginPath(); c.arc(1.5 - sw * 3.2, -8.8, 1.8, 0, Math.PI * 2); c.fill();
     var hx = weld || gun ? 6.5 : 1.5 + sw * 3.2, hy = weld || gun ? 4.5 : 8.8; c.beginPath(); c.arc(hx, hy, 1.8, 0, Math.PI * 2); c.fill();
-    if (gun) { c.fillStyle = "#2A2F36"; c.fillRect(6.5, 3.6, 6, 1.8); c.fillRect(6.8, 4.6, 1.6, 2.4); }
+    if (gun) { c.fillStyle = "#2A2F36"; c.fillRect(6.5, 3.6, gun === 2 ? 8.6 : 6, 1.8); c.fillRect(6.8, 4.6, 1.6, 2.4); if (gun === 2) { c.fillRect(9.2, 4.6, 1.3, 3.2); c.fillStyle = "#4A525C"; c.fillRect(4.2, 3.8, 2.6, 1.4); } }   // 1 Pistole, 2 Maschinenpistole: längerer Lauf, Magazin, Schulterstütze
     if (weld) { c.fillStyle = "#3A3F46"; c.fillRect(6, 3.4, 5, 2.2); var g = 0.6 + 0.4 * Math.random(); c.fillStyle = "rgba(150,220,255," + g + ")"; c.beginPath(); c.arc(11.8, 4.5, 1.6 + Math.random(), 0, Math.PI * 2); c.fill(); }
     c.restore();
     c.fillStyle = "#F4F6F8"; c.beginPath(); c.arc(0.6, 0, 4.4, 0, Math.PI * 2); c.fill(); c.strokeStyle = "#9AA3AD"; c.lineWidth = 0.7; c.stroke();
@@ -732,7 +830,7 @@
   // Schiff: erst Innenleben, dann Aufbauten; Panzerung zuletzt, damit Kanten sauber liegen
   var ORDER = { floor: 0, door: 0, hatch: 0, wall: 1, cock: 2, bat: 2, reac: 2, gyro: 2, cool: 2, tcomp: 2, shield: 2, dock: 1, thr: 3, mg: 3, rg: 3, ms: 3, ant: 3, win: 4, armor: 4 };
   // Panzerung (und außen die Dächer) verschmilzt zu einer Hülle: Kanten nur dort, wo die Hülle endet
-  function isHull(k, view) { return k === "armor" || k === "win" || (view === "out" && (k === "floor" || k === "wall" || k === "door" || k === "hatch")); }
+  function isHull(k, view) { return k === "armor" || k === "win" || (view === "out" && (k === "floor" || k === "wall" || k === "door" || k === "hatch" || k === "deco")); }
   function drawShip(c, blocks, s, view, tm, body, M) {
     M = M || buildMap(blocks);
     var sorted = blocks.slice().sort(function (a, b) { return ORDER[T[a.t].kind] - ORDER[T[b.t].kind]; }), hull = [];
@@ -903,7 +1001,7 @@
   }
   function kg(t) { return nf(Math.round(t * 1000)) + " kg"; }
   function arrowFor(c, b, s) {   // zeigt bei Triebwerken die Schubrichtung, bei Waffen die Schussrichtung
-    var ty = T[b.t]; if (ty.kind !== "thr" && ty.kind !== "mg" && ty.kind !== "rg" && ty.kind !== "ms") return;
+    var ty = T[b.t]; if (ty.kind !== "thr" && ty.kind !== "mg" && ty.kind !== "rg" && ty.kind !== "gun" && ty.kind !== "ms") return;
     var d = dirOut(b, 0), f = fp(b), cx = (b.x + f[0] / 2) * s, cy = (b.y + f[1] / 2) * s, L = Math.max(f[0], f[1]) * s * 0.5 + s * 0.8;
     var dx = DV[d][0], dy = DV[d][1], ex = cx + dx * L, ey = cy + dy * L;
     c.strokeStyle = ty.kind === "thr" ? "#57D18A" : "#E0533F"; c.fillStyle = c.strokeStyle; c.lineWidth = 2;
@@ -953,7 +1051,7 @@
     FL = { bodies: [me], me: me, shots: [], beams: [], parts: [], seated: true, damp: true, wsel: 0, groups: [], keys: {}, mdx: 0, cam: { x: 0, y: 0 }, zoom: 1, t: 0 };
     var sp0 = seatPos(me); FL.pilot = { x: sp0.x, y: sp0.y, face: -Math.PI / 2, ph: 0 };
     FL.oc = false; FL.ocT = me.ocMax;
-    FL.groups = []; if (st.mg) FL.groups.push("mg"); if (st.ms) FL.groups.push("ms"); if (st.rg) FL.groups.push("rg");
+    FL.groups = WGROUPS.filter(function (g) { return me.blocks.some(function (b) { return grpOf(b) === g; }); });   // je Waffentyp eine eigene Gruppe
     FL.missiles = []; FL.hits = []; FL.sig = 0; FL.banner = 0; me.id = ++BID;
     FL.items = []; FL.pb = me; FL.dock = null; FL.shHits = []; FL.shPct = 0; me.shE = 0; FL.kills = 0; FL.shTarget = 0; FL.shAcc = 0;
     var kcb = V.root.querySelector(".sr-kc b"); if (kcb) kcb.textContent = "0";
@@ -1006,7 +1104,8 @@
     FL.bodies.forEach(function (b) { if (b === (FL.pb || me) || (b !== me && !b.station)) return; b.blocks.forEach(function (hb) { if (T[hb.t].kind !== "hatch") return; if (hb.openT > 0) hb.openT -= dt; var o = hb.openT > 0; if (o !== !!hb.open) { hb.open = o; b.roomsDirty = true; } }); });
     if (FL.out) evaTick(evaBody(), dt);
     FL.bodies.slice().forEach(function (bd) {
-      if (bd.msRl > 0) { bd.msRl -= dt; if (bd.msRl <= 0) { bd.msRl = 0; bd.blocks.forEach(function (b) { if (T[b.t].kind === "ms") b.ammo = msMax(b); }); } }
+      // Raketen: jede Werfer-Art (leicht/schwer) lädt für sich nach
+      if (bd.mst) Object.keys(bd.mst).forEach(function (g) { var q = bd.mst[g]; q.cd = Math.max(0, q.cd - dt); if (q.rl > 0) { q.rl -= dt; if (q.rl <= 0) { q.rl = 0; bd.blocks.forEach(function (b) { if (b.t === g) b.ammo = msMax(b); }); } } });
       // Energie: Reaktoren laden, Verbraucher ziehen
       bd.energy = Math.min(bd.cap - (bd.shE || 0), bd.energy + bd.prod * dt);   // der Schildanteil ist reserviert
       bd.flames = {};
@@ -1032,6 +1131,7 @@
         if (ty.kind === "mg") { var cn = (bd.cool && bd.cool.get(b)) || 0; if (b.oh > 0) { b.oh -= dt; if (b.oh <= 0) { b.oh = 0; b.heat = 0; } } else if (!b.firing) b.heat = Math.max(0, (b.heat || 0) - MG.cool * (1 + 0.6 * cn) * dt); b.firing = false; }
         if (ty.kind === "ms" && b.ammo === undefined) b.ammo = msMax(b);
         if (ty.kind === "rg") { if (b.cd > 0) b.cd -= dt; if (!b.holding) b.chg = 0; b.holding = false; }
+        if (ty.kind === "gun" && b.gcd > 0) b.gcd -= dt;
         var hk = b.hp / hpMax(bd, b);
         if (MECH[ty.kind] && hk < 0.5 && Math.random() < dt * (hk < 0.25 ? 5 : 2.5)) { var p = blockCenter(bd, b); FL.parts.push({ x: p.x + (Math.random() - 0.5) * 2, y: p.y + (Math.random() - 0.5) * 2, vx: bd.vx + (Math.random() - 0.5) * 3, vy: bd.vy - 1.5 - Math.random() * 2, life: 0, max: 1.4 + Math.random() * 0.8, k: "smoke", sz: 0.5 + Math.random() * 0.5 }); }
         if (MECH[ty.kind] && hk < 0.25 && Math.random() < dt * 9) { var q = blockCenter(bd, b); FL.parts.push({ x: q.x + (Math.random() - 0.5) * 1.6, y: q.y + (Math.random() - 0.5) * 1.6, vx: bd.vx + (Math.random() - 0.5) * 4, vy: bd.vy + (Math.random() - 0.5) * 4, life: 0, max: 0.4 + Math.random() * 0.3, k: "fire", sz: 0.45 + Math.random() * 0.45 }); }
@@ -1047,11 +1147,11 @@
     if (FL.banner > 0) FL.banner -= dt;
     // Geschosse
     FL.shots = FL.shots.filter(function (p) {
-      p.life += dt; if (p.life > MG.life) return false;
+      p.life += dt; if (p.life > (p.lmax || MG.life)) return false;
       var steps = Math.ceil(Math.hypot(p.vx, p.vy) * dt / 1.0);
       for (var i = 0; i < steps; i++) {
         p.x += p.vx * dt / steps; p.y += p.vy * dt / steps;
-        var hit = p.pl ? hitAt(p.x, p.y, null, true) : hitAt(p.x, p.y, p.own); if (hit) { var crit = p.own && p.own.player && Math.random() < PM.crit; if (p.own === FL.me || p.pl) hitMark(p.x, p.y, hit.bd, crit); damage(hit.bd, hit.b, (p.dmg || MG.dmg) * (crit ? 2 : 1), p.x, p.y); spark(p.x, p.y, crit ? 10 : 5); return false; }
+        var hit = p.pl ? hitAt(p.x, p.y, null, true) : hitAt(p.x, p.y, p.own); if (hit) { var crit = p.own && p.own.player && Math.random() < PM.crit; if (p.own === FL.me || p.pl) hitMark(p.x, p.y, hit.bd, crit); damage(hit.bd, hit.b, (p.dmg || MG.dmg) * (crit ? 2 : 1), p.x, p.y); spark(p.x, p.y, crit ? 10 : p.k ? 9 : 5); if (p.splash) blast(p.x, p.y, p.splash, p.sdmg, null); return false; }
       }
       return true;
     });
@@ -1156,22 +1256,37 @@
       b.heat = (b.heat || 0) + MG.heat / (1 + 0.35 * cn2) * (bd === FL.me && FL.oc ? 0.75 : 1);   // Overcharge: 25 % langsamer heiß
       if (b.heat >= 1) { b.heat = 1; b.oh = b.ohMax = MG.lock / (1 + 0.3 * cn2); for (var i = 0; i < 10; i++) FL.parts.push({ x: tip.x, y: tip.y, vx: bd.vx + (Math.random() - 0.5) * 6, vy: bd.vy + (Math.random() - 0.5) * 6, life: 0, max: 1 + Math.random(), k: "smoke", sz: 1 + Math.random() }); }
     });
-    // Raketen: je Werfer 2 Schuss (Schwere Rakete: 1 Schuss mit vierfachem Schaden), abgefeuert wird nacheinander aus irgendeinem Werfer mit Munition.
-    // Erst wenn alle leer sind, laden alle gemeinsam nach: 2,5 s je Werfer.
-    bd.msCd = Math.max(0, (bd.msCd || 0) - dt);
-    if (firing && g === "ms" && !(bd.msRl > 0) && bd.msCd <= 0 && bd.energy >= MS.e) {
-      var ls = bd.blocks.filter(function (b) { return T[b.t].kind === "ms" && b.ammo > 0; });
-      if (ls.length) {
-        var lb = ls[(bd.msTurn = ((bd.msTurn || 0) + 1)) % ls.length];
-        var lty = T[lb.t], ec = MS.e * (lty.ek || 1);
-        if (bd.energy >= ec) {                            // Schwere Rakete braucht mehr Energie je Schuss
-        lb.ammo--; bd.energy -= ec; bd.msCd = MS.gap;
-        var d = dirWorld(bd, dirOut(lb, 0)), tip = muzzle(bd, lb), side = lty.rk === 1 ? 0 : lb.ammo === 1 ? 0.22 : -0.22, nx = -d.y * side * CELL_M, ny = d.x * side * CELL_M;
-        FL.missiles.push({ x: tip.x + nx, y: tip.y + ny, vx: bd.vx + d.x * MS.v0, vy: bd.vy + d.y * MS.v0, h: Math.atan2(d.y, d.x), life: 0, own: bd, aim: aim || null, k: lty.mk || 1 });
-        var left = bd.blocks.reduce(function (a, b) { return a + (T[b.t].kind === "ms" ? b.ammo : 0); }, 0);
-        if (!left) bd.msRl = bd.msRlMax = MS.reload * bd.blocks.filter(function (b) { return T[b.t].kind === "ms"; }).length / (bd.player ? 1 + PM.msRl : 1);
+    // Raketen: leichte (2 Schuss je Werfer) und schwere (1 Schuss, vierfacher Schaden) sind getrennte Waffen mit eigenem Magazin.
+    // Abgefeuert wird nacheinander aus irgendeinem Werfer der Art mit Munition; erst wenn alle leer sind, laden sie gemeinsam nach: 2,5 s je Werfer.
+    if (firing && (g === "msl" || g === "msh")) {
+      var mst = bd.mst || (bd.mst = {}), q = mst[g] || (mst[g] = { rl: 0, rlMax: 0, cd: 0, turn: 0 });
+      var lty = T[g], ec = MS.e * (lty.ek || 1);
+      if (!(q.rl > 0) && q.cd <= 0 && bd.energy >= ec) {
+        var ls = bd.blocks.filter(function (b) { return b.t === g && b.ammo > 0; });
+        if (ls.length) {
+          var lb = ls[(q.turn = q.turn + 1) % ls.length];
+          lb.ammo--; bd.energy -= ec; q.cd = MS.gap;
+          var d = dirWorld(bd, dirOut(lb, 0)), tip = muzzle(bd, lb), side = lty.rk === 1 ? 0 : lb.ammo === 1 ? 0.22 : -0.22, nx = -d.y * side * CELL_M, ny = d.x * side * CELL_M;
+          FL.missiles.push({ x: tip.x + nx, y: tip.y + ny, vx: bd.vx + d.x * MS.v0, vy: bd.vy + d.y * MS.v0, h: Math.atan2(d.y, d.x), life: 0, own: bd, aim: aim || null, k: lty.mk || 1 });
+          var left = bd.blocks.reduce(function (a, b) { return a + (b.t === g ? b.ammo : 0); }, 0);
+          if (!left) q.rl = q.rlMax = MS.reload * bd.blocks.filter(function (b) { return b.t === g; }).length / (bd.player ? 1 + PM.msRl : 1);
         }
       }
+    }
+    // Geschütze: jedes Rohr feuert für sich im eigenen Takt; mehrere setzen zu Beginn einer Salve leicht versetzt ein
+    if (GUN[g]) {
+      var G = GUN[g], per = 60 / G.rpm, gw = bd.gunWas || (bd.gunWas = {});
+      var gs = bd.blocks.filter(function (b) { return b.t === g; });
+      if (firing && !gw[g]) gs.forEach(function (b, i) { b.gcd = Math.max(b.gcd || 0, (i / gs.length) * per * 0.5); });
+      gw[g] = firing;
+      if (firing) gs.forEach(function (b) {
+        if (b.gcd > 0 || bd.energy < G.e) return;
+        b.gcd = per; bd.energy -= G.e;
+        var d = gunDir(bd, b), tip = gunTip(bd, b), big = g === "g120";
+        FL.shots.push({ x: tip.x, y: tip.y, vx: bd.vx + d.x * G.speed, vy: bd.vy + d.y * G.speed, life: 0, own: bd, dmg: G.dmg, lmax: G.life, k: g, splash: G.splash || 0, sdmg: G.sdmg || 0 });
+        FL.parts.push({ x: tip.x, y: tip.y, vx: bd.vx, vy: bd.vy, life: 0, max: big ? 0.12 : 0.08, k: "flash", sz: big ? 3.6 : 2.2 });
+        for (var si = 0; si < (big ? 6 : 2); si++) FL.parts.push({ x: tip.x, y: tip.y, vx: bd.vx + d.x * 4 + (Math.random() - 0.5) * 5, vy: bd.vy + d.y * 4 + (Math.random() - 0.5) * 5, life: 0, max: 0.6 + Math.random() * 0.5, k: "smoke", sz: big ? 1.4 : 0.8 });
+      });
     }
     if (firing && g === "rg") bd.blocks.forEach(function (b) {
       if (T[b.t].kind !== "rg" || b.cd > 0) return;
@@ -1186,7 +1301,7 @@
   function gunMount(bd, b) { var d = dirOut(b, 0), f = fp(b), h = T[b.t].h; return { lx: b.x + f[0] / 2 - DV[d][0] * h / 2, ly: b.y + f[1] / 2 - DV[d][1] * h / 2 }; }
   function turretTick(bd, dt, aim) {
     bd.blocks.forEach(function (b) {
-      var k = T[b.t].kind; if (k !== "mg" && k !== "rg") return;
+      var k = T[b.t].kind; if (k !== "mg" && k !== "rg" && k !== "gun") return;
       var want = 0;
       if (bd.tcomp && aim) {
         var m = gunMount(bd, b), mw = toWorld(bd, m.lx, m.ly), d = dirWorld(bd, dirOut(b, 0));
@@ -1221,10 +1336,11 @@
   // Erfasst wird das Gegnerschiff, das dem Mauszeiger am nächsten ist. Der kleine Kreis zeigt, wohin man zielen muss, damit
   // Minigun-Geschosse das Ziel bei gleichbleibender Bewegung treffen (Abfangpunkt aus Relativtempo und Geschossgeschwindigkeit).
   function leadPoint(me, tg) {
-    var rx = tg.x - me.x, ry = tg.y - me.y, vx = tg.vx - me.vx, vy = tg.vy - me.vy, s2 = MG.speed * MG.speed;
+    var ps = grpSpeed(FL.groups[FL.wsel]);   // Vorhaltepunkt passt sich der gewählten Waffe an (Geschütze sind schneller)
+    var rx = tg.x - me.x, ry = tg.y - me.y, vx = tg.vx - me.vx, vy = tg.vy - me.vy, s2 = ps.speed * ps.speed;
     var a = vx * vx + vy * vy - s2, b = 2 * (rx * vx + ry * vy), c2 = rx * rx + ry * ry, tt;
     if (Math.abs(a) < 1e-6) tt = -c2 / b; else { var disc = b * b - 4 * a * c2; if (disc < 0) return null; var sq = Math.sqrt(disc), t1 = (-b - sq) / (2 * a), t2 = (-b + sq) / (2 * a); tt = Math.min(t1, t2) > 0 ? Math.min(t1, t2) : Math.max(t1, t2); }
-    if (!(tt > 0) || tt > MG.life) return null;
+    if (!(tt > 0) || tt > ps.life) return null;
     return { x: tg.x + vx * tt, y: tg.y + vy * tt, t: tt };
   }
   function drawLead(c, ppm, tm) {
@@ -1546,7 +1662,7 @@
     // Feuerstöße: kurz vor dem Überhitzen absetzen und erst nach dem Abkühlen weiterschießen, damit die Miniguns nicht sperren
     var hmax = 0; bd.blocks.forEach(function (b) { if (T[b.t].kind === "mg") hmax = Math.max(hmax, b.oh > 0 ? 1 : b.heat || 0); });
     if (hmax > MG.warn) A.mgRest = true; else if (hmax < 0.35) A.mgRest = false;
-    if (fire) { if (dist < MG.speed * MG.life * 0.85 && !A.mgRest) weapons(bd, dt, "mg", true, aim); if (dist < 300) weapons(bd, dt, "ms", true, aim); if (dist < RG.range * 0.9) weapons(bd, dt, "rg", true, aim); }
+    if (fire) { if (dist < MG.speed * MG.life * 0.85 && !A.mgRest) weapons(bd, dt, "mg", true, aim); if (dist < 300) { weapons(bd, dt, "msl", true, aim); weapons(bd, dt, "msh", true, aim); } if (dist < RG.range * 0.9) weapons(bd, dt, "rg", true, aim); ["g25", "g120"].forEach(function (g) { if (dist < GUN[g].speed * GUN[g].life * 0.85) weapons(bd, dt, g, true, aim); }); }
   }
   function aiDrive(bd, dt, vDes, head) {
     if (bd.torque > 0 && bd.energy > 0) {
@@ -1581,7 +1697,7 @@
         scoreKill(bd);
       }
       // Kampfunfähig: keine funktionierenden Waffen mehr; das Schiff versucht weiter zu fliehen
-      else if (!bd.dead && !bd.disarmed && !bd.blocks.some(function (b) { var k = T[b.t].kind; return k === "mg" || k === "rg" || k === "ms"; })) {
+      else if (!bd.dead && !bd.disarmed && !bd.blocks.some(function (b) { var k = T[b.t].kind; return k === "mg" || k === "rg" || k === "ms" || k === "gun"; })) {
         bd.disarmed = true; if (bd.ai) { bd.ai.state = "flee"; bd.ai.fleeT = 0; } FL.bannerN = bd.npc.n[lang]; showBanner(t("ko"), "ko");
         scoreKill(bd);
       }
@@ -1677,6 +1793,7 @@
     // Schweißen draußen: Punkt vor der Figur im Schiffsraster
     FL.welding = false; FL.weldB = null; FL.weldG = null;
     if (FL.fire && FL.slot === 1) { FL.welding = true; var tp = toLocal(bd, E.x + Math.cos(E.face) * 1.6, E.y + Math.sin(E.face) * 1.6); weldAt(bd, tp.x, tp.y, dt); }
+    if (FL.fire && FL.slot === 3) fireHand(SMG);
     // Zurück ins Schiff über eine Luke
     FL.enterCd = Math.max(0, FL.enterCd - dt);
     var lp = toLocal(bd, E.x, E.y), o = bd.map.get(key(Math.floor(lp.x), Math.floor(lp.y)));
@@ -1751,6 +1868,7 @@
     FL.welding = false; FL.weldB = null; FL.weldG = null;
     { var mw2 = mouseWorld(); if (mw2) { var lm = toLocal(bd, mw2.x, mw2.y), wa = Math.atan2(lm.y - P.y, lm.x - P.x), dd2 = Math.atan2(Math.sin(wa - P.face), Math.cos(wa - P.face)); P.face += dd2 * Math.min(1, dt * 16); } }   // zu Fuß immer zur Maus schauen
     if (FL.fire && FL.slot === 1) { FL.welding = true; weldAt(bd, P.x + Math.cos(P.face) * 0.8, P.y + Math.sin(P.face) * 0.8, dt); }
+    if (FL.fire && FL.slot === 3) fireHand(SMG);
   }
   function toggleSeat() {
     var me = FL.me;
@@ -1771,22 +1889,26 @@
     FL.seated = true;
   }
   // ---------- Werkzeugleiste zu Fuß (1–9) ----------
-  // 1 Schweißgerät, 2 Pistole (Einzelschuss, 50 % des Minigun-Schadens), 3–9 frei
+  // 1 Schweißgerät, 2 Pistole (Einzelschuss, 50 % des Minigun-Schadens), 3 Maschinenpistole (Dauerfeuer), 4–9 frei
   var HOT = [
     { n: L2("Schweißgerät", "Welder"), ic: '<svg viewBox="0 0 24 24"><path d="M4 17l7-7 3 3-7 7H4z" fill="#9AA5B1"/><path d="M14 13l3-3" stroke="#D5DADF" stroke-width="2"/><circle cx="18.5" cy="8.5" r="2.4" fill="#8EE0FF"/><path d="M18.5 3v2M22 8.5h-2M21 4.5l-1.4 1.4" stroke="#8EE0FF" stroke-width="1.4"/></svg>' },
-    { n: L2("Pistole", "Pistol"), ic: '<svg viewBox="0 0 24 24"><path d="M3 8h15l2 2v2H11l-1 2h-2l-1 5H4l1-6H3z" fill="#9AA5B1"/><path d="M18 9h3" stroke="#D5DADF" stroke-width="2"/></svg>' }
+    { n: L2("Pistole", "Pistol"), ic: '<svg viewBox="0 0 24 24"><path d="M3 8h15l2 2v2H11l-1 2h-2l-1 5H4l1-6H3z" fill="#9AA5B1"/><path d="M18 9h3" stroke="#D5DADF" stroke-width="2"/></svg>' },
+    { n: L2("Maschinenpistole", "Submachine gun"), ic: '<svg viewBox="0 0 24 24"><path d="M2 9h4l1-1h12l2 2v2h-9l-1 1v5H8l1-5H6l-1 2H2z" fill="#9AA5B1"/><path d="M13 13h2v6h-2z" fill="#6A7480"/><path d="M21 10.5h2" stroke="#D5DADF" stroke-width="2"/></svg>' }
   ];
-  function firePistol() {
-    if ((FL.pcd || 0) > FL.t) return; FL.pcd = FL.t + PISTOL.cd;
+  function firePistol() { fireHand(PISTOL); }
+  // Handwaffe abfeuern (Pistole, Maschinenpistole): spec mit dmg, speed, cd und optional spread (Streuung in rad)
+  function fireHand(spec) {
+    if ((FL.pcd || 0) > FL.t) return; FL.pcd = FL.t + spec.cd;
     var mw = mouseWorld(); if (!mw) return;
     // Mündung der Pistole: in der Hand vor der Figur (Figurmaßstab: 1 Einheit ≈ 0,13 m)
     var ox, oy, vx0, vy0, fw;
     if (FL.out && FL.eva) { ox = FL.eva.x; oy = FL.eva.y; vx0 = FL.eva.vx; vy0 = FL.eva.vy; fw = FL.eva.face; }
     else { var pb = FL.pb || FL.me, P = FL.pilot, w = toWorld(pb, P.x, P.y); ox = w.x; oy = w.y; vx0 = pb.vx; vy0 = pb.vy; fw = P.face + pb.a; }
-    var u = CELL_M / 24 * 1.25, cf = Math.cos(fw), sf = Math.sin(fw), mx = ox + (12.8 * cf - 4.5 * sf) * u, my = oy + (12.8 * sf + 4.5 * cf) * u;
+    var ml = spec === SMG ? 15.4 : 12.8, u = CELL_M / 24 * 1.25, cf = Math.cos(fw), sf = Math.sin(fw), mx = ox + (ml * cf - 4.5 * sf) * u, my = oy + (ml * sf + 4.5 * cf) * u;
     var a = Math.atan2(mw.y - my, mw.x - mx), da = Math.atan2(Math.sin(a - fw), Math.cos(a - fw)); if (Math.abs(da) > 0.5) a = fw + Math.sign(da) * 0.5;   // nur grob in Blickrichtung
+    if (spec.spread) a += (Math.random() - 0.5) * 2 * spec.spread;
     var dx = Math.cos(a), dy = Math.sin(a);
-    FL.shots.push({ x: mx, y: my, vx: vx0 + dx * PISTOL.speed, vy: vy0 + dy * PISTOL.speed, life: 0, own: null, pl: true, dmg: PISTOL.dmg });   // volle Kollision, auch eigenes Schiff
+    FL.shots.push({ x: mx, y: my, vx: vx0 + dx * spec.speed, vy: vy0 + dy * spec.speed, life: 0, own: null, pl: true, dmg: spec.dmg });   // volle Kollision, auch eigenes Schiff
     FL.parts.push({ x: mx + dx * 0.1, y: my + dy * 0.1, vx: vx0, vy: vy0, life: 0, max: 0.04, k: "flash", sz: 0.18 });
   }
   function syncHot() {
@@ -2021,7 +2143,7 @@
         if (lt < 1) { c.fillStyle = "rgba(4,6,12," + (0.78 * (1 - lt) + fl) + ")"; bd.cells.forEach(function (q) { c.fillRect((q[0] - 0.5) * PX, (q[1] - 0.5) * PX, PX, PX); }); }
       }
       if (bd === FL.me && !FL.seated && (FL.pb || FL.me) === FL.me) drawGhosts(c, bd, tm);
-      if (bd === (FL.pb || FL.me) && !FL.seated && !FL.out) drawAstronaut(c, FL.pilot.x * PX, FL.pilot.y * PX, FL.pilot.face, FL.pilot.ph, PX / 24 * 1.25, FL.welding, FL.slot === 2);
+      if (bd === (FL.pb || FL.me) && !FL.seated && !FL.out) drawAstronaut(c, FL.pilot.x * PX, FL.pilot.y * PX, FL.pilot.face, FL.pilot.ph, PX / 24 * 1.25, FL.welding, FL.slot === 2 ? 1 : FL.slot === 3 ? 2 : 0);
       // Überhitzung und Ladung an den Waffen
       bd.blocks.forEach(function (b) {
         var ty = T[b.t], f = fp(b), cx = (b.x + f[0] / 2) * PX, cy = (b.y + f[1] / 2) * PX;
@@ -2037,7 +2159,7 @@
       });
       c.restore();
     });
-    if (FL.out && FL.eva) { c.save(); c.translate(FL.eva.x, FL.eva.y); c.scale(CELL_M / PX, CELL_M / PX); drawAstronaut(c, 0, 0, FL.eva.face, FL.eva.ph, 1.25, FL.welding, FL.slot === 2); c.restore(); }
+    if (FL.out && FL.eva) { c.save(); c.translate(FL.eva.x, FL.eva.y); c.scale(CELL_M / PX, CELL_M / PX); drawAstronaut(c, 0, 0, FL.eva.face, FL.eva.ph, 1.25, FL.welding, FL.slot === 2 ? 1 : FL.slot === 3 ? 2 : 0); c.restore(); }
     (FL.missiles || []).forEach(function (m) {
       c.save(); c.translate(m.x, m.y); c.rotate(m.h); if (m.k > 1) c.scale(1.7, 1.7);   // Schwere Rakete: größer
       c.fillStyle = "rgba(255,190,90,.85)"; c.beginPath(); c.moveTo(-0.9, -0.28); c.lineTo(-2.4 - Math.random() * 0.8, 0); c.lineTo(-0.9, 0.28); c.closePath(); c.fill();
@@ -2094,7 +2216,13 @@
     });
     // Geschosse, Strahlen, Partikel
     c.strokeStyle = "#FFD27A"; c.lineWidth = 0.5;
-    FL.shots.forEach(function (p) { if (p.pl) return; var l = Math.hypot(p.vx, p.vy) || 1; c.beginPath(); c.moveTo(p.x, p.y); c.lineTo(p.x - p.vx / l * 2.4, p.y - p.vy / l * 2.4); c.stroke(); });
+    FL.shots.forEach(function (p) { if (p.pl || p.k) return; var l = Math.hypot(p.vx, p.vy) || 1; c.beginPath(); c.moveTo(p.x, p.y); c.lineTo(p.x - p.vx / l * 2.4, p.y - p.vy / l * 2.4); c.stroke(); });
+    // Geschützgranaten: dicker, länger, glühend
+    FL.shots.forEach(function (p) {
+      if (!p.k) return; var l = Math.hypot(p.vx, p.vy) || 1, big = p.k === "g120", L = big ? 5.5 : 3.6;
+      c.strokeStyle = big ? "rgba(255,150,60,.55)" : "rgba(255,190,90,.5)"; c.lineWidth = big ? 2.4 : 1.4; c.beginPath(); c.moveTo(p.x, p.y); c.lineTo(p.x - p.vx / l * L, p.y - p.vy / l * L); c.stroke();
+      c.strokeStyle = big ? "#FFE0A8" : "#FFE9B8"; c.lineWidth = big ? 1 : 0.6; c.beginPath(); c.moveTo(p.x, p.y); c.lineTo(p.x - p.vx / l * L * 0.6, p.y - p.vy / l * L * 0.6); c.stroke();
+    });
     // Pistolenkugeln: kleiner und kürzer
     var lw0 = c.lineWidth; c.lineWidth = 0.14; c.strokeStyle = "#FFE3A0";
     FL.shots.forEach(function (p) { if (!p.pl) return; var l = Math.hypot(p.vx, p.vy) || 1; c.beginPath(); c.moveTo(p.x, p.y); c.lineTo(p.x - p.vx / l * 0.9, p.y - p.vy / l * 0.9); c.stroke(); });
@@ -2178,7 +2306,8 @@
     var ob = V.root.querySelector("#sr-h-ocbar"); if (ob) { ob.style.width = Math.round(FL.ocT / (me.ocMax || 3) * 100) + "%"; ob.style.background = FL.oc ? "#B98AE0" : "#6B7FA0"; }
     var wtxt = g ? t(g) : t("none");
     if (g === "mg") { var h = 0, oh = 0; me.blocks.forEach(function (b) { if (T[b.t].kind === "mg") { h = Math.max(h, b.heat || 0); oh = Math.max(oh, b.oh || 0); } }); wtxt += oh > 0 ? " · !!! " + nf(oh, 1) + " s" : " · " + Math.round(h * 100) + " %"; }
-    if (g === "ms") { var am = 0, mx = 0; me.blocks.forEach(function (b) { if (T[b.t].kind === "ms") { am += b.ammo === undefined ? msMax(b) : b.ammo; mx += msMax(b); } }); wtxt += me.msRl > 0 ? (lang === "de" ? " · lädt " : " · reloading ") + nf(me.msRl, 1) + " s" : " · " + am + " / " + mx; }
+    if (g === "msl" || g === "msh") { var am = 0, mx = 0, mq = me.mst && me.mst[g]; me.blocks.forEach(function (b) { if (b.t === g) { am += b.ammo === undefined ? msMax(b) : b.ammo; mx += msMax(b); } }); wtxt += mq && mq.rl > 0 ? (lang === "de" ? " · lädt " : " · reloading ") + nf(mq.rl, 1) + " s" : " · " + am + " / " + mx; }
+    if (GUN[g]) { var gc = 0; me.blocks.forEach(function (b) { if (b.t === g) gc = Math.max(gc, b.gcd || 0); }); wtxt += gc > 0.05 ? " · " + nf(gc, 1) + " s" : " · " + t("wReady"); }
     if (g === "rg") { var cd = 0; me.blocks.forEach(function (b) { if (T[b.t].kind === "rg") cd = Math.max(cd, b.cd || 0); }); wtxt += cd > 0 ? " · " + nf(cd, 1) + " s" : " · bereit".replace("bereit", lang === "de" ? "bereit" : "ready"); }
     set("sr-h-w", wtxt);
     set("sr-h-seat", FL.out ? t("hOut") : !me.seat ? t("hGone") : FL.seated ? t("hSeat") : t("hWalk"));
@@ -2205,7 +2334,7 @@
   function ctlHtml() {
     var de = lang === "de", G = [
       [de ? "Im Sitz" : "Seated", [["WASD", de ? "Fliegen" : "Fly"], ["Q / E", de ? "Drehen" : "Rotate"], [de ? "Linksklick" : "Left click", de ? "Feuern" : "Fire"], ["R", de ? "Waffe wechseln" : "Switch weapon"], ["Z", de ? "Trägheitsdämpfer" : "Inertia dampers"], ["C", "Cruise Control"], ["X", "Overcharge"], [de ? "Umschalt" : "Shift", de ? "Hochgeschw. freigeben" : "Unlock high speed"], ["F", de ? "Aufstehen / Hinsetzen" : "Get up / sit down"], ["V", de ? "Innen / Außen" : "Inside / outside"], ["I", de ? "Inventar" : "Inventory"], ["P", de ? "Andocken / Abdocken" : "Dock / undock"]]],
-      [de ? "Zu Fuß" : "On foot", [["WASD", de ? "Laufen" : "Walk"], [de ? "Umschalt" : "Shift", de ? "Sprinten" : "Sprint"], ["1–9", de ? "Werkzeug wählen" : "Select tool"], [de ? "Linksklick" : "Left click", de ? "1 Schweißen · 2 Pistole" : "1 weld · 2 pistol"], [de ? "F auf Luke" : "F on hatch", de ? "Aussteigen (auch durch die Decke)" : "Exit (also through the ceiling)"], [de ? "Offener Rand" : "Open edge", de ? "Direkt hinaus und hinein" : "Step straight out and in"]]],
+      [de ? "Zu Fuß" : "On foot", [["WASD", de ? "Laufen" : "Walk"], [de ? "Umschalt" : "Shift", de ? "Sprinten" : "Sprint"], ["1–9", de ? "Werkzeug wählen" : "Select tool"], [de ? "Linksklick" : "Left click", de ? "1 Schweißen · 2 Pistole · 3 MP (halten)" : "1 weld · 2 pistol · 3 SMG (hold)"], [de ? "F auf Luke" : "F on hatch", de ? "Aussteigen (auch durch die Decke)" : "Exit (also through the ceiling)"], [de ? "Offener Rand" : "Open edge", de ? "Direkt hinaus und hinein" : "Step straight out and in"]]],
       [de ? "Draußen" : "Outside", [["WASD", "Jetpack"], [de ? "Umschalt" : "Shift", de ? "Tempo ans Schiff" : "Match ship speed"], [de ? "F über Luke" : "F above hatch", de ? "Einsteigen" : "Get in"]]],
       ["Test", [[de ? "Rechtsklick" : "Right click", de ? "Block beschädigen" : "Damage block"], [de ? "Mausrad" : "Wheel", "Zoom"], ["Esc", de ? "Zurück zum Editor" : "Back to editor"]]]
     ];
@@ -2214,7 +2343,7 @@
   function html() {
     var pal = CATS.map(function (cat) {
       return '<div class="sr-cat"><h4>' + t(cat) + '</h4><div class="sr-grid">' + Object.keys(T).filter(function (id) { return T[id].cat === cat; }).map(function (id) {
-        return '<button type="button" class="sr-blk" data-blk="' + id + '" data-kind="' + T[id].kind + '" title="' + T[id].n[lang] + " · " + kg(T[id].mass) + " · " + T[id].hp + " HP · " + cr(T[id].cost) + '"><img alt="" src="' + icon(id) + '"><span>' + T[id].n[lang] + "</span><small>" + kg(T[id].mass) + "</small><small class=\"sr-pr\">" + cr(T[id].cost) + "</small></button>";
+        return '<button type="button" class="sr-blk" data-blk="' + id + '" data-kind="' + T[id].kind + '" title="' + T[id].n[lang] + " · " + kg(T[id].mass) + " · " + T[id].hp + " HP · " + cr(T[id].cost) + wTip(id) + '"><img alt="" src="' + icon(id) + '"><span>' + T[id].n[lang] + "</span><small>" + kg(T[id].mass) + "</small><small class=\"sr-pr\">" + cr(T[id].cost) + "</small></button>";
       }).join("") + "</div></div>";
     }).join("");
     var sw = ["#C8473A", "#E3B83F", "#57A06A", "#3E6F96", "#7B4BA8", "#E9ECEE", "#9AA5B1", "#6A7480", "#2A2F36"].map(function (c) { return '<button type="button" class="sr-sw" data-sw="' + c + '" style="background:' + c + '" aria-label="' + c + '"></button>'; }).join("");
@@ -2277,6 +2406,19 @@
     set("sr-hint", fly ? "" : t("hintEd")); var hn = V.root.querySelector("#sr-hint"); if (hn) hn.hidden = fly;
     if (!fly) info();
   }
+  // Waffenwerte: im Tooltip der Bauteilliste und als eigener Abschnitt im Infofeld (je Typ Anzahl, Schaden, Feuerrate, DPS)
+  function wTip(id) { var w = wStats(id); return w ? " · " + t("wDmg") + " " + nf(w.dmg) + " · " + nf(w.rpm) + " RPM · " + nf(w.dps, 1) + " DPS" : ""; }
+  function weapTxt() {
+    var cnt = {}, ord = []; S.blocks.forEach(function (b) { if (!wStats(b.t)) return; if (!cnt[b.t]) { cnt[b.t] = 0; ord.push(b.t); } cnt[b.t]++; });
+    if (!ord.length) return "<h4>" + t("sWeap") + "</h4><p>" + t("wNone") + "</p>";
+    var tot = 0, h = "<h4>" + t("sWeap") + "</h4>";
+    ord.forEach(function (id) {
+      var w = wStats(id), n = cnt[id]; tot += w.dps * n;
+      h += "<div><span>" + n + "× " + T[id].n[lang].replace(/ \d+×\d+$/, "") + "</span><b>" + nf(w.dps * n, 1) + " DPS</b></div>" +
+        "<p class='sr-ws'>" + t("wDmg") + " " + nf(w.dmg) + " · " + nf(w.rpm) + " RPM · " + nf(w.dps, 1) + " DPS " + t("wEach") + "</p>";
+    });
+    return h + "<div><span>" + t("wTotal") + "</span><b>" + nf(tot, 1) + " DPS</b></div>";
+  }
   function coolTxt() { var cm = coolMap(S.blocks), w = 0, th = 0; cm.forEach(function (n, b) { var k = T[b.t].kind; if (k === "mg" || k === "rg") w++; if (k === "thr") th++; }); return w + " " + t("weap") + " · " + th + " " + t("thrs"); }
   function dimTxt() { var b = bounds(S.blocks); if (!b) return "–"; var w = b.x1 - b.x0, h = b.y1 - b.y0; return w + " × " + h + " (" + nf(w * CELL_M, 1) + " × " + nf(h * CELL_M, 1) + " m)"; }
   function info() {
@@ -2299,6 +2441,7 @@
       row(t("sDim"), dimTxt()) + row(t("sCom"), t("comHint")) +
       (isSt ? "" : "<h4>" + t("sThr") + "</h4>" + row("↑ " + t("dF"), acc(0)) + row("↓ " + t("dB"), acc(2)) + row("← " + t("dL"), acc(3)) + row("→ " + t("dR"), acc(1)) +
       "<h4>" + t("sGyro") + "</h4>" + row("Gyro", st.gyro ? st.gyro + " × · " + wdeg : "–")) +
+      (isSt && !st.mg && !st.ms && !st.rg && !st.gun ? "" : weapTxt()) +
       "<h4>" + t("sCool") + "</h4>" + row(t("sCoolW"), coolTxt()) + row("Overcharge", nf(ocMaxOf(S.blocks, coolMap(S.blocks)), 1) + " s") +
       "<h4>" + t("sEn") + "</h4>" + row(t("sProd"), nf(st.prod) + " E/s") + row(t("sStore"), nf(st.cap) + " E") + row(t("sUse"), nf(st.use) + " E/s") +
       "<h4>" + t("sRooms") + "</h4><p class='" + (leaks ? "bad" : "ok") + "'>" + (R.length ? fmt(t("okRooms"), { n: R.length - leaks }) + (leaks ? " · " + leaks + " ✕" : "") + " · " + fmt(t("roomCells"), { n: R.reduce(function (a, r) { return a + r.cells.length; }, 0) }) : t("noRooms")) + "</p>" +
@@ -2344,7 +2487,7 @@
     ".sr-root .sr-blk[aria-pressed=true]{background:#2A3550;border-color:#E3B83F;color:#E6EAF0}.sr-blk[aria-pressed=true] span{color:#fff}" +
     ".sr-info{position:absolute;right:10px;top:64px;width:250px;max-height:calc(100% - 110px);overflow:auto;background:rgba(14,19,28,.94);border:1px solid #263142;padding:10px 12px;z-index:2;font-size:.8rem}" +
     ".sr-info h4{margin:10px 0 4px;font:600 .7rem var(--f-body,inherit);letter-spacing:.08em;text-transform:uppercase;color:#8FA0B8}.sr-info h4:first-child{margin-top:0}" +
-    ".sr-info div{display:flex;justify-content:space-between;gap:8px;padding:2px 0}.sr-info div span{color:#B9C4D4}.sr-info b{font-weight:600;font-variant-numeric:tabular-nums;text-align:right}" +
+    ".sr-info p.sr-ws{margin:0 0 4px;font-size:.7rem;color:#8FA0B8;font-variant-numeric:tabular-nums}.sr-info div{display:flex;justify-content:space-between;gap:8px;padding:2px 0}.sr-info div span{color:#B9C4D4}.sr-info b{font-weight:600;font-variant-numeric:tabular-nums;text-align:right}" +
     ".sr-info p{margin:2px 0}.sr-info .ok{color:#7FD3A4}.sr-info .bad{color:#F08A78}.sr-warn{margin:10px 0 0;padding:8px 8px 8px 22px;background:rgba(224,83,63,.12);border-left:3px solid #E0533F;color:#F3C2B8}.sr-warn li{margin:2px 0}" +
     ".sr-hint{position:absolute;left:50%;bottom:10px;transform:translateX(-50%);max-width:calc(100% - 540px);min-width:280px;text-align:center;font-size:.74rem;color:#B9C4D4;background:rgba(14,19,28,.85);border:1px solid #263142;padding:6px 10px;z-index:2}" +
     ".sr-io{position:absolute;inset:0;background:rgba(10,10,10,.72);display:flex;align-items:center;justify-content:center;z-index:6;padding:16px}.sr-io[hidden]{display:none}.sr-io-box{background:#1E1E1E;border:1px solid #3A3A3A;padding:14px;width:min(560px,100%);display:flex;flex-direction:column;gap:10px}.sr-io-h{color:#DDD;font-size:.88rem;line-height:1.45}.sr-io textarea{height:180px;background:#141414;color:#E8E8E8;border:1px solid #3A3A3A;font:12px ui-monospace,Menlo,Consolas,monospace;padding:8px;resize:vertical;border-radius:0}.sr-io .sr-sp{flex:1}" +
@@ -2565,7 +2708,7 @@
     if (list.childElementCount) return;   // Vorschaubilder nur einmal zeichnen
     NPC.forEach(function (sh) {
       var bl = npcBlocks(sh), st = stats(bl), bb = bounds(bl), wp = [];
-      if (st.mg) wp.push(st.mg + "× " + t("mg")); if (st.ms) wp.push(st.ms + "× " + t("ms")); if (st.rg) wp.push(st.rg + "× " + t("rg"));
+      if (st.mg) wp.push(st.mg + "× " + t("mg")); if (st.ms) wp.push(st.ms + "× " + t("ms")); if (st.rg) wp.push(st.rg + "× " + t("rg")); if (st.gun) wp.push(st.gun + "× " + t("gunsN"));
       var card = document.createElement("div"); card.className = "sr-npc-card";
       card.appendChild(shipThumb(bl, 132));
       var tx = document.createElement("div"); tx.className = "sr-npc-tx";
