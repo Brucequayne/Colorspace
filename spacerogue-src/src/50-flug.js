@@ -96,7 +96,7 @@
     FL.bodies.forEach(function (b) { if (b === (FL.pb || me) || (b !== me && !b.station)) return; b.blocks.forEach(function (hb) { if (T[hb.t].kind !== "hatch") return; if (hb.openT > 0) hb.openT -= dt; var o = hb.openT > 0; if (o !== !!hb.open) { hb.open = o; b.roomsDirty = true; } }); });
     if (FL.out) evaTick(evaBody(), dt);
     FL.bodies.slice().forEach(function (bd) {
-      if (bd.msRl > 0) { bd.msRl -= dt; if (bd.msRl <= 0) { bd.msRl = 0; bd.blocks.forEach(function (b) { if (T[b.t].kind === "ms") b.ammo = 2; }); } }
+      if (bd.msRl > 0) { bd.msRl -= dt; if (bd.msRl <= 0) { bd.msRl = 0; bd.blocks.forEach(function (b) { if (T[b.t].kind === "ms") b.ammo = msMax(b); }); } }
       // Energie: Reaktoren laden, Verbraucher ziehen
       bd.energy = Math.min(bd.cap - (bd.shE || 0), bd.energy + bd.prod * dt);   // der Schildanteil ist reserviert
       bd.flames = {};
@@ -120,7 +120,7 @@
       bd.blocks.forEach(function (b) {
         var ty = T[b.t];
         if (ty.kind === "mg") { var cn = (bd.cool && bd.cool.get(b)) || 0; if (b.oh > 0) { b.oh -= dt; if (b.oh <= 0) { b.oh = 0; b.heat = 0; } } else if (!b.firing) b.heat = Math.max(0, (b.heat || 0) - MG.cool * (1 + 0.6 * cn) * dt); b.firing = false; }
-        if (ty.kind === "ms" && b.ammo === undefined) b.ammo = 2;
+        if (ty.kind === "ms" && b.ammo === undefined) b.ammo = msMax(b);
         if (ty.kind === "rg") { if (b.cd > 0) b.cd -= dt; if (!b.holding) b.chg = 0; b.holding = false; }
         var hk = b.hp / hpMax(bd, b);
         if (MECH[ty.kind] && hk < 0.5 && Math.random() < dt * (hk < 0.25 ? 5 : 2.5)) { var p = blockCenter(bd, b); FL.parts.push({ x: p.x + (Math.random() - 0.5) * 2, y: p.y + (Math.random() - 0.5) * 2, vx: bd.vx + (Math.random() - 0.5) * 3, vy: bd.vy - 1.5 - Math.random() * 2, life: 0, max: 1.4 + Math.random() * 0.8, k: "smoke", sz: 0.5 + Math.random() * 0.5 }); }
@@ -149,7 +149,7 @@
     // Leichte Raketen: starke Beschleunigung, lenken nur ganz leicht zum Mauszeiger
     var mw = mouseWorld();
     FL.missiles = (FL.missiles || []).filter(function (m) {
-      var mk = m.own && m.own.player ? 1 + PM.msDmg : 1;
+      var mk = (m.own && m.own.player ? 1 + PM.msDmg : 1) * (m.k || 1);
       m.life += dt; if (m.life > MS.life) { blast(m.x, m.y, MS.splash, MS.sdmg * mk, m.own); return false; }
       var tg = m.own === FL.me ? mw : (m.own.ai && !m.own.dead ? { x: FL.me.x, y: FL.me.y } : null);
       if (tg) { var want = Math.atan2(tg.y - m.y, tg.x - m.x), dh = Math.atan2(Math.sin(want - m.h), Math.cos(want - m.h)); var trn = MS.turn * (m.own && m.own.player ? 1 + PM.msTurn : 1); m.h += Math.max(-trn * dt, Math.min(trn * dt, dh)); }

@@ -19,7 +19,7 @@
   }
   armor("l", false); armor("h", true);
   // Kosten in Credits (Cr): im Editor ist alles gratis, im späteren Rogue-like-Modus bezahlt man damit Bau-Upgrades zwischen den Stages
-  var COSTS = { cks: 1200, ckm: 2400, ckl: 4200, ckt: 700, dk3: 2200, dk4: 3400, ths: 450, thf: 650, shs: 1400, shl: 3800, thl: 1600, gyr: 700, col: 300, ant: 400, bat: 350, rea: 2000, flo: 15, wal: 25, dor: 60, hat: 150, win: 40, mgn: 900, msl: 1300, tgc: 1600, rgn: 2600 };
+  var COSTS = { cks: 1200, ckm: 2400, ckl: 4200, ckt: 700, dk3: 2200, dk4: 3400, ths: 450, thf: 650, shs: 1400, shl: 3800, thl: 1600, gyr: 700, col: 300, ant: 400, bat: 350, rea: 2000, flo: 15, wal: 25, dor: 60, hat: 150, win: 40, mgn: 900, msl: 1300, msh: 2400, tgc: 1600, rgn: 2600 };
   function applyCosts() { Object.keys(T).forEach(function (id) { var ty = T[id]; ty.cost = COSTS[id] || (ty.kind === "armor" ? Math.max(5, Math.round(ty.mass * (ty.heavy ? 26 : 57))) : 100); }); }
   function cr(v) { return nf(Math.round(v)) + " Cr"; }
   def("ckt", { cat: "catCo", kind: "cock", w: 1, h: 2, mass: 0.9, hp: 150, n: L2("Cockpit winzig 1×2", "Tiny cockpit 1×2"), col: "#9AA5B1" });
@@ -45,6 +45,9 @@
   def("win", { cat: "catIn", kind: "win", w: 1, h: 1, mass: 0.7, hp: 40, n: L2("Fenster 1×1", "Window 1×1"), col: "#9AA5B1" });
   def("mgn", { cat: "catWe", kind: "mg", w: 1, h: 2, mass: 1.3, hp: 60, n: L2("Minigun 1×2", "Minigun 1×2"), col: "#7E8995" });
   def("msl", { cat: "catWe", kind: "ms", w: 1, h: 2, mass: 1.6, hp: 60, n: L2("Leichte Raketen 1×2", "Light missiles 1×2"), col: "#7E8995" });
+  // Schwere Rakete (v0.50.1): rk = Raketen je Werfer, mk = Schadensfaktor gegenüber der leichten Rakete, ek = Energiefaktor je Schuss
+  def("msh", { cat: "catWe", kind: "ms", w: 1, h: 2, mass: 2.4, hp: 60, rk: 1, mk: 4, ek: 2, n: L2("Schwere Rakete 1×2", "Heavy missile 1×2"), col: "#7E8995" });
+  function msMax(b) { return T[b.t].rk || 2; }   // Magazingröße eines Raketenwerfers
   def("tgc", { cat: "catWe", kind: "tcomp", w: 1, h: 2, mass: 0.8, hp: 45, n: L2("Zielcomputer 1×2", "Targeting computer 1×2"), col: "#7E8995" });
   def("rgn", { cat: "catWe", kind: "rg", w: 1, h: 3, mass: 3.8, hp: 120, n: L2("Railgun 1×3", "Railgun 1×3"), col: "#7E8995" });
   applyCosts();

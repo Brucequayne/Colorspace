@@ -1,5 +1,5 @@
   // ===== 12-balance.js · Balance-Werte: Waffen, Anzug, KI, Kollision, Geschütze, Docking – hier wird am Spielgefühl gedreht =====
-  // ===== Waffen: Minigun (MG), Leichte Raketen (MS), Railgun (RG). dmg = Schaden, e = Energie je Schuss
+  // ===== Waffen: Minigun (MG), Raketen (MS), Railgun (RG). dmg = Schaden, e = Energie je Schuss. Die Schwere Rakete nutzt MS mit den Faktoren aus 11-bauteile.js (mk, ek)
   var MG = { rate: 12, speed: 462, life: 1.48, dmg: 7, heat: 0.042, cool: 0.42, warn: 0.78, lock: 3.2, e: 0.4 };
   var MS = { v0: 30, acc: 420, vmax: 340, turn: 0.45, life: 4, dmg: 55, splash: 2.6, sdmg: 28, reload: 2.5, gap: 0.18, e: 6 };
   var RG = { charge: 0.7, cd: 2.2, dmg: 150, range: 700, e: 67.5 };   // v0.39: +50 % Energie pro Schuss

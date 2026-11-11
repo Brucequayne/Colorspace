@@ -142,7 +142,7 @@
     });
     if (FL.out && FL.eva) { c.save(); c.translate(FL.eva.x, FL.eva.y); c.scale(CELL_M / PX, CELL_M / PX); drawAstronaut(c, 0, 0, FL.eva.face, FL.eva.ph, 1.25, FL.welding, FL.slot === 2); c.restore(); }
     (FL.missiles || []).forEach(function (m) {
-      c.save(); c.translate(m.x, m.y); c.rotate(m.h);
+      c.save(); c.translate(m.x, m.y); c.rotate(m.h); if (m.k > 1) c.scale(1.7, 1.7);   // Schwere Rakete: größer
       c.fillStyle = "rgba(255,190,90,.85)"; c.beginPath(); c.moveTo(-0.9, -0.28); c.lineTo(-2.4 - Math.random() * 0.8, 0); c.lineTo(-0.9, 0.28); c.closePath(); c.fill();
       c.fillStyle = "#E9ECEE"; c.fillRect(-0.9, -0.22, 1.6, 0.44); c.fillStyle = "#C8473A"; c.beginPath(); c.moveTo(0.7, -0.22); c.lineTo(1.1, 0); c.lineTo(0.7, 0.22); c.closePath(); c.fill();
       c.restore();
@@ -281,7 +281,7 @@
     var ob = V.root.querySelector("#sr-h-ocbar"); if (ob) { ob.style.width = Math.round(FL.ocT / (me.ocMax || 3) * 100) + "%"; ob.style.background = FL.oc ? "#B98AE0" : "#6B7FA0"; }
     var wtxt = g ? t(g) : t("none");
     if (g === "mg") { var h = 0, oh = 0; me.blocks.forEach(function (b) { if (T[b.t].kind === "mg") { h = Math.max(h, b.heat || 0); oh = Math.max(oh, b.oh || 0); } }); wtxt += oh > 0 ? " · !!! " + nf(oh, 1) + " s" : " · " + Math.round(h * 100) + " %"; }
-    if (g === "ms") { var am = 0, mx = 0; me.blocks.forEach(function (b) { if (T[b.t].kind === "ms") { am += b.ammo === undefined ? 2 : b.ammo; mx += 2; } }); wtxt += me.msRl > 0 ? (lang === "de" ? " · lädt " : " · reloading ") + nf(me.msRl, 1) + " s" : " · " + am + " / " + mx; }
+    if (g === "ms") { var am = 0, mx = 0; me.blocks.forEach(function (b) { if (T[b.t].kind === "ms") { am += b.ammo === undefined ? msMax(b) : b.ammo; mx += msMax(b); } }); wtxt += me.msRl > 0 ? (lang === "de" ? " · lädt " : " · reloading ") + nf(me.msRl, 1) + " s" : " · " + am + " / " + mx; }
     if (g === "rg") { var cd = 0; me.blocks.forEach(function (b) { if (T[b.t].kind === "rg") cd = Math.max(cd, b.cd || 0); }); wtxt += cd > 0 ? " · " + nf(cd, 1) + " s" : " · bereit".replace("bereit", lang === "de" ? "bereit" : "ready"); }
     set("sr-h-w", wtxt);
     set("sr-h-seat", FL.out ? t("hOut") : !me.seat ? t("hGone") : FL.seated ? t("hSeat") : t("hWalk"));

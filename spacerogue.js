@@ -5,7 +5,7 @@
 (function () {
   "use strict";
 
-  var VERSION = "0.50.0";
+  var VERSION = "0.50.1";
   var CELL_M = 2.5, PX = 24;              // Meter je Zelle, Pixel je Zelle bei Zoom 1
   var lang = "de";
   function L2(de, en) { return { de: de, en: en }; }
@@ -52,7 +52,7 @@
     speed: L2("Tempo", "Speed"), energy: L2("Energie", "Power"), weapon: L2("Waffe", "Weapon"), none: L2("keine", "none"),
     seated: L2("Im Cockpit", "In cockpit"), unseated: L2("Nicht im Cockpit · F zum Hinsetzen", "Not in cockpit · F to sit down"),
     cockGone: L2("Cockpit zerstört · Steuerung verloren", "Cockpit destroyed · control lost"),
-    noPower: L2("Keine Energie", "No power"), mg: L2("Minigun", "Minigun"), rg: L2("Railgun", "Railgun"), ms: L2("Leichte Raketen", "Light missiles"),
+    noPower: L2("Keine Energie", "No power"), mg: L2("Minigun", "Minigun"), rg: L2("Railgun", "Railgun"), ms: L2("Raketen", "Missiles"),
     targets: L2("Ziele neu", "Reset targets"), exitSeat: L2("Aussteigen (F)", "Get up (F)"), sitDown: L2("Hinsetzen (F)", "Sit down (F)"),
     walking: L2("Zu Fuß · F am Sitz zum Hinsetzen", "On foot · F at the seat to sit down"), tooFar: L2("Zu weit vom Sitz entfernt", "Too far from the seat"),
     air: L2("Luft", "Air"), airRoom: L2("Raumluft", "Cabin air"), airSuit: L2("Anzug", "Suit"), airJet: L2("Anzug · Jetpack", "Suit · jetpack"),
@@ -112,7 +112,7 @@
   }
   armor("l", false); armor("h", true);
   // Kosten in Credits (Cr): im Editor ist alles gratis, im späteren Rogue-like-Modus bezahlt man damit Bau-Upgrades zwischen den Stages
-  var COSTS = { cks: 1200, ckm: 2400, ckl: 4200, ckt: 700, dk3: 2200, dk4: 3400, ths: 450, thf: 650, shs: 1400, shl: 3800, thl: 1600, gyr: 700, col: 300, ant: 400, bat: 350, rea: 2000, flo: 15, wal: 25, dor: 60, hat: 150, win: 40, mgn: 900, msl: 1300, tgc: 1600, rgn: 2600 };
+  var COSTS = { cks: 1200, ckm: 2400, ckl: 4200, ckt: 700, dk3: 2200, dk4: 3400, ths: 450, thf: 650, shs: 1400, shl: 3800, thl: 1600, gyr: 700, col: 300, ant: 400, bat: 350, rea: 2000, flo: 15, wal: 25, dor: 60, hat: 150, win: 40, mgn: 900, msl: 1300, msh: 2400, tgc: 1600, rgn: 2600 };
   function applyCosts() { Object.keys(T).forEach(function (id) { var ty = T[id]; ty.cost = COSTS[id] || (ty.kind === "armor" ? Math.max(5, Math.round(ty.mass * (ty.heavy ? 26 : 57))) : 100); }); }
   function cr(v) { return nf(Math.round(v)) + " Cr"; }
   def("ckt", { cat: "catCo", kind: "cock", w: 1, h: 2, mass: 0.9, hp: 150, n: L2("Cockpit winzig 1×2", "Tiny cockpit 1×2"), col: "#9AA5B1" });
@@ -138,6 +138,9 @@
   def("win", { cat: "catIn", kind: "win", w: 1, h: 1, mass: 0.7, hp: 40, n: L2("Fenster 1×1", "Window 1×1"), col: "#9AA5B1" });
   def("mgn", { cat: "catWe", kind: "mg", w: 1, h: 2, mass: 1.3, hp: 60, n: L2("Minigun 1×2", "Minigun 1×2"), col: "#7E8995" });
   def("msl", { cat: "catWe", kind: "ms", w: 1, h: 2, mass: 1.6, hp: 60, n: L2("Leichte Raketen 1×2", "Light missiles 1×2"), col: "#7E8995" });
+  // Schwere Rakete (v0.50.1): rk = Raketen je Werfer, mk = Schadensfaktor gegenüber der leichten Rakete, ek = Energiefaktor je Schuss
+  def("msh", { cat: "catWe", kind: "ms", w: 1, h: 2, mass: 2.4, hp: 60, rk: 1, mk: 4, ek: 2, n: L2("Schwere Rakete 1×2", "Heavy missile 1×2"), col: "#7E8995" });
+  function msMax(b) { return T[b.t].rk || 2; }   // Magazingröße eines Raketenwerfers
   def("tgc", { cat: "catWe", kind: "tcomp", w: 1, h: 2, mass: 0.8, hp: 45, n: L2("Zielcomputer 1×2", "Targeting computer 1×2"), col: "#7E8995" });
   def("rgn", { cat: "catWe", kind: "rg", w: 1, h: 3, mass: 3.8, hp: 120, n: L2("Railgun 1×3", "Railgun 1×3"), col: "#7E8995" });
   applyCosts();
@@ -165,7 +168,7 @@
   }
 
   // ===== 12-balance.js · Balance-Werte: Waffen, Anzug, KI, Kollision, Geschütze, Docking – hier wird am Spielgefühl gedreht =====
-  // ===== Waffen: Minigun (MG), Leichte Raketen (MS), Railgun (RG). dmg = Schaden, e = Energie je Schuss
+  // ===== Waffen: Minigun (MG), Raketen (MS), Railgun (RG). dmg = Schaden, e = Energie je Schuss. Die Schwere Rakete nutzt MS mit den Faktoren aus 11-bauteile.js (mk, ek)
   var MG = { rate: 12, speed: 462, life: 1.48, dmg: 7, heat: 0.042, cool: 0.42, warn: 0.78, lock: 3.2, e: 0.4 };
   var MS = { v0: 30, acc: 420, vmax: 340, turn: 0.45, life: 4, dmg: 55, splash: 2.6, sdmg: 28, reload: 2.5, gap: 0.18, e: 6 };
   var RG = { charge: 0.7, cd: 2.2, dmg: 150, range: 700, e: 67.5 };   // v0.39: +50 % Energie pro Schuss
@@ -687,6 +690,12 @@
     } else if (k === "ms") {
       c.fillStyle = shade(col, -0.12); c.fillRect(w * 0.08, h * 0.3, w * 0.84, h * 0.7);
       c.fillStyle = b.c || "#8C4A3A"; c.fillRect(w * 0.14, h - s * 0.55, w * 0.72, s * 0.35);
+      if (ty.rk === 1) {   // Schwere Rakete: ein dickes Rohr in der Mitte
+        c.fillStyle = DARK; c.fillRect(w * 0.24, h * 0.03, w * 0.52, h * 0.6);
+        var rdy = (opts && opts.ammo !== undefined ? opts.ammo : 1) > 0; c.fillStyle = rdy ? "#E9ECEE" : "#4A525C";
+        c.beginPath(); c.moveTo(w * 0.5, h * 0.05); c.lineTo(w * 0.68, h * 0.24); c.lineTo(w * 0.32, h * 0.24); c.closePath(); c.fill();
+        if (rdy) { c.fillStyle = "#E3B83F"; c.fillRect(w * 0.32, h * 0.24, w * 0.36, h * 0.07); c.fillStyle = "#C8473A"; c.fillRect(w * 0.32, h * 0.31, w * 0.36, h * 0.05); }
+      } else
       [0.3, 0.7].forEach(function (q) { c.fillStyle = DARK; c.fillRect(w * q - w * 0.15, h * 0.06, w * 0.3, h * 0.55); var ready = (opts && opts.ammo !== undefined ? opts.ammo : 2) > (q < 0.5 ? 1 : 0); c.fillStyle = ready ? "#E9ECEE" : "#4A525C"; c.beginPath(); c.moveTo(w * q, h * 0.08); c.lineTo(w * q + w * 0.09, h * 0.2); c.lineTo(w * q - w * 0.09, h * 0.2); c.closePath(); c.fill(); if (ready) { c.fillStyle = "#C8473A"; c.fillRect(w * q - w * 0.09, h * 0.2, w * 0.18, h * 0.06); } });
       c.strokeStyle = shade(col, -0.55); c.lineWidth = lw; c.strokeRect(w * 0.08, h * 0.3, w * 0.84, h * 0.7);
     } else if (k === "rg") {
@@ -770,7 +779,7 @@
     sorted.forEach(function (b) {
       var ty = T[b.t], hpk = b.hp !== undefined ? b.hp / hpMax(body, b) : 1, o = null;
       if (isHull(ty.kind, view)) { hull.push(b); return; }
-      if (body) o = { pilot: ty.kind === "cock" && body.ctrl && FL && FL.seated && b === body.seat, batK: body.cap ? body.energy / body.cap : 1, charge: b.chg ? Math.min(1, b.chg / RG.charge) : 0, ammo: b.ammo === undefined ? 2 : b.ammo, open: !!b.open, tw: b.tw || 0, ckOpen: b.ckOpen || 0, dockOpen: b.dockOpen || 0 };
+      if (body) o = { pilot: ty.kind === "cock" && body.ctrl && FL && FL.seated && b === body.seat, batK: body.cap ? body.energy / body.cap : 1, charge: b.chg ? Math.min(1, b.chg / RG.charge) : 0, ammo: b.ammo === undefined ? (ty.kind === "ms" ? msMax(b) : 2) : b.ammo, open: !!b.open, tw: b.tw || 0, ckOpen: b.ckOpen || 0, dockOpen: b.dockOpen || 0 };
       drawBlock(c, b, s, view, hpk, tm, o);
     });
     hull.forEach(function (b) { hullFill(c, b, s, view, b.hp !== undefined ? b.hp / hpMax(body, b) : 1); });
@@ -1039,7 +1048,7 @@
     FL.bodies.forEach(function (b) { if (b === (FL.pb || me) || (b !== me && !b.station)) return; b.blocks.forEach(function (hb) { if (T[hb.t].kind !== "hatch") return; if (hb.openT > 0) hb.openT -= dt; var o = hb.openT > 0; if (o !== !!hb.open) { hb.open = o; b.roomsDirty = true; } }); });
     if (FL.out) evaTick(evaBody(), dt);
     FL.bodies.slice().forEach(function (bd) {
-      if (bd.msRl > 0) { bd.msRl -= dt; if (bd.msRl <= 0) { bd.msRl = 0; bd.blocks.forEach(function (b) { if (T[b.t].kind === "ms") b.ammo = 2; }); } }
+      if (bd.msRl > 0) { bd.msRl -= dt; if (bd.msRl <= 0) { bd.msRl = 0; bd.blocks.forEach(function (b) { if (T[b.t].kind === "ms") b.ammo = msMax(b); }); } }
       // Energie: Reaktoren laden, Verbraucher ziehen
       bd.energy = Math.min(bd.cap - (bd.shE || 0), bd.energy + bd.prod * dt);   // der Schildanteil ist reserviert
       bd.flames = {};
@@ -1063,7 +1072,7 @@
       bd.blocks.forEach(function (b) {
         var ty = T[b.t];
         if (ty.kind === "mg") { var cn = (bd.cool && bd.cool.get(b)) || 0; if (b.oh > 0) { b.oh -= dt; if (b.oh <= 0) { b.oh = 0; b.heat = 0; } } else if (!b.firing) b.heat = Math.max(0, (b.heat || 0) - MG.cool * (1 + 0.6 * cn) * dt); b.firing = false; }
-        if (ty.kind === "ms" && b.ammo === undefined) b.ammo = 2;
+        if (ty.kind === "ms" && b.ammo === undefined) b.ammo = msMax(b);
         if (ty.kind === "rg") { if (b.cd > 0) b.cd -= dt; if (!b.holding) b.chg = 0; b.holding = false; }
         var hk = b.hp / hpMax(bd, b);
         if (MECH[ty.kind] && hk < 0.5 && Math.random() < dt * (hk < 0.25 ? 5 : 2.5)) { var p = blockCenter(bd, b); FL.parts.push({ x: p.x + (Math.random() - 0.5) * 2, y: p.y + (Math.random() - 0.5) * 2, vx: bd.vx + (Math.random() - 0.5) * 3, vy: bd.vy - 1.5 - Math.random() * 2, life: 0, max: 1.4 + Math.random() * 0.8, k: "smoke", sz: 0.5 + Math.random() * 0.5 }); }
@@ -1092,7 +1101,7 @@
     // Leichte Raketen: starke Beschleunigung, lenken nur ganz leicht zum Mauszeiger
     var mw = mouseWorld();
     FL.missiles = (FL.missiles || []).filter(function (m) {
-      var mk = m.own && m.own.player ? 1 + PM.msDmg : 1;
+      var mk = (m.own && m.own.player ? 1 + PM.msDmg : 1) * (m.k || 1);
       m.life += dt; if (m.life > MS.life) { blast(m.x, m.y, MS.splash, MS.sdmg * mk, m.own); return false; }
       var tg = m.own === FL.me ? mw : (m.own.ai && !m.own.dead ? { x: FL.me.x, y: FL.me.y } : null);
       if (tg) { var want = Math.atan2(tg.y - m.y, tg.x - m.x), dh = Math.atan2(Math.sin(want - m.h), Math.cos(want - m.h)); var trn = MS.turn * (m.own && m.own.player ? 1 + PM.msTurn : 1); m.h += Math.max(-trn * dt, Math.min(trn * dt, dh)); }
@@ -1190,18 +1199,21 @@
       b.heat = (b.heat || 0) + MG.heat / (1 + 0.35 * cn2) * (bd === FL.me && FL.oc ? 0.75 : 1);   // Overcharge: 25 % langsamer heiß
       if (b.heat >= 1) { b.heat = 1; b.oh = b.ohMax = MG.lock / (1 + 0.3 * cn2); for (var i = 0; i < 10; i++) FL.parts.push({ x: tip.x, y: tip.y, vx: bd.vx + (Math.random() - 0.5) * 6, vy: bd.vy + (Math.random() - 0.5) * 6, life: 0, max: 1 + Math.random(), k: "smoke", sz: 1 + Math.random() }); }
     });
-    // Raketen: je Werfer 2 Schuss, abgefeuert wird nacheinander aus irgendeinem Werfer mit Munition.
+    // Raketen: je Werfer 2 Schuss (Schwere Rakete: 1 Schuss mit vierfachem Schaden), abgefeuert wird nacheinander aus irgendeinem Werfer mit Munition.
     // Erst wenn alle leer sind, laden alle gemeinsam nach: 2,5 s je Werfer.
     bd.msCd = Math.max(0, (bd.msCd || 0) - dt);
     if (firing && g === "ms" && !(bd.msRl > 0) && bd.msCd <= 0 && bd.energy >= MS.e) {
       var ls = bd.blocks.filter(function (b) { return T[b.t].kind === "ms" && b.ammo > 0; });
       if (ls.length) {
         var lb = ls[(bd.msTurn = ((bd.msTurn || 0) + 1)) % ls.length];
-        lb.ammo--; bd.energy -= MS.e; bd.msCd = MS.gap;
-        var d = dirWorld(bd, dirOut(lb, 0)), tip = muzzle(bd, lb), side = lb.ammo === 1 ? 0.22 : -0.22, nx = -d.y * side * CELL_M, ny = d.x * side * CELL_M;
-        FL.missiles.push({ x: tip.x + nx, y: tip.y + ny, vx: bd.vx + d.x * MS.v0, vy: bd.vy + d.y * MS.v0, h: Math.atan2(d.y, d.x), life: 0, own: bd, aim: aim || null });
+        var lty = T[lb.t], ec = MS.e * (lty.ek || 1);
+        if (bd.energy >= ec) {                            // Schwere Rakete braucht mehr Energie je Schuss
+        lb.ammo--; bd.energy -= ec; bd.msCd = MS.gap;
+        var d = dirWorld(bd, dirOut(lb, 0)), tip = muzzle(bd, lb), side = lty.rk === 1 ? 0 : lb.ammo === 1 ? 0.22 : -0.22, nx = -d.y * side * CELL_M, ny = d.x * side * CELL_M;
+        FL.missiles.push({ x: tip.x + nx, y: tip.y + ny, vx: bd.vx + d.x * MS.v0, vy: bd.vy + d.y * MS.v0, h: Math.atan2(d.y, d.x), life: 0, own: bd, aim: aim || null, k: lty.mk || 1 });
         var left = bd.blocks.reduce(function (a, b) { return a + (T[b.t].kind === "ms" ? b.ammo : 0); }, 0);
         if (!left) bd.msRl = bd.msRlMax = MS.reload * bd.blocks.filter(function (b) { return T[b.t].kind === "ms"; }).length / (bd.player ? 1 + PM.msRl : 1);
+        }
       }
     }
     if (firing && g === "rg") bd.blocks.forEach(function (b) {
@@ -2278,7 +2290,7 @@
     });
     if (FL.out && FL.eva) { c.save(); c.translate(FL.eva.x, FL.eva.y); c.scale(CELL_M / PX, CELL_M / PX); drawAstronaut(c, 0, 0, FL.eva.face, FL.eva.ph, 1.25, FL.welding, FL.slot === 2); c.restore(); }
     (FL.missiles || []).forEach(function (m) {
-      c.save(); c.translate(m.x, m.y); c.rotate(m.h);
+      c.save(); c.translate(m.x, m.y); c.rotate(m.h); if (m.k > 1) c.scale(1.7, 1.7);   // Schwere Rakete: größer
       c.fillStyle = "rgba(255,190,90,.85)"; c.beginPath(); c.moveTo(-0.9, -0.28); c.lineTo(-2.4 - Math.random() * 0.8, 0); c.lineTo(-0.9, 0.28); c.closePath(); c.fill();
       c.fillStyle = "#E9ECEE"; c.fillRect(-0.9, -0.22, 1.6, 0.44); c.fillStyle = "#C8473A"; c.beginPath(); c.moveTo(0.7, -0.22); c.lineTo(1.1, 0); c.lineTo(0.7, 0.22); c.closePath(); c.fill();
       c.restore();
@@ -2417,7 +2429,7 @@
     var ob = V.root.querySelector("#sr-h-ocbar"); if (ob) { ob.style.width = Math.round(FL.ocT / (me.ocMax || 3) * 100) + "%"; ob.style.background = FL.oc ? "#B98AE0" : "#6B7FA0"; }
     var wtxt = g ? t(g) : t("none");
     if (g === "mg") { var h = 0, oh = 0; me.blocks.forEach(function (b) { if (T[b.t].kind === "mg") { h = Math.max(h, b.heat || 0); oh = Math.max(oh, b.oh || 0); } }); wtxt += oh > 0 ? " · !!! " + nf(oh, 1) + " s" : " · " + Math.round(h * 100) + " %"; }
-    if (g === "ms") { var am = 0, mx = 0; me.blocks.forEach(function (b) { if (T[b.t].kind === "ms") { am += b.ammo === undefined ? 2 : b.ammo; mx += 2; } }); wtxt += me.msRl > 0 ? (lang === "de" ? " · lädt " : " · reloading ") + nf(me.msRl, 1) + " s" : " · " + am + " / " + mx; }
+    if (g === "ms") { var am = 0, mx = 0; me.blocks.forEach(function (b) { if (T[b.t].kind === "ms") { am += b.ammo === undefined ? msMax(b) : b.ammo; mx += msMax(b); } }); wtxt += me.msRl > 0 ? (lang === "de" ? " · lädt " : " · reloading ") + nf(me.msRl, 1) + " s" : " · " + am + " / " + mx; }
     if (g === "rg") { var cd = 0; me.blocks.forEach(function (b) { if (T[b.t].kind === "rg") cd = Math.max(cd, b.cd || 0); }); wtxt += cd > 0 ? " · " + nf(cd, 1) + " s" : " · bereit".replace("bereit", lang === "de" ? "bereit" : "ready"); }
     set("sr-h-w", wtxt);
     set("sr-h-seat", FL.out ? t("hOut") : !me.seat ? t("hGone") : FL.seated ? t("hSeat") : t("hWalk"));
@@ -2454,7 +2466,7 @@
   function html() {
     var pal = CATS.map(function (cat) {
       return '<div class="sr-cat"><h4>' + t(cat) + '</h4><div class="sr-grid">' + Object.keys(T).filter(function (id) { return T[id].cat === cat; }).map(function (id) {
-        return '<button type="button" class="sr-blk" data-blk="' + id + '" data-kind="' + T[id].kind + '" title="' + T[id].n[lang] + " · " + kg(T[id].mass) + " · " + T[id].hp + " HP · " + cr(T[id].cost) + '"><img alt="" src="' + icon(id) + '"><span>' + T[id].n[lang] + "</span><small>" + kg(T[id].mass) + "</small></button>";
+        return '<button type="button" class="sr-blk" data-blk="' + id + '" data-kind="' + T[id].kind + '" title="' + T[id].n[lang] + " · " + kg(T[id].mass) + " · " + T[id].hp + " HP · " + cr(T[id].cost) + '"><img alt="" src="' + icon(id) + '"><span>' + T[id].n[lang] + "</span><small>" + kg(T[id].mass) + "</small><small class=\"sr-pr\">" + cr(T[id].cost) + "</small></button>";
       }).join("") + "</div></div>";
     }).join("");
     var sw = ["#C8473A", "#E3B83F", "#57A06A", "#3E6F96", "#7B4BA8", "#E9ECEE", "#9AA5B1", "#6A7480", "#2A2F36"].map(function (c) { return '<button type="button" class="sr-sw" data-sw="' + c + '" style="background:' + c + '" aria-label="' + c + '"></button>'; }).join("");
@@ -2581,7 +2593,7 @@
     ".sr-list{overflow:auto;padding:0 8px 8px;flex:1;min-height:0}.sr-cat h4{margin:10px 0 6px;font:600 .72rem var(--f-body,inherit);letter-spacing:.08em;text-transform:uppercase;color:#8FA0B8}" +
     ".sr-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:4px}.sr-root .sr-blk{display:flex;flex-direction:column;align-items:center;gap:3px;padding:5px 3px;background:#101620;min-width:0}" +
     ".sr-blk img{width:44px;height:44px;image-rendering:auto}.sr-blk span{font-size:.62rem;line-height:1.2;text-align:center;color:#B9C4D4;font-weight:500;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}" +
-    ".sr-blk small{font-size:.58rem;color:#8FA0B8;font-variant-numeric:tabular-nums}" +
+    ".sr-blk small{font-size:.58rem;color:#8FA0B8;font-variant-numeric:tabular-nums}.sr-blk small.sr-pr{color:#E3B83F;margin-top:-2px}" +
     ".sr-root .sr-blk[aria-pressed=true]{background:#2A3550;border-color:#E3B83F;color:#E6EAF0}.sr-blk[aria-pressed=true] span{color:#fff}" +
     ".sr-info{position:absolute;right:10px;top:64px;width:250px;max-height:calc(100% - 110px);overflow:auto;background:rgba(14,19,28,.94);border:1px solid #263142;padding:10px 12px;z-index:2;font-size:.8rem}" +
     ".sr-info h4{margin:10px 0 4px;font:600 .7rem var(--f-body,inherit);letter-spacing:.08em;text-transform:uppercase;color:#8FA0B8}.sr-info h4:first-child{margin-top:0}" +

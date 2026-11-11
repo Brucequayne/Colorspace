@@ -37,7 +37,7 @@
     speed: L2("Tempo", "Speed"), energy: L2("Energie", "Power"), weapon: L2("Waffe", "Weapon"), none: L2("keine", "none"),
     seated: L2("Im Cockpit", "In cockpit"), unseated: L2("Nicht im Cockpit · F zum Hinsetzen", "Not in cockpit · F to sit down"),
     cockGone: L2("Cockpit zerstört · Steuerung verloren", "Cockpit destroyed · control lost"),
-    noPower: L2("Keine Energie", "No power"), mg: L2("Minigun", "Minigun"), rg: L2("Railgun", "Railgun"), ms: L2("Leichte Raketen", "Light missiles"),
+    noPower: L2("Keine Energie", "No power"), mg: L2("Minigun", "Minigun"), rg: L2("Railgun", "Railgun"), ms: L2("Raketen", "Missiles"),
     targets: L2("Ziele neu", "Reset targets"), exitSeat: L2("Aussteigen (F)", "Get up (F)"), sitDown: L2("Hinsetzen (F)", "Sit down (F)"),
     walking: L2("Zu Fuß · F am Sitz zum Hinsetzen", "On foot · F at the seat to sit down"), tooFar: L2("Zu weit vom Sitz entfernt", "Too far from the seat"),
     air: L2("Luft", "Air"), airRoom: L2("Raumluft", "Cabin air"), airSuit: L2("Anzug", "Suit"), airJet: L2("Anzug · Jetpack", "Suit · jetpack"),

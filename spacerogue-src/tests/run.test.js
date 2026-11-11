@@ -27,6 +27,26 @@ test("Startschiff und Boss existieren als Baupläne; alle Perks zeigen auf einen
   const ids = new Set(); T.PERKS.forEach(p => { assert(p.k in T.PM, "Perk " + p.id + ": Haken " + p.k + " fehlt"); assert(p.n.de && p.n.en && p.d.de && p.d.en, "Perk " + p.id + ": Text"); assert(!ids.has(p.id)); ids.add(p.id); assert(p.v === true ? T.PM[p.k] === false : typeof T.PM[p.k] === "number", "Perk " + p.id + ": Werttyp"); });
 });
 
+console.log("Schwere Rakete");
+test("Schwere Rakete: 1 Schuss je Werfer, vierfacher Schaden, doppelte Energie, gleiche Nachladezeit, teurer als der leichte Werfer", () => {
+  const E = boot(), T = E.T, S = E.st().S;
+  assert(T.T.msh && T.T.msh.kind === "ms" && T.T.msh.rk === 1 && T.T.msh.mk === 4); assert(T.T.msh.cost > T.T.msl.cost);
+  S.blocks.forEach(b => { if (b.t === "msl") b.t = "msh"; });
+  const n = S.blocks.filter(b => b.t === "msh").length; assert(n >= 1, "Beispielschiff hat Raketenwerfer");
+  T.startTest(); E.fly(0.05); const FL = E.st().FL, me = FL.me, e0 = me.energy;
+  for (let i = 0; i < n + 2; i++) { me.msCd = 0; T.weapons(me, 1 / 120, "ms", true, null); }
+  assert.strictEqual(FL.missiles.length, n, "genau eine Rakete je Werfer"); FL.missiles.forEach(m => assert.strictEqual(m.k, 4));
+  assert(Math.abs(e0 - me.energy - T.MS.e * 2 * n) < 1e-6, "Energie je Schuss");
+  assert.strictEqual(me.msRl, T.MS.reload * n, "lädt so lange nach wie leichte Werfer");
+  E.fly(T.MS.reload * n + 0.2); me.blocks.filter(b => b.t === "msh").forEach(b => assert.strictEqual(b.ammo, 1, "nachgeladen"));
+  assert.deepStrictEqual(E.errs, []);
+});
+test("Bauteilliste zeigt zu jedem Block Gewicht und Preis", () => {
+  const E = boot(); const el = E.q('.sr-blk[data-blk="msh"]'); assert(el, "Schwere Rakete fehlt in der Liste");
+  E.root.querySelectorAll(".sr-blk").forEach(b => { const sm = b.querySelectorAll("small"); assert.strictEqual(sm.length, 2); assert(/kg$/.test(sm[0].textContent)); assert(/Cr$/.test(sm[1].textContent)); });
+  assert(/2\.400 Cr/.test(el.textContent));
+});
+
 console.log("Ablauf");
 test("Run starten: Flug mit dem Startschiff, Stage 1, Gegner greifen sofort an, Editor-Entwurf bleibt unberührt", () => {
   const E = boot(), T = E.T; T.save(); const before = JSON.stringify(E.st().S.ship.map(T.strip)), saved = E.w.localStorage.getItem("spacerogue-ship-v1");

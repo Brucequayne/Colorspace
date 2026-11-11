@@ -162,6 +162,12 @@
     } else if (k === "ms") {
       c.fillStyle = shade(col, -0.12); c.fillRect(w * 0.08, h * 0.3, w * 0.84, h * 0.7);
       c.fillStyle = b.c || "#8C4A3A"; c.fillRect(w * 0.14, h - s * 0.55, w * 0.72, s * 0.35);
+      if (ty.rk === 1) {   // Schwere Rakete: ein dickes Rohr in der Mitte
+        c.fillStyle = DARK; c.fillRect(w * 0.24, h * 0.03, w * 0.52, h * 0.6);
+        var rdy = (opts && opts.ammo !== undefined ? opts.ammo : 1) > 0; c.fillStyle = rdy ? "#E9ECEE" : "#4A525C";
+        c.beginPath(); c.moveTo(w * 0.5, h * 0.05); c.lineTo(w * 0.68, h * 0.24); c.lineTo(w * 0.32, h * 0.24); c.closePath(); c.fill();
+        if (rdy) { c.fillStyle = "#E3B83F"; c.fillRect(w * 0.32, h * 0.24, w * 0.36, h * 0.07); c.fillStyle = "#C8473A"; c.fillRect(w * 0.32, h * 0.31, w * 0.36, h * 0.05); }
+      } else
       [0.3, 0.7].forEach(function (q) { c.fillStyle = DARK; c.fillRect(w * q - w * 0.15, h * 0.06, w * 0.3, h * 0.55); var ready = (opts && opts.ammo !== undefined ? opts.ammo : 2) > (q < 0.5 ? 1 : 0); c.fillStyle = ready ? "#E9ECEE" : "#4A525C"; c.beginPath(); c.moveTo(w * q, h * 0.08); c.lineTo(w * q + w * 0.09, h * 0.2); c.lineTo(w * q - w * 0.09, h * 0.2); c.closePath(); c.fill(); if (ready) { c.fillStyle = "#C8473A"; c.fillRect(w * q - w * 0.09, h * 0.2, w * 0.18, h * 0.06); } });
       c.strokeStyle = shade(col, -0.55); c.lineWidth = lw; c.strokeRect(w * 0.08, h * 0.3, w * 0.84, h * 0.7);
     } else if (k === "rg") {

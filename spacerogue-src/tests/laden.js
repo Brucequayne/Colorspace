@@ -3,7 +3,7 @@
 "use strict";
 const { bundle } = require("../build.js");
 const NAMES = ["T", "CATS", "TX", "TIPS", "NPC", "COSTS", "PM", "MG", "MS", "RG", "AISTY", "stats", "rooms", "components", "buildMap", "linked", "coolMap", "ocMaxOf", "cellsOf", "fp", "edgeRule", "mainScore", "bounds", "starter", "starterStation", "parseShip", "npcBlocks", "strip", "massOf", "key"];
-const FLIGHT = ["flTick", "flDraw", "edDraw", "spawnEnemy", "startTest", "stopTest", "tryPlace", "ghostAt", "eraseAt", "paintAt", "setEd", "toggleSeat", "dockKey", "setShield", "onKey", "onKeyUp", "undo", "openHangar", "openInv", "cycleSym", "info", "shipCode", "damage", "placeRow", "onClick", "save",
+const FLIGHT = ["flTick", "weapons", "flDraw", "edDraw", "spawnEnemy", "startTest", "stopTest", "tryPlace", "ghostAt", "eraseAt", "paintAt", "setEd", "toggleSeat", "dockKey", "setShield", "onKey", "onKeyUp", "undo", "openHangar", "openInv", "cycleSym", "info", "shipCode", "damage", "placeRow", "onClick", "save",
   "RUNCFG", "PERKS", "runStart", "runNext", "runSkip", "runRepair", "runRepairCost", "runPerk", "runOver", "runExit", "runSave", "runEnemies", "runBudget", "runValue", "runIsBoss", "runHpMax", "pmReset"];
 function hooked(code) {
   code = code || bundle();

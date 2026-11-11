@@ -66,7 +66,7 @@ Folgen für Änderungen:
     `node spacerogue-src/tests/volltest.js --merken`.
   Der Volltest spielt nur den freien Editor und Testflug. Solange dort nichts geändert wird, bleibt er gleich –
   auch wenn am Run gearbeitet wird.
-- **`run.test.js`** – 21 Tests für den Rogue-like-Run: Stage-Planung, Ablauf, Schaden und Werft, Boss und Perks, Tod.
+- **`run.test.js`** – 23 Tests für den Rogue-like-Run: Stage-Planung, Schwere Rakete und Preisanzeige, Ablauf, Schaden und Werft, Boss und Perks, Tod.
 - Die Tests ersetzen keinen Blick ins echte Spiel: Sie sehen nichts, sie rechnen nur.
 
 ## Unverändert seit dem Umbau

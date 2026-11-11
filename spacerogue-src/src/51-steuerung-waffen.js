@@ -62,18 +62,21 @@
       b.heat = (b.heat || 0) + MG.heat / (1 + 0.35 * cn2) * (bd === FL.me && FL.oc ? 0.75 : 1);   // Overcharge: 25 % langsamer heiß
       if (b.heat >= 1) { b.heat = 1; b.oh = b.ohMax = MG.lock / (1 + 0.3 * cn2); for (var i = 0; i < 10; i++) FL.parts.push({ x: tip.x, y: tip.y, vx: bd.vx + (Math.random() - 0.5) * 6, vy: bd.vy + (Math.random() - 0.5) * 6, life: 0, max: 1 + Math.random(), k: "smoke", sz: 1 + Math.random() }); }
     });
-    // Raketen: je Werfer 2 Schuss, abgefeuert wird nacheinander aus irgendeinem Werfer mit Munition.
+    // Raketen: je Werfer 2 Schuss (Schwere Rakete: 1 Schuss mit vierfachem Schaden), abgefeuert wird nacheinander aus irgendeinem Werfer mit Munition.
     // Erst wenn alle leer sind, laden alle gemeinsam nach: 2,5 s je Werfer.
     bd.msCd = Math.max(0, (bd.msCd || 0) - dt);
     if (firing && g === "ms" && !(bd.msRl > 0) && bd.msCd <= 0 && bd.energy >= MS.e) {
       var ls = bd.blocks.filter(function (b) { return T[b.t].kind === "ms" && b.ammo > 0; });
       if (ls.length) {
         var lb = ls[(bd.msTurn = ((bd.msTurn || 0) + 1)) % ls.length];
-        lb.ammo--; bd.energy -= MS.e; bd.msCd = MS.gap;
-        var d = dirWorld(bd, dirOut(lb, 0)), tip = muzzle(bd, lb), side = lb.ammo === 1 ? 0.22 : -0.22, nx = -d.y * side * CELL_M, ny = d.x * side * CELL_M;
-        FL.missiles.push({ x: tip.x + nx, y: tip.y + ny, vx: bd.vx + d.x * MS.v0, vy: bd.vy + d.y * MS.v0, h: Math.atan2(d.y, d.x), life: 0, own: bd, aim: aim || null });
+        var lty = T[lb.t], ec = MS.e * (lty.ek || 1);
+        if (bd.energy >= ec) {                            // Schwere Rakete braucht mehr Energie je Schuss
+        lb.ammo--; bd.energy -= ec; bd.msCd = MS.gap;
+        var d = dirWorld(bd, dirOut(lb, 0)), tip = muzzle(bd, lb), side = lty.rk === 1 ? 0 : lb.ammo === 1 ? 0.22 : -0.22, nx = -d.y * side * CELL_M, ny = d.x * side * CELL_M;
+        FL.missiles.push({ x: tip.x + nx, y: tip.y + ny, vx: bd.vx + d.x * MS.v0, vy: bd.vy + d.y * MS.v0, h: Math.atan2(d.y, d.x), life: 0, own: bd, aim: aim || null, k: lty.mk || 1 });
         var left = bd.blocks.reduce(function (a, b) { return a + (T[b.t].kind === "ms" ? b.ammo : 0); }, 0);
         if (!left) bd.msRl = bd.msRlMax = MS.reload * bd.blocks.filter(function (b) { return T[b.t].kind === "ms"; }).length / (bd.player ? 1 + PM.msRl : 1);
+        }
       }
     }
     if (firing && g === "rg") bd.blocks.forEach(function (b) {
