@@ -11,7 +11,7 @@
     raf = requestAnimationFrame(loop);
     var dt = Math.min(0.05, (now - (last || now)) / 1000); last = now;
     var dpr = window.devicePixelRatio || 1; V.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    if (S.mode === "fly" && FL) { var g = FL.paused ? 0 : dt; while (g > 0) { var d = Math.min(1 / 120, g); flTick(d); g -= d; } flDraw(); }
+    if (S.mode === "fly" && FL) { var g = FL.paused ? 0 : dt; while (g > 0 && FL) { var d = Math.min(1 / 120, g); flTick(d); g -= d; } if (FL) flDraw(); }
     else {
       var k = V.keys, sp = 14 / V.zoom * dt;
       if (k.w || k.arrowup) V.cam.y -= sp; if (k.s || k.arrowdown) V.cam.y += sp; if (k.a || k.arrowleft) V.cam.x -= sp; if (k.d || k.arrowright) V.cam.x += sp;
@@ -23,9 +23,10 @@
     unmount();
     lang = l === "en" ? "en" : "de";
     var o = document.getElementById("sr-css"); if (o) o.remove();
-    var st = document.createElement("style"); st.id = "sr-css"; st.textContent = CSS; document.head.appendChild(st);
+    var st = document.createElement("style"); st.id = "sr-css"; st.textContent = CSS + RUNCSS; document.head.appendChild(st);
     load();
     el.innerHTML = html();
+    runMountUI(el);
     V = { root: el, cv: el.querySelector("#sr-cv"), zoom: 1.25, cam: { x: 0.5, y: 0 }, keys: {}, ovOld: document.body.style.overflow };
     V.ctx = V.cv.getContext("2d");
     document.body.style.overflow = "hidden";
@@ -48,6 +49,7 @@
     window.removeEventListener("pointermove", onMove); window.removeEventListener("pointerup", onUp); window.removeEventListener("pointercancel", onUp);
     window.removeEventListener("keydown", onKey); window.removeEventListener("keyup", onKeyUp); window.removeEventListener("resize", layout); window.removeEventListener("blur", releaseKeys);
     document.body.style.overflow = V.ovOld || "";
+    RUN = null; pmReset();
     FL = null; if (S) S.mode = "edit"; V = null;
   }
   window.SpaceRogue = { mount: mount, unmount: unmount, _debug: function () { return { S: S, V: V, FL: FL, T: T, stats: stats, rooms: rooms, components: components, starter: starter, startTest: startTest, damage: damage, dockFace: dockFace }; } };

@@ -14,6 +14,7 @@
     try { var js = JSON.parse(localStorage.getItem(SAVE_ST) || "null"); if (js && js.blocks) S.station = js.blocks.filter(function (b) { return T[b.t] && !/^(thr|cock|gyro)$/.test(T[b.t].kind); }); if (js && js.name) S.names.station = js.name; if (js && js.ed === "station") { S.ed = "station"; S.blocks = S.station; } } catch (e) {}
   }
   function save() {
+    if (RUN) { if (RUN.phase === "shop") RUN.blocks = S.blocks; return; }   // Run: die Entwürfe des freien Editors bleiben unberührt
     if (S.ed === "station") S.station = S.blocks; else S.ship = S.blocks;
     try {
       localStorage.setItem(SAVE, JSON.stringify({ blocks: S.ship.map(strip), color: S.color, symGap: !!S.symGap, name: S.names.ship }));
@@ -33,7 +34,7 @@
     return B.map(function (b) { if (!b.c) delete b.c; return b; });
   }
   function setEd(m) {
-    if (S.ed === m) return; save();
+    if (S.ed === m || RUN) return; save();
     S.ed = m; S.blocks = m === "station" ? S.station : S.ship; S.undo = [];
     if (m === "station" && /^(thr|cock|gyro)$/.test(T[S.sel].kind)) S.sel = "lblk";
     if (m === "station" && !S.blocks.length) { S.blocks = S.station = starterStation(); }
@@ -41,7 +42,7 @@
     save(); fitCam(); syncUI();
   }
   function strip(b) { var o = { t: b.t, x: b.x, y: b.y, r: b.r, f: b.f }; if (b.c) o.c = b.c; return o; }
-  function pushUndo() { S.undo.push(JSON.stringify(S.blocks.map(strip))); if (S.undo.length > 60) S.undo.shift(); }
+  function pushUndo() { S.undo.push(RUN ? runSnap() : JSON.stringify(S.blocks.map(strip))); if (S.undo.length > 60) S.undo.shift(); }
 
   // Beispielschiff: Cockpit vorn, luftdichter Raum, Triebwerke in alle Richtungen, Gyroskop, Energie, Waffen
   function starter() {

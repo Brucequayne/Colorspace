@@ -3,11 +3,12 @@
 "use strict";
 const { bundle } = require("../build.js");
 const NAMES = ["T", "CATS", "TX", "TIPS", "NPC", "COSTS", "PM", "MG", "MS", "RG", "AISTY", "stats", "rooms", "components", "buildMap", "linked", "coolMap", "ocMaxOf", "cellsOf", "fp", "edgeRule", "mainScore", "bounds", "starter", "starterStation", "parseShip", "npcBlocks", "strip", "massOf", "key"];
-const FLIGHT = ["flTick", "flDraw", "edDraw", "spawnEnemy", "startTest", "stopTest", "tryPlace", "ghostAt", "eraseAt", "paintAt", "setEd", "toggleSeat", "dockKey", "setShield", "onKey", "onKeyUp", "undo", "openHangar", "openInv", "cycleSym", "info", "shipCode"];
+const FLIGHT = ["flTick", "flDraw", "edDraw", "spawnEnemy", "startTest", "stopTest", "tryPlace", "ghostAt", "eraseAt", "paintAt", "setEd", "toggleSeat", "dockKey", "setShield", "onKey", "onKeyUp", "undo", "openHangar", "openInv", "cycleSym", "info", "shipCode", "damage", "placeRow", "onClick", "save",
+  "RUNCFG", "PERKS", "runStart", "runNext", "runSkip", "runRepair", "runRepairCost", "runPerk", "runOver", "runExit", "runSave", "runEnemies", "runBudget", "runValue", "runIsBoss", "runHpMax", "pmReset"];
 function hooked(code) {
   code = code || bundle();
   const all = NAMES.concat(FLIGHT).map(n => n + ": " + n).join(", ");
-  const hook = "  window.__SRT = { " + all + ", st: function () { return { S: S, V: V, FL: FL }; } };\n";
+  const hook = "  window.__SRT = { " + all + ", st: function () { return { S: S, V: V, FL: FL, RUN: RUN }; } };\n";
   const i = code.lastIndexOf("  window.SpaceRogue =");
   if (i < 0) throw new Error("Zeile mit window.SpaceRogue nicht gefunden");
   return code.slice(0, i) + hook + code.slice(i);

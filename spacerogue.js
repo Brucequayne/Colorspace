@@ -5,7 +5,7 @@
 (function () {
   "use strict";
 
-  var VERSION = "0.49.3";
+  var VERSION = "0.50.0";
   var CELL_M = 2.5, PX = 24;              // Meter je Zelle, Pixel je Zelle bei Zoom 1
   var lang = "de";
   function L2(de, en) { return { de: de, en: en }; }
@@ -72,7 +72,18 @@
     edShip: L2("Schiff", "Ship"), edSt: L2("Raumstation", "Space station"), stNoShip: L2("Für den Stationstest brauchst du ein Schiff mit Cockpit im Schiffs-Editor.", "To test the station you need a ship with a cockpit in the ship editor."),
     weld: L2("Schweißgerät", "Welder"), weldOn: L2("repariert {n}: {p} %", "repairing {n}: {p} %"), weldIdle: L2("Linksklick vor einem Block repariert ihn, vor einem Hologramm baut er ihn neu", "Left click facing a block repairs it, facing a hologram rebuilds it"),
     sDim: L2("Abmessungen", "Dimensions"), sCool: L2("Kühlung", "Cooling"), sCoolW: L2("Gekühlt", "Cooled"), weap: L2("Waffen", "weapons"), thrs: L2("Triebwerke", "thrusters"), sCom: L2("Schwerpunkt", "Centre of mass"), comHint: L2("gelb-schwarzer Kreis", "yellow-black circle"),
-    roomCells: L2("{n} Felder", "{n} cells"), color: L2("Farbe", "Colour"), placeHint: L2("Erster Block: frei platzieren", "First block: place anywhere")
+    roomCells: L2("{n} Felder", "{n} cells"), color: L2("Farbe", "Colour"), placeHint: L2("Erster Block: frei platzieren", "First block: place anywhere"),
+    // Rogue-like-Run
+    runStart: L2("Run starten", "Start run"), runNextBtn: L2("Nächste Stage", "Next stage"), runQuit: L2("Run aufgeben", "Abandon run"), runSkip: L2("Weiter zur Werft (Enter)", "To the shipyard (Enter)"),
+    runNextSt: L2("Werft · als Nächstes Stage {n}", "Shipyard · next up: stage {n}"), runRep: L2("Alles reparieren ({c})", "Repair all ({c})"), runRepNone: L2("Kein Schaden", "No damage"),
+    runPoor: L2("Nicht genug Credits.", "Not enough credits."), runCost: L2("Guthaben: {c}", "Balance: {c}"),
+    runStage: L2("Stage {n}", "Stage {n}"), runBoss: L2("Stage {n} · Boss", "Stage {n} · Boss"), runClear: L2("Stage {n} geschafft", "Stage {n} cleared"),
+    runEnemies: L2("Gegner übrig: {n}", "Enemies left: {n}"), runRepT: L2("Reparaturzeit {s}", "Repair time {s}"),
+    runOverT: L2("Game Over", "Game over"), runWhyCock: L2("Cockpit zerstört", "Cockpit destroyed"), runWhyAir: L2("Anzugluft aufgebraucht", "Suit air ran out"), runWhyQuit: L2("Run aufgegeben", "Run abandoned"),
+    runReached: L2("Stage erreicht", "Stage reached"), runBest: L2("Bestwert", "Best"), runEarned: L2("Credits verdient", "Credits earned"), runPerks: L2("Perks", "Perks"),
+    runSave: L2("Schiff in den Editor übernehmen", "Copy ship to the editor"), runNew: L2("Neuer Run", "New run"), runExit: L2("Zurück zum Editor", "Back to editor"),
+    runSaved: L2("Run-Schiff in den Editor geladen · Rückgängig holt dein altes Schiff zurück", "Run ship loaded into the editor · Undo brings your old ship back"),
+    runPerkT: L2("Boss besiegt · wähle einen Perk", "Boss defeated · choose a perk")
   };
 
   // Spieltipps: außerhalb von Kämpfen alle 60 s ein zufälliger Tipp für 5 s, unten in der Mitte, per Klick wegklickbar
@@ -196,6 +207,31 @@
     { id: 2, n: L2("Falcon", "Falcon"), cls: "M", code: {"sr":1,"color":"#3E6F96","b":[["ckm",-1,-2,0,0],["flo",-1,2,0,0,"#C8473A"],["flo",1,2,0,1,"#C8473A"],["flo",-1,3,0,0,"#C8473A"],["flo",1,3,0,1,"#C8473A"],["flo",-1,4,0,0,"#c0746d"],["flo",1,4,0,1,"#c0746d"],["flo",-1,5,0,0,"#c0746d"],["flo",1,5,0,1,"#c0746d"],["flo",-1,6,0,0,"#c0746d"],["flo",1,6,0,1,"#c0746d"],["flo",-1,7,0,0,"#C8473A"],["flo",1,7,0,1,"#C8473A"],["flo",-1,8,0,0,"#C8473A"],["flo",1,8,0,1,"#C8473A"],["flo",-1,9,0,0,"#C8473A"],["flo",1,9,0,1,"#C8473A"],["flo",-1,10,0,0,"#C8473A"],["flo",1,10,0,1,"#C8473A"],["flo",-1,11,0,0,"#C8473A"],["flo",1,11,0,1,"#C8473A"],["flo",0,11,0,0,"#c0746d"],["flo",0,10,0,0,"#c0746d"],["flo",0,9,0,0,"#c0746d"],["flo",0,8,0,0,"#c0746d"],["flo",0,7,0,0,"#c0746d"],["flo",0,6,0,0,"#c0746d"],["flo",0,5,0,0],["flo",0,4,0,0,"#c0746d"],["flo",0,3,0,0,"#c0746d"],["flo",0,2,0,0,"#c0746d"],["flo",0,12,0,0,"#c0746d"],["flo",0,13,0,0,"#c0746d"],["hrm2",-3,1,0,1,"#3E6F96"],["hrm2",3,1,0,0,"#3E6F96"],["hblk",-2,1,0,1,"#3E6F96"],["hblk",2,1,0,0,"#3E6F96"],["lblk",-3,3,0,1,"#3E6F96"],["lblk",3,3,0,0,"#3E6F96"],["lblk",-3,4,0,1,"#3E6F96"],["lblk",3,4,0,0,"#3E6F96"],["lblk",-3,5,0,1,"#3E6F96"],["lblk",3,5,0,0,"#3E6F96"],["lblk",-3,6,0,1,"#3E6F96"],["lblk",3,6,0,0,"#3E6F96"],["lblk",-3,7,0,1,"#3E6F96"],["lblk",3,7,0,0,"#3E6F96"],["lblk",-3,8,0,1,"#3E6F96"],["lblk",3,8,0,0,"#3E6F96"],["lblk",-3,9,0,1,"#3E6F96"],["lblk",3,9,0,0,"#3E6F96"],["lblk",-3,10,0,1,"#3E6F96"],["lblk",3,10,0,0,"#3E6F96"],["lblk",-3,11,0,1,"#3E6F96"],["lblk",3,11,0,0,"#3E6F96"],["lblk",-3,12,0,1,"#3E6F96"],["lblk",3,12,0,0,"#3E6F96"],["lblk",-3,13,0,1,"#3E6F96"],["lblk",3,13,0,0,"#3E6F96"],["lblk",-3,14,0,1,"#c0746d"],["lblk",3,14,0,0,"#c0746d"],["col",-4,13,0,1,"#3E6F96"],["col",4,13,0,0,"#3E6F96"],["col",-4,12,0,1,"#3E6F96"],["col",4,12,0,0,"#3E6F96"],["col",-4,11,0,1,"#3E6F96"],["col",4,11,0,0,"#3E6F96"],["col",-4,10,0,1,"#3E6F96"],["col",4,10,0,0,"#3E6F96"],["col",-4,9,0,1,"#3E6F96"],["col",4,9,0,0,"#3E6F96"],["thl",-5,14,0,1,"#3E6F96"],["thl",4,14,0,0,"#3E6F96"],["thl",-5,6,2,1,"#3E6F96"],["thl",4,6,2,0,"#3E6F96"],["col",-5,9,2,1,"#3E6F96"],["col",5,9,2,0,"#3E6F96"],["col",-5,10,2,1,"#3E6F96"],["col",5,10,2,0,"#3E6F96"],["col",-5,11,2,1,"#3E6F96"],["col",5,11,2,0,"#3E6F96"],["col",-5,12,2,1,"#3E6F96"],["col",5,12,2,0,"#3E6F96"],["col",-5,13,2,1,"#3E6F96"],["col",5,13,2,0,"#3E6F96"],["lblk",-2,14,2,1,"#c0746d"],["lblk",2,14,2,0,"#c0746d"],["lblk",-1,14,2,1,"#c0746d"],["lblk",1,14,2,0,"#c0746d"],["lblk",0,14,2,1,"#c0746d"],["ths",-7,11,1,1,"#3E6F96"],["ths",6,11,3,0,"#3E6F96"],["ths",-7,12,1,1,"#3E6F96"],["ths",6,12,3,0,"#3E6F96"],["ths",-7,13,1,1,"#3E6F96"],["ths",6,13,3,0,"#3E6F96"],["ths",-6,14,0,1,"#3E6F96"],["ths",6,14,0,0,"#3E6F96"],["col",-2,0,0,1],["col",2,0,0,0],["col",-2,-1,0,1],["col",2,-1,0,0],["mgn",-2,-3,0,1],["mgn",2,-3,0,0],["rea",-2,12,0,1],["rea",1,12,0,0],["bat",-2,11,0,1],["bat",2,11,0,0],["bat",-2,10,0,1],["bat",2,10,0,0],["bat",-2,9,0,1],["bat",2,9,0,0],["bat",-2,8,0,1],["bat",2,8,0,0],["bat",-2,7,0,1],["bat",2,7,0,0],["bat",-2,6,0,1],["bat",2,6,0,0],["gyr",-2,2,0,1],["gyr",2,2,0,0],["ant",-2,15,2,1],["ant",2,15,2,0],["bat",2,5,0,0],["bat",-2,5,0,0],["bat",-2,4,0,0],["bat",-2,3,0,0],["bat",2,3,0,0],["bat",2,4,0,0],["lcor",1,-3,0,0],["lcor",-1,-3,0,1],["lblk",0,-3,0,0],["msl",-6,8,0,0],["msl",6,8,0,1],["msl",-7,8,0,0],["msl",7,8,0,1],["ths",-7,10,1,0],["ths",6,10,3,1]]} },
     { id: 3, n: L2("Mosquito", "Mosquito"), cls: "S", code: {"sr":1,"color":"#6A7480","b":[["cks",-1,-4,0,0],["lrm3",1,-4,0,0],["lrm3",-2,-4,0,1],["rea",-1,-1,0,1],["bat",-1,1,0,1],["bat",0,1,0,1],["lblk",1,-1,2,1],["lblk",-2,-1,2,1],["lblk",-2,1,2,1],["lblk",-2,2,2,1],["lblk",1,1,2,1],["lblk",1,2,2,1],["ths",-3,0,1,1],["ths",1,0,3,1],["ths",-1,2,0,1],["ths",0,2,0,1],["ths",-3,-2,2,1],["ths",2,-2,2,1],["lrm2",-3,1,2,0],["lrm2",2,1,2,1],["gyr",-2,3,2,1],["gyr",1,3,2,1],["mgn",-1,-6,0,1],["mgn",0,-6,0,1]]} },
     { id: 4, n: L2("Dot", "Dot"), cls: "S", code: {"sr":1,"color":"#5E6B5A","b":[["ckt",0,0,0,0,"#E3B83F"],["mgn",0,-2,0,0,"#5E6B5A"],["lblk",-1,0,0,0,"#5E6B5A"],["lblk",-1,1,0,0,"#5E6B5A"],["ths",1,0,2,0,"#5E6B5A"],["lblk",-1,2,0,0,"#5E6B5A"],["gyr",0,2,0,0,"#5E6B5A"],["lblk",1,2,0,0,"#5E6B5A"],["rea",-1,3,0,0,"#5E6B5A"],["bat",1,3,0,0,"#5E6B5A"],["lblk",1,4,0,0,"#5E6B5A"],["ths",0,5,0,0,"#5E6B5A"],["ths",-3,3,1,0,"#5E6B5A"],["ths",2,3,3,0,"#5E6B5A"]]} }
+  ];
+  // ===== 14-run-daten.js · Rogue-like-Run: Stellschrauben und Perks – hier wird der Run ausbalanciert =====
+  // startShip/bossId: Nummer (id) eines Bauplans aus 13-npc-schiffe.js. budget0: Gegnerwert in Stage 1, growth: Faktor je Stage.
+  // rewardK: Anteil des Gegnerwerts als Credits je Abschuss. repairK: Werftpreis für Reparatur als Anteil des Bauteilpreises.
+  // repairTime: Sekunden freie Reparaturzeit nach der Stage. escape: ab dieser Entfernung (m) gilt ein fliehender Gegner als entkommen.
+  var RUNCFG = { startShip: 3, startCredits: 0, bossId: 2, bossEvery: 4, budget0: 7000, growth: 1.22, over: 1.1, maxEnemies: 6,
+    rewardK: 0.4, repairK: 0.5, repairTime: 30, escape: 1200, deadDelay: 2.5, perkChoices: 3 };
+  // Perks: k = Feld im Perk-Haken PM (siehe 11-bauteile.js), v = Wert je Wahl. Zahlen addieren sich bei mehrfacher Wahl, true gibt es nur einmal.
+  var PERKS = [
+    { id: "side", k: "side", v: 0.25, n: L2("Seitendüsen-Tuning", "Side thruster tuning"), d: L2("+25 % Schub nach links und rechts", "+25 % thrust to the left and right") },
+    { id: "brake", k: "brake", v: 0.25, n: L2("Bremsverstärker", "Brake booster"), d: L2("+25 % Schub beim Abbremsen", "+25 % thrust while braking") },
+    { id: "mgRate", k: "mgRate", v: 0.15, n: L2("Schnellfeuer", "Rapid fire"), d: L2("Miniguns feuern 15 % schneller", "Miniguns fire 15 % faster") },
+    { id: "batCap", k: "batCap", v: 0.25, n: L2("Dichte Zellen", "Dense cells"), d: L2("+25 % Batteriekapazität", "+25 % battery capacity") },
+    { id: "msRl", k: "msRl", v: 0.25, n: L2("Ladeautomatik", "Autoloader"), d: L2("Raketen laden 25 % schneller nach", "Missiles reload 25 % faster") },
+    { id: "hp", k: "hp", v: 0.1, n: L2("Verstärkte Struktur", "Reinforced structure"), d: L2("+10 % HP für alle Blöcke", "+10 % HP for all blocks") },
+    { id: "prod", k: "prod", v: 0.2, n: L2("Reaktor-Feinabstimmung", "Reactor tuning"), d: L2("+20 % Energieerzeugung", "+20 % power generation") },
+    { id: "walk", k: "walk", v: true, n: L2("Magnetstiefel", "Mag boots"), d: L2("Doppeltes Lauftempo zu Fuß", "Double walking speed on foot") },
+    { id: "radar", k: "radar", v: 0.5, n: L2("Fernsensoren", "Long-range sensors"), d: L2("+50 % Antennenreichweite", "+50 % antenna range") },
+    { id: "oc", k: "oc", v: 0.3, n: L2("Hitzeschild", "Heat shield"), d: L2("Overcharge hält 30 % länger", "Overcharge lasts 30 % longer") },
+    { id: "msDmg", k: "msDmg", v: 0.2, n: L2("Hohlladung", "Shaped charge"), d: L2("+20 % Raketenschaden", "+20 % missile damage") },
+    { id: "cockHp", k: "cockHp", v: 0.5, n: L2("Panzerkanzel", "Armoured canopy"), d: L2("+50 % HP für das Cockpit", "+50 % HP for the cockpit") },
+    { id: "msTurn", k: "msTurn", v: 0.5, n: L2("Lenkflossen", "Steering fins"), d: L2("Raketen lenken 50 % stärker zum Mauszeiger", "Missiles steer 50 % harder toward the cursor") },
+    { id: "crit", k: "crit", v: 0.1, n: L2("Schwachstellen-Scanner", "Weak-point scanner"), d: L2("+10 % Chance auf doppelten Minigun-Schaden", "+10 % chance for double minigun damage") },
+    { id: "batW", k: "batW", v: true, n: L2("Leichtbau-Batterien", "Featherweight batteries"), d: L2("Batterien wiegen nichts mehr", "Batteries weigh nothing") },
+    { id: "heavyW", k: "heavyW", v: 0.25, n: L2("Leichtlegierung", "Light alloy"), d: L2("Schwere Panzerung wiegt 25 % weniger", "Heavy armour weighs 25 % less") }
   ];
   // ===== 20-schiffslogik.js · Schiffslogik: Geometrie, Verbindungen, Räume/Luftdichtheit, Kühlung, Werte, Schiffscode =====
   // ---------- Geometrie eines Blocks ----------
@@ -350,6 +386,7 @@
     try { var js = JSON.parse(localStorage.getItem(SAVE_ST) || "null"); if (js && js.blocks) S.station = js.blocks.filter(function (b) { return T[b.t] && !/^(thr|cock|gyro)$/.test(T[b.t].kind); }); if (js && js.name) S.names.station = js.name; if (js && js.ed === "station") { S.ed = "station"; S.blocks = S.station; } } catch (e) {}
   }
   function save() {
+    if (RUN) { if (RUN.phase === "shop") RUN.blocks = S.blocks; return; }   // Run: die Entwürfe des freien Editors bleiben unberührt
     if (S.ed === "station") S.station = S.blocks; else S.ship = S.blocks;
     try {
       localStorage.setItem(SAVE, JSON.stringify({ blocks: S.ship.map(strip), color: S.color, symGap: !!S.symGap, name: S.names.ship }));
@@ -369,7 +406,7 @@
     return B.map(function (b) { if (!b.c) delete b.c; return b; });
   }
   function setEd(m) {
-    if (S.ed === m) return; save();
+    if (S.ed === m || RUN) return; save();
     S.ed = m; S.blocks = m === "station" ? S.station : S.ship; S.undo = [];
     if (m === "station" && /^(thr|cock|gyro)$/.test(T[S.sel].kind)) S.sel = "lblk";
     if (m === "station" && !S.blocks.length) { S.blocks = S.station = starterStation(); }
@@ -377,7 +414,7 @@
     save(); fitCam(); syncUI();
   }
   function strip(b) { var o = { t: b.t, x: b.x, y: b.y, r: b.r, f: b.f }; if (b.c) o.c = b.c; return o; }
-  function pushUndo() { S.undo.push(JSON.stringify(S.blocks.map(strip))); if (S.undo.length > 60) S.undo.shift(); }
+  function pushUndo() { S.undo.push(RUN ? runSnap() : JSON.stringify(S.blocks.map(strip))); if (S.undo.length > 60) S.undo.shift(); }
 
   // Beispielschiff: Cockpit vorn, luftdichter Raum, Triebwerke in alle Richtungen, Gyroskop, Energie, Waffen
   function starter() {
@@ -433,7 +470,9 @@
     if (!okA) return false;
     var extra = new Map(); cellsOf(list[0]).forEach(function (q) { extra.set(key(q.c[0], q.c[1]), { b: list[0], lx: q.lx, ly: q.ly }); });
     var okB = list[1] ? canPlaceWith(list[1], M, extra) : false;
+    var price = RUN ? runPrice(list, okB) : 0; if (RUN && price > RUN.credits) { runPoor(); return false; }   // Werft: Bauteile kosten Credits
     if (!noUndo) pushUndo();
+    if (RUN) RUN.credits -= price;
     var put = [list[0]]; if (list[1] && okB) put.push(list[1]);
     // Böden unter dem neuen Teil werden ersetzt
     var under = new Set(); put.forEach(function (q) { cellsOf(q).forEach(function (c) { under.add(key(c.c[0], c.c[1])); }); });
@@ -458,7 +497,7 @@
     var L = rowList(), n = 0; if (!L.length) return;
     pushUndo();
     for (var pass = 0; pass < (L.length > 60 ? 6 : 2); pass++) L.forEach(function (g) { if (!g.done && tryPlace(g, true)) { g.done = true; n++; } });   // zweiter Durchgang für Teile, die erst über Nachbarn Anschluss finden
-    if (!n) { S.undo.pop(); if (S.blocks.length) note(lang === "de" ? "Hier passt der Block nicht oder hat keinen Anschluss." : "The block does not fit here or has no connection."); }
+    if (!n) { S.undo.pop(); if (S.blocks.length) note(RUN && performance.now() - (RUN.poorT || -1e9) < 250 ? t("runPoor") : lang === "de" ? "Hier passt der Block nicht oder hat keinen Anschluss." : "The block does not fit here or has no connection."); }
   }
   function canPlaceWith(b, M, extra) {
     var cs = cellsOf(b);
@@ -474,6 +513,7 @@
     var M = buildMap(S.blocks), b = blockAt(cx, cy, M); if (!b) return false;
     pushUndo();
     var kill = [b]; if (S.sym) { var o = blockAt(mirrorCell(cx), cy, M); if (o && o !== b) kill.push(o); }
+    if (RUN) kill.forEach(function (q) { RUN.credits += runRefund(q); });   // Werft: Erstattung nach Zustand des Blocks
     S.blocks = S.blocks.filter(function (q) { return kill.indexOf(q) < 0; }); save(); return true;
   }
   function paintAt(cx, cy) {
@@ -940,6 +980,7 @@
     if (!st.cock) { note(t(stMode ? "stNoShip" : "noCockTest")); return; }
     var comps = components(src), main = comps.reduce(function (a, b) { return mainScore(b) > mainScore(a) ? b : a; });
     var copy = main.map(function (b) { return { t: b.t, x: b.x, y: b.y, r: b.r, f: b.f, c: b.c }; });
+    if (RUN) main.forEach(function (b, i) { copy[i].hp = b.hp !== undefined ? b.hp : runHpMax(b); });   // Run: Schaden aus der letzten Stage bleibt
     var me = makeBody(copy, true);
     FL = { bodies: [me], me: me, shots: [], beams: [], parts: [], seated: true, damp: true, wsel: 0, groups: [], keys: {}, mdx: 0, cam: { x: 0, y: 0 }, zoom: 1, t: 0 };
     var sp0 = seatPos(me); FL.pilot = { x: sp0.x, y: sp0.y, face: -Math.PI / 2, ph: 0 };
@@ -956,7 +997,8 @@
       var sta = makeBody(sm.map(function (b) { return { t: b.t, x: b.x, y: b.y, r: b.r, f: b.f, c: b.c }; }), false);
       sta.static = true; sta.station = true; sta.name = S.names.station || t("stDef"); sta.id = ++BID; sta.x = 0; sta.y = me.y - (me.rad + sta.rad + 40); sta.vx = sta.vy = sta.w = 0;
       FL.bodies.push(sta);
-    } else if (!stMode) spawnTargets();
+    } else if (RUN) runSpawn();
+    else if (!stMode) spawnTargets();
     S.viewEd = S.view; S.view = "out"; FL.seatWas = true;
     S.mode = "fly"; V.zoomEd = V.zoom; V.zoom = Math.min(1.1, Math.max(0.6, V.zoom));
     syncUI();
@@ -1082,6 +1124,7 @@
     var here = FL.out ? null : (FL.pb || me);
     if (here !== FL.pbLast) { if (here && FL.pbLast !== undefined && !FL.seated) showPlace(here.name || ""); FL.pbLast = here; }
     FL.cam.x = fx + FL.camOff.x; FL.cam.y = fy + FL.camOff.y;
+    if (RUN) runTick(dt);   // muss die letzte Anweisung bleiben: kann den Flug beenden
   }
   // ===== 51-steuerung-waffen.js · Steuerung und Waffen: Schub, Drehen, Minigun/Raketen/Railgun, Geschütze, Zielcomputer =====
   function dirAngle(b) { var d = dirOut(b, 2); return Math.atan2(DV[d][1], DV[d][0]); }
@@ -1404,7 +1447,8 @@
       sty: sty, mor: Math.min(1, sty.mor + (Math.random() - 0.5) * 0.2), n0: bd.blocks.length, fleeRoll: false };
     if (bd.shGen) bd.shE = Math.min(bd.cap * 0.5, bd.energy), bd.energy -= bd.shE;   // Gegner mit Generator reservieren die Hälfte fürs Schild
     FL.bodies.push(bd);
-    note(fmt(t("spawned"), { n: sh.n[lang] }) + " · " + sty.n[lang]);
+    if (RUN) { bd.ai.state = "combat"; bd.ai.alert = 1.6; }
+    else note(fmt(t("spawned"), { n: sh.n[lang] }) + " · " + sty.n[lang]);
   }
   // Moral (0–1): sinkt mit jedem Treffer und mit verlorenen Blöcken, erholt sich langsam. Niedrige Moral hält mehr Abstand und flieht eher
   function aiMorale(bd, dt) {
@@ -1582,6 +1626,7 @@
   // Abschuss: zählt einmal pro Schiff, egal ob erst kampfunfähig und später zerstört
   function scoreKill(bd) {
     if (bd.killed) return; bd.killed = true; FL.kills = (FL.kills || 0) + 1;
+    if (RUN) runKill(bd);
     var k = V.root.querySelector(".sr-kc b"); if (k) { k.textContent = FL.kills; var el = k.parentNode; el.classList.remove("pop"); void el.offsetWidth; el.classList.add("pop"); }
   }
   function showBanner(label, kind) {
@@ -1622,6 +1667,7 @@
     else FL.suit = Math.max(0, FL.suit - dt * (1 + (FL.out && FL.eva && FL.eva.thr ? SUIT.jet : 0)));
     if (FL.suit <= 0) {
       FL.ko += dt;
+      if (FL.ko > 2.5 && RUN) { FL.ko = 0; runOver("air"); return; }
       if (FL.ko > 2.5) { FL.ko = 0; FL.suit = SUIT.max; FL.out = false; FL.eva = null; if (bd.seat) { FL.seated = true; var sp = seatPos(bd); FL.pilot.x = sp.x; FL.pilot.y = sp.y; } note(t("airOut")); }
     } else FL.ko = 0;
   }
@@ -1883,6 +1929,211 @@
     var tw = c.measureText(txt).width; c.fillStyle = "rgba(14,19,28,.75)"; c.fillRect(fa.x - tw / 2 - 6 / ppm, fa.y - 9 / ppm - 20 / ppm, tw + 12 / ppm, 18 / ppm);
     c.fillStyle = FL.dock && FL.dock.done ? "#9FE3BD" : "#F2C14E"; c.fillText(txt, fa.x, fa.y - 20 / ppm); c.restore();
   }
+  // ===== 56-run.js · Rogue-like-Run: Ablauf Stage → Reparaturzeit → (Perk) → Werft → nächste Stage, Tod und Game Over =====
+  // RUN ist nur während eines Runs gesetzt. Ohne Run (RUN === null) verhält sich das Spiel exakt wie der bisherige Editor mit Testflug.
+  // Phasen: "fight" Kampf · "repair" freie Reparaturzeit · "perk" Perk-Wahl nach dem Boss · "shop" Werft · "over" Game Over
+  var RUN = null, PM0 = JSON.parse(JSON.stringify(PM)), RUN_BEST = "spacerogue-run-best", RUNVAL = {};
+  var RUNBLOCK = { starter: 1, clear: 1, imp: 1, npc: 1, "ed-ship": 1, "ed-st": 1, test: 1, edit: 1, targets: 1, "io-load": 1 };   // im Run gesperrte Knöpfe
+  function pmReset() { Object.keys(PM0).forEach(function (k) { PM[k] = PM0[k]; }); }
+  function runHpMax(b) { return hpMax({ player: true }, b); }
+  function runHpK(b) { return b.hp === undefined ? 1 : Math.max(0, Math.min(1, b.hp / runHpMax(b))); }
+  // Block für die Werft: wie strip, aber mit HP, wenn er beschädigt ist
+  function runStrip(b) { var o = strip(b); if (b.hp !== undefined && b.hp < runHpMax(b) - 0.01) o.hp = Math.max(0.01, b.hp); return o; }
+  function runSnap() { return JSON.stringify({ run: 1, cr: RUN.credits, b: S.blocks.map(runStrip) }); }
+  function runIsBoss(n) { return n % RUNCFG.bossEvery === 0; }
+  function runBudget(n) { return RUNCFG.budget0 * Math.pow(RUNCFG.growth, n - 1); }
+  function runNpc(id) { return NPC.filter(function (q) { return q.id === id; })[0] || null; }
+  function runValue(id) { if (RUNVAL[id] === undefined) { var sh = runNpc(id); RUNVAL[id] = sh ? stats(npcBlocks(sh)).cost : 0; } return RUNVAL[id]; }
+  // Gegner einer Stage: zufällig ziehen, bis das Budget (Summe der Schiffswerte) aufgebraucht ist. Boss-Stages beginnen mit dem Boss.
+  function runEnemies(n) {
+    var left = runBudget(n), out = [];
+    var pool = NPC.filter(function (q) { return q.id !== RUNCFG.bossId || n > RUNCFG.bossEvery * 2; }).map(function (q) { return { id: q.id, v: runValue(q.id) }; }).sort(function (a, b) { return a.v - b.v; });
+    if (runIsBoss(n)) { out.push(RUNCFG.bossId); left -= runValue(RUNCFG.bossId); }
+    while (out.length < RUNCFG.maxEnemies) {
+      var fit = pool.filter(function (q) { return q.v <= left * RUNCFG.over; });
+      if (!fit.length) break;
+      var p = fit[Math.floor(Math.random() * fit.length)]; out.push(p.id); left -= p.v;
+    }
+    if (!out.length && pool.length) out.push(pool[0].id);
+    return out;
+  }
+
+  // ---------- Start, Stage, Übergänge ----------
+  function runStart() {
+    if (RUN || !V || S.mode !== "edit") return;
+    var sh = runNpc(RUNCFG.startShip); if (!sh) return;
+    save();
+    RUN = { stage: 1, reached: 0, credits: RUNCFG.startCredits, blocks: npcBlocks(sh), design: null, kills: 0, earned: 0, escaped: 0, perks: [], offer: [], phase: "shop", t: 0, deadT: 0, alive: 0, spawned: 0, edWas: S.ed };
+    pmReset();
+    S.ed = "ship"; S.blocks = RUN.blocks; S.undo = []; S.tool = "build";
+    runNext();
+  }
+  function runNext() {
+    if (!RUN || RUN.phase !== "shop") return;
+    if (!stats(S.blocks).cock) { note(t("noCockTest")); return; }
+    RUN.blocks = S.blocks; RUN.design = S.blocks.map(strip);
+    RUN.phase = "fight"; RUN.deadT = 0;
+    startTest();
+    if (S.mode !== "fly") { RUN.phase = "shop"; return; }
+    RUN.reached = RUN.stage;
+    showPlace(fmt(t(runIsBoss(RUN.stage) ? "runBoss" : "runStage"), { n: RUN.stage }));
+  }
+  // wird von startTest anstelle der Übungsziele aufgerufen
+  function runSpawn() {
+    var ids = runEnemies(RUN.stage), me = FL.me, n = ids.length, a0 = me.a + (Math.random() - 0.5) * 0.8;
+    ids.forEach(function (id, i) {
+      spawnEnemy(id); var bd = FL.bodies[FL.bodies.length - 1]; if (!bd || !bd.enemy) return;
+      var d = Math.hypot(bd.x - me.x, bd.y - me.y), dir = a0 + (i - (n - 1) / 2) * 0.55;   // als Fächer vor dem Spieler verteilen
+      bd.x = me.x + Math.sin(dir) * d; bd.y = me.y - Math.cos(dir) * d; bd.ai.home = { x: bd.x, y: bd.y };
+      bd.value = stats(bd.blocks).cost;
+    });
+    RUN.spawned = RUN.alive = n;
+  }
+  function runKill(bd) {
+    var c = Math.round((bd.value || 0) * RUNCFG.rewardK); RUN.credits += c; RUN.earned += c; RUN.kills++;
+    if (c) floatTxt("+" + cr(c), "242,193,78");
+  }
+  // läuft am Ende jedes Simulationsschritts (flTick)
+  function runTick(dt) {
+    var R = RUN, me = FL.me; if (R.phase !== "fight" && R.phase !== "repair") return;
+    if (!me.seat || FL.bodies.indexOf(me) < 0) { R.deadT += dt; if (R.deadT > RUNCFG.deadDelay) runOver("cock"); return; }
+    if (R.phase === "fight") {
+      var alive = 0;
+      FL.bodies.slice().forEach(function (bd) {
+        if (!bd.enemy || bd.dead || bd.disarmed) return;
+        if (bd.ai && bd.ai.state === "flee" && Math.hypot(bd.x - me.x, bd.y - me.y) > RUNCFG.escape) { FL.bodies.splice(FL.bodies.indexOf(bd), 1); R.escaped++; return; }
+        alive++;
+      });
+      R.alive = alive;
+      if (!alive) { R.phase = "repair"; R.t = RUNCFG.repairTime; showPlace(fmt(t("runClear"), { n: R.stage })); }
+    } else { R.t -= dt; if (R.t <= 0) runToShop(); }
+  }
+  function runSkip() { if (RUN && RUN.phase === "repair" && FL) runToShop(); }
+  function runToShop() {
+    var R = RUN, boss = runIsBoss(R.stage);
+    R.blocks = FL.me.blocks.map(runStrip);   // was übrig ist, mit Schaden; zerstörte Blöcke sind weg
+    R.stage++; R.phase = boss ? "perk" : "shop";
+    S.blocks = R.blocks; S.undo = [];
+    closeInv(); stopTest(); fitCam();
+    var pl = V.root.querySelector(".sr-place"), kb = V.root.querySelector(".sr-kill"); if (pl) pl.classList.remove("go"); if (kb) kb.hidden = true;   // Einblendungen aus dem Flug nicht in die Werft mitnehmen
+    if (boss) runPerkOpen();
+    syncUI();
+  }
+
+  // ---------- Perks ----------
+  function runPerkOpen() {
+    var pool = PERKS.filter(function (p) { return !(p.v === true && RUN.perks.indexOf(p.id) >= 0); }), pick = [];
+    while (pick.length < RUNCFG.perkChoices && pool.length) pick.push(pool.splice(Math.floor(Math.random() * pool.length), 1)[0]);
+    if (!pick.length) { RUN.phase = "shop"; return; }
+    RUN.offer = pick.map(function (p) { return p.id; });
+    var el = V.root.querySelector(".sr-perk");
+    el.querySelector(".sr-perk-list").innerHTML = pick.map(function (p) { return '<button type="button" data-perk="' + p.id + '"><b>' + p.n[lang] + "</b><span>" + p.d[lang] + "</span></button>"; }).join("");
+    el.hidden = false;
+  }
+  function runPerk(id) {
+    if (!RUN || RUN.phase !== "perk" || RUN.offer.indexOf(id) < 0) return;
+    var p = PERKS.filter(function (q) { return q.id === id; })[0]; if (!p) return;
+    if (p.v === true) PM[p.k] = true; else PM[p.k] += p.v;
+    RUN.perks.push(id); RUN.offer = []; RUN.phase = "shop";
+    V.root.querySelector(".sr-perk").hidden = true; syncUI();
+  }
+
+  // ---------- Werft: Bauen kostet, Abreißen erstattet nach Zustand, Reparieren kostet einen Anteil ----------
+  function runPrice(list, okB) { return T[list[0].t].cost + (list[1] && okB ? T[list[1].t].cost : 0); }
+  function runRefund(b) { return Math.round(T[b.t].cost * runHpK(b)); }
+  function runPoor() { RUN.poorT = performance.now(); note(t("runPoor")); }
+  function runRepairOf(b) { var k = runHpK(b); return k < 1 ? Math.max(1, Math.round(T[b.t].cost * (1 - k) * RUNCFG.repairK)) : 0; }
+  function runRepairCost() { return S.blocks.reduce(function (a, b) { return a + runRepairOf(b); }, 0); }
+  function runRepair() {
+    if (!RUN || RUN.phase !== "shop") return;
+    var list = S.blocks.filter(function (b) { return runHpK(b) < 1; }).map(function (b) { return { b: b, c: runRepairOf(b) }; }).sort(function (a, q) { return a.c - q.c; });
+    if (!list.length) return;
+    if (RUN.credits < 1) { runPoor(); return; }
+    pushUndo();
+    list.forEach(function (q) {   // günstigste Schäden zuerst; reicht das Geld nicht, wird der letzte Block anteilig repariert
+      if (RUN.credits < 1) return;
+      if (q.c <= RUN.credits) { RUN.credits -= q.c; delete q.b.hp; }
+      else { var mx = runHpMax(q.b); q.b.hp += (mx - q.b.hp) * (RUN.credits / q.c); RUN.credits = 0; }
+    });
+    syncUI();
+  }
+
+  // ---------- Game Over und Ende ----------
+  function runOver(why) {
+    if (!RUN || RUN.phase === "over") return;
+    RUN.phase = "over"; if (FL) { FL.paused = true; FL.fire = false; }
+    var best = 0; try { best = +localStorage.getItem(RUN_BEST) || 0; if (RUN.reached > best) { best = RUN.reached; localStorage.setItem(RUN_BEST, String(best)); } } catch (e) {}
+    closeInv(); V.root.querySelector(".sr-perk").hidden = true;
+    var el = V.root.querySelector(".sr-over");
+    set("sr-ov-why", t(why === "air" ? "runWhyAir" : why === "quit" ? "runWhyQuit" : "runWhyCock"));
+    set("sr-ov-st", String(RUN.reached)); set("sr-ov-k", String(RUN.kills)); set("sr-ov-cr", cr(RUN.earned)); set("sr-ov-best", String(Math.max(best, RUN.reached)));
+    set("sr-ov-pk", RUN.perks.length ? RUN.perks.map(function (id) { var p = PERKS.filter(function (q) { return q.id === id; })[0]; return p ? p.n[lang] : id; }).join(" · ") : "–");
+    el.querySelector('[data-act="run-save"]').disabled = !RUN.design;
+    el.hidden = false;
+  }
+  // Run verwerfen und in den freien Editor zurück; dessen Entwürfe wurden während des Runs nie angefasst
+  function runExit() {
+    if (!RUN) return;
+    var edWas = RUN.edWas; RUN = null; pmReset();
+    V.root.querySelector(".sr-over").hidden = true; V.root.querySelector(".sr-perk").hidden = true;
+    stopTest();
+    S.ed = edWas; S.blocks = edWas === "station" ? S.station : S.ship; S.undo = [];
+    fitCam(); syncUI();
+  }
+  // Schiff aus dem Run behalten: der Entwurf vom Beginn der letzten Stage kommt in den Schiffs-Editor (Rückgängig holt den alten zurück)
+  function runSave() {
+    if (!RUN || !RUN.design) return;
+    var d = RUN.design; runExit();
+    if (S.ed !== "ship") setEd("ship");
+    pushUndo(); S.blocks = d; save(); fitCam(); syncUI(); note(t("runSaved"));
+  }
+  function runAct(act) {
+    if (act === "run-start") runStart();
+    else if (act === "run-next") runNext();
+    else if (act === "run-repair") runRepair();
+    else if (act === "run-skip") runSkip();
+    else if (act === "run-quit") runOver("quit");
+    else if (act === "run-save") runSave();
+    else if (act === "run-new") { runExit(); runStart(); }
+    else if (act === "run-exit") runExit();
+  }
+
+  // ---------- Anzeige ----------
+  // Werft-Leiste oben (aus syncUI)
+  function runSync() {
+    set("sr-run-st", fmt(t("runNextSt"), { n: RUN.stage }) + (runIsBoss(RUN.stage) ? " · Boss" : ""));
+    set("sr-run-cr", cr(RUN.credits));
+    var rc = runRepairCost(), rb = V.root.querySelector('[data-act="run-repair"]');
+    if (rb) { rb.textContent = rc ? fmt(t("runRep"), { c: cr(rc) }) : t("runRepNone"); rb.disabled = !rc; }
+  }
+  // Run-Anzeige im Flug (jedes Bild, aus flHud)
+  function runHud() {
+    set("sr-rh-st", fmt(t(runIsBoss(RUN.stage) ? "runBoss" : "runStage"), { n: RUN.stage }));
+    set("sr-rh-cr", cr(RUN.credits));
+    set("sr-rh-en", RUN.phase === "repair" ? fmt(t("runRepT"), { s: mmss(RUN.t) }) : fmt(t("runEnemies"), { n: RUN.alive }));
+    var sk = V.root.querySelector('[data-act="run-skip"]'); if (sk && sk.hidden !== (RUN.phase !== "repair")) sk.hidden = RUN.phase !== "repair";
+  }
+  // Run-Bedienelemente in die Oberfläche einsetzen (aus mount, direkt nach html())
+  function runMountUI(el) {
+    var top = el.querySelector(".sr-top"), tb = el.querySelector('[data-act="test"]');
+    tb.insertAdjacentHTML("beforebegin", '<button type="button" class="sr-go sr-ed-only sr-rungo" data-act="run-start">' + t("runStart") + " ▸</button>");
+    top.insertAdjacentHTML("beforeend", '<div class="sr-runbar"><span id="sr-run-st"></span><b id="sr-run-cr"></b><button type="button" data-act="run-repair"></button><button type="button" class="sr-go" data-act="run-next">' + t("runNextBtn") + ' ▸</button><button type="button" data-act="run-quit">' + t("runQuit") + "</button></div>");
+    el.querySelector(".sr-root").insertAdjacentHTML("beforeend",
+      '<div class="sr-runhud"><small id="sr-rh-st"></small><b id="sr-rh-cr"></b><span id="sr-rh-en"></span><button type="button" class="sr-go" data-act="run-skip" hidden>' + t("runSkip") + '</button><button type="button" data-act="run-quit">' + t("runQuit") + "</button></div>" +
+      '<div class="sr-ov sr-perk" hidden><div class="sr-ov-box"><h3>' + t("runPerkT") + '</h3><div class="sr-perk-list"></div></div></div>' +
+      '<div class="sr-ov sr-over" hidden><div class="sr-ov-box"><h3>' + t("runOverT") + '</h3><p id="sr-ov-why"></p><dl><dt>' + t("runReached") + '</dt><dd id="sr-ov-st"></dd><dt>' + t("runBest") + '</dt><dd id="sr-ov-best"></dd><dt>' + t("kills") + '</dt><dd id="sr-ov-k"></dd><dt>' + t("runEarned") + '</dt><dd id="sr-ov-cr"></dd><dt>' + t("runPerks") + '</dt><dd id="sr-ov-pk"></dd></dl>' +
+      '<div class="sr-ov-btn"><button type="button" data-act="run-save">' + t("runSave") + '</button><button type="button" class="sr-go" data-act="run-new">' + t("runNew") + '</button><button type="button" data-act="run-exit">' + t("runExit") + "</button></div></div></div>");
+  }
+  var RUNCSS = ".sr-root .sr-rungo{background:#8A5A14;border-color:#E3B83F}.sr-root .sr-rungo:hover{background:#A56C18}" +
+    ".sr-runbar{display:none;align-items:center;gap:8px;flex-wrap:wrap}.sr-root.run:not(.fly) .sr-runbar{display:flex}.sr-runbar span{font-size:.82rem;color:#B9C4D4}.sr-runbar b{font-size:1rem;color:#F2C14E;font-variant-numeric:tabular-nums;margin-right:4px}" +
+    ".sr-root button:disabled{opacity:.45;cursor:default}" +
+    ".sr-root.run [data-act=run-start],.sr-root.run [data-act=test],.sr-root.run [data-act=edit],.sr-root.run [data-act=starter],.sr-root.run [data-act=clear],.sr-root.run [data-act=imp],.sr-root.run [data-act=npc],.sr-root.run [data-act=ed-ship],.sr-root.run [data-act=ed-st],.sr-root.run #sr-name,.sr-root.run [data-act=targets],.sr-root.run .sr-spawn{display:none!important}" +
+    ".sr-runhud{display:none;position:absolute;right:12px;top:108px;z-index:3;flex-direction:column;align-items:flex-end;gap:5px;background:rgba(14,19,28,.6);border:1px solid rgba(38,49,66,.8);padding:8px 12px;min-width:170px}.sr-root.run.fly .sr-runhud{display:flex}" +
+    ".sr-runhud small{font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:#8FA0B8}.sr-runhud b{font-size:1.1rem;color:#F2C14E;font-variant-numeric:tabular-nums}.sr-runhud span{font-size:.8rem;color:#DDE3EA;font-variant-numeric:tabular-nums}.sr-runhud button{font-size:.74rem;padding:4px 8px}" +
+    ".sr-ov{position:absolute;inset:0;background:rgba(6,9,14,.72);display:flex;align-items:center;justify-content:center;z-index:8;padding:16px}.sr-ov[hidden]{display:none}" +
+    ".sr-ov-box{background:rgba(18,23,32,.97);border:1px solid #33405A;padding:20px 22px;width:min(640px,100%);max-height:calc(100% - 32px);overflow:auto;display:flex;flex-direction:column;gap:12px}.sr-ov-box h3{margin:0;font:600 1.35rem var(--f-display,inherit);color:#EEF2F5}.sr-ov-box p{margin:0;color:#F08A78;font-weight:600}" +
+    ".sr-ov-box dl{display:grid;grid-template-columns:auto 1fr;gap:6px 16px;margin:0;font-size:.92rem}.sr-ov-box dt{color:#8FA0B8}.sr-ov-box dd{margin:0;color:#EEF2F5;font-weight:600;font-variant-numeric:tabular-nums}.sr-ov-btn{display:flex;gap:8px;flex-wrap:wrap;margin-top:4px}" +
+    ".sr-perk-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px}.sr-root .sr-perk-list button{display:flex;flex-direction:column;gap:8px;align-items:flex-start;text-align:left;padding:14px;min-height:110px;background:#141B27}.sr-root .sr-perk-list button:hover{border-color:#E3B83F;background:#1C2536}.sr-perk-list b{font-size:1rem;color:#F2C14E}.sr-perk-list span{font-size:.84rem;color:#C9D1D9;font-weight:400;line-height:1.35}";
   // ===== 60-zeichnen-flug.js · Zeichnen: Flugansicht (Schweife, Staub, Effekte, Schiffe, Radar, HUD) =====
   // Schweif der Vortriebsdüsen (Schub nach vorne): Punkte bleiben im Raum stehen und verblassen, so sieht man die eigene Bahn
   function trailTick() {
@@ -2176,6 +2427,7 @@
     var sb = V.root.querySelector('[data-act="seat"]'); if (sb) { set("sr-h-seatb", FL.seated ? t("exitSeat") : t("sitDown")); }
     var wb = V.root.querySelector("#sr-h-weld"); if (wb) { wb.parentNode.hidden = FL.seated || FL.slot !== 1; set("sr-h-weld", FL.weldG ? fmt(t(FL.weldOk ? "weldBuild" : "weldWait"), { n: T[FL.weldG.t].n[lang] }) : FL.weldB ? fmt(t("weldOn"), { n: T[FL.weldB.t].n[lang], p: Math.round(FL.weldB.hp / hpMax(FL.me, FL.weldB) * 100) }) : t("hWeldIdle")); }
     var se = V.root.querySelector("#sr-h-seat"); if (se) se.className = !me.seat ? "warn" : "";
+    if (RUN) runHud();
   }
 
   // ===== 70-ui.js · UI: HTML-Aufbau, Infofeld, Spieltipps-Anzeige =====
@@ -2248,6 +2500,7 @@
     if (!V) return;
     var r = V.root, fly = S.mode === "fly";
     r.querySelector(".sr-root").classList.toggle("fly", fly);
+    r.querySelector(".sr-root").classList.toggle("run", !!RUN); if (RUN) runSync();
     r.querySelectorAll("[data-tool]").forEach(function (b) { b.setAttribute("aria-pressed", String(b.getAttribute("data-tool") === S.tool)); });
     r.querySelectorAll("[data-blk]").forEach(function (b) { b.setAttribute("aria-pressed", String(b.getAttribute("data-blk") === S.sel && S.tool === "build")); });
     r.querySelectorAll("[data-view]").forEach(function (b) { b.setAttribute("aria-pressed", String(b.getAttribute("data-view") === S.view)); });
@@ -2283,7 +2536,7 @@
     if (!st.cap && !st.prod) warn.push(t("wNoPow"));
     var wdeg = st.torque ? nf(st.torque / Math.max(1, st.I) * 57.3) + " °/s²" : "–";
     document.getElementById("sr-info").innerHTML =
-      "<h4>" + t("sBlocks") + "</h4>" + row(t("sBlocks"), nf(st.n)) + row(t("sMass"), nf(st.mass * 1000) + " kg") + row(t("sCost"), cr(st.cost || 0) + '<br><small style="color:#7FD3A4;font-weight:400">' + t("costFree") + "</small>") +
+      "<h4>" + t("sBlocks") + "</h4>" + row(t("sBlocks"), nf(st.n)) + row(t("sMass"), nf(st.mass * 1000) + " kg") + row(t("sCost"), cr(st.cost || 0) + '<br><small style="color:#7FD3A4;font-weight:400">' + (RUN ? fmt(t("runCost"), { c: cr(RUN.credits) }) : t("costFree")) + "</small>") +
       row(t("sDim"), dimTxt()) + row(t("sCom"), t("comHint")) +
       (isSt ? "" : "<h4>" + t("sThr") + "</h4>" + row("↑ " + t("dF"), acc(0)) + row("↓ " + t("dB"), acc(2)) + row("← " + t("dL"), acc(3)) + row("→ " + t("dR"), acc(1)) +
       "<h4>" + t("sGyro") + "</h4>" + row("Gyro", st.gyro ? st.gyro + " × · " + wdeg : "–")) +
@@ -2393,6 +2646,8 @@
     ".sr-hud b.on{color:#7FD3A4}.sr-hud b.off{color:#F0B860}.sr-hud b.warn{color:#F08A78}.sr-hud div[hidden]{display:none}.sr-eb{display:block;height:4px;background:rgba(38,49,66,.9)}.sr-eb i{display:block;height:100%;width:0}" +
     ".sr-root .sr-fl-only{display:none}.sr-root.fly .sr-fl-only{display:flex}.sr-root.fly .sr-ed-only{display:none}.sr-root.fly .sr-hud{display:flex}.sr-root.fly .sr-hint{max-width:calc(100% - 40px)}" +
     ".sr-root [hidden]{display:none!important}" +
+    // Die Website hat eine eigene Klasse .foot (Fußzeile). Ohne diese Zeile rutscht das Spiel zu Fuß um 56 px nach unten und wird beschnitten.
+    ".sr-root.foot{margin:0;padding:0;border:0;box-shadow:none;clip-path:none;font-size:inherit}" +
     "@media (max-width:900px){.sr-info{display:none}.sr-hint{max-width:calc(100% - 280px)}}";
 
   // ===== 72-eingabe.js · Eingabe: Maus, Tastatur, Klicks auf Knöpfe, Regler =====
@@ -2407,7 +2662,7 @@
     if (S.mode === "fly") {
       audioInit();
       if (e.button === 0) { FL.fire = true; if (!FL.seated && FL.slot === 2) firePistol(); }
-      if (e.button === 2) { var ppm = PX * V.zoom / CELL_M, wx = FL.cam.x + (m.sx - V.W / 2) / ppm, wy = FL.cam.y + (m.sy - V.H / 2) / ppm, h = hitAt(wx, wy, null); if (h) { damage(h.bd, h.b, T[h.b.t].hp * 0.26, wx, wy); spark(wx, wy, 6); } }
+      if (e.button === 2 && !RUN) { var ppm = PX * V.zoom / CELL_M, wx = FL.cam.x + (m.sx - V.W / 2) / ppm, wy = FL.cam.y + (m.sy - V.H / 2) / ppm, h = hitAt(wx, wy, null); if (h) { damage(h.bd, h.b, T[h.b.t].hp * 0.26, wx, wy); spark(wx, wy, 6); } }
       return;
     }
     if (e.button === 1 || (e.button === 0 && V.space)) { V.pan = { x: e.clientX, y: e.clientY, cx: V.cam.x, cy: V.cam.y }; e.preventDefault(); return; }
@@ -2447,6 +2702,8 @@
     if (S.mode === "fly") {
       if (k === "i") { if (invOpen()) closeInv(); else openInv(); return; }
       if (k === "escape" && invOpen()) { closeInv(); return; }
+      if (RUN && k === "enter") { runSkip(); return; }
+      if (k === "escape" && RUN) return;   // im Run führt Esc nicht zurück in den Editor
       if (k === "escape") { stopTest(); return; }
       if (["w", "a", "s", "d", "q", "e"].indexOf(k) >= 0) { FL.keys[k] = true; e.preventDefault(); }
       if (k === "shift") { FL.keys.shift = true; if (!e.repeat && FL.seated && !FL.out) { FL.hiOk = !FL.hiOk; if (FL.hiOk) FL.ca = Math.max(FL.ca || 0, 0.3); floatTxt(t(FL.hiOk ? "hiOn" : "hiOff")); } }
@@ -2481,7 +2738,7 @@
     if (FL) { FL.keys[k] = false; if (k === "shift") FL.keys.shift = false; }
     V.keys[k] = false;
   }
-  function undo() { var u = S.undo.pop(); if (!u) return; S.blocks = JSON.parse(u); save(); syncUI(); }
+  function undo() { var u = S.undo.pop(); if (!u) return; var o = JSON.parse(u); if (o && o.run) { if (!RUN) return; S.blocks = o.b; RUN.credits = o.cr; } else S.blocks = o; save(); syncUI(); }
   function onClick(e) {
     var a = e.target.closest("[data-act]"), tl = e.target.closest("[data-tool]"), bk = e.target.closest("[data-blk]"), vw = e.target.closest("[data-view]"), sw = e.target.closest("[data-sw]");
     if (tl) { S.tool = tl.getAttribute("data-tool"); syncUI(); return; }
@@ -2489,12 +2746,16 @@
     if (vw) { S.view = vw.getAttribute("data-view"); syncUI(); return; }
     if (sw) { S.color = sw.getAttribute("data-sw"); S.tool = "paint"; save(); syncUI(); return; }
     if (e.target.closest(".sr-tip")) { hideTip(e.target.closest(".sr-tip")); return; }
+    var rp = e.target.closest("[data-perk]"); if (rp) { runPerk(rp.getAttribute("data-perk")); return; }
+    if (RUN && e.target.closest("[data-spawn],[data-npc]")) return;
     var spb = e.target.closest("[data-spawn]");
     if (spb) { spawnEnemy(+spb.getAttribute("data-spawn")); spb.blur(); return; }
     var nb = e.target.closest("[data-npc]");
     if (nb) { var sh = NPC.filter(function (q) { return String(q.id) === nb.getAttribute("data-npc"); })[0]; if (sh) { setEd("ship"); pushUndo(); S.blocks = npcBlocks(sh); if (sh.code.color) S.color = sh.code.color; save(); fitCam(); V.root.querySelector(".sr-npc").hidden = true; syncUI(); note(sh.n[lang] + (lang === "de" ? " geladen · Rückgängig holt dein Schiff zurück" : " loaded · Undo brings your ship back")); } return; }
     if (!a) return;
     var act = a.getAttribute("data-act");
+    if (RUN && RUNBLOCK[act]) return;
+    if (act.indexOf("run-") === 0) { runAct(act); a.blur(); return; }
     if (act === "rot") S.r = (S.r + 1) % 4;
     else if (act === "flip") S.f = S.f ? 0 : 1;
     else if (act === "sym") S.sym = !S.sym;
@@ -2579,7 +2840,7 @@
     raf = requestAnimationFrame(loop);
     var dt = Math.min(0.05, (now - (last || now)) / 1000); last = now;
     var dpr = window.devicePixelRatio || 1; V.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    if (S.mode === "fly" && FL) { var g = FL.paused ? 0 : dt; while (g > 0) { var d = Math.min(1 / 120, g); flTick(d); g -= d; } flDraw(); }
+    if (S.mode === "fly" && FL) { var g = FL.paused ? 0 : dt; while (g > 0 && FL) { var d = Math.min(1 / 120, g); flTick(d); g -= d; } if (FL) flDraw(); }
     else {
       var k = V.keys, sp = 14 / V.zoom * dt;
       if (k.w || k.arrowup) V.cam.y -= sp; if (k.s || k.arrowdown) V.cam.y += sp; if (k.a || k.arrowleft) V.cam.x -= sp; if (k.d || k.arrowright) V.cam.x += sp;
@@ -2591,9 +2852,10 @@
     unmount();
     lang = l === "en" ? "en" : "de";
     var o = document.getElementById("sr-css"); if (o) o.remove();
-    var st = document.createElement("style"); st.id = "sr-css"; st.textContent = CSS; document.head.appendChild(st);
+    var st = document.createElement("style"); st.id = "sr-css"; st.textContent = CSS + RUNCSS; document.head.appendChild(st);
     load();
     el.innerHTML = html();
+    runMountUI(el);
     V = { root: el, cv: el.querySelector("#sr-cv"), zoom: 1.25, cam: { x: 0.5, y: 0 }, keys: {}, ovOld: document.body.style.overflow };
     V.ctx = V.cv.getContext("2d");
     document.body.style.overflow = "hidden";
@@ -2616,6 +2878,7 @@
     window.removeEventListener("pointermove", onMove); window.removeEventListener("pointerup", onUp); window.removeEventListener("pointercancel", onUp);
     window.removeEventListener("keydown", onKey); window.removeEventListener("keyup", onKeyUp); window.removeEventListener("resize", layout); window.removeEventListener("blur", releaseKeys);
     document.body.style.overflow = V.ovOld || "";
+    RUN = null; pmReset();
     FL = null; if (S) S.mode = "edit"; V = null;
   }
   window.SpaceRogue = { mount: mount, unmount: unmount, _debug: function () { return { S: S, V: V, FL: FL, T: T, stats: stats, rooms: rooms, components: components, starter: starter, startTest: startTest, damage: damage, dockFace: dockFace }; } };

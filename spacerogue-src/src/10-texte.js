@@ -57,7 +57,18 @@
     edShip: L2("Schiff", "Ship"), edSt: L2("Raumstation", "Space station"), stNoShip: L2("Für den Stationstest brauchst du ein Schiff mit Cockpit im Schiffs-Editor.", "To test the station you need a ship with a cockpit in the ship editor."),
     weld: L2("Schweißgerät", "Welder"), weldOn: L2("repariert {n}: {p} %", "repairing {n}: {p} %"), weldIdle: L2("Linksklick vor einem Block repariert ihn, vor einem Hologramm baut er ihn neu", "Left click facing a block repairs it, facing a hologram rebuilds it"),
     sDim: L2("Abmessungen", "Dimensions"), sCool: L2("Kühlung", "Cooling"), sCoolW: L2("Gekühlt", "Cooled"), weap: L2("Waffen", "weapons"), thrs: L2("Triebwerke", "thrusters"), sCom: L2("Schwerpunkt", "Centre of mass"), comHint: L2("gelb-schwarzer Kreis", "yellow-black circle"),
-    roomCells: L2("{n} Felder", "{n} cells"), color: L2("Farbe", "Colour"), placeHint: L2("Erster Block: frei platzieren", "First block: place anywhere")
+    roomCells: L2("{n} Felder", "{n} cells"), color: L2("Farbe", "Colour"), placeHint: L2("Erster Block: frei platzieren", "First block: place anywhere"),
+    // Rogue-like-Run
+    runStart: L2("Run starten", "Start run"), runNextBtn: L2("Nächste Stage", "Next stage"), runQuit: L2("Run aufgeben", "Abandon run"), runSkip: L2("Weiter zur Werft (Enter)", "To the shipyard (Enter)"),
+    runNextSt: L2("Werft · als Nächstes Stage {n}", "Shipyard · next up: stage {n}"), runRep: L2("Alles reparieren ({c})", "Repair all ({c})"), runRepNone: L2("Kein Schaden", "No damage"),
+    runPoor: L2("Nicht genug Credits.", "Not enough credits."), runCost: L2("Guthaben: {c}", "Balance: {c}"),
+    runStage: L2("Stage {n}", "Stage {n}"), runBoss: L2("Stage {n} · Boss", "Stage {n} · Boss"), runClear: L2("Stage {n} geschafft", "Stage {n} cleared"),
+    runEnemies: L2("Gegner übrig: {n}", "Enemies left: {n}"), runRepT: L2("Reparaturzeit {s}", "Repair time {s}"),
+    runOverT: L2("Game Over", "Game over"), runWhyCock: L2("Cockpit zerstört", "Cockpit destroyed"), runWhyAir: L2("Anzugluft aufgebraucht", "Suit air ran out"), runWhyQuit: L2("Run aufgegeben", "Run abandoned"),
+    runReached: L2("Stage erreicht", "Stage reached"), runBest: L2("Bestwert", "Best"), runEarned: L2("Credits verdient", "Credits earned"), runPerks: L2("Perks", "Perks"),
+    runSave: L2("Schiff in den Editor übernehmen", "Copy ship to the editor"), runNew: L2("Neuer Run", "New run"), runExit: L2("Zurück zum Editor", "Back to editor"),
+    runSaved: L2("Run-Schiff in den Editor geladen · Rückgängig holt dein altes Schiff zurück", "Run ship loaded into the editor · Undo brings your old ship back"),
+    runPerkT: L2("Boss besiegt · wähle einen Perk", "Boss defeated · choose a perk")
   };
 
   // Spieltipps: außerhalb von Kämpfen alle 60 s ein zufälliger Tipp für 5 s, unten in der Mitte, per Klick wegklickbar

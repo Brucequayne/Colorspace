@@ -37,6 +37,7 @@
     if (!st.cock) { note(t(stMode ? "stNoShip" : "noCockTest")); return; }
     var comps = components(src), main = comps.reduce(function (a, b) { return mainScore(b) > mainScore(a) ? b : a; });
     var copy = main.map(function (b) { return { t: b.t, x: b.x, y: b.y, r: b.r, f: b.f, c: b.c }; });
+    if (RUN) main.forEach(function (b, i) { copy[i].hp = b.hp !== undefined ? b.hp : runHpMax(b); });   // Run: Schaden aus der letzten Stage bleibt
     var me = makeBody(copy, true);
     FL = { bodies: [me], me: me, shots: [], beams: [], parts: [], seated: true, damp: true, wsel: 0, groups: [], keys: {}, mdx: 0, cam: { x: 0, y: 0 }, zoom: 1, t: 0 };
     var sp0 = seatPos(me); FL.pilot = { x: sp0.x, y: sp0.y, face: -Math.PI / 2, ph: 0 };
@@ -53,7 +54,8 @@
       var sta = makeBody(sm.map(function (b) { return { t: b.t, x: b.x, y: b.y, r: b.r, f: b.f, c: b.c }; }), false);
       sta.static = true; sta.station = true; sta.name = S.names.station || t("stDef"); sta.id = ++BID; sta.x = 0; sta.y = me.y - (me.rad + sta.rad + 40); sta.vx = sta.vy = sta.w = 0;
       FL.bodies.push(sta);
-    } else if (!stMode) spawnTargets();
+    } else if (RUN) runSpawn();
+    else if (!stMode) spawnTargets();
     S.viewEd = S.view; S.view = "out"; FL.seatWas = true;
     S.mode = "fly"; V.zoomEd = V.zoom; V.zoom = Math.min(1.1, Math.max(0.6, V.zoom));
     syncUI();
@@ -179,4 +181,5 @@
     var here = FL.out ? null : (FL.pb || me);
     if (here !== FL.pbLast) { if (here && FL.pbLast !== undefined && !FL.seated) showPlace(here.name || ""); FL.pbLast = here; }
     FL.cam.x = fx + FL.camOff.x; FL.cam.y = fy + FL.camOff.y;
+    if (RUN) runTick(dt);   // muss die letzte Anweisung bleiben: kann den Flug beenden
   }

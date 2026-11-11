@@ -27,7 +27,9 @@
     if (!okA) return false;
     var extra = new Map(); cellsOf(list[0]).forEach(function (q) { extra.set(key(q.c[0], q.c[1]), { b: list[0], lx: q.lx, ly: q.ly }); });
     var okB = list[1] ? canPlaceWith(list[1], M, extra) : false;
+    var price = RUN ? runPrice(list, okB) : 0; if (RUN && price > RUN.credits) { runPoor(); return false; }   // Werft: Bauteile kosten Credits
     if (!noUndo) pushUndo();
+    if (RUN) RUN.credits -= price;
     var put = [list[0]]; if (list[1] && okB) put.push(list[1]);
     // Böden unter dem neuen Teil werden ersetzt
     var under = new Set(); put.forEach(function (q) { cellsOf(q).forEach(function (c) { under.add(key(c.c[0], c.c[1])); }); });
@@ -52,7 +54,7 @@
     var L = rowList(), n = 0; if (!L.length) return;
     pushUndo();
     for (var pass = 0; pass < (L.length > 60 ? 6 : 2); pass++) L.forEach(function (g) { if (!g.done && tryPlace(g, true)) { g.done = true; n++; } });   // zweiter Durchgang für Teile, die erst über Nachbarn Anschluss finden
-    if (!n) { S.undo.pop(); if (S.blocks.length) note(lang === "de" ? "Hier passt der Block nicht oder hat keinen Anschluss." : "The block does not fit here or has no connection."); }
+    if (!n) { S.undo.pop(); if (S.blocks.length) note(RUN && performance.now() - (RUN.poorT || -1e9) < 250 ? t("runPoor") : lang === "de" ? "Hier passt der Block nicht oder hat keinen Anschluss." : "The block does not fit here or has no connection."); }
   }
   function canPlaceWith(b, M, extra) {
     var cs = cellsOf(b);
@@ -68,6 +70,7 @@
     var M = buildMap(S.blocks), b = blockAt(cx, cy, M); if (!b) return false;
     pushUndo();
     var kill = [b]; if (S.sym) { var o = blockAt(mirrorCell(cx), cy, M); if (o && o !== b) kill.push(o); }
+    if (RUN) kill.forEach(function (q) { RUN.credits += runRefund(q); });   // Werft: Erstattung nach Zustand des Blocks
     S.blocks = S.blocks.filter(function (q) { return kill.indexOf(q) < 0; }); save(); return true;
   }
   function paintAt(cx, cy) {

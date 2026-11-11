@@ -79,5 +79,7 @@
     ".sr-hud b.on{color:#7FD3A4}.sr-hud b.off{color:#F0B860}.sr-hud b.warn{color:#F08A78}.sr-hud div[hidden]{display:none}.sr-eb{display:block;height:4px;background:rgba(38,49,66,.9)}.sr-eb i{display:block;height:100%;width:0}" +
     ".sr-root .sr-fl-only{display:none}.sr-root.fly .sr-fl-only{display:flex}.sr-root.fly .sr-ed-only{display:none}.sr-root.fly .sr-hud{display:flex}.sr-root.fly .sr-hint{max-width:calc(100% - 40px)}" +
     ".sr-root [hidden]{display:none!important}" +
+    // Die Website hat eine eigene Klasse .foot (Fußzeile). Ohne diese Zeile rutscht das Spiel zu Fuß um 56 px nach unten und wird beschnitten.
+    ".sr-root.foot{margin:0;padding:0;border:0;box-shadow:none;clip-path:none;font-size:inherit}" +
     "@media (max-width:900px){.sr-info{display:none}.sr-hint{max-width:calc(100% - 280px)}}";
 

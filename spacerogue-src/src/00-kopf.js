@@ -5,7 +5,7 @@
 (function () {
   "use strict";
 
-  var VERSION = "0.49.3";
+  var VERSION = "0.50.0";
   var CELL_M = 2.5, PX = 24;              // Meter je Zelle, Pixel je Zelle bei Zoom 1
   var lang = "de";
   function L2(de, en) { return { de: de, en: en }; }
