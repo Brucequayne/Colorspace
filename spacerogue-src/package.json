@@ -6,8 +6,8 @@
     "build": "node build.js",
     "test": "node tests/logik.test.js",
     "volltest": "node tests/volltest.js",
-    "run": "node tests/run.test.js",
-    "alles": "node build.js && node tests/logik.test.js && node tests/volltest.js && node tests/run.test.js"
+    "editor": "node tests/editor.test.js",
+    "alles": "node build.js && node tests/logik.test.js && node tests/volltest.js && node tests/editor.test.js"
   },
   "devDependencies": {
     "jsdom": "^31.0.0"

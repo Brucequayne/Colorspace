@@ -11,7 +11,7 @@ Diese Datei wird **gebaut** – aus den Teilen in `spacerogue-src/src/`.
    node spacerogue-src/build.js
    node spacerogue-src/tests/logik.test.js
    node spacerogue-src/tests/volltest.js      (einmalig vorher: npm install im Ordner spacerogue-src)
-   node spacerogue-src/tests/run.test.js
+   node spacerogue-src/tests/editor.test.js
    ```
 3. **Hochladen:** die neu gebaute `spacerogue.js` **und** den Ordner `spacerogue-src` (ohne `node_modules`).
 
@@ -24,7 +24,6 @@ Diese Datei wird **gebaut** – aus den Teilen in `spacerogue-src/src/`.
 | `11-bauteile.js` | Bauteile mit Masse, HP, Schub; Kosten; Perk-Haken `PM`; Kantenregeln |
 | `12-balance.js` | Waffen, Anzug, KI-Stile, Kollision, Geschütze, Docking |
 | `13-npc-schiffe.js` | Baupläne der Gegner |
-| `14-run-daten.js` | Rogue-like-Run: Regeln und Perks |
 | `20-schiffslogik.js` | Geometrie, Verbindungen, Räume, Kühlung, Werte, Schiffscode |
 | `30-zustand.js` | Spielstand, Speichern/Laden, Beispielschiff, Beispielstation |
 | `31-editor.js` | Platzieren, Symmetrie, Abreißen, Malen |
@@ -35,7 +34,6 @@ Diese Datei wird **gebaut** – aus den Teilen in `spacerogue-src/src/`.
 | `53-ki.js` | Gegner-KI |
 | `54-figur.js` | Luft, Luken, Jetpack, Schweißen, Laufen, Pistole, Inventar |
 | `55-andocken.js` | Andocken |
-| `56-run.js` | Rogue-like-Run: Ablauf, Werft-Credits, Perks, Game Over |
 | `60-zeichnen-flug.js` | Flugansicht, Effekte, Radar, HUD |
 | `70-ui.js`, `71-css.js` | HTML-Aufbau, Infofeld, Aussehen |
 | `72-eingabe.js` | Maus, Tastatur, Knöpfe |
@@ -52,7 +50,7 @@ Folgen für Änderungen:
 - Funktionen dürfen in jeder Datei stehen und sich gegenseitig aufrufen.
 - `var X = …` auf oberster Ebene wird in Dateireihenfolge ausgeführt. Daten, die andere Daten brauchen, müssen
   in einer früheren Datei stehen (deshalb liegen alle Datendateien bei 10–13).
-- Neue Dateien bekommen eine Nummer, die sie an die passende Stelle sortiert (z. B. `56-run.js`).
+- Neue Dateien bekommen eine Nummer, die sie an die passende Stelle sortiert (z. B. `56-neues-system.js`).
 - Zeilen, die mit `// =====` beginnen, sind Dateimarken und Erklärungen aus dem Umbau.
 
 ## Die Tests
@@ -64,9 +62,8 @@ Folgen für Änderungen:
   - Umbau ohne Funktionsänderung: Fingerabdruck muss **gleich** bleiben.
   - Gewollte Spieländerung: Fingerabdruck ändert sich. Auf Fehlermeldungen prüfen, dann
     `node spacerogue-src/tests/volltest.js --merken`.
-  Der Volltest spielt nur den freien Editor und Testflug. Solange dort nichts geändert wird, bleibt er gleich –
-  auch wenn am Run gearbeitet wird.
-- **`run.test.js`** – 23 Tests für den Rogue-like-Run: Stage-Planung, Schwere Rakete und Preisanzeige, Ablauf, Schaden und Werft, Boss und Perks, Tod.
+  Der Volltest spielt den Editor und den Testflug.
+- **`editor.test.js`** – Tests mit echtem Spielablauf ohne Bildschirm: Schwere Rakete, Preisanzeige in der Bauteilliste, Testflug starten und mit Esc beenden.
 - Die Tests ersetzen keinen Blick ins echte Spiel: Sie sehen nichts, sie rechnen nur.
 
 ## Unverändert seit dem Umbau
@@ -76,24 +73,8 @@ Folgen für Änderungen:
 - Format der Schiffscodes (Export/Import)
 - Raster 2,5 m, Rendering Canvas 2D
 
-## Rogue-like-Run (seit v0.50.0)
+## Verlauf
 
-Knopf „Run starten" im Editor. Der Run ist vom freien Editor getrennt: Solange `RUN` gesetzt ist, speichert das Spiel
-nichts in den eigenen Entwurf (`save()` kehrt sofort zurück).
-
-Ablauf: Stage (Kampf) → 30 s Reparaturzeit (Schweißen kostenlos, Enter überspringt) → nach einem Boss Perk-Wahl →
-Werft (Editor mit Credits) → nächste Stage. Cockpit zerstört oder Anzugluft leer: Game Over.
-
-- **Regeln und Zahlen:** `14-run-daten.js` (`RUNCFG`, `PERKS`). Dort stehen Startschiff, Boss, Gegnerbudget, Belohnung,
-  Reparaturpreis, Reparaturzeit und alle Perks. Balancing braucht nur diese Datei.
-- **Ablauf:** `56-run.js`. Alles Run-Spezifische steht dort; die anderen Dateien haben nur kurze Einstiege (`if (RUN) …`).
-- **Perks** wirken über das Objekt `PM` (`11-bauteile.js`). Ein neuer Perk mit vorhandenem Haken ist eine Zeile in `PERKS`.
-- **Neue Gegner:** Bauplan im Editor exportieren, in `13-npc-schiffe.js` eintragen. Er kommt automatisch in die Stages,
-  sobald sein Wert ins Budget passt. Startschiff und Boss wählt man über `startShip` und `bossId`.
-- **Tests:** `node spacerogue-src/tests/run.test.js` (braucht `npm install`).
-
-## Geplant als Nächstes
-
-- Eigenes Startschiff und eigene Boss-Schiffe (Baupläne von Noah), dann `startShip`/`bossId` umstellen
-- Arena mit zerstörbaren Wracks und unzerstörbaren Asteroiden
-- Balancing von Budget, Belohnung und Perks
+- v0.50.0–0.50.1: Rogue-like-Run mit Stages, Werft-Credits und Perks (von Fable).
+- v0.50.2: Der Run-Modus wurde wieder entfernt; Schwere Rakete, Preise in der Bauteilliste und der Fix für die
+  verrutschte Ansicht zu Fuß sind geblieben. Der Perk-Haken `PM` in `11-bauteile.js` bleibt für spätere Upgrades.

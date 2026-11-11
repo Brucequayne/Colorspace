@@ -14,8 +14,7 @@
       sty: sty, mor: Math.min(1, sty.mor + (Math.random() - 0.5) * 0.2), n0: bd.blocks.length, fleeRoll: false };
     if (bd.shGen) bd.shE = Math.min(bd.cap * 0.5, bd.energy), bd.energy -= bd.shE;   // Gegner mit Generator reservieren die Hälfte fürs Schild
     FL.bodies.push(bd);
-    if (RUN) { bd.ai.state = "combat"; bd.ai.alert = 1.6; }
-    else note(fmt(t("spawned"), { n: sh.n[lang] }) + " · " + sty.n[lang]);
+    note(fmt(t("spawned"), { n: sh.n[lang] }) + " · " + sty.n[lang]);
   }
   // Moral (0–1): sinkt mit jedem Treffer und mit verlorenen Blöcken, erholt sich langsam. Niedrige Moral hält mehr Abstand und flieht eher
   function aiMorale(bd, dt) {
@@ -193,7 +192,6 @@
   // Abschuss: zählt einmal pro Schiff, egal ob erst kampfunfähig und später zerstört
   function scoreKill(bd) {
     if (bd.killed) return; bd.killed = true; FL.kills = (FL.kills || 0) + 1;
-    if (RUN) runKill(bd);
     var k = V.root.querySelector(".sr-kc b"); if (k) { k.textContent = FL.kills; var el = k.parentNode; el.classList.remove("pop"); void el.offsetWidth; el.classList.add("pop"); }
   }
   function showBanner(label, kind) {

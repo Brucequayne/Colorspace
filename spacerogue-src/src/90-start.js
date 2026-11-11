@@ -23,10 +23,9 @@
     unmount();
     lang = l === "en" ? "en" : "de";
     var o = document.getElementById("sr-css"); if (o) o.remove();
-    var st = document.createElement("style"); st.id = "sr-css"; st.textContent = CSS + RUNCSS; document.head.appendChild(st);
+    var st = document.createElement("style"); st.id = "sr-css"; st.textContent = CSS; document.head.appendChild(st);
     load();
     el.innerHTML = html();
-    runMountUI(el);
     V = { root: el, cv: el.querySelector("#sr-cv"), zoom: 1.25, cam: { x: 0.5, y: 0 }, keys: {}, ovOld: document.body.style.overflow };
     V.ctx = V.cv.getContext("2d");
     document.body.style.overflow = "hidden";
@@ -49,7 +48,6 @@
     window.removeEventListener("pointermove", onMove); window.removeEventListener("pointerup", onUp); window.removeEventListener("pointercancel", onUp);
     window.removeEventListener("keydown", onKey); window.removeEventListener("keyup", onKeyUp); window.removeEventListener("resize", layout); window.removeEventListener("blur", releaseKeys);
     document.body.style.overflow = V.ovOld || "";
-    RUN = null; pmReset();
     FL = null; if (S) S.mode = "edit"; V = null;
   }
   window.SpaceRogue = { mount: mount, unmount: unmount, _debug: function () { return { S: S, V: V, FL: FL, T: T, stats: stats, rooms: rooms, components: components, starter: starter, startTest: startTest, damage: damage, dockFace: dockFace }; } };

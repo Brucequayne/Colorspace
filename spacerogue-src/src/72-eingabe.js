@@ -10,7 +10,7 @@
     if (S.mode === "fly") {
       audioInit();
       if (e.button === 0) { FL.fire = true; if (!FL.seated && FL.slot === 2) firePistol(); }
-      if (e.button === 2 && !RUN) { var ppm = PX * V.zoom / CELL_M, wx = FL.cam.x + (m.sx - V.W / 2) / ppm, wy = FL.cam.y + (m.sy - V.H / 2) / ppm, h = hitAt(wx, wy, null); if (h) { damage(h.bd, h.b, T[h.b.t].hp * 0.26, wx, wy); spark(wx, wy, 6); } }
+      if (e.button === 2) { var ppm = PX * V.zoom / CELL_M, wx = FL.cam.x + (m.sx - V.W / 2) / ppm, wy = FL.cam.y + (m.sy - V.H / 2) / ppm, h = hitAt(wx, wy, null); if (h) { damage(h.bd, h.b, T[h.b.t].hp * 0.26, wx, wy); spark(wx, wy, 6); } }
       return;
     }
     if (e.button === 1 || (e.button === 0 && V.space)) { V.pan = { x: e.clientX, y: e.clientY, cx: V.cam.x, cy: V.cam.y }; e.preventDefault(); return; }
@@ -50,8 +50,6 @@
     if (S.mode === "fly") {
       if (k === "i") { if (invOpen()) closeInv(); else openInv(); return; }
       if (k === "escape" && invOpen()) { closeInv(); return; }
-      if (RUN && k === "enter") { runSkip(); return; }
-      if (k === "escape" && RUN) return;   // im Run führt Esc nicht zurück in den Editor
       if (k === "escape") { stopTest(); return; }
       if (["w", "a", "s", "d", "q", "e"].indexOf(k) >= 0) { FL.keys[k] = true; e.preventDefault(); }
       if (k === "shift") { FL.keys.shift = true; if (!e.repeat && FL.seated && !FL.out) { FL.hiOk = !FL.hiOk; if (FL.hiOk) FL.ca = Math.max(FL.ca || 0, 0.3); floatTxt(t(FL.hiOk ? "hiOn" : "hiOff")); } }
@@ -86,7 +84,7 @@
     if (FL) { FL.keys[k] = false; if (k === "shift") FL.keys.shift = false; }
     V.keys[k] = false;
   }
-  function undo() { var u = S.undo.pop(); if (!u) return; var o = JSON.parse(u); if (o && o.run) { if (!RUN) return; S.blocks = o.b; RUN.credits = o.cr; } else S.blocks = o; save(); syncUI(); }
+  function undo() { var u = S.undo.pop(); if (!u) return; S.blocks = JSON.parse(u); save(); syncUI(); }
   function onClick(e) {
     var a = e.target.closest("[data-act]"), tl = e.target.closest("[data-tool]"), bk = e.target.closest("[data-blk]"), vw = e.target.closest("[data-view]"), sw = e.target.closest("[data-sw]");
     if (tl) { S.tool = tl.getAttribute("data-tool"); syncUI(); return; }
@@ -94,16 +92,12 @@
     if (vw) { S.view = vw.getAttribute("data-view"); syncUI(); return; }
     if (sw) { S.color = sw.getAttribute("data-sw"); S.tool = "paint"; save(); syncUI(); return; }
     if (e.target.closest(".sr-tip")) { hideTip(e.target.closest(".sr-tip")); return; }
-    var rp = e.target.closest("[data-perk]"); if (rp) { runPerk(rp.getAttribute("data-perk")); return; }
-    if (RUN && e.target.closest("[data-spawn],[data-npc]")) return;
     var spb = e.target.closest("[data-spawn]");
     if (spb) { spawnEnemy(+spb.getAttribute("data-spawn")); spb.blur(); return; }
     var nb = e.target.closest("[data-npc]");
     if (nb) { var sh = NPC.filter(function (q) { return String(q.id) === nb.getAttribute("data-npc"); })[0]; if (sh) { setEd("ship"); pushUndo(); S.blocks = npcBlocks(sh); if (sh.code.color) S.color = sh.code.color; save(); fitCam(); V.root.querySelector(".sr-npc").hidden = true; syncUI(); note(sh.n[lang] + (lang === "de" ? " geladen · Rückgängig holt dein Schiff zurück" : " loaded · Undo brings your ship back")); } return; }
     if (!a) return;
     var act = a.getAttribute("data-act");
-    if (RUN && RUNBLOCK[act]) return;
-    if (act.indexOf("run-") === 0) { runAct(act); a.blur(); return; }
     if (act === "rot") S.r = (S.r + 1) % 4;
     else if (act === "flip") S.f = S.f ? 0 : 1;
     else if (act === "sym") S.sym = !S.sym;

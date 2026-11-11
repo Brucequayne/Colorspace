@@ -30,7 +30,6 @@
     else FL.suit = Math.max(0, FL.suit - dt * (1 + (FL.out && FL.eva && FL.eva.thr ? SUIT.jet : 0)));
     if (FL.suit <= 0) {
       FL.ko += dt;
-      if (FL.ko > 2.5 && RUN) { FL.ko = 0; runOver("air"); return; }
       if (FL.ko > 2.5) { FL.ko = 0; FL.suit = SUIT.max; FL.out = false; FL.eva = null; if (bd.seat) { FL.seated = true; var sp = seatPos(bd); FL.pilot.x = sp.x; FL.pilot.y = sp.y; } note(t("airOut")); }
     } else FL.ko = 0;
   }
