@@ -56,6 +56,9 @@ window.PATCHNOTES = {
   ],
 
   framepaint: [
+    { v: "0.55", t: "2026-11-11T05:30:00+01:00",
+      de: ["Neuer Einzelbild-Export: Der aktuelle Frame lässt sich als PNG speichern, in der nativen Auflösung des Videos. Schwarze Ränder fallen weg, es zählt die Einstellung „Video + Painting“ oder „Nur Painting“", "Neues Werkzeug Haarpinsel (Taste H), derselbe wie in Draw Space: viele feine, leicht träge Haare mit Farbnuancen, Streifen und Schlieren. Der neue Regler „Druck“ fächert die Haare breiter auf"],
+      en: ["New single-frame export: the current frame can be saved as a PNG in the video's native resolution. Black bars are dropped, the “Video + painting” or “Painting only” setting applies", "New tool hair brush (key H), the same as in Draw Space: many fine, slightly sluggish hairs with colour nuances, streaks and smears. The new “Pressure” slider fans the hairs out wider"] },
     { v: "0.52", t: "2026-11-09T00:43:00+01:00",
       de: ["Magic Paint: spätere Schichten übermalen frühere Flächen nicht mehr", "Kleine Toleranz an den Rändern, damit keine Lücken entstehen", "Härtere Schichten, mehr Details auch bei vielen Schichten"],
       en: ["Magic Paint: later layers no longer paint over earlier areas", "Small tolerance at the edges so no gaps appear", "Harder layers, more detail even with many layers"] },

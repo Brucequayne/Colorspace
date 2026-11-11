@@ -25,7 +25,11 @@
     colorNote: L2("Farben gibt es nur über die Pipette: C drücken, dann mit Linksklick ins Bild. Sie nimmt immer die Farbe aus dem Video unter der Bemalung. Danach malst du sofort mit dieser Farbe.", "Colours come only from the picker: press C, then left-click the image. It always takes the colour from the video beneath the painting. You paint with that colour right away."),
     recent: L2("Zuletzt genommen", "Recently picked"),
     tool: L2("Werkzeug", "Tool"),
-    pen: L2("Stift", "Pen"), brush: L2("Pinsel", "Brush"), spray: L2("Spraydose", "Spray can"), eraser: L2("Radierer", "Eraser"),
+    pen: L2("Stift", "Pen"), brush: L2("Pinsel", "Brush"), hair: L2("Haarpinsel", "Hair brush"), hairS: L2("Haar", "Hair"), pressure: L2("Druck", "Pressure"),
+    hairNote: L2("Weicher, langhaariger Pinsel: buschig und etwas träge, mit Streifen und Schlieren in der Farbe. Je mehr Druck, desto breiter fächern die Haare auf.", "Soft, long-haired brush: bushy and a little sluggish, with streaks and smears in the paint. The more pressure, the wider the hairs fan out."),
+    frameH: L2("Einzelbild", "Single frame"), frameSave: L2("Aktuellen Frame als PNG", "Current frame as PNG"),
+    frameInfo: L2("PNG · {w} × {h} (native Auflösung des Videos) · nimmt die Einstellung oben (Video + Painting oder nur Painting)", "PNG · {w} × {h} (the video's native resolution) · uses the setting above (video + painting or painting only)"),
+    frameDone: L2("Frame {i} als PNG gespeichert ({w} × {h}).", "Frame {i} saved as PNG ({w} × {h})."), spray: L2("Spraydose", "Spray can"), eraser: L2("Radierer", "Eraser"),
     size: L2("Größe", "Size"), opacity: L2("Deckkraft", "Opacity"), smooth: L2("Glättung", "Smoothing"), hard: L2("Härte", "Hardness"),
     crayon: L2("Wachsmalkreide", "Wax crayon"), crayonS: L2("Kreide", "Crayon"), grain: L2("Körnung", "Grain"),
     ptype: L2("Pinseltyp", "Brush type"), tStroke: L2("Pinsel", "Brush"), tSpray: L2("Spray", "Spray"), tCrayon: L2("Wachsmalkreide", "Wax crayon"),
@@ -78,7 +82,7 @@
     mpSaved: L2("Magic-Paint-Palette in Slot {n} gespeichert.", "Magic Paint palette saved to slot {n}."),
     mpSlotsNote: L2("Slots merken sich Palette, Strichmuster und Regler für diese Sitzung. „Speichern“ geht, solange Magic Paint offen ist.", "Slots keep palette, stroke pattern and sliders for this session. “Save” works while Magic Paint is open."),
     mpWidth: L2("Strichstärke (Basis)", "Stroke width (base)"), mpAngle: L2("Winkel (Basis)", "Angle (base)"),
-    keys: L2("Tasten: C Pipette · Q Quickpaint · M Magic Paint · D halten: Bemalung ausblenden · P Stift · B Pinsel · S Spray · W Wachsmalkreide · E Radierer · ← → Frame · Leertaste Abspielen · [ ] Größe · Strg+Z Rückgängig", "Keys: C picker · Q Quickpaint · M Magic Paint · hold D: hide painting · P pen · B brush · S spray · W wax crayon · E eraser · ← → frame · Space play · [ ] size · Ctrl+Z undo"),
+    keys: L2("Tasten: C Pipette · Q Quickpaint · M Magic Paint · D halten: Bemalung ausblenden · P Stift · B Pinsel · H Haarpinsel · S Spray · W Wachsmalkreide · E Radierer · ← → Frame · Leertaste Abspielen · [ ] Größe · Strg+Z Rückgängig", "Keys: C picker · Q Quickpaint · M Magic Paint · hold D: hide painting · P pen · B brush · H hair brush · S spray · W wax crayon · E eraser · ← → frame · Space play · [ ] size · Ctrl+Z undo"),
     howH: L2("So funktioniert’s", "How it works"),
     how1: L2("Das Video wird in Frames zerlegt, je nach Bildrate 5, 15 oder 30 pro Sekunde. Jeder Frame hat seine eigene Malebene. Mit den Pfeilen springst du von Frame zu Frame, und in jedem Frame siehst du genau das, was du dort gemalt hast. Mit „Framepaint vom letzten Frame übernehmen“ holst du die Zeichnung des vorherigen Frames, um sie für die Animation nur leicht anzupassen. Die Zwiebelhaut zeigt den letzten Frame blass darunter.",
               "The video is split into frames, 5, 15 or 30 per second depending on the frame rate. Each frame has its own paint layer. The arrows jump from frame to frame, and each frame shows exactly what you painted there. “Copy paint from previous frame” brings over the drawing of the frame before, so you only adjust it slightly for the animation. Onion skin shows the previous frame faintly underneath."),
@@ -101,12 +105,14 @@
   var TOOLS = {
     pen:    { key: "p", set: { size: 4, opacity: 100, smooth: 40 } },
     brush:  { key: "b", set: { size: 26, opacity: 80, smooth: 40, hard: 35 } },
+    hair:   { key: "h", set: { size: 34, opacity: 100, smooth: 35, pressure: 50 } },   // Haarpinsel aus Draw Space (v0.55)
     spray:  { key: "s", set: { size: 50, opacity: 100, smooth: 20, density: 45, drop: 2 } },
     crayon: { key: "w", set: { size: 22, opacity: 100, smooth: 30, grain: 55 } },
     eraser: { key: "e", set: { size: 30, opacity: 100, smooth: 30, hard: 70 } }
   };
-  var RANGES = { size: [1, 200, "px"], opacity: [1, 100, " %"], smooth: [0, 95, " %"], hard: [0, 100, " %"], density: [1, 100, " %"], drop: [1, 8, "px"], grain: [0, 100, " %"] };
+  var RANGES = { size: [1, 200, "px"], opacity: [1, 100, " %"], smooth: [0, 95, " %"], hard: [0, 100, " %"], density: [1, 100, " %"], drop: [1, 8, "px"], grain: [0, 100, " %"], pressure: [0, 100, " %"] };
   var ICONS = {
+    hair: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 2 L20 7 L15.5 11.5 L10.5 6.5 Z" fill="currentColor"/><path d="M10.5 9 C8 11 6 13 3 21 M12 10.5 C9.5 13 7.5 16 5 21.5 M9.5 7.5 C7 9.5 4.5 13 2 19 M13.5 12 C11 14.5 9.5 17.5 7.5 22" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>',
     pen: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20 L6 14 L16 4 L20 8 L10 18 Z" fill="none" stroke="currentColor" stroke-width="2"/><path d="M4 20 L6 14 L10 18 Z" fill="currentColor"/></svg>',
     brush: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3 L21 10 L13 14 L10 11 Z" fill="currentColor"/><path d="M10 12 C6 12 6 17 3 21 C8 21 12 19 12 15" fill="none" stroke="currentColor" stroke-width="2"/></svg>',
     spray: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="8" height="12" fill="none" stroke="currentColor" stroke-width="2"/><rect x="11" y="5" width="4" height="4" fill="currentColor"/><rect x="3" y="4" width="2" height="2" fill="currentColor"/><rect x="5" y="8" width="2" height="2" fill="currentColor"/><rect x="2" y="10" width="2" height="2" fill="currentColor"/><rect x="6" y="3" width="2" height="2" fill="currentColor"/></svg>',
@@ -275,9 +281,46 @@
   }
   function inkColor() { return S.tool === "eraser" ? "#000000" : S.color; }
   function pressureSize(st, p) { return Math.max(1, st.size * (V.pen ? 0.25 + 0.75 * p : 1)); }
+  // ---------- Haarpinsel (übernommen aus Draw Space) ----------
+  // Viele feine Haare, jedes folgt der Spitze leicht verzögert (träge), mit eigener Farbnuance und Farbmenge.
+  // Die Farbe geht im Strich langsam aus, trockene Haare setzen aus: so entstehen Streifen und Schlieren.
+  function hexRgb(h) { var n = parseInt(String(h).slice(1, 7), 16) || 0; return [n >> 16 & 255, n >> 8 & 255, n & 255]; }
+  function shade(rgb, f) { return "rgb(" + rgb.map(function (v) { return clamp(Math.round(f > 0 ? v + (255 - v) * f : v * (1 + f)), 0, 255); }).join(",") + ")"; }
+  var HAIR = {
+    begin: function (E, p) {
+      var o = E.o, n = clamp(Math.round(o.size * 0.8), 10, 70), R = E.R; E.h = [];
+      for (var i = 0; i < n; i++) { var r = Math.sqrt(R()) * 0.5, a = R() * Math.PI * 2, sh = (R() - 0.5) * 0.32; E.h.push({ ox: Math.cos(a) * r, oy: Math.sin(a) * r, w: 0.035 + 0.065 * R(), al: 0.35 + 0.5 * R(), c: shade(E.rgb, sh), k: 0.22 + 0.45 * R(), load: 0.8 + 0.2 * R(), dry: 0.6 + 0.8 * R(), x: null, y: null }); }
+      E.last = p; this.at(E, p, 0);
+    },
+    step: function (E, p) {   // Wegstück in gleich lange Schritte teilen
+      var a = E.last, dx = p.x - a.x, dy = p.y - a.y, L = Math.hypot(dx, dy), n = Math.max(1, Math.ceil(L / Math.max(1, E.o.size * 0.1)));
+      for (var i = 1; i <= n; i++) this.at(E, { x: a.x + dx * i / n, y: a.y + dy * i / n, p: a.p + (p.p - a.p) * i / n }, L / n);
+      E.last = p;
+    },
+    at: function (E, q, d) {
+      var o = E.o, pr = o.pressure / 100, splay = o.size * (0.5 + 0.75 * pr) * (E.pen ? 0.4 + 0.6 * q.p : 1), wm = o.size * (0.6 + 0.9 * pr), segs = [], R = E.R;
+      E.h.forEach(function (h) {
+        var tx = q.x + h.ox * splay, ty = q.y + h.oy * splay;
+        if (h.x === null) { h.x = tx; h.y = ty; }
+        var nx = h.x + (tx - h.x) * h.k, ny = h.y + (ty - h.y) * h.k;
+        h.load = Math.max(0.18, h.load - d / (o.size * 55) * h.dry * (1 - 0.4 * pr));
+        if (R() > 0.08 + (1 - h.load) * 0.5 || d === 0) segs.push([h.x, h.y, nx, ny, Math.max(0.4, h.w * wm), h.al * (0.35 + 0.65 * h.load), h.c]);
+        h.x = nx; h.y = ny;
+      });
+      if (!segs.length) return;
+      var x = V.sx; x.lineCap = "round";
+      segs.forEach(function (sg) { x.globalAlpha = sg[5]; x.strokeStyle = sg[6]; x.lineWidth = sg[4]; x.beginPath(); x.moveTo(sg[0], sg[1]); x.lineTo(sg[2] === sg[0] && sg[3] === sg[1] ? sg[2] + 0.01 : sg[2], sg[3]); x.stroke(); });
+      x.globalAlpha = 1;
+    }
+  };
   // Ein Wegstück von a nach b auf die Strichebene
   function segment(a, b) {
     var st = set(), x = V.sx, col = inkColor();
+    if (S.tool === "hair") {
+      if (V.first) { V.hb = { o: st, pen: V.pen, R: rng((Math.random() * 2147483647) | 0), rgb: hexRgb(S.color) }; HAIR.begin(V.hb, a); V.first = false; }
+      if (b.x !== a.x || b.y !== a.y || b.p !== a.p) HAIR.step(V.hb, b);
+      return;
+    }
     if (S.tool === "pen") {
       x.strokeStyle = col; x.lineCap = "round"; x.lineJoin = "round"; x.lineWidth = pressureSize(st, b.p);
       x.beginPath(); x.moveTo(a.x, a.y); x.lineTo(b.x, b.y); x.stroke();
@@ -899,6 +942,28 @@
 
   // ---------- Export ----------
   var busy = false, cancelReq = false;
+  // Einzelbild-Export (v0.55): aktueller Frame als PNG in der nativen Auflösung des Videos.
+  // Die Malebene ist Full HD mit dem Video "contain" darin; für den Export wird genau die Videofläche herausgeschnitten und auf die native Größe gebracht.
+  async function exportFrame() {
+    if (!F || !V.layer || V.loading || busy || !F.vw) return;
+    if (V.playing) stopPlay();
+    var W = F.vw, H = F.vh, i = F.idx, cv = canvas(W, H), x = cv.getContext("2d");
+    var sc = Math.min(F.ow / W, F.oh / H), w = W * sc, h = H * sc, ox = (F.ow - w) / 2, oy = (F.oh - h) / 2;
+    try {
+      if (S.mode === "video") {
+        var ev = document.createElement("video"); ev.muted = true; ev.playsInline = true; ev.preload = "auto"; ev.src = F.url;
+        await new Promise(function (res, rej) { ev.onloadeddata = res; ev.onerror = function () { rej(new Error("video")); }; });
+        await seek(ev, tFrame(i)); x.drawImage(ev, 0, 0, W, H); ev.removeAttribute("src"); ev.load();
+      } else { x.fillStyle = "#fff"; x.fillRect(0, 0, W, H); }
+      x.imageSmoothingQuality = "high"; x.drawImage(V.layer, ox, oy, w, h, 0, 0, W, H);
+      var blob = await new Promise(function (res) { cv.toBlob(res, "image/png"); });
+      if (!blob) throw new Error("PNG");
+      var url = URL.createObjectURL(blob), a = document.createElement("a"), num = String(i + 1); while (num.length < String(F.n).length) num = "0" + num;
+      a.href = url; a.download = F.name + "-frame-" + num + (S.mode === "video" ? "" : "-nur-painting") + ".png"; document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
+      note(fmt(t("frameDone"), { i: i + 1, w: W, h: H }));
+    } catch (e) { note(fmt(t("failed"), { e: e && e.message || e })); }
+  }
   function loadMuxer() {
     if (window.Mp4Muxer) return Promise.resolve();
     return new Promise(function (res, rej) { var s = document.createElement("script"); s.src = "mp4-muxer.js"; s.onload = res; s.onerror = function () { rej(new Error("mp4-muxer.js")); }; document.head.appendChild(s); });
@@ -1032,7 +1097,7 @@
     ".fp-pk{display:flex;align-items:center;gap:8px;font:600 .92rem var(--f-body);padding:10px 14px;border:1px solid var(--ink);background:transparent;color:var(--ink);cursor:pointer;margin-left:auto}" +
     ".fp-pk svg{width:18px;height:18px}.fp-pk[aria-pressed=true]{background:#E2621B;border-color:#E2621B;color:#fff}" +
     ".fp-rec{display:flex;flex-wrap:wrap;gap:6px}.fp-rec button{width:26px;height:26px;border:1px solid var(--line);cursor:pointer;padding:0}" +
-    ".fp-tools{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px}" +
+    ".fp-tools{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}" +
     ".fp-tools button{display:flex;flex-direction:column;align-items:center;gap:4px;font:600 .78rem var(--f-body);padding:8px 2px;border:1px solid var(--line);background:transparent;color:var(--ink);cursor:pointer}" +
     ".fp-tools button svg{width:22px;height:22px}.fp-tools button[aria-pressed=true]{background:var(--ink);color:var(--bg);border-color:var(--ink)}" +
     ".fp-row{display:flex;flex-direction:column;gap:6px}" +
@@ -1096,7 +1161,7 @@
     return Object.keys(st).map(function (k) {
       var r = RANGES[k], max = k === "size" && S.tool === "pen" ? 60 : r[1];
       return '<div class="fp-row"><label for="fp-s-' + k + '">' + t(k === "drop" ? "drop2" : k) + '<span id="fp-s-' + k + '-v">' + st[k] + r[2] + '</span></label><input type="range" id="fp-s-' + k + '" data-set="' + k + '" min="' + r[0] + '" max="' + max + '" step="1" value="' + st[k] + '"></div>';
-    }).join("") + '<p class="fp-desc">' + t("smoothNote") + "</p>";
+    }).join("") + (S.tool === "hair" ? '<p class="fp-desc">' + t("hairNote") + "</p>" : "") + '<p class="fp-desc">' + t("smoothNote") + "</p>";
   }
   function updateSide() {
     if (!V) return;
@@ -1107,7 +1172,7 @@
       (S.recent.length ? '<div class="fp-desc">' + t("recent") + '</div><div class="fp-rec">' + S.recent.map(function (c) { return '<button type="button" data-col="' + c + '" style="background:' + c + '" title="' + c + '" aria-label="' + c + '"></button>'; }).join("") + "</div>" : "") +
       '<p class="fp-desc">' + t("colorNote") + "</p></div>";
     var tools = '<div class="fp-box"><h3>' + t("tool") + '</h3><div class="fp-tools">' + Object.keys(TOOLS).map(function (k) {
-      return '<button type="button" data-tool="' + k + '" aria-pressed="' + (S.tool === k) + '" title="' + t(k) + " (" + TOOLS[k].key.toUpperCase() + ')">' + ICONS[k] + t(k === "crayon" ? "crayonS" : k) + "</button>";
+      return '<button type="button" data-tool="' + k + '" aria-pressed="' + (S.tool === k) + '" title="' + t(k) + " (" + TOOLS[k].key.toUpperCase() + ')">' + ICONS[k] + t(k === "crayon" ? "crayonS" : k === "hair" ? "hairS" : k) + "</button>";
     }).join("") + '</div><div id="fp-sl" style="display:flex;flex-direction:column;gap:12px">' + sliders() + "</div></div>";
     var locked = !!(F && painted()) || busy;
     var fps = '<div class="fp-box"><h3>' + t("fps") + '</h3><div class="fp-row"><label for="fp-fps">' + t("fps") + '<span id="fp-fps-v">' + RATES[S.fpsI] + ' fps</span></label>' +
@@ -1121,6 +1186,8 @@
       '<p class="fp-desc" id="fp-info">' + fmt(t("exportInfo"), { w: ow, h: oh, f: RATES[S.fpsI], br: S.mbit }) + "</p>" +
       (busy ? '<button type="button" class="fp-save" data-fp="cancel">' + t("cancel") + "</button>" : '<button type="button" class="fp-save" data-fp="export"' + (ready ? "" : " disabled") + ">" + t("save") + "</button>") +
       '<p class="fp-note" id="fp-note" aria-live="polite">' + (V.lastNote || "") + "</p></div>";
+    var vw0 = F && F.vw ? F.vw : 1920, vh0 = F && F.vh ? F.vh : 1080;
+    exp += '<div class="fp-box"><h3>' + t("frameH") + '</h3><p class="fp-desc">' + fmt(t("frameInfo"), { w: vw0, h: vh0 }) + '</p><button type="button" class="fp-qpbtn" data-fp="frame"' + (ready && !busy ? "" : " disabled") + ">" + t("frameSave") + "</button></div>";
     var qpb = '<div class="fp-box"><h3>' + t("qpH") + '</h3><button type="button" class="fp-qpbtn" data-fp="qp"' + (ready ? "" : " disabled") + ">" + t("qpStart") + '</button><p class="fp-desc">' + t("qpNote") + "</p></div>";
     var mpb = '<div class="fp-box"><h3>' + t("mpH") + '</h3><button type="button" class="fp-qpbtn" data-fp="mp"' + (ready ? "" : " disabled") + ">" + t("mpStart") + '</button><p class="fp-desc">' + t("mpNote") + "</p>" + slotsHTML() + '<p class="fp-desc">' + t("mpSlotsNote") + "</p></div>";
     side.innerHTML = top + color + tools + qpb + mpb + fps + exp;
@@ -1282,6 +1349,7 @@
     else if (a === "qpAll") qpBatch(true);
     else if (a === "qpSeed") { if (V.qp) V.qp.done = {}; S.qp.seed = 1 + Math.floor(Math.random() * 9999); qpGenSoon(0); }
     else if (a === "export") doExport();
+    else if (a === "frame") exportFrame();
     else if (a === "cancel") cancelReq = true;
   }
   function onInput(e) {
