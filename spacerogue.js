@@ -5,7 +5,7 @@
 (function () {
   "use strict";
 
-  var VERSION = "0.52";
+  var VERSION = "0.54.1";
   var CELL_M = 2.5, PX = 24;              // Meter je Zelle, Pixel je Zelle bei Zoom 1
   var lang = "de";
   function L2(de, en) { return { de: de, en: en }; }
@@ -18,7 +18,7 @@
     back: L2("Apps", "Apps"), title: L2("Space Rogue", "Space Rogue"),
     catLA: L2("Panzerung leicht", "Light armour"), catHA: L2("Panzerung schwer", "Heavy armour"), catCo: L2("Cockpit", "Cockpit"),
     catTh: L2("Antrieb und Steuerung", "Propulsion"), catEn: L2("Energie", "Power"), catIn: L2("Innenraum", "Interior"), catWe: L2("Waffen", "Weapons"), catDe: L2("Einrichtung", "Furniture"),
-    tBuild: L2("Bauen", "Build"), tErase: L2("Abreißen", "Remove"), tPaint: L2("Malen", "Paint"),
+    tBuild: L2("Bauen", "Build"), tabBlk: L2("Blocks", "Blocks"), tabEnv: L2("Environmental", "Environmental"), envLayer: L2("Ebene", "Layer"), envBack: L2("Hinten", "Back"), envGame: L2("Spielebene", "Game"), envFront: L2("Vorne", "Front"), envScale: L2("Größe", "Size"), envRot: L2("Drehung", "Rotation"), envRnd: L2("Zufall", "Random"), envOn: L2("an", "on"), envOff: L2("aus", "off"), envHelp: L2("Klick setzt · Ziehen streut ein Feld · Rechtsklick entfernt (nur aktive Ebene) · R dreht · + / − Größe", "Click places · drag scatters a field · right click removes (active layer only) · R rotates · + / − size"), envCount: L2("Environment", "Environment"), envAst: L2("Asteroiden", "Asteroids"), expScene: L2("Ganze Szene", "Whole scene"), expStruct: L2("Nur Struktur", "Structure only"), sceneLoaded: L2("Szene geladen", "Scene loaded"), tErase: L2("Abreißen", "Remove"), tPaint: L2("Malen", "Paint"),
     rot: L2("Drehen (R)", "Rotate (R)"), flip: L2("Spiegeln (F)", "Flip (F)"), sym: L2("Symmetrie (M)", "Symmetry (M)"), axis: L2("Achse", "Axis"), symIn: L2("im Block", "through block"), symGap: L2("zwischen Blöcken", "between blocks"),
     vIn: L2("Innen", "Interior"), vOut: L2("Außen", "Exterior"), view: L2("Ansicht (V)", "View (V)"),
     undo: L2("Rückgängig", "Undo"), clear: L2("Leeren", "Clear"), starter: L2("Beispielschiff", "Sample ship"),
@@ -368,11 +368,14 @@
   }
   // Schiffscode: kompaktes JSON, damit Entwürfe geteilt und später als Gegner-Blaupausen eingebaut werden können.
   function shipCode() { return JSON.stringify({ sr: 1, color: S.color, b: S.blocks.map(function (b) { var a = [b.t, b.x, b.y, b.r, b.f]; if (b.c) a.push(b.c); return a; }) }); }
+  // Szene (Developer Tool): Schiffscode plus Environment. Gleiches Format, nur mit zusätzlichem Feld env – alte Versionen lesen daraus einfach die Blöcke.
+  function sceneCode() { var o = JSON.parse(shipCode()); o.env = (S.env || []).map(envPack); if (S.names.station) o.name = S.names.station; return JSON.stringify(o); }
+  function parseEnv(txt) { try { var o = JSON.parse(String(txt).trim()); return o && Array.isArray(o.env) ? o.env.map(envUnpack).filter(Boolean) : null; } catch (e) { return null; } }
   function parseShip(txt) {
     try {
       var o = JSON.parse(String(txt).trim()); if (!o || !Array.isArray(o.b)) return null;
       var out = o.b.filter(function (a) { return Array.isArray(a) && T[a[0]]; }).map(function (a) { var b = { t: a[0], x: a[1] | 0, y: a[2] | 0, r: (a[3] | 0) & 3, f: a[4] ? 1 : 0 }; if (a[5]) b.c = String(a[5]); return b; });
-      return out.length ? out : null;
+      return out.length || Array.isArray(o.env) ? out : null;   // eine Szene darf auch nur aus Environment bestehen
     } catch (e) { return null; }
   }
   // ===== 30-zustand.js · Zustand: Spielstand, Speichern/Laden, Beispielschiff und Beispielstation =====
@@ -380,7 +383,7 @@
   var S = null, V = null, raf = 0, last = 0;
   var SAVE = "spacerogue-ship-v1", SAVE_ST = "spacerogue-station-v1";
   function freshState() {
-    return { blocks: [], ed: "ship", ship: [], station: [], names: { ship: "", station: "" }, tool: "build", sel: "lblk", r: 0, f: 0, sym: false, symGap: false, view: "in", color: "#C8473A", undo: [], mode: "edit" };
+    return { blocks: [], ed: "ship", ship: [], station: [], names: { ship: "", station: "" }, tool: "build", sel: "lblk", r: 0, f: 0, sym: false, symGap: false, view: "in", color: "#C8473A", undo: [], mode: "edit", env: [], envTab: false, envSel: "ast01", envL: 0, envS: 1, envR: 0, envRnd: false };
   }
   function load() {
     S = freshState();
@@ -388,13 +391,13 @@
     if (!S.blocks.length) S.blocks = starter();
     S.ship = S.blocks;
     try { var jn = JSON.parse(localStorage.getItem(SAVE) || "null"); if (jn && jn.name) S.names.ship = jn.name; } catch (e) {}
-    try { var js = JSON.parse(localStorage.getItem(SAVE_ST) || "null"); if (js && js.blocks) S.station = js.blocks.filter(function (b) { return T[b.t]; }); if (js && js.name) S.names.station = js.name; if (js && js.ed === "station" && devOk()) { S.ed = "station"; S.blocks = S.station; } } catch (e) {}
+    try { var js = JSON.parse(localStorage.getItem(SAVE_ST) || "null"); if (js && js.blocks) S.station = js.blocks.filter(function (b) { return T[b.t]; }); if (js && Array.isArray(js.env)) S.env = js.env.map(envUnpack).filter(Boolean); if (js && js.name) S.names.station = js.name; if (js && js.ed === "station" && devOk()) { S.ed = "station"; S.blocks = S.station; } } catch (e) {}
   }
   function save() {
     if (S.ed === "station") S.station = S.blocks; else S.ship = S.blocks;
     try {
       localStorage.setItem(SAVE, JSON.stringify({ blocks: S.ship.map(strip), color: S.color, symGap: !!S.symGap, name: S.names.ship }));
-      localStorage.setItem(SAVE_ST, JSON.stringify({ blocks: S.station.map(strip), ed: S.ed, name: S.names.station }));
+      localStorage.setItem(SAVE_ST, JSON.stringify({ blocks: S.station.map(strip), ed: S.ed, name: S.names.station, env: (S.env || []).map(envPack) }));
     } catch (e) {}
   }
   // Editor-Modus umschalten: Schiff oder Raumstation, jeder mit eigenem Entwurf
@@ -433,7 +436,7 @@
     save(); fitCam(); syncUI();
   }
   function strip(b) { var o = { t: b.t, x: b.x, y: b.y, r: b.r, f: b.f }; if (b.c) o.c = b.c; return o; }
-  function pushUndo() { S.undo.push(JSON.stringify(S.blocks.map(strip))); if (S.undo.length > 60) S.undo.shift(); }
+  function pushUndo() { S.undo.push(JSON.stringify(S.ed === "station" ? { b: S.blocks.map(strip), e: (S.env || []).map(envPack) } : S.blocks.map(strip)));   /* im Developer Tool mit Environment */ if (S.undo.length > 60) S.undo.shift(); }
 
   // Beispielschiff: Cockpit vorn, luftdichter Raum, Triebwerke in alle Richtungen, Gyroskop, Energie, Waffen
   function starter() {
@@ -946,6 +949,7 @@
   function edDraw() {
     var c = V.ctx, W = V.W, H = V.H, z = V.zoom, s = PX * z;
     drawSpace(c, W, H, V.cam.x * s, V.cam.y * s);
+    envEdDraw(c, -1);   // Environment hinten
     c.save(); c.translate(W / 2 - V.cam.x * s, H / 2 - V.cam.y * s);
     // Raster
     var x0 = Math.floor(V.cam.x - W / 2 / s) - 1, x1 = Math.ceil(V.cam.x + W / 2 / s) + 1, y0 = Math.floor(V.cam.y - H / 2 / s) - 1, y1 = Math.ceil(V.cam.y + H / 2 / s) + 1;
@@ -954,6 +958,7 @@
     for (var gy = y0; gy <= y1; gy++) { c.moveTo(x0 * s, gy * s + 0.5); c.lineTo(x1 * s, gy * s + 0.5); }
     c.stroke();
     if (S.sym) { c.strokeStyle = "rgba(227,184,63,.6)"; c.setLineDash([6, 6]); c.lineWidth = 2; c.beginPath(); c.moveTo(symAx() * s, y0 * s); c.lineTo(symAx() * s, y1 * s); c.stroke(); c.setLineDash([]); }
+    c.save(); c.translate(-(W / 2 - V.cam.x * s), -(H / 2 - V.cam.y * s)); envEdDraw(c, 0); c.restore();   // Environment Spielebene unter den Blöcken
     var tm = performance.now() / 1000, M = buildMap(S.blocks);
     // Räume einfärben (Innenansicht)
     var R = rooms(S.blocks);
@@ -982,7 +987,7 @@
     if (bb) { c.fillStyle = "rgba(227,184,63,.9)"; c.beginPath(); c.moveTo(ax * s, (ay - 1.2) * s); c.lineTo((ax - 0.7) * s, ay * s); c.lineTo((ax + 0.7) * s, ay * s); c.closePath(); c.fill();
       c.fillStyle = "rgba(227,184,63,.9)"; c.font = "700 " + Math.max(10, 0.45 * s) + "px " + FONTS(); c.textAlign = "center"; c.fillText(t("dir"), ax * s, (ay + 0.7) * s); }
     // Vorschau
-    if (V.mouse && !V.pan) {
+    if (V.mouse && !V.pan && !(S.ed === "station" && S.envTab)) {
       var cx = Math.floor(V.mouse.x), cy = Math.floor(V.mouse.y);
       if (S.tool === "build") {
         var ghosts = V.row ? rowList() : [ghostAt(cx, cy, S.sel, S.r, S.f)];
@@ -1003,8 +1008,10 @@
       }
     }
     c.restore();
+    envEdDraw(c, 1);   // Environment vorne
+    if (S.ed === "station") envEdGhost(c);
     // Infokasten zum Block unter dem Mauszeiger: Name, Gewicht, Leben
-    if (V.mouse && !V.pan && !V.row) {
+    if (V.mouse && !V.pan && !V.row && !(S.ed === "station" && S.envTab)) {
       var hb2 = blockAt(Math.floor(V.mouse.x), Math.floor(V.mouse.y), M);
       if (hb2) {
         var ty2 = T[hb2.t], txt = ty2.n[lang] + " · " + kg(ty2.mass) + " · " + ty2.hp + " HP · " + cr(ty2.cost);
@@ -1022,6 +1029,266 @@
     c.strokeStyle = ty.kind === "thr" ? "#57D18A" : "#E0533F"; c.fillStyle = c.strokeStyle; c.lineWidth = 2;
     c.beginPath(); c.moveTo(cx, cy); c.lineTo(ex, ey); c.stroke();
     c.beginPath(); c.moveTo(ex + dx * 8, ey + dy * 8); c.lineTo(ex - dy * 6, ey + dx * 6); c.lineTo(ex + dy * 6, ey - dx * 6); c.closePath(); c.fill();
+  }
+  // ===== 44-umgebung.js · Environment (v0.54 "World Building"): Asteroiden und andere starre Umgebungs-Assets =====
+  // Nur im Developer Tool platzierbar. Jedes Asset liegt auf einer von drei Ebenen:
+  //   l = -1 hinten (Parallaxe ENV_K[-1], abgedunkelt, keine Kollision)
+  //   l =  0 Spielebene (Kollision mit Schiffen, Schüsse prallen ab, unzerstörbar und unbeweglich)
+  //   l =  1 vorne (Parallaxe ENV_K[1], dunkle Silhouette, keine Kollision, wird durchsichtig, wenn das eigene Schiff darunter ist)
+  // Ein platziertes Asset: { a: Asset-ID, x, y (Zellen, Kommazahl), r (Grad), s (Maßstab), l (Ebene) }
+  var ENV_K = { "-1": 0.88, "0": 1, "1": 1.13 };            // Parallaxe der Ebenen – nah an der Spielebene, damit es dicht und räumlich wirkt
+  var ENV_FOG = { "-1": "rgba(8,11,18,.46)", "1": "rgba(3,4,7,.6)" };
+  var ENV_SMIN = 0.2, ENV_SMAX = 4;   // ab v0.54.1 höchstens ×4 (ein ×4-XL ist schon über 200 m groß)
+  // Gesteinsfarben (v0.54.1): nur Grautöne, mittel bis dunkel, leicht variiert – Grundton, dunkel, hell
+  var ENV_MAT = {
+    grau:     { k: ["Grau", "Grey"],          n: ["Grauer", "Grey"],            base: [86, 86, 88], dark: [40, 40, 42], hi: [124, 124, 126] },
+    warm:     { k: ["Warmgrau", "Warm grey"], n: ["Warmgrauer", "Warm grey"],   base: [85, 84, 82], dark: [40, 39, 37], hi: [119, 117, 114] },
+    graphit:  { k: ["Graphit", "Graphite"],   n: ["Graphit-", "Graphite"],      base: [52, 52, 55], dark: [22, 22, 24], hi: [82, 82, 86] },
+    schiefer: { k: ["Schiefer", "Slate"],     n: ["Schiefer-", "Slate"],        base: [70, 74, 80], dark: [32, 34, 38], hi: [104, 109, 117] },
+    stahl:    { k: ["Stahlgrau", "Steel"],    n: ["Stahlgrauer", "Steel grey"], base: [77, 81, 86], dark: [36, 38, 42], hi: [112, 117, 124] },
+    basalt:   { k: ["Basalt", "Basalt"],      n: ["Basalt-", "Basalt"],         base: [63, 63, 65], dark: [28, 28, 30], hi: [95, 95, 99] }
+  };
+  var ENV_SIZE = { S: [1.8, ["klein", "small"]], M: [4.6, ["mittel", "medium"]], L: [10.5, ["groß", "large"]], XL: [22, ["riesig", "huge"]] };
+  var ENV = {}, ENV_IDS = [];
+  (function () {
+    // Reihenfolge bleibt wie in v0.54, damit die Asset-IDs (ast01 …) gleich bleiben
+    var mats = ["grau", "warm", "graphit", "schiefer", "stahl", "basalt"], sizes = ["S", "M", "L", "XL"], n = 0;
+    function add(mat, sz, shape, el) {
+      n++; var id = "ast" + (n < 10 ? "0" : "") + n, M = ENV_MAT[mat], Z = ENV_SIZE[sz];
+      var nmDe = shape === "lang" ? M.n[0] + " Splitter " + Z[1][0] : shape === "kantig" ? M.n[0] + " Brocken " + Z[1][0] : M.n[0] + " Asteroid " + Z[1][0];
+      var nmEn = shape === "lang" ? M.n[1] + " shard " + Z[1][1] : shape === "kantig" ? M.n[1] + " chunk " + Z[1][1] : M.n[1] + " asteroid " + Z[1][1];
+      var pre = shape === "lang" ? ["Splitter ", "Shard "] : ["", ""];
+      ENV[id] = { id: id, kind: "ast", n: { de: nmDe.replace(/^(\S+)- /, "$1-"), en: nmEn }, sn: { de: pre[0] + M.k[0] + " " + sz, en: pre[1] + M.k[1] + " " + sz }, mat: mat, R: Z[0], shape: shape, el: el || 1, seed: 7919 * n + 13 };
+      ENV_IDS.push(id);
+    }
+    // 24 Grundformen: 6 Grautöne × 4 Größen (Schiefer kantig, der Rest knollig)
+    mats.forEach(function (m) { sizes.forEach(function (z) { add(m, z, m === "schiefer" || m === "graphit" && z === "M" ? "kantig" : "rund", 1); }); });
+    // 4 längliche Splitter
+    add("grau", "M", "lang", 2.1); add("stahl", "L", "lang", 1.8); add("schiefer", "M", "lang", 2.4); add("warm", "XL", "lang", 1.7);
+  })();
+  function envRng(s) { return function () { s = s + 0x6D2B79F5 | 0; var t = Math.imul(s ^ s >>> 15, 1 | s); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+  // Umriss als Radius je Winkel (sternförmig, dadurch schnelle Innen-Prüfung für Kollision und Auswahl)
+  function envShape(def) {
+    if (def.rr) return def.rr;
+    var rnd = envRng(def.seed), kant = def.shape === "kantig", N = kant ? 9 + Math.floor(rnd() * 6) : def.R > 15 ? 72 : 48, rr = [], H = [];
+    var rough = kant ? 0.16 : 0.13;
+    for (var h = 2; h <= 7; h++) H.push([h, rough * Math.pow(0.62, h - 2) * (0.5 + rnd()), rnd() * 6.283]);
+    var ea = def.el, eb = 1 / Math.sqrt(def.el), eaa = ea / Math.sqrt(def.el);   // Fläche ungefähr gleich lassen
+    for (var i = 0; i < N; i++) {
+      var a = i / N * 6.283, e = 1 / Math.sqrt(Math.pow(Math.cos(a) / eaa, 2) + Math.pow(Math.sin(a) / eb, 2)), v = 1;
+      H.forEach(function (q) { v += q[1] * Math.sin(q[0] * a + q[2]); });
+      v += (rnd() - 0.5) * (kant ? 0.22 : 0.06);
+      rr.push(def.R * e * Math.max(0.5, v));
+    }
+    def.rr = rr; def.Rmax = Math.max.apply(null, rr); return rr;
+  }
+  function envRad(def, ang) {   // Radius des Umrisses in Richtung ang (unskaliert, Zellen)
+    var rr = envShape(def), N = rr.length, f = ((ang / 6.283185307) % 1 + 1) % 1 * N, i = Math.floor(f) % N, k = f - Math.floor(f);
+    return rr[i] + (rr[(i + 1) % N] - rr[i]) * k;
+  }
+  // Sprite je Asset, Ebene und Auflösungsstufe q (1, 2 oder 4). Einmal gezeichnet, danach nur noch drawImage.
+  // v0.54.1: Wird ein Asset groß skaliert oder nah herangezoomt, entsteht eine schärfere Fassung (bis 2048 px) – nur für Stufen, die wirklich gebraucht werden.
+  var ENV_PPC = 24, ENV_SPR_MAX = 2048;
+  function envSprite(def, l, q) {
+    def.spr = def.spr || {}; envShape(def);
+    var lk = String(l || 0), ppc = Math.min(ENV_PPC * (q || 1), ENV_SPR_MAX / (2 * def.Rmax + 1)), key2 = lk + "@" + Math.round(ppc);
+    if (def.spr[key2]) return def.spr[key2];
+    var rr = def.rr, sz = Math.ceil((2 * def.Rmax + 1) * ppc), cv = document.createElement("canvas");
+    cv.width = cv.height = sz; var g = cv.getContext("2d"), info = { cv: cv, ppc: ppc, sz: sz };
+    if (!g || !g.beginPath) { def.spr[key2] = info; return info; }
+    if (lk !== "0") {   // Hintergrund/Vordergrund: Spielebenen-Sprite derselben Stufe abdunkeln
+      var base = envSprite(def, 0, q); g.drawImage(base.cv, 0, 0, sz, sz);
+      g.globalCompositeOperation = "source-atop"; g.fillStyle = ENV_FOG[lk]; g.fillRect(0, 0, sz, sz); g.globalCompositeOperation = "source-over";
+      def.spr[key2] = info; return info;
+    }
+    var M = ENV_MAT[def.mat], rnd = envRng(def.seed + 99), c0 = sz / 2;
+    function col(q, a) { return "rgba(" + q[0] + "," + q[1] + "," + q[2] + "," + a + ")"; }
+    function path() { g.beginPath(); rr.forEach(function (r, i) { var a = i / rr.length * 6.283; if (i) g.lineTo(c0 + Math.cos(a) * r * ppc, c0 + Math.sin(a) * r * ppc); else g.moveTo(c0 + Math.cos(a) * r * ppc, c0 + Math.sin(a) * r * ppc); }); g.closePath(); }
+    path(); g.fillStyle = col(M.base, 1); g.fill();
+    g.save(); path(); g.clip();
+    // Flecken in hell und dunkel für eine steinige Oberfläche
+    var spots = Math.min(900, Math.round(def.R * def.R * 6 * def.el + 40));
+    for (var i = 0; i < spots; i++) {
+      var a = rnd() * 6.283, d = Math.sqrt(rnd()) * envRad(def, a) * ppc, x = c0 + Math.cos(a) * d, y = c0 + Math.sin(a) * d, r = (0.15 + rnd() * rnd() * 1.1) * ppc;
+      g.fillStyle = rnd() < 0.5 ? col(M.dark, 0.08 + rnd() * 0.12) : col(M.hi, 0.05 + rnd() * 0.1);
+      g.beginPath(); g.arc(x, y, r, 0, 6.283); g.fill();
+    }
+    // Krater: dunkle Mulde mit hellem Rand (ohne Lichtrichtung, damit Drehen nichts verrät)
+    var kr = def.shape === "kantig" ? Math.round(def.R * 0.6) : Math.round(def.R * 1.3 + 1);
+    for (var j = 0; j < kr; j++) {
+      var ka = rnd() * 6.283, kd = Math.sqrt(rnd()) * envRad(def, ka) * 0.75 * ppc, kx = c0 + Math.cos(ka) * kd, ky = c0 + Math.sin(ka) * kd, krr = (0.3 + rnd() * rnd() * def.R * 0.22) * ppc;
+      var kg2 = g.createRadialGradient(kx, ky, 0, kx, ky, krr);   // weiche Mulde statt harter Scheibe
+      kg2.addColorStop(0, col(M.dark, 0.38)); kg2.addColorStop(0.75, col(M.dark, 0.22)); kg2.addColorStop(1, col(M.dark, 0)); g.fillStyle = kg2; g.beginPath(); g.arc(kx, ky, krr, 0, 6.283); g.fill();
+      g.strokeStyle = col(M.hi, 0.12); g.lineWidth = Math.max(1, krr * 0.16); g.beginPath(); g.arc(kx, ky, krr * 0.98, 0, 6.283); g.stroke();
+    }
+    // Kanten: bei kantigen Brocken helle Grate zur Mitte
+    if (def.shape === "kantig") rr.forEach(function (r, i) { var a = i / rr.length * 6.283; g.strokeStyle = col(M.hi, 0.14); g.lineWidth = Math.max(1, ppc * 0.25); g.beginPath(); g.moveTo(c0 + Math.cos(a) * r * ppc, c0 + Math.sin(a) * r * ppc); g.lineTo(c0 + Math.cos(a) * r * ppc * 0.3, c0 + Math.sin(a) * r * ppc * 0.3); g.stroke(); });
+    // Volumen: Mitte etwas heller, Rand dunkler
+    var gr = g.createRadialGradient(c0, c0, 0, c0, c0, def.Rmax * ppc);
+    gr.addColorStop(0, col(M.hi, 0.22)); gr.addColorStop(0.55, col(M.hi, 0)); gr.addColorStop(1, col(M.dark, 0.0)); g.fillStyle = gr; g.fillRect(0, 0, sz, sz);
+    path(); g.strokeStyle = col(M.dark, 0.55); g.lineWidth = Math.max(2, def.R * ppc * 0.22); g.stroke();
+    g.restore();
+    path(); g.strokeStyle = col(M.dark, 0.9); g.lineWidth = Math.max(1, ppc * 0.12); g.stroke();
+    def.spr[key2] = info; return info;
+  }
+  // Verkleinerte Fassungen (Mipmaps): wird ein Asset klein gezeichnet, nimmt es eine passende kleinere Kopie – spart viel Rechenzeit beim Herauszoomen
+  function envMip(sp, D) {
+    var lv = 0; while (lv < 5 && sp.sz / Math.pow(2, lv + 1) >= D * 1.1 && sp.sz / Math.pow(2, lv + 1) >= 16) lv++;
+    if (!lv) return sp.cv;
+    sp.mip = sp.mip || [sp.cv];
+    for (var i = 1; i <= lv; i++) if (!sp.mip[i]) {
+      var prev = sp.mip[i - 1], cv = document.createElement("canvas"), n = Math.max(1, Math.round(sp.sz / Math.pow(2, i)));
+      cv.width = cv.height = n; var g = cv.getContext("2d"); if (!g || !g.drawImage) return sp.cv;
+      g.imageSmoothingQuality = "high"; g.drawImage(prev, 0, 0, n, n); sp.mip[i] = cv;
+    }
+    return sp.mip[lv];
+  }
+  function envThumb(id) {
+    var def = ENV[id], sp = envSprite(def, 0), cv = document.createElement("canvas"); cv.width = cv.height = 44;
+    var g = cv.getContext("2d"); if (g && g.drawImage) { var f = 40 / sp.sz; g.drawImage(sp.cv, 2, 2, sp.sz * f, sp.sz * f); }
+    try { return cv.toDataURL(); } catch (e) { return ""; }
+  }
+  // Zeichnen eines Assets mit Bildschirm-Mittelpunkt (sx, sy) und px = Pixel je Zelle (schon mit Parallaxe)
+  function envDraw(c, it, sx, sy, px, alpha) {
+    var def = ENV[it.a]; if (!def) return;
+    var need = px * it.s, sp = envSprite(def, it.l, need <= ENV_PPC * 1.25 ? 1 : need <= ENV_PPC * 2.5 ? 2 : 4), f = need / sp.ppc, D = sp.sz * f, img = envMip(sp, D);
+    if (D < 1.5) return;
+    c.save(); c.translate(sx, sy); c.rotate((it.r || 0) * Math.PI / 180);
+    if (alpha !== undefined && alpha < 1) c.globalAlpha = alpha;
+    c.drawImage(img, -D / 2, -D / 2, D, D);
+    c.restore();
+  }
+  // Liegt der Punkt (Zellen, relativ zum Asset-Mittelpunkt) im Asset?
+  function envInside(it, dx, dy) {
+    var def = ENV[it.a]; if (!def) return false; envShape(def);
+    var a = -(it.r || 0) * Math.PI / 180, lx = (dx * Math.cos(a) - dy * Math.sin(a)) / it.s, ly = (dx * Math.sin(a) + dy * Math.cos(a)) / it.s, d = Math.hypot(lx, ly);
+    if (d > def.Rmax) return false;
+    return d < envRad(def, Math.atan2(ly, lx));
+  }
+  function envBound(it) { var def = ENV[it.a]; envShape(def); return def.Rmax * it.s; }   // Begrenzungskreis in Zellen
+  function envPack(it) { return [it.a, Math.round(it.x * 100) / 100, Math.round(it.y * 100) / 100, Math.round(it.r || 0), Math.round(it.s * 100) / 100, it.l | 0]; }
+  function envUnpack(a) { if (!Array.isArray(a) || !ENV[a[0]]) return null; return { a: a[0], x: +a[1] || 0, y: +a[2] || 0, r: +a[3] || 0, s: Math.max(ENV_SMIN, Math.min(ENV_SMAX, +a[4] || 1)), l: Math.max(-1, Math.min(1, a[5] | 0)) }; }
+
+  // ---------- Editor ----------
+  // Bildschirm ↔ Welt für eine Ebene: Bild = Mitte + (Pos − Kamera) · k · s
+  function envEdPos(sx, sy, l) { var s = PX * V.zoom * ENV_K[l]; return { x: V.cam.x + (sx - V.W / 2) / s, y: V.cam.y + (sy - V.H / 2) / s }; }
+  function envPickAt(sx, sy, l) {
+    for (var i = S.env.length - 1; i >= 0; i--) {
+      var it = S.env[i]; if (it.l !== l) continue;
+      var p = envEdPos(sx, sy, l); if (envInside(it, p.x - it.x, p.y - it.y)) return i;
+    }
+    return -1;
+  }
+  function envNew(p, spray) {
+    var it = { a: S.envSel, x: p.x, y: p.y, r: S.envR, s: S.envS, l: S.envL };
+    if (S.envRnd || spray) it.r = Math.floor(Math.random() * 360);
+    if (S.envRnd) it.s = Math.max(ENV_SMIN, Math.min(ENV_SMAX, S.envS * (0.7 + Math.random() * 0.6)));
+    return it;
+  }
+  function envPlace(sx, sy, spray) {
+    var p = envEdPos(sx, sy, S.envL), it = envNew(p, spray);
+    if (!spray) pushUndo();
+    S.env.push(it); V.envLast = { x: p.x, y: p.y, d: envBound(it) * 1.7 }; save();
+  }
+  function envErase(sx, sy) { var i = envPickAt(sx, sy, S.envL); if (i < 0) return false; pushUndo(); S.env.splice(i, 1); save(); return true; }
+  // Ebenen im Editor: die gerade bearbeitete voll, die anderen blass (im Block-Tab ist nur die vordere Ebene blass, damit man darunter bauen kann)
+  function envEdDraw(c, l) {
+    if (S.ed !== "station" || !S.env || !S.env.length) return;
+    var s = PX * V.zoom * ENV_K[l], W = V.W, H = V.H, al = S.envTab ? (l === S.envL ? 1 : 0.35) : (l === 1 ? 0.3 : 1);
+    S.env.forEach(function (it) {
+      if (it.l !== l) return;
+      var sx = W / 2 + (it.x - V.cam.x) * s, sy = H / 2 + (it.y - V.cam.y) * s, rb = envBound(it) * s;
+      if (sx < -rb || sx > W + rb || sy < -rb || sy > H + rb) return;
+      envDraw(c, it, sx, sy, s, al);
+    });
+  }
+  function envEdGhost(c) {
+    if (!S.envTab || !V.mouse || V.pan || S.mode !== "edit") return;
+    var l = S.envL, s = PX * V.zoom * ENV_K[l];
+    if (S.tool === "build") {
+      var it = { a: S.envSel, x: 0, y: 0, r: S.envR, s: S.envS, l: l };
+      envDraw(c, it, V.mouse.sx, V.mouse.sy, s, 0.55);
+      c.strokeStyle = "rgba(87,209,138,.7)"; c.lineWidth = 1.5; c.setLineDash([5, 5]); c.beginPath(); c.arc(V.mouse.sx, V.mouse.sy, envBound(it) * s, 0, 6.283); c.stroke(); c.setLineDash([]);
+    } else {
+      var i = envPickAt(V.mouse.sx, V.mouse.sy, l); if (i < 0) return;
+      var q = S.env[i], qx = V.W / 2 + (q.x - V.cam.x) * s, qy = V.H / 2 + (q.y - V.cam.y) * s;
+      c.strokeStyle = "#E0533F"; c.lineWidth = 2.5; c.beginPath(); c.arc(qx, qy, envBound(q) * s, 0, 6.283); c.stroke();
+    }
+  }
+
+  // ---------- Testflug ----------
+  // Weltkoordinaten in Metern: Zelle (0,0) der Szene liegt bei FL.envO
+  function envFlightInit(O) {
+    FL.envO = O; FL.env = (S.env || []).map(function (it) {
+      return { a: it.a, l: it.l, s: it.s, r: it.r, rad: (it.r || 0) * Math.PI / 180, x: O.x + it.x * CELL_M, y: O.y + it.y * CELL_M, R: envBound(it) * CELL_M, fa: 1 };
+    });
+    FL.envG = FL.env.filter(function (e) { return e.l === 0; });
+  }
+  function envFlInside(e, x, y) {   // Punkt in Metern
+    var dx = x - e.x, dy = y - e.y; if (dx > e.R || dx < -e.R || dy > e.R || dy < -e.R) return false;
+    return envInside(e, dx / CELL_M, dy / CELL_M);
+  }
+  function envHit(x, y) { var G = FL.envG; if (!G) return null; for (var i = 0; i < G.length; i++) if (envFlInside(G[i], x, y)) return G[i]; return null; }
+  function envFlDraw(c, W, H, ppm, l) {
+    if (!FL.env || !FL.env.length) return;
+    var k = ENV_K[l], px = ppm * CELL_M * k, me = FL.out && FL.eva ? FL.eva : FL.me, msx = W / 2 + (me.x - FL.cam.x) * ppm, msy = H / 2 + (me.y - FL.cam.y) * ppm;
+    FL.env.forEach(function (e) {
+      if (e.l !== l) return;
+      var sx = W / 2 + (e.x - FL.cam.x) * ppm * k, sy = H / 2 + (e.y - FL.cam.y) * ppm * k, rb = e.R * ppm * k;
+      if (sx < -rb || sx > W + rb || sy < -rb || sy > H + rb) return;
+      var al = 1;
+      if (l === 1) {   // Vordergrund: durchsichtig, wenn das eigene Schiff darunter liegt
+        var under = Math.hypot(msx - sx, msy - sy) < rb + (FL.me.rad || 5) * ppm * 0.6;
+        e.fa += ((under ? 0.32 : 1) - e.fa) * 0.12; al = e.fa;
+      }
+      envDraw(c, e, sx, sy, px, al);
+    });
+  }
+  // Kollision: nur Spielebene. Asset ist starr (unendliche Masse), Schiff prallt ab; bei hartem Aufprall Schaden am Schiff wie beim Rammen
+  function envCollide() {
+    var G = FL.envG; if (!G || !G.length) return;
+    var dmg = [];
+    FL.bodies.forEach(function (bd) {
+      if (bd.static || bd.dead) return;
+      G.forEach(function (e) {
+        var dx = bd.x - e.x, dy = bd.y - e.y, rs = bd.rad + e.R; if (dx > rs || dx < -rs || dy > rs || dy < -rs || Math.hypot(dx, dy) > rs) return;
+        var ca = Math.cos(bd.a), sa = Math.sin(bd.a), n = 0, px = 0, py = 0, deep = 0, hs = [];
+        for (var k = 0; k < bd.cells.length; k++) {
+          var cl = bd.cells[k], lx = (cl[0] - bd.com[0]) * CELL_M, ly = (cl[1] - bd.com[1]) * CELL_M, wx = bd.x + lx * ca - ly * sa, wy = bd.y + lx * sa + ly * ca;
+          var ex = wx - e.x, ey = wy - e.y; if (ex > e.R + 2 || ex < -e.R - 2 || ey > e.R + 2 || ey < -e.R - 2) continue;
+          var cx = ex / CELL_M, cy = ey / CELL_M, a = -e.rad, lx2 = (cx * Math.cos(a) - cy * Math.sin(a)) / e.s, ly2 = (cx * Math.sin(a) + cy * Math.cos(a)) / e.s, d = Math.hypot(lx2, ly2);
+          var lim = envRad(ENV[e.a], Math.atan2(ly2, lx2)) + 0.4 / e.s;   // halbe Zelle Puffer, damit Blockkanten nicht eintauchen
+          if (d < lim) { n++; px += wx; py += wy; deep = Math.max(deep, (lim - d) * e.s * CELL_M); if (hs.length < 4 && hs.indexOf(cl[2]) < 0) hs.push(cl[2]); }
+        }
+        if (!n) return;
+        px /= n; py /= n;
+        var nx = px - e.x, ny = py - e.y, nl = Math.hypot(nx, ny) || 1; nx /= nl; ny /= nl;   // Normale vom Asset nach außen
+        var rx = px - bd.x, ry = py - bd.y, vx = bd.vx - bd.w * ry, vy = bd.vy + bd.w * rx, vn = vx * nx + vy * ny, sp = Math.hypot(vx, vy);
+        if (vn < 0) {
+          var rn = rx * ny - ry * nx, jj = -(1 + COL.e) * vn / (1 / bd.mass + rn * rn / bd.I);
+          bd.vx += jj * nx / bd.mass; bd.vy += jj * ny / bd.mass; bd.w += rn * jj / bd.I;
+          var ck = "env" + bd.id; FL.colCd = FL.colCd || {};
+          if (sp > COL.dmgV && !(FL.colCd[ck] > FL.t)) {
+            FL.colCd[ck] = FL.t + 0.3;
+            var base = (sp - COL.dmgV) * COL.dmgK; hs.forEach(function (b) { dmg.push([bd, b, base * 2]); });
+            spark(px, py, 14); FL.parts.push({ x: px, y: py, vx: 0, vy: 0, life: 0, max: 0.2, k: "flash", sz: 2 + sp * 0.05 });
+            if (bd === FL.me) FL.shake = Math.max(FL.shake || 0, Math.min(1, sp / 60));
+          } else if (sp > 4) spark(px, py, 3);
+        }
+        var corr = Math.min(1.5, deep * 0.5 + 0.05); bd.x += nx * corr; bd.y += ny * corr;   // herausschieben
+      });
+    });
+    // zu Fuß im Raumanzug: einfach herausschieben und abbremsen
+    if (FL.out && FL.eva) {
+      var E = FL.eva;
+      G.forEach(function (e) {
+        if (!envFlInside(e, E.x, E.y)) return;
+        var nx = E.x - e.x, ny = E.y - e.y, nl = Math.hypot(nx, ny) || 1; nx /= nl; ny /= nl;
+        for (var i = 0; i < 40 && envFlInside(e, E.x, E.y); i++) { E.x += nx * 0.25; E.y += ny * 0.25; }
+        var vn = (E.vx || 0) * nx + (E.vy || 0) * ny; if (vn < 0) { E.vx -= vn * nx * 1.3; E.vy -= vn * ny * 1.3; }
+      });
+    }
+    dmg.forEach(function (d) { if (d[0].blocks.indexOf(d[1]) >= 0) damage(d[0], d[1], d[2], 0, 0, true); });
   }
   // ===== 50-flug.js · Flug: Körper, Start/Ende des Testflugs, Hauptschleife der Simulation (flTick) =====
   // ---------- Testflug ----------
@@ -1079,6 +1346,12 @@
       sta.static = true; sta.station = true; sta.name = S.names.station || t("stDef"); sta.id = ++BID; sta.x = 0; sta.y = me.y - (me.rad + sta.rad + 40); sta.vx = sta.vy = sta.w = 0;
       FL.bodies.push(sta);
     } else if (!stMode) spawnTargets();
+    // Environment (nur Developer Tool): Zelle (0,0) der Szene liegt dort, wo auch die Station liegt; ohne Station 60 m vor dem Schiff
+    FL.env = []; FL.envG = [];
+    if (stMode && S.env && S.env.length) {
+      var stb = FL.bodies.filter(function (b) { return b.station; })[0];
+      envFlightInit(stb ? { x: stb.x - stb.com[0] * CELL_M, y: stb.y - stb.com[1] * CELL_M } : { x: me.x, y: me.y - me.rad - 60 });
+    }
     S.viewEd = S.view; S.view = "out"; FL.seatWas = true;
     S.mode = "fly"; V.zoomEd = V.zoom; V.zoom = Math.min(1.1, Math.max(0.6, V.zoom));
     syncUI();
@@ -1153,6 +1426,7 @@
       });
     });
     collide();
+    envCollide();
     enemyBook(dt);
     trailTick();
     dockTick(dt);
@@ -1166,6 +1440,7 @@
       var steps = Math.ceil(Math.hypot(p.vx, p.vy) * dt / 1.0);
       for (var i = 0; i < steps; i++) {
         p.x += p.vx * dt / steps; p.y += p.vy * dt / steps;
+        if (FL.envG.length && envHit(p.x, p.y)) { spark(p.x, p.y, 4); return false; }   // Environment ist unzerstörbar
         var hit = p.pl ? hitAt(p.x, p.y, null, true) : hitAt(p.x, p.y, p.own); if (hit) { var crit = p.own && p.own.player && Math.random() < PM.crit; if (p.own === FL.me || p.pl) hitMark(p.x, p.y, hit.bd, crit); damage(hit.bd, hit.b, (p.dmg || MG.dmg) * (crit ? 2 : 1), p.x, p.y); spark(p.x, p.y, crit ? 10 : p.k ? 9 : 5); if (p.splash) blast(p.x, p.y, p.splash, p.sdmg, null); return false; }
       }
       return true;
@@ -1185,6 +1460,7 @@
       var steps = Math.ceil(ns * dt / 1.0);
       for (var i = 0; i < steps; i++) {
         m.x += m.vx * dt / steps; m.y += m.vy * dt / steps;
+        if (FL.envG.length && envHit(m.x, m.y)) { blast(m.x, m.y, MS.splash, MS.sdmg * mk, null); return false; }
         var hit = hitAt(m.x, m.y, m.own); if (hit) { if (m.own === FL.me) hitMark(m.x, m.y, hit.bd); damage(hit.bd, hit.b, MS.dmg * mk, m.x, m.y); blast(m.x, m.y, MS.splash, MS.sdmg * mk, null); return false; }
       }
       return true;
@@ -1339,6 +1615,7 @@
     var d = gunDir(bd, b), p = gunTip(bd, b), left = RG.dmg, end = { x: p.x + d.x * RG.range, y: p.y + d.y * RG.range }, hits = 0, lastB = null;
     for (var s = 0; s < RG.range; s += 0.8) {
       var x = p.x + d.x * s, y = p.y + d.y * s, h = hitAt(x, y, bd);
+      if (FL.envG && FL.envG.length && envHit(x, y)) { end = { x: x, y: y }; spark(x, y, 10); break; }   // Railgun endet am Asteroiden
       if (h && h.b !== lastB) { lastB = h.b; if (bd === FL.me) hitMark(x, y, h.bd); damage(h.bd, h.b, left, x, y); spark(x, y, 10); left *= 0.55; hits++; if (hits >= 3) { end = { x: x, y: y }; break; } }
     }
     FL.beams.push({ x0: p.x, y0: p.y, x1: end.x, y1: end.y, life: 0 });
@@ -2118,7 +2395,9 @@
     var c = V.ctx, W = V.W, H = V.H, z = V.zoom, s = PX * z, ppm = s / CELL_M, tm = performance.now() / 1000;
     var shk = fxPre(ppm, tm); FL.cam.x += shk.x; FL.cam.y += shk.y;
     drawSpace(c, W, H, FL.cam.x * ppm, FL.cam.y * ppm);
+    envFlDraw(c, W, H, ppm, -1);   // Environment hinten
     drawDust(c, W, H, ppm, DUST.near);
+    envFlDraw(c, W, H, ppm, 0);    // Environment Spielebene
     c.save(); c.translate(W / 2, H / 2); c.scale(ppm, ppm); c.translate(-FL.cam.x, -FL.cam.y);
     drawTrails(c);
     // Triebwerksflammen unter den Schiffen
@@ -2222,7 +2501,7 @@
       bd.blocks.forEach(function (b) {
         if (T[b.t].kind !== "rg" || !(b.chg > 0)) return;
         var d = gunDir(bd, b), p = gunTip(bd, b), L = RG.range;
-        for (var q = 2; q < RG.range; q += 2) { var h = hitAt(p.x + d.x * q, p.y + d.y * q, bd); if (h) { L = q; break; } }
+        for (var q = 2; q < RG.range; q += 2) { var h = hitAt(p.x + d.x * q, p.y + d.y * q, bd); if (h || (FL.envG.length && envHit(p.x + d.x * q, p.y + d.y * q))) { L = q; break; } }
         var k = Math.min(1, b.chg / RG.charge);
         c.strokeStyle = "rgba(255,60,50," + (0.25 + 0.45 * k) + ")"; c.lineWidth = (0.6 + 0.8 * k) / ppm * 2;
         c.beginPath(); c.moveTo(p.x, p.y); c.lineTo(p.x + d.x * L, p.y + d.y * L); c.stroke();
@@ -2257,6 +2536,7 @@
       else if (q.k === "debris") { c.save(); c.translate(q.x, q.y); c.rotate(q.a); c.globalAlpha = 1 - k * k; c.fillStyle = q.col; c.fillRect(-q.sz / 2, -q.sz / 2, q.sz, q.sz * 0.6); c.restore(); c.globalAlpha = 1; }
     });
     c.restore();
+    envFlDraw(c, W, H, ppm, 1);    // Environment vorne
     drawDust(c, W, H, ppm, DUST.front);
     radarEdges(c, W, H, ppm);
     drawFloat(c, W, H, ppm);
@@ -2375,6 +2655,11 @@
       '<div class="sr-sp"></div><div class="sr-seg"><button type="button" data-view="in">' + t("vIn") + '</button><button type="button" data-view="out">' + t("vOut") + '</button></div>' +
       '<button type="button" class="sr-go sr-ed-only" data-act="test">' + t("test") + ' ▸</button><button type="button" class="sr-go sr-fl-only" data-act="edit">◂ ' + t("toEd") + '</button></div>' +
       '<aside class="sr-pal sr-ed-only"><div class="sr-tools"><button type="button" data-tool="build">' + t("tBuild") + '</button><button type="button" data-tool="erase">' + t("tErase") + '</button><button type="button" data-tool="paint">' + t("tPaint") + '</button></div>' +
+      '<div class="sr-envtabs sr-dev-only"><span class="sr-seg"><button type="button" data-act="tab-blk">' + t("tabBlk") + '</button><button type="button" data-act="tab-env">' + t("tabEnv") + '</button></span></div>' +
+      '<div class="sr-envp sr-dev-only"><small>' + t("envLayer") + '</small><span class="sr-seg sr-envl"><button type="button" data-envl="-1">' + t("envBack") + '</button><button type="button" data-envl="0">' + t("envGame") + '</button><button type="button" data-envl="1">' + t("envFront") + '</button></span>' +
+      '<label class="sr-envr"><small>' + t("envScale") + ' <b id="sr-env-sv"></b></small><input type="range" id="sr-env-s" min="-232" max="200" step="1"></label>' +
+      '<label class="sr-envr"><small>' + t("envRot") + ' <b id="sr-env-rv"></b></small><input type="range" id="sr-env-r" min="0" max="355" step="5"></label>' +
+      '<button type="button" data-act="env-rnd" class="sr-envrnd"></button><p class="sr-envh">' + t("envHelp") + '</p><small class="sr-envcat">' + t("envAst") + '</small><div class="sr-grid sr-envlist"></div></div>' +
       '<div class="sr-paint"><label>' + t("color") + ' <input type="color" id="sr-col"></label><div class="sr-sws">' + sw + '</div></div>' +
       '<div class="sr-opts"><button type="button" data-act="rot">' + t("rot") + '</button><button type="button" data-act="flip">' + t("flip") + '</button><button type="button" data-act="sym">' + t("sym") + '</button><button type="button" data-act="symm" class="sr-symm"></button></div>' +
       '<div class="sr-list">' + pal + '</div></aside>' +
@@ -2400,7 +2685,7 @@
       '<div class="sr-hint" id="sr-hint"></div><div class="sr-note" hidden></div>' +
       '<div class="sr-io sr-npc" hidden><div class="sr-io-box sr-npc-box"><div class="sr-tbar"><b class="sr-npc-t">' + t("hangar") + '</b><span class="sr-sp"></span><button type="button" data-act="npc-x">' + (lang === "de" ? "Schließen" : "Close") + '</button></div><div class="sr-io-h">' + t("hangarH") + '</div><div class="sr-npc-list"></div></div></div>' +
       '<div class="sr-io sr-dev" hidden><div class="sr-io-box sr-dev-box"><div class="sr-io-h">' + t("devH") + '</div><input class="sr-dev-in" type="password" inputmode="numeric" autocomplete="off" maxlength="6" spellcheck="false" aria-label="Code"><div class="sr-tbar"><span class="sr-dev-msg"></span><span class="sr-sp"></span><button type="button" data-act="dev-x">' + t("cancel") + '</button></div></div></div>' +
-      '<div class="sr-io sr-exio" hidden><div class="sr-io-box"><div class="sr-io-h"></div><textarea spellcheck="false"></textarea><div class="sr-tbar"><button type="button" data-act="io-copy">' + (lang === "de" ? "Kopieren" : "Copy") + '</button><button type="button" data-act="io-load">' + (lang === "de" ? "Laden" : "Load") + '</button><button type="button" data-act="io-txt">' + t("txtSave") + '</button><button type="button" data-act="io-open">' + t("txtOpen") + '</button><input type="file" class="sr-io-file" accept=".txt,text/plain" hidden><span class="sr-sp"></span><button type="button" data-act="io-x">' + (lang === "de" ? "Schließen" : "Close") + '</button></div></div></div></div>';
+      '<div class="sr-io sr-exio" hidden><div class="sr-io-box"><div class="sr-io-h"></div><span class="sr-seg sr-io-mode"><button type="button" data-act="io-scene">' + t("expScene") + '</button><button type="button" data-act="io-struct">' + t("expStruct") + '</button></span><textarea spellcheck="false"></textarea><div class="sr-tbar"><button type="button" data-act="io-copy">' + (lang === "de" ? "Kopieren" : "Copy") + '</button><button type="button" data-act="io-load">' + (lang === "de" ? "Laden" : "Load") + '</button><button type="button" data-act="io-txt">' + t("txtSave") + '</button><button type="button" data-act="io-open">' + t("txtOpen") + '</button><input type="file" class="sr-io-file" accept=".txt,text/plain" hidden><span class="sr-sp"></span><button type="button" data-act="io-x">' + (lang === "de" ? "Schließen" : "Close") + '</button></div></div></div></div>';
   }
   function syncUI() {
     if (!V) return;
@@ -2410,6 +2695,9 @@
     r.querySelectorAll("[data-blk]").forEach(function (b) { b.setAttribute("aria-pressed", String(b.getAttribute("data-blk") === S.sel && S.tool === "build")); });
     r.querySelectorAll("[data-view]").forEach(function (b) { b.setAttribute("aria-pressed", String(b.getAttribute("data-view") === S.view)); });
     r.querySelector(".sr-root").classList.toggle("st", S.ed === "station");
+    var envt = S.ed === "station" && S.envTab; r.querySelector(".sr-root").classList.toggle("envt", envt);
+    var tb1 = r.querySelector('[data-act="tab-blk"]'), tb2 = r.querySelector('[data-act="tab-env"]'); if (tb1) { tb1.setAttribute("aria-pressed", String(!S.envTab)); tb2.setAttribute("aria-pressed", String(!!S.envTab)); }
+    if (envt) envSync(r);
     if (S.ed !== "station" && T[S.sel] && T[S.sel].dev) S.sel = "lblk";   // Dev-Bauteile gibt es im Schiffsbau nicht
     r.querySelector(".sr-root").classList.toggle("foot", !!(FL && !FL.seated)); if (FL) syncHot();
     var ni = r.querySelector("#sr-name"); if (ni && document.activeElement !== ni) ni.value = S.names[S.ed] || "";
@@ -2439,6 +2727,17 @@
   }
   function coolTxt() { var cm = coolMap(S.blocks), w = 0, th = 0; cm.forEach(function (n, b) { var k = T[b.t].kind; if (k === "mg" || k === "rg") w++; if (k === "thr") th++; }); return w + " " + t("weap") + " · " + th + " " + t("thrs"); }
   function dimTxt() { var b = bounds(S.blocks); if (!b) return "–"; var w = b.x1 - b.x0, h = b.y1 - b.y0; return w + " × " + h + " (" + nf(w * CELL_M, 1) + " × " + nf(h * CELL_M, 1) + " m)"; }
+  // Environment-Panel: Liste erst beim ersten Öffnen zeichnen (Vorschaubilder kosten etwas), danach nur Zustand abgleichen
+  function envSync(r) {
+    var list = r.querySelector(".sr-envlist");
+    if (list && !list.childElementCount) list.innerHTML = ENV_IDS.map(function (id) { return '<button type="button" class="sr-blk sr-envb" data-env="' + id + '" title="' + ENV[id].n[lang] + '"><img alt="" src="' + envThumb(id) + '"><span>' + ENV[id].sn[lang] + "</span></button>"; }).join("");
+    r.querySelectorAll("[data-env]").forEach(function (b) { b.setAttribute("aria-pressed", String(b.getAttribute("data-env") === S.envSel && S.tool === "build")); });
+    r.querySelectorAll("[data-envl]").forEach(function (b) { b.setAttribute("aria-pressed", String(+b.getAttribute("data-envl") === S.envL)); });
+    var si = r.querySelector("#sr-env-s"), ri = r.querySelector("#sr-env-r");
+    if (si && document.activeElement !== si) si.value = Math.round(Math.log2(S.envS) * 100); if (ri && document.activeElement !== ri) ri.value = S.envR;
+    set("sr-env-sv", "× " + nf(S.envS, 2)); set("sr-env-rv", S.envR + "°");
+    var rb = r.querySelector('[data-act="env-rnd"]'); if (rb) { rb.textContent = t("envRnd") + ": " + t(S.envRnd ? "envOn" : "envOff"); rb.setAttribute("aria-pressed", String(!!S.envRnd)); }
+  }
   function info() {
     var st = stats(S.blocks), R = rooms(S.blocks), comps = components(S.blocks), main = comps.length ? comps.reduce(function (a, b) { return mainScore(b) > mainScore(a) ? b : a; }) : [];
     var loose = S.blocks.length - main.length, m = st.mass || 1;
@@ -2457,6 +2756,7 @@
     document.getElementById("sr-info").innerHTML =
       "<h4>" + t("sBlocks") + "</h4>" + row(t("sBlocks"), nf(st.n)) + row(t("sMass"), nf(st.mass * 1000) + " kg") + row(t("sCost"), cr(st.cost || 0) + '<br><small style="color:#7FD3A4;font-weight:400">' + t("costFree") + "</small>") +
       row(t("sDim"), dimTxt()) + row(t("sCom"), t("comHint")) +
+      (S.ed === "station" ? "<h4>" + t("envCount") + "</h4>" + row(t("envBack"), nf(S.env.filter(function (e) { return e.l === -1; }).length)) + row(t("envGame"), nf(S.env.filter(function (e) { return e.l === 0; }).length)) + row(t("envFront"), nf(S.env.filter(function (e) { return e.l === 1; }).length)) : "") +
       (isSt ? "" : "<h4>" + t("sThr") + "</h4>" + row("↑ " + t("dF"), acc(0)) + row("↓ " + t("dB"), acc(2)) + row("← " + t("dL"), acc(3)) + row("→ " + t("dR"), acc(1)) +
       "<h4>" + t("sGyro") + "</h4>" + row("Gyro", st.gyro ? st.gyro + " × · " + wdeg : "–")) +
       (isSt && !st.mg && !st.ms && !st.rg && !st.gun ? "" : weapTxt()) +
@@ -2550,7 +2850,7 @@
     ".sr-inv-grid{display:grid;grid-template-columns:repeat(8,48px);grid-auto-rows:48px;gap:4px}.sr-slot{display:block;background:rgba(38,49,66,.45);border:1px solid rgba(70,86,110,.6);box-shadow:inset 0 0 0 1px rgba(0,0,0,.25)}.sr-slot:hover{border-color:rgba(140,165,200,.8);background:rgba(50,64,86,.55)}" +
     "@media (max-width:520px){.sr-inv-grid{grid-template-columns:repeat(8,34px);grid-auto-rows:34px;gap:3px}}" +
     ".sr-name{width:150px;margin-right:6px;padding:5px 8px;background:rgba(14,19,28,.7);border:1px solid #3A4658;color:#E8ECEF;font:inherit;font-size:.8rem;border-radius:0}" +
-    ".sr-root:not(.st) .sr-blk[data-dev],.sr-root:not(.st) .sr-cat[data-dev],.sr-root:not(.st) .sr-dev-only{display:none}.sr-dev-box{width:min(340px,100%)}.sr-dev-in{background:#141414;color:#E8E8E8;border:1px solid #3A3A3A;border-radius:0;font:600 22px ui-monospace,Menlo,Consolas,monospace;letter-spacing:.5em;padding:10px 12px;text-align:center}.sr-dev-in:focus{outline:none;border-color:#57D18A}.sr-dev-msg{color:#E07A6A;font-size:.85rem}.sr-seg{display:inline-flex;margin-right:6px}.sr-seg button{border-radius:0}.sr-seg button[aria-pressed=true]{background:#2E6B4C;border-color:#57D18A;color:#fff}" +
+    ".sr-root:not(.envt) .sr-envp,.sr-root.envt .sr-paint,.sr-root.envt .sr-opts,.sr-root.envt .sr-list{display:none}.sr-envtabs{padding:0 8px 8px}.sr-envtabs .sr-seg{display:flex;margin:0}.sr-envtabs .sr-seg button{flex:1;font-size:.74rem;padding:6px 2px}.sr-envp{display:flex;flex-direction:column;gap:6px;padding:0 8px 8px;flex:1;min-height:0}.sr-envp>small,.sr-envcat{font:600 .68rem var(--f-body,inherit);letter-spacing:.08em;text-transform:uppercase;color:#8FA0B8}.sr-envl{display:flex;margin:0}.sr-envl button{flex:1;font-size:.72rem;padding:6px 2px}.sr-envl button[aria-pressed=true]{background:#2A3550;border-color:#E3B83F;color:#fff}.sr-envr{display:flex;flex-direction:column;gap:2px}.sr-envr small{color:#8FA0B8;font-size:.7rem}.sr-envr b{color:#E6EAF0;font-weight:600}.sr-envr input{width:100%}.sr-envrnd{font-size:.74rem;padding:5px}.sr-envrnd[aria-pressed=true]{background:#2E6B4C;border-color:#57D18A;color:#fff}.sr-envh{margin:0;color:#7D8AA0;font-size:.68rem;line-height:1.4}.sr-envlist{overflow:auto;flex:1;min-height:0;align-content:start}.sr-envb span{font-size:.62rem;text-align:center;line-height:1.15}.sr-root:not(.st) .sr-blk[data-dev],.sr-root:not(.st) .sr-cat[data-dev],.sr-root:not(.st) .sr-dev-only{display:none}.sr-dev-box{width:min(340px,100%)}.sr-dev-in{background:#141414;color:#E8E8E8;border:1px solid #3A3A3A;border-radius:0;font:600 22px ui-monospace,Menlo,Consolas,monospace;letter-spacing:.5em;padding:10px 12px;text-align:center}.sr-dev-in:focus{outline:none;border-color:#57D18A}.sr-dev-msg{color:#E07A6A;font-size:.85rem}.sr-seg{display:inline-flex;margin-right:6px}.sr-seg button{border-radius:0}.sr-seg button[aria-pressed=true]{background:#2E6B4C;border-color:#57D18A;color:#fff}" +
     ".sr-uis{position:absolute;left:12px;bottom:10px;z-index:3;align-items:center;gap:7px;background:rgba(14,19,28,.6);border:1px solid rgba(38,49,66,.8);padding:5px 9px;color:#8FA0B8;font-size:.72rem;font-variant-numeric:tabular-nums;cursor:pointer}" +
     ".sr-uis input{width:96px;accent-color:#7FD3A4;margin:0}.sr-uis span{min-width:36px;text-align:right}" +
     ".sr-hud{overflow-y:auto;scrollbar-width:thin;position:absolute;left:12px;top:64px;display:flex;flex-direction:column;gap:7px;background:rgba(14,19,28,.6);border:1px solid rgba(38,49,66,.8);padding:8px 10px;z-index:2;width:176px;box-sizing:border-box;font-size:.84rem}" +
@@ -2588,6 +2888,11 @@
     if (e.button === 1 || (e.button === 0 && V.space)) { V.pan = { x: e.clientX, y: e.clientY, cx: V.cam.x, cy: V.cam.y }; e.preventDefault(); return; }
     var cx = Math.floor(m.x), cy = Math.floor(m.y);
     V.down = e.button;
+    if (S.ed === "station" && S.envTab) {   // Environmental: frei platzieren auf der aktiven Ebene
+      if (e.button === 2 || S.tool === "erase") { if (envErase(m.sx, m.sy)) syncUI(); }
+      else if (e.button === 0 && S.tool === "build") { envPlace(m.sx, m.sy, false); syncUI(); }
+      return;
+    }
     if (e.button === 2) { if (eraseAt(cx, cy)) syncUI(); V.lastCell = key(cx, cy); return; }
     if (e.button !== 0) return;
     if (S.tool === "build") { V.row = { sx: cx, sy: cy, ex: cx, ey: cy, area: e.shiftKey }; }
@@ -2602,13 +2907,20 @@
     if (V.pan) { var s = PX * V.zoom; V.cam.x = V.pan.cx - (e.clientX - V.pan.x) / s; V.cam.y = V.pan.cy - (e.clientY - V.pan.y) / s; return; }
     V.mouse = m;
     if (V.down === undefined || V.down === null) return;
+    if (S.ed === "station" && S.envTab) {
+      if (V.down === 2 || S.tool === "erase") { if (envErase(m.sx, m.sy)) syncUI(); }
+      else if (V.down === 0 && S.tool === "build" && V.envLast) {   // Ziehen streut: neues Asset, sobald genug Abstand zum letzten
+        var lp = envEdPos(m.sx, m.sy, S.envL); if (Math.hypot(lp.x - V.envLast.x, lp.y - V.envLast.y) > V.envLast.d) { envPlace(m.sx, m.sy, true); syncUI(); }
+      }
+      return;
+    }
     if (V.row) V.row.area = e.shiftKey;
     var cx = Math.floor(m.x), cy = Math.floor(m.y), kk = key(cx, cy); if (kk === V.lastCell) return; V.lastCell = kk;
     if (V.down === 2 || S.tool === "erase") { if (eraseAt(cx, cy)) syncUI(); }
     else if (S.tool === "paint") { if (paintAt(cx, cy)) syncUI(); }
     else if (S.tool === "build" && V.row) { V.row.ex = cx; V.row.ey = cy; }
   }
-  function onUp(e) { if (!V) return; V.pan = null; V.down = null; if (FL) FL.fire = false; if (V.row) { placeRow(); V.row = null; syncUI(); } }
+  function onUp(e) { if (!V) return; V.envLast = null; V.pan = null; V.down = null; if (FL) FL.fire = false; if (V.row) { placeRow(); V.row = null; syncUI(); } }
   function onWheel(e) { e.preventDefault(); var k = e.deltaY < 0 ? 1.12 : 1 / 1.12; V.zoom = Math.max(S.mode === "fly" ? ZMIN_FL : S.ed === "station" ? ZMIN_ST : 0.3, Math.min(3, V.zoom * k)); }
   function finishRename(ok) {
     var ib = V.root.querySelector(".sr-shipn-in"), bb = V.root.querySelector(".sr-shipn"); if (!ib || ib.hidden) return;
@@ -2644,6 +2956,11 @@
     if ((e.ctrlKey || e.metaKey) && k === "z") { undo(); e.preventDefault(); return; }
     if (["w", "a", "s", "d", "arrowup", "arrowdown", "arrowleft", "arrowright"].indexOf(k) >= 0) { V.keys[k] = true; e.preventDefault(); return; }
     if (e.repeat) return;
+    if (S.ed === "station" && S.envTab && (k === "r" || k === "[" || k === "]" || k === "+" || k === "=" || k === "-")) {
+      if (k === "r") S.envR = (S.envR + (e.shiftKey ? 345 : 15)) % 360;
+      else S.envS = Math.max(ENV_SMIN, Math.min(ENV_SMAX, S.envS * (k === "]" || k === "+" || k === "=" ? 1.1 : 1 / 1.1)));
+      syncUI(); return;
+    }
     if (k === "r") { S.r = (S.r + (e.shiftKey ? 3 : 1)) % 4; syncUI(); }
     else if (k === "f") { S.f = S.f ? 0 : 1; syncUI(); }
     else if (k === "m") { cycleSym(); syncUI(); }
@@ -2656,11 +2973,13 @@
     if (FL) { FL.keys[k] = false; if (k === "shift") FL.keys.shift = false; }
     V.keys[k] = false;
   }
-  function undo() { var u = S.undo.pop(); if (!u) return; S.blocks = JSON.parse(u); save(); syncUI(); }
+  function undo() { var u = S.undo.pop(); if (!u) return; var o = JSON.parse(u); if (Array.isArray(o)) S.blocks = o; else { S.blocks = o.b; S.env = o.e.map(envUnpack).filter(Boolean); } save(); syncUI(); }
   function onClick(e) {
     var a = e.target.closest("[data-act]"), tl = e.target.closest("[data-tool]"), bk = e.target.closest("[data-blk]"), vw = e.target.closest("[data-view]"), sw = e.target.closest("[data-sw]");
     if (tl) { S.tool = tl.getAttribute("data-tool"); syncUI(); return; }
     if (bk) { S.sel = bk.getAttribute("data-blk"); S.tool = "build"; syncUI(); return; }
+    var eb = e.target.closest("[data-env]"); if (eb) { S.envSel = eb.getAttribute("data-env"); S.tool = "build"; syncUI(); return; }
+    var el2 = e.target.closest("[data-envl]"); if (el2) { S.envL = +el2.getAttribute("data-envl"); syncUI(); return; }
     if (vw) { S.view = vw.getAttribute("data-view"); syncUI(); return; }
     if (sw) { S.color = sw.getAttribute("data-sw"); S.tool = "paint"; save(); syncUI(); return; }
     if (e.target.closest(".sr-tip")) { hideTip(e.target.closest(".sr-tip")); return; }
@@ -2675,7 +2994,9 @@
     else if (act === "sym") S.sym = !S.sym;
     else if (act === "symm") { S.symGap = !S.symGap; S.sym = true; save(); }
     else if (act === "undo") undo();
-    else if (act === "clear") { pushUndo(); S.blocks = []; save(); }
+    else if (act === "clear") { pushUndo(); if (S.ed === "station" && S.envTab) S.env = []; else S.blocks = []; save(); }   /* im Environmental-Tab leert es nur das Environment */
+    else if (act === "tab-blk" || act === "tab-env") { S.envTab = act === "tab-env"; if (S.envTab && S.tool === "paint") S.tool = "build"; }
+    else if (act === "env-rnd") S.envRnd = !S.envRnd;
     else if (act === "starter") { pushUndo(); S.blocks = S.ed === "station" ? starterStation() : starter(); save(); fitCam(); }
     else if (act === "exp" || act === "imp") { openIO(act); return; }
     else if (act === "npc") { openHangar(); return; }
@@ -2691,9 +3012,10 @@
     else if (act === "io-copy") { var ta = V.root.querySelector(".sr-exio textarea"); ta.select(); try { navigator.clipboard.writeText(ta.value).then(function () { note(lang === "de" ? "Schiffscode kopiert." : "Ship code copied."); }, function () {}); } catch (er) {} return; }
     else if (act === "dev-x") { V.root.querySelector(".sr-dev").hidden = true; return; }
     else if (act === "dev-lock") { devLock(); return; }
+    else if (act === "io-scene" || act === "io-struct") { V.ioScene = act === "io-scene"; openIO("exp"); return; }
     else if (act === "io-txt") { saveTxt(V.root.querySelector(".sr-exio textarea").value); return; }
     else if (act === "io-open") { V.root.querySelector(".sr-io-file").click(); return; }
-    else if (act === "io-load") { var bl = parseShip(V.root.querySelector(".sr-exio textarea").value); if (bl && S.ed !== "station") bl = bl.filter(function (b) { return !T[b.t].dev; });   /* Dev-Bauteile nur im Developer Tool */ if (!bl) { note(lang === "de" ? "Code ungültig." : "Invalid code."); return; } pushUndo(); S.blocks = bl; save(); fitCam(); V.root.querySelector(".sr-exio").hidden = true; note(lang === "de" ? "Schiff geladen (" + bl.length + " Blöcke)." : "Ship loaded (" + bl.length + " blocks)."); }
+    else if (act === "io-load") { var bl = parseShip(V.root.querySelector(".sr-exio textarea").value); var ienv = S.ed === "station" ? parseEnv(V.root.querySelector(".sr-exio textarea").value) : null; if (bl && S.ed !== "station") bl = bl.filter(function (b) { return !T[b.t].dev; });   /* Dev-Bauteile nur im Developer Tool */ if (!bl || (!bl.length && !ienv)) { note(lang === "de" ? "Code ungültig." : "Invalid code."); return; } pushUndo(); S.blocks = bl; if (ienv) S.env = ienv; save(); fitCam(); V.root.querySelector(".sr-exio").hidden = true; if (ienv) note(t("sceneLoaded") + " (" + bl.length + (lang === "de" ? " Blöcke, " : " blocks, ") + ienv.length + " Assets)."); else note(lang === "de" ? "Schiff geladen (" + bl.length + " Blöcke)." : "Ship loaded (" + bl.length + " blocks)."); }
     else if (act === "test") { startTest(); return; }
     else if (act === "edit") { stopTest(); return; }
     else if (act === "targets") { if (FL) spawnTargets(); return; }
@@ -2705,6 +3027,8 @@
     if (e.target.id === "sr-uis") { hudScale(+e.target.value); try { localStorage.setItem("spacerogue-ui", String(V.uis)); } catch (er) {} }
     if (e.target.id === "sr-shp" && FL) setShield(+e.target.value);
     if (e.target.id === "sr-name") { S.names[S.ed] = e.target.value.trim(); save(); }
+    if (e.target.id === "sr-env-s") { S.envS = Math.max(ENV_SMIN, Math.min(ENV_SMAX, Math.pow(2, +e.target.value / 100))); syncUI(); }
+    if (e.target.id === "sr-env-r") { S.envR = +e.target.value; syncUI(); }
     if (e.target.classList && e.target.classList.contains("sr-dev-in")) {   // Code: sobald 6 Ziffern drin sind, wird geprüft
       var dv = e.target.value.replace(/\D/g, "").slice(0, 6), dm = V.root.querySelector(".sr-dev-msg"); if (dv !== e.target.value) e.target.value = dv; dm.textContent = "";
       if (dv.length === 6) {
@@ -2764,7 +3088,10 @@
     var io = V.root.querySelector(".sr-exio"), ta = io.querySelector("textarea"), h = io.querySelector(".sr-io-h");
     io.hidden = false;
     io.querySelector('[data-act="io-copy"]').hidden = mode !== "exp"; io.querySelector('[data-act="io-load"]').hidden = mode !== "imp"; io.querySelector('[data-act="io-txt"]').hidden = mode !== "exp"; io.querySelector('[data-act="io-open"]').hidden = mode !== "imp";
-    if (mode === "exp") { h.textContent = lang === "de" ? "Schiffscode deines Entwurfs. Kopieren und teilen oder speichern." : "Ship code of your design. Copy and share or keep it."; ta.value = shipCode(); ta.readOnly = true; ta.select(); }
+    var sc = mode === "exp" && S.ed === "station";   // im Developer Tool: ganze Szene oder nur die Struktur
+    io.querySelector(".sr-io-mode").hidden = !sc;
+    if (sc) { if (V.ioScene === undefined) V.ioScene = true; io.querySelectorAll(".sr-io-mode button").forEach(function (b) { b.setAttribute("aria-pressed", String((b.getAttribute("data-act") === "io-scene") === V.ioScene)); }); }
+    if (mode === "exp") { h.textContent = sc && V.ioScene ? (lang === "de" ? "Szenencode: alle Blöcke und das ganze Environment mit Ebenen, Größe und Drehung." : "Scene code: all blocks and the whole environment with layers, size and rotation.") : (lang === "de" ? "Schiffscode deines Entwurfs. Kopieren und teilen oder speichern." : "Ship code of your design. Copy and share or keep it."); ta.value = sc && V.ioScene ? sceneCode() : shipCode(); ta.readOnly = true; ta.select(); }
     else { h.textContent = lang === "de" ? "Schiffscode einfügen und laden. Der aktuelle Entwurf lässt sich mit Rückgängig zurückholen." : "Paste a ship code and load it. Undo brings back the current design."; ta.value = ""; ta.readOnly = false; ta.focus(); }
   }
   // ===== 90-start.js · Start: Layout, Bildschleife, mount/unmount – muss die letzte Datei bleiben =====

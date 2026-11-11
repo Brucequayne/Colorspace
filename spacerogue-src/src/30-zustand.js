@@ -3,7 +3,7 @@
   var S = null, V = null, raf = 0, last = 0;
   var SAVE = "spacerogue-ship-v1", SAVE_ST = "spacerogue-station-v1";
   function freshState() {
-    return { blocks: [], ed: "ship", ship: [], station: [], names: { ship: "", station: "" }, tool: "build", sel: "lblk", r: 0, f: 0, sym: false, symGap: false, view: "in", color: "#C8473A", undo: [], mode: "edit" };
+    return { blocks: [], ed: "ship", ship: [], station: [], names: { ship: "", station: "" }, tool: "build", sel: "lblk", r: 0, f: 0, sym: false, symGap: false, view: "in", color: "#C8473A", undo: [], mode: "edit", env: [], envTab: false, envSel: "ast01", envL: 0, envS: 1, envR: 0, envRnd: false };
   }
   function load() {
     S = freshState();
@@ -11,13 +11,13 @@
     if (!S.blocks.length) S.blocks = starter();
     S.ship = S.blocks;
     try { var jn = JSON.parse(localStorage.getItem(SAVE) || "null"); if (jn && jn.name) S.names.ship = jn.name; } catch (e) {}
-    try { var js = JSON.parse(localStorage.getItem(SAVE_ST) || "null"); if (js && js.blocks) S.station = js.blocks.filter(function (b) { return T[b.t]; }); if (js && js.name) S.names.station = js.name; if (js && js.ed === "station" && devOk()) { S.ed = "station"; S.blocks = S.station; } } catch (e) {}
+    try { var js = JSON.parse(localStorage.getItem(SAVE_ST) || "null"); if (js && js.blocks) S.station = js.blocks.filter(function (b) { return T[b.t]; }); if (js && Array.isArray(js.env)) S.env = js.env.map(envUnpack).filter(Boolean); if (js && js.name) S.names.station = js.name; if (js && js.ed === "station" && devOk()) { S.ed = "station"; S.blocks = S.station; } } catch (e) {}
   }
   function save() {
     if (S.ed === "station") S.station = S.blocks; else S.ship = S.blocks;
     try {
       localStorage.setItem(SAVE, JSON.stringify({ blocks: S.ship.map(strip), color: S.color, symGap: !!S.symGap, name: S.names.ship }));
-      localStorage.setItem(SAVE_ST, JSON.stringify({ blocks: S.station.map(strip), ed: S.ed, name: S.names.station }));
+      localStorage.setItem(SAVE_ST, JSON.stringify({ blocks: S.station.map(strip), ed: S.ed, name: S.names.station, env: (S.env || []).map(envPack) }));
     } catch (e) {}
   }
   // Editor-Modus umschalten: Schiff oder Raumstation, jeder mit eigenem Entwurf
@@ -56,7 +56,7 @@
     save(); fitCam(); syncUI();
   }
   function strip(b) { var o = { t: b.t, x: b.x, y: b.y, r: b.r, f: b.f }; if (b.c) o.c = b.c; return o; }
-  function pushUndo() { S.undo.push(JSON.stringify(S.blocks.map(strip))); if (S.undo.length > 60) S.undo.shift(); }
+  function pushUndo() { S.undo.push(JSON.stringify(S.ed === "station" ? { b: S.blocks.map(strip), e: (S.env || []).map(envPack) } : S.blocks.map(strip)));   /* im Developer Tool mit Environment */ if (S.undo.length > 60) S.undo.shift(); }
 
   // Beispielschiff: Cockpit vorn, luftdichter Raum, Triebwerke in alle Richtungen, Gyroskop, Energie, Waffen
   function starter() {

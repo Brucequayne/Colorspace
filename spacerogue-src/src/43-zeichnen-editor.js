@@ -3,6 +3,7 @@
   function edDraw() {
     var c = V.ctx, W = V.W, H = V.H, z = V.zoom, s = PX * z;
     drawSpace(c, W, H, V.cam.x * s, V.cam.y * s);
+    envEdDraw(c, -1);   // Environment hinten
     c.save(); c.translate(W / 2 - V.cam.x * s, H / 2 - V.cam.y * s);
     // Raster
     var x0 = Math.floor(V.cam.x - W / 2 / s) - 1, x1 = Math.ceil(V.cam.x + W / 2 / s) + 1, y0 = Math.floor(V.cam.y - H / 2 / s) - 1, y1 = Math.ceil(V.cam.y + H / 2 / s) + 1;
@@ -11,6 +12,7 @@
     for (var gy = y0; gy <= y1; gy++) { c.moveTo(x0 * s, gy * s + 0.5); c.lineTo(x1 * s, gy * s + 0.5); }
     c.stroke();
     if (S.sym) { c.strokeStyle = "rgba(227,184,63,.6)"; c.setLineDash([6, 6]); c.lineWidth = 2; c.beginPath(); c.moveTo(symAx() * s, y0 * s); c.lineTo(symAx() * s, y1 * s); c.stroke(); c.setLineDash([]); }
+    c.save(); c.translate(-(W / 2 - V.cam.x * s), -(H / 2 - V.cam.y * s)); envEdDraw(c, 0); c.restore();   // Environment Spielebene unter den Blöcken
     var tm = performance.now() / 1000, M = buildMap(S.blocks);
     // Räume einfärben (Innenansicht)
     var R = rooms(S.blocks);
@@ -39,7 +41,7 @@
     if (bb) { c.fillStyle = "rgba(227,184,63,.9)"; c.beginPath(); c.moveTo(ax * s, (ay - 1.2) * s); c.lineTo((ax - 0.7) * s, ay * s); c.lineTo((ax + 0.7) * s, ay * s); c.closePath(); c.fill();
       c.fillStyle = "rgba(227,184,63,.9)"; c.font = "700 " + Math.max(10, 0.45 * s) + "px " + FONTS(); c.textAlign = "center"; c.fillText(t("dir"), ax * s, (ay + 0.7) * s); }
     // Vorschau
-    if (V.mouse && !V.pan) {
+    if (V.mouse && !V.pan && !(S.ed === "station" && S.envTab)) {
       var cx = Math.floor(V.mouse.x), cy = Math.floor(V.mouse.y);
       if (S.tool === "build") {
         var ghosts = V.row ? rowList() : [ghostAt(cx, cy, S.sel, S.r, S.f)];
@@ -60,8 +62,10 @@
       }
     }
     c.restore();
+    envEdDraw(c, 1);   // Environment vorne
+    if (S.ed === "station") envEdGhost(c);
     // Infokasten zum Block unter dem Mauszeiger: Name, Gewicht, Leben
-    if (V.mouse && !V.pan && !V.row) {
+    if (V.mouse && !V.pan && !V.row && !(S.ed === "station" && S.envTab)) {
       var hb2 = blockAt(Math.floor(V.mouse.x), Math.floor(V.mouse.y), M);
       if (hb2) {
         var ty2 = T[hb2.t], txt = ty2.n[lang] + " · " + kg(ty2.mass) + " · " + ty2.hp + " HP · " + cr(ty2.cost);

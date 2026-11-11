@@ -16,6 +16,11 @@
     if (e.button === 1 || (e.button === 0 && V.space)) { V.pan = { x: e.clientX, y: e.clientY, cx: V.cam.x, cy: V.cam.y }; e.preventDefault(); return; }
     var cx = Math.floor(m.x), cy = Math.floor(m.y);
     V.down = e.button;
+    if (S.ed === "station" && S.envTab) {   // Environmental: frei platzieren auf der aktiven Ebene
+      if (e.button === 2 || S.tool === "erase") { if (envErase(m.sx, m.sy)) syncUI(); }
+      else if (e.button === 0 && S.tool === "build") { envPlace(m.sx, m.sy, false); syncUI(); }
+      return;
+    }
     if (e.button === 2) { if (eraseAt(cx, cy)) syncUI(); V.lastCell = key(cx, cy); return; }
     if (e.button !== 0) return;
     if (S.tool === "build") { V.row = { sx: cx, sy: cy, ex: cx, ey: cy, area: e.shiftKey }; }
@@ -30,13 +35,20 @@
     if (V.pan) { var s = PX * V.zoom; V.cam.x = V.pan.cx - (e.clientX - V.pan.x) / s; V.cam.y = V.pan.cy - (e.clientY - V.pan.y) / s; return; }
     V.mouse = m;
     if (V.down === undefined || V.down === null) return;
+    if (S.ed === "station" && S.envTab) {
+      if (V.down === 2 || S.tool === "erase") { if (envErase(m.sx, m.sy)) syncUI(); }
+      else if (V.down === 0 && S.tool === "build" && V.envLast) {   // Ziehen streut: neues Asset, sobald genug Abstand zum letzten
+        var lp = envEdPos(m.sx, m.sy, S.envL); if (Math.hypot(lp.x - V.envLast.x, lp.y - V.envLast.y) > V.envLast.d) { envPlace(m.sx, m.sy, true); syncUI(); }
+      }
+      return;
+    }
     if (V.row) V.row.area = e.shiftKey;
     var cx = Math.floor(m.x), cy = Math.floor(m.y), kk = key(cx, cy); if (kk === V.lastCell) return; V.lastCell = kk;
     if (V.down === 2 || S.tool === "erase") { if (eraseAt(cx, cy)) syncUI(); }
     else if (S.tool === "paint") { if (paintAt(cx, cy)) syncUI(); }
     else if (S.tool === "build" && V.row) { V.row.ex = cx; V.row.ey = cy; }
   }
-  function onUp(e) { if (!V) return; V.pan = null; V.down = null; if (FL) FL.fire = false; if (V.row) { placeRow(); V.row = null; syncUI(); } }
+  function onUp(e) { if (!V) return; V.envLast = null; V.pan = null; V.down = null; if (FL) FL.fire = false; if (V.row) { placeRow(); V.row = null; syncUI(); } }
   function onWheel(e) { e.preventDefault(); var k = e.deltaY < 0 ? 1.12 : 1 / 1.12; V.zoom = Math.max(S.mode === "fly" ? ZMIN_FL : S.ed === "station" ? ZMIN_ST : 0.3, Math.min(3, V.zoom * k)); }
   function finishRename(ok) {
     var ib = V.root.querySelector(".sr-shipn-in"), bb = V.root.querySelector(".sr-shipn"); if (!ib || ib.hidden) return;
@@ -72,6 +84,11 @@
     if ((e.ctrlKey || e.metaKey) && k === "z") { undo(); e.preventDefault(); return; }
     if (["w", "a", "s", "d", "arrowup", "arrowdown", "arrowleft", "arrowright"].indexOf(k) >= 0) { V.keys[k] = true; e.preventDefault(); return; }
     if (e.repeat) return;
+    if (S.ed === "station" && S.envTab && (k === "r" || k === "[" || k === "]" || k === "+" || k === "=" || k === "-")) {
+      if (k === "r") S.envR = (S.envR + (e.shiftKey ? 345 : 15)) % 360;
+      else S.envS = Math.max(ENV_SMIN, Math.min(ENV_SMAX, S.envS * (k === "]" || k === "+" || k === "=" ? 1.1 : 1 / 1.1)));
+      syncUI(); return;
+    }
     if (k === "r") { S.r = (S.r + (e.shiftKey ? 3 : 1)) % 4; syncUI(); }
     else if (k === "f") { S.f = S.f ? 0 : 1; syncUI(); }
     else if (k === "m") { cycleSym(); syncUI(); }
@@ -84,11 +101,13 @@
     if (FL) { FL.keys[k] = false; if (k === "shift") FL.keys.shift = false; }
     V.keys[k] = false;
   }
-  function undo() { var u = S.undo.pop(); if (!u) return; S.blocks = JSON.parse(u); save(); syncUI(); }
+  function undo() { var u = S.undo.pop(); if (!u) return; var o = JSON.parse(u); if (Array.isArray(o)) S.blocks = o; else { S.blocks = o.b; S.env = o.e.map(envUnpack).filter(Boolean); } save(); syncUI(); }
   function onClick(e) {
     var a = e.target.closest("[data-act]"), tl = e.target.closest("[data-tool]"), bk = e.target.closest("[data-blk]"), vw = e.target.closest("[data-view]"), sw = e.target.closest("[data-sw]");
     if (tl) { S.tool = tl.getAttribute("data-tool"); syncUI(); return; }
     if (bk) { S.sel = bk.getAttribute("data-blk"); S.tool = "build"; syncUI(); return; }
+    var eb = e.target.closest("[data-env]"); if (eb) { S.envSel = eb.getAttribute("data-env"); S.tool = "build"; syncUI(); return; }
+    var el2 = e.target.closest("[data-envl]"); if (el2) { S.envL = +el2.getAttribute("data-envl"); syncUI(); return; }
     if (vw) { S.view = vw.getAttribute("data-view"); syncUI(); return; }
     if (sw) { S.color = sw.getAttribute("data-sw"); S.tool = "paint"; save(); syncUI(); return; }
     if (e.target.closest(".sr-tip")) { hideTip(e.target.closest(".sr-tip")); return; }
@@ -103,7 +122,9 @@
     else if (act === "sym") S.sym = !S.sym;
     else if (act === "symm") { S.symGap = !S.symGap; S.sym = true; save(); }
     else if (act === "undo") undo();
-    else if (act === "clear") { pushUndo(); S.blocks = []; save(); }
+    else if (act === "clear") { pushUndo(); if (S.ed === "station" && S.envTab) S.env = []; else S.blocks = []; save(); }   /* im Environmental-Tab leert es nur das Environment */
+    else if (act === "tab-blk" || act === "tab-env") { S.envTab = act === "tab-env"; if (S.envTab && S.tool === "paint") S.tool = "build"; }
+    else if (act === "env-rnd") S.envRnd = !S.envRnd;
     else if (act === "starter") { pushUndo(); S.blocks = S.ed === "station" ? starterStation() : starter(); save(); fitCam(); }
     else if (act === "exp" || act === "imp") { openIO(act); return; }
     else if (act === "npc") { openHangar(); return; }
@@ -119,9 +140,10 @@
     else if (act === "io-copy") { var ta = V.root.querySelector(".sr-exio textarea"); ta.select(); try { navigator.clipboard.writeText(ta.value).then(function () { note(lang === "de" ? "Schiffscode kopiert." : "Ship code copied."); }, function () {}); } catch (er) {} return; }
     else if (act === "dev-x") { V.root.querySelector(".sr-dev").hidden = true; return; }
     else if (act === "dev-lock") { devLock(); return; }
+    else if (act === "io-scene" || act === "io-struct") { V.ioScene = act === "io-scene"; openIO("exp"); return; }
     else if (act === "io-txt") { saveTxt(V.root.querySelector(".sr-exio textarea").value); return; }
     else if (act === "io-open") { V.root.querySelector(".sr-io-file").click(); return; }
-    else if (act === "io-load") { var bl = parseShip(V.root.querySelector(".sr-exio textarea").value); if (bl && S.ed !== "station") bl = bl.filter(function (b) { return !T[b.t].dev; });   /* Dev-Bauteile nur im Developer Tool */ if (!bl) { note(lang === "de" ? "Code ungültig." : "Invalid code."); return; } pushUndo(); S.blocks = bl; save(); fitCam(); V.root.querySelector(".sr-exio").hidden = true; note(lang === "de" ? "Schiff geladen (" + bl.length + " Blöcke)." : "Ship loaded (" + bl.length + " blocks)."); }
+    else if (act === "io-load") { var bl = parseShip(V.root.querySelector(".sr-exio textarea").value); var ienv = S.ed === "station" ? parseEnv(V.root.querySelector(".sr-exio textarea").value) : null; if (bl && S.ed !== "station") bl = bl.filter(function (b) { return !T[b.t].dev; });   /* Dev-Bauteile nur im Developer Tool */ if (!bl || (!bl.length && !ienv)) { note(lang === "de" ? "Code ungültig." : "Invalid code."); return; } pushUndo(); S.blocks = bl; if (ienv) S.env = ienv; save(); fitCam(); V.root.querySelector(".sr-exio").hidden = true; if (ienv) note(t("sceneLoaded") + " (" + bl.length + (lang === "de" ? " Blöcke, " : " blocks, ") + ienv.length + " Assets)."); else note(lang === "de" ? "Schiff geladen (" + bl.length + " Blöcke)." : "Ship loaded (" + bl.length + " blocks)."); }
     else if (act === "test") { startTest(); return; }
     else if (act === "edit") { stopTest(); return; }
     else if (act === "targets") { if (FL) spawnTargets(); return; }
@@ -133,6 +155,8 @@
     if (e.target.id === "sr-uis") { hudScale(+e.target.value); try { localStorage.setItem("spacerogue-ui", String(V.uis)); } catch (er) {} }
     if (e.target.id === "sr-shp" && FL) setShield(+e.target.value);
     if (e.target.id === "sr-name") { S.names[S.ed] = e.target.value.trim(); save(); }
+    if (e.target.id === "sr-env-s") { S.envS = Math.max(ENV_SMIN, Math.min(ENV_SMAX, Math.pow(2, +e.target.value / 100))); syncUI(); }
+    if (e.target.id === "sr-env-r") { S.envR = +e.target.value; syncUI(); }
     if (e.target.classList && e.target.classList.contains("sr-dev-in")) {   // Code: sobald 6 Ziffern drin sind, wird geprüft
       var dv = e.target.value.replace(/\D/g, "").slice(0, 6), dm = V.root.querySelector(".sr-dev-msg"); if (dv !== e.target.value) e.target.value = dv; dm.textContent = "";
       if (dv.length === 6) {

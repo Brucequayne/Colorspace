@@ -129,10 +129,13 @@
   }
   // Schiffscode: kompaktes JSON, damit Entwürfe geteilt und später als Gegner-Blaupausen eingebaut werden können.
   function shipCode() { return JSON.stringify({ sr: 1, color: S.color, b: S.blocks.map(function (b) { var a = [b.t, b.x, b.y, b.r, b.f]; if (b.c) a.push(b.c); return a; }) }); }
+  // Szene (Developer Tool): Schiffscode plus Environment. Gleiches Format, nur mit zusätzlichem Feld env – alte Versionen lesen daraus einfach die Blöcke.
+  function sceneCode() { var o = JSON.parse(shipCode()); o.env = (S.env || []).map(envPack); if (S.names.station) o.name = S.names.station; return JSON.stringify(o); }
+  function parseEnv(txt) { try { var o = JSON.parse(String(txt).trim()); return o && Array.isArray(o.env) ? o.env.map(envUnpack).filter(Boolean) : null; } catch (e) { return null; } }
   function parseShip(txt) {
     try {
       var o = JSON.parse(String(txt).trim()); if (!o || !Array.isArray(o.b)) return null;
       var out = o.b.filter(function (a) { return Array.isArray(a) && T[a[0]]; }).map(function (a) { var b = { t: a[0], x: a[1] | 0, y: a[2] | 0, r: (a[3] | 0) & 3, f: a[4] ? 1 : 0 }; if (a[5]) b.c = String(a[5]); return b; });
-      return out.length ? out : null;
+      return out.length || Array.isArray(o.env) ? out : null;   // eine Szene darf auch nur aus Environment bestehen
     } catch (e) { return null; }
   }

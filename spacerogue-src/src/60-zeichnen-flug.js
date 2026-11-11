@@ -84,7 +84,9 @@
     var c = V.ctx, W = V.W, H = V.H, z = V.zoom, s = PX * z, ppm = s / CELL_M, tm = performance.now() / 1000;
     var shk = fxPre(ppm, tm); FL.cam.x += shk.x; FL.cam.y += shk.y;
     drawSpace(c, W, H, FL.cam.x * ppm, FL.cam.y * ppm);
+    envFlDraw(c, W, H, ppm, -1);   // Environment hinten
     drawDust(c, W, H, ppm, DUST.near);
+    envFlDraw(c, W, H, ppm, 0);    // Environment Spielebene
     c.save(); c.translate(W / 2, H / 2); c.scale(ppm, ppm); c.translate(-FL.cam.x, -FL.cam.y);
     drawTrails(c);
     // Triebwerksflammen unter den Schiffen
@@ -188,7 +190,7 @@
       bd.blocks.forEach(function (b) {
         if (T[b.t].kind !== "rg" || !(b.chg > 0)) return;
         var d = gunDir(bd, b), p = gunTip(bd, b), L = RG.range;
-        for (var q = 2; q < RG.range; q += 2) { var h = hitAt(p.x + d.x * q, p.y + d.y * q, bd); if (h) { L = q; break; } }
+        for (var q = 2; q < RG.range; q += 2) { var h = hitAt(p.x + d.x * q, p.y + d.y * q, bd); if (h || (FL.envG.length && envHit(p.x + d.x * q, p.y + d.y * q))) { L = q; break; } }
         var k = Math.min(1, b.chg / RG.charge);
         c.strokeStyle = "rgba(255,60,50," + (0.25 + 0.45 * k) + ")"; c.lineWidth = (0.6 + 0.8 * k) / ppm * 2;
         c.beginPath(); c.moveTo(p.x, p.y); c.lineTo(p.x + d.x * L, p.y + d.y * L); c.stroke();
@@ -223,6 +225,7 @@
       else if (q.k === "debris") { c.save(); c.translate(q.x, q.y); c.rotate(q.a); c.globalAlpha = 1 - k * k; c.fillStyle = q.col; c.fillRect(-q.sz / 2, -q.sz / 2, q.sz, q.sz * 0.6); c.restore(); c.globalAlpha = 1; }
     });
     c.restore();
+    envFlDraw(c, W, H, ppm, 1);    // Environment vorne
     drawDust(c, W, H, ppm, DUST.front);
     radarEdges(c, W, H, ppm);
     drawFloat(c, W, H, ppm);

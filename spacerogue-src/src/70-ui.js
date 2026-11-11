@@ -39,6 +39,11 @@
       '<div class="sr-sp"></div><div class="sr-seg"><button type="button" data-view="in">' + t("vIn") + '</button><button type="button" data-view="out">' + t("vOut") + '</button></div>' +
       '<button type="button" class="sr-go sr-ed-only" data-act="test">' + t("test") + ' ▸</button><button type="button" class="sr-go sr-fl-only" data-act="edit">◂ ' + t("toEd") + '</button></div>' +
       '<aside class="sr-pal sr-ed-only"><div class="sr-tools"><button type="button" data-tool="build">' + t("tBuild") + '</button><button type="button" data-tool="erase">' + t("tErase") + '</button><button type="button" data-tool="paint">' + t("tPaint") + '</button></div>' +
+      '<div class="sr-envtabs sr-dev-only"><span class="sr-seg"><button type="button" data-act="tab-blk">' + t("tabBlk") + '</button><button type="button" data-act="tab-env">' + t("tabEnv") + '</button></span></div>' +
+      '<div class="sr-envp sr-dev-only"><small>' + t("envLayer") + '</small><span class="sr-seg sr-envl"><button type="button" data-envl="-1">' + t("envBack") + '</button><button type="button" data-envl="0">' + t("envGame") + '</button><button type="button" data-envl="1">' + t("envFront") + '</button></span>' +
+      '<label class="sr-envr"><small>' + t("envScale") + ' <b id="sr-env-sv"></b></small><input type="range" id="sr-env-s" min="-232" max="200" step="1"></label>' +
+      '<label class="sr-envr"><small>' + t("envRot") + ' <b id="sr-env-rv"></b></small><input type="range" id="sr-env-r" min="0" max="355" step="5"></label>' +
+      '<button type="button" data-act="env-rnd" class="sr-envrnd"></button><p class="sr-envh">' + t("envHelp") + '</p><small class="sr-envcat">' + t("envAst") + '</small><div class="sr-grid sr-envlist"></div></div>' +
       '<div class="sr-paint"><label>' + t("color") + ' <input type="color" id="sr-col"></label><div class="sr-sws">' + sw + '</div></div>' +
       '<div class="sr-opts"><button type="button" data-act="rot">' + t("rot") + '</button><button type="button" data-act="flip">' + t("flip") + '</button><button type="button" data-act="sym">' + t("sym") + '</button><button type="button" data-act="symm" class="sr-symm"></button></div>' +
       '<div class="sr-list">' + pal + '</div></aside>' +
@@ -64,7 +69,7 @@
       '<div class="sr-hint" id="sr-hint"></div><div class="sr-note" hidden></div>' +
       '<div class="sr-io sr-npc" hidden><div class="sr-io-box sr-npc-box"><div class="sr-tbar"><b class="sr-npc-t">' + t("hangar") + '</b><span class="sr-sp"></span><button type="button" data-act="npc-x">' + (lang === "de" ? "Schließen" : "Close") + '</button></div><div class="sr-io-h">' + t("hangarH") + '</div><div class="sr-npc-list"></div></div></div>' +
       '<div class="sr-io sr-dev" hidden><div class="sr-io-box sr-dev-box"><div class="sr-io-h">' + t("devH") + '</div><input class="sr-dev-in" type="password" inputmode="numeric" autocomplete="off" maxlength="6" spellcheck="false" aria-label="Code"><div class="sr-tbar"><span class="sr-dev-msg"></span><span class="sr-sp"></span><button type="button" data-act="dev-x">' + t("cancel") + '</button></div></div></div>' +
-      '<div class="sr-io sr-exio" hidden><div class="sr-io-box"><div class="sr-io-h"></div><textarea spellcheck="false"></textarea><div class="sr-tbar"><button type="button" data-act="io-copy">' + (lang === "de" ? "Kopieren" : "Copy") + '</button><button type="button" data-act="io-load">' + (lang === "de" ? "Laden" : "Load") + '</button><button type="button" data-act="io-txt">' + t("txtSave") + '</button><button type="button" data-act="io-open">' + t("txtOpen") + '</button><input type="file" class="sr-io-file" accept=".txt,text/plain" hidden><span class="sr-sp"></span><button type="button" data-act="io-x">' + (lang === "de" ? "Schließen" : "Close") + '</button></div></div></div></div>';
+      '<div class="sr-io sr-exio" hidden><div class="sr-io-box"><div class="sr-io-h"></div><span class="sr-seg sr-io-mode"><button type="button" data-act="io-scene">' + t("expScene") + '</button><button type="button" data-act="io-struct">' + t("expStruct") + '</button></span><textarea spellcheck="false"></textarea><div class="sr-tbar"><button type="button" data-act="io-copy">' + (lang === "de" ? "Kopieren" : "Copy") + '</button><button type="button" data-act="io-load">' + (lang === "de" ? "Laden" : "Load") + '</button><button type="button" data-act="io-txt">' + t("txtSave") + '</button><button type="button" data-act="io-open">' + t("txtOpen") + '</button><input type="file" class="sr-io-file" accept=".txt,text/plain" hidden><span class="sr-sp"></span><button type="button" data-act="io-x">' + (lang === "de" ? "Schließen" : "Close") + '</button></div></div></div></div>';
   }
   function syncUI() {
     if (!V) return;
@@ -74,6 +79,9 @@
     r.querySelectorAll("[data-blk]").forEach(function (b) { b.setAttribute("aria-pressed", String(b.getAttribute("data-blk") === S.sel && S.tool === "build")); });
     r.querySelectorAll("[data-view]").forEach(function (b) { b.setAttribute("aria-pressed", String(b.getAttribute("data-view") === S.view)); });
     r.querySelector(".sr-root").classList.toggle("st", S.ed === "station");
+    var envt = S.ed === "station" && S.envTab; r.querySelector(".sr-root").classList.toggle("envt", envt);
+    var tb1 = r.querySelector('[data-act="tab-blk"]'), tb2 = r.querySelector('[data-act="tab-env"]'); if (tb1) { tb1.setAttribute("aria-pressed", String(!S.envTab)); tb2.setAttribute("aria-pressed", String(!!S.envTab)); }
+    if (envt) envSync(r);
     if (S.ed !== "station" && T[S.sel] && T[S.sel].dev) S.sel = "lblk";   // Dev-Bauteile gibt es im Schiffsbau nicht
     r.querySelector(".sr-root").classList.toggle("foot", !!(FL && !FL.seated)); if (FL) syncHot();
     var ni = r.querySelector("#sr-name"); if (ni && document.activeElement !== ni) ni.value = S.names[S.ed] || "";
@@ -103,6 +111,17 @@
   }
   function coolTxt() { var cm = coolMap(S.blocks), w = 0, th = 0; cm.forEach(function (n, b) { var k = T[b.t].kind; if (k === "mg" || k === "rg") w++; if (k === "thr") th++; }); return w + " " + t("weap") + " · " + th + " " + t("thrs"); }
   function dimTxt() { var b = bounds(S.blocks); if (!b) return "–"; var w = b.x1 - b.x0, h = b.y1 - b.y0; return w + " × " + h + " (" + nf(w * CELL_M, 1) + " × " + nf(h * CELL_M, 1) + " m)"; }
+  // Environment-Panel: Liste erst beim ersten Öffnen zeichnen (Vorschaubilder kosten etwas), danach nur Zustand abgleichen
+  function envSync(r) {
+    var list = r.querySelector(".sr-envlist");
+    if (list && !list.childElementCount) list.innerHTML = ENV_IDS.map(function (id) { return '<button type="button" class="sr-blk sr-envb" data-env="' + id + '" title="' + ENV[id].n[lang] + '"><img alt="" src="' + envThumb(id) + '"><span>' + ENV[id].sn[lang] + "</span></button>"; }).join("");
+    r.querySelectorAll("[data-env]").forEach(function (b) { b.setAttribute("aria-pressed", String(b.getAttribute("data-env") === S.envSel && S.tool === "build")); });
+    r.querySelectorAll("[data-envl]").forEach(function (b) { b.setAttribute("aria-pressed", String(+b.getAttribute("data-envl") === S.envL)); });
+    var si = r.querySelector("#sr-env-s"), ri = r.querySelector("#sr-env-r");
+    if (si && document.activeElement !== si) si.value = Math.round(Math.log2(S.envS) * 100); if (ri && document.activeElement !== ri) ri.value = S.envR;
+    set("sr-env-sv", "× " + nf(S.envS, 2)); set("sr-env-rv", S.envR + "°");
+    var rb = r.querySelector('[data-act="env-rnd"]'); if (rb) { rb.textContent = t("envRnd") + ": " + t(S.envRnd ? "envOn" : "envOff"); rb.setAttribute("aria-pressed", String(!!S.envRnd)); }
+  }
   function info() {
     var st = stats(S.blocks), R = rooms(S.blocks), comps = components(S.blocks), main = comps.length ? comps.reduce(function (a, b) { return mainScore(b) > mainScore(a) ? b : a; }) : [];
     var loose = S.blocks.length - main.length, m = st.mass || 1;
@@ -121,6 +140,7 @@
     document.getElementById("sr-info").innerHTML =
       "<h4>" + t("sBlocks") + "</h4>" + row(t("sBlocks"), nf(st.n)) + row(t("sMass"), nf(st.mass * 1000) + " kg") + row(t("sCost"), cr(st.cost || 0) + '<br><small style="color:#7FD3A4;font-weight:400">' + t("costFree") + "</small>") +
       row(t("sDim"), dimTxt()) + row(t("sCom"), t("comHint")) +
+      (S.ed === "station" ? "<h4>" + t("envCount") + "</h4>" + row(t("envBack"), nf(S.env.filter(function (e) { return e.l === -1; }).length)) + row(t("envGame"), nf(S.env.filter(function (e) { return e.l === 0; }).length)) + row(t("envFront"), nf(S.env.filter(function (e) { return e.l === 1; }).length)) : "") +
       (isSt ? "" : "<h4>" + t("sThr") + "</h4>" + row("↑ " + t("dF"), acc(0)) + row("↓ " + t("dB"), acc(2)) + row("← " + t("dL"), acc(3)) + row("→ " + t("dR"), acc(1)) +
       "<h4>" + t("sGyro") + "</h4>" + row("Gyro", st.gyro ? st.gyro + " × · " + wdeg : "–")) +
       (isSt && !st.mg && !st.ms && !st.rg && !st.gun ? "" : weapTxt()) +

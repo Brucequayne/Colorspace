@@ -54,6 +54,12 @@
       sta.static = true; sta.station = true; sta.name = S.names.station || t("stDef"); sta.id = ++BID; sta.x = 0; sta.y = me.y - (me.rad + sta.rad + 40); sta.vx = sta.vy = sta.w = 0;
       FL.bodies.push(sta);
     } else if (!stMode) spawnTargets();
+    // Environment (nur Developer Tool): Zelle (0,0) der Szene liegt dort, wo auch die Station liegt; ohne Station 60 m vor dem Schiff
+    FL.env = []; FL.envG = [];
+    if (stMode && S.env && S.env.length) {
+      var stb = FL.bodies.filter(function (b) { return b.station; })[0];
+      envFlightInit(stb ? { x: stb.x - stb.com[0] * CELL_M, y: stb.y - stb.com[1] * CELL_M } : { x: me.x, y: me.y - me.rad - 60 });
+    }
     S.viewEd = S.view; S.view = "out"; FL.seatWas = true;
     S.mode = "fly"; V.zoomEd = V.zoom; V.zoom = Math.min(1.1, Math.max(0.6, V.zoom));
     syncUI();
@@ -128,6 +134,7 @@
       });
     });
     collide();
+    envCollide();
     enemyBook(dt);
     trailTick();
     dockTick(dt);
@@ -141,6 +148,7 @@
       var steps = Math.ceil(Math.hypot(p.vx, p.vy) * dt / 1.0);
       for (var i = 0; i < steps; i++) {
         p.x += p.vx * dt / steps; p.y += p.vy * dt / steps;
+        if (FL.envG.length && envHit(p.x, p.y)) { spark(p.x, p.y, 4); return false; }   // Environment ist unzerstörbar
         var hit = p.pl ? hitAt(p.x, p.y, null, true) : hitAt(p.x, p.y, p.own); if (hit) { var crit = p.own && p.own.player && Math.random() < PM.crit; if (p.own === FL.me || p.pl) hitMark(p.x, p.y, hit.bd, crit); damage(hit.bd, hit.b, (p.dmg || MG.dmg) * (crit ? 2 : 1), p.x, p.y); spark(p.x, p.y, crit ? 10 : p.k ? 9 : 5); if (p.splash) blast(p.x, p.y, p.splash, p.sdmg, null); return false; }
       }
       return true;
@@ -160,6 +168,7 @@
       var steps = Math.ceil(ns * dt / 1.0);
       for (var i = 0; i < steps; i++) {
         m.x += m.vx * dt / steps; m.y += m.vy * dt / steps;
+        if (FL.envG.length && envHit(m.x, m.y)) { blast(m.x, m.y, MS.splash, MS.sdmg * mk, null); return false; }
         var hit = hitAt(m.x, m.y, m.own); if (hit) { if (m.own === FL.me) hitMark(m.x, m.y, hit.bd); damage(hit.bd, hit.b, MS.dmg * mk, m.x, m.y); blast(m.x, m.y, MS.splash, MS.sdmg * mk, null); return false; }
       }
       return true;

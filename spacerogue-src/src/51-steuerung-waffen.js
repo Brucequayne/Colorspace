@@ -130,6 +130,7 @@
     var d = gunDir(bd, b), p = gunTip(bd, b), left = RG.dmg, end = { x: p.x + d.x * RG.range, y: p.y + d.y * RG.range }, hits = 0, lastB = null;
     for (var s = 0; s < RG.range; s += 0.8) {
       var x = p.x + d.x * s, y = p.y + d.y * s, h = hitAt(x, y, bd);
+      if (FL.envG && FL.envG.length && envHit(x, y)) { end = { x: x, y: y }; spark(x, y, 10); break; }   // Railgun endet am Asteroiden
       if (h && h.b !== lastB) { lastB = h.b; if (bd === FL.me) hitMark(x, y, h.bd); damage(h.bd, h.b, left, x, y); spark(x, y, 10); left *= 0.55; hits++; if (hits >= 3) { end = { x: x, y: y }; break; } }
     }
     FL.beams.push({ x0: p.x, y0: p.y, x1: end.x, y1: end.y, life: 0 });

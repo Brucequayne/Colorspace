@@ -28,6 +28,7 @@ Diese Datei wird **gebaut** – aus den Teilen in `spacerogue-src/src/`.
 | `30-zustand.js` | Spielstand, Speichern/Laden, Beispielschiff, Beispielstation |
 | `31-editor.js` | Platzieren, Symmetrie, Abreißen, Malen |
 | `40`–`43-zeichnen-*.js` | Blöcke, Schiff, Hintergrund, Editor-Ansicht |
+| `44-umgebung.js` | Environment (Developer Tool): Asteroiden-Assets `ENV`, Ebenen `ENV_K`, Sprites, Platzieren im Editor, Zeichnen und Kollision im Testflug |
 | `50-flug.js` | Körper, Start/Ende Testflug, Simulationsschleife `flTick` |
 | `51-steuerung-waffen.js` | Schub, Drehen, Waffen, Geschütze, Zielcomputer |
 | `52-schaden.js` | Treffer, Explosionen, Schild, Zerbrechen, Kollisionen |
@@ -84,3 +85,7 @@ Folgen für Änderungen:
   gesperrt mit 6-stelligem Code (Prüfwert `DEV_H` in `30-zustand.js`, Freischaltung in `localStorage` unter `spacerogue-dev`).
   Dort sind alle Bauteile erlaubt. Bauteile mit `dev: true` in `11-bauteile.js` erscheinen nur im Developer Tool.
   Export/Import können .txt-Dateien speichern und öffnen (`saveTxt`/`openTxt` in `73-hangar-export.js`).
+- v0.54 „World Building“: Environment im Developer Tool. Assets frei platziert (`S.env`, gespeichert im Stations-Speicher unter `env`),
+  drei Ebenen (-1 hinten, 0 Spielebene mit Kollision, 1 vorne), skalier- und drehbar. Szenencode = Schiffscode + Feld `env`
+  (`sceneCode`/`parseEnv` in `20-schiffslogik.js`). Neue Assets: Eintrag in `ENV` in `44-umgebung.js`.
+- v0.54.1: Asteroiden nur in Grautönen (`ENV_MAT`), Sprites in Auflösungsstufen 1/2/4 bis 2048 px (`envSprite`), Maßstab höchstens ×4.

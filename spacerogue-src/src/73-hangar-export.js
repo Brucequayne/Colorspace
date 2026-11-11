@@ -40,6 +40,9 @@
     var io = V.root.querySelector(".sr-exio"), ta = io.querySelector("textarea"), h = io.querySelector(".sr-io-h");
     io.hidden = false;
     io.querySelector('[data-act="io-copy"]').hidden = mode !== "exp"; io.querySelector('[data-act="io-load"]').hidden = mode !== "imp"; io.querySelector('[data-act="io-txt"]').hidden = mode !== "exp"; io.querySelector('[data-act="io-open"]').hidden = mode !== "imp";
-    if (mode === "exp") { h.textContent = lang === "de" ? "Schiffscode deines Entwurfs. Kopieren und teilen oder speichern." : "Ship code of your design. Copy and share or keep it."; ta.value = shipCode(); ta.readOnly = true; ta.select(); }
+    var sc = mode === "exp" && S.ed === "station";   // im Developer Tool: ganze Szene oder nur die Struktur
+    io.querySelector(".sr-io-mode").hidden = !sc;
+    if (sc) { if (V.ioScene === undefined) V.ioScene = true; io.querySelectorAll(".sr-io-mode button").forEach(function (b) { b.setAttribute("aria-pressed", String((b.getAttribute("data-act") === "io-scene") === V.ioScene)); }); }
+    if (mode === "exp") { h.textContent = sc && V.ioScene ? (lang === "de" ? "Szenencode: alle Blöcke und das ganze Environment mit Ebenen, Größe und Drehung." : "Scene code: all blocks and the whole environment with layers, size and rotation.") : (lang === "de" ? "Schiffscode deines Entwurfs. Kopieren und teilen oder speichern." : "Ship code of your design. Copy and share or keep it."); ta.value = sc && V.ioScene ? sceneCode() : shipCode(); ta.readOnly = true; ta.select(); }
     else { h.textContent = lang === "de" ? "Schiffscode einfügen und laden. Der aktuelle Entwurf lässt sich mit Rückgängig zurückholen." : "Paste a ship code and load it. Undo brings back the current design."; ta.value = ""; ta.readOnly = false; ta.focus(); }
   }
