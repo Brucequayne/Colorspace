@@ -1,23 +1,28 @@
-/* EZ Crop 0.1 – Videos im Browser auf 9:16 zuschneiden, Crop-Fahrt live per Maus aufnehmen. Für Color Space.
+/* EZ Crop 0.2 – Videos im Browser auf 9:16, 4:5 oder 1:1 zuschneiden, Crop-Fahrt live per Maus aufnehmen. Für Color Space.
    Einbindung: ezcrop.js per script-Tag laden, dann EzCrop.mount(element, "de" | "en") und EzCrop.unmount().
    Für den Export wird mp4-muxer.js (MIT) aus demselben Ordner nachgeladen. Videos verlassen nie das Gerät. */
 (function () {
   "use strict";
 
-  var VERSION = "0.11", OUT_W = 1080, OUT_H = 1920, FPS = 30, BITRATE = 16000000;
+  var VERSION = "0.2", FPS = 30, BITRATE = 16000000;
+  // Formate: Seitenverhältnis und Full-HD-Ausgabe (Breite immer 1080)
+  var FORMATS = { "9:16": { aw: 9, ah: 16, w: 1080, h: 1920 }, "4:5": { aw: 4, ah: 5, w: 1080, h: 1350 }, "1:1": { aw: 1, ah: 1, w: 1080, h: 1080 } };
+  var FORMAT_ORDER = ["9:16", "4:5", "1:1"];
+  function F() { return FORMATS[(E && E.ar) || "9:16"]; }
   var lang = "de";
 
   function L2(de, en) { return { de: de, en: en }; }
   var TX = {
     title: L2("EZ Crop", "EZ Crop"),
-    intro: L2("Video laden, abspielen und den 9:16-Rahmen live mit der Maus führen. EZ Crop merkt sich die Fahrt als Keyframes und rechnet nur diesen Ausschnitt als Full-HD-MP4 für TikTok und Co. heraus. Das Video verlässt dein Gerät nicht.",
-              "Load a video, play it and steer the 9:16 frame live with your mouse. EZ Crop remembers the move as keyframes and renders only that section as a Full HD MP4 for TikTok and similar. The video never leaves your device."),
+    intro: L2("Video laden, Format wählen (9:16, 4:5 oder 1:1), abspielen und den Rahmen live mit der Maus führen. EZ Crop merkt sich die Fahrt als Keyframes und rechnet nur diesen Ausschnitt als Full-HD-MP4 für TikTok, Instagram und Co. heraus. Das Video verlässt dein Gerät nicht.",
+              "Load a video, pick a format (9:16, 4:5 or 1:1), play it and steer the frame live with your mouse. EZ Crop remembers the move as keyframes and renders only that section as a Full HD MP4 for TikTok, Instagram and similar. The video never leaves your device."),
+    formatH: L2("Format", "Format"), f916: L2("9:16 · Reels, TikTok", "9:16 · Reels, TikTok"), f45: L2("4:5 · Feed", "4:5 · feed"), f11: L2("1:1 · Quadrat", "1:1 · square"),
     drop: L2("Video hierher ziehen", "Drop a video here"), or: L2("oder", "or"), pick: L2("Video auswählen", "Choose video"),
     dropNote: L2("MP4, MOV oder WebM · bleibt auf deinem Gerät", "MP4, MOV or WebM · stays on your device"),
     other: L2("Anderes Video", "Other video"), play: L2("Abspielen", "Play"), pause: L2("Pause", "Pause"),
     hint: L2("Während das Video läuft: Rahmen mit gedrückter Maus führen, das wird aufgezeichnet. Im Pausenmodus setzt Ziehen einen einzelnen Keyframe.",
              "While the video plays: hold the mouse and steer the frame, this gets recorded. When paused, dragging sets a single keyframe."),
-    preview: L2("Vorschau 9:16", "Preview 9:16"), scale: L2("Größe des Rahmens", "Frame size"), smooth: L2("Glättung", "Smoothing"),
+    preview: L2("Vorschau {ar}", "Preview {ar}"), scale: L2("Größe des Rahmens", "Frame size"), smooth: L2("Glättung", "Smoothing"),
     keys: L2("{n} Keyframes", "{n} keyframes"), noKeys: L2("Noch keine Keyframes: der Rahmen steht still.", "No keyframes yet: the frame stays still."),
     clear: L2("Keyframes löschen", "Clear keyframes"), sure: L2("Wirklich alle löschen?", "Really clear all?"),
     rec: L2("Aufnahme", "Recording"),
@@ -34,10 +39,10 @@
     failed: L2("Export fehlgeschlagen: {e}", "Export failed: {e}"),
     bad: L2("Diese Datei konnte nicht als Video geöffnet werden.", "This file could not be opened as a video."),
     howH: L2("So funktioniert’s", "How it works"),
-    how1: L2("Spiel das Video ab und halte die Maus im Bild gedrückt: Der 9:16-Rahmen folgt deiner Hand, und jede Bewegung wird mit der Zeit des Videos gespeichert. Fährst du eine Stelle später noch einmal, ersetzt die neue Fahrt die alte nur dort, wo du gefahren bist. Mit dem Regler für die Größe zoomst du hinein, auch das wird beim Abspielen aufgezeichnet.",
-             "Play the video and hold the mouse down in the picture: the 9:16 frame follows your hand, and every movement is stored with the video's time. If you go over a passage again later, the new move replaces the old one only where you moved. The size slider zooms in, and that is recorded during playback too."),
-    how2: L2("Glättung nimmt kleine Zitterer aus der Fahrt. Der Export rechnet Bild für Bild den Ausschnitt in 1080 × 1920 heraus, 30 Bilder pro Sekunde, mit variabler Bitrate um 16 Mbit/s, das liegt im empfohlenen Bereich von 12 bis 18 Mbit/s für TikTok. Der Ton wird übernommen.",
-             "Smoothing takes small jitters out of the move. The export renders the section frame by frame at 1080 × 1920, 30 frames per second, with a variable bitrate around 16 Mbps, within the 12 to 18 Mbps range recommended for TikTok. The audio is kept."),
+    how1: L2("Spiel das Video ab und halte die Maus im Bild gedrückt: Der Rahmen im gewählten Format folgt deiner Hand, und jede Bewegung wird mit der Zeit des Videos gespeichert. Fährst du eine Stelle später noch einmal, ersetzt die neue Fahrt die alte nur dort, wo du gefahren bist. Mit dem Regler für die Größe zoomst du hinein, auch das wird beim Abspielen aufgezeichnet.",
+             "Play the video and hold the mouse down in the picture: the frame in the chosen format follows your hand, and every movement is stored with the video's time. If you go over a passage again later, the new move replaces the old one only where you moved. The size slider zooms in, and that is recorded during playback too."),
+    how2: L2("Glättung nimmt kleine Zitterer aus der Fahrt. Der Export rechnet Bild für Bild den Ausschnitt in Full HD heraus: 1080 × 1920 bei 9:16, 1080 × 1350 bei 4:5 und 1080 × 1080 bei 1:1, jeweils 30 Bilder pro Sekunde mit variabler Bitrate um 16 Mbit/s. Der Ton wird übernommen. Das Format kannst du jederzeit wechseln, die Fahrt bleibt erhalten.",
+             "Smoothing takes small jitters out of the move. The export renders the section frame by frame in Full HD: 1080 × 1920 for 9:16, 1080 × 1350 for 4:5 and 1080 × 1080 for 1:1, each at 30 frames per second with a variable bitrate around 16 Mbps. The audio is kept. You can switch the format at any time, the move is kept."),
     how3: L2("Der Export läuft vollständig in deinem Browser. Er dauert je nach Rechner etwa so lange wie das Video selbst oder etwas länger.", "The export runs entirely in your browser. Depending on your computer it takes about as long as the video itself, or a little longer.")
   };
   function t(k) { return TX[k][lang]; }
@@ -51,8 +56,8 @@
 
   // Rahmen in Quellpixeln aus Mitte (0–1) und Größe (Anteil der Höhe)
   function rect(c) {
-    var ch = c.s * E.vh, cw = ch * 9 / 16;
-    if (cw > E.vw) { cw = E.vw; ch = cw * 16 / 9; }
+    var f = F(), ch = c.s * E.vh, cw = ch * f.aw / f.ah;
+    if (cw > E.vw) { cw = E.vw; ch = cw * f.ah / f.aw; }
     var x = clamp(c.x * E.vw, cw / 2, E.vw - cw / 2), y = clamp(c.y * E.vh, ch / 2, E.vh - ch / 2);
     return { x: x - cw / 2, y: y - ch / 2, w: cw, h: ch };
   }
@@ -93,7 +98,7 @@
     if (!file || !/^video\//.test(file.type) && !/\.(mp4|mov|m4v|webm|mkv)$/i.test(file.name || "")) { note(t("bad")); return; }
     if (E && E.url) URL.revokeObjectURL(E.url);
     var url = URL.createObjectURL(file);
-    E = { file: file, url: url, name: (file.name || "video").replace(/\.[^.]+$/, ""), dur: 0, vw: 0, vh: 0, keys: [], cur: { x: 0.5, y: 0.5, s: 1 }, smooth: 40, mode: (E && E.mode) || "hd" };
+    E = { file: file, url: url, name: (file.name || "video").replace(/\.[^.]+$/, ""), dur: 0, vw: 0, vh: 0, keys: [], cur: { x: 0.5, y: 0.5, s: 1 }, smooth: 40, mode: (E && E.mode) || "hd", ar: (E && E.ar) || "9:16" };
     if (V) buildUI();
   }
   function onMeta() {
@@ -112,8 +117,8 @@
     cv.style.width = cw + "px"; cv.style.height = ch + "px";
     cv.width = Math.round(cw * dpr); cv.height = Math.round(ch * dpr);
     V.sc = cv.width / E.vw;
-    var pv = V.pv, ph = Math.min(pv.parentNode.clientWidth * 16 / 9, Math.max(260, (window.innerWidth >= 1100 ? desk.clientHeight : window.innerHeight) * 0.6)), pw = Math.round(ph * 9 / 16);
-    ph = Math.round(pw * 16 / 9);
+    var f = F(), pv = V.pv, ph = Math.min(pv.parentNode.clientWidth * f.ah / f.aw, Math.max(260, (window.innerWidth >= 1100 ? desk.clientHeight : window.innerHeight) * 0.6)), pw = Math.round(ph * f.aw / f.ah);
+    ph = Math.round(pw * f.ah / f.aw);
     pv.style.width = pw + "px"; pv.style.height = ph + "px";
     pv.width = Math.round(pw * dpr); pv.height = Math.round(ph * dpr);
     var side = V.root.querySelector("#ez-side");
@@ -177,10 +182,12 @@
   function srcBitrate() { return E.file && E.dur ? E.file.size * 8 / E.dur : BITRATE; }
   // Ausgabegröße und Bitrate für den gewählten Modus
   function spec() {
-    if (E.mode !== "low") return { w: OUT_W, h: OUT_H, br: BITRATE };
+    var f = F();
+    if (E.mode !== "low") return { w: f.w, h: f.h, br: BITRATE };
     var maxH = 0, list = E.keys.length ? E.keys : [E.cur];
     list.forEach(function (c) { maxH = Math.max(maxH, rect(c).h); });
-    var k = clamp(Math.round(maxH / 32), 10, 60), w = k * 18, h = k * 32;           // exakt 9:16, gerade Werte, höchstens 1080 × 1920
+    var uw = f.aw * 2, uh = f.ah * 2;                                               // kleinste Einheit mit geraden Werten im exakten Format
+    var k = clamp(Math.round(maxH / uh), Math.ceil(320 / uh), f.h / uh), w = k * uw, h = k * uh;   // höchstens Full HD
     var br = srcBitrate() * (w * h) / (E.vw * E.vh) * 1.5;                          // Pixelanteil der Quelle plus Reserve
     br = clamp(Math.round(br / 1e5) * 1e5, 1000000, 12000000);
     return { w: w, h: h, br: br };
@@ -264,7 +271,7 @@
       }
       muxer.finalize();
       var blob = new Blob([target.buffer], { type: "video/mp4" }), url = URL.createObjectURL(blob), a = document.createElement("a");
-      a.href = url; a.download = E.name + (E.mode === "low" ? "-ezcrop-" + OW + "x" + OH : "-ezcrop") + ".mp4"; document.body.appendChild(a); a.click(); a.remove();
+      a.href = url; a.download = E.name + "-ezcrop-" + E.ar.replace(":", "x") + (E.mode === "low" ? "-" + OW + "x" + OH : "") + ".mp4"; document.body.appendChild(a); a.click(); a.remove();
       setTimeout(function () { URL.revokeObjectURL(url); }, 10000);
       var mb = blob.size / 1048576, mbit = blob.size * 8 / (E.dur || 1) / 1e6;
       note([fmt(t("done"), { mb: mb.toFixed(1).replace(".", lang === "de" ? "," : "."), mbit: mbit.toFixed(1).replace(".", lang === "de" ? "," : ".") })].concat(notes).join(" "));
@@ -319,7 +326,7 @@
     if (V.vid) { V.vid.pause(); V.vid.removeAttribute("src"); V.vid.load(); V.vid = null; }
     if (!E) {
       desk.innerHTML = '<div class="ez-drop"><b>' + t("drop") + "</b><span>" + t("or") + '</span><button type="button" class="ez-pick" data-ez="pick">' + t("pick") + '</button><span id="ez-dn">' + t("dropNote") + "</span></div>";
-      bar.innerHTML = ""; side.innerHTML = '<div class="ez-box"><h3>' + t("preview") + '</h3><p class="ez-desc">' + t("hint") + "</p></div>";
+      bar.innerHTML = ""; side.innerHTML = '<div class="ez-box"><h3>' + fmt(t("preview"), { ar: "" }).trim() + '</h3><p class="ez-desc">' + t("hint") + "</p></div>";
       return;
     }
     desk.innerHTML = '<canvas id="ez-cv" aria-label="' + E.name + '"></canvas>';
@@ -327,7 +334,8 @@
       '<div class="ez-tl"><input type="range" id="ez-pos" min="0" max="1000" step="1" value="0" aria-label="Position"><canvas id="ez-keys"></canvas></div>' +
       '<span class="ez-time" id="ez-time"></span></div><p class="ez-hint">' + t("hint") + "</p>";
     side.innerHTML = '<div class="px-btns ez-btns"><button type="button" class="navbtn" data-ez="pick">' + t("other") + "</button></div>" +
-      '<div class="ez-box"><h3>' + t("preview") + '</h3><div><canvas class="ez-pv" id="ez-pv"></canvas></div>' +
+      '<div class="ez-box"><h3>' + t("formatH") + '</h3><div class="ez-btns">' + FORMAT_ORDER.map(function (k) { return '<button type="button" class="navbtn" data-ez="ar" data-ar="' + k + '" id="ez-ar-' + k.replace(":", "x") + '">' + t({ "9:16": "f916", "4:5": "f45", "1:1": "f11" }[k]) + "</button>"; }).join("") + "</div></div>" +
+      '<div class="ez-box"><h3 id="ez-pvh"></h3><div><canvas class="ez-pv" id="ez-pv"></canvas></div>' +
       '<div class="ez-row"><label for="ez-scale">' + t("scale") + '<span id="ez-scale-v"></span></label><input type="range" id="ez-scale" min="30" max="100" step="1"></div>' +
       '<div class="ez-row"><label for="ez-smooth">' + t("smooth") + '<span id="ez-smooth-v"></span></label><input type="range" id="ez-smooth" min="0" max="100" step="1"></div>' +
       '<p class="ez-desc" id="ez-kn"></p><div class="ez-btns"><button type="button" class="navbtn" data-ez="clear">' + t("clear") + "</button></div></div>" +
@@ -346,6 +354,8 @@
     var c = V.vid && E.vw ? current() : E.cur;
     sc.value = Math.round(c.s * 100); V.root.querySelector("#ez-scale-v").textContent = Math.round(c.s * 100) + " %";
     V.root.querySelector("#ez-smooth").value = E.smooth; V.root.querySelector("#ez-smooth-v").textContent = E.smooth + " %";
+    FORMAT_ORDER.forEach(function (k) { var b = V.root.querySelector("#ez-ar-" + k.replace(":", "x")); b.setAttribute("aria-pressed", String(E.ar === k)); b.classList.toggle("armed", E.ar === k); });
+    V.root.querySelector("#ez-pvh").textContent = fmt(t("preview"), { ar: E.ar });
     ["hd", "low"].forEach(function (m) { var b = V.root.querySelector("#ez-m-" + m); b.setAttribute("aria-pressed", String(E.mode === m)); b.classList.toggle("armed", E.mode === m); });
     if (E.vw) { var sp = spec(); V.root.querySelector("#ez-info").textContent = fmt(t("exportInfo"), { w: sp.w, h: sp.h, br: mb1(sp.br) }); }
     var li = V.root.querySelector("#ez-lowinfo"); li.hidden = E.mode !== "low"; if (E.vw) li.textContent = fmt(t("lowInfo"), { src: mb1(srcBitrate()) });
@@ -405,6 +415,7 @@
     if (!E) return;
     if (a === "play") { if (V.vid.paused) V.vid.play(); else V.vid.pause(); return; }
     if (a === "mode") { if (!busy) { E.mode = b.dataset.m; updateSide(); } return; }
+    if (a === "ar") { if (!busy && E.ar !== b.dataset.ar) { E.ar = b.dataset.ar; if (E.vw) { clampCur(); E.keys.forEach(function (q) { var r = rect(q); q.x = (r.x + r.w / 2) / E.vw; q.y = (r.y + r.h / 2) / E.vh; }); layout(); } updateSide(); } return; }
     if (a === "save") { if (busy) cancelReq = true; else doExport(); return; }
     if (a === "clear") {
       if (!b.classList.contains("armed")) { b.classList.add("armed"); b.textContent = t("sure"); setTimeout(function () { if (b.isConnected) { b.classList.remove("armed"); b.textContent = t("clear"); } }, 3500); return; }
