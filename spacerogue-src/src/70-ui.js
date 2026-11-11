@@ -13,7 +13,7 @@
   function ctlHtml() {
     var de = lang === "de", G = [
       [de ? "Im Sitz" : "Seated", [["WASD", de ? "Fliegen" : "Fly"], ["Q / E", de ? "Drehen" : "Rotate"], [de ? "Linksklick" : "Left click", de ? "Feuern" : "Fire"], ["R", de ? "Waffe wechseln" : "Switch weapon"], ["Z", de ? "Trägheitsdämpfer" : "Inertia dampers"], ["C", "Cruise Control"], ["X", "Overcharge"], [de ? "Umschalt" : "Shift", de ? "Hochgeschw. freigeben" : "Unlock high speed"], ["F", de ? "Aufstehen / Hinsetzen" : "Get up / sit down"], ["V", de ? "Innen / Außen" : "Inside / outside"], ["I", de ? "Inventar" : "Inventory"], ["P", de ? "Andocken / Abdocken" : "Dock / undock"]]],
-      [de ? "Zu Fuß" : "On foot", [["WASD", de ? "Laufen" : "Walk"], [de ? "Umschalt" : "Shift", de ? "Sprinten" : "Sprint"], ["1–9", de ? "Werkzeug wählen" : "Select tool"], [de ? "Linksklick" : "Left click", de ? "1 Schweißen · 2 Pistole" : "1 weld · 2 pistol"], [de ? "F auf Luke" : "F on hatch", de ? "Aussteigen (auch durch die Decke)" : "Exit (also through the ceiling)"], [de ? "Offener Rand" : "Open edge", de ? "Direkt hinaus und hinein" : "Step straight out and in"]]],
+      [de ? "Zu Fuß" : "On foot", [["WASD", de ? "Laufen" : "Walk"], [de ? "Umschalt" : "Shift", de ? "Sprinten" : "Sprint"], ["1–9", de ? "Werkzeug wählen" : "Select tool"], [de ? "Linksklick" : "Left click", de ? "1 Schweißen · 2 Pistole · 3 MP (halten)" : "1 weld · 2 pistol · 3 SMG (hold)"], [de ? "F auf Luke" : "F on hatch", de ? "Aussteigen (auch durch die Decke)" : "Exit (also through the ceiling)"], [de ? "Offener Rand" : "Open edge", de ? "Direkt hinaus und hinein" : "Step straight out and in"]]],
       [de ? "Draußen" : "Outside", [["WASD", "Jetpack"], [de ? "Umschalt" : "Shift", de ? "Tempo ans Schiff" : "Match ship speed"], [de ? "F über Luke" : "F above hatch", de ? "Einsteigen" : "Get in"]]],
       ["Test", [[de ? "Rechtsklick" : "Right click", de ? "Block beschädigen" : "Damage block"], [de ? "Mausrad" : "Wheel", "Zoom"], ["Esc", de ? "Zurück zum Editor" : "Back to editor"]]]
     ];
@@ -22,7 +22,7 @@
   function html() {
     var pal = CATS.map(function (cat) {
       return '<div class="sr-cat"><h4>' + t(cat) + '</h4><div class="sr-grid">' + Object.keys(T).filter(function (id) { return T[id].cat === cat; }).map(function (id) {
-        return '<button type="button" class="sr-blk" data-blk="' + id + '" data-kind="' + T[id].kind + '" title="' + T[id].n[lang] + " · " + kg(T[id].mass) + " · " + T[id].hp + " HP · " + cr(T[id].cost) + '"><img alt="" src="' + icon(id) + '"><span>' + T[id].n[lang] + "</span><small>" + kg(T[id].mass) + "</small><small class=\"sr-pr\">" + cr(T[id].cost) + "</small></button>";
+        return '<button type="button" class="sr-blk" data-blk="' + id + '" data-kind="' + T[id].kind + '" title="' + T[id].n[lang] + " · " + kg(T[id].mass) + " · " + T[id].hp + " HP · " + cr(T[id].cost) + wTip(id) + '"><img alt="" src="' + icon(id) + '"><span>' + T[id].n[lang] + "</span><small>" + kg(T[id].mass) + "</small><small class=\"sr-pr\">" + cr(T[id].cost) + "</small></button>";
       }).join("") + "</div></div>";
     }).join("");
     var sw = ["#C8473A", "#E3B83F", "#57A06A", "#3E6F96", "#7B4BA8", "#E9ECEE", "#9AA5B1", "#6A7480", "#2A2F36"].map(function (c) { return '<button type="button" class="sr-sw" data-sw="' + c + '" style="background:' + c + '" aria-label="' + c + '"></button>'; }).join("");
@@ -85,6 +85,19 @@
     set("sr-hint", fly ? "" : t("hintEd")); var hn = V.root.querySelector("#sr-hint"); if (hn) hn.hidden = fly;
     if (!fly) info();
   }
+  // Waffenwerte: im Tooltip der Bauteilliste und als eigener Abschnitt im Infofeld (je Typ Anzahl, Schaden, Feuerrate, DPS)
+  function wTip(id) { var w = wStats(id); return w ? " · " + t("wDmg") + " " + nf(w.dmg) + " · " + nf(w.rpm) + " RPM · " + nf(w.dps, 1) + " DPS" : ""; }
+  function weapTxt() {
+    var cnt = {}, ord = []; S.blocks.forEach(function (b) { if (!wStats(b.t)) return; if (!cnt[b.t]) { cnt[b.t] = 0; ord.push(b.t); } cnt[b.t]++; });
+    if (!ord.length) return "<h4>" + t("sWeap") + "</h4><p>" + t("wNone") + "</p>";
+    var tot = 0, h = "<h4>" + t("sWeap") + "</h4>";
+    ord.forEach(function (id) {
+      var w = wStats(id), n = cnt[id]; tot += w.dps * n;
+      h += "<div><span>" + n + "× " + T[id].n[lang].replace(/ \d+×\d+$/, "") + "</span><b>" + nf(w.dps * n, 1) + " DPS</b></div>" +
+        "<p class='sr-ws'>" + t("wDmg") + " " + nf(w.dmg) + " · " + nf(w.rpm) + " RPM · " + nf(w.dps, 1) + " DPS " + t("wEach") + "</p>";
+    });
+    return h + "<div><span>" + t("wTotal") + "</span><b>" + nf(tot, 1) + " DPS</b></div>";
+  }
   function coolTxt() { var cm = coolMap(S.blocks), w = 0, th = 0; cm.forEach(function (n, b) { var k = T[b.t].kind; if (k === "mg" || k === "rg") w++; if (k === "thr") th++; }); return w + " " + t("weap") + " · " + th + " " + t("thrs"); }
   function dimTxt() { var b = bounds(S.blocks); if (!b) return "–"; var w = b.x1 - b.x0, h = b.y1 - b.y0; return w + " × " + h + " (" + nf(w * CELL_M, 1) + " × " + nf(h * CELL_M, 1) + " m)"; }
   function info() {
@@ -107,6 +120,7 @@
       row(t("sDim"), dimTxt()) + row(t("sCom"), t("comHint")) +
       (isSt ? "" : "<h4>" + t("sThr") + "</h4>" + row("↑ " + t("dF"), acc(0)) + row("↓ " + t("dB"), acc(2)) + row("← " + t("dL"), acc(3)) + row("→ " + t("dR"), acc(1)) +
       "<h4>" + t("sGyro") + "</h4>" + row("Gyro", st.gyro ? st.gyro + " × · " + wdeg : "–")) +
+      (isSt && !st.mg && !st.ms && !st.rg && !st.gun ? "" : weapTxt()) +
       "<h4>" + t("sCool") + "</h4>" + row(t("sCoolW"), coolTxt()) + row("Overcharge", nf(ocMaxOf(S.blocks, coolMap(S.blocks)), 1) + " s") +
       "<h4>" + t("sEn") + "</h4>" + row(t("sProd"), nf(st.prod) + " E/s") + row(t("sStore"), nf(st.cap) + " E") + row(t("sUse"), nf(st.use) + " E/s") +
       "<h4>" + t("sRooms") + "</h4><p class='" + (leaks ? "bad" : "ok") + "'>" + (R.length ? fmt(t("okRooms"), { n: R.length - leaks }) + (leaks ? " · " + leaks + " ✕" : "") + " · " + fmt(t("roomCells"), { n: R.reduce(function (a, r) { return a + r.cells.length; }, 0) }) : t("noRooms")) + "</p>" +

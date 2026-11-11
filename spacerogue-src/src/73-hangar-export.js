@@ -13,7 +13,7 @@
     if (list.childElementCount) return;   // Vorschaubilder nur einmal zeichnen
     NPC.forEach(function (sh) {
       var bl = npcBlocks(sh), st = stats(bl), bb = bounds(bl), wp = [];
-      if (st.mg) wp.push(st.mg + "× " + t("mg")); if (st.ms) wp.push(st.ms + "× " + t("ms")); if (st.rg) wp.push(st.rg + "× " + t("rg"));
+      if (st.mg) wp.push(st.mg + "× " + t("mg")); if (st.ms) wp.push(st.ms + "× " + t("ms")); if (st.rg) wp.push(st.rg + "× " + t("rg")); if (st.gun) wp.push(st.gun + "× " + t("gunsN"));
       var card = document.createElement("div"); card.className = "sr-npc-card";
       card.appendChild(shipThumb(bl, 132));
       var tx = document.createElement("div"); tx.className = "sr-npc-tx";

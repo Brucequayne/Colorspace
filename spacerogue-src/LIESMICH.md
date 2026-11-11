@@ -63,7 +63,7 @@ Folgen für Änderungen:
   - Gewollte Spieländerung: Fingerabdruck ändert sich. Auf Fehlermeldungen prüfen, dann
     `node spacerogue-src/tests/volltest.js --merken`.
   Der Volltest spielt den Editor und den Testflug.
-- **`editor.test.js`** – Tests mit echtem Spielablauf ohne Bildschirm: Schwere Rakete, Preisanzeige in der Bauteilliste, Testflug starten und mit Esc beenden.
+- **`editor.test.js`** – Tests mit echtem Spielablauf ohne Bildschirm: Schwere Rakete, Preisanzeige, getrennte Waffengruppen, 25-/120-mm-Geschütz, Waffenwerte (Schaden/RPM/DPS), Panzerung 1×2, Einrichtung, Maschinenpistole, Testflug starten und mit Esc beenden.
 - Die Tests ersetzen keinen Blick ins echte Spiel: Sie sehen nichts, sie rechnen nur.
 
 ## Unverändert seit dem Umbau
@@ -78,3 +78,5 @@ Folgen für Änderungen:
 - v0.50.0–0.50.1: Rogue-like-Run mit Stages, Werft-Credits und Perks (von Fable).
 - v0.50.2: Der Run-Modus wurde wieder entfernt; Schwere Rakete, Preise in der Bauteilliste und der Fix für die
   verrutschte Ansicht zu Fuß sind geblieben. Der Perk-Haken `PM` in `11-bauteile.js` bleibt für spätere Upgrades.
+- v0.51.0: Waffengruppen je Typ (`WGROUPS`, `grpOf` in `12-balance.js`), Geschütze (`GUN`), Waffenkennzahlen (`wStats`),
+  Maschinenpistole (`SMG`, `fireHand` in `54-figur.js`), Einrichtung (Art `deco`, Zeichnung `decoArt`), Panzerung 1×2.

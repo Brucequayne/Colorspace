@@ -62,22 +62,37 @@
       b.heat = (b.heat || 0) + MG.heat / (1 + 0.35 * cn2) * (bd === FL.me && FL.oc ? 0.75 : 1);   // Overcharge: 25 % langsamer heiß
       if (b.heat >= 1) { b.heat = 1; b.oh = b.ohMax = MG.lock / (1 + 0.3 * cn2); for (var i = 0; i < 10; i++) FL.parts.push({ x: tip.x, y: tip.y, vx: bd.vx + (Math.random() - 0.5) * 6, vy: bd.vy + (Math.random() - 0.5) * 6, life: 0, max: 1 + Math.random(), k: "smoke", sz: 1 + Math.random() }); }
     });
-    // Raketen: je Werfer 2 Schuss (Schwere Rakete: 1 Schuss mit vierfachem Schaden), abgefeuert wird nacheinander aus irgendeinem Werfer mit Munition.
-    // Erst wenn alle leer sind, laden alle gemeinsam nach: 2,5 s je Werfer.
-    bd.msCd = Math.max(0, (bd.msCd || 0) - dt);
-    if (firing && g === "ms" && !(bd.msRl > 0) && bd.msCd <= 0 && bd.energy >= MS.e) {
-      var ls = bd.blocks.filter(function (b) { return T[b.t].kind === "ms" && b.ammo > 0; });
-      if (ls.length) {
-        var lb = ls[(bd.msTurn = ((bd.msTurn || 0) + 1)) % ls.length];
-        var lty = T[lb.t], ec = MS.e * (lty.ek || 1);
-        if (bd.energy >= ec) {                            // Schwere Rakete braucht mehr Energie je Schuss
-        lb.ammo--; bd.energy -= ec; bd.msCd = MS.gap;
-        var d = dirWorld(bd, dirOut(lb, 0)), tip = muzzle(bd, lb), side = lty.rk === 1 ? 0 : lb.ammo === 1 ? 0.22 : -0.22, nx = -d.y * side * CELL_M, ny = d.x * side * CELL_M;
-        FL.missiles.push({ x: tip.x + nx, y: tip.y + ny, vx: bd.vx + d.x * MS.v0, vy: bd.vy + d.y * MS.v0, h: Math.atan2(d.y, d.x), life: 0, own: bd, aim: aim || null, k: lty.mk || 1 });
-        var left = bd.blocks.reduce(function (a, b) { return a + (T[b.t].kind === "ms" ? b.ammo : 0); }, 0);
-        if (!left) bd.msRl = bd.msRlMax = MS.reload * bd.blocks.filter(function (b) { return T[b.t].kind === "ms"; }).length / (bd.player ? 1 + PM.msRl : 1);
+    // Raketen: leichte (2 Schuss je Werfer) und schwere (1 Schuss, vierfacher Schaden) sind getrennte Waffen mit eigenem Magazin.
+    // Abgefeuert wird nacheinander aus irgendeinem Werfer der Art mit Munition; erst wenn alle leer sind, laden sie gemeinsam nach: 2,5 s je Werfer.
+    if (firing && (g === "msl" || g === "msh")) {
+      var mst = bd.mst || (bd.mst = {}), q = mst[g] || (mst[g] = { rl: 0, rlMax: 0, cd: 0, turn: 0 });
+      var lty = T[g], ec = MS.e * (lty.ek || 1);
+      if (!(q.rl > 0) && q.cd <= 0 && bd.energy >= ec) {
+        var ls = bd.blocks.filter(function (b) { return b.t === g && b.ammo > 0; });
+        if (ls.length) {
+          var lb = ls[(q.turn = q.turn + 1) % ls.length];
+          lb.ammo--; bd.energy -= ec; q.cd = MS.gap;
+          var d = dirWorld(bd, dirOut(lb, 0)), tip = muzzle(bd, lb), side = lty.rk === 1 ? 0 : lb.ammo === 1 ? 0.22 : -0.22, nx = -d.y * side * CELL_M, ny = d.x * side * CELL_M;
+          FL.missiles.push({ x: tip.x + nx, y: tip.y + ny, vx: bd.vx + d.x * MS.v0, vy: bd.vy + d.y * MS.v0, h: Math.atan2(d.y, d.x), life: 0, own: bd, aim: aim || null, k: lty.mk || 1 });
+          var left = bd.blocks.reduce(function (a, b) { return a + (b.t === g ? b.ammo : 0); }, 0);
+          if (!left) q.rl = q.rlMax = MS.reload * bd.blocks.filter(function (b) { return b.t === g; }).length / (bd.player ? 1 + PM.msRl : 1);
         }
       }
+    }
+    // Geschütze: jedes Rohr feuert für sich im eigenen Takt; mehrere setzen zu Beginn einer Salve leicht versetzt ein
+    if (GUN[g]) {
+      var G = GUN[g], per = 60 / G.rpm, gw = bd.gunWas || (bd.gunWas = {});
+      var gs = bd.blocks.filter(function (b) { return b.t === g; });
+      if (firing && !gw[g]) gs.forEach(function (b, i) { b.gcd = Math.max(b.gcd || 0, (i / gs.length) * per * 0.5); });
+      gw[g] = firing;
+      if (firing) gs.forEach(function (b) {
+        if (b.gcd > 0 || bd.energy < G.e) return;
+        b.gcd = per; bd.energy -= G.e;
+        var d = gunDir(bd, b), tip = gunTip(bd, b), big = g === "g120";
+        FL.shots.push({ x: tip.x, y: tip.y, vx: bd.vx + d.x * G.speed, vy: bd.vy + d.y * G.speed, life: 0, own: bd, dmg: G.dmg, lmax: G.life, k: g, splash: G.splash || 0, sdmg: G.sdmg || 0 });
+        FL.parts.push({ x: tip.x, y: tip.y, vx: bd.vx, vy: bd.vy, life: 0, max: big ? 0.12 : 0.08, k: "flash", sz: big ? 3.6 : 2.2 });
+        for (var si = 0; si < (big ? 6 : 2); si++) FL.parts.push({ x: tip.x, y: tip.y, vx: bd.vx + d.x * 4 + (Math.random() - 0.5) * 5, vy: bd.vy + d.y * 4 + (Math.random() - 0.5) * 5, life: 0, max: 0.6 + Math.random() * 0.5, k: "smoke", sz: big ? 1.4 : 0.8 });
+      });
     }
     if (firing && g === "rg") bd.blocks.forEach(function (b) {
       if (T[b.t].kind !== "rg" || b.cd > 0) return;
@@ -92,7 +107,7 @@
   function gunMount(bd, b) { var d = dirOut(b, 0), f = fp(b), h = T[b.t].h; return { lx: b.x + f[0] / 2 - DV[d][0] * h / 2, ly: b.y + f[1] / 2 - DV[d][1] * h / 2 }; }
   function turretTick(bd, dt, aim) {
     bd.blocks.forEach(function (b) {
-      var k = T[b.t].kind; if (k !== "mg" && k !== "rg") return;
+      var k = T[b.t].kind; if (k !== "mg" && k !== "rg" && k !== "gun") return;
       var want = 0;
       if (bd.tcomp && aim) {
         var m = gunMount(bd, b), mw = toWorld(bd, m.lx, m.ly), d = dirWorld(bd, dirOut(b, 0));
@@ -127,10 +142,11 @@
   // Erfasst wird das Gegnerschiff, das dem Mauszeiger am nächsten ist. Der kleine Kreis zeigt, wohin man zielen muss, damit
   // Minigun-Geschosse das Ziel bei gleichbleibender Bewegung treffen (Abfangpunkt aus Relativtempo und Geschossgeschwindigkeit).
   function leadPoint(me, tg) {
-    var rx = tg.x - me.x, ry = tg.y - me.y, vx = tg.vx - me.vx, vy = tg.vy - me.vy, s2 = MG.speed * MG.speed;
+    var ps = grpSpeed(FL.groups[FL.wsel]);   // Vorhaltepunkt passt sich der gewählten Waffe an (Geschütze sind schneller)
+    var rx = tg.x - me.x, ry = tg.y - me.y, vx = tg.vx - me.vx, vy = tg.vy - me.vy, s2 = ps.speed * ps.speed;
     var a = vx * vx + vy * vy - s2, b = 2 * (rx * vx + ry * vy), c2 = rx * rx + ry * ry, tt;
     if (Math.abs(a) < 1e-6) tt = -c2 / b; else { var disc = b * b - 4 * a * c2; if (disc < 0) return null; var sq = Math.sqrt(disc), t1 = (-b - sq) / (2 * a), t2 = (-b + sq) / (2 * a); tt = Math.min(t1, t2) > 0 ? Math.min(t1, t2) : Math.max(t1, t2); }
-    if (!(tt > 0) || tt > MG.life) return null;
+    if (!(tt > 0) || tt > ps.life) return null;
     return { x: tg.x + vx * tt, y: tg.y + vy * tt, t: tt };
   }
   function drawLead(c, ppm, tm) {

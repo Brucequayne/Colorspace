@@ -2,7 +2,7 @@
   // Schiff: erst Innenleben, dann Aufbauten; Panzerung zuletzt, damit Kanten sauber liegen
   var ORDER = { floor: 0, door: 0, hatch: 0, wall: 1, cock: 2, bat: 2, reac: 2, gyro: 2, cool: 2, tcomp: 2, shield: 2, dock: 1, thr: 3, mg: 3, rg: 3, ms: 3, ant: 3, win: 4, armor: 4 };
   // Panzerung (und außen die Dächer) verschmilzt zu einer Hülle: Kanten nur dort, wo die Hülle endet
-  function isHull(k, view) { return k === "armor" || k === "win" || (view === "out" && (k === "floor" || k === "wall" || k === "door" || k === "hatch")); }
+  function isHull(k, view) { return k === "armor" || k === "win" || (view === "out" && (k === "floor" || k === "wall" || k === "door" || k === "hatch" || k === "deco")); }
   function drawShip(c, blocks, s, view, tm, body, M) {
     M = M || buildMap(blocks);
     var sorted = blocks.slice().sort(function (a, b) { return ORDER[T[a.t].kind] - ORDER[T[b.t].kind]; }), hull = [];

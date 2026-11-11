@@ -29,6 +29,29 @@
   };
   // ===== Zu Fuß: Pistole und Inventargröße
   var PISTOL = { dmg: MG.dmg * 0.5, speed: MG.speed, cd: 0.22 };
+  // Maschinenpistole (Slot 3): Dauerfeuer bei gehaltener Maustaste, etwas Streuung
+  var SMG = { dmg: MG.dmg * 0.35, speed: MG.speed, cd: 60 / 660, spread: 0.07 };
+  // ===== Geschütze (v0.51): rpm = Schuss pro Minute, Projektile 50 % schneller als die der Minigun, life = Flugzeit (s), e = Energie je Schuss
+  //       120 mm: zusätzlich kleine Explosion (splash = Radius in m, sdmg = Schaden am Rand der Explosion)
+  var GUN = {
+    g25: { rpm: 100, dmg: 38, speed: MG.speed * 1.5, life: 1.25, e: 3 },
+    g120: { rpm: 20, dmg: 190, speed: MG.speed * 1.5, life: 1.5, e: 16, splash: 2.2, sdmg: 40 }
+  };
+  // Kennzahlen je Waffenblock für Editor und Infofeld: Schaden je Projektil, Feuerrate (Schuss/min) und DPS (Schaden pro Sekunde)
+  // Raketen: Feuerrate über einen ganzen Nachladezyklus (ein Werfer leert sein Magazin und lädt nach). Railgun: Aufladen plus Abklingzeit.
+  function wStats(id) {
+    var ty = T[id]; if (!ty) return null; var k = ty.kind, dmg, rpm;
+    if (k === "mg") { dmg = MG.dmg; rpm = MG.rate * 60; }
+    else if (k === "gun") { dmg = GUN[id].dmg; rpm = GUN[id].rpm; }
+    else if (k === "ms") { dmg = MS.dmg * (ty.mk || 1); rpm = 60 * (ty.rk || 2) / MS.reload; }
+    else if (k === "rg") { dmg = RG.dmg; rpm = 60 / (RG.charge + RG.cd); }
+    else return null;
+    return { dmg: dmg, rpm: rpm, dps: dmg * rpm / 60 };
+  }
+  // Waffengruppe eines Blocks (Taste R schaltet durch): Minigun, je Geschütz- und Raketentyp eine eigene Gruppe, Railgun
+  var WGROUPS = ["mg", "g25", "g120", "msl", "msh", "rg"];
+  function grpOf(b) { var k = T[b.t].kind; return k === "mg" ? "mg" : k === "rg" ? "rg" : (k === "gun" || k === "ms") ? b.t : null; }
+  function grpSpeed(g) { return GUN[g] ? GUN[g] : { speed: MG.speed, life: MG.life }; }
   var INV = { w: 8, h: 8 };
   // ===== Andocken: Reichweite, Spalt, Tempo des Autopiloten
   var DOCK = { range: CELL_M * 1.0 + 0.4, gap: CELL_M * 0.1, v: 1.4, w: 0.45 };

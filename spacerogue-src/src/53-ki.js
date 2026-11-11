@@ -144,7 +144,7 @@
     // Feuerstöße: kurz vor dem Überhitzen absetzen und erst nach dem Abkühlen weiterschießen, damit die Miniguns nicht sperren
     var hmax = 0; bd.blocks.forEach(function (b) { if (T[b.t].kind === "mg") hmax = Math.max(hmax, b.oh > 0 ? 1 : b.heat || 0); });
     if (hmax > MG.warn) A.mgRest = true; else if (hmax < 0.35) A.mgRest = false;
-    if (fire) { if (dist < MG.speed * MG.life * 0.85 && !A.mgRest) weapons(bd, dt, "mg", true, aim); if (dist < 300) weapons(bd, dt, "ms", true, aim); if (dist < RG.range * 0.9) weapons(bd, dt, "rg", true, aim); }
+    if (fire) { if (dist < MG.speed * MG.life * 0.85 && !A.mgRest) weapons(bd, dt, "mg", true, aim); if (dist < 300) { weapons(bd, dt, "msl", true, aim); weapons(bd, dt, "msh", true, aim); } if (dist < RG.range * 0.9) weapons(bd, dt, "rg", true, aim); ["g25", "g120"].forEach(function (g) { if (dist < GUN[g].speed * GUN[g].life * 0.85) weapons(bd, dt, g, true, aim); }); }
   }
   function aiDrive(bd, dt, vDes, head) {
     if (bd.torque > 0 && bd.energy > 0) {
@@ -179,7 +179,7 @@
         scoreKill(bd);
       }
       // Kampfunfähig: keine funktionierenden Waffen mehr; das Schiff versucht weiter zu fliehen
-      else if (!bd.dead && !bd.disarmed && !bd.blocks.some(function (b) { var k = T[b.t].kind; return k === "mg" || k === "rg" || k === "ms"; })) {
+      else if (!bd.dead && !bd.disarmed && !bd.blocks.some(function (b) { var k = T[b.t].kind; return k === "mg" || k === "rg" || k === "ms" || k === "gun"; })) {
         bd.disarmed = true; if (bd.ai) { bd.ai.state = "flee"; bd.ai.fleeT = 0; } FL.bannerN = bd.npc.n[lang]; showBanner(t("ko"), "ko");
         scoreKill(bd);
       }

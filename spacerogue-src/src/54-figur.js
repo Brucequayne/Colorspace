@@ -73,6 +73,7 @@
     // Schweißen draußen: Punkt vor der Figur im Schiffsraster
     FL.welding = false; FL.weldB = null; FL.weldG = null;
     if (FL.fire && FL.slot === 1) { FL.welding = true; var tp = toLocal(bd, E.x + Math.cos(E.face) * 1.6, E.y + Math.sin(E.face) * 1.6); weldAt(bd, tp.x, tp.y, dt); }
+    if (FL.fire && FL.slot === 3) fireHand(SMG);
     // Zurück ins Schiff über eine Luke
     FL.enterCd = Math.max(0, FL.enterCd - dt);
     var lp = toLocal(bd, E.x, E.y), o = bd.map.get(key(Math.floor(lp.x), Math.floor(lp.y)));
@@ -147,6 +148,7 @@
     FL.welding = false; FL.weldB = null; FL.weldG = null;
     { var mw2 = mouseWorld(); if (mw2) { var lm = toLocal(bd, mw2.x, mw2.y), wa = Math.atan2(lm.y - P.y, lm.x - P.x), dd2 = Math.atan2(Math.sin(wa - P.face), Math.cos(wa - P.face)); P.face += dd2 * Math.min(1, dt * 16); } }   // zu Fuß immer zur Maus schauen
     if (FL.fire && FL.slot === 1) { FL.welding = true; weldAt(bd, P.x + Math.cos(P.face) * 0.8, P.y + Math.sin(P.face) * 0.8, dt); }
+    if (FL.fire && FL.slot === 3) fireHand(SMG);
   }
   function toggleSeat() {
     var me = FL.me;
@@ -167,22 +169,26 @@
     FL.seated = true;
   }
   // ---------- Werkzeugleiste zu Fuß (1–9) ----------
-  // 1 Schweißgerät, 2 Pistole (Einzelschuss, 50 % des Minigun-Schadens), 3–9 frei
+  // 1 Schweißgerät, 2 Pistole (Einzelschuss, 50 % des Minigun-Schadens), 3 Maschinenpistole (Dauerfeuer), 4–9 frei
   var HOT = [
     { n: L2("Schweißgerät", "Welder"), ic: '<svg viewBox="0 0 24 24"><path d="M4 17l7-7 3 3-7 7H4z" fill="#9AA5B1"/><path d="M14 13l3-3" stroke="#D5DADF" stroke-width="2"/><circle cx="18.5" cy="8.5" r="2.4" fill="#8EE0FF"/><path d="M18.5 3v2M22 8.5h-2M21 4.5l-1.4 1.4" stroke="#8EE0FF" stroke-width="1.4"/></svg>' },
-    { n: L2("Pistole", "Pistol"), ic: '<svg viewBox="0 0 24 24"><path d="M3 8h15l2 2v2H11l-1 2h-2l-1 5H4l1-6H3z" fill="#9AA5B1"/><path d="M18 9h3" stroke="#D5DADF" stroke-width="2"/></svg>' }
+    { n: L2("Pistole", "Pistol"), ic: '<svg viewBox="0 0 24 24"><path d="M3 8h15l2 2v2H11l-1 2h-2l-1 5H4l1-6H3z" fill="#9AA5B1"/><path d="M18 9h3" stroke="#D5DADF" stroke-width="2"/></svg>' },
+    { n: L2("Maschinenpistole", "Submachine gun"), ic: '<svg viewBox="0 0 24 24"><path d="M2 9h4l1-1h12l2 2v2h-9l-1 1v5H8l1-5H6l-1 2H2z" fill="#9AA5B1"/><path d="M13 13h2v6h-2z" fill="#6A7480"/><path d="M21 10.5h2" stroke="#D5DADF" stroke-width="2"/></svg>' }
   ];
-  function firePistol() {
-    if ((FL.pcd || 0) > FL.t) return; FL.pcd = FL.t + PISTOL.cd;
+  function firePistol() { fireHand(PISTOL); }
+  // Handwaffe abfeuern (Pistole, Maschinenpistole): spec mit dmg, speed, cd und optional spread (Streuung in rad)
+  function fireHand(spec) {
+    if ((FL.pcd || 0) > FL.t) return; FL.pcd = FL.t + spec.cd;
     var mw = mouseWorld(); if (!mw) return;
     // Mündung der Pistole: in der Hand vor der Figur (Figurmaßstab: 1 Einheit ≈ 0,13 m)
     var ox, oy, vx0, vy0, fw;
     if (FL.out && FL.eva) { ox = FL.eva.x; oy = FL.eva.y; vx0 = FL.eva.vx; vy0 = FL.eva.vy; fw = FL.eva.face; }
     else { var pb = FL.pb || FL.me, P = FL.pilot, w = toWorld(pb, P.x, P.y); ox = w.x; oy = w.y; vx0 = pb.vx; vy0 = pb.vy; fw = P.face + pb.a; }
-    var u = CELL_M / 24 * 1.25, cf = Math.cos(fw), sf = Math.sin(fw), mx = ox + (12.8 * cf - 4.5 * sf) * u, my = oy + (12.8 * sf + 4.5 * cf) * u;
+    var ml = spec === SMG ? 15.4 : 12.8, u = CELL_M / 24 * 1.25, cf = Math.cos(fw), sf = Math.sin(fw), mx = ox + (ml * cf - 4.5 * sf) * u, my = oy + (ml * sf + 4.5 * cf) * u;
     var a = Math.atan2(mw.y - my, mw.x - mx), da = Math.atan2(Math.sin(a - fw), Math.cos(a - fw)); if (Math.abs(da) > 0.5) a = fw + Math.sign(da) * 0.5;   // nur grob in Blickrichtung
+    if (spec.spread) a += (Math.random() - 0.5) * 2 * spec.spread;
     var dx = Math.cos(a), dy = Math.sin(a);
-    FL.shots.push({ x: mx, y: my, vx: vx0 + dx * PISTOL.speed, vy: vy0 + dy * PISTOL.speed, life: 0, own: null, pl: true, dmg: PISTOL.dmg });   // volle Kollision, auch eigenes Schiff
+    FL.shots.push({ x: mx, y: my, vx: vx0 + dx * spec.speed, vy: vy0 + dy * spec.speed, life: 0, own: null, pl: true, dmg: spec.dmg });   // volle Kollision, auch eigenes Schiff
     FL.parts.push({ x: mx + dx * 0.1, y: my + dy * 0.1, vx: vx0, vy: vy0, life: 0, max: 0.04, k: "flash", sz: 0.18 });
   }
   function syncHot() {

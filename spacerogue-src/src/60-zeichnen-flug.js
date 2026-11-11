@@ -124,7 +124,7 @@
         if (lt < 1) { c.fillStyle = "rgba(4,6,12," + (0.78 * (1 - lt) + fl) + ")"; bd.cells.forEach(function (q) { c.fillRect((q[0] - 0.5) * PX, (q[1] - 0.5) * PX, PX, PX); }); }
       }
       if (bd === FL.me && !FL.seated && (FL.pb || FL.me) === FL.me) drawGhosts(c, bd, tm);
-      if (bd === (FL.pb || FL.me) && !FL.seated && !FL.out) drawAstronaut(c, FL.pilot.x * PX, FL.pilot.y * PX, FL.pilot.face, FL.pilot.ph, PX / 24 * 1.25, FL.welding, FL.slot === 2);
+      if (bd === (FL.pb || FL.me) && !FL.seated && !FL.out) drawAstronaut(c, FL.pilot.x * PX, FL.pilot.y * PX, FL.pilot.face, FL.pilot.ph, PX / 24 * 1.25, FL.welding, FL.slot === 2 ? 1 : FL.slot === 3 ? 2 : 0);
       // Überhitzung und Ladung an den Waffen
       bd.blocks.forEach(function (b) {
         var ty = T[b.t], f = fp(b), cx = (b.x + f[0] / 2) * PX, cy = (b.y + f[1] / 2) * PX;
@@ -140,7 +140,7 @@
       });
       c.restore();
     });
-    if (FL.out && FL.eva) { c.save(); c.translate(FL.eva.x, FL.eva.y); c.scale(CELL_M / PX, CELL_M / PX); drawAstronaut(c, 0, 0, FL.eva.face, FL.eva.ph, 1.25, FL.welding, FL.slot === 2); c.restore(); }
+    if (FL.out && FL.eva) { c.save(); c.translate(FL.eva.x, FL.eva.y); c.scale(CELL_M / PX, CELL_M / PX); drawAstronaut(c, 0, 0, FL.eva.face, FL.eva.ph, 1.25, FL.welding, FL.slot === 2 ? 1 : FL.slot === 3 ? 2 : 0); c.restore(); }
     (FL.missiles || []).forEach(function (m) {
       c.save(); c.translate(m.x, m.y); c.rotate(m.h); if (m.k > 1) c.scale(1.7, 1.7);   // Schwere Rakete: größer
       c.fillStyle = "rgba(255,190,90,.85)"; c.beginPath(); c.moveTo(-0.9, -0.28); c.lineTo(-2.4 - Math.random() * 0.8, 0); c.lineTo(-0.9, 0.28); c.closePath(); c.fill();
@@ -197,7 +197,13 @@
     });
     // Geschosse, Strahlen, Partikel
     c.strokeStyle = "#FFD27A"; c.lineWidth = 0.5;
-    FL.shots.forEach(function (p) { if (p.pl) return; var l = Math.hypot(p.vx, p.vy) || 1; c.beginPath(); c.moveTo(p.x, p.y); c.lineTo(p.x - p.vx / l * 2.4, p.y - p.vy / l * 2.4); c.stroke(); });
+    FL.shots.forEach(function (p) { if (p.pl || p.k) return; var l = Math.hypot(p.vx, p.vy) || 1; c.beginPath(); c.moveTo(p.x, p.y); c.lineTo(p.x - p.vx / l * 2.4, p.y - p.vy / l * 2.4); c.stroke(); });
+    // Geschützgranaten: dicker, länger, glühend
+    FL.shots.forEach(function (p) {
+      if (!p.k) return; var l = Math.hypot(p.vx, p.vy) || 1, big = p.k === "g120", L = big ? 5.5 : 3.6;
+      c.strokeStyle = big ? "rgba(255,150,60,.55)" : "rgba(255,190,90,.5)"; c.lineWidth = big ? 2.4 : 1.4; c.beginPath(); c.moveTo(p.x, p.y); c.lineTo(p.x - p.vx / l * L, p.y - p.vy / l * L); c.stroke();
+      c.strokeStyle = big ? "#FFE0A8" : "#FFE9B8"; c.lineWidth = big ? 1 : 0.6; c.beginPath(); c.moveTo(p.x, p.y); c.lineTo(p.x - p.vx / l * L * 0.6, p.y - p.vy / l * L * 0.6); c.stroke();
+    });
     // Pistolenkugeln: kleiner und kürzer
     var lw0 = c.lineWidth; c.lineWidth = 0.14; c.strokeStyle = "#FFE3A0";
     FL.shots.forEach(function (p) { if (!p.pl) return; var l = Math.hypot(p.vx, p.vy) || 1; c.beginPath(); c.moveTo(p.x, p.y); c.lineTo(p.x - p.vx / l * 0.9, p.y - p.vy / l * 0.9); c.stroke(); });
@@ -281,7 +287,8 @@
     var ob = V.root.querySelector("#sr-h-ocbar"); if (ob) { ob.style.width = Math.round(FL.ocT / (me.ocMax || 3) * 100) + "%"; ob.style.background = FL.oc ? "#B98AE0" : "#6B7FA0"; }
     var wtxt = g ? t(g) : t("none");
     if (g === "mg") { var h = 0, oh = 0; me.blocks.forEach(function (b) { if (T[b.t].kind === "mg") { h = Math.max(h, b.heat || 0); oh = Math.max(oh, b.oh || 0); } }); wtxt += oh > 0 ? " · !!! " + nf(oh, 1) + " s" : " · " + Math.round(h * 100) + " %"; }
-    if (g === "ms") { var am = 0, mx = 0; me.blocks.forEach(function (b) { if (T[b.t].kind === "ms") { am += b.ammo === undefined ? msMax(b) : b.ammo; mx += msMax(b); } }); wtxt += me.msRl > 0 ? (lang === "de" ? " · lädt " : " · reloading ") + nf(me.msRl, 1) + " s" : " · " + am + " / " + mx; }
+    if (g === "msl" || g === "msh") { var am = 0, mx = 0, mq = me.mst && me.mst[g]; me.blocks.forEach(function (b) { if (b.t === g) { am += b.ammo === undefined ? msMax(b) : b.ammo; mx += msMax(b); } }); wtxt += mq && mq.rl > 0 ? (lang === "de" ? " · lädt " : " · reloading ") + nf(mq.rl, 1) + " s" : " · " + am + " / " + mx; }
+    if (GUN[g]) { var gc = 0; me.blocks.forEach(function (b) { if (b.t === g) gc = Math.max(gc, b.gcd || 0); }); wtxt += gc > 0.05 ? " · " + nf(gc, 1) + " s" : " · " + t("wReady"); }
     if (g === "rg") { var cd = 0; me.blocks.forEach(function (b) { if (T[b.t].kind === "rg") cd = Math.max(cd, b.cd || 0); }); wtxt += cd > 0 ? " · " + nf(cd, 1) + " s" : " · bereit".replace("bereit", lang === "de" ? "bereit" : "ready"); }
     set("sr-h-w", wtxt);
     set("sr-h-seat", FL.out ? t("hOut") : !me.seat ? t("hGone") : FL.seated ? t("hSeat") : t("hWalk"));

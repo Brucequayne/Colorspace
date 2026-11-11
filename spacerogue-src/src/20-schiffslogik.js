@@ -40,7 +40,7 @@
   }
   // Räume: zusammenhängende Boden-, Tür-, Luken- und Cockpitzellen, dicht wenn jede Außenkante abgedichtet ist.
   // Cockpit und geschlossene Luken dichten selbst nach außen ab; eine offene Luke ist ein Leck.
-  var ROOMK = { floor: 1, door: 1, hatch: 1, cock: 1, dock: 1 };
+  var ROOMK = { floor: 1, door: 1, hatch: 1, cock: 1, dock: 1, deco: 1 };
   function rooms(blocks, M) {
     M = M || buildMap(blocks); var seen = new Set(), out = [];
     M.forEach(function (v, k) {
@@ -111,6 +111,7 @@
       if (ty.kind === "mg") s.mg++;
       if (ty.kind === "rg") s.rg++;
       if (ty.kind === "ms") s.ms++;
+      if (ty.kind === "gun") s.gun = (s.gun || 0) + 1;
     });
     if (s.mass) { s.com[0] /= s.mass; s.com[1] /= s.mass; } else if (blocks.length) { s.com = [blocks[0].x + 0.5, blocks[0].y + 0.5]; }
     blocks.forEach(function (b) {

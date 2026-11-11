@@ -170,6 +170,26 @@
       } else
       [0.3, 0.7].forEach(function (q) { c.fillStyle = DARK; c.fillRect(w * q - w * 0.15, h * 0.06, w * 0.3, h * 0.55); var ready = (opts && opts.ammo !== undefined ? opts.ammo : 2) > (q < 0.5 ? 1 : 0); c.fillStyle = ready ? "#E9ECEE" : "#4A525C"; c.beginPath(); c.moveTo(w * q, h * 0.08); c.lineTo(w * q + w * 0.09, h * 0.2); c.lineTo(w * q - w * 0.09, h * 0.2); c.closePath(); c.fill(); if (ready) { c.fillStyle = "#C8473A"; c.fillRect(w * q - w * 0.09, h * 0.2, w * 0.18, h * 0.06); } });
       c.strokeStyle = shade(col, -0.55); c.lineWidth = lw; c.strokeRect(w * 0.08, h * 0.3, w * 0.84, h * 0.7);
+    } else if (k === "gun") {
+      if (ty.h === 2) {   // 25 mm: kompakter Sockel, ein dickes Rohr mit Mündungsbremse
+        c.fillStyle = shade(col, -0.12); c.fillRect(w * 0.1, h - s, w * 0.8, s);
+        c.fillStyle = b.c || "#8C4A3A"; c.fillRect(w * 0.2, h - s * 0.8, w * 0.6, s * 0.4);
+        c.fillStyle = MID; c.beginPath(); c.arc(w / 2, h - s * 0.55, s * 0.24, 0, Math.PI * 2); c.fill();
+        c.fillStyle = DARK; c.fillRect(w * 0.38, h * 0.1, w * 0.24, h - s * 0.75);
+        c.fillStyle = MID; c.fillRect(w * 0.32, h * 0.04, w * 0.36, s * 0.22);
+        c.strokeStyle = shade(col, -0.55); c.lineWidth = lw; c.strokeRect(w * 0.1, h - s, w * 0.8, s);
+      } else {            // 120 mm: breiter Turm mit Panzerplatten, langes schweres Rohr
+        c.fillStyle = shade(col, -0.1); c.fillRect(w * 0.04, h - s * 1.3, w * 0.92, s * 1.3);
+        c.fillStyle = shade(col, -0.28); c.fillRect(w * 0.04, h - s * 1.3, w * 0.92, s * 0.12);
+        c.fillStyle = b.c || "#8C4A3A"; c.fillRect(w * 0.14, h - s * 0.62, w * 0.72, s * 0.36);
+        c.fillStyle = MID; c.beginPath(); c.arc(w / 2, h - s * 0.85, s * 0.34, 0, Math.PI * 2); c.fill();
+        c.fillStyle = DARK; c.fillRect(w * 0.33, h * 0.06, w * 0.34, h - s * 1.25);
+        c.fillStyle = shade(col, -0.35); c.fillRect(w * 0.3, h * 0.42, w * 0.4, s * 0.2);
+        c.fillStyle = MID; c.fillRect(w * 0.27, h * 0.02, w * 0.46, s * 0.26);
+        c.strokeStyle = shade(col, -0.55); c.lineWidth = lw; c.strokeRect(w * 0.04, h - s * 1.3, w * 0.92, s * 1.3);
+      }
+    } else if (k === "deco") {
+      decoArt(c, ty.dk, w, h, s, lw, b.c);
     } else if (k === "rg") {
       c.fillStyle = shade(col, -0.15); c.fillRect(w * 0.08, h - s * 1.2, w * 0.84, s * 1.2);
       c.fillStyle = b.c || "#3E6F96"; c.fillRect(w * 0.16, h - s * 1.05, w * 0.68, s * 0.5);
@@ -187,6 +207,46 @@
     }
     if (dam && MECH[k] && k !== "cock") damageMarks(c, w, h, b, s, "full");
     c.restore();
+  }
+  // Einrichtung von oben: Boden darunter, dann das Möbelstück. acc = Akzentfarbe (Pinsel), sonst eigene Standardfarbe
+  function decoArt(c, dk, w, h, s, lw, acc) {
+    c.fillStyle = FLOOR; c.fillRect(0, 0, w, h); c.strokeStyle = FLOOR2; c.lineWidth = lw; c.strokeRect(lw / 2, lw / 2, w - lw, h - lw);
+    var ol = "rgba(30,34,40,.55)";
+    function box(x, y, bw, bh, f) { c.fillStyle = f; c.fillRect(x, y, bw, bh); c.strokeStyle = ol; c.lineWidth = lw; c.strokeRect(x, y, bw, bh); }
+    if (dk === "chair") {
+      var cc = acc || "#3E6F96";
+      box(w * 0.24, h * 0.3, w * 0.52, h * 0.5, cc); box(w * 0.22, h * 0.16, w * 0.56, h * 0.14, shade(cc, -0.3));
+      c.fillStyle = shade(cc, 0.2); c.fillRect(w * 0.3, h * 0.36, w * 0.4, h * 0.08);
+    } else if (dk === "table") {
+      var tc = acc || "#8A6A4A";
+      box(w * 0.06, h * 0.14, w * 0.88, h * 0.72, tc);
+      c.fillStyle = shade(tc, 0.14); c.fillRect(w * 0.1, h * 0.2, w * 0.8, h * 0.08);
+      c.fillStyle = "#E9ECEE"; c.beginPath(); c.arc(w * 0.3, h * 0.55, s * 0.13, 0, Math.PI * 2); c.fill(); c.beginPath(); c.arc(w * 0.68, h * 0.5, s * 0.1, 0, Math.PI * 2); c.fill();
+      c.fillStyle = "#5FB4D9"; c.beginPath(); c.arc(w * 0.68, h * 0.5, s * 0.06, 0, Math.PI * 2); c.fill();
+    } else if (dk === "bed" || dk === "bed2") {
+      var bc = acc || (dk === "bed" ? "#3E6F96" : "#7B4BA8"), dbl = dk === "bed2";
+      box(w * 0.08, h * 0.04, w * 0.84, h * 0.92, "#6A7480");
+      box(w * 0.12, h * 0.07, w * 0.76, h * 0.86, "#E4E8EC");
+      if (dbl) { box(w * 0.15, h * 0.1, w * 0.33, h * 0.13, "#FFFFFF"); box(w * 0.52, h * 0.1, w * 0.33, h * 0.13, "#FFFFFF"); }
+      else box(w * 0.2, h * 0.1, w * 0.6, h * 0.13, "#FFFFFF");
+      box(w * 0.12, h * 0.32, w * 0.76, h * 0.61, bc);
+      c.fillStyle = shade(bc, 0.18); c.fillRect(w * 0.12, h * 0.32, w * 0.76, h * 0.06);
+      if (dbl) { c.strokeStyle = shade(bc, -0.3); c.lineWidth = lw; c.beginPath(); c.moveTo(w / 2, h * 0.4); c.lineTo(w / 2, h * 0.9); c.stroke(); }
+    } else if (dk === "wc") {
+      box(w * 0.26, h * 0.1, w * 0.48, h * 0.2, "#E9ECEE");
+      c.fillStyle = "#F4F6F8"; c.beginPath(); c.ellipse(w / 2, h * 0.58, w * 0.24, h * 0.3, 0, 0, Math.PI * 2); c.fill(); c.strokeStyle = ol; c.lineWidth = lw; c.stroke();
+      c.fillStyle = "#9FC7D9"; c.beginPath(); c.ellipse(w / 2, h * 0.6, w * 0.13, h * 0.17, 0, 0, Math.PI * 2); c.fill();
+      c.fillStyle = "#9AA5B1"; c.fillRect(w * 0.44, h * 0.15, w * 0.12, h * 0.05);
+    } else if (dk === "shower") {
+      c.fillStyle = "#CFE3EC"; c.fillRect(w * 0.08, h * 0.08, w * 0.84, h * 0.84);
+      c.strokeStyle = "rgba(120,150,170,.6)"; c.lineWidth = lw * 0.7; c.beginPath();
+      for (var i = 1; i < 4; i++) { c.moveTo(w * 0.08 + w * 0.21 * i, h * 0.08); c.lineTo(w * 0.08 + w * 0.21 * i, h * 0.92); c.moveTo(w * 0.08, h * 0.08 + h * 0.21 * i); c.lineTo(w * 0.92, h * 0.08 + h * 0.21 * i); }
+      c.stroke();
+      c.fillStyle = "#6A7480"; c.beginPath(); c.arc(w / 2, h / 2, s * 0.08, 0, Math.PI * 2); c.fill();
+      c.fillStyle = "#9AA5B1"; c.beginPath(); c.arc(w * 0.22, h * 0.22, s * 0.11, 0, Math.PI * 2); c.fill();
+      c.strokeStyle = "rgba(140,200,230,.9)"; c.lineWidth = lw * 2; c.beginPath(); c.moveTo(w * 0.92, h * 0.08); c.lineTo(w * 0.92, h * 0.92); c.stroke();
+      c.strokeStyle = ol; c.lineWidth = lw; c.strokeRect(w * 0.08, h * 0.08, w * 0.84, h * 0.84);
+    }
   }
   // Luke: gelb-schwarzer Warnrahmen, geschlossen mit Schott, offen sieht man ins All
   function hatchArt(c, w, h, col, lw, view, open) {
@@ -211,7 +271,7 @@
     c.fillStyle = "#E0743A"; c.beginPath(); c.arc(-0.5, -7.2, 2.2, 0, Math.PI * 2); c.fill(); c.beginPath(); c.arc(-0.5, 7.2, 2.2, 0, Math.PI * 2); c.fill();
     c.fillStyle = "#D5DADF"; c.beginPath(); c.arc(1.5 - sw * 3.2, -8.8, 1.8, 0, Math.PI * 2); c.fill();
     var hx = weld || gun ? 6.5 : 1.5 + sw * 3.2, hy = weld || gun ? 4.5 : 8.8; c.beginPath(); c.arc(hx, hy, 1.8, 0, Math.PI * 2); c.fill();
-    if (gun) { c.fillStyle = "#2A2F36"; c.fillRect(6.5, 3.6, 6, 1.8); c.fillRect(6.8, 4.6, 1.6, 2.4); }
+    if (gun) { c.fillStyle = "#2A2F36"; c.fillRect(6.5, 3.6, gun === 2 ? 8.6 : 6, 1.8); c.fillRect(6.8, 4.6, 1.6, 2.4); if (gun === 2) { c.fillRect(9.2, 4.6, 1.3, 3.2); c.fillStyle = "#4A525C"; c.fillRect(4.2, 3.8, 2.6, 1.4); } }   // 1 Pistole, 2 Maschinenpistole: längerer Lauf, Magazin, Schulterstütze
     if (weld) { c.fillStyle = "#3A3F46"; c.fillRect(6, 3.4, 5, 2.2); var g = 0.6 + 0.4 * Math.random(); c.fillStyle = "rgba(150,220,255," + g + ")"; c.beginPath(); c.arc(11.8, 4.5, 1.6 + Math.random(), 0, Math.PI * 2); c.fill(); }
     c.restore();
     c.fillStyle = "#F4F6F8"; c.beginPath(); c.arc(0.6, 0, 4.4, 0, Math.PI * 2); c.fill(); c.strokeStyle = "#9AA3AD"; c.lineWidth = 0.7; c.stroke();

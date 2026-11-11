@@ -41,7 +41,7 @@
     FL = { bodies: [me], me: me, shots: [], beams: [], parts: [], seated: true, damp: true, wsel: 0, groups: [], keys: {}, mdx: 0, cam: { x: 0, y: 0 }, zoom: 1, t: 0 };
     var sp0 = seatPos(me); FL.pilot = { x: sp0.x, y: sp0.y, face: -Math.PI / 2, ph: 0 };
     FL.oc = false; FL.ocT = me.ocMax;
-    FL.groups = []; if (st.mg) FL.groups.push("mg"); if (st.ms) FL.groups.push("ms"); if (st.rg) FL.groups.push("rg");
+    FL.groups = WGROUPS.filter(function (g) { return me.blocks.some(function (b) { return grpOf(b) === g; }); });   // je Waffentyp eine eigene Gruppe
     FL.missiles = []; FL.hits = []; FL.sig = 0; FL.banner = 0; me.id = ++BID;
     FL.items = []; FL.pb = me; FL.dock = null; FL.shHits = []; FL.shPct = 0; me.shE = 0; FL.kills = 0; FL.shTarget = 0; FL.shAcc = 0;
     var kcb = V.root.querySelector(".sr-kc b"); if (kcb) kcb.textContent = "0";
@@ -94,7 +94,8 @@
     FL.bodies.forEach(function (b) { if (b === (FL.pb || me) || (b !== me && !b.station)) return; b.blocks.forEach(function (hb) { if (T[hb.t].kind !== "hatch") return; if (hb.openT > 0) hb.openT -= dt; var o = hb.openT > 0; if (o !== !!hb.open) { hb.open = o; b.roomsDirty = true; } }); });
     if (FL.out) evaTick(evaBody(), dt);
     FL.bodies.slice().forEach(function (bd) {
-      if (bd.msRl > 0) { bd.msRl -= dt; if (bd.msRl <= 0) { bd.msRl = 0; bd.blocks.forEach(function (b) { if (T[b.t].kind === "ms") b.ammo = msMax(b); }); } }
+      // Raketen: jede Werfer-Art (leicht/schwer) lädt für sich nach
+      if (bd.mst) Object.keys(bd.mst).forEach(function (g) { var q = bd.mst[g]; q.cd = Math.max(0, q.cd - dt); if (q.rl > 0) { q.rl -= dt; if (q.rl <= 0) { q.rl = 0; bd.blocks.forEach(function (b) { if (b.t === g) b.ammo = msMax(b); }); } } });
       // Energie: Reaktoren laden, Verbraucher ziehen
       bd.energy = Math.min(bd.cap - (bd.shE || 0), bd.energy + bd.prod * dt);   // der Schildanteil ist reserviert
       bd.flames = {};
@@ -120,6 +121,7 @@
         if (ty.kind === "mg") { var cn = (bd.cool && bd.cool.get(b)) || 0; if (b.oh > 0) { b.oh -= dt; if (b.oh <= 0) { b.oh = 0; b.heat = 0; } } else if (!b.firing) b.heat = Math.max(0, (b.heat || 0) - MG.cool * (1 + 0.6 * cn) * dt); b.firing = false; }
         if (ty.kind === "ms" && b.ammo === undefined) b.ammo = msMax(b);
         if (ty.kind === "rg") { if (b.cd > 0) b.cd -= dt; if (!b.holding) b.chg = 0; b.holding = false; }
+        if (ty.kind === "gun" && b.gcd > 0) b.gcd -= dt;
         var hk = b.hp / hpMax(bd, b);
         if (MECH[ty.kind] && hk < 0.5 && Math.random() < dt * (hk < 0.25 ? 5 : 2.5)) { var p = blockCenter(bd, b); FL.parts.push({ x: p.x + (Math.random() - 0.5) * 2, y: p.y + (Math.random() - 0.5) * 2, vx: bd.vx + (Math.random() - 0.5) * 3, vy: bd.vy - 1.5 - Math.random() * 2, life: 0, max: 1.4 + Math.random() * 0.8, k: "smoke", sz: 0.5 + Math.random() * 0.5 }); }
         if (MECH[ty.kind] && hk < 0.25 && Math.random() < dt * 9) { var q = blockCenter(bd, b); FL.parts.push({ x: q.x + (Math.random() - 0.5) * 1.6, y: q.y + (Math.random() - 0.5) * 1.6, vx: bd.vx + (Math.random() - 0.5) * 4, vy: bd.vy + (Math.random() - 0.5) * 4, life: 0, max: 0.4 + Math.random() * 0.3, k: "fire", sz: 0.45 + Math.random() * 0.45 }); }
@@ -135,11 +137,11 @@
     if (FL.banner > 0) FL.banner -= dt;
     // Geschosse
     FL.shots = FL.shots.filter(function (p) {
-      p.life += dt; if (p.life > MG.life) return false;
+      p.life += dt; if (p.life > (p.lmax || MG.life)) return false;
       var steps = Math.ceil(Math.hypot(p.vx, p.vy) * dt / 1.0);
       for (var i = 0; i < steps; i++) {
         p.x += p.vx * dt / steps; p.y += p.vy * dt / steps;
-        var hit = p.pl ? hitAt(p.x, p.y, null, true) : hitAt(p.x, p.y, p.own); if (hit) { var crit = p.own && p.own.player && Math.random() < PM.crit; if (p.own === FL.me || p.pl) hitMark(p.x, p.y, hit.bd, crit); damage(hit.bd, hit.b, (p.dmg || MG.dmg) * (crit ? 2 : 1), p.x, p.y); spark(p.x, p.y, crit ? 10 : 5); return false; }
+        var hit = p.pl ? hitAt(p.x, p.y, null, true) : hitAt(p.x, p.y, p.own); if (hit) { var crit = p.own && p.own.player && Math.random() < PM.crit; if (p.own === FL.me || p.pl) hitMark(p.x, p.y, hit.bd, crit); damage(hit.bd, hit.b, (p.dmg || MG.dmg) * (crit ? 2 : 1), p.x, p.y); spark(p.x, p.y, crit ? 10 : p.k ? 9 : 5); if (p.splash) blast(p.x, p.y, p.splash, p.sdmg, null); return false; }
       }
       return true;
     });
