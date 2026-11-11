@@ -6,7 +6,7 @@
     var ty = T[id], cv = document.createElement("canvas"), s = 14, w = ty.w, h = ty.h, sc = Math.min(40 / (w * s), 40 / (h * s), 1.4);
     cv.width = 44; cv.height = 44; var c = cv.getContext("2d");
     c.translate(22 - w * s * sc / 2, 22 - h * s * sc / 2); c.scale(sc, sc);
-    drawBlock(c, { t: id, x: 0, y: 0, r: 0, f: 0 }, s, "in", 1, 0);
+    WX_ICON = true; try { drawBlock(c, { t: id, x: 0, y: 0, r: 0, f: 0 }, s, "in", 1, 0); } finally { WX_ICON = false; }
     return cv.toDataURL();
   }
   // Kompakte Steuerungsliste (Taste · Aktion) für das Infofeld

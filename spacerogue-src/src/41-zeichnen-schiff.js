@@ -17,10 +17,11 @@
   }
   function hullFill(c, b, s, view, hpk) {
     var ty = T[b.t], f = fp(b), w = ty.w * s, h = ty.h * s, k = ty.kind, col = b.c || ty.col, lw = Math.max(1, s / 16);
-    c.save(); c.translate((b.x + f[0] / 2) * s, (b.y + f[1] / 2) * s); c.rotate(b.r * Math.PI / 2); if (b.f) c.scale(-1, 1); c.translate(-w / 2, -h / 2);
+    c.save(); var m0 = ty.wx && c.getTransform ? c.getTransform() : null; c.translate((b.x + f[0] / 2) * s, (b.y + f[1] / 2) * s); c.rotate(b.r * Math.PI / 2); if (b.f) c.scale(-1, 1); c.translate(-w / 2, -h / 2);
     if (k === "armor") {
       shapePath(c, ty.shape, w, h); c.fillStyle = col; c.fill();
       if (ty.heavy && ty.shape === "full") { c.fillStyle = shade(col, -0.25); [[0.2, 0.2], [0.8, 0.2], [0.2, 0.8], [0.8, 0.8]].forEach(function (q) { c.fillRect(w * q[0] - lw, h * q[1] - lw, lw * 2, lw * 2); }); }
+      if (ty.wx) wxOverlay(c, b, ty, s, w, h, m0);   // Rost / Bewuchs, nahtlos im Schiffsraster
       c.strokeStyle = shade(col, -0.55); c.lineWidth = lw * 1.2; c.beginPath();
       if (ty.shape.indexOf("ramp") === 0) { c.moveTo(0, 0); c.lineTo(w, h); }
       else if (ty.shape === "round") c.arc(0, h, w, -Math.PI / 2, 0);

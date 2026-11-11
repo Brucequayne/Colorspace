@@ -16,7 +16,7 @@
   // b: Block, s: Pixel je Zelle, view: "in"/"out", dmg: Anteil Leben (0…1)
   function drawBlock(c, b, s, view, hpk, tm, opts) {
     var ty = T[b.t], f = fp(b), w = ty.w * s, h = ty.h * s, k = ty.kind;
-    c.save();
+    c.save(); var m0 = ty.wx && c.getTransform ? c.getTransform() : null;
     c.translate((b.x + f[0] / 2) * s, (b.y + f[1] / 2) * s);
     c.rotate(b.r * Math.PI / 2); if (b.f) c.scale(-1, 1);
     if (opts && opts.tw) { c.translate(0, h / 2); c.rotate(b.f ? -opts.tw : opts.tw); c.translate(0, -h / 2); }   // Geschütz schwenkt um sein hinteres Ende
@@ -32,6 +32,7 @@
         c.fillStyle = shade(col, -0.25); c.fillRect(0, h - lw * 2, w, lw * 2); c.fillRect(w - lw * 2, 0, lw * 2, h);
         if (ty.heavy) { c.fillStyle = shade(col, -0.18); c.fillRect(w * 0.3, h * 0.3, w * 0.4, h * 0.4); c.fillStyle = shade(col, 0.1); c.fillRect(w * 0.34, h * 0.34, w * 0.32, h * 0.32); }
         c.restore();
+        if (ty.wx) wxOverlay(c, b, ty, s, w, h, m0);
       }
       shapePath(c, k === "win" ? "full" : ty.shape, w, h); c.strokeStyle = shade(col, -0.5); c.lineWidth = lw; c.stroke();
       if (dam) damageMarks(c, w, h, b, s, ty.shape);

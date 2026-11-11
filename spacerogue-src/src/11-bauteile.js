@@ -64,9 +64,21 @@
   applyCosts();
   // Panzerung 1×2: so schwer wie zwei einzelne Blöcke, aber 15 % günstiger
   T.lbl2.cost = Math.round(T.lblk.cost * 2 * 0.85); T.hbl2.cost = Math.round(T.hblk.cost * 2 * 0.85);
+  // Verwitterte Panzerung (v0.54.2, nur Developer Tool): jede Panzerform als rostige (…r) und zugewucherte (…m) Variante.
+  // Werte und Preis wie das Original; nur das Aussehen ändert sich (wx, siehe 45-verwitterung.js).
+  ["l", "h"].forEach(function (pre) {
+    ["blk", "rmp", "rm2", "rm3", "cor", "hlf", "bl2"].forEach(function (sf) {
+      var base = T[pre + sf];
+      [["r", "catRA", L2("rostig", "rusty")], ["m", "catOA", L2("bewachsen", "overgrown")]].forEach(function (v) {
+        var o = {}; Object.keys(base).forEach(function (k) { o[k] = base[k]; });
+        o.id = pre + sf + v[0]; o.wx = v[0]; o.cat = v[1]; o.dev = true; o.n = L2(base.n.de + ", " + v[2].de, base.n.en + ", " + v[2].en);
+        T[o.id] = o;
+      });
+    });
+  });
   // Perks wurden in v0.47 abgeschafft. PM bleibt als neutrales Objekt (alles 0), damit die Werte-Haken im Code nichts verändern.
   var PM = { side: 0, brake: 0, mgRate: 0, batCap: 0, msRl: 0, hp: 0, prod: 0, walk: false, radar: 0, oc: 0, msDmg: 0, cockHp: 0, msTurn: 0, crit: 0, batW: false, heavyW: 0 };
-  CATS = ["catLA", "catHA", "catCo", "catTh", "catEn", "catIn", "catDe", "catWe"];
+  CATS = ["catLA", "catHA", "catRA", "catOA", "catCo", "catTh", "catEn", "catIn", "catDe", "catWe"];
   var MECH = { cock: 1, thr: 1, gyro: 1, ant: 1, bat: 1, reac: 1, door: 1, hatch: 1, mg: 1, rg: 1, gun: 1, cool: 1, ms: 1, tcomp: 1, shield: 1, dock: 1 };
   var ROOMABLE = { bat: 1, reac: 1, gyro: 1, cool: 1, tcomp: 1, shield: 1 };   // Maschinen, die in einem Raum stehen dürfen und dann zum Raum gehören
   function replaceable(newT, o) { return o && T[newT].kind !== "floor" && T[o.b.t].kind === "floor"; }

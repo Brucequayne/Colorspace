@@ -28,6 +28,7 @@ Diese Datei wird **gebaut** – aus den Teilen in `spacerogue-src/src/`.
 | `30-zustand.js` | Spielstand, Speichern/Laden, Beispielschiff, Beispielstation |
 | `31-editor.js` | Platzieren, Symmetrie, Abreißen, Malen |
 | `40`–`43-zeichnen-*.js` | Blöcke, Schiff, Hintergrund, Editor-Ansicht |
+| `45-verwitterung.js` | Verwitterte Panzerung (Developer Tool): nahtlose Rost-/Moos-Texturen im Schiffsraster, `wxOverlay` |
 | `44-umgebung.js` | Environment (Developer Tool): Asteroiden-Assets `ENV`, Ebenen `ENV_K`, Sprites, Platzieren im Editor, Zeichnen und Kollision im Testflug |
 | `50-flug.js` | Körper, Start/Ende Testflug, Simulationsschleife `flTick` |
 | `51-steuerung-waffen.js` | Schub, Drehen, Waffen, Geschütze, Zielcomputer |
@@ -89,3 +90,6 @@ Folgen für Änderungen:
   drei Ebenen (-1 hinten, 0 Spielebene mit Kollision, 1 vorne), skalier- und drehbar. Szenencode = Schiffscode + Feld `env`
   (`sceneCode`/`parseEnv` in `20-schiffslogik.js`). Neue Assets: Eintrag in `ENV` in `44-umgebung.js`.
 - v0.54.1: Asteroiden nur in Grautönen (`ENV_MAT`), Sprites in Auflösungsstufen 1/2/4 bis 2048 px (`envSprite`), Maßstab höchstens ×4.
+- v0.54.2: Verwitterte Panzerung. Jede Panzer-ID gibt es zusätzlich als `…r` (rostig) und `…m` (bewachsen), `dev: true`,
+  Kategorien `catRA`/`catOA`, Feld `wx`. Die Textur liegt im Schiffsraster (Kachel `WX_P` = 36 Zellen), wird beim ersten
+  Gebrauch erzeugt (~0,5 s) und per Pattern geclippt über den Block gelegt. Paletten-Vorschau zeichnet nur eine Andeutung (`WX_ICON`).
