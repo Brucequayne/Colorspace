@@ -28,7 +28,7 @@ Diese Datei wird **gebaut** – aus den Teilen in `spacerogue-src/src/`.
 | `30-zustand.js` | Spielstand, Speichern/Laden, Beispielschiff, Beispielstation |
 | `31-editor.js` | Platzieren, Symmetrie, Abreißen, Malen |
 | `40`–`43-zeichnen-*.js` | Blöcke, Schiff, Hintergrund, Editor-Ansicht |
-| `45-verwitterung.js` | Verwitterte Panzerung (Developer Tool): nahtlose Rost-/Moos-Texturen im Schiffsraster, `wxOverlay` |
+| `45-verwitterung.js` | Verwitterte Panzerung (Developer Tool): nahtlose Rost-/Moos-Pixeltexturen (16 Texel je Zelle) im Schiffsraster, `wxOverlay` |
 | `44-umgebung.js` | Environment (Developer Tool): Asteroiden-Assets `ENV`, Ebenen `ENV_K`, Sprites, Platzieren im Editor, Zeichnen und Kollision im Testflug |
 | `50-flug.js` | Körper, Start/Ende Testflug, Simulationsschleife `flTick` |
 | `51-steuerung-waffen.js` | Schub, Drehen, Waffen, Geschütze, Zielcomputer |
@@ -93,4 +93,5 @@ Folgen für Änderungen:
 - v0.54.2: Verwitterte Panzerung. Jede Panzer-ID gibt es zusätzlich als `…r` (rostig) und `…m` (bewachsen), `dev: true`,
   Kategorien `catRA`/`catOA`, Feld `wx`. Die Textur liegt im Schiffsraster (Kachel `WX_P` = 36 Zellen), wird beim ersten
   Gebrauch erzeugt (~0,5 s) und per Pattern geclippt über den Block gelegt. Paletten-Vorschau zeichnet nur eine Andeutung (`WX_ICON`).
-
+- v0.54.3: Verwitterung als Pixel-Textur, 16 Texel je Zelle (`WX_PPC`), beim Vergrößern ohne Glättung gezeichnet. Rost feiner,
+  Efeu durch Moospolster ersetzt (`wxBuildMoss`). Erzeugung ~0,1 s je Textur.
