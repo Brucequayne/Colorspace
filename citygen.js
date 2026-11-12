@@ -5,7 +5,7 @@
 (function () {
   "use strict";
 
-  var VERSION = "0.3";
+  var VERSION = "0.4";
   var W = 2400, H = 1500;
   var lang = "de";
   function L2(de, en) { return { de: de, en: en }; }
@@ -997,68 +997,136 @@
           }
           return ar > oa * 0.06;
         }
-        var D = P.depth, I = null, pie = false;
+        var D = P.depth, I = null;
         if (maxDT < D * 1.25) D = Math.max(3.5, maxDT * 0.66);
         for (var tr2 = 0; tr2 < 5; tr2++) { I = fixInner(offset(D)); if (validInner(I)) break; I = null; D *= 0.8; if (D < 3.5) break; }
         if (!I && oa > 2600) return gid;   // großer, verwinkelter Block: lockere Bebauung übernimmt
-        if (!I || maxDT < 6) {
-          // kleiner Block: ganz bebaut, Teile laufen wie Tortenstücke zur Mitte (Walmdach-Optik)
-          pie = true; var gx = 0, gy = 0; O.forEach(function (p) { gx += p.x; gy += p.y; }); gx /= On; gy /= On;
-          if (!inB(gx, gy)) return gid;
-          I = O.map(function () { return { x: gx, y: gy }; });
+        var flatRs = S.style === "usa" ? ["#C9CCCF", "#BFC3C6", "#D3D5D6", "#B0B5BA", "#9EA4AA"] : S.style === "jp" ? ["#B9B5AC", "#A9ADB2", "#C7C3BA", "#9AA1A8", "#8F969E"] : ["#C9C2B4", "#B8B2A6", "#A9A9A6"];
+        var pal = [st.roofs[Math.floor(er() * st.roofs.length)], st.roofs[Math.floor(er() * st.roofs.length)], st.roofs[Math.floor(er() * st.roofs.length)]];
+        function pickRoof(flat) { return flat ? flatRs[Math.floor(er() * flatRs.length)] : (er() < 0.8 ? pal[Math.floor(er() * 3)] : st.roofs[Math.floor(er() * st.roofs.length)]); }
+        function area2(Pl) { var a2 = 0; for (var q = 0; q < Pl.length; q++) { var a = Pl[q], e = Pl[(q + 1) % Pl.length]; a2 += a.x * e.y - e.x * a.y; } return a2 / 2; }
+        // Halbebene behalten: n·p >= c (Sutherland-Hodgman)
+        function clipH(Pl, nx0, ny0, c0) {
+          var out = []; for (var q = 0; q < Pl.length; q++) {
+            var a = Pl[q], e = Pl[(q + 1) % Pl.length], da = a.x * nx0 + a.y * ny0 - c0, de = e.x * nx0 + e.y * ny0 - c0;
+            if (da >= 0) out.push(a);
+            if ((da >= 0) !== (de >= 0)) { var t = da / (da - de); out.push({ x: a.x + (e.x - a.x) * t, y: a.y + (e.y - a.y) * t }); }
+          } return out;
         }
-        var Mi = O.map(function (p, q) { return { x: (p.x + I[q].x) / 2, y: (p.y + I[q].y) / 2 }; });
+        if (!I || maxDT < 6) {
+          // v0.4: kleiner Block ganz bebaut – gerade Streifen quer zur längsten Straßenseite, bei tiefen Blöcken Rücken an Rücken
+          var li = 0, ll = 0; for (i = 0; i < On; i++) { var e0 = O[(i + 1) % On], ln = Math.hypot(e0.x - O[i].x, e0.y - O[i].y); if (ln > ll) { ll = ln; li = i; } }
+          var ax = (O[(li + 1) % On].x - O[li].x) / ll, ay = (O[(li + 1) % On].y - O[li].y) / ll, bx = -ay, by = ax;
+          var t0 = 1e9, t1 = -1e9, w0 = 1e9, w1 = -1e9;
+          O.forEach(function (p) { var t = p.x * ax + p.y * ay, w = p.x * bx + p.y * by; if (t < t0) t0 = t; if (t > t1) t1 = t; if (w < w0) w0 = w; if (w > w1) w1 = w; });
+          var wm = (w0 + w1) / 2, split = w1 - w0 > 22, ta = t0, fsS = 1.15 - d * 0.3;
+          while (ta < t1 - 2) {
+            var tb = ta + rr(er, P.f[0], P.f[1]) * fsS; if (tb > t1 - 4) tb = t1 + 1;
+            var strip = clipH(clipH(O, ax, ay, ta), -ax, -ay, -tb);
+            (split ? [[w0 - 1, wm, -1], [wm, w1 + 1, 1]] : [[w0 - 1, w1 + 1, 0]]).forEach(function (sw) {
+              var Pc = clipH(clipH(strip, bx, by, sw[0]), -bx, -by, -sw[1]); if (Pc.length < 3 || Math.abs(area2(Pc)) < 14) return;
+              // Firstlinie längs der Mitte des Hauses, straßenseitige Hälfte zuerst
+              var lo = 1e9, hi = -1e9; Pc.forEach(function (p) { var w = p.x * bx + p.y * by; if (w < lo) lo = w; if (w > hi) hi = w; });
+              var mid = (lo + hi) / 2, sgn = sw[2] || (er() < 0.5 ? -1 : 1), flat = er() < P.flat;
+              var hA = clipH(Pc, -bx * sgn, -by * sgn, -mid * sgn), hB = clipH(Pc, bx * sgn, by * sgn, mid * sgn);
+              var hgt = rr(er, P.h[0], P.h[1]) * (0.75 + d * 0.5);
+              fillPoly(Pc, 5);
+              C.buildings.push({ polys: flat ? [Pc] : [hB], polys2: flat ? [] : [hA], flat: flat, roof: pickRoof(flat), h: hgt, nx: bx * sgn, ny: by * sgn, bb: bboxOf(Pc, hgt * 1.2 + 1), kind: P.mode });
+            });
+            ta = tb;
+          }
+          for (i = 0; i < cells.length; i++) { c = cells[i]; if (land[c] === 0) land[c] = P.mode === "dense" ? 8 : 7; }
+          return gid + 8;
+        }
         var Lc = [0]; for (i = 1; i <= On; i++) Lc.push(Lc[i - 1] + Math.hypot(O[i % On].x - O[i - 1].x, O[i % On].y - O[i - 1].y));
         var tot = Lc[On];
         function loc(s) { s = ((s % tot) + tot) % tot; var lo = 0, hi = On - 1; while (lo < hi) { var m = (lo + hi + 1) >> 1; if (Lc[m] <= s) lo = m; else hi = m - 1; } return { i: lo, t: (s - Lc[lo]) / ((Lc[lo + 1] - Lc[lo]) || 1) }; }
         function pt(poly, l2) { var a = poly[l2.i], e = poly[(l2.i + 1) % On]; return { x: a.x + (e.x - a.x) * l2.t, y: a.y + (e.y - a.y) * l2.t }; }
-        function along(poly, s0, s1) {
-          var out = [pt(poly, loc(s0))], a = loc(s0), e = loc(s1), i0 = a.i, guard = 0;
-          var span = s1 - s0, walked = Lc[i0 + 1] - (s0 % tot + tot) % tot;
-          while (walked < span - 1e-6 && guard++ < On + 1) { i0 = (i0 + 1) % On; out.push({ x: poly[i0].x, y: poly[i0].y }); walked += Lc[i0 + 1] - Lc[i0]; }
-          out.push(pt(poly, e)); return out;
+        // v0.4: Brandwände stehen senkrecht zur Straße. Punkt in Tiefe Dl hinter der Front an Bogenlänge s;
+        // genau an einer Ecke geht die Wand entlang der Gehrung (Ecke der eingerückten Linie).
+        function vpt(v, Dl) { var f = Dl / D; return { x: O[v].x + (I[v].x - O[v].x) * f, y: O[v].y + (I[v].y - O[v].y) * f }; }
+        function inPt(s, Dl) {
+          var l2 = loc(s), len = Lc[l2.i + 1] - Lc[l2.i], u = l2.t * len;
+          if (u < 0.05) return vpt(l2.i, Dl); if (len - u < 0.05) return vpt((l2.i + 1) % On, Dl);
+          var p = pt(O, l2); return { x: p.x + nrm[l2.i].x * Dl, y: p.y + nrm[l2.i].y * Dl };
         }
-        // Schnitte entlang der Front, an Ecken einrasten
-        var cuts = [], sAt = er() * 5, fs = (1.15 - d * 0.3) * (pie ? 1.5 : 1);
-        while (sAt < tot - 3) {
-          var snap = sAt;
-          for (i = 0; i < On; i++) if (Math.abs(Lc[i] - sAt) < 3.2) { snap = Lc[i]; break; }
-          if (!cuts.length || snap - cuts[cuts.length - 1] > 3) cuts.push(snap);
-          sAt = snap + rr(er, P.f[0], P.f[1]) * fs;
+        // Kette von s0 bis s1 in Tiefe Dl (0 = Fassade), mit allen Ecken dazwischen
+        function chain(s0, s1, Dl) {
+          var out = [Dl ? inPt(s0, Dl) : pt(O, loc(s0))], a = loc(s0), i0 = a.i, guard = 0, walked = Lc[i0 + 1] - (s0 % tot + tot) % tot;
+          while (walked < s1 - s0 - 0.05 && guard++ < On + 1) { i0 = (i0 + 1) % On; out.push(Dl ? vpt(i0, Dl) : { x: O[i0].x, y: O[i0].y }); walked += Lc[i0 + 1] - Lc[i0]; }
+          out.push(Dl ? inPt(s1, Dl) : pt(O, loc(s1))); return out;
         }
-        if (cuts.length < 2) cuts = [0, tot / 2];
-        var flatRs = S.style === "usa" ? ["#C9CCCF", "#BFC3C6", "#D3D5D6", "#B0B5BA", "#9EA4AA"] : S.style === "jp" ? ["#B9B5AC", "#A9ADB2", "#C7C3BA", "#9AA1A8", "#8F969E"] : ["#C9C2B4", "#B8B2A6", "#A9A9A6"];
-        var pal = [st.roofs[Math.floor(er() * st.roofs.length)], st.roofs[Math.floor(er() * st.roofs.length)], st.roofs[Math.floor(er() * st.roofs.length)]];
+        // Ecken: Knickwinkel, Zone, in der keine Brandwand stehen darf (sonst schräge Keile)
+        var cornerV = [], zoneV = [], sharpV = [];
+        for (i = 0; i < On; i++) {
+          var np = nrm[(i - 1 + On) % On], nn = nrm[i], th = Math.atan2(np.x * nn.y - np.y * nn.x, np.x * nn.x + np.y * nn.y);
+          var lin = Math.min(Lc[i] - Lc[(i - 1 + On) % On] + (i === 0 ? tot : 0), Lc[i + 1] - Lc[i]);
+          var z = th > 0 ? Math.min(D * Math.tan(Math.min(1.3, th) / 2), D * 1.6) : 0;
+          zoneV.push(z); sharpV.push(Math.abs(th) > 0.42);
+          if (Math.abs(th) > 0.42) cornerV.push({ v: i, a: Lc[i] - z - rr(er, 0, 4), b: Lc[i] + z + rr(er, 0, 4), z: z });
+        }
+        var fs = 1.15 - d * 0.3, minW = 4.5, cuts = [], start, end;
+        if (cornerV.length) {
+          cornerV.forEach(function (F) { while (F.a < 0) { F.a += tot; F.b += tot; } while (F.a >= tot) { F.a -= tot; F.b -= tot; } });
+          cornerV.sort(function (p, q) { return p.a - q.a; });
+          start = cornerV[0].b; end = start + tot;
+          var fis = cornerV.slice(1).concat([{ a: cornerV[0].a + tot, b: end }]).filter(function (F) { return F.a > start; });
+          var s = start, fi = 0; cuts.push(s);
+          for (var g9 = 0; g9 < 500; g9++) {
+            var nx1 = s + rr(er, P.f[0], P.f[1]) * fs, F = fis[fi];
+            if (F && nx1 > F.a - minW) {
+              if (F.a - s >= minW) cuts.push(F.a);
+              fi++; if (F.b >= end - minW) break;
+              s = Math.max(s + 0.5, F.b); cuts.push(s); continue;
+            }
+            if (nx1 > end - minW) break;
+            cuts.push(nx1); s = nx1;
+          }
+        } else { start = er() * 5; end = start + tot; for (var s2 = start; s2 < end - minW; s2 += rr(er, P.f[0], P.f[1]) * fs) cuts.push(s2); }
+        // Wände an flachen Knicken: auf die Ecke einrasten, wenn sie in deren Zone stehen
+        cuts = cuts.map(function (s3, qi) {
+          if (qi === 0 && cornerV.length) return s3;
+          var l3 = loc(s3), base = s3 - (s3 % tot + tot) % tot, cands = [l3.i, (l3.i + 1) % On];
+          for (var q = 0; q < 2; q++) { var v = cands[q]; if (sharpV[v]) continue; var sv = base + Lc[v] + (q === 1 && v === 0 ? tot : 0); if (Math.abs(sv - s3) < Math.max(1.5, zoneV[v] + 0.3)) return sv; }
+          return s3;
+        }).filter(function (s3, q, A) { return !q || s3 - A[q - 1] > 2.5; });
+        if (cuts.length < 2) cuts = [start, start + tot / 2];
         var hedgeL = P.mode === "mid" ? Math.min(rr(er, 12, 24), (maxDT - D) * 0.42) : 0;
         for (var k2 = 0; k2 < cuts.length; k2++) {
           var s0 = cuts[k2], s1 = k2 + 1 < cuts.length ? cuts[k2 + 1] : cuts[0] + tot;
-          var gap = er() < P.gap, det = er() < P.det, flat = er() < P.flat || (pie && S.style !== "eu" && er() < 0.6);
-          // Hecke an der Grundstücksgrenze (lockere Bebauung)
+          var gap = er() < P.gap, det = er() < P.det, flat = er() < P.flat;
+          // Hecke an der Grundstücksgrenze (lockere Bebauung), senkrecht zur Straße
           if (hedgeL) {
-            var l0 = loc(s0), po = pt(O, l0), pi2 = pt(I, l0), hx = pi2.x - po.x, hy = pi2.y - po.y, hl = Math.hypot(hx, hy) || 1; hx /= hl; hy /= hl;
+            var po = pt(O, loc(s0)), pi2 = inPt(s0, D), hx = pi2.x - po.x, hy = pi2.y - po.y, hl = Math.hypot(hx, hy) || 1; hx /= hl; hy /= hl;
             var q0 = { x: pi2.x, y: pi2.y }, q1 = q0;
             for (var u = 1; u < hedgeL; u += 1) { var qx = pi2.x + hx * u, qy = pi2.y + hy * u; if (!inB(qx, qy)) break; q1 = { x: qx, y: qy }; }
             if (q1 !== q0) C.hedges.push([q0.x, q0.y, q1.x, q1.y]);
           }
           if (gap) continue;
-          if (det && s1 - s0 > 7) { s0 += 1.1; s1 -= 1.1; }
-          var oP = along(O, s0, s1), mP = along(Mi, s0, s1), iP = along(I, s0, s1);
-          var full = oP.concat(iP.slice().reverse()), A = [oP.concat(mP.slice().reverse())], B2 = [mP.concat(iP.slice().reverse())];
-          // Wohin zeigt die Straße? (Mittel der Außennormalen)
+          var oneEdge = loc(s0).i === loc(s1 - 0.01).i, corner = !oneEdge && cornerV.some(function (F) { var sv = Lc[F.v]; return [sv, sv + tot, sv + 2 * tot].some(function (x2) { return x2 > s0 + 0.01 && x2 < s1 - 0.01; }); });
+          if (det && oneEdge && s1 - s0 > 7) { s0 += 1.1; s1 -= 1.1; }
+          // Tiefe je Haus verschieden (unregelmäßiger Hof wie in echten Blöcken), Eckhäuser volle Tiefe
+          var Dl = corner ? D : Math.max(Math.min(D, 5), D * rr(er, P.mode === "dense" ? 0.62 : 0.75, 1));
+          var oP = chain(s0, s1, 0), mP, iP, full, okL = false;
+          // passt das Haus nicht (verwinkelte Ecke), mit geringerer Tiefe noch einmal versuchen
+          for (var tD = 0; tD < 3 && !okL; tD++) {
+            if (tD) Dl *= 0.72;
+            mP = chain(s0, s1, Dl / 2); iP = chain(s0, s1, Dl); full = oP.concat(iP.slice().reverse());
+            okL = Dl >= 3 && iP.every(function (p) { return inB(p.x, p.y); }) && area2(full) * area2(O) > 0;
+          }
+          if (!okL) continue;
+          var A = [oP.concat(mP.slice().reverse())], B2 = [mP.concat(iP.slice().reverse())];
           var nx = 0, ny = 0; for (i = 0; i < oP.length - 1; i++) { var ex = oP[i + 1].x - oP[i].x, ey = oP[i + 1].y - oP[i].y; nx += ey; ny -= ex; }
           var nl = Math.hypot(nx, ny) || 1;
-          var roof = flat ? flatRs[Math.floor(er() * flatRs.length)] : (er() < 0.8 ? pal[Math.floor(er() * 3)] : st.roofs[Math.floor(er() * st.roofs.length)]);
-          var hgt = rr(er, P.h[0], P.h[1]) * (0.75 + d * 0.5);
+          var roof = pickRoof(flat), hgt = rr(er, P.h[0], P.h[1]) * (0.75 + d * 0.5);
           fillPoly(full, 5);
           C.buildings.push({ polys: flat ? [full] : A, polys2: flat ? [] : B2, flat: flat, roof: roof, h: hgt, nx: nx / nl, ny: ny / nl, bb: bboxOf(full, hgt * 1.2 + 1), kind: P.mode });
           // Seitenflügel in den Hof (Hinterhaus), wie in gründerzeitlichen Blöcken
-          var lw0 = loc((s0 + s1) / 2 - 4), lw1 = loc((s0 + s1) / 2 + 4);
-          if (!pie && P.mode === "dense" && S.style === "eu" && s1 - s0 > 11 && lw0.i === lw1.i && er() < 0.35) {
-            var wm = (s0 + s1) / 2, ww = rr(er, 5, 7), la = loc(wm - ww / 2), lb = loc(wm + ww / 2), ia2 = pt(I, la), ib2 = pt(I, lb), oa2 = pt(O, la);
-            var wOK = Math.hypot(ib2.x - ia2.x, ib2.y - ia2.y) >= 3.5;
+          if (oneEdge && P.mode === "dense" && S.style === "eu" && s1 - s0 > 11 && er() < 0.35) {
+            var wm = (s0 + s1) / 2, ww = rr(er, 5, 7), ia2 = inPt(wm - ww / 2, Dl), ib2 = inPt(wm + ww / 2, Dl), oa2 = pt(O, loc(wm - ww / 2));
             var vx = ia2.x - oa2.x, vy = ia2.y - oa2.y, vl = Math.hypot(vx, vy) || 1, wl = rr(er, 7, 14); vx /= vl; vy /= vl;
             var wing = [ia2, ib2, { x: ib2.x + vx * wl, y: ib2.y + vy * wl }, { x: ia2.x + vx * wl, y: ia2.y + vy * wl }];
-            if (wOK && wing.every(function (p) { return inB(p.x, p.y); }) && polyFree(wing)) {
+            if (wing.every(function (p) { return inB(p.x, p.y); }) && polyFree(wing)) {
               fillPoly(wing, 5);
               var hw2 = [{ x: (wing[0].x + wing[1].x) / 2, y: (wing[0].y + wing[1].y) / 2 }, { x: (wing[2].x + wing[3].x) / 2, y: (wing[2].y + wing[3].y) / 2 }];
               C.buildings.push({ polys: [[wing[0], hw2[0], hw2[1], wing[3]]], polys2: [[hw2[0], wing[1], wing[2], hw2[1]]], flat: false, roof: roof, h: hgt * 0.8, nx: -vy, ny: vx, bb: bboxOf(wing, hgt + 1), kind: "wing" });
