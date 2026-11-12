@@ -32,6 +32,7 @@
     fitCam(); layout(); syncUI();
     var us = 1; try { us = parseFloat(localStorage.getItem("spacerogue-ui")) || 1; } catch (e) {} hudScale(us);
     V.cv.addEventListener("pointerdown", onDown); window.addEventListener("pointermove", onMove); window.addEventListener("pointerup", onUp); window.addEventListener("pointercancel", onUp);
+    var vl = V.root.querySelector(".sr-list"); if (vl) vl.addEventListener("scroll", function () { closeVar(); });   // Liste scrollt: Variantenfenster zu
     V.cv.addEventListener("wheel", onWheel, { passive: false }); V.cv.addEventListener("contextmenu", function (e) { e.preventDefault(); });
     V.cv.addEventListener("pointerleave", function () { if (V && S.mode !== "fly") V.mouse = null; });
     el.addEventListener("click", onClick); el.addEventListener("input", onInput);

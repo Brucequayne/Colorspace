@@ -1,7 +1,8 @@
   // ===== 11-bauteile.js · Bauteile: Definitionen (Masse, HP, Schub …), Kosten, Perk-Haken (PM), Kantenregeln =====
   // ---------- Bauteile ----------
   // kind: armor, cock, thr, gyro, bat, reac, ant, floor, wall, door, win, mg, rg
-  // shape: full, ramp1, ramp2, round, half
+  // shape: full, ramp1, ramp2, ramp3, round, round2 (Viertelellipse 1×2, v0.54.4), half
+  // vg: Variantengruppe (v0.54.4) – Blöcke mit gleichem vg teilen sich in der Bauteilliste eine Kachel, die Varianten öffnen sich über die Falte oben rechts
   var T = {}, CATS = [];
   function def(id, o) { o.id = id; o.mass = Math.round(o.mass * 0.7 * 0.75 * 1000) / 1000; T[id] = o; return o; }   // alle Teile leichter: −30 % (v0.34), nochmals −25 % (v0.46)
   function armor(pre, heavy) {
@@ -12,6 +13,7 @@
      ["rm2", "ramp2", 1, 2, L2("Rampe 1×2", "Slope 1×2"), 1],
      ["rm3", "ramp3", 1, 3, L2("Rampe 1×3", "Slope 1×3"), 1.5],
      ["cor", "round", 1, 1, L2("Ecke rund 1×1", "Round corner 1×1"), 0.8],
+     ["co2", "round2", 1, 2, L2("Ecke rund 1×2", "Round corner 1×2"), 1.57],
      ["hlf", "half", 1, 1, L2("Halb 1×1", "Half 1×1"), 0.5],
      ["bl2", "full", 1, 2, L2("Block 1×2", "Block 1×2"), 2]].forEach(function (a) {
       def(pre + a[0], { cat: heavy ? "catHA" : "catLA", kind: "armor", shape: a[1], w: a[2], h: a[3], mass: Math.round(m * a[5] * 100) / 100, hp: Math.round(hp * Math.max(0.6, a[5])), col: col, heavy: heavy,
@@ -20,7 +22,7 @@
   }
   armor("l", false); armor("h", true);
   // Kosten in Credits (Cr): im Editor ist alles gratis; die Preise stehen in der Bauteilliste und im Infofeld
-  var COSTS = { cks: 1200, ckm: 2400, ckl: 4200, ckt: 700, dk3: 2200, dk4: 3400, ths: 450, thf: 650, shs: 1400, shl: 3800, thl: 1600, gyr: 700, col: 300, ant: 400, bat: 350, rea: 2000, flo: 15, wal: 25, dor: 60, hat: 150, win: 40, mgn: 900, msl: 1300, msh: 2400, g25: 1800, g120: 3600, stu: 40, tis: 80, bet: 120, dbt: 180, toi: 150, dus: 200, tgc: 1600, rgn: 2600 };
+  var COSTS = { cks: 1200, ckm: 2400, ckl: 4200, ckt: 700, dk3: 2200, dk4: 3400, ths: 450, thf: 650, shs: 1400, shl: 3800, thl: 1600, gyr: 700, col: 300, ant: 400, bat: 350, rea: 2000, flo: 15, wal: 25, dor: 60, hat: 150, win: 40, mgn: 900, msl: 1300, msh: 2400, g25: 1800, g120: 3600, stu: 40, tis: 80, bet: 120, dbt: 180, toi: 150, dus: 200, tgc: 1600, rgn: 2600, bt6: 2100, kr1: 60, kr2: 110, kr6: 300, kry: 900, pul: 450 };
   function applyCosts() { Object.keys(T).forEach(function (id) { var ty = T[id]; ty.cost = COSTS[id] || (ty.kind === "armor" ? Math.max(5, Math.round(ty.mass * (ty.heavy ? 26 : 57))) : 100); }); }
   function cr(v) { return nf(Math.round(v)) + " Cr"; }
   def("ckt", { cat: "catCo", kind: "cock", w: 1, h: 2, mass: 0.9, hp: 150, n: L2("Cockpit winzig 1×2", "Tiny cockpit 1×2"), col: "#9AA5B1" });
@@ -38,6 +40,8 @@
   def("shs", { cat: "catEn", kind: "shield", w: 1, h: 1, mass: 1.3, hp: 60, shk: 5, n: L2("Schildgenerator klein 1×1", "Small shield generator 1×1"), col: "#5B7FA6" });
   def("shl", { cat: "catEn", kind: "shield", w: 2, h: 2, mass: 3.6, hp: 160, shk: 25, n: L2("Schildgenerator groß 2×2", "Large shield generator 2×2"), col: "#5B7FA6" });
   def("bat", { cat: "catEn", kind: "bat", w: 1, h: 1, mass: 1.6, hp: 50, cap: 300, n: L2("Batterie 1×1", "Battery 1×1"), col: "#7E8995" });
+  // Große Batterie (v0.54.4): speichert 10 % mehr als sechs kleine, gleich schwer
+  def("bt6", { cat: "catEn", kind: "bat", w: 2, h: 3, mass: 1.6 * 6, hp: 270, cap: Math.round(300 * 6 * 1.1), n: L2("Große Batterie 2×3", "Large battery 2×3"), col: "#7E8995" });
   def("rea", { cat: "catEn", kind: "reac", w: 2, h: 2, mass: 4.6, hp: 135, prod: 14, n: L2("Reaktor 2×2", "Reactor 2×2"), col: "#7E8995" });
   def("flo", { cat: "catIn", kind: "floor", w: 1, h: 1, mass: 0.18, hp: 32, n: L2("Boden (Innenraum)", "Floor (interior)"), col: "#9AA5B1" });
   def("wal", { cat: "catIn", kind: "wall", w: 1, h: 1, mass: 0.45, hp: 65, n: L2("Innenwand", "Interior wall"), col: "#9AA5B1" });
@@ -61,16 +65,30 @@
   def("dbt", { cat: "catDe", kind: "deco", dk: "bed2", w: 1, h: 2, mass: 0.55, hp: 35, n: L2("Doppelbett 1×2", "Double bed 1×2"), col: "#9AA5B1" });
   def("toi", { cat: "catDe", kind: "deco", dk: "wc", w: 1, h: 1, mass: 0.25, hp: 25, n: L2("Toilette 1×1", "Toilet 1×1"), col: "#9AA5B1" });
   def("dus", { cat: "catDe", kind: "deco", dk: "shower", w: 1, h: 1, mass: 0.3, hp: 25, n: L2("Dusche 1×1", "Shower 1×1"), col: "#9AA5B1" });
+  // v0.54.4: Frachtkisten, Kryokapsel, Bedienpult – vorerst nur Optik
+  def("kr1", { cat: "catDe", kind: "deco", dk: "crate", w: 1, h: 1, mass: 0.6, hp: 40, n: L2("Cargo-Kiste 1×1", "Cargo crate 1×1"), col: "#9AA5B1" });
+  def("kr2", { cat: "catDe", kind: "deco", dk: "crate", w: 1, h: 2, mass: 1.1, hp: 60, n: L2("Cargo-Kiste 1×2", "Cargo crate 1×2"), col: "#9AA5B1" });
+  def("kr6", { cat: "catDe", kind: "deco", dk: "crate", w: 2, h: 3, mass: 3, hp: 120, n: L2("Cargo-Kiste 2×3", "Cargo crate 2×3"), col: "#9AA5B1" });
+  def("kry", { cat: "catDe", kind: "deco", dk: "cryo", w: 1, h: 2, mass: 0.9, hp: 45, n: L2("Kryokapsel 1×2", "Cryo pod 1×2"), col: "#9AA5B1" });
+  def("pul", { cat: "catDe", kind: "deco", dk: "console", w: 1, h: 2, mass: 0.7, hp: 40, n: L2("Bedienmodul 1×2", "Control console 1×2"), col: "#9AA5B1" });
   applyCosts();
   // Panzerung 1×2: so schwer wie zwei einzelne Blöcke, aber 15 % günstiger
   T.lbl2.cost = Math.round(T.lblk.cost * 2 * 0.85); T.hbl2.cost = Math.round(T.hblk.cost * 2 * 0.85);
+  // Varianten (v0.54.4): gleiche Werte und Preise wie das Original, nur anderes Aussehen (va = Art der Zeichnung)
+  function variant(base, id, va, nm) {
+    var b = T[base], o = {}; Object.keys(b).forEach(function (k) { o[k] = b[k]; });
+    o.id = id; o.va = va; o.vg = base; b.vg = base; o.vn = nm; o.n = L2(b.n.de + ", " + nm.de, b.n.en + ", " + nm.en); T[id] = o; return o;
+  }
+  ["lblk", "lbl2", "hblk", "hbl2"].forEach(function (id) { variant(id, id + "v", "vent", L2("Lüftung", "vent")); });
+  variant("flo", "flog", "grid", L2("Gitter", "grating"));
+  variant("wal", "walr", "pipes", L2("mit Rohren", "with pipes"));
   // Verwitterte Panzerung (v0.54.2, nur Developer Tool): jede Panzerform als rostige (…r) und zugewucherte (…m) Variante.
   // Werte und Preis wie das Original; nur das Aussehen ändert sich (wx, siehe 45-verwitterung.js).
   ["l", "h"].forEach(function (pre) {
-    ["blk", "rmp", "rm2", "rm3", "cor", "hlf", "bl2"].forEach(function (sf) {
+    ["blk", "rmp", "rm2", "rm3", "cor", "co2", "hlf", "bl2"].forEach(function (sf) {
       var base = T[pre + sf];
       [["r", "catRA", L2("rostig", "rusty")], ["m", "catOA", L2("bewachsen", "overgrown")]].forEach(function (v) {
-        var o = {}; Object.keys(base).forEach(function (k) { o[k] = base[k]; });
+        var o = {}; Object.keys(base).forEach(function (k) { if (k !== "vg") o[k] = base[k]; });
         o.id = pre + sf + v[0]; o.wx = v[0]; o.cat = v[1]; o.dev = true; o.n = L2(base.n.de + ", " + v[2].de, base.n.en + ", " + v[2].en);
         T[o.id] = o;
       });
@@ -89,7 +107,7 @@
     var k = ty.kind, sh = ty.shape, last = ly === ty.h - 1;
     if (k === "armor") {
       if (sh === "ramp1" || sh === "round") return { c: d === 2 || d === 3, s: d === 2 || d === 3 };
-      if (sh === "ramp2" || sh === "ramp3") return { c: d === 3 || (d === 2 && last), s: d === 3 || (d === 2 && last) };
+      if (sh === "ramp2" || sh === "ramp3" || sh === "round2") return { c: d === 3 || (d === 2 && last), s: d === 3 || (d === 2 && last) };
       if (sh === "half") return { c: d !== 0, s: d === 2 };
       return { c: true, s: true };
     }

@@ -59,6 +59,7 @@
     if (V && e.target.classList && e.target.classList.contains("sr-shipn-in")) { if (e.key === "Enter") finishRename(true); else if (e.key === "Escape") finishRename(false); e.stopPropagation(); return; }
     if (!V || e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA") return;
     var k = e.key.toLowerCase();
+    if (k === "escape" && V.root.querySelector(".sr-vpop") && !V.root.querySelector(".sr-vpop").hidden) { closeVar(); return; }
     if (S.mode === "fly") {
       if (k === "i") { if (invOpen()) closeInv(); else openInv(); return; }
       if (k === "escape" && invOpen()) { closeInv(); return; }
@@ -103,6 +104,10 @@
   }
   function undo() { var u = S.undo.pop(); if (!u) return; var o = JSON.parse(u); if (Array.isArray(o)) S.blocks = o; else { S.blocks = o.b; S.env = o.e.map(envUnpack).filter(Boolean); } save(); syncUI(); }
   function onClick(e) {
+    var vf = e.target.closest("[data-vf]"), vo = e.target.closest("[data-vopt]");
+    if (vf) { e.preventDefault(); openVar(vf); return; }        // Falte: Varianten zeigen
+    if (vo) { pickVar(vo.getAttribute("data-vopt")); return; }  // Variante gewählt: Fenster schließt sofort
+    if (!e.target.closest(".sr-vpop")) closeVar();              // Klick woanders schließt das Fenster
     var a = e.target.closest("[data-act]"), tl = e.target.closest("[data-tool]"), bk = e.target.closest("[data-blk]"), vw = e.target.closest("[data-view]"), sw = e.target.closest("[data-sw]");
     if (tl) { S.tool = tl.getAttribute("data-tool"); syncUI(); return; }
     if (bk) { S.sel = bk.getAttribute("data-blk"); S.tool = "build"; syncUI(); return; }

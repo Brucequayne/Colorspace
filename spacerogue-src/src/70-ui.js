@@ -19,12 +19,45 @@
     ];
     return '<div class="sr-ctl" hidden>' + G.map(function (g) { return "<small>" + g[0] + "</small><dl>" + g[1].map(function (r) { return "<dt>" + r[0] + "</dt><dd>" + r[1] + "</dd>"; }).join("") + "</dl>"; }).join("") + "</div>";
   }
+  // ---------- Block-Varianten (v0.54.4) ----------
+  // Eine Kachel je Gruppe; sie zeigt die zuletzt gewählte Variante. Gewählte Varianten bleiben auf dem Gerät gespeichert.
+  var VAR_SAVE = "spacerogue-var", VSEL = null, ICONS = {};
+  function vGroup(g) { return Object.keys(T).filter(function (id) { return T[id].vg === g && !T[id].wx; }); }
+  function vShown(g) {
+    if (!VSEL) { VSEL = {}; try { VSEL = JSON.parse(localStorage.getItem(VAR_SAVE) || "{}") || {}; } catch (e) {} }
+    var id = VSEL[g]; return id && T[id] && T[id].vg === g ? id : g;
+  }
+  function vSave() { try { localStorage.setItem(VAR_SAVE, JSON.stringify(VSEL || {})); } catch (e) {} }
+  function iconC(id) { return ICONS[id] || (ICONS[id] = icon(id)); }
+  function tileHTML(id) {
+    var ty = T[id], g = ty.vg, n = g ? vGroup(g).length : 0;
+    return '<button type="button" class="sr-blk" data-blk="' + id + '" data-kind="' + ty.kind + '"' + (g ? ' data-vg="' + g + '"' : "") + (ty.dev ? " data-dev" : "") + ' title="' + ty.n[lang] + " · " + kg(ty.mass) + " · " + ty.hp + " HP · " + cr(ty.cost) + wTip(id) + '">' +
+      (n > 1 ? '<i class="sr-vf" data-vf="' + g + '" title="' + t("vars") + " (" + n + ')"></i>' : "") +
+      '<img alt="" src="' + iconC(id) + '"><span>' + ty.n[lang] + "</span><small>" + kg(ty.mass) + "</small><small class=\"sr-pr\">" + cr(ty.cost) + "</small></button>";
+  }
+  // Fenster mit allen Varianten direkt an der Falte öffnen
+  function openVar(f) {
+    var g = f.getAttribute("data-vf"), pop = V.root.querySelector(".sr-vpop"), pal = V.root.querySelector(".sr-pal");
+    if (!pop.hidden && pop.getAttribute("data-g") === g) { closeVar(); return; }
+    var cur = f.closest("[data-blk]").getAttribute("data-blk");
+    pop.innerHTML = "<h5>" + t("vars") + "</h5><div>" + vGroup(g).map(function (id) {
+      return '<button type="button" class="sr-vo" data-vopt="' + id + '" aria-pressed="' + (id === cur) + '" title="' + T[id].n[lang] + '"><img alt="" src="' + iconC(id) + '"><span>' + (T[id].vn ? T[id].vn[lang] : t("varStd")) + "</span></button>";
+    }).join("") + "</div>";
+    pop.setAttribute("data-g", g); pop.hidden = false;
+    var fr = f.getBoundingClientRect(), pr = pal.getBoundingClientRect();
+    pop.style.right = "auto"; pop.style.left = Math.max(4, Math.min(pr.width - pop.offsetWidth - 4, fr.right - pr.left - pop.offsetWidth)) + "px";   // an der Falte, aber nie aus der Leiste heraus
+    pop.style.top = Math.max(4, Math.min(pr.height - pop.offsetHeight - 4, fr.top - pr.top)) + "px";
+  }
+  function closeVar() { var pop = V && V.root && V.root.querySelector(".sr-vpop"); if (pop && !pop.hidden) { pop.hidden = true; pop.innerHTML = ""; } }
+  function pickVar(id) {
+    var g = T[id].vg; VSEL = VSEL || {}; VSEL[g] = id; vSave();
+    var old = V.root.querySelector('.sr-list [data-vg="' + g + '"]'); if (old) old.outerHTML = tileHTML(id);
+    S.sel = id; S.tool = "build"; closeVar(); syncUI();
+  }
   function html() {
     var pal = CATS.map(function (cat) {
-      var ids = Object.keys(T).filter(function (id) { return T[id].cat === cat; }), onlyDev = ids.length && ids.every(function (id) { return T[id].dev; });
-      return '<div class="sr-cat"' + (onlyDev ? " data-dev" : "") + '><h4>' + t(cat) + '</h4><div class="sr-grid">' + ids.map(function (id) {
-        return '<button type="button" class="sr-blk" data-blk="' + id + '" data-kind="' + T[id].kind + '"' + (T[id].dev ? " data-dev" : "") + ' title="' + T[id].n[lang] + " · " + kg(T[id].mass) + " · " + T[id].hp + " HP · " + cr(T[id].cost) + wTip(id) + '"><img alt="" src="' + icon(id) + '"><span>' + T[id].n[lang] + "</span><small>" + kg(T[id].mass) + "</small><small class=\"sr-pr\">" + cr(T[id].cost) + "</small></button>";
-      }).join("") + "</div></div>";
+      var ids = Object.keys(T).filter(function (id) { return T[id].cat === cat && (!T[id].vg || T[id].vg === id); }), onlyDev = ids.length && ids.every(function (id) { return T[id].dev; });
+      return '<div class="sr-cat"' + (onlyDev ? " data-dev" : "") + '><h4>' + t(cat) + '</h4><div class="sr-grid">' + ids.map(function (id) { return tileHTML(T[id].vg ? vShown(id) : id); }).join("") + "</div></div>";
     }).join("");
     var sw = ["#C8473A", "#E3B83F", "#57A06A", "#3E6F96", "#7B4BA8", "#E9ECEE", "#9AA5B1", "#6A7480", "#2A2F36"].map(function (c) { return '<button type="button" class="sr-sw" data-sw="' + c + '" style="background:' + c + '" aria-label="' + c + '"></button>'; }).join("");
     return '<div class="sr-root">' +
@@ -46,7 +79,7 @@
       '<button type="button" data-act="env-rnd" class="sr-envrnd"></button><p class="sr-envh">' + t("envHelp") + '</p><small class="sr-envcat">' + t("envAst") + '</small><div class="sr-grid sr-envlist"></div></div>' +
       '<div class="sr-paint"><label>' + t("color") + ' <input type="color" id="sr-col"></label><div class="sr-sws">' + sw + '</div></div>' +
       '<div class="sr-opts"><button type="button" data-act="rot">' + t("rot") + '</button><button type="button" data-act="flip">' + t("flip") + '</button><button type="button" data-act="sym">' + t("sym") + '</button><button type="button" data-act="symm" class="sr-symm"></button></div>' +
-      '<div class="sr-list">' + pal + '</div></aside>' +
+      '<div class="sr-list">' + pal + '</div><div class="sr-vpop" hidden></div></aside>' +
       '<aside class="sr-info sr-ed-only" id="sr-info"></aside>' +
       '<div class="sr-hud sr-fl-only"><div class="sr-hr"><small>' + t("speed") + '</small><span><b id="sr-h-sp"></b><em id="sr-h-spb"></em></span></div>' +
       '<div><small>' + t("energy") + ' <span id="sr-h-en"></span></small><i class="sr-eb sr-eb2"><i id="sr-h-sbar"></i><i id="sr-h-ebar"></i></i></div>' +

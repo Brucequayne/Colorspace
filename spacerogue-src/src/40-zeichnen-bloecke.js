@@ -10,6 +10,7 @@
     c.beginPath();
     if (sh === "ramp1" || sh === "ramp2" || sh === "ramp3") { c.moveTo(0, 0); c.lineTo(0, h); c.lineTo(w, h); c.closePath(); }
     else if (sh === "round") { c.moveTo(0, 0); c.arc(0, h, w, -Math.PI / 2, 0); c.lineTo(0, h); c.closePath(); }
+    else if (sh === "round2") { c.moveTo(0, 0); c.ellipse(0, h, w, h, 0, -Math.PI / 2, 0); c.lineTo(0, h); c.closePath(); }
     else if (sh === "half") c.rect(0, h / 2, w, h / 2);
     else c.rect(0, 0, w, h);
   }
@@ -32,14 +33,16 @@
         c.fillStyle = shade(col, -0.25); c.fillRect(0, h - lw * 2, w, lw * 2); c.fillRect(w - lw * 2, 0, lw * 2, h);
         if (ty.heavy) { c.fillStyle = shade(col, -0.18); c.fillRect(w * 0.3, h * 0.3, w * 0.4, h * 0.4); c.fillStyle = shade(col, 0.1); c.fillRect(w * 0.34, h * 0.34, w * 0.32, h * 0.32); }
         c.restore();
+        if (ty.va === "vent") ventArt(c, w, h, s, col, lw, ty.heavy);
         if (ty.wx) wxOverlay(c, b, ty, s, w, h, m0);
       }
       shapePath(c, k === "win" ? "full" : ty.shape, w, h); c.strokeStyle = shade(col, -0.5); c.lineWidth = lw; c.stroke();
       if (dam) damageMarks(c, w, h, b, s, ty.shape);
     } else if (k === "floor" || k === "wall" || k === "door") {
       if (view === "out") { roof(c, w, h, col, lw); }
+      else if (k === "floor" && ty.va === "grid") gridFloorArt(c, w, h, s, lw);
       else if (k === "floor") { c.fillStyle = FLOOR; c.fillRect(0, 0, w, h); c.strokeStyle = FLOOR2; c.lineWidth = lw; c.strokeRect(lw / 2, lw / 2, w - lw, h - lw); c.fillStyle = FLOOR2; c.fillRect(w * 0.45, h * 0.45, w * 0.1, h * 0.1); }
-      else if (k === "wall") { c.fillStyle = shade(col, -0.35); c.fillRect(0, 0, w, h); c.fillStyle = shade(col, -0.15); c.fillRect(w * 0.15, 0, w * 0.7, h); c.strokeStyle = shade(col, -0.55); c.lineWidth = lw; c.strokeRect(lw / 2, lw / 2, w - lw, h - lw); }
+      else if (k === "wall") { c.fillStyle = shade(col, -0.35); c.fillRect(0, 0, w, h); c.fillStyle = shade(col, -0.15); c.fillRect(w * 0.15, 0, w * 0.7, h); if (ty.va === "pipes") pipeArt(c, w, h, s, lw, b.c); c.strokeStyle = shade(col, -0.55); c.lineWidth = lw; c.strokeRect(lw / 2, lw / 2, w - lw, h - lw); }
       else { c.fillStyle = FLOOR; c.fillRect(0, 0, w, h); c.fillStyle = shade(col, -0.3); c.fillRect(0, 0, w * 0.12, h); c.fillRect(w * 0.88, 0, w * 0.12, h); c.fillStyle = "#D9A21B"; c.fillRect(w * 0.12, h * 0.38, w * 0.37, h * 0.24); c.fillRect(w * 0.51, h * 0.38, w * 0.37, h * 0.24); c.fillStyle = DARK; c.fillRect(w * 0.49, h * 0.38, w * 0.02, h * 0.24); }
       if (k === "door" && view === "out") { c.fillStyle = "#D9A21B"; c.fillRect(w * 0.42, h * 0.1, w * 0.16, h * 0.8); }
     } else if (k === "hatch") {
@@ -86,6 +89,8 @@
       var ga = tm * 3; c.strokeStyle = b.c || ACC; c.beginPath(); c.moveTo(w / 2 + Math.cos(ga) * w * 0.3, h / 2 + Math.sin(ga) * h * 0.3); c.lineTo(w / 2 - Math.cos(ga) * w * 0.3, h / 2 - Math.sin(ga) * h * 0.3); c.stroke();
       c.fillStyle = DARK; c.fillRect(w * 0.44, h * 0.44, w * 0.12, h * 0.12);
       c.strokeStyle = shade(col, -0.55); c.lineWidth = lw; c.strokeRect(lw / 2, lw / 2, w - lw, h - lw);
+    } else if (k === "bat" && ty.w > 1) {
+      bigBatArt(c, w, h, s, col, lw, opts && opts.batK !== undefined ? opts.batK : 1, b.c, tm);
     } else if (k === "bat") {
       c.fillStyle = shade(col, -0.1); c.fillRect(0, 0, w, h);
       c.fillStyle = DARK; c.fillRect(w * 0.2, h * 0.15, w * 0.6, h * 0.7);
@@ -238,6 +243,12 @@
       c.fillStyle = "#F4F6F8"; c.beginPath(); c.ellipse(w / 2, h * 0.58, w * 0.24, h * 0.3, 0, 0, Math.PI * 2); c.fill(); c.strokeStyle = ol; c.lineWidth = lw; c.stroke();
       c.fillStyle = "#9FC7D9"; c.beginPath(); c.ellipse(w / 2, h * 0.6, w * 0.13, h * 0.17, 0, 0, Math.PI * 2); c.fill();
       c.fillStyle = "#9AA5B1"; c.fillRect(w * 0.44, h * 0.15, w * 0.12, h * 0.05);
+    } else if (dk === "crate") {
+      crateArt(c, w, h, s, lw, acc, ol);
+    } else if (dk === "cryo") {
+      cryoArt(c, w, h, s, lw, acc, ol);
+    } else if (dk === "console") {
+      consoleArt(c, w, h, s, lw, acc, ol);
     } else if (dk === "shower") {
       c.fillStyle = "#CFE3EC"; c.fillRect(w * 0.08, h * 0.08, w * 0.84, h * 0.84);
       c.strokeStyle = "rgba(120,150,170,.6)"; c.lineWidth = lw * 0.7; c.beginPath();
@@ -248,6 +259,116 @@
       c.strokeStyle = "rgba(140,200,230,.9)"; c.lineWidth = lw * 2; c.beginPath(); c.moveTo(w * 0.92, h * 0.08); c.lineTo(w * 0.92, h * 0.92); c.stroke();
       c.strokeStyle = ol; c.lineWidth = lw; c.strokeRect(w * 0.08, h * 0.08, w * 0.84, h * 0.84);
     }
+  }
+  // ---------- v0.54.4: Varianten und neue Einrichtung ----------
+  // Lüftungsgitter in der Panzerung (wie ein Büro-Lüftungsauslass): Rahmen, dunkler Schacht, schräge Lamellen, vier Schrauben
+  function ventArt(c, w, h, s, col, lw, heavy) {
+    var m = s * (heavy ? 0.2 : 0.16), gx = m, gy = m, gw = w - m * 2, gh = h - m * 2;
+    c.fillStyle = shade(col, -0.3); c.fillRect(gx - lw, gy - lw, gw + lw * 2, gh + lw * 2);   // Rahmen
+    c.fillStyle = shade(col, 0.18); c.fillRect(gx - lw, gy - lw, gw + lw * 2, lw);
+    c.fillStyle = "#15191E"; c.fillRect(gx, gy, gw, gh);                                       // Schacht
+    var n = Math.max(3, Math.round(gh / (s * 0.17))), st = gh / n;
+    for (var i = 0; i < n; i++) {
+      var y = gy + i * st;
+      c.fillStyle = shade(col, 0.05); c.fillRect(gx, y + st * 0.12, gw, st * 0.5);            // Lamelle
+      c.fillStyle = shade(col, 0.32); c.fillRect(gx, y + st * 0.12, gw, Math.max(0.6, lw * 0.7));
+      c.fillStyle = "rgba(0,0,0,.45)"; c.fillRect(gx, y + st * 0.62, gw, st * 0.16);           // Schatten unter der Lamelle
+    }
+    if (gw > s * 0.9) { c.fillStyle = shade(col, -0.35); c.fillRect(gx + gw / 2 - lw * 0.6, gy, lw * 1.2, gh); }   // Mittelsteg bei breiten Gittern
+    c.fillStyle = shade(col, -0.5); var sr = Math.max(1, s * 0.045);
+    [[m * 0.5, m * 0.5], [w - m * 0.5, m * 0.5], [m * 0.5, h - m * 0.5], [w - m * 0.5, h - m * 0.5]].forEach(function (q) { c.beginPath(); c.arc(q[0], q[1], sr, 0, Math.PI * 2); c.fill(); });
+  }
+  // Gitterboden: Gitterrost über einem dunklen Unterboden mit Leitungen
+  function gridFloorArt(c, w, h, s, lw) {
+    c.fillStyle = "#2A3038"; c.fillRect(0, 0, w, h);
+    c.fillStyle = "#3C4652"; c.fillRect(0, h * 0.3, w, s * 0.1); c.fillStyle = "#5A4630"; c.fillRect(0, h * 0.66, w, s * 0.07);   // Leitungen darunter
+    var n = 6, st = w / n, bw = Math.max(1, st * 0.3);
+    c.fillStyle = "#8D949C";
+    for (var i = 0; i <= n; i++) { c.fillRect(i * st - bw / 2, 0, bw, h); }
+    for (var j = 0; j <= Math.round(h / st); j++) { c.fillRect(0, j * st - bw / 2, w, bw); }
+    c.fillStyle = "rgba(255,255,255,.18)"; for (var k = 0; k <= n; k++) c.fillRect(k * st - bw / 2, 0, Math.max(0.6, bw * 0.3), h);
+    c.strokeStyle = FLOOR2; c.lineWidth = lw * 1.4; c.strokeRect(lw * 0.7, lw * 0.7, w - lw * 1.4, h - lw * 1.4);
+  }
+  // Rohre auf der Innenwand, laufen in Wandrichtung durch (verbinden sich mit dem nächsten Rohrblock)
+  function pipeArt(c, w, h, s, lw, acc) {
+    var P = [[0.3, 0.13, acc || "#B87333"], [0.62, 0.09, "#7E8995"], [0.82, 0.06, "#5B7FA6"]];
+    P.forEach(function (p) {
+      var x = w * p[0], r = s * p[1];
+      c.fillStyle = shade(p[2], -0.35); c.fillRect(x - r, 0, r * 2, h);
+      c.fillStyle = p[2]; c.fillRect(x - r * 0.75, 0, r * 1.5, h);
+      c.fillStyle = shade(p[2], 0.35); c.fillRect(x - r * 0.45, 0, r * 0.35, h);
+    });
+    c.fillStyle = "#3A414B"; c.fillRect(w * 0.12, h * 0.42, w * 0.8, s * 0.12);   // Halteschelle
+    c.fillStyle = "#9AA5B1"; c.fillRect(w * 0.12, h * 0.42, w * 0.8, Math.max(0.6, lw * 0.6));
+  }
+  // Große Batterie 2×3: Gehäuse mit sechs Zellen, gemeinsamer Ladestand, Polen und Lüftung
+  function bigBatArt(c, w, h, s, col, lw, lv, acc, tm) {
+    c.fillStyle = shade(col, -0.1); c.fillRect(0, 0, w, h);
+    c.fillStyle = shade(col, -0.3); c.fillRect(s * 0.08, s * 0.08, w - s * 0.16, s * 0.34);
+    c.fillStyle = acc || ACC; c.fillRect(s * 0.3, s * 0.14, s * 0.3, s * 0.2); c.fillRect(w - s * 0.6, s * 0.14, s * 0.3, s * 0.2);   // Pole
+    c.fillStyle = "#E0533F"; c.fillRect(w - s * 0.52, s * 0.21, s * 0.14, s * 0.06);
+    var col2 = lv < 0.2 ? "#E0533F" : "#57D18A";
+    for (var i = 0; i < 2; i++) for (var j = 0; j < 3; j++) {
+      var x = s * (0.16 + i * 0.92), y = s * (0.52 + j * 0.8), cw = s * 0.76, ch = s * 0.66;
+      c.fillStyle = DARK; c.fillRect(x, y, cw, ch);
+      c.fillStyle = col2; c.fillRect(x + s * 0.06, y + s * 0.06 + (ch - s * 0.12) * (1 - lv), cw - s * 0.12, (ch - s * 0.12) * lv);
+      c.fillStyle = "rgba(255,255,255,.12)"; c.fillRect(x + s * 0.06, y + s * 0.06, s * 0.08, ch - s * 0.12);
+    }
+    c.fillStyle = Math.sin(tm * 3) > 0 && lv < 1 ? "#57D18A" : "#2C5A3E"; c.fillRect(w / 2 - s * 0.06, s * 0.2, s * 0.12, s * 0.12);   // Ladelampe
+    c.strokeStyle = shade(col, -0.55); c.lineWidth = lw; c.strokeRect(lw / 2, lw / 2, w - lw, h - lw);
+  }
+  // Frachtkiste: Container mit Rippen, verstärkten Ecken und Warnstreifen
+  function crateArt(c, w, h, s, lw, acc, ol) {
+    var cc = acc || "#7A6A3A", m = s * 0.06;
+    c.fillStyle = shade(cc, -0.3); c.fillRect(m, m, w - m * 2, h - m * 2);
+    c.fillStyle = cc; c.fillRect(m * 2, m * 2, w - m * 4, h - m * 4);
+    var long = h >= w, n = Math.max(3, Math.round((long ? h : w) / (s * 0.22)));
+    c.fillStyle = shade(cc, -0.18);
+    for (var i = 1; i < n; i++) { if (long) c.fillRect(m * 2, m * 2 + (h - m * 4) * i / n - lw * 0.6, w - m * 4, lw * 1.2); else c.fillRect(m * 2 + (w - m * 4) * i / n - lw * 0.6, m * 2, lw * 1.2, h - m * 4); }
+    c.fillStyle = shade(cc, 0.22); c.fillRect(m * 2, m * 2, w - m * 4, lw);
+    var cs = s * 0.2; c.fillStyle = "#4A525C";
+    [[m, m], [w - m - cs, m], [m, h - m - cs], [w - m - cs, h - m - cs]].forEach(function (q) { c.fillRect(q[0], q[1], cs, cs); });
+    c.fillStyle = "#8D949C"; [[m, m], [w - m - cs, m], [m, h - m - cs], [w - m - cs, h - m - cs]].forEach(function (q) { c.fillRect(q[0] + cs * 0.35, q[1] + cs * 0.35, cs * 0.3, cs * 0.3); });
+    // Warnstreifen und Kennzeichnung
+    var sx = w / 2 - Math.min(w, h) * 0.22, sy = h / 2 - s * 0.08, sw = Math.min(w, h) * 0.44;
+    c.save(); c.beginPath(); c.rect(sx, sy, sw, s * 0.16); c.clip(); c.fillStyle = "#1E2228"; c.fillRect(sx, sy, sw, s * 0.16); c.fillStyle = "#E3B83F";
+    for (var k = -2; k < sw / (s * 0.08) + 2; k++) { c.beginPath(); c.moveTo(sx + k * s * 0.08, sy); c.lineTo(sx + k * s * 0.08 + s * 0.04, sy); c.lineTo(sx + k * s * 0.08 + s * 0.2, sy + s * 0.16); c.lineTo(sx + k * s * 0.08 + s * 0.16, sy + s * 0.16); c.closePath(); c.fill(); }
+    c.restore();
+    c.strokeStyle = ol; c.lineWidth = lw; c.strokeRect(m, m, w - m * 2, h - m * 2);
+  }
+  // Kryokapsel (liegend): Kapsel mit Glashaube, gefrorener Insasse, Bedienfeld am Fußende
+  function cryoArt(c, w, h, s, lw, acc, ol) {
+    var cc = acc || "#C9D1D9", x = w * 0.1, y = h * 0.04, cw = w * 0.8, ch = h * 0.92, r = cw / 2;
+    function capsule(x0, y0, ww, hh) { var rr = ww / 2; c.beginPath(); c.moveTo(x0, y0 + rr); c.arc(x0 + rr, y0 + rr, rr, Math.PI, 0); c.lineTo(x0 + ww, y0 + hh - rr * 0.6); c.quadraticCurveTo(x0 + ww, y0 + hh, x0 + ww - rr * 0.6, y0 + hh); c.lineTo(x0 + rr * 0.6, y0 + hh); c.quadraticCurveTo(x0, y0 + hh, x0, y0 + hh - rr * 0.6); c.closePath(); }
+    capsule(x, y, cw, ch); c.fillStyle = shade(cc, -0.25); c.fill(); c.strokeStyle = ol; c.lineWidth = lw; c.stroke();
+    var gx = x + cw * 0.14, gy = y + cw * 0.12, gw = cw * 0.72, gh = ch * 0.68;
+    capsule(gx, gy, gw, gh);
+    var g = c.createLinearGradient(gx, gy, gx + gw, gy); g.addColorStop(0, "#7FC8E8"); g.addColorStop(0.5, "#B9E6F5"); g.addColorStop(1, "#6AB4D6"); c.fillStyle = g; c.fill();
+    c.save(); c.clip();
+    c.fillStyle = "rgba(60,90,120,.55)";   // Insasse als Schemen
+    c.beginPath(); c.arc(gx + gw / 2, gy + gw * 0.55, gw * 0.24, 0, Math.PI * 2); c.fill();
+    c.beginPath(); c.ellipse(gx + gw / 2, gy + gh * 0.58, gw * 0.3, gh * 0.33, 0, 0, Math.PI * 2); c.fill();
+    c.fillStyle = "rgba(255,255,255,.55)"; for (var i = 0; i < 9; i++) c.fillRect(gx + gw * ((i * 37) % 10) / 10, gy + gh * ((i * 53) % 10) / 10, lw * 1.2, lw * 1.2);   // Frost
+    c.fillStyle = "rgba(255,255,255,.35)"; c.fillRect(gx + gw * 0.14, gy, gw * 0.1, gh);
+    c.restore();
+    c.strokeStyle = shade(cc, -0.45); c.lineWidth = lw; capsule(gx, gy, gw, gh); c.stroke();
+    c.fillStyle = "#2A2F36"; c.fillRect(x + cw * 0.2, y + ch * 0.84, cw * 0.6, ch * 0.08);   // Bedienfeld
+    c.fillStyle = "#57D18A"; c.fillRect(x + cw * 0.26, y + ch * 0.86, cw * 0.1, ch * 0.04); c.fillStyle = "#5FB4D9"; c.fillRect(x + cw * 0.42, y + ch * 0.86, cw * 0.3, ch * 0.04);
+  }
+  // Bedienmodul 1×2: Pult mit Bildschirmen, Tasten und Schiebereglern, davor ein Hocker
+  function consoleArt(c, w, h, s, lw, acc, ol) {
+    var dc = "#4A525C";
+    c.fillStyle = dc; c.fillRect(w * 0.06, h * 0.04, w * 0.6, h * 0.92); c.strokeStyle = ol; c.lineWidth = lw; c.strokeRect(w * 0.06, h * 0.04, w * 0.6, h * 0.92);
+    c.fillStyle = "#3A414B"; c.fillRect(w * 0.06, h * 0.04, w * 0.16, h * 0.92);   // hinterer Aufbau
+    [[0.08, 0.34], [0.54, 0.34]].forEach(function (q) { c.fillStyle = "#0E1A22"; c.fillRect(w * 0.08, h * q[0], w * 0.12, h * q[1]); c.fillStyle = "rgba(95,180,217,.85)"; c.fillRect(w * 0.1, h * (q[0] + 0.02), w * 0.08, h * (q[1] - 0.04)); });
+    var keys = ["#E0533F", "#E3B83F", "#57D18A", "#5FB4D9"];
+    for (var i = 0; i < 4; i++) for (var j = 0; j < 3; j++) { c.fillStyle = keys[(i + j) % 4]; c.fillRect(w * (0.27 + j * 0.11), h * (0.08 + i * 0.05), w * 0.07, h * 0.03); }
+    c.fillStyle = "#24282E"; for (var k = 0; k < 3; k++) c.fillRect(w * 0.28, h * (0.4 + k * 0.07), w * 0.3, h * 0.012);   // Schieberegler
+    c.fillStyle = "#C9D1D9"; [0.35, 0.5, 0.42].forEach(function (p, k) { c.fillRect(w * p, h * (0.39 + k * 0.07), w * 0.05, h * 0.03); });
+    c.fillStyle = "#2A2F36"; c.beginPath(); c.arc(w * 0.42, h * 0.74, w * 0.1, 0, Math.PI * 2); c.fill();   // Drehregler
+    c.strokeStyle = "#C9D1D9"; c.lineWidth = lw; c.beginPath(); c.moveTo(w * 0.42, h * 0.74); c.lineTo(w * 0.48, h * 0.7); c.stroke();
+    c.fillStyle = "#57D18A"; c.fillRect(w * 0.3, h * 0.86, w * 0.05, h * 0.025); c.fillStyle = "#E0533F"; c.fillRect(w * 0.4, h * 0.86, w * 0.05, h * 0.025);
+    var sc = acc || "#3E6F96"; c.fillStyle = sc; c.beginPath(); c.arc(w * 0.82, h * 0.5, w * 0.13, 0, Math.PI * 2); c.fill(); c.strokeStyle = ol; c.stroke();   // Hocker
   }
   // Luke: gelb-schwarzer Warnrahmen, geschlossen mit Schott, offen sieht man ins All
   function hatchArt(c, w, h, col, lw, view, open) {

@@ -95,3 +95,7 @@ Folgen für Änderungen:
   Gebrauch erzeugt (~0,5 s) und per Pattern geclippt über den Block gelegt. Paletten-Vorschau zeichnet nur eine Andeutung (`WX_ICON`).
 - v0.54.3: Verwitterung als Pixel-Textur, 16 Texel je Zelle (`WX_PPC`), beim Vergrößern ohne Glättung gezeichnet. Rost feiner,
   Efeu durch Moospolster ersetzt (`wxBuildMoss`). Erzeugung ~0,1 s je Textur.
+- v0.54.4: Block-Varianten. `vg` = Gruppe (ID des Originals), `va` = Art der Zeichnung, `vn` = Kurzname; anlegen mit
+  `variant(base, id, va, name)` in `11-bauteile.js`. Palette: eine Kachel je Gruppe mit Falte (`tileHTML`, `openVar`, `pickVar`
+  in `70-ui.js`), gewählte Variante in `localStorage` unter `spacerogue-var`. Neue Form `round2` (Ecke rund 1×2).
+  Neue Teile: `bt6` große Batterie, `kr1`/`kr2`/`kr6` Kisten, `kry` Kryokapsel, `pul` Bedienmodul (Deko).

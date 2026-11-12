@@ -21,16 +21,19 @@
     if (k === "armor") {
       shapePath(c, ty.shape, w, h); c.fillStyle = col; c.fill();
       if (ty.heavy && ty.shape === "full") { c.fillStyle = shade(col, -0.25); [[0.2, 0.2], [0.8, 0.2], [0.2, 0.8], [0.8, 0.8]].forEach(function (q) { c.fillRect(w * q[0] - lw, h * q[1] - lw, lw * 2, lw * 2); }); }
+      if (ty.va === "vent") ventArt(c, w, h, s, col, lw, ty.heavy);   // Lüftungsgitter
       if (ty.wx) wxOverlay(c, b, ty, s, w, h, m0);   // Rost / Bewuchs, nahtlos im Schiffsraster
       c.strokeStyle = shade(col, -0.55); c.lineWidth = lw * 1.2; c.beginPath();
       if (ty.shape.indexOf("ramp") === 0) { c.moveTo(0, 0); c.lineTo(w, h); }
       else if (ty.shape === "round") c.arc(0, h, w, -Math.PI / 2, 0);
+      else if (ty.shape === "round2") c.ellipse(0, h, w, h, 0, -Math.PI / 2, 0);
       else if (ty.shape === "half") { c.moveTo(0, h / 2); c.lineTo(w, h / 2); c.moveTo(0, h / 2); c.lineTo(0, h); c.moveTo(w, h / 2); c.lineTo(w, h); }
       c.stroke();
       if (ty.shape !== "full") {   // Lichtkante an der schrägen Seite
         c.strokeStyle = shade(col, 0.25); c.lineWidth = lw; c.beginPath();
         if (ty.shape.indexOf("ramp") === 0) { c.moveTo(lw * 1.4, lw * 3); c.lineTo(w - lw * 2.5, h - lw * 1.2); }
         else if (ty.shape === "round") c.arc(0, h, w - lw * 1.6, -Math.PI / 2 + 0.12, -0.12);
+        else if (ty.shape === "round2") c.ellipse(0, h, w - lw * 1.6, h - lw * 1.6, 0, -Math.PI / 2 + 0.1, -0.1);
         c.stroke();
       }
       if (hpk <= 0.5) damageMarks(c, w, h, b, s, ty.shape);
