@@ -112,6 +112,7 @@
     return sp.mip[lv];
   }
   function envThumb(id) {
+    if (isBD(id)) return bdThumb(id);
     var def = ENV[id], sp = envSprite(def, 0), cv = document.createElement("canvas"); cv.width = cv.height = 44;
     var g = cv.getContext("2d"); if (g && g.drawImage) { var f = 40 / sp.sz; g.drawImage(sp.cv, 2, 2, sp.sz * f, sp.sz * f); }
     try { return cv.toDataURL(); } catch (e) { return ""; }
@@ -135,7 +136,7 @@
   }
   function envBound(it) { var def = ENV[it.a]; envShape(def); return def.Rmax * it.s; }   // Begrenzungskreis in Zellen
   function envPack(it) { return [it.a, Math.round(it.x * 100) / 100, Math.round(it.y * 100) / 100, Math.round(it.r || 0), Math.round(it.s * 100) / 100, it.l | 0]; }
-  function envUnpack(a) { if (!Array.isArray(a) || !ENV[a[0]]) return null; return { a: a[0], x: +a[1] || 0, y: +a[2] || 0, r: +a[3] || 0, s: Math.max(ENV_SMIN, Math.min(ENV_SMAX, +a[4] || 1)), l: Math.max(-1, Math.min(1, a[5] | 0)) }; }
+  function envUnpack(a) { if (!Array.isArray(a) || !ENV[a[0]]) return null; var bd = isBD(a[0]); return { a: a[0], x: +a[1] || 0, y: +a[2] || 0, r: +a[3] || 0, s: Math.max(envSMin(a[0]), Math.min(envSMax(a[0]), +a[4] || 1)), l: bd ? BD_L : Math.max(-1, Math.min(1, a[5] | 0)) }; }   /* Backdrops (v0.56) immer auf Ebene -2 */
 
   // ---------- Editor ----------
   // Bildschirm ↔ Welt für eine Ebene: Bild = Mitte + (Pos − Kamera) · k · s
@@ -148,17 +149,18 @@
     return -1;
   }
   function envNew(p, spray) {
-    var it = { a: S.envSel, x: p.x, y: p.y, r: S.envR, s: S.envS, l: S.envL };
+    var bd = isBD(S.envSel), it = { a: S.envSel, x: p.x, y: p.y, r: S.envR, s: S.envS, l: bd ? BD_L : S.envL };
     if (S.envRnd || spray) it.r = Math.floor(Math.random() * 360);
-    if (S.envRnd) it.s = Math.max(ENV_SMIN, Math.min(ENV_SMAX, S.envS * (0.7 + Math.random() * 0.6)));
+    if (S.envRnd) it.s = Math.max(envSMin(S.envSel), Math.min(envSMax(S.envSel), S.envS * (0.7 + Math.random() * 0.6)));
     return it;
   }
   function envPlace(sx, sy, spray) {
+    if (isBD(S.envSel)) { if (spray) return; pushUndo(); S.env.push(envNew(bdEdPos(sx, sy), false)); V.envLast = null; save(); return; }   /* Backdrops einzeln setzen, kein Streuen */
     var p = envEdPos(sx, sy, S.envL), it = envNew(p, spray);
     if (!spray) pushUndo();
     S.env.push(it); V.envLast = { x: p.x, y: p.y, d: envBound(it) * 1.7 }; save();
   }
-  function envErase(sx, sy) { var i = envPickAt(sx, sy, S.envL); if (i < 0) return false; pushUndo(); S.env.splice(i, 1); save(); return true; }
+  function envErase(sx, sy) { var i = isBD(S.envSel) ? bdPickAt(sx, sy) : envPickAt(sx, sy, S.envL); if (i < 0) return false; pushUndo(); S.env.splice(i, 1); save(); return true; }
   // Ebenen im Editor: die gerade bearbeitete voll, die anderen blass (im Block-Tab ist nur die vordere Ebene blass, damit man darunter bauen kann)
   function envEdDraw(c, l) {
     if (S.ed !== "station" || !S.env || !S.env.length) return;
@@ -171,7 +173,7 @@
     });
   }
   function envEdGhost(c) {
-    if (!S.envTab || !V.mouse || V.pan || S.mode !== "edit") return;
+    if (!S.envTab || !V.mouse || V.pan || S.mode !== "edit" || isBD(S.envSel)) return;
     var l = S.envL, s = PX * V.zoom * ENV_K[l];
     if (S.tool === "build") {
       var it = { a: S.envSel, x: 0, y: 0, r: S.envR, s: S.envS, l: l };
@@ -187,7 +189,8 @@
   // ---------- Testflug ----------
   // Weltkoordinaten in Metern: Zelle (0,0) der Szene liegt bei FL.envO
   function envFlightInit(O) {
-    FL.envO = O; FL.env = (S.env || []).map(function (it) {
+    FL.envO = O; FL.bd = (S.env || []).filter(function (it) { return it.l === BD_L && isBD(it.a); });
+    FL.env = (S.env || []).filter(function (it) { return it.l !== BD_L && !isBD(it.a); }).map(function (it) {
       return { a: it.a, l: it.l, s: it.s, r: it.r, rad: (it.r || 0) * Math.PI / 180, x: O.x + it.x * CELL_M, y: O.y + it.y * CELL_M, R: envBound(it) * CELL_M, fa: 1 };
     });
     FL.envG = FL.env.filter(function (e) { return e.l === 0; });

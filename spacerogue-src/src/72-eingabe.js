@@ -87,7 +87,7 @@
     if (e.repeat) return;
     if (S.ed === "station" && S.envTab && (k === "r" || k === "[" || k === "]" || k === "+" || k === "=" || k === "-")) {
       if (k === "r") S.envR = (S.envR + (e.shiftKey ? 345 : 15)) % 360;
-      else S.envS = Math.max(ENV_SMIN, Math.min(ENV_SMAX, S.envS * (k === "]" || k === "+" || k === "=" ? 1.1 : 1 / 1.1)));
+      else S.envS = Math.max(envSMin(S.envSel), Math.min(envSMax(S.envSel), S.envS * (k === "]" || k === "+" || k === "=" ? 1.1 : 1 / 1.1)));
       syncUI(); return;
     }
     if (k === "r") { S.r = (S.r + (e.shiftKey ? 3 : 1)) % 4; syncUI(); }
@@ -111,7 +111,7 @@
     var a = e.target.closest("[data-act]"), tl = e.target.closest("[data-tool]"), bk = e.target.closest("[data-blk]"), vw = e.target.closest("[data-view]"), sw = e.target.closest("[data-sw]");
     if (tl) { S.tool = tl.getAttribute("data-tool"); syncUI(); return; }
     if (bk) { S.sel = bk.getAttribute("data-blk"); S.tool = "build"; syncUI(); return; }
-    var eb = e.target.closest("[data-env]"); if (eb) { S.envSel = eb.getAttribute("data-env"); S.tool = "build"; syncUI(); return; }
+    var eb = e.target.closest("[data-env]"); if (eb) { S.envSel = eb.getAttribute("data-env"); S.envS = Math.max(envSMin(S.envSel), Math.min(envSMax(S.envSel), S.envS)); S.tool = "build"; syncUI(); return; }
     var el2 = e.target.closest("[data-envl]"); if (el2) { S.envL = +el2.getAttribute("data-envl"); syncUI(); return; }
     if (vw) { S.view = vw.getAttribute("data-view"); syncUI(); return; }
     if (sw) { S.color = sw.getAttribute("data-sw"); S.tool = "paint"; save(); syncUI(); return; }
@@ -160,7 +160,7 @@
     if (e.target.id === "sr-uis") { hudScale(+e.target.value); try { localStorage.setItem("spacerogue-ui", String(V.uis)); } catch (er) {} }
     if (e.target.id === "sr-shp" && FL) setShield(+e.target.value);
     if (e.target.id === "sr-name") { S.names[S.ed] = e.target.value.trim(); save(); }
-    if (e.target.id === "sr-env-s") { S.envS = Math.max(ENV_SMIN, Math.min(ENV_SMAX, Math.pow(2, +e.target.value / 100))); syncUI(); }
+    if (e.target.id === "sr-env-s") { S.envS = Math.max(envSMin(S.envSel), Math.min(envSMax(S.envSel), Math.pow(2, +e.target.value / 100))); syncUI(); }
     if (e.target.id === "sr-env-r") { S.envR = +e.target.value; syncUI(); }
     if (e.target.classList && e.target.classList.contains("sr-dev-in")) {   // Code: sobald 6 Ziffern drin sind, wird geprüft
       var dv = e.target.value.replace(/\D/g, "").slice(0, 6), dm = V.root.querySelector(".sr-dev-msg"); if (dv !== e.target.value) e.target.value = dv; dm.textContent = "";

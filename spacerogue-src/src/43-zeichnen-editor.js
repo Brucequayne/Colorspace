@@ -3,6 +3,7 @@
   function edDraw() {
     var c = V.ctx, W = V.W, H = V.H, z = V.zoom, s = PX * z;
     drawSpace(c, W, H, V.cam.x * s, V.cam.y * s);
+    var suns = bdEdDraw(c), fxc = suns.length ? bdFxBegin(W, H) : null; if (fxc) c = fxc;   // Backdrops ganz hinten; vor einer Sonne wird der Vordergrund getrennt gezeichnet (Gegenlicht)
     envEdDraw(c, -1);   // Environment hinten
     c.save(); c.translate(W / 2 - V.cam.x * s, H / 2 - V.cam.y * s);
     // Raster
@@ -63,7 +64,8 @@
     }
     c.restore();
     envEdDraw(c, 1);   // Environment vorne
-    if (S.ed === "station") envEdGhost(c);
+    if (fxc) { bdFxEnd(V.ctx, W, H, suns); c = V.ctx; }
+    if (S.ed === "station") { envEdGhost(c); bdEdGhost(c); }
     // Infokasten zum Block unter dem Mauszeiger: Name, Gewicht, Leben
     if (V.mouse && !V.pan && !V.row && !(S.ed === "station" && S.envTab)) {
       var hb2 = blockAt(Math.floor(V.mouse.x), Math.floor(V.mouse.y), M);

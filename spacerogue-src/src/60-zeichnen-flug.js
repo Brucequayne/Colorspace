@@ -84,6 +84,7 @@
     var c = V.ctx, W = V.W, H = V.H, z = V.zoom, s = PX * z, ppm = s / CELL_M, tm = performance.now() / 1000;
     var shk = fxPre(ppm, tm); FL.cam.x += shk.x; FL.cam.y += shk.y;
     drawSpace(c, W, H, FL.cam.x * ppm, FL.cam.y * ppm);
+    var suns = FL.bd && FL.bd.length && FL.envO ? bdDraw(c, FL.bd, W, H, (FL.cam.x - FL.envO.x) / CELL_M, (FL.cam.y - FL.envO.y) / CELL_M) : [], fxc = suns.length ? bdFxBegin(W, H) : null; if (fxc) c = fxc;   // Backdrops, Gegenlicht
     envFlDraw(c, W, H, ppm, -1);   // Environment hinten
     drawDust(c, W, H, ppm, DUST.near);
     envFlDraw(c, W, H, ppm, 0);    // Environment Spielebene
@@ -227,6 +228,7 @@
     c.restore();
     envFlDraw(c, W, H, ppm, 1);    // Environment vorne
     drawDust(c, W, H, ppm, DUST.front);
+    if (fxc) { bdFxEnd(V.ctx, W, H, suns); c = V.ctx; }
     radarEdges(c, W, H, ppm);
     drawFloat(c, W, H, ppm);
     FL.cam.x -= shk.x; FL.cam.y -= shk.y;

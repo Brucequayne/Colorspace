@@ -30,6 +30,7 @@ Diese Datei wird **gebaut** – aus den Teilen in `spacerogue-src/src/`.
 | `40`–`43-zeichnen-*.js` | Blöcke, Schiff, Hintergrund, Editor-Ansicht |
 | `45-verwitterung.js` | Verwitterte Panzerung (Developer Tool): nahtlose Rost-/Moos-Pixeltexturen (16 Texel je Zelle) im Schiffsraster, `wxOverlay` |
 | `44-umgebung.js` | Environment (Developer Tool): Asteroiden-Assets `ENV`, Ebenen `ENV_K`, Sprites, Platzieren im Editor, Zeichnen und Kollision im Testflug |
+| `46-backdrops.js` | Backdrops (Developer Tool, seit v0.56): 21 Planeten und 5 Sonnen auf Ebene -2 ganz hinten in der Skybox (`BD_K` fast ohne Parallaxe, Größe unabhängig vom Zoom), prozedurale Kugel-Sprites in Auflösungsstufen (große Stufen entstehen stückweise), Gegenlicht-Saum `bdFxBegin`/`bdFxEnd` für alles vor einer Sonne |
 | `50-flug.js` | Körper, Start/Ende Testflug, Simulationsschleife `flTick` |
 | `51-steuerung-waffen.js` | Schub, Drehen, Waffen, Geschütze, Zielcomputer |
 | `52-schaden.js` | Treffer, Explosionen, Schild, Zerbrechen, Kollisionen |

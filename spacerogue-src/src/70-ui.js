@@ -76,7 +76,7 @@
       '<div class="sr-envp sr-dev-only"><small>' + t("envLayer") + '</small><span class="sr-seg sr-envl"><button type="button" data-envl="-1">' + t("envBack") + '</button><button type="button" data-envl="0">' + t("envGame") + '</button><button type="button" data-envl="1">' + t("envFront") + '</button></span>' +
       '<label class="sr-envr"><small>' + t("envScale") + ' <b id="sr-env-sv"></b></small><input type="range" id="sr-env-s" min="-232" max="200" step="1"></label>' +
       '<label class="sr-envr"><small>' + t("envRot") + ' <b id="sr-env-rv"></b></small><input type="range" id="sr-env-r" min="0" max="355" step="5"></label>' +
-      '<button type="button" data-act="env-rnd" class="sr-envrnd"></button><p class="sr-envh">' + t("envHelp") + '</p><small class="sr-envcat">' + t("envAst") + '</small><div class="sr-grid sr-envlist"></div></div>' +
+      '<button type="button" data-act="env-rnd" class="sr-envrnd"></button><p class="sr-envh">' + t("envHelp") + '</p><small class="sr-envcat">' + t("envAst") + '</small><div class="sr-grid sr-envlist"></div><small class="sr-envcat">' + t("envBd") + '</small><p class="sr-envh">' + t("envBdH") + '</p><div class="sr-grid sr-envlist sr-bdlist"></div></div>' +
       '<div class="sr-paint"><label>' + t("color") + ' <input type="color" id="sr-col"></label><div class="sr-sws">' + sw + '</div></div>' +
       '<div class="sr-opts"><button type="button" data-act="rot">' + t("rot") + '</button><button type="button" data-act="flip">' + t("flip") + '</button><button type="button" data-act="sym">' + t("sym") + '</button><button type="button" data-act="symm" class="sr-symm"></button></div>' +
       '<div class="sr-list">' + pal + '</div><div class="sr-vpop" hidden></div></aside>' +
@@ -146,11 +146,13 @@
   function dimTxt() { var b = bounds(S.blocks); if (!b) return "–"; var w = b.x1 - b.x0, h = b.y1 - b.y0; return w + " × " + h + " (" + nf(w * CELL_M, 1) + " × " + nf(h * CELL_M, 1) + " m)"; }
   // Environment-Panel: Liste erst beim ersten Öffnen zeichnen (Vorschaubilder kosten etwas), danach nur Zustand abgleichen
   function envSync(r) {
-    var list = r.querySelector(".sr-envlist");
+    var list = r.querySelector(".sr-envlist:not(.sr-bdlist)"), list2 = r.querySelector(".sr-bdlist");
+    if (list2 && !list2.childElementCount) list2.innerHTML = BD_IDS.map(function (id) { return '<button type="button" class="sr-blk sr-envb" data-env="' + id + '" title="' + ENV[id].n[lang] + '"><img alt="" src="' + envThumb(id) + '"><span>' + ENV[id].sn[lang] + "</span></button>"; }).join("");
     if (list && !list.childElementCount) list.innerHTML = ENV_IDS.map(function (id) { return '<button type="button" class="sr-blk sr-envb" data-env="' + id + '" title="' + ENV[id].n[lang] + '"><img alt="" src="' + envThumb(id) + '"><span>' + ENV[id].sn[lang] + "</span></button>"; }).join("");
     r.querySelectorAll("[data-env]").forEach(function (b) { b.setAttribute("aria-pressed", String(b.getAttribute("data-env") === S.envSel && S.tool === "build")); });
     r.querySelectorAll("[data-envl]").forEach(function (b) { b.setAttribute("aria-pressed", String(+b.getAttribute("data-envl") === S.envL)); });
     var si = r.querySelector("#sr-env-s"), ri = r.querySelector("#sr-env-r");
+    if (si) { si.min = String(Math.round(Math.log2(envSMin(S.envSel)) * 100)); si.max = String(Math.round(Math.log2(envSMax(S.envSel)) * 100)); }
     if (si && document.activeElement !== si) si.value = Math.round(Math.log2(S.envS) * 100); if (ri && document.activeElement !== ri) ri.value = S.envR;
     set("sr-env-sv", "× " + nf(S.envS, 2)); set("sr-env-rv", S.envR + "°");
     var rb = r.querySelector('[data-act="env-rnd"]'); if (rb) { rb.textContent = t("envRnd") + ": " + t(S.envRnd ? "envOn" : "envOff"); rb.setAttribute("aria-pressed", String(!!S.envRnd)); }
@@ -173,7 +175,7 @@
     document.getElementById("sr-info").innerHTML =
       "<h4>" + t("sBlocks") + "</h4>" + row(t("sBlocks"), nf(st.n)) + row(t("sMass"), nf(st.mass * 1000) + " kg") + row(t("sCost"), cr(st.cost || 0) + '<br><small style="color:#7FD3A4;font-weight:400">' + t("costFree") + "</small>") +
       row(t("sDim"), dimTxt()) + row(t("sCom"), t("comHint")) +
-      (S.ed === "station" ? "<h4>" + t("envCount") + "</h4>" + row(t("envBack"), nf(S.env.filter(function (e) { return e.l === -1; }).length)) + row(t("envGame"), nf(S.env.filter(function (e) { return e.l === 0; }).length)) + row(t("envFront"), nf(S.env.filter(function (e) { return e.l === 1; }).length)) : "") +
+      (S.ed === "station" ? "<h4>" + t("envCount") + "</h4>" + row(t("envBack"), nf(S.env.filter(function (e) { return e.l === -1; }).length)) + row(t("envGame"), nf(S.env.filter(function (e) { return e.l === 0; }).length)) + row(t("envFront"), nf(S.env.filter(function (e) { return e.l === 1; }).length)) + row(t("envBd"), nf(S.env.filter(function (e) { return e.l === BD_L; }).length)) : "") +
       (isSt ? "" : "<h4>" + t("sThr") + "</h4>" + row("↑ " + t("dF"), acc(0)) + row("↓ " + t("dB"), acc(2)) + row("← " + t("dL"), acc(3)) + row("→ " + t("dR"), acc(1)) +
       "<h4>" + t("sGyro") + "</h4>" + row("Gyro", st.gyro ? st.gyro + " × · " + wdeg : "–")) +
       (isSt && !st.mg && !st.ms && !st.rg && !st.gun ? "" : weapTxt()) +
