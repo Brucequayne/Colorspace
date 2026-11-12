@@ -1,11 +1,11 @@
 /* CityGenerator 0.25 – Stadtplan aus einer Straßenskizze, prozedural im Browser. Für Color Space.
    Ablauf: Hauptstraßen zeichnen → Verteilerstraßen zeichnen → Stil wählen → Stadt generieren →
-   mit Grün (Park), Blau (Wasser) und Rot (Spezialbauten) übermalen → neu generieren.
+   mit Grün (Park), Blau (Wasser), Rot (Spezialbauten), Grau (Parkplätze) und Orange (Gewerbe) übermalen → neu generieren.
    Welt: 2400 × 1500 m. Alles wird in Metern gerechnet. */
 (function () {
   "use strict";
 
-  var VERSION = "0.4";
+  var VERSION = "0.5";
   var W = 2400, H = 1500;
   var lang = "de";
   function L2(de, en) { return { de: de, en: en }; }
@@ -39,7 +39,7 @@
     townhall: L2("Rathaus", "Town hall"), monument: L2("Denkmal", "Monument"), stadium: L2("Stadion", "Stadium"), airport: L2("Flughafen", "Airport"),
     harbor: L2("Hafen", "Harbour"), campus: L2("Universität", "University"), station: L2("Bahnhof", "Station"),
     arena: L2("Arena", "Arena"), baseball: L2("Baseballstadion", "Ballpark"), hospital: L2("Krankenhaus", "Hospital"), palace: L2("Schloss", "Palace"),
-    temple: L2("Tempel", "Temple"), castle: L2("Burg", "Castle"), mall: L2("Einkaufszentrum", "Shopping mall"), market: L2("Marktplatz", "Market square"), tP: L2("Grau: Parkplätze", "Grey: parking")
+    temple: L2("Tempel", "Temple"), castle: L2("Burg", "Castle"), mall: L2("Einkaufszentrum", "Shopping mall"), market: L2("Marktplatz", "Market square"), tP: L2("Grau: Parkplätze", "Grey: parking"), tO: L2("Orange: Gewerbe", "Orange: commercial")
   };
   function t(k) { return TX[k] ? TX[k][lang] : k; }
   function fmt(s, o) { return s.replace(/\{(\w+)\}/g, function (m, k) { return o[k] != null ? o[k] : m; }); }
@@ -142,7 +142,7 @@
 
   // ---------- Malmasken (2 m) ----------
   var MW = W / 2, MH = H / 2;
-  var PCOL = { g: "#5DBB4E", b: "#3E8FD8", r: "#E0503A", p: "#7D858E", e: "#000" };
+  var PCOL = { g: "#5DBB4E", b: "#3E8FD8", r: "#E0503A", p: "#7D858E", o: "#EE8A2A", e: "#000" };
   // Für jede Farbe: alle Striche in Reihenfolge, eigene Farbe zeichnet, alles andere radiert (der letzte Strich gewinnt)
   function drawLayer(x, layer, strokes, extra) {
     strokes.forEach(function (st) {
@@ -158,7 +158,7 @@
   function buildMasks(strokes) {
     var c = document.createElement("canvas"); c.width = MW; c.height = MH;
     var x = c.getContext("2d", { willReadFrequently: true }), out = {};
-    ["g", "b", "r", "p"].forEach(function (k) {
+    ["g", "b", "r", "p", "o"].forEach(function (k) {
       x.setTransform(1, 0, 0, 1, 0, 0); x.clearRect(0, 0, MW, MH); x.setTransform(0.5, 0, 0, 0.5, 0, 0);
       x.strokeStyle = "#fff"; drawLayer(x, k, strokes, 0);
       var d = x.getImageData(0, 0, MW, MH).data, m = new Uint8Array(MW * MH);
@@ -172,7 +172,7 @@
   // ---------- Generierung ----------
   function generate() {
     var t0 = performance.now(), st = STY[S.style], R = mulberry(S.seed), seed = S.seed;
-    var C = { style: S.style, st: st, roads: [], buildings: [], trees: [], cars: [], hedges: [], props: [], pk: [], flares: [], stops: [], lots: [], drives: [], pools: [], cross: [], specials: [], labels: [], paths: [], ponds: [], ships: [], forest: [], jn: [] };
+    var C = { style: S.style, st: st, roads: [], buildings: [], trees: [], cars: [], hedges: [], props: [], pk: [], flares: [], stops: [], lots: [], drives: [], pools: [], cross: [], specials: [], labels: [], paths: [], ponds: [], ships: [], forest: [], jn: [], comG: [], comB: [], gastro: [] };
     var M = buildMasks(S.paint); C.M = M;
     var water = M.b, park = M.g, red = M.r;
 
@@ -304,7 +304,9 @@
 
     // ---------- Seitenstraßen: Stromlinien im Feld ----------
     var dsep = [st.dA, st.dB], step = 3, locals = [], maxSteps = 1200, tStart = performance.now();
-    function blockedAt(x, y) { return mAt(park, x, y) || mAt(red, x, y) || mAt(M.p, x, y); }
+    function blockedAt(x, y) { return mAt(park, x, y) || mAt(red, x, y) || mAt(M.p, x, y) || comOut(x, y); }
+    // Gewerbegebiet außerhalb des Zentrums: keine Wohnstraßen hinein, damit große Flächen für die Märkte bleiben
+    function comOut(x, y) { if (!mAt(M.o, x, y)) return false; var d = 1 - Math.hypot(x - C.center.x, y - C.center.y) / (st.cityR * 1.05); d += (noise2(x / 170, y / 170, seed + 61) - 0.5) * 0.32; return !isCore(d); }
     function isWater(x, y) { return mAt(water, x, y); }
     function nearRoad(x, y, hw, exclude, srcR, srcS) {
       var hit = null, bd = 1e9;
@@ -471,7 +473,7 @@
       else if (park[mk]) land[k3] = 3;
       else if (red[mk]) land[k3] = 4;
       else if (M.p[mk]) land[k3] = 9;
-      else if (!inCity(xx, yy)) land[k3] = 6;
+      else if (!inCity(xx, yy) && !M.o[mk]) land[k3] = 6;
     }
     rd = null;
     function L(x, y) { x = x | 0; y = y | 0; if (x < 0 || y < 0 || x >= W || y >= H) return 1; return land[y * W + x]; }
@@ -907,6 +909,9 @@
     var cxC = C.center.x, cyC = C.center.y, Rd = st.cityR * 1.05;
     function density(x, y) { var d = 1 - Math.hypot(x - cxC, y - cyC) / Rd; d += (noise2(x / 170, y / 170, seed + 61) - 0.5) * 0.32; return d < 0 ? 0 : d > 1 ? 1 : d; }
     C.density = density;
+    // Zentrum = dort, wo die dichte Blockrandbebauung beginnt
+    function isCore(d) { return d > (S.style === "usa" ? 0.62 : S.style === "jp" ? 0.42 : 0.5); }
+    function gastroAt(x, y) { return mAt(M.o, x, y) && isCore(density(x, y)); }
     var plotId = blockEngine();
     function modeParams(d, r) {
       var s = S.style;
@@ -950,8 +955,166 @@
         }
         gid = doBlock(cells, b, Math.sqrt(maxd), gid);
       }
-      function doBlock(cells, b, maxDT, gid) {
-        if (cells.length < 80 || cells.length > 160000) return gid;
+      // ---------- Gewerbegebiet (v0.5): orange gemalt, außerhalb des Zentrums ----------
+      // Großflächiger Handel wie am Stadtrand: Halle hinten, großer Kundenparkplatz vorne zur wichtigsten Straße,
+      // Zufahrt, Fußweg vor dem Eingang, Bäume auf Parkplatzinseln. Breite Flächen werden in mehrere Märkte nebeneinander geteilt.
+      function comTypes() { return {
+        furn: { w: [110, 150], d: [70, 95], h: [10, 13], roof: "#C9CCCF", sign: "#2F5D9E", wt: 2 },
+        hyper: { w: [80, 120], d: [55, 80], h: [8, 10], roof: "#D3D5D6", sign: "#C8432F", wt: 3 },
+        diy: { w: [85, 115], d: [55, 75], h: [8, 10], roof: "#BFC3C6", sign: "#E08A2E", wt: 2 },
+        elec: { w: [50, 72], d: [38, 55], h: [7, 9], roof: "#B0B5BA", sign: "#C8432F", wt: 2 },
+        disc: { w: [40, 56], d: [28, 40], h: [5, 6], roof: "#C9CCCF", sign: "#E8C547", wt: 3 },
+        car: { w: [50, 80], d: [16, 22], h: [6, 7], roof: "#9EB4C4", sign: "#3B78B0", wt: 1.5 },
+        food: { w: [34, 44], d: [12, 15], h: [4, 5], roof: "#B5573A", sign: "#E8C547", wt: 1 },
+        gas: { w: [36, 46], d: [10, 12], h: [4, 4], roof: "#E8E6E0", sign: "#4D8F68", wt: 1 },
+        hall: { w: [26, 60], d: [18, 34], h: [6, 8], roof: "#A9ADB2", sign: "#6E7279", wt: 1.2 }
+      }; }
+      function comBlock(cells, dC, gid, frame) {
+        var COMT = comTypes();
+        var cr = mulberry(Math.floor(cells[0] % 99991) + seed * 37), n = cells.length, i, c;
+        var cx = 0, cy = 0; for (i = 0; i < n; i += 4) { c = cells[i]; cx += c % W; cy += (c / W) | 0; } cx /= Math.ceil(n / 4); cy /= Math.ceil(n / 4);
+        // Hauptstraße der Fläche: die Straße mit der längsten (gewichteten) Front
+        var votes = new Map(), best = null;
+        for (i = 0; i < n && !frame; i += 3) {
+          c = cells[i]; var x0 = c % W, y0 = (c / W) | 0;
+          if (L(x0 + 2, y0) !== 1 && L(x0 - 2, y0) !== 1 && L(x0, y0 + 2) !== 1 && L(x0, y0 - 2) !== 1) continue;
+          var bd2 = 1e9, be = null;
+          hnear(x0, y0, 30, function (e, d) { if (e.r.cls !== "rail" && d < bd2) { bd2 = d; be = e; } return false; });
+          if (!be) continue;
+          var vt = votes.get(be.r); if (!vt) { vt = { r: be.r, w: 0, tx: 0, ty: 0, nx: 0, ny: 0, px: 0, py: 0, k: 0 }; votes.set(be.r, vt); }
+          vt.px += be.x; vt.py += be.y; vt.k++;
+          var wcl = be.r.cls === "main" ? 8 : be.r.cls === "dist" ? 4 : 1, sg = vt.w && be.tx * vt.tx + be.ty * vt.ty < 0 ? -1 : 1;
+          vt.w += wcl; vt.tx += be.tx * sg; vt.ty += be.ty * sg; vt.nx += x0 - be.x; vt.ny += y0 - be.y;
+        }
+        votes.forEach(function (vt) { if (!best || vt.w > best.w) best = vt; });
+        var ux, uy;
+        if (frame) { cx = frame.x; cy = frame.y; ux = frame.ux; uy = frame.uy; }
+        else if (best) { var tl = Math.hypot(best.tx, best.ty) || 1; ux = best.tx / tl; uy = best.ty / tl; } else { var fa = fieldAng(cx, cy); ux = Math.cos(fa); uy = Math.sin(fa); }
+        var vx = -uy, vy = ux; if (frame) { vx = frame.vx; vy = frame.vy; } else if (best && best.nx * vx + best.ny * vy < 0) { vx = -vx; vy = -vy; }   // v zeigt von der Straße weg
+        if (!frame && best && best.k) {
+          // Fläche liegt auf beiden Seiten der Straße (z. B. um ein Straßenende herum): jede Seite getrennt planen
+          var ax = best.px / best.k, ay = best.py / best.k, sA = [], sB = [];
+          for (i = 0; i < n; i++) { c = cells[i]; ((c % W - ax) * vx + (((c / W) | 0) - ay) * vy >= 0 ? sA : sB).push(c); }
+          if (sA.length > 600 && sB.length > 600) {
+            gid = comBlock(sA, dC, gid, { x: ax, y: ay, ux: ux, uy: uy, vx: vx, vy: vy });
+            return comBlock(sB, dC, gid, { x: ax, y: ay, ux: ux, uy: uy, vx: -vx, vy: -vy });
+          }
+        }
+        function WP(u, v) { return { x: cx + ux * u + vx * v, y: cy + uy * u + vy * v }; }
+        function R4(u0, v0, u1, v1) { return [WP(u0, v0), WP(u1, v0), WP(u1, v1), WP(u0, v1)]; }
+        // Spalten (2 m) mit vorderster und hinterster Zelle
+        var umin = 1e9, umax = -1e9;
+        for (i = 0; i < n; i += 2) { c = cells[i]; var pu = (c % W - cx) * ux + (((c / W) | 0) - cy) * uy; if (pu < umin) umin = pu; if (pu > umax) umax = pu; }
+        var NU = Math.ceil((umax - umin) / 2) + 1, vmn = new Float32Array(NU).fill(1e9), vmx = new Float32Array(NU).fill(-1e9);
+        for (i = 0; i < n; i++) { c = cells[i]; var px = c % W + 0.5 - cx, py = ((c / W) | 0) + 0.5 - cy, u = px * ux + py * uy, v = px * vx + py * vy, k = Math.floor((u - umin) / 2); if (k < 0 || k >= NU) continue; if (v < vmn[k]) vmn[k] = v; if (v > vmx[k]) vmx[k] = v; }
+        function span(a, b) { var f = -1e9, bk = 1e9; for (var k = Math.max(0, Math.floor((a - umin) / 2)); k <= Math.min(NU - 1, Math.floor((b - umin) / 2)); k++) { if (vmn[k] > 1e8) return null; if (vmn[k] > f) f = vmn[k]; if (vmx[k] < bk) bk = vmx[k]; } return [f, bk]; }
+        var ua = umin + 2, last = "", far = dC < 0.12;
+        while (ua < umax - 20) {
+          // Typ wählen, der in Breite und Tiefe passt; weiter draußen eher die großen
+          var room = span(ua, Math.min(umax - 2, ua + 60)), depthA = room ? room[1] - room[0] : 0, widthA = umax - 2 - ua, opts = [];
+          Object.keys(COMT).forEach(function (k) { var T9 = COMT[k]; if (k === last || T9.w[0] + 8 > widthA || T9.d[0] * 0.7 + 30 > depthA) return; var wt = T9.wt * (far && T9.w[0] >= 80 ? 2 : 1); opts.push([k, wt]); });
+          if (!opts.length && last === "hall" && COMT.hall.w[0] + 8 <= widthA && COMT.hall.d[0] * 0.7 + 30 <= depthA) opts.push(["hall", 1]);
+          var sel = null, tw = opts.reduce(function (a, o) { return a + o[1]; }, 0), rp = cr() * tw;
+          for (var q = 0; q < opts.length && !sel; q++) { rp -= opts[q][1]; if (rp <= 0) sel = opts[q][0]; }
+          if (!sel) { ua += 8; continue; }
+          var T = COMT[sel], bw = rr(cr, T.w[0], T.w[1]), ub = Math.min(umax - 2, ua + bw + 10);
+          if (umax - 2 - ub < 30) ub = umax - 2;   // Rest zu schmal: dem letzten Markt geben
+          var sp2 = span(ua, ub);
+          if (!sp2) { ua += 8; continue; }
+          var vf = sp2[0] + 2, vb = sp2[1] - 2, bdp = Math.min(rr(cr, T.d[0], T.d[1]), vb - vf - 26);
+          if (bdp < T.d[0] * 0.7) { ua += 8; last = sel; continue; }
+          bw = Math.min(bw, ub - ua - 8);
+          var uc = (ua + ub) / 2, bv1 = vb, bv0 = vb - bdp, walk = 4, pv1 = bv0 - walk, backZ = null;
+          // Parkplatz nicht endlos tief: ist hinten viel Platz, rückt der Markt nach vorne und dahinter kommt ein Lager mit LKW-Hof
+          var small = sel === "gas" || sel === "food", pmax = small ? rr(cr, 20, 26) : T.w[0] >= 80 ? rr(cr, 45, 75) : rr(cr, 26, 45);
+          if (vb - vf - bdp - walk > pmax + (small ? 4 : 42)) { bv0 = vf + pmax + walk; bv1 = bv0 + bdp; pv1 = bv0 - walk; if (!small) backZ = [bv1 + 2, vb]; }
+          var BP = R4(uc - bw / 2, bv0, uc + bw / 2, bv1);
+          if (!rectFree(BP, 0.03, 0)) { ua += 8; continue; }
+          var garden = null;
+          if (sel === "diy") { var gw = bw * 0.28; garden = R4(uc + bw / 2 - gw, bv0, uc + bw / 2, bv1); BP = R4(uc - bw / 2, bv0, uc + bw / 2 - gw, bv1); }
+          // Parkfläche
+          var PA = R4(ua + 1, vf, ub - 1, pv1);
+          if (!rectFree(PA, 0.06, 0)) { PA = R4(uc - bw / 2, vf, uc + bw / 2, pv1); if (!rectFree(PA, 0.06, 0)) PA = null; }
+          var hgt = rr(cr, T.h[0], T.h[1]);
+          rectMark(BP, 5);
+          C.buildings.push({ polys: [BP], polys2: [], flat: true, roof: T.roof, h: hgt, nx: -vx, ny: -vy, bb: bboxOf(BP, hgt * 1.2 + 1), kind: "com" });
+          var det = { t: sel, P: BP, ux: ux, uy: uy, vx: vx, vy: vy, seed: Math.floor(cr() * 1e6), sign: T.sign, garden: garden, bb: bboxOf(garden ? BP.concat(garden) : BP, 12) };
+          if (garden) { rectMark(garden, 11); C.comG.push({ P: garden, k: "garden" }); }
+          C.comG.push({ P: R4(uc - bw / 2 - 1, pv1, uc + bw / 2 + 1, bv0), k: "walk" }); rectMark(R4(uc - bw / 2 - 1, pv1, uc + bw / 2 + 1, bv0), 11);
+          if (PA) {
+            rectMark(PA, 11);
+            var pu0 = (PA === null) ? 0 : (PA[0].x - cx) * ux + (PA[0].y - cy) * uy, pu1 = (PA[1].x - cx) * ux + (PA[1].y - cy) * uy, a0 = Math.atan2(vy, vx);
+            C.comG.push({ P: PA, k: "asph" });
+            if (sel === "gas") {
+              // Tankstelle: Dach über den Zapfsäulen, Fahrgassen
+              var cw = Math.min(26, pu1 - pu0 - 6), cv0 = Math.max(vf + 4, pv1 - 18);
+              det.canopy = R4(uc - cw / 2, cv0, uc + cw / 2, cv0 + 10); det.pumps = [];
+              for (var pq = 0; pq < 4; pq++) { var pp = WP(uc - cw / 2 + (pq + 0.5) * cw / 4, cv0 + 5); det.pumps.push(pp); }
+              for (var gq = 0; gq < 3; gq++) if (cr() < 0.7) { var gc = WP(uc - cw / 2 + (gq + 0.5) * cw / 3 + rr(cr, -2, 2), cv0 + (cr() < 0.5 ? 2.6 : 7.4)); C.cars.push({ x: gc.x, y: gc.y, a: Math.atan2(uy, ux), c: pick(cr, CARS) }); }
+            } else {
+              // Stellplatzreihen parallel zur Hallenfront, von hinten nach vorne; zwischen den Doppelreihen Grüninseln mit Bäumen
+              var dens = sel === "car" ? 0.95 : sel === "furn" || sel === "hyper" || sel === "diy" ? 0.55 : 0.45, v9 = pv1 - 6.5;
+              if (sel === "food") { det.drive = [R4(uc - bw / 2 - 5, bv0 - 1, uc - bw / 2 - 1, bv1), R4(uc - bw / 2 - 5, bv0 - 5, uc + bw / 2 + 5, bv0 - 1), R4(uc + bw / 2 + 1, bv0 - 1, uc + bw / 2 + 5, bv1)]; }
+              while (v9 - 11.5 >= vf + 1) {
+                [[v9 - 5, v9, 1], [v9 - 16.5, v9 - 11.5, -1]].forEach(function (row) {
+                  if (row[0] < vf + 0.5) return;
+                  for (var u9 = pu0 + 2; u9 + 2.6 <= pu1 - 2; u9 += 2.6) {
+                    var a1 = WP(u9, row[0]), b1 = WP(u9, row[1]), a2 = WP(u9 + 2.6, row[0]), b2 = WP(u9 + 2.6, row[1]);
+                    C.pk.push([a1.x, a1.y, b1.x, b1.y], [a2.x, a2.y, b2.x, b2.y]);
+                    if (cr() < dens) { var cc = WP(u9 + 1.3, (row[0] + row[1]) / 2); C.cars.push({ x: cc.x, y: cc.y, a: a0 + (cr() < 0.5 ? 0 : Math.PI), c: sel === "car" ? pick(cr, ["#C8432F", "#2F5D9E", "#F2F0EA", "#1F2226", "#8E9196", "#3E6B4E"]) : pick(cr, CARS) }); }
+                  }
+                });
+                var vi = v9 - 18.5;
+                if (vi >= vf + 1) {   // Grünstreifen mit Bäumen
+                  C.comG.push({ P: R4(pu0 + 2, vi, pu1 - 2, vi + 2), k: "isle" });
+                  for (var ut = pu0 + 6; ut < pu1 - 4; ut += rr(cr, 10, 16)) { var tp = WP(ut, vi + 1); addTree(tp.x, tp.y, 2.2 + cr() * 1.2); }
+                }
+                v9 -= 20.5;
+              }
+            }
+            // Zufahrt von der Straße
+            var vs = null; for (var t9 = 0; t9 < 90; t9 += 1) { var q9 = WP(uc, vf - t9); if (L(q9.x, q9.y) === 1) { vs = vf - t9 - 1.5; break; } }
+            if (vs !== null) { var DR = R4(uc - 3.5, vs, uc + 3.5, vf + 0.5); C.comG.push({ P: DR, k: "asph" }); rectMark(DR, 11); }
+          }
+          // Anlieferung: LKW an der Seite der Halle, wenn Platz ist
+          if (!backZ && sel !== "food" && sel !== "gas" && sel !== "car" && ub - ua - bw > 12) { var lu = garden ? uc - bw / 2 - 5 : uc + bw / 2 + 5; var LD = R4(lu - 3.5, bv0 + 4, lu + 3.5, bv1); if (rectFree(LD, 0.05, 0)) { rectMark(LD, 11); C.comG.push({ P: LD, k: "asph" }); det.truck = { p: WP(lu, bv1 - 9), a: Math.atan2(vy, vx) }; } }
+          C.comB.push(det);
+          if (backZ && backZ[1] - backZ[0] > 36) {
+            // Lagerhalle hinten, LKW-Hof dazwischen, Zufahrt seitlich am Markt vorbei
+            var yard = R4(uc - bw / 2, backZ[0], uc + bw / 2, backZ[0] + 16), hd = Math.min(60, backZ[1] - backZ[0] - 20), hw2 = Math.min(bw, rr(cr, 40, 90));
+            var HP = R4(uc - hw2 / 2, backZ[0] + 17, uc + hw2 / 2, backZ[0] + 17 + hd);
+            var su = garden ? uc - bw / 2 - 2.6 : uc + bw / 2 + 2.6, SL = R4(su - 2.2, pv1, su + 2.2, backZ[0] + 1);
+            if (rectFree(yard, 0.05, 0) && rectFree(HP, 0.04, 0) && (ub - ua - bw >= 9) && rectFree(SL, 0.25, 0)) {
+              rectMark(yard, 11); rectMark(SL, 11); rectMark(HP, 5); C.comG.push({ P: yard, k: "asph" }, { P: SL, k: "asph" });
+              var hh = rr(cr, 9, 12); C.buildings.push({ polys: [HP], polys2: [], flat: true, roof: "#B8BBBF", h: hh, nx: -vx, ny: -vy, bb: bboxOf(HP, hh * 1.2 + 1), kind: "com" });
+              var trs = []; for (var tq = 0; tq < Math.floor(hw2 / 9); tq++) if (cr() < 0.55) trs.push({ p: WP(uc - hw2 / 2 + 5 + tq * 9, backZ[0] + 9), a: Math.atan2(vy, vx) });
+              C.comB.push({ t: "hall", P: HP, ux: ux, uy: uy, vx: vx, vy: vy, seed: Math.floor(cr() * 1e6), sign: "#6E7279", bb: bboxOf(HP.concat(yard), 12), trucks: trs, docks: true });
+            }
+          }
+          last = sel; ua = ub + 2;
+        }
+        // Rest: Rasen mit Bäumen
+        for (i = 0; i < n; i++) { c = cells[i]; if (land[c] === 0) { land[c] = 10; var x1 = c % W, y1 = (c / W) | 0; if (x1 % 7 === 0 && y1 % 7 === 0 && hash2(x1, y1, seed + 91) < 0.55 && L(x1 + 3, y1) === 10 && L(x1 - 3, y1) === 10 && L(x1, y1 + 3) === 10 && L(x1, y1 - 3) === 10) addTree(x1 + 0.5, y1 + 0.5, 2.4 + hash2(x1, y1, 7) * 2); } }
+        return gid + 1;
+      }
+      function doBlock(cells, b, maxDT, gid, noCom) {
+        if (cells.length < 80) return gid;
+        if (!noCom) {
+          // orange gemalter Teil außerhalb des Zentrums wird Gewerbegebiet, der Rest des Blocks normal bebaut
+          var oc = [], rest = [], k0, any0 = false;
+          for (k0 = 0; k0 < cells.length && !any0; k0 += 7) { var c7 = cells[k0]; if (M.o[(((c7 / W) | 0) >> 1) * MW + ((c7 % W) >> 1)]) any0 = true; }
+          for (k0 = 0; any0 && k0 < cells.length; k0++) { var c0 = cells[k0]; (M.o[(((c0 / W) | 0) >> 1) * MW + ((c0 % W) >> 1)] ? oc : rest).push(c0); }
+          if (oc.length > 600 && oc.length > cells.length * 0.2) {
+            var dO = 0; for (k0 = 0; k0 < oc.length; k0 += 9) dO += density(oc[k0] % W, (oc[k0] / W) | 0); dO /= Math.ceil(oc.length / 9);
+            if (!isCore(dO)) {
+              gid = comBlock(oc, dO, gid);
+              if (rest.length < 80) return gid;
+              var rb = [1e9, 1e9, -1, -1], rm = 0; rest.forEach(function (c1) { var x1 = c1 % W, y1 = (c1 / W) | 0; if (x1 < rb[0]) rb[0] = x1; if (y1 < rb[1]) rb[1] = y1; if (x1 > rb[2]) rb[2] = x1; if (y1 > rb[3]) rb[3] = y1; if (dd[c1] > rm) rm = dd[c1]; });
+              return doBlock(rest, rb, Math.sqrt(rm), gid, true);
+            }
+          }
+        }
+        if (cells.length > 160000) return gid;
         var ds = 0, n = 0, i, c;
         for (i = 0; i < cells.length; i += 9) { c = cells[i]; ds += density(c % W, (c / W) | 0); n++; }
         var d = ds / n, P = modeParams(d, er); if (!P) return gid;
@@ -1385,6 +1548,7 @@
     }
 
     // ---------- Autos ----------
+    var UMBC = ["#C2533C", "#F2F0EA", "#3B78B0", "#D9A637", "#4D8F68", "#8C5A45"];
     var ar = mulberry(seed * 13 + 9);
     C.roads.forEach(function (r) {
       if (r.cls === "rail") return;
@@ -1394,9 +1558,24 @@
         var p = at(r, s);
         if (!inCity(p.x, p.y)) continue;
         [-1, 1].forEach(function (sd4) {
-          if (ar() > park2) return;
           var o = r.hw - 1.25, x = p.x - p.ty * sd4 * o, y = p.y + p.tx * sd4 * o;
+          // Außengastronomie: statt parkender Autos Holzpodeste mit Tischen auf der Parkspur
+          if (gastroAt(x, y) || gastroAt(p.x - p.ty * sd4 * (r.hw + r.sw + 2), p.y + p.tx * sd4 * (r.hw + r.sw + 2))) {
+            if (S.style !== "jp" && ar() < 0.55) C.gastro.push({ x: x, y: y, a: Math.atan2(p.ty, p.tx), k: "deck", s: Math.floor(ar() * 1e6), c: pick(ar, UMBC) });
+            return;
+          }
+          if (ar() > park2) return;
           C.cars.push({ x: x, y: y, a: Math.atan2(p.ty, p.tx), c: pick(ar, CARS) });
+        });
+      }
+      // Tische auf dem Gehweg direkt vor den Häusern
+      if (r.sw >= 1.5) for (var s5 = 6; s5 < r.len - 6; s5 += 2.6) {
+        if (nearJ(r, s5, 4) || onBr(r, s5)) continue;
+        var p5 = at(r, s5);
+        [-1, 1].forEach(function (sd5) {
+          var o5 = r.hw + r.sw - 0.85, x5 = p5.x - p5.ty * sd5 * o5, y5 = p5.y + p5.tx * sd5 * o5;
+          if (!gastroAt(x5, y5) || L(p5.x - p5.ty * sd5 * (r.hw + r.sw + 1.6), p5.y + p5.tx * sd5 * (r.hw + r.sw + 1.6)) !== 5 || ar() > 0.72) return;
+          C.gastro.push({ x: x5, y: y5, a: Math.atan2(p5.ty, p5.tx), k: "tab", u: ar() < 0.4, s: Math.floor(ar() * 1e6), c: pick(ar, UMBC) });
         });
       }
       // Verkehr auf den Fahrspuren
@@ -1445,7 +1624,9 @@
       if (lc === 7) {
         var pp = plotId[k5];
         { r5 = GARD[0] + (r5 - gr[0]); g5 = GARD[1] + (g5 - gr[1]); bl5 = GARD[2] + (bl5 - gr[2]); }
-      } else if (lc === 8) { r5 = YARD[0] + (r5 - gr[0]) * 0.6; g5 = YARD[1] + (g5 - gr[1]) * 0.6; bl5 = YARD[2] + (bl5 - gr[2]) * 0.6; }
+      } else if (lc === 10) { r5 = 198 + (r5 - gr[0]) * 0.5; g5 = 210 + (g5 - gr[1]) * 0.5; bl5 = 176 + (bl5 - gr[2]) * 0.5; }
+      else if (lc === 11) { r5 = 131; g5 = 135; bl5 = 140; }
+      else if (lc === 8) { r5 = YARD[0] + (r5 - gr[0]) * 0.6; g5 = YARD[1] + (g5 - gr[1]) * 0.6; bl5 = YARD[2] + (bl5 - gr[2]) * 0.6; }
       else if (lc === 0 && ic2[m5] && S.style !== "usa") { var gw = Math.max(0, 0.75 - dn2[m5] * 1.3); r5 += (GARD[0] - r5) * gw; g5 += (GARD[1] - g5) * gw; bl5 += (GARD[2] - bl5) * gw; }
       g[o5] = r5; g[o5 + 1] = g5; g[o5 + 2] = bl5; g[o5 + 3] = 255;
     }
@@ -1497,6 +1678,88 @@
     return out;
   }
 
+  // ---------- Gewerbe zeichnen (v0.5) ----------
+  function drawComGround(x, C, vis) {
+    (C.comG || []).forEach(function (g) {
+      if (!vis(bboxOf(g.P, 2))) return;
+      var P = g.P;
+      if (g.k === "asph") { poly(x, P); x.fillStyle = "#83878C"; x.fill(); }
+      else if (g.k === "walk") { poly(x, P); x.fillStyle = "#D8D3C8"; x.fill(); }
+      else if (g.k === "isle") { poly(x, P); x.fillStyle = "#C9C5BC"; x.fill(); x.save(); var c = centroid(P); x.translate(c.x, c.y); x.scale(0.92, 0.6); x.translate(-c.x, -c.y); poly(x, P); x.fillStyle = "#9CC27E"; x.fill(); x.restore(); }
+      else if (g.k === "garden") {
+        poly(x, P); x.fillStyle = "#B5C99A"; x.fill(); x.strokeStyle = "#6E7279"; x.lineWidth = 0.4; x.stroke();
+        // Pflanzenreihen im Gartencenter
+        x.save(); poly(x, P); x.clip(); var a = P[0], b = P[1], d = P[3], L1 = Math.hypot(b.x - a.x, b.y - a.y), L2 = Math.hypot(d.x - a.x, d.y - a.y), tx = (b.x - a.x) / L1, ty = (b.y - a.y) / L1, nx = (d.x - a.x) / L2, ny = (d.y - a.y) / L2;
+        var cols = ["#6C9C55", "#C46A7E", "#D9A637", "#5F9150", "#8E6FB0"];
+        for (var v = 2; v < L2 - 1; v += 3.2) { x.strokeStyle = cols[Math.floor(v / 3.2) % cols.length]; x.lineWidth = 1.3; x.beginPath(); x.moveTo(a.x + tx * 2 + nx * v, a.y + ty * 2 + ny * v); x.lineTo(a.x + tx * (L1 - 2) + nx * v, a.y + ty * (L1 - 2) + ny * v); x.stroke(); }
+        x.restore();
+      }
+    });
+    (C.comB || []).forEach(function (d) { if (!d.drive || !vis(d.bb)) return; d.drive.forEach(function (P) { poly(x, P); x.fillStyle = "#83878C"; x.fill(); }); });
+  }
+  // Dachaufbauten, Eingang, Schriftzug-Feld, Tankstellendach, LKW
+  function drawComTop(x, C, vis, z) {
+    (C.comB || []).forEach(function (d) {
+      if (!vis(d.bb)) return;
+      var P = d.P, a = P[0], b = P[1], e = P[3], r = mulberry(d.seed), L1 = Math.hypot(b.x - a.x, b.y - a.y), L2 = Math.hypot(e.x - a.x, e.y - a.y);
+      // Rahmen: u entlang der Front (a→b), v nach hinten (a→e); Front ist die Seite a–b (zum Parkplatz)
+      function Q(u, v) { return { x: a.x + d.ux * u + d.vx * v, y: a.y + d.uy * u + d.vy * v }; }
+      function R(u0, v0, u1, v1, col) { poly(x, [Q(u0, v0), Q(u1, v0), Q(u1, v1), Q(u0, v1)]); x.fillStyle = col; x.fill(); }
+      var roofD = shade(C.buildings.length ? "#C9CCCF" : "#C9CCCF", -0.08);
+      if (d.t !== "gas" && d.t !== "food" && d.t !== "car") {
+        // Lichtbänder und Lüftungsgeräte
+        for (var u = 8; u < L1 - 6; u += 12) R(u, 6, u + 2.2, L2 - 6, "rgba(200,222,236,.75)");
+        for (var q = 0; q < Math.floor(L1 * L2 / 500); q++) { var hu = rr(r, 4, L1 - 7), hv = rr(r, 4, L2 - 6); R(hu + 0.5, hv + 0.6, hu + 3.5, hv + 2.6, "rgba(40,36,30,.18)"); R(hu, hv, hu + 3, hv + 2, "#9EA1A6"); }
+      }
+      if (d.t === "car") R(1, 1, L1 - 1, L2 - 1, "rgba(220,236,246,.45)");   // Glasdach des Autohauses
+      // Eingang mit Vordach und farbigem Schriftfeld über der Front
+      if (d.docks) { for (var du = 4; du < L1 - 4; du += 9) R(du, -0.8, du + 4, 0.2, "#5B5F66"); return; }
+      var ew = Math.min(14, L1 * 0.25), eu = L1 / 2 - ew / 2;
+      R(eu, -2.4, eu + ew, 0.3, "#E8E6E0"); R(eu, -2.4, eu + ew, -1.9, shade(d.sign, -0.1));
+      R(Math.max(1, eu - 0.5 - Math.min(18, L1 * 0.3)), 0.4, eu - 0.5, 1.6, d.sign);
+      if (d.canopy) {
+        var CP = d.canopy; x.save(); x.translate(1.6, 2.2); poly(x, CP); x.fillStyle = "rgba(40,36,30,.22)"; x.fill(); x.restore();
+        poly(x, CP); x.fillStyle = "#F2F0EA"; x.fill(); x.strokeStyle = d.sign; x.lineWidth = 0.8; x.stroke();
+      }
+      if (d.trucks && z > 0.6) d.trucks.forEach(function (tk) {
+        x.save(); x.translate(tk.p.x, tk.p.y); x.rotate(tk.a + Math.PI / 2);
+        x.fillStyle = "rgba(40,36,30,.22)"; x.fillRect(-1.3 + 0.6, -7 + 0.8, 2.6, 14.5);
+        x.fillStyle = "#E9E7E1"; x.fillRect(-1.3, -7, 2.6, 12); x.fillStyle = "#C8432F"; x.fillRect(-1.2, 5.3, 2.4, 2.2); x.restore();
+      });
+      if (d.truck && z > 0.6) {
+        var tp = d.truck.p; x.save(); x.translate(tp.x, tp.y); x.rotate(d.truck.a);
+        x.fillStyle = "rgba(40,36,30,.22)"; x.fillRect(-6 + 0.6, -1.3 + 0.8, 14.5, 2.6);
+        x.fillStyle = "#E9E7E1"; x.fillRect(-6, -1.3, 12, 2.6); x.fillStyle = "#3B78B0"; x.fillRect(6.3, -1.2, 2.2, 2.4); x.fillStyle = "#24282D"; x.fillRect(7.8, -1, 0.5, 2);
+        x.restore();
+      }
+    });
+  }
+  // Außengastronomie im Zentrum: Tische auf dem Gehweg vor den Häusern und Terrassen auf der Parkspur
+  function drawGastro(x, C, visP, z) {
+    if (z < 0.7) return;
+    (C.gastro || []).forEach(function (g) {
+      if (!visP(g.x, g.y, 4)) return;
+      var r = mulberry(g.s);
+      x.save(); x.translate(g.x, g.y); x.rotate(g.a);
+      function chair(cx, cy) { x.fillStyle = "#4A4F56"; x.fillRect(cx - 0.22, cy - 0.22, 0.44, 0.44); }
+      function table(cx, cy, rd) { x.beginPath(); x.arc(cx + 0.12, cy + 0.15, rd, 0, 6.283); x.fillStyle = "rgba(40,36,30,.2)"; x.fill(); x.beginPath(); x.arc(cx, cy, rd, 0, 6.283); x.fillStyle = "#F2F0EA"; x.fill(); }
+      function umb(cx, cy, rd, col) { x.beginPath(); x.arc(cx + 0.35, cy + 0.45, rd, 0, 6.283); x.fillStyle = "rgba(40,36,30,.22)"; x.fill(); x.beginPath(); x.arc(cx, cy, rd, 0, 6.283); x.fillStyle = col; x.fill(); x.fillStyle = "rgba(255,255,255,.28)"; x.beginPath(); x.moveTo(cx, cy); x.arc(cx, cy, rd, 0, 1.57); x.closePath(); x.fill(); x.beginPath(); x.moveTo(cx, cy); x.arc(cx, cy, rd, 3.14, 4.71); x.closePath(); x.fill(); }
+      if (g.k === "deck") {
+        // Holzpodest auf dem Parkstreifen mit Pflanzkübeln an den Enden
+        x.fillStyle = "rgba(40,36,30,.2)"; x.fillRect(-2.6 + 0.2, -1.05 + 0.3, 5.2, 2.1);
+        x.fillStyle = "#B58A60"; x.fillRect(-2.6, -1.05, 5.2, 2.1); x.strokeStyle = "rgba(90,60,35,.35)"; x.lineWidth = 0.08;
+        for (var p = -2.4; p < 2.6; p += 0.5) { x.beginPath(); x.moveTo(p, -1.05); x.lineTo(p, 1.05); x.stroke(); }
+        x.fillStyle = "#6E7279"; x.fillRect(-2.6, -1.05, 0.7, 2.1); x.fillRect(1.9, -1.05, 0.7, 2.1); x.fillStyle = "#6C9C55"; x.fillRect(-2.5, -0.95, 0.5, 1.9); x.fillRect(2.0, -0.95, 0.5, 1.9);
+        [-0.9, 0.9].forEach(function (tx) { table(tx, 0, 0.42); chair(tx - 0.7, -0.15); chair(tx + 0.7, 0.15); });
+        if (r() < 0.6) umb(0, 0, 1.3, g.c);
+      } else {
+        // Tisch mit Stühlen am Gehweg, manchmal mit Schirm oder Markise
+        table(0, 0, 0.38); chair(-0.65, 0); chair(0.65, 0); if (r() < 0.5) { chair(0, -0.62); chair(0, 0.62); }
+        if (g.u) umb(0, 0, 1.15, g.c);
+      }
+      x.restore();
+    });
+  }
   // ---------- Zeichnen der Stadt ----------
   // Zeichnet den Ausschnitt [x0,y0,x1,y1] (Meter) in einen Kontext, der bereits auf Meter skaliert ist.
   function drawCity(x, C, vb, z) {
@@ -1523,6 +1786,7 @@
     }
     layer("r", "#D4CCBC", 1.2); layer("r", "#E3DCCD", 0, paving); layer("g", "#B9D99C", 4); layer("g", "#A6CF88", 0);
     layer("p", "#C9C5BC", 1.6); layer("p", "#84888D", 0);
+    drawComGround(x, C, vis);
     // Stellplätze der gemalten Parkflächen
     x.strokeStyle = "#E7E4DC"; x.lineWidth = 0.15; x.beginPath();
     C.pk.forEach(function (l) { if (!visP(l[0], l[1], 8)) return; x.moveTo(l[0], l[1]); x.lineTo(l[2], l[3]); }); x.stroke();
@@ -1630,10 +1894,12 @@
     x.fillStyle = "rgba(40,36,30,.2)";
     bs.forEach(function (b) { var dx = 0.55 + b.h * 0.42, dy = 0.75 + b.h * 0.55; x.save(); x.translate(dx, dy); polys(b).forEach(function (P) { poly(x, P); x.fill(); }); x.restore(); });
     bs.forEach(function (b) { drawBuilding(x, b, z); });
+    drawComTop(x, C, vis, z);
     // Spezialbauten
     C.specials.forEach(function (sp) { if (sp.site ? !visP(sp.site.ox, sp.site.oy, sp.site.R + 30) : !visP(sp.cx, sp.cy, Math.max(sp.a, sp.b) + 80)) return; drawSpecial(x, sp, C); });
     // Autos
     if (z > 0.5) C.cars.forEach(function (c) { if (!visP(c.x, c.y, 4)) return; drawCar(x, c); });
+    drawGastro(x, C, visP, z);
     // Bahn auf einem Viadukt: über den Straßen, mit Schatten
     roads.forEach(function (r) {
       if (r.cls !== "rail") return;
@@ -2232,7 +2498,7 @@
   // ---------- Oberfläche ----------
   var ICON = {
     view: '<svg viewBox="0 0 24 24"><path d="M12 3v18M3 12h18M12 3l-3 3M12 3l3 3M12 21l-3-3M12 21l3-3M3 12l3-3M3 12l3 3M21 12l-3-3M21 12l-3 3" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>',
-    g: '<i style="background:' + PCOL.g + '"></i>', b: '<i style="background:' + PCOL.b + '"></i>', r: '<i style="background:' + PCOL.r + '"></i>', p: '<i style="background:' + PCOL.p + '"></i>',
+    g: '<i style="background:' + PCOL.g + '"></i>', b: '<i style="background:' + PCOL.b + '"></i>', r: '<i style="background:' + PCOL.r + '"></i>', p: '<i style="background:' + PCOL.p + '"></i>', o: '<i style="background:' + PCOL.o + '"></i>',
     e: '<svg viewBox="0 0 24 24"><path d="M4 16l8-8 6 6-5 5H8z" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M8 19h12" stroke="currentColor" stroke-width="1.8"/></svg>'
   };
   function html() {
@@ -2259,8 +2525,8 @@
     }
     var dirty = S.paint.length !== S.genPaintN;
     return '<h2>' + t("h3") + '</h2><p>' + t("p3") + '</p>' +
-      '<div class="cg-tools">' + ["view", "g", "b", "r", "p", "e"].map(function (k) {
-        return '<button type="button" class="cg-tool" data-tool="' + k + '" aria-pressed="' + (S.tool === k) + '">' + ICON[k] + '<span>' + t({ view: "tView", g: "tG", b: "tB", r: "tR", p: "tP", e: "tE" }[k]) + '</span></button>';
+      '<div class="cg-tools">' + ["view", "g", "b", "r", "p", "o", "e"].map(function (k) {
+        return '<button type="button" class="cg-tool" data-tool="' + k + '" aria-pressed="' + (S.tool === k) + '">' + ICON[k] + '<span>' + t({ view: "tView", g: "tG", b: "tB", r: "tR", p: "tP", o: "tO", e: "tE" }[k]) + '</span></button>';
       }).join("") + '</div>' +
       '<label class="cg-sl">' + t("size") + ' <b id="cg-sz">' + S.size + ' m</b><input type="range" min="8" max="160" step="2" value="' + S.size + '" data-cg="size"></label>' +
       '<button type="button" class="cg-btn cg-pri cg-wide' + (dirty ? " cg-hot" : "") + '" data-cg="regen">' + t("regen") + '</button>' +
@@ -2379,7 +2645,7 @@
         ox.setTransform(dpr * z, 0, 0, dpr * z, -V.vx * z * dpr, -V.vy * z * dpr);
         var strokes = S.paint.slice(S.genPaintN === S.paint.length || !S.showPaint ? S.genPaintN : 0);
         if (S.showPaint) strokes = S.paint;
-        ["g", "b", "r", "p"].forEach(function (k) {
+        ["g", "b", "r", "p", "o"].forEach(function (k) {
           var lc = V.lc || (V.lc = document.createElement("canvas")); if (lc.width !== oc.width || lc.height !== oc.height) { lc.width = oc.width; lc.height = oc.height; }
           var lx = lc.getContext("2d"); lx.setTransform(1, 0, 0, 1, 0, 0); lx.clearRect(0, 0, lc.width, lc.height); lx.setTransform(dpr * z, 0, 0, dpr * z, -V.vx * z * dpr, -V.vy * z * dpr);
           lx.strokeStyle = PCOL[k]; drawLayer(lx, k, strokes, 0);
