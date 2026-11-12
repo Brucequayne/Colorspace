@@ -36,6 +36,7 @@ Diese Datei wird **gebaut** – aus den Teilen in `spacerogue-src/src/`.
 | `53-ki.js` | Gegner-KI |
 | `54-figur.js` | Luft, Luken, Jetpack, Schweißen, Laufen, Pistole, Inventar |
 | `55-andocken.js` | Andocken |
+| `56-turrets.js` | Turrets: KI-Zielwahl, Schwenken mit Vorhalt, Feuern, Hitze-Disziplin (`turretsAuto`) |
 | `60-zeichnen-flug.js` | Flugansicht, Effekte, Radar, HUD |
 | `70-ui.js`, `71-css.js` | HTML-Aufbau, Infofeld, Aussehen |
 | `72-eingabe.js` | Maus, Tastatur, Knöpfe |
@@ -99,3 +100,5 @@ Folgen für Änderungen:
   `variant(base, id, va, name)` in `11-bauteile.js`. Palette: eine Kachel je Gruppe mit Falte (`tileHTML`, `openVar`, `pickVar`
   in `70-ui.js`), gewählte Variante in `localStorage` unter `spacerogue-var`. Neue Form `round2` (Ecke rund 1×2).
   Neue Teile: `bt6` große Batterie, `kr1`/`kr2`/`kr6` Kisten, `kry` Kryokapsel, `pul` Bedienmodul (Deko).
+- v0.55: Turrets (`kind: "tur"`, `tw` = Waffe). Werte in `TUR` (`12-balance.js`), Logik in `56-turrets.js`, Grafik `turretArt`
+  (Sockel im normalen Durchgang, Kopf nach der Hülle). Kisten-Variante `…g` (grau, industriell).

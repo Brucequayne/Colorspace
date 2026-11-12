@@ -109,6 +109,7 @@
       if (bd === me && bd.ctrl && bd.seat && !FL.dock) control(bd, dt, FL.seated);   // ohne Pilot halten nur die Dämpfer das Schiff; beim Andocken steuert der Autopilot
       if (bd === me) { var fm = 0; for (var fk in bd.flames) fm = Math.max(fm, bd.flames[fk]); if (FL.fire && FL.seated && FL.groups.length) fm = Math.max(fm, 0.6); FL.sig = Math.max(FL.sig * Math.exp(-dt / 1.2), fm); }
       if (bd.ai) aiTick(bd, dt);
+      turretsAuto(bd, dt);   // Turrets zielen und feuern selbstständig
       if (bd === (FL.pb || me) && !FL.seated && !FL.out) walk(bd, dt);
       var vlim = bd.enemy ? VMAX * AI.vk : VMAX;   // Tempolimit 500 m/s, KI-Schiffe 10 % weniger
       var vv = Math.hypot(bd.vx, bd.vy); if (vv > vlim) { bd.vx *= vlim / vv; bd.vy *= vlim / vv; vv = vlim; }
@@ -124,10 +125,10 @@
       bd.x += bd.vx * dt; bd.y += bd.vy * dt; bd.a += bd.w * dt;
       bd.blocks.forEach(function (b) {
         var ty = T[b.t];
-        if (ty.kind === "mg") { var cn = (bd.cool && bd.cool.get(b)) || 0; if (b.oh > 0) { b.oh -= dt; if (b.oh <= 0) { b.oh = 0; b.heat = 0; } } else if (!b.firing) b.heat = Math.max(0, (b.heat || 0) - MG.cool * (1 + 0.6 * cn) * dt); b.firing = false; }
+        if (ty.kind === "mg" || (ty.kind === "tur" && ty.tw === "mg")) { var cn = (bd.cool && bd.cool.get(b)) || 0; if (b.oh > 0) { b.oh -= dt; if (b.oh <= 0) { b.oh = 0; b.heat = 0; } } else if (!b.firing) b.heat = Math.max(0, (b.heat || 0) - MG.cool * (1 + 0.6 * cn) * dt); b.firing = false; }
         if (ty.kind === "ms" && b.ammo === undefined) b.ammo = msMax(b);
-        if (ty.kind === "rg") { if (b.cd > 0) b.cd -= dt; if (!b.holding) b.chg = 0; b.holding = false; }
-        if (ty.kind === "gun" && b.gcd > 0) b.gcd -= dt;
+        if (ty.kind === "rg" || (ty.kind === "tur" && ty.tw === "rg")) { if (b.cd > 0) b.cd -= dt; if (!b.holding) b.chg = 0; b.holding = false; }
+        if ((ty.kind === "gun" || ty.kind === "tur") && b.gcd > 0) b.gcd -= dt;
         var hk = b.hp / hpMax(bd, b);
         if (MECH[ty.kind] && hk < 0.5 && Math.random() < dt * (hk < 0.25 ? 5 : 2.5)) { var p = blockCenter(bd, b); FL.parts.push({ x: p.x + (Math.random() - 0.5) * 2, y: p.y + (Math.random() - 0.5) * 2, vx: bd.vx + (Math.random() - 0.5) * 3, vy: bd.vy - 1.5 - Math.random() * 2, life: 0, max: 1.4 + Math.random() * 0.8, k: "smoke", sz: 0.5 + Math.random() * 0.5 }); }
         if (MECH[ty.kind] && hk < 0.25 && Math.random() < dt * 9) { var q = blockCenter(bd, b); FL.parts.push({ x: q.x + (Math.random() - 0.5) * 1.6, y: q.y + (Math.random() - 0.5) * 1.6, vx: bd.vx + (Math.random() - 0.5) * 4, vy: bd.vy + (Math.random() - 0.5) * 4, life: 0, max: 0.4 + Math.random() * 0.3, k: "fire", sz: 0.45 + Math.random() * 0.45 }); }

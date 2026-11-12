@@ -293,6 +293,8 @@
     if (g === "msl" || g === "msh") { var am = 0, mx = 0, mq = me.mst && me.mst[g]; me.blocks.forEach(function (b) { if (b.t === g) { am += b.ammo === undefined ? msMax(b) : b.ammo; mx += msMax(b); } }); wtxt += mq && mq.rl > 0 ? (lang === "de" ? " · lädt " : " · reloading ") + nf(mq.rl, 1) + " s" : " · " + am + " / " + mx; }
     if (GUN[g]) { var gc = 0; me.blocks.forEach(function (b) { if (b.t === g) gc = Math.max(gc, b.gcd || 0); }); wtxt += gc > 0.05 ? " · " + nf(gc, 1) + " s" : " · " + t("wReady"); }
     if (g === "rg") { var cd = 0; me.blocks.forEach(function (b) { if (T[b.t].kind === "rg") cd = Math.max(cd, b.cd || 0); }); wtxt += cd > 0 ? " · " + nf(cd, 1) + " s" : " · bereit".replace("bereit", lang === "de" ? "bereit" : "ready"); }
+    var tn = 0, ta = 0; me.blocks.forEach(function (b) { if (T[b.t].kind === "tur") { tn++; if (b.tgt) ta++; } });   // Turrets: Anzahl, davon mit Ziel
+    if (tn) wtxt += " · " + t("hTur") + " " + ta + "/" + tn;   // z. B. „Turrets 2/4“: zwei von vier haben ein Ziel
     set("sr-h-w", wtxt);
     set("sr-h-seat", FL.out ? t("hOut") : !me.seat ? t("hGone") : FL.seated ? t("hSeat") : t("hWalk"));
     var ak = FL.suit / SUIT.max, ab = V.root.querySelector("#sr-h-airbar"); if (ab) { ab.style.width = Math.round(ak * 100) + "%"; ab.style.background = FL.breath === "room" ? "#57D18A" : ak < 0.25 ? "#E0533F" : "#E3B83F"; }

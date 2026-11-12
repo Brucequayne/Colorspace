@@ -179,7 +179,7 @@
         scoreKill(bd);
       }
       // Kampfunfähig: keine funktionierenden Waffen mehr; das Schiff versucht weiter zu fliehen
-      else if (!bd.dead && !bd.disarmed && !bd.blocks.some(function (b) { var k = T[b.t].kind; return k === "mg" || k === "rg" || k === "ms" || k === "gun"; })) {
+      else if (!bd.dead && !bd.disarmed && !bd.blocks.some(function (b) { var k = T[b.t].kind; return k === "mg" || k === "rg" || k === "ms" || k === "gun" || k === "tur"; })) {
         bd.disarmed = true; if (bd.ai) { bd.ai.state = "flee"; bd.ai.fleeT = 0; } FL.bannerN = bd.npc.n[lang]; showBanner(t("ko"), "ko");
         scoreKill(bd);
       }

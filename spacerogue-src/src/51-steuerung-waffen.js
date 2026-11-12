@@ -126,8 +126,9 @@
     var ty = T[b.t], d = dirOut(b, 0), f = fp(b), cx = b.x + f[0] / 2 + DV[d][0] * (ty.h / 2 + 0.1), cy = b.y + f[1] / 2 + DV[d][1] * (ty.h / 2 + 0.1);
     return toWorld(bd, cx, cy);
   }
-  function fireRail(bd, b) {
-    var d = gunDir(bd, b), p = gunTip(bd, b), left = RG.dmg, end = { x: p.x + d.x * RG.range, y: p.y + d.y * RG.range }, hits = 0, lastB = null;
+  function fireRail(bd, b) { fireRailFrom(bd, gunTip(bd, b), gunDir(bd, b)); }
+  function fireRailFrom(bd, p, d) {   // auch für den Railgun-Turret
+    var left = RG.dmg, end = { x: p.x + d.x * RG.range, y: p.y + d.y * RG.range }, hits = 0, lastB = null;
     for (var s = 0; s < RG.range; s += 0.8) {
       var x = p.x + d.x * s, y = p.y + d.y * s, h = hitAt(x, y, bd);
       if (FL.envG && FL.envG.length && envHit(x, y)) { end = { x: x, y: y }; spark(x, y, 10); break; }   // Railgun endet am Asteroiden

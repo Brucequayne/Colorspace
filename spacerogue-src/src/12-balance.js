@@ -37,10 +37,17 @@
     g25: { rpm: 100, dmg: 38, speed: MG.speed * 1.5, life: 1.25, e: 3 },
     g120: { rpm: 20, dmg: 190, speed: MG.speed * 1.5, life: 1.5, e: 16, splash: 2.2, sdmg: 40 }
   };
+  // ===== Turrets (v0.55): KI-gesteuerte Waffentürme. Werte wie die Waffe in tw, aber doppelter Energieverbrauch (eK).
+  //       arc = Schwenkbereich je Richtung (20° → 40° gesamt), rate = Schwenktempo (rad/s), tol = Feuerfreigabe, wenn so genau ausgerichtet (rad)
+  //       stop/go = Minigun-Turret setzt bei dieser Hitze ab (kurz vor der Überhitzung bei 1) und schießt erst unter go weiter
+  //       rk = Anteil der Waffenreichweite, ab dem auf Ziele geschossen wird; head/len = Drehpunkt und Rohrlänge in Zellen ab der Vorderkante
+  var TUR = { arc: 20 * Math.PI / 180, rate: 1.3, eK: 2, tol: { mg: 0.06, g25: 0.035, g120: 0.03, rg: 0.02 }, stop: 0.9, go: 0.45, rk: 0.85 };
+  function turRange(tw) { return tw === "mg" ? MG.speed * MG.life : tw === "rg" ? RG.range : GUN[tw].speed * GUN[tw].life; }
   // Kennzahlen je Waffenblock für Editor und Infofeld: Schaden je Projektil, Feuerrate (Schuss/min) und DPS (Schaden pro Sekunde)
   // Raketen: Feuerrate über einen ganzen Nachladezyklus (ein Werfer leert sein Magazin und lädt nach). Railgun: Aufladen plus Abklingzeit.
   function wStats(id) {
     var ty = T[id]; if (!ty) return null; var k = ty.kind, dmg, rpm;
+    if (k === "tur") { var ws = wStats(ty.tw === "mg" ? "mgn" : ty.tw === "rg" ? "rgn" : ty.tw); return ws ? { dmg: ws.dmg, rpm: ws.rpm, dps: ws.dps, tur: true } : null; }   // Turret: wie die Waffe
     if (k === "mg") { dmg = MG.dmg; rpm = MG.rate * 60; }
     else if (k === "gun") { dmg = GUN[id].dmg; rpm = GUN[id].rpm; }
     else if (k === "ms") { dmg = MS.dmg * (ty.mk || 1); rpm = 60 * (ty.rk || 2) / MS.reload; }

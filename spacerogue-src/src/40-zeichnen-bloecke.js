@@ -20,7 +20,7 @@
     c.save(); var m0 = ty.wx && c.getTransform ? c.getTransform() : null;
     c.translate((b.x + f[0] / 2) * s, (b.y + f[1] / 2) * s);
     c.rotate(b.r * Math.PI / 2); if (b.f) c.scale(-1, 1);
-    if (opts && opts.tw) { c.translate(0, h / 2); c.rotate(b.f ? -opts.tw : opts.tw); c.translate(0, -h / 2); }   // Geschütz schwenkt um sein hinteres Ende
+    if (opts && opts.tw && k !== "tur") { c.translate(0, h / 2); c.rotate(b.f ? -opts.tw : opts.tw); c.translate(0, -h / 2); }   // Geschütz schwenkt um sein hinteres Ende
     c.translate(-w / 2, -h / 2);
     var col = b.c || ty.col, lw = Math.max(1, s / 16), dam = hpk !== undefined && hpk <= 0.5;
     c.lineJoin = "miter";
@@ -194,8 +194,10 @@
         c.fillStyle = MID; c.fillRect(w * 0.27, h * 0.02, w * 0.46, s * 0.26);
         c.strokeStyle = shade(col, -0.55); c.lineWidth = lw; c.strokeRect(w * 0.04, h - s * 1.3, w * 0.92, s * 1.3);
       }
+    } else if (k === "tur") {
+      turretArt(c, ty, b, w, h, s, lw, col, opts, tm);
     } else if (k === "deco") {
-      decoArt(c, ty.dk, w, h, s, lw, b.c);
+      decoArt(c, ty.dk, w, h, s, lw, b.c, ty.va);
     } else if (k === "rg") {
       c.fillStyle = shade(col, -0.15); c.fillRect(w * 0.08, h - s * 1.2, w * 0.84, s * 1.2);
       c.fillStyle = b.c || "#3E6F96"; c.fillRect(w * 0.16, h - s * 1.05, w * 0.68, s * 0.5);
@@ -215,7 +217,7 @@
     c.restore();
   }
   // Einrichtung von oben: Boden darunter, dann das Möbelstück. acc = Akzentfarbe (Pinsel), sonst eigene Standardfarbe
-  function decoArt(c, dk, w, h, s, lw, acc) {
+  function decoArt(c, dk, w, h, s, lw, acc, va) {
     c.fillStyle = FLOOR; c.fillRect(0, 0, w, h); c.strokeStyle = FLOOR2; c.lineWidth = lw; c.strokeRect(lw / 2, lw / 2, w - lw, h - lw);
     var ol = "rgba(30,34,40,.55)";
     function box(x, y, bw, bh, f) { c.fillStyle = f; c.fillRect(x, y, bw, bh); c.strokeStyle = ol; c.lineWidth = lw; c.strokeRect(x, y, bw, bh); }
@@ -243,6 +245,8 @@
       c.fillStyle = "#F4F6F8"; c.beginPath(); c.ellipse(w / 2, h * 0.58, w * 0.24, h * 0.3, 0, 0, Math.PI * 2); c.fill(); c.strokeStyle = ol; c.lineWidth = lw; c.stroke();
       c.fillStyle = "#9FC7D9"; c.beginPath(); c.ellipse(w / 2, h * 0.6, w * 0.13, h * 0.17, 0, 0, Math.PI * 2); c.fill();
       c.fillStyle = "#9AA5B1"; c.fillRect(w * 0.44, h * 0.15, w * 0.12, h * 0.05);
+    } else if (dk === "crate" && va === "ind") {
+      crateIndArt(c, w, h, s, lw, acc, ol);
     } else if (dk === "crate") {
       crateArt(c, w, h, s, lw, acc, ol);
     } else if (dk === "cryo") {
@@ -369,6 +373,67 @@
     c.strokeStyle = "#C9D1D9"; c.lineWidth = lw; c.beginPath(); c.moveTo(w * 0.42, h * 0.74); c.lineTo(w * 0.48, h * 0.7); c.stroke();
     c.fillStyle = "#57D18A"; c.fillRect(w * 0.3, h * 0.86, w * 0.05, h * 0.025); c.fillStyle = "#E0533F"; c.fillRect(w * 0.4, h * 0.86, w * 0.05, h * 0.025);
     var sc = acc || "#3E6F96"; c.fillStyle = sc; c.beginPath(); c.arc(w * 0.82, h * 0.5, w * 0.13, 0, Math.PI * 2); c.fill(); c.strokeStyle = ol; c.stroke();   // Hocker
+  }
+  // ---------- v0.55: Turrets ----------
+  // Sockel: gepanzerte Plattform mit Drehkranz. Kopf: dreht um b.tw, je Waffe eigene Rohre. part = "base" / "head" / leer (beides, z. B. Bauteilliste)
+  function turretArt(c, ty, b, w, h, s, lw, col, opts, tm) {
+    var part = opts && opts.part, g = ty.h >= 4 ? { head: 1.75, len: 2.75 } : { head: 1.45, len: 2.05 }, px = w / 2, py = g.head * s, R = s * (ty.h >= 4 ? 0.82 : 0.78);
+    if (part !== "head") {
+      var m = s * 0.1, ch = s * 0.34;   // Sockel mit abgeschrägten Ecken
+      c.beginPath(); c.moveTo(m + ch, m); c.lineTo(w - m - ch, m); c.lineTo(w - m, m + ch); c.lineTo(w - m, h - m); c.lineTo(m, h - m); c.lineTo(m, m + ch); c.closePath();
+      c.fillStyle = shade(col, -0.12); c.fill(); c.strokeStyle = shade(col, -0.55); c.lineWidth = lw; c.stroke();
+      c.fillStyle = shade(col, 0.16); c.fillRect(m + ch, m, w - m * 2 - ch * 2, lw * 1.5);
+      c.fillStyle = shade(col, -0.32); c.fillRect(s * 0.3, h - s * 0.62, w - s * 0.6, s * 0.36);   // Munitions-/Energiezufuhr hinten
+      c.fillStyle = b.c || "#8C4A3A"; c.fillRect(s * 0.42, h - s * 0.54, w - s * 0.84, s * 0.2);
+      c.fillStyle = shade(col, -0.5); [[0.25, 0.25], [w / s - 0.25, 0.25], [0.25, h / s - 0.25], [w / s - 0.25, h / s - 0.25]].forEach(function (q) { c.fillRect(q[0] * s - lw, q[1] * s - lw, lw * 2, lw * 2); });
+      c.fillStyle = "#24282E"; c.beginPath(); c.arc(px, py, R * 1.08, 0, Math.PI * 2); c.fill();   // Drehkranz
+      c.strokeStyle = shade(col, 0.2); c.lineWidth = lw; c.beginPath(); c.arc(px, py, R * 1.08, 0, Math.PI * 2); c.stroke();
+      // Schwenkbereich ±20° als feine Markierung auf dem Kranz
+      c.strokeStyle = "rgba(227,184,63,.7)"; c.lineWidth = lw * 1.4; c.beginPath(); c.arc(px, py, R * 1.08, -Math.PI / 2 - TUR.arc, -Math.PI / 2 + TUR.arc); c.stroke();
+    }
+    if (part === "base") return;
+    var tw = opts && opts.tw ? opts.tw : 0;
+    c.save(); c.translate(px, py); c.rotate(b.f ? -tw : tw);
+    var wpn = ty.tw, L = g.len * s, dk = "#2A2F36", heat = opts && opts.heat ? opts.heat : 0;
+    function barrel(x, bw, len, colr) { c.fillStyle = colr || dk; c.fillRect(x - bw / 2, -len, bw, len); c.fillStyle = "rgba(255,255,255,.14)"; c.fillRect(x - bw / 2, -len, Math.max(0.6, bw * 0.25), len); }
+    if (wpn === "mg") {
+      [-0.17, 0, 0.17].forEach(function (q) { barrel(q * s, s * 0.11, L); });
+      c.fillStyle = MID; c.fillRect(-s * 0.3, -L * 0.62, s * 0.6, s * 0.1); c.fillRect(-s * 0.3, -L * 0.93, s * 0.6, s * 0.1);
+      if (heat > 0.3) { c.fillStyle = "rgba(255," + Math.round(140 - heat * 80) + ",40," + Math.min(0.75, (heat - 0.3)) + ")"; c.fillRect(-s * 0.26, -L, s * 0.52, L * 0.55); }
+    } else if (wpn === "g25") {
+      barrel(0, s * 0.26, L); c.fillStyle = MID; c.fillRect(-s * 0.22, -L - s * 0.04, s * 0.44, s * 0.22);   // Mündungsbremse
+    } else if (wpn === "g120") {
+      barrel(0, s * 0.38, L, "#262A30"); c.fillStyle = shade(col, -0.3); c.fillRect(-s * 0.3, -L * 0.55, s * 0.6, s * 0.18);
+      c.fillStyle = MID; c.fillRect(-s * 0.3, -L - s * 0.06, s * 0.6, s * 0.3);
+    } else if (wpn === "rg") {
+      barrel(-s * 0.2, s * 0.16, L); barrel(s * 0.2, s * 0.16, L);
+      var chg = opts && opts.charge ? opts.charge : 0;
+      c.fillStyle = "rgba(120,220,255," + (0.25 + chg * 0.75) + ")"; c.fillRect(-s * 0.08, -L * 0.98, s * 0.16, L * 0.92);
+    }
+    // Kopf: gepanzerte Kuppel mit Sichtschlitz
+    var hr = R * (wpn === "g120" ? 0.95 : 0.85);
+    c.fillStyle = shade(col, 0.05); c.beginPath(); c.moveTo(-hr, hr * 0.7); c.lineTo(-hr, -hr * 0.35); c.lineTo(-hr * 0.55, -hr * 0.85); c.lineTo(hr * 0.55, -hr * 0.85); c.lineTo(hr, -hr * 0.35); c.lineTo(hr, hr * 0.7); c.closePath(); c.fill();
+    c.strokeStyle = shade(col, -0.55); c.lineWidth = lw; c.stroke();
+    c.fillStyle = shade(col, 0.28); c.fillRect(-hr * 0.55, -hr * 0.85, hr * 1.1, lw * 1.4);
+    c.fillStyle = b.c || "#8C4A3A"; c.fillRect(-hr * 0.6, hr * 0.15, hr * 1.2, hr * 0.28);
+    c.fillStyle = (opts && opts.oh) ? "#E0533F" : "#57D18A"; c.fillRect(hr * 0.45, -hr * 0.55, s * 0.1, s * 0.1);   // Statuslampe
+    c.restore();
+  }
+  // Cargo-Kiste grau, industriell (Variante): moderner Container mit Paneelen, Griffmulden und Statusleiste
+  function crateIndArt(c, w, h, s, lw, acc, ol) {
+    var m = s * 0.06, cc = "#5D646E";
+    c.fillStyle = "#3C424A"; c.fillRect(m, m, w - m * 2, h - m * 2);
+    c.fillStyle = cc; c.fillRect(m * 2, m * 2, w - m * 4, h - m * 4);
+    var p = s * 0.12, long = h >= w, nP = Math.max(1, Math.round((long ? h : w) / s));
+    for (var i = 0; i < nP; i++) {   // je Zelle ein flaches Paneel mit Lichtkante
+      var x = long ? m * 2 + p : m * 2 + p + (w - m * 4) * i / nP, y = long ? m * 2 + p + (h - m * 4) * i / nP : m * 2 + p, pw = long ? w - m * 4 - p * 2 : (w - m * 4) / nP - p * 2, ph = long ? (h - m * 4) / nP - p * 2 : h - m * 4 - p * 2;
+      c.fillStyle = "#6E7681"; c.fillRect(x, y, pw, ph); c.fillStyle = "#858D98"; c.fillRect(x, y, pw, lw); c.fillStyle = "#4A5059"; c.fillRect(x, y + ph - lw, pw, lw);
+      c.fillStyle = "#2C3137"; c.fillRect(x + pw * 0.35, y + ph * 0.45, pw * 0.3, Math.max(lw * 1.5, ph * 0.08));   // Griffmulde
+    }
+    c.fillStyle = "#1E2228"; c.fillRect(w - m * 2 - s * 0.32, m * 2 + s * 0.08, s * 0.22, s * 0.08);
+    c.fillStyle = acc || "#5FB4D9"; c.fillRect(w - m * 2 - s * 0.3, m * 2 + s * 0.1, s * 0.12, s * 0.04);   // Statusleiste (Pinselfarbe)
+    c.fillStyle = "#E3B83F"; c.fillRect(m * 2 + s * 0.08, h - m * 2 - s * 0.14, s * 0.22, s * 0.06);   // kleines Warnetikett
+    c.strokeStyle = ol; c.lineWidth = lw; c.strokeRect(m, m, w - m * 2, h - m * 2);
   }
   // Luke: gelb-schwarzer Warnrahmen, geschlossen mit Schott, offen sieht man ins All
   function hatchArt(c, w, h, col, lw, view, open) {

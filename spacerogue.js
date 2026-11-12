@@ -5,7 +5,7 @@
 (function () {
   "use strict";
 
-  var VERSION = "0.54.4";
+  var VERSION = "0.55";
   var CELL_M = 2.5, PX = 24;              // Meter je Zelle, Pixel je Zelle bei Zoom 1
   var lang = "de";
   function L2(de, en) { return { de: de, en: en }; }
@@ -17,7 +17,7 @@
   var TX = {
     back: L2("Apps", "Apps"), title: L2("Space Rogue", "Space Rogue"),
     catLA: L2("Panzerung leicht", "Light armour"), catHA: L2("Panzerung schwer", "Heavy armour"), vars: L2("Varianten", "Variants"), varStd: L2("Standard", "Standard"), catRA: L2("Panzerung rostig", "Rusty armour"), catOA: L2("Panzerung bewachsen", "Overgrown armour"), catCo: L2("Cockpit", "Cockpit"),
-    catTh: L2("Antrieb und Steuerung", "Propulsion"), catEn: L2("Energie", "Power"), catIn: L2("Innenraum", "Interior"), catWe: L2("Waffen", "Weapons"), catDe: L2("Einrichtung", "Furniture"),
+    catTh: L2("Antrieb und Steuerung", "Propulsion"), catEn: L2("Energie", "Power"), catIn: L2("Innenraum", "Interior"), catWe: L2("Waffen", "Weapons"), catTu: L2("Turrets (KI-gesteuert)", "Turrets (AI controlled)"), hTur: L2("Turrets", "Turrets"), hTurA: L2("feuern", "firing"), catDe: L2("Einrichtung", "Furniture"),
     tBuild: L2("Bauen", "Build"), tabBlk: L2("Blocks", "Blocks"), tabEnv: L2("Environmental", "Environmental"), envLayer: L2("Ebene", "Layer"), envBack: L2("Hinten", "Back"), envGame: L2("Spielebene", "Game"), envFront: L2("Vorne", "Front"), envScale: L2("Größe", "Size"), envRot: L2("Drehung", "Rotation"), envRnd: L2("Zufall", "Random"), envOn: L2("an", "on"), envOff: L2("aus", "off"), envHelp: L2("Klick setzt · Ziehen streut ein Feld · Rechtsklick entfernt (nur aktive Ebene) · R dreht · + / − Größe", "Click places · drag scatters a field · right click removes (active layer only) · R rotates · + / − size"), envCount: L2("Environment", "Environment"), envAst: L2("Asteroiden", "Asteroids"), expScene: L2("Ganze Szene", "Whole scene"), expStruct: L2("Nur Struktur", "Structure only"), sceneLoaded: L2("Szene geladen", "Scene loaded"), tErase: L2("Abreißen", "Remove"), tPaint: L2("Malen", "Paint"),
     rot: L2("Drehen (R)", "Rotate (R)"), flip: L2("Spiegeln (F)", "Flip (F)"), sym: L2("Symmetrie (M)", "Symmetry (M)"), axis: L2("Achse", "Axis"), symIn: L2("im Block", "through block"), symGap: L2("zwischen Blöcken", "between blocks"),
     vIn: L2("Innen", "Interior"), vOut: L2("Außen", "Exterior"), view: L2("Ansicht (V)", "View (V)"),
@@ -105,7 +105,7 @@
   }
   armor("l", false); armor("h", true);
   // Kosten in Credits (Cr): im Editor ist alles gratis; die Preise stehen in der Bauteilliste und im Infofeld
-  var COSTS = { cks: 1200, ckm: 2400, ckl: 4200, ckt: 700, dk3: 2200, dk4: 3400, ths: 450, thf: 650, shs: 1400, shl: 3800, thl: 1600, gyr: 700, col: 300, ant: 400, bat: 350, rea: 2000, flo: 15, wal: 25, dor: 60, hat: 150, win: 40, mgn: 900, msl: 1300, msh: 2400, g25: 1800, g120: 3600, stu: 40, tis: 80, bet: 120, dbt: 180, toi: 150, dus: 200, tgc: 1600, rgn: 2600, bt6: 2100, kr1: 60, kr2: 110, kr6: 300, kry: 900, pul: 450 };
+  var COSTS = { cks: 1200, ckm: 2400, ckl: 4200, ckt: 700, dk3: 2200, dk4: 3400, ths: 450, thf: 650, shs: 1400, shl: 3800, thl: 1600, gyr: 700, col: 300, ant: 400, bat: 350, rea: 2000, flo: 15, wal: 25, dor: 60, hat: 150, win: 40, mgn: 900, msl: 1300, msh: 2400, g25: 1800, g120: 3600, stu: 40, tis: 80, bet: 120, dbt: 180, toi: 150, dus: 200, tgc: 1600, rgn: 2600, tmg: 3400, t25: 5200, t120: 8800, trg: 9800, bt6: 2100, kr1: 60, kr2: 110, kr6: 300, kry: 900, pul: 450 };
   function applyCosts() { Object.keys(T).forEach(function (id) { var ty = T[id]; ty.cost = COSTS[id] || (ty.kind === "armor" ? Math.max(5, Math.round(ty.mass * (ty.heavy ? 26 : 57))) : 100); }); }
   function cr(v) { return nf(Math.round(v)) + " Cr"; }
   def("ckt", { cat: "catCo", kind: "cock", w: 1, h: 2, mass: 0.9, hp: 150, n: L2("Cockpit winzig 1×2", "Tiny cockpit 1×2"), col: "#9AA5B1" });
@@ -138,6 +138,11 @@
   function msMax(b) { return T[b.t].rk || 2; }   // Magazingröße eines Raketenwerfers
   def("tgc", { cat: "catWe", kind: "tcomp", w: 1, h: 2, mass: 0.8, hp: 45, n: L2("Zielcomputer 1×2", "Targeting computer 1×2"), col: "#7E8995" });
   def("rgn", { cat: "catWe", kind: "rg", w: 1, h: 3, mass: 3.8, hp: 120, n: L2("Railgun 1×3", "Railgun 1×3"), col: "#7E8995" });
+  // Turrets (v0.55): KI-gesteuert, schwenken ±20°, groß und schwer (für Fregatten und Korvetten). tw = Waffe, Werte wie diese, Energie doppelt (TUR)
+  def("tmg", { cat: "catTu", kind: "tur", tw: "mg", w: 2, h: 3, mass: 6.5, hp: 230, n: L2("Minigun-Turret 2×3", "Minigun turret 2×3"), col: "#6E7884" });
+  def("t25", { cat: "catTu", kind: "tur", tw: "g25", w: 2, h: 3, mass: 8.5, hp: 270, n: L2("25-mm-Turret 2×3", "25 mm turret 2×3"), col: "#6E7884" });
+  def("t120", { cat: "catTu", kind: "tur", tw: "g120", w: 2, h: 3, mass: 13, hp: 330, n: L2("120-mm-Turret 2×3", "120 mm turret 2×3"), col: "#6E7884" });
+  def("trg", { cat: "catTu", kind: "tur", tw: "rg", w: 2, h: 4, mass: 15, hp: 350, n: L2("Railgun-Turret 2×4", "Railgun turret 2×4"), col: "#6E7884" });
   // Geschütze (v0.51): Einzelschuss mit schweren Projektilen, Werte in GUN (12-balance.js)
   def("g25", { cat: "catWe", kind: "gun", w: 1, h: 2, mass: 2.2, hp: 85, n: L2("25-mm-Geschütz 1×2", "25 mm cannon 1×2"), col: "#7E8995" });
   def("g120", { cat: "catWe", kind: "gun", w: 1, h: 3, mass: 5.4, hp: 150, n: L2("120-mm-Geschütz 1×3", "120 mm cannon 1×3"), col: "#7E8995" });
@@ -165,6 +170,7 @@
   ["lblk", "lbl2", "hblk", "hbl2"].forEach(function (id) { variant(id, id + "v", "vent", L2("Lüftung", "vent")); });
   variant("flo", "flog", "grid", L2("Gitter", "grating"));
   variant("wal", "walr", "pipes", L2("mit Rohren", "with pipes"));
+  ["kr1", "kr2", "kr6"].forEach(function (id) { variant(id, id + "g", "ind", L2("grau, industriell", "grey, industrial")); });
   // Verwitterte Panzerung (v0.54.2, nur Developer Tool): jede Panzerform als rostige (…r) und zugewucherte (…m) Variante.
   // Werte und Preis wie das Original; nur das Aussehen ändert sich (wx, siehe 45-verwitterung.js).
   ["l", "h"].forEach(function (pre) {
@@ -179,8 +185,8 @@
   });
   // Perks wurden in v0.47 abgeschafft. PM bleibt als neutrales Objekt (alles 0), damit die Werte-Haken im Code nichts verändern.
   var PM = { side: 0, brake: 0, mgRate: 0, batCap: 0, msRl: 0, hp: 0, prod: 0, walk: false, radar: 0, oc: 0, msDmg: 0, cockHp: 0, msTurn: 0, crit: 0, batW: false, heavyW: 0 };
-  CATS = ["catLA", "catHA", "catRA", "catOA", "catCo", "catTh", "catEn", "catIn", "catDe", "catWe"];
-  var MECH = { cock: 1, thr: 1, gyro: 1, ant: 1, bat: 1, reac: 1, door: 1, hatch: 1, mg: 1, rg: 1, gun: 1, cool: 1, ms: 1, tcomp: 1, shield: 1, dock: 1 };
+  CATS = ["catLA", "catHA", "catRA", "catOA", "catCo", "catTh", "catEn", "catIn", "catDe", "catWe", "catTu"];
+  var MECH = { cock: 1, thr: 1, gyro: 1, ant: 1, bat: 1, reac: 1, door: 1, hatch: 1, mg: 1, rg: 1, gun: 1, cool: 1, ms: 1, tcomp: 1, shield: 1, dock: 1, tur: 1 };
   var ROOMABLE = { bat: 1, reac: 1, gyro: 1, cool: 1, tcomp: 1, shield: 1 };   // Maschinen, die in einem Raum stehen dürfen und dann zum Raum gehören
   function replaceable(newT, o) { return o && T[newT].kind !== "floor" && T[o.b.t].kind === "floor"; }
   var DV = [[0, -1], [1, 0], [0, 1], [-1, 0]];     // N, O, S, W als Zellversatz
@@ -196,7 +202,8 @@
     }
     if (k === "thr") return { c: d !== 2, s: true };                       // Düse hinten verbindet nicht
     if (k === "mg" || k === "rg" || k === "gun" || k === "ant" || k === "ms") return { c: last && d !== 0, s: true };   // nur am hinteren Ende
-    if (k === "cock") return { c: true, s: true };                         // auch vorne an der Kanzel lässt sich anbauen
+    if (k === "cock") return { c: true, s: true };
+    if (k === "tur") return { c: !(d === 0 && ly === 0), s: true };          // Turret: überall anbaubar außer an der Mündungsseite                         // auch vorne an der Kanzel lässt sich anbauen
     return { c: true, s: true };
   }
 
@@ -239,10 +246,17 @@
     g25: { rpm: 100, dmg: 38, speed: MG.speed * 1.5, life: 1.25, e: 3 },
     g120: { rpm: 20, dmg: 190, speed: MG.speed * 1.5, life: 1.5, e: 16, splash: 2.2, sdmg: 40 }
   };
+  // ===== Turrets (v0.55): KI-gesteuerte Waffentürme. Werte wie die Waffe in tw, aber doppelter Energieverbrauch (eK).
+  //       arc = Schwenkbereich je Richtung (20° → 40° gesamt), rate = Schwenktempo (rad/s), tol = Feuerfreigabe, wenn so genau ausgerichtet (rad)
+  //       stop/go = Minigun-Turret setzt bei dieser Hitze ab (kurz vor der Überhitzung bei 1) und schießt erst unter go weiter
+  //       rk = Anteil der Waffenreichweite, ab dem auf Ziele geschossen wird; head/len = Drehpunkt und Rohrlänge in Zellen ab der Vorderkante
+  var TUR = { arc: 20 * Math.PI / 180, rate: 1.3, eK: 2, tol: { mg: 0.06, g25: 0.035, g120: 0.03, rg: 0.02 }, stop: 0.9, go: 0.45, rk: 0.85 };
+  function turRange(tw) { return tw === "mg" ? MG.speed * MG.life : tw === "rg" ? RG.range : GUN[tw].speed * GUN[tw].life; }
   // Kennzahlen je Waffenblock für Editor und Infofeld: Schaden je Projektil, Feuerrate (Schuss/min) und DPS (Schaden pro Sekunde)
   // Raketen: Feuerrate über einen ganzen Nachladezyklus (ein Werfer leert sein Magazin und lädt nach). Railgun: Aufladen plus Abklingzeit.
   function wStats(id) {
     var ty = T[id]; if (!ty) return null; var k = ty.kind, dmg, rpm;
+    if (k === "tur") { var ws = wStats(ty.tw === "mg" ? "mgn" : ty.tw === "rg" ? "rgn" : ty.tw); return ws ? { dmg: ws.dmg, rpm: ws.rpm, dps: ws.dps, tur: true } : null; }   // Turret: wie die Waffe
     if (k === "mg") { dmg = MG.dmg; rpm = MG.rate * 60; }
     else if (k === "gun") { dmg = GUN[id].dmg; rpm = GUN[id].rpm; }
     else if (k === "ms") { dmg = MS.dmg * (ty.mk || 1); rpm = 60 * (ty.rk || 2) / MS.reload; }
@@ -594,7 +608,7 @@
     c.save(); var m0 = ty.wx && c.getTransform ? c.getTransform() : null;
     c.translate((b.x + f[0] / 2) * s, (b.y + f[1] / 2) * s);
     c.rotate(b.r * Math.PI / 2); if (b.f) c.scale(-1, 1);
-    if (opts && opts.tw) { c.translate(0, h / 2); c.rotate(b.f ? -opts.tw : opts.tw); c.translate(0, -h / 2); }   // Geschütz schwenkt um sein hinteres Ende
+    if (opts && opts.tw && k !== "tur") { c.translate(0, h / 2); c.rotate(b.f ? -opts.tw : opts.tw); c.translate(0, -h / 2); }   // Geschütz schwenkt um sein hinteres Ende
     c.translate(-w / 2, -h / 2);
     var col = b.c || ty.col, lw = Math.max(1, s / 16), dam = hpk !== undefined && hpk <= 0.5;
     c.lineJoin = "miter";
@@ -768,8 +782,10 @@
         c.fillStyle = MID; c.fillRect(w * 0.27, h * 0.02, w * 0.46, s * 0.26);
         c.strokeStyle = shade(col, -0.55); c.lineWidth = lw; c.strokeRect(w * 0.04, h - s * 1.3, w * 0.92, s * 1.3);
       }
+    } else if (k === "tur") {
+      turretArt(c, ty, b, w, h, s, lw, col, opts, tm);
     } else if (k === "deco") {
-      decoArt(c, ty.dk, w, h, s, lw, b.c);
+      decoArt(c, ty.dk, w, h, s, lw, b.c, ty.va);
     } else if (k === "rg") {
       c.fillStyle = shade(col, -0.15); c.fillRect(w * 0.08, h - s * 1.2, w * 0.84, s * 1.2);
       c.fillStyle = b.c || "#3E6F96"; c.fillRect(w * 0.16, h - s * 1.05, w * 0.68, s * 0.5);
@@ -789,7 +805,7 @@
     c.restore();
   }
   // Einrichtung von oben: Boden darunter, dann das Möbelstück. acc = Akzentfarbe (Pinsel), sonst eigene Standardfarbe
-  function decoArt(c, dk, w, h, s, lw, acc) {
+  function decoArt(c, dk, w, h, s, lw, acc, va) {
     c.fillStyle = FLOOR; c.fillRect(0, 0, w, h); c.strokeStyle = FLOOR2; c.lineWidth = lw; c.strokeRect(lw / 2, lw / 2, w - lw, h - lw);
     var ol = "rgba(30,34,40,.55)";
     function box(x, y, bw, bh, f) { c.fillStyle = f; c.fillRect(x, y, bw, bh); c.strokeStyle = ol; c.lineWidth = lw; c.strokeRect(x, y, bw, bh); }
@@ -817,6 +833,8 @@
       c.fillStyle = "#F4F6F8"; c.beginPath(); c.ellipse(w / 2, h * 0.58, w * 0.24, h * 0.3, 0, 0, Math.PI * 2); c.fill(); c.strokeStyle = ol; c.lineWidth = lw; c.stroke();
       c.fillStyle = "#9FC7D9"; c.beginPath(); c.ellipse(w / 2, h * 0.6, w * 0.13, h * 0.17, 0, 0, Math.PI * 2); c.fill();
       c.fillStyle = "#9AA5B1"; c.fillRect(w * 0.44, h * 0.15, w * 0.12, h * 0.05);
+    } else if (dk === "crate" && va === "ind") {
+      crateIndArt(c, w, h, s, lw, acc, ol);
     } else if (dk === "crate") {
       crateArt(c, w, h, s, lw, acc, ol);
     } else if (dk === "cryo") {
@@ -944,6 +962,67 @@
     c.fillStyle = "#57D18A"; c.fillRect(w * 0.3, h * 0.86, w * 0.05, h * 0.025); c.fillStyle = "#E0533F"; c.fillRect(w * 0.4, h * 0.86, w * 0.05, h * 0.025);
     var sc = acc || "#3E6F96"; c.fillStyle = sc; c.beginPath(); c.arc(w * 0.82, h * 0.5, w * 0.13, 0, Math.PI * 2); c.fill(); c.strokeStyle = ol; c.stroke();   // Hocker
   }
+  // ---------- v0.55: Turrets ----------
+  // Sockel: gepanzerte Plattform mit Drehkranz. Kopf: dreht um b.tw, je Waffe eigene Rohre. part = "base" / "head" / leer (beides, z. B. Bauteilliste)
+  function turretArt(c, ty, b, w, h, s, lw, col, opts, tm) {
+    var part = opts && opts.part, g = ty.h >= 4 ? { head: 1.75, len: 2.75 } : { head: 1.45, len: 2.05 }, px = w / 2, py = g.head * s, R = s * (ty.h >= 4 ? 0.82 : 0.78);
+    if (part !== "head") {
+      var m = s * 0.1, ch = s * 0.34;   // Sockel mit abgeschrägten Ecken
+      c.beginPath(); c.moveTo(m + ch, m); c.lineTo(w - m - ch, m); c.lineTo(w - m, m + ch); c.lineTo(w - m, h - m); c.lineTo(m, h - m); c.lineTo(m, m + ch); c.closePath();
+      c.fillStyle = shade(col, -0.12); c.fill(); c.strokeStyle = shade(col, -0.55); c.lineWidth = lw; c.stroke();
+      c.fillStyle = shade(col, 0.16); c.fillRect(m + ch, m, w - m * 2 - ch * 2, lw * 1.5);
+      c.fillStyle = shade(col, -0.32); c.fillRect(s * 0.3, h - s * 0.62, w - s * 0.6, s * 0.36);   // Munitions-/Energiezufuhr hinten
+      c.fillStyle = b.c || "#8C4A3A"; c.fillRect(s * 0.42, h - s * 0.54, w - s * 0.84, s * 0.2);
+      c.fillStyle = shade(col, -0.5); [[0.25, 0.25], [w / s - 0.25, 0.25], [0.25, h / s - 0.25], [w / s - 0.25, h / s - 0.25]].forEach(function (q) { c.fillRect(q[0] * s - lw, q[1] * s - lw, lw * 2, lw * 2); });
+      c.fillStyle = "#24282E"; c.beginPath(); c.arc(px, py, R * 1.08, 0, Math.PI * 2); c.fill();   // Drehkranz
+      c.strokeStyle = shade(col, 0.2); c.lineWidth = lw; c.beginPath(); c.arc(px, py, R * 1.08, 0, Math.PI * 2); c.stroke();
+      // Schwenkbereich ±20° als feine Markierung auf dem Kranz
+      c.strokeStyle = "rgba(227,184,63,.7)"; c.lineWidth = lw * 1.4; c.beginPath(); c.arc(px, py, R * 1.08, -Math.PI / 2 - TUR.arc, -Math.PI / 2 + TUR.arc); c.stroke();
+    }
+    if (part === "base") return;
+    var tw = opts && opts.tw ? opts.tw : 0;
+    c.save(); c.translate(px, py); c.rotate(b.f ? -tw : tw);
+    var wpn = ty.tw, L = g.len * s, dk = "#2A2F36", heat = opts && opts.heat ? opts.heat : 0;
+    function barrel(x, bw, len, colr) { c.fillStyle = colr || dk; c.fillRect(x - bw / 2, -len, bw, len); c.fillStyle = "rgba(255,255,255,.14)"; c.fillRect(x - bw / 2, -len, Math.max(0.6, bw * 0.25), len); }
+    if (wpn === "mg") {
+      [-0.17, 0, 0.17].forEach(function (q) { barrel(q * s, s * 0.11, L); });
+      c.fillStyle = MID; c.fillRect(-s * 0.3, -L * 0.62, s * 0.6, s * 0.1); c.fillRect(-s * 0.3, -L * 0.93, s * 0.6, s * 0.1);
+      if (heat > 0.3) { c.fillStyle = "rgba(255," + Math.round(140 - heat * 80) + ",40," + Math.min(0.75, (heat - 0.3)) + ")"; c.fillRect(-s * 0.26, -L, s * 0.52, L * 0.55); }
+    } else if (wpn === "g25") {
+      barrel(0, s * 0.26, L); c.fillStyle = MID; c.fillRect(-s * 0.22, -L - s * 0.04, s * 0.44, s * 0.22);   // Mündungsbremse
+    } else if (wpn === "g120") {
+      barrel(0, s * 0.38, L, "#262A30"); c.fillStyle = shade(col, -0.3); c.fillRect(-s * 0.3, -L * 0.55, s * 0.6, s * 0.18);
+      c.fillStyle = MID; c.fillRect(-s * 0.3, -L - s * 0.06, s * 0.6, s * 0.3);
+    } else if (wpn === "rg") {
+      barrel(-s * 0.2, s * 0.16, L); barrel(s * 0.2, s * 0.16, L);
+      var chg = opts && opts.charge ? opts.charge : 0;
+      c.fillStyle = "rgba(120,220,255," + (0.25 + chg * 0.75) + ")"; c.fillRect(-s * 0.08, -L * 0.98, s * 0.16, L * 0.92);
+    }
+    // Kopf: gepanzerte Kuppel mit Sichtschlitz
+    var hr = R * (wpn === "g120" ? 0.95 : 0.85);
+    c.fillStyle = shade(col, 0.05); c.beginPath(); c.moveTo(-hr, hr * 0.7); c.lineTo(-hr, -hr * 0.35); c.lineTo(-hr * 0.55, -hr * 0.85); c.lineTo(hr * 0.55, -hr * 0.85); c.lineTo(hr, -hr * 0.35); c.lineTo(hr, hr * 0.7); c.closePath(); c.fill();
+    c.strokeStyle = shade(col, -0.55); c.lineWidth = lw; c.stroke();
+    c.fillStyle = shade(col, 0.28); c.fillRect(-hr * 0.55, -hr * 0.85, hr * 1.1, lw * 1.4);
+    c.fillStyle = b.c || "#8C4A3A"; c.fillRect(-hr * 0.6, hr * 0.15, hr * 1.2, hr * 0.28);
+    c.fillStyle = (opts && opts.oh) ? "#E0533F" : "#57D18A"; c.fillRect(hr * 0.45, -hr * 0.55, s * 0.1, s * 0.1);   // Statuslampe
+    c.restore();
+  }
+  // Cargo-Kiste grau, industriell (Variante): moderner Container mit Paneelen, Griffmulden und Statusleiste
+  function crateIndArt(c, w, h, s, lw, acc, ol) {
+    var m = s * 0.06, cc = "#5D646E";
+    c.fillStyle = "#3C424A"; c.fillRect(m, m, w - m * 2, h - m * 2);
+    c.fillStyle = cc; c.fillRect(m * 2, m * 2, w - m * 4, h - m * 4);
+    var p = s * 0.12, long = h >= w, nP = Math.max(1, Math.round((long ? h : w) / s));
+    for (var i = 0; i < nP; i++) {   // je Zelle ein flaches Paneel mit Lichtkante
+      var x = long ? m * 2 + p : m * 2 + p + (w - m * 4) * i / nP, y = long ? m * 2 + p + (h - m * 4) * i / nP : m * 2 + p, pw = long ? w - m * 4 - p * 2 : (w - m * 4) / nP - p * 2, ph = long ? (h - m * 4) / nP - p * 2 : h - m * 4 - p * 2;
+      c.fillStyle = "#6E7681"; c.fillRect(x, y, pw, ph); c.fillStyle = "#858D98"; c.fillRect(x, y, pw, lw); c.fillStyle = "#4A5059"; c.fillRect(x, y + ph - lw, pw, lw);
+      c.fillStyle = "#2C3137"; c.fillRect(x + pw * 0.35, y + ph * 0.45, pw * 0.3, Math.max(lw * 1.5, ph * 0.08));   // Griffmulde
+    }
+    c.fillStyle = "#1E2228"; c.fillRect(w - m * 2 - s * 0.32, m * 2 + s * 0.08, s * 0.22, s * 0.08);
+    c.fillStyle = acc || "#5FB4D9"; c.fillRect(w - m * 2 - s * 0.3, m * 2 + s * 0.1, s * 0.12, s * 0.04);   // Statusleiste (Pinselfarbe)
+    c.fillStyle = "#E3B83F"; c.fillRect(m * 2 + s * 0.08, h - m * 2 - s * 0.14, s * 0.22, s * 0.06);   // kleines Warnetikett
+    c.strokeStyle = ol; c.lineWidth = lw; c.strokeRect(m, m, w - m * 2, h - m * 2);
+  }
   // Luke: gelb-schwarzer Warnrahmen, geschlossen mit Schott, offen sieht man ins All
   function hatchArt(c, w, h, col, lw, view, open) {
     if (view === "out") roof(c, w, h, col, lw); else { c.fillStyle = FLOOR; c.fillRect(0, 0, w, h); }
@@ -998,7 +1077,7 @@
 
   // ===== 41-zeichnen-schiff.js · Zeichnen: ganzes Schiff mit verschmolzener Hülle =====
   // Schiff: erst Innenleben, dann Aufbauten; Panzerung zuletzt, damit Kanten sauber liegen
-  var ORDER = { floor: 0, door: 0, hatch: 0, wall: 1, cock: 2, bat: 2, reac: 2, gyro: 2, cool: 2, tcomp: 2, shield: 2, dock: 1, thr: 3, mg: 3, rg: 3, ms: 3, ant: 3, win: 4, armor: 4 };
+  var ORDER = { floor: 0, door: 0, hatch: 0, wall: 1, cock: 2, bat: 2, reac: 2, gyro: 2, cool: 2, tcomp: 2, shield: 2, dock: 1, tur: 3, thr: 3, mg: 3, rg: 3, ms: 3, ant: 3, win: 4, armor: 4 };
   // Panzerung (und außen die Dächer) verschmilzt zu einer Hülle: Kanten nur dort, wo die Hülle endet
   function isHull(k, view) { return k === "armor" || k === "win" || (view === "out" && (k === "floor" || k === "wall" || k === "door" || k === "hatch" || k === "deco")); }
   function drawShip(c, blocks, s, view, tm, body, M) {
@@ -1008,10 +1087,13 @@
       var ty = T[b.t], hpk = b.hp !== undefined ? b.hp / hpMax(body, b) : 1, o = null;
       if (isHull(ty.kind, view)) { hull.push(b); return; }
       if (body) o = { pilot: ty.kind === "cock" && body.ctrl && FL && FL.seated && b === body.seat, batK: body.cap ? body.energy / body.cap : 1, charge: b.chg ? Math.min(1, b.chg / RG.charge) : 0, ammo: b.ammo === undefined ? (ty.kind === "ms" ? msMax(b) : 2) : b.ammo, open: !!b.open, tw: b.tw || 0, ckOpen: b.ckOpen || 0, dockOpen: b.dockOpen || 0 };
+      if (ty.kind === "tur") { o = o || { tw: 0, charge: 0 }; o.part = "base"; }   // Turret: erst der Sockel, der Kopf kommt über die Hülle
       drawBlock(c, b, s, view, hpk, tm, o);
     });
     hull.forEach(function (b) { hullFill(c, b, s, view, b.hp !== undefined ? b.hp / hpMax(body, b) : 1); });
     hull.forEach(function (b) { hullEdges(c, b, s, M, view); });
+    // Turret-Köpfe zuletzt, damit die Rohre beim Schwenken über benachbarte Panzerung ragen
+    blocks.forEach(function (b) { if (T[b.t].kind !== "tur") return; drawBlock(c, b, s, view, b.hp !== undefined ? b.hp / hpMax(body, b) : 1, tm, { part: "head", tw: b.tw || 0, charge: b.chg ? Math.min(1, b.chg / RG.charge) : 0, heat: b.heat || 0, oh: b.oh || 0 }); });
   }
   function hullFill(c, b, s, view, hpk) {
     var ty = T[b.t], f = fp(b), w = ty.w * s, h = ty.h * s, k = ty.kind, col = b.c || ty.col, lw = Math.max(1, s / 16);
@@ -1684,6 +1766,7 @@
       if (bd === me && bd.ctrl && bd.seat && !FL.dock) control(bd, dt, FL.seated);   // ohne Pilot halten nur die Dämpfer das Schiff; beim Andocken steuert der Autopilot
       if (bd === me) { var fm = 0; for (var fk in bd.flames) fm = Math.max(fm, bd.flames[fk]); if (FL.fire && FL.seated && FL.groups.length) fm = Math.max(fm, 0.6); FL.sig = Math.max(FL.sig * Math.exp(-dt / 1.2), fm); }
       if (bd.ai) aiTick(bd, dt);
+      turretsAuto(bd, dt);   // Turrets zielen und feuern selbstständig
       if (bd === (FL.pb || me) && !FL.seated && !FL.out) walk(bd, dt);
       var vlim = bd.enemy ? VMAX * AI.vk : VMAX;   // Tempolimit 500 m/s, KI-Schiffe 10 % weniger
       var vv = Math.hypot(bd.vx, bd.vy); if (vv > vlim) { bd.vx *= vlim / vv; bd.vy *= vlim / vv; vv = vlim; }
@@ -1699,10 +1782,10 @@
       bd.x += bd.vx * dt; bd.y += bd.vy * dt; bd.a += bd.w * dt;
       bd.blocks.forEach(function (b) {
         var ty = T[b.t];
-        if (ty.kind === "mg") { var cn = (bd.cool && bd.cool.get(b)) || 0; if (b.oh > 0) { b.oh -= dt; if (b.oh <= 0) { b.oh = 0; b.heat = 0; } } else if (!b.firing) b.heat = Math.max(0, (b.heat || 0) - MG.cool * (1 + 0.6 * cn) * dt); b.firing = false; }
+        if (ty.kind === "mg" || (ty.kind === "tur" && ty.tw === "mg")) { var cn = (bd.cool && bd.cool.get(b)) || 0; if (b.oh > 0) { b.oh -= dt; if (b.oh <= 0) { b.oh = 0; b.heat = 0; } } else if (!b.firing) b.heat = Math.max(0, (b.heat || 0) - MG.cool * (1 + 0.6 * cn) * dt); b.firing = false; }
         if (ty.kind === "ms" && b.ammo === undefined) b.ammo = msMax(b);
-        if (ty.kind === "rg") { if (b.cd > 0) b.cd -= dt; if (!b.holding) b.chg = 0; b.holding = false; }
-        if (ty.kind === "gun" && b.gcd > 0) b.gcd -= dt;
+        if (ty.kind === "rg" || (ty.kind === "tur" && ty.tw === "rg")) { if (b.cd > 0) b.cd -= dt; if (!b.holding) b.chg = 0; b.holding = false; }
+        if ((ty.kind === "gun" || ty.kind === "tur") && b.gcd > 0) b.gcd -= dt;
         var hk = b.hp / hpMax(bd, b);
         if (MECH[ty.kind] && hk < 0.5 && Math.random() < dt * (hk < 0.25 ? 5 : 2.5)) { var p = blockCenter(bd, b); FL.parts.push({ x: p.x + (Math.random() - 0.5) * 2, y: p.y + (Math.random() - 0.5) * 2, vx: bd.vx + (Math.random() - 0.5) * 3, vy: bd.vy - 1.5 - Math.random() * 2, life: 0, max: 1.4 + Math.random() * 0.8, k: "smoke", sz: 0.5 + Math.random() * 0.5 }); }
         if (MECH[ty.kind] && hk < 0.25 && Math.random() < dt * 9) { var q = blockCenter(bd, b); FL.parts.push({ x: q.x + (Math.random() - 0.5) * 1.6, y: q.y + (Math.random() - 0.5) * 1.6, vx: bd.vx + (Math.random() - 0.5) * 4, vy: bd.vy + (Math.random() - 0.5) * 4, life: 0, max: 0.4 + Math.random() * 0.3, k: "fire", sz: 0.45 + Math.random() * 0.45 }); }
@@ -1894,8 +1977,9 @@
     var ty = T[b.t], d = dirOut(b, 0), f = fp(b), cx = b.x + f[0] / 2 + DV[d][0] * (ty.h / 2 + 0.1), cy = b.y + f[1] / 2 + DV[d][1] * (ty.h / 2 + 0.1);
     return toWorld(bd, cx, cy);
   }
-  function fireRail(bd, b) {
-    var d = gunDir(bd, b), p = gunTip(bd, b), left = RG.dmg, end = { x: p.x + d.x * RG.range, y: p.y + d.y * RG.range }, hits = 0, lastB = null;
+  function fireRail(bd, b) { fireRailFrom(bd, gunTip(bd, b), gunDir(bd, b)); }
+  function fireRailFrom(bd, p, d) {   // auch für den Railgun-Turret
+    var left = RG.dmg, end = { x: p.x + d.x * RG.range, y: p.y + d.y * RG.range }, hits = 0, lastB = null;
     for (var s = 0; s < RG.range; s += 0.8) {
       var x = p.x + d.x * s, y = p.y + d.y * s, h = hitAt(x, y, bd);
       if (FL.envG && FL.envG.length && envHit(x, y)) { end = { x: x, y: y }; spark(x, y, 10); break; }   // Railgun endet am Asteroiden
@@ -2272,7 +2356,7 @@
         scoreKill(bd);
       }
       // Kampfunfähig: keine funktionierenden Waffen mehr; das Schiff versucht weiter zu fliehen
-      else if (!bd.dead && !bd.disarmed && !bd.blocks.some(function (b) { var k = T[b.t].kind; return k === "mg" || k === "rg" || k === "ms" || k === "gun"; })) {
+      else if (!bd.dead && !bd.disarmed && !bd.blocks.some(function (b) { var k = T[b.t].kind; return k === "mg" || k === "rg" || k === "ms" || k === "gun" || k === "tur"; })) {
         bd.disarmed = true; if (bd.ai) { bd.ai.state = "flee"; bd.ai.fleeT = 0; } FL.bannerN = bd.npc.n[lang]; showBanner(t("ko"), "ko");
         scoreKill(bd);
       }
@@ -2592,6 +2676,84 @@
     var tw = c.measureText(txt).width; c.fillStyle = "rgba(14,19,28,.75)"; c.fillRect(fa.x - tw / 2 - 6 / ppm, fa.y - 9 / ppm - 20 / ppm, tw + 12 / ppm, 18 / ppm);
     c.fillStyle = FL.dock && FL.dock.done ? "#9FE3BD" : "#F2C14E"; c.fillText(txt, fa.x, fa.y - 20 / ppm); c.restore();
   }
+  // ===== 56-turrets.js · Turrets (v0.55): KI-gesteuerte Waffentürme für größere Schiffe =====
+  // Jeder Turret sucht sich selbst ein Ziel im Schwenkbereich (±TUR.arc um seine Einbaurichtung) und in Reichweite,
+  // dreht seinen Kopf mit Vorhalt dorthin und feuert, sobald er genau genug ausgerichtet ist.
+  // Werte wie die normale Waffe (MG, GUN, RG), aber doppelter Energieverbrauch (TUR.eK).
+  // Minigun-Turret: gleiche Hitze und Sperre wie die Minigun, setzt aber bei TUR.stop ab und schießt erst unter TUR.go weiter.
+  // Spieler-Turrets schießen auf Gegner; Gegner-Turrets nur im Kampf und nur auf dich.
+  function turGeo(b) { var ty = T[b.t]; return ty.h >= 4 ? { head: 1.75, len: 2.75 } : { head: 1.45, len: 2.05 }; }   // Zellen ab der Vorderkante
+  function turPivot(bd, b) {
+    var ty = T[b.t], f = fp(b), d = dirOut(b, 0), g = turGeo(b), o = ty.h / 2 - g.head;
+    return toWorld(bd, b.x + f[0] / 2 + DV[d][0] * o, b.y + f[1] / 2 + DV[d][1] * o);
+  }
+  function turDir(bd, b) { var d = dirWorld(bd, dirOut(b, 0)), a = b.tw || 0, ca = Math.cos(a), sa = Math.sin(a); return { x: d.x * ca - d.y * sa, y: d.x * sa + d.y * ca }; }
+  function turTip(bd, b) { var p = turPivot(bd, b), d = turDir(bd, b), L = turGeo(b).len * CELL_M; return { x: p.x + d.x * L, y: p.y + d.y * L }; }
+  // Vorhaltepunkt: wo das Ziel ist, wenn das Geschoss ankommt (Geschosse erben das Tempo des eigenen Schiffs)
+  function turLead(bd, p, tg, speed) {
+    var rx = tg.x - p.x, ry = tg.y - p.y, vx = tg.vx - bd.vx, vy = tg.vy - bd.vy, s2 = speed * speed;
+    var a = vx * vx + vy * vy - s2, bb = 2 * (rx * vx + ry * vy), c2 = rx * rx + ry * ry, tt;
+    if (Math.abs(a) < 1e-6) tt = -c2 / bb; else { var disc = bb * bb - 4 * a * c2; if (disc < 0) return null; var sq = Math.sqrt(disc), t1 = (-bb - sq) / (2 * a), t2 = (-bb + sq) / (2 * a); tt = Math.min(t1, t2) > 0 ? Math.min(t1, t2) : Math.max(t1, t2); }
+    if (!(tt > 0)) return null;
+    return { x: tg.x + vx * tt, y: tg.y + vy * tt };
+  }
+  function turTargets(bd) {
+    if (bd.enemy) { var me = FL.me; return bd.ai && bd.ai.state === "combat" && FL.bodies.indexOf(me) >= 0 && me.blocks.length ? [me] : []; }
+    if (bd !== FL.me) return [];
+    return FL.bodies.filter(function (o) { return (o.enemy || o.target) && !o.dead && o.blocks.length; });   // auch die Übungsziele im Testflug
+  }
+  // b.tn zählt die Schüsse eines Turrets (für Tests und spätere Statistik)
+  function turretsAuto(bd, dt) {
+    if (bd.dead || !bd.blocks.some(function (b) { return T[b.t].kind === "tur"; })) return;
+    var tgs = turTargets(bd), pl = bd === FL.me;
+    bd.blocks.forEach(function (b) {
+      var ty = T[b.t]; if (ty.kind !== "tur") return;
+      var w = ty.tw, p = turPivot(bd, b), mount = dirWorld(bd, dirOut(b, 0)), ma = Math.atan2(mount.y, mount.x), R = turRange(w) * TUR.rk;
+      // Ziel: das nächste, das im Schwenkbereich und in Reichweite liegt
+      var best = null, bestD = 1e18, bestA = 0;
+      tgs.forEach(function (tg) {
+        var d0 = Math.hypot(tg.x - p.x, tg.y - p.y); if (d0 > R + tg.rad * 0.5) return;
+        var aimP = w === "rg" ? tg : turLead(bd, p, tg, w === "mg" ? MG.speed : GUN[w].speed); if (!aimP) return;
+        var da = angDiff(Math.atan2(aimP.y - p.y, aimP.x - p.x), ma);
+        if (Math.abs(da) > TUR.arc + TUR.tol[w]) return;
+        if (d0 < bestD) { bestD = d0; best = tg; bestA = da; }
+      });
+      var want = best ? Math.max(-TUR.arc, Math.min(TUR.arc, bestA)) : 0, cur = b.tw || 0, st = TUR.rate * dt;
+      b.tw = cur + Math.max(-st, Math.min(st, want - cur));
+      b.tgt = best;
+      var aligned = !!best && Math.abs(bestA - b.tw) < TUR.tol[w];
+      if (w === "mg") {
+        // Hitze-Disziplin: kurz vor der Überhitzung absetzen, erst nach dem Abkühlen weiter
+        if ((b.heat || 0) >= TUR.stop) b.trest = true; else if ((b.heat || 0) <= TUR.go) b.trest = false;
+        if (!aligned || b.trest || b.oh > 0) return;
+        b.firing = true; b.cool2 = (b.cool2 || 0) - dt;
+        if (b.cool2 > 0 || bd.energy < MG.e * TUR.eK) return;
+        b.cool2 = 1 / (MG.rate * (pl ? 1 + PM.mgRate : 1)); bd.energy -= MG.e * TUR.eK; b.tn = (b.tn || 0) + 1;
+        var d = turDir(bd, b), tip = turTip(bd, b);
+        FL.shots.push({ x: tip.x, y: tip.y, vx: bd.vx + d.x * MG.speed + (Math.random() - 0.5) * 6, vy: bd.vy + d.y * MG.speed + (Math.random() - 0.5) * 6, life: 0, own: bd });
+        FL.parts.push({ x: tip.x, y: tip.y, vx: bd.vx, vy: bd.vy, life: 0, max: 0.06, k: "flash", sz: 1.6 });
+        var cn = (bd.cool && bd.cool.get(b)) || 0;
+        b.heat = (b.heat || 0) + MG.heat / (1 + 0.35 * cn) * (pl && FL.oc ? 0.75 : 1);
+        if (b.heat >= 1) { b.heat = 1; b.oh = b.ohMax = MG.lock / (1 + 0.3 * cn); }   // kommt durch die Disziplin praktisch nicht vor
+      } else if (GUN[w]) {
+        var G = GUN[w];
+        if (!aligned || b.gcd > 0 || bd.energy < G.e * TUR.eK) return;
+        b.gcd = 60 / G.rpm; bd.energy -= G.e * TUR.eK; b.tn = (b.tn || 0) + 1;
+        var d2 = turDir(bd, b), tip2 = turTip(bd, b), big = w === "g120";
+        FL.shots.push({ x: tip2.x, y: tip2.y, vx: bd.vx + d2.x * G.speed, vy: bd.vy + d2.y * G.speed, life: 0, own: bd, dmg: G.dmg, lmax: G.life, k: w, splash: G.splash || 0, sdmg: G.sdmg || 0 });
+        FL.parts.push({ x: tip2.x, y: tip2.y, vx: bd.vx, vy: bd.vy, life: 0, max: big ? 0.12 : 0.08, k: "flash", sz: big ? 3.8 : 2.4 });
+        for (var si = 0; si < (big ? 6 : 2); si++) FL.parts.push({ x: tip2.x, y: tip2.y, vx: bd.vx + d2.x * 4 + (Math.random() - 0.5) * 5, vy: bd.vy + d2.y * 4 + (Math.random() - 0.5) * 5, life: 0, max: 0.6 + Math.random() * 0.5, k: "smoke", sz: big ? 1.4 : 0.8 });
+      } else if (w === "rg") {
+        // Railgun-Turret: lädt, solange er ausgerichtet bleibt (wie Halten der Maustaste), dann Strahl
+        if (b.cd > 0) return;
+        if (!aligned && !(b.chg > 0 && best)) return;
+        b.holding = true;
+        if (bd.energy < RG.e * TUR.eK && !b.chg) return;
+        b.chg = (b.chg || 0) + dt;
+        if (b.chg >= RG.charge) { b.chg = 0; b.cd = RG.cd; bd.energy = Math.max(0, bd.energy - RG.e * TUR.eK); b.tn = (b.tn || 0) + 1; fireRailFrom(bd, turTip(bd, b), turDir(bd, b)); }
+      }
+    });
+  }
   // ===== 60-zeichnen-flug.js · Zeichnen: Flugansicht (Schweife, Staub, Effekte, Schiffe, Radar, HUD) =====
   // Schweif der Vortriebsdüsen (Schub nach vorne): Punkte bleiben im Raum stehen und verblassen, so sieht man die eigene Bahn
   function trailTick() {
@@ -2887,6 +3049,8 @@
     if (g === "msl" || g === "msh") { var am = 0, mx = 0, mq = me.mst && me.mst[g]; me.blocks.forEach(function (b) { if (b.t === g) { am += b.ammo === undefined ? msMax(b) : b.ammo; mx += msMax(b); } }); wtxt += mq && mq.rl > 0 ? (lang === "de" ? " · lädt " : " · reloading ") + nf(mq.rl, 1) + " s" : " · " + am + " / " + mx; }
     if (GUN[g]) { var gc = 0; me.blocks.forEach(function (b) { if (b.t === g) gc = Math.max(gc, b.gcd || 0); }); wtxt += gc > 0.05 ? " · " + nf(gc, 1) + " s" : " · " + t("wReady"); }
     if (g === "rg") { var cd = 0; me.blocks.forEach(function (b) { if (T[b.t].kind === "rg") cd = Math.max(cd, b.cd || 0); }); wtxt += cd > 0 ? " · " + nf(cd, 1) + " s" : " · bereit".replace("bereit", lang === "de" ? "bereit" : "ready"); }
+    var tn = 0, ta = 0; me.blocks.forEach(function (b) { if (T[b.t].kind === "tur") { tn++; if (b.tgt) ta++; } });   // Turrets: Anzahl, davon mit Ziel
+    if (tn) wtxt += " · " + t("hTur") + " " + ta + "/" + tn;   // z. B. „Turrets 2/4“: zwei von vier haben ein Ziel
     set("sr-h-w", wtxt);
     set("sr-h-seat", FL.out ? t("hOut") : !me.seat ? t("hGone") : FL.seated ? t("hSeat") : t("hWalk"));
     var ak = FL.suit / SUIT.max, ab = V.root.querySelector("#sr-h-airbar"); if (ab) { ab.style.width = Math.round(ak * 100) + "%"; ab.style.background = FL.breath === "room" ? "#57D18A" : ak < 0.25 ? "#E0533F" : "#E3B83F"; }
@@ -3468,5 +3632,5 @@
     document.body.style.overflow = V.ovOld || "";
     FL = null; if (S) S.mode = "edit"; V = null;
   }
-  window.SpaceRogue = { mount: mount, unmount: unmount, _debug: function () { return { S: S, V: V, FL: FL, T: T, stats: stats, rooms: rooms, components: components, starter: starter, startTest: startTest, damage: damage, dockFace: dockFace, wx: WX_TEX }; } };
+  window.SpaceRogue = { mount: mount, unmount: unmount, _debug: function () { return { S: S, V: V, FL: FL, T: T, stats: stats, rooms: rooms, components: components, starter: starter, startTest: startTest, damage: damage, dockFace: dockFace, wx: WX_TEX, spawnEnemy: spawnEnemy, NPC: NPC }; } };
 })();

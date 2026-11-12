@@ -1,6 +1,6 @@
   // ===== 41-zeichnen-schiff.js · Zeichnen: ganzes Schiff mit verschmolzener Hülle =====
   // Schiff: erst Innenleben, dann Aufbauten; Panzerung zuletzt, damit Kanten sauber liegen
-  var ORDER = { floor: 0, door: 0, hatch: 0, wall: 1, cock: 2, bat: 2, reac: 2, gyro: 2, cool: 2, tcomp: 2, shield: 2, dock: 1, thr: 3, mg: 3, rg: 3, ms: 3, ant: 3, win: 4, armor: 4 };
+  var ORDER = { floor: 0, door: 0, hatch: 0, wall: 1, cock: 2, bat: 2, reac: 2, gyro: 2, cool: 2, tcomp: 2, shield: 2, dock: 1, tur: 3, thr: 3, mg: 3, rg: 3, ms: 3, ant: 3, win: 4, armor: 4 };
   // Panzerung (und außen die Dächer) verschmilzt zu einer Hülle: Kanten nur dort, wo die Hülle endet
   function isHull(k, view) { return k === "armor" || k === "win" || (view === "out" && (k === "floor" || k === "wall" || k === "door" || k === "hatch" || k === "deco")); }
   function drawShip(c, blocks, s, view, tm, body, M) {
@@ -10,10 +10,13 @@
       var ty = T[b.t], hpk = b.hp !== undefined ? b.hp / hpMax(body, b) : 1, o = null;
       if (isHull(ty.kind, view)) { hull.push(b); return; }
       if (body) o = { pilot: ty.kind === "cock" && body.ctrl && FL && FL.seated && b === body.seat, batK: body.cap ? body.energy / body.cap : 1, charge: b.chg ? Math.min(1, b.chg / RG.charge) : 0, ammo: b.ammo === undefined ? (ty.kind === "ms" ? msMax(b) : 2) : b.ammo, open: !!b.open, tw: b.tw || 0, ckOpen: b.ckOpen || 0, dockOpen: b.dockOpen || 0 };
+      if (ty.kind === "tur") { o = o || { tw: 0, charge: 0 }; o.part = "base"; }   // Turret: erst der Sockel, der Kopf kommt über die Hülle
       drawBlock(c, b, s, view, hpk, tm, o);
     });
     hull.forEach(function (b) { hullFill(c, b, s, view, b.hp !== undefined ? b.hp / hpMax(body, b) : 1); });
     hull.forEach(function (b) { hullEdges(c, b, s, M, view); });
+    // Turret-Köpfe zuletzt, damit die Rohre beim Schwenken über benachbarte Panzerung ragen
+    blocks.forEach(function (b) { if (T[b.t].kind !== "tur") return; drawBlock(c, b, s, view, b.hp !== undefined ? b.hp / hpMax(body, b) : 1, tm, { part: "head", tw: b.tw || 0, charge: b.chg ? Math.min(1, b.chg / RG.charge) : 0, heat: b.heat || 0, oh: b.oh || 0 }); });
   }
   function hullFill(c, b, s, view, hpk) {
     var ty = T[b.t], f = fp(b), w = ty.w * s, h = ty.h * s, k = ty.kind, col = b.c || ty.col, lw = Math.max(1, s / 16);
