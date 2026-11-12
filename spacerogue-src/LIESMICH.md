@@ -93,3 +93,4 @@ Folgen für Änderungen:
 - v0.54.2: Verwitterte Panzerung. Jede Panzer-ID gibt es zusätzlich als `…r` (rostig) und `…m` (bewachsen), `dev: true`,
   Kategorien `catRA`/`catOA`, Feld `wx`. Die Textur liegt im Schiffsraster (Kachel `WX_P` = 36 Zellen), wird beim ersten
   Gebrauch erzeugt (~0,5 s) und per Pattern geclippt über den Block gelegt. Paletten-Vorschau zeichnet nur eine Andeutung (`WX_ICON`).
+
