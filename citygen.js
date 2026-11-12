@@ -5,7 +5,7 @@
 (function () {
   "use strict";
 
-  var VERSION = "0.25";
+  var VERSION = "0.3";
   var W = 2400, H = 1500;
   var lang = "de";
   function L2(de, en) { return { de: de, en: en }; }
@@ -517,6 +517,315 @@
       return false;
     }
 
+    // ---------- Spezialbau-Gelände (v0.3) ----------
+    // Jede rote Fläche wird als Gelände geplant statt nur mit einem Gebäude gefüllt:
+    // 1) Raster (2 m) über die gemalte Form im Hauptachsen-Rahmen der Fläche, Abstandsfeld D = Meter bis zum Rand
+    // 2) Hauptgebäude an die geräumigste Stelle, in sinnvoller Größe (CAPS), mit Vorplatz
+    // 3) Ergänzungen nach Rezept des Typs (Parkplätze mit Zufahrt, Imbiss, Sportplätze, Nebengebäude …), so viele wie Platz ist
+    // 4) Fußwege von jeder Ergänzung zum Hauptgebäude, Rest wird Rasen mit Bäumen
+    // Burgen und Tempel wachsen organisch aus der Form: Graben, Mauerring mit Türmen entlang der Kontur, Tor, Höfe, Gärten.
+    var siteM = new Uint8Array(MW * MH), compOf = new Int32Array(MW * MH);
+    C.siteM = siteM;
+    comps.r.forEach(function (cp, ci) { cp.cells.forEach(function (c) { compOf[c] = ci + 1; }); cp.id = ci + 1; });
+    var SG = 2;   // Rastergröße in Metern
+    var CAPS = { stadium: [95, 75], arena: [85, 68], baseball: [62, 62], campus: [80, 55], hospital: [72, 52], palace: [150, 95], cathedral: [78, 46], church: [30, 20],
+      opera: [62, 40], museum: [32, 32], townhall: [32, 32], market: [48, 34], mall: [95, 52], monument: [20, 20], temple: [55, 38], castle: [60, 60] };
+    // Rezepte: Reihenfolge = Priorität; die Liste wird so oft durchlaufen, wie noch etwas passt
+    var RECIPE = {
+      stadium: { base: "lawn", plaza: 9, list: ["park", "park", "pitch", "kiosk", "pitch", "annex", "kiosk", "park", "garage", "pitch", "kiosk", "fountain"], trees: 0.45 },
+      hospital: { base: "lawn", plaza: 6, list: ["heli", "clinic", "park", "clinic", "garden", "park", "clinic", "fountain", "clinic", "cafe", "park", "garden"], trees: 0.55 },
+      campus: { base: "lawn", plaza: 6, list: ["faculty", "faculty", "park", "faculty", "pitch", "fountain", "faculty", "cafe", "park", "faculty", "garden", "pitch"], trees: 0.6 },
+      museum: { base: "lawn", plaza: 7, list: ["fountain", "sculpt", "cafe", "park", "garden", "sculpt", "garden", "pond", "sculpt"], trees: 0.55 },
+      townhall: { base: "lawn", plaza: 9, list: ["fountain", "stalls", "park", "cafe", "garden", "stalls", "annex", "garden"], trees: 0.5 },
+      opera: { base: "lawn", plaza: 9, list: ["fountain", "cafe", "park", "garden", "sculpt", "pond", "garden"], trees: 0.5 },
+      cathedral: { base: "lawn", plaza: 9, list: ["cemetery", "parish", "fountain", "garden", "cemetery", "garden"], trees: 0.5 },
+      church: { base: "lawn", plaza: 5, list: ["cemetery", "parish", "garden", "cemetery"], trees: 0.55 },
+      palace: { base: "lawn", plaza: 5, list: ["stable", "pond", "garden", "park", "stable", "garden", "pond", "garden"], trees: 0.6 },
+      market: { base: "pave", plaza: 4, list: ["stalls", "stalls", "kiosk", "stalls", "fountain", "stalls", "cafe", "park", "stalls"], trees: 0.2 },
+      mall: { base: "pave", plaza: 6, list: ["park", "park", "park", "cinema", "park", "kiosk", "park", "garage", "park"], trees: 0.25 },
+      monument: { base: "lawn", plaza: 6, list: ["garden", "fountain", "garden", "sculpt", "pond", "garden"], trees: 0.6 },
+      temple: { base: "lawn", plaza: 6, list: ["shrine", "pond", "garden", "shrine", "park", "garden"], trees: 0.7 },
+      castle: { base: "lawn", plaza: 5, list: ["garden", "orchard", "garden", "pond"], trees: 0.6 }
+    };
+    // Größen der Ergänzungen in Metern [lang, kurz]; manche mit Varianten
+    function itemSize(k, r) {
+      switch (k) {
+        case "park": return [Math.round(rr(r, 30, 66) / 2.6) * 2.6, r() < 0.45 ? 34 : 17];
+        case "garage": return [36, 26];
+        case "pitch": var pk = pick(r, ["soccer", "soccer", "tennis", "basket", "tennis"]); return pk === "soccer" ? [42, 28, pk] : pk === "tennis" ? [26, 14, pk] : [30, 18, pk];
+        case "kiosk": return [11, 8];
+        case "cafe": return [13, 10];
+        case "annex": return [Math.round(rr(r, 22, 32)), Math.round(rr(r, 12, 16))];
+        case "clinic": return [Math.round(rr(r, 20, 30)), Math.round(rr(r, 11, 14))];
+        case "faculty": return [Math.round(rr(r, 26, 40)), Math.round(rr(r, 12, 16))];
+        case "stable": return [Math.round(rr(r, 28, 38)), 10];
+        case "parish": return [16, 11];
+        case "cinema": return [42, 28];
+        case "heli": return [18, 18];
+        case "fountain": return [18, 18];
+        case "sculpt": return [10, 10];
+        case "garden": return [Math.round(rr(r, 22, 34)), Math.round(rr(r, 20, 28))];
+        case "orchard": return [Math.round(rr(r, 24, 36)), Math.round(rr(r, 18, 26))];
+        case "pond": return [Math.round(rr(r, 24, 38)), Math.round(rr(r, 16, 24))];
+        case "cemetery": return [Math.round(rr(r, 26, 38)), Math.round(rr(r, 20, 28))];
+        case "stalls": return [Math.round(rr(r, 20, 30)), Math.round(rr(r, 14, 18))];
+        case "shrine": return [12, 10];
+        case "hall": return [Math.round(rr(r, 16, 26)), Math.round(rr(r, 9, 13))];
+        case "zen": return [Math.round(rr(r, 18, 30)), Math.round(rr(r, 12, 18))];
+        case "yard": return [Math.round(rr(r, 30, 44)), Math.round(rr(r, 16, 22))];
+      }
+      return [12, 12];
+    }
+    // Höchstzahl je Ergänzung pro Anlage, damit große Flächen nicht aus lauter Kopien bestehen
+    var CAPN = { fountain: 2, sculpt: 3, kiosk: 4, cafe: 2, garage: 2, heli: 1, cinema: 1, pitch: 5, pond: 3, zen: 3, shrine: 4, well: 2, yard: 2, cemetery: 2, parish: 1, stalls: 6, annex: 3, garden: 4, orchard: 3, hall: 10, faculty: 12, clinic: 7, stable: 3, park: 10 };
+    function planSite(cp, sp, sr) {
+      var cnt = {}, capF = Math.max(1, Math.min(2.3, Math.sqrt(cp.area / 40000)));
+      function capOK(k) { var c = CAPN[k] || 99; return (cnt[k] || 0) < (c <= 2 ? c : Math.round(c * capF)); }
+      var ux = cp.ux, uy = cp.uy;
+      function WP(u, v) { return { x: cp.cx + ux * u - uy * v, y: cp.cy + uy * u + ux * v }; }
+      function inC(u, v) { var p = WP(u, v), i = Math.floor(p.x / 2), j = Math.floor(p.y / 2); return i >= 0 && j >= 0 && i < MW && j < MH && compOf[j * MW + i] === cp.id; }
+      var u0 = 1e9, u1 = -1e9, v0 = 1e9, v1 = -1e9;
+      cp.cells.forEach(function (c) { var px = (c % MW) * 2 + 1 - cp.cx, py = ((c / MW) | 0) * 2 + 1 - cp.cy, u = px * ux + py * uy, v = -px * uy + py * ux; if (u < u0) u0 = u; if (u > u1) u1 = u; if (v < v0) v0 = v; if (v > v1) v1 = v; siteM[c] = 1; });
+      u0 -= 3; v0 -= 3; u1 += 3; v1 += 3;
+      var GW = Math.ceil((u1 - u0) / SG), GH = Math.ceil((v1 - v0) / SG), N = GW * GH;
+      var IN = new Uint8Array(N), D = new Float32Array(N), F = new Uint8Array(N);   // F: 0 frei, 1 belegt, 2 Weg/Platz, 3 Gewässer
+      function cu(i) { return u0 + (i + 0.5) * SG; } function cv(j) { return v0 + (j + 0.5) * SG; }
+      for (var j = 0; j < GH; j++) for (var i = 0; i < GW; i++) { var k = j * GW + i; IN[k] = inC(cu(i), cv(j)) ? 1 : 0; D[k] = IN[k] ? 1e6 : 0;
+        if (IN[k]) { var wq = WP(cu(i), cv(j)); if (hnear(wq.x, wq.y, 26, function (e, d) { return d < (e.r.hw || 4) + 3; })) { IN[k] = 0; D[k] = 0; } } }
+      // Abstandsfeld (Chamfer, Meter)
+      var DG = SG * 1.414;
+      for (j = 0; j < GH; j++) for (i = 0; i < GW; i++) { k = j * GW + i; if (!D[k]) continue; var m = D[k];
+        if (i > 0) m = Math.min(m, D[k - 1] + SG); else m = Math.min(m, SG);
+        if (j > 0) { m = Math.min(m, D[k - GW] + SG); if (i > 0) m = Math.min(m, D[k - GW - 1] + DG); if (i < GW - 1) m = Math.min(m, D[k - GW + 1] + DG); } else m = Math.min(m, SG);
+        D[k] = m; }
+      for (j = GH - 1; j >= 0; j--) for (i = GW - 1; i >= 0; i--) { k = j * GW + i; if (!D[k]) continue; m = D[k];
+        if (i < GW - 1) m = Math.min(m, D[k + 1] + SG); else m = Math.min(m, SG);
+        if (j < GH - 1) { m = Math.min(m, D[k + GW] + SG); if (i < GW - 1) m = Math.min(m, D[k + GW + 1] + DG); if (i > 0) m = Math.min(m, D[k + GW - 1] + DG); } else m = Math.min(m, SG);
+        D[k] = m; }
+      function Dat(u, v) { var i2 = Math.floor((u - u0) / SG), j2 = Math.floor((v - v0) / SG); if (i2 < 0 || j2 < 0 || i2 >= GW || j2 >= GH) return 0; return D[j2 * GW + i2]; }
+      var maxD = 0, mk = 0; for (k = 0; k < N; k++) if (D[k] > maxD) { maxD = D[k]; mk = k; }
+      var total = 0; for (k = 0; k < N; k++) if (IN[k]) total++;
+      var site = { ox: cp.cx, oy: cp.cy, ux: ux, uy: uy, items: [], paths: [], lanes: [], lawn: [], base: "lawn", R: Math.hypot(Math.max(-u0, u1), Math.max(-v0, v1)) + 10 };
+      sp.site = site;
+      var T0 = sp.type, key = sp.lk === "hospital" ? "hospital" : sp.lk === "arena" || sp.lk === "baseball" ? "stadium" : T0, rec = RECIPE[key] || RECIPE.monument;
+      site.base = rec.base;
+      // Rasen bzw. Grund als geglättete Kontur
+      site.lawn = contours(function (i2, j2) { return IN[j2 * GW + i2] && D[j2 * GW + i2] >= 1.5; }, GW, GH, 0, 0).map(function (P) {
+        var Q = P.map(function (q) { return { x: u0 + q.x * SG, y: v0 + q.y * SG }; }); Q.push(Q[0]); return chaikin(Q, 2);
+      });
+      // Organische Anlagen: Burg und (japanischer) Tempel, wenn genug Platz für einen Mauerring da ist
+      if ((T0 === "castle" || T0 === "temple") && maxD >= 22) { organic(); return; }
+      // ---- Hauptgebäude ----
+      var cap = CAPS[sp.lk] || CAPS[T0] || [60, 40], ell = T0 === "stadium" || T0 === "monument", fa = Math.min(sp.fa, cap[0]), fb = Math.min(sp.fb, cap[1]);
+      if (T0 === "stadium" && sp.lk !== "baseball") { fa = Math.min(fa, fb * 1.45); fb = Math.min(fb, fa / 1.2); }
+      if (T0 === "museum" || T0 === "townhall" || sp.lk === "baseball" || T0 === "monument") { fa = fb = Math.min(fa, fb); }
+      // Hauptgebäude samt Vorplatz nimmt höchstens einen Teil der Fläche ein, der Rest gehört den Ergänzungen
+      var mf = T0 === "palace" ? 0.5 : T0 === "stadium" || T0 === "mall" ? 0.42 : T0 === "monument" ? 0.25 : 0.3, need = 4 * (fa + rec.plaza) * (fb + rec.plaza);
+      if (need > mf * cp.area) { var sc0 = Math.max(0.45, Math.sqrt(mf * cp.area / need)); fa *= sc0; fb *= sc0; }
+      function fitsAt(cu0, cv0, a, b) {
+        for (var q = 0; q < 32; q++) {
+          var t2 = q / 32 * Math.PI * 2, c2 = Math.cos(t2), s2 = Math.sin(t2), uu, vv;
+          if (ell) { uu = c2 * a; vv = s2 * b; } else { var mm = Math.max(Math.abs(c2), Math.abs(s2)); uu = c2 / mm * a; vv = s2 / mm * b; }
+          if (Dat(cu0 + uu, cv0 + vv) < 2) return false;
+        }
+        return Dat(cu0, cv0) > 2;
+      }
+      var cand = []; for (k = 0; k < N; k++) if (D[k] >= Math.min(fa, fb) * 0.6) cand.push(k);
+      cand.sort(function (p, q) { return D[q] - D[p]; }); cand = cand.slice(0, 260);
+      var mc = null;
+      for (var shrink = 0; shrink < 18 && !mc; shrink++) {
+        var ok = [];
+        for (var ci2 = 0; ci2 < cand.length && ok.length < 6; ci2++) { var kk = cand[ci2], ii = kk % GW, jj = (kk / GW) | 0; if (fitsAt(cu(ii), cv(jj), fa, fb)) ok.push([cu(ii), cv(jj)]); }
+        if (ok.length) mc = ok[Math.floor(sr() * Math.min(3, ok.length))]; else { fa *= 0.92; fb *= 0.92; if (!cand.length) break; }
+      }
+      if (!mc) { mc = [cu(mk % GW), cv((mk / GW) | 0)]; }
+      var wpm = WP(mc[0], mc[1]); sp.cx = wpm.x; sp.cy = wpm.y; sp.fa = fa; sp.fb = fb;
+      var pw = rec.plaza; site.plaza = { u: mc[0], v: mc[1], a: fa + pw, b: fb + pw, ell: ell };
+      function inMain(u, v, a, b) { var du = (u - mc[0]) / a, dv = (v - mc[1]) / b; return ell ? du * du + dv * dv <= 1 : Math.abs(du) <= 1 && Math.abs(dv) <= 1; }
+      for (k = 0; k < N; k++) { if (!IN[k]) continue; var uu2 = cu(k % GW), vv2 = cv((k / GW) | 0); if (inMain(uu2, vv2, fa + 2, fb + 2)) F[k] = 1; else if (inMain(uu2, vv2, fa + pw, fb + pw)) F[k] = 2; }
+      // ---- Ergänzungen ----
+      var S2 = null;   // Summenbild der gesperrten Zellen
+      function buildSum() { S2 = new Int32Array((GW + 1) * (GH + 1)); for (var j3 = 0; j3 < GH; j3++) { var row = 0; for (var i3 = 0; i3 < GW; i3++) { var k3 = j3 * GW + i3; row += (!IN[k3] || F[k3] || D[k3] < 4) ? 1 : 0; S2[(j3 + 1) * (GW + 1) + i3 + 1] = S2[j3 * (GW + 1) + i3 + 1] + row; } } }
+      function blocked(i3, j3, w3, h3) { if (i3 < 0 || j3 < 0 || i3 + w3 > GW || j3 + h3 > GH) return 1; var W1 = GW + 1; return S2[(j3 + h3) * W1 + i3 + w3] - S2[j3 * W1 + i3 + w3] - S2[(j3 + h3) * W1 + i3] + S2[j3 * W1 + i3]; }
+      function distMain(u, v) { var du = Math.max(0, Math.abs(u - mc[0]) - fa), dv = Math.max(0, Math.abs(v - mc[1]) - fb); return Math.hypot(du, dv); }
+      function score(kind, u, v, wM, hM) {
+        var dm = AN ? Math.max(0, Math.hypot(u - AN[0], v - AN[1]) - 8) : distMain(u, v), dE = Dat(u, v), n = sr() * 6;
+        if (kind === "park" || kind === "garage") return -dE * 1.4 - dm * 0.15 + n;           // Parkplätze an den Rand (zur Straße)
+        if (kind === "kiosk" || kind === "cafe" || kind === "fountain" || kind === "sculpt" || kind === "heli" || kind === "stalls") return -dm + n;   // nah am Hauptgebäude
+        if (kind === "clinic" || kind === "faculty" || kind === "annex" || kind === "parish" || kind === "stable" || kind === "shrine") return -Math.abs(dm - 16) + n;
+        return -Math.abs(dm - 30) * 0.4 + n;   // Gärten, Sportplätze, Teiche: etwas abseits
+      }
+      var placed = 0, fails = 0, rounds = 0, list = rec.list, AN = null, anchors = [];
+      while (rounds < 12) {
+        var any = false;
+        for (var li = 0; li < list.length; li++) {
+          var kind = list[li]; if (!capOK(kind)) continue; var sz = itemSize(kind, sr), best = null;
+          buildSum();
+          for (var o = 0; o < 2; o++) {
+            var wM = o ? sz[1] : sz[0], hM = o ? sz[0] : sz[1], wc = Math.ceil(wM / SG) + 2, hc = Math.ceil(hM / SG) + 2;   // +1 Zelle Abstand rundherum
+            for (var tr = 0; tr < 420; tr++) {
+              var i4 = Math.floor(sr() * (GW - wc)), j4 = Math.floor(sr() * (GH - hc));
+              if (i4 < 0 || j4 < 0 || blocked(i4, j4, wc, hc)) continue;
+              var uc = u0 + (i4 + wc / 2) * SG, vc = v0 + (j4 + hc / 2) * SG, sc = score(kind, uc, vc, wM, hM);
+              if (!best || sc > best.sc) best = { sc: sc, i: i4, j: j4, wc: wc, hc: hc, u: uc - wM / 2, v: vc - hM / 2, w: wM, h: hM };
+            }
+          }
+          if (!best) { fails++; continue; }
+          any = true; placed++; cnt[kind] = (cnt[kind] || 0) + 1;
+          for (var jy = best.j + 1; jy < best.j + best.hc - 1; jy++) for (var ix = best.i + 1; ix < best.i + best.wc - 1; ix++) F[jy * GW + ix] = 1;
+          site.items.push({ k: kind, u: best.u, v: best.v, w: best.w, h: best.h, sub: sz[2], seed: Math.floor(sr() * 1e6), an: AN });
+        }
+        rounds++;
+        if (!any) break;
+        var used = 0; for (k = 0; k < N; k++) if (IN[k] && F[k]) used++;
+        if (used / total > 0.56) break;
+      }
+      // ---- Nebenzentren: große freie Bereiche weit weg vom Hauptgebäude (z. B. hinter einer Bahnlinie) bekommen eine eigene Gruppe ----
+      for (var na = 0; na < 3; na++) {
+        var bestA = null;
+        for (k = 0; k < N; k += 3) {
+          if (!IN[k] || F[k] || D[k] < 9) continue;
+          var ua = cu(k % GW), va = cv((k / GW) | 0), dmin = distMain(ua, va);
+          for (var q9 = 0; q9 < site.items.length && dmin > 0; q9++) { var t9 = site.items[q9]; dmin = Math.min(dmin, Math.hypot(ua - t9.u - t9.w / 2, va - t9.v - t9.h / 2) - Math.max(t9.w, t9.h) / 2); }
+          if (!bestA || dmin > bestA[2]) bestA = [ua, va, dmin];
+        }
+        if (!bestA || bestA[2] < 42) break;
+        AN = [bestA[0], bestA[1]]; anchors.push(AN); capF *= 1.4;
+        for (var ra = 0; ra < 2; ra++) { var anyA = false; for (li = 0; li < list.length; li++) {
+          kind = list[li]; if (!capOK(kind)) continue; sz = itemSize(kind, sr); best = null; buildSum();
+          for (o = 0; o < 2; o++) { wM = o ? sz[1] : sz[0]; hM = o ? sz[0] : sz[1]; wc = Math.ceil(wM / SG) + 2; hc = Math.ceil(hM / SG) + 2;
+            for (tr = 0; tr < 300; tr++) { i4 = Math.floor(sr() * (GW - wc)); j4 = Math.floor(sr() * (GH - hc)); if (i4 < 0 || j4 < 0 || blocked(i4, j4, wc, hc)) continue;
+              uc = u0 + (i4 + wc / 2) * SG; vc = v0 + (j4 + hc / 2) * SG; if (Math.hypot(uc - AN[0], vc - AN[1]) > 110) continue; var scA = score(kind, uc, vc, wM, hM); if (!best || scA > best.sc) best = { sc: scA, i: i4, j: j4, wc: wc, hc: hc, u: uc - wM / 2, v: vc - hM / 2, w: wM, h: hM }; } }
+          if (!best) continue; anyA = true; cnt[kind] = (cnt[kind] || 0) + 1;
+          for (jy = best.j + 1; jy < best.j + best.hc - 1; jy++) for (ix = best.i + 1; ix < best.i + best.wc - 1; ix++) F[jy * GW + ix] = 1;
+          site.items.push({ k: kind, u: best.u, v: best.v, w: best.w, h: best.h, sub: sz[2], seed: Math.floor(sr() * 1e6), an: AN });
+        } if (!anyA) break; }
+      }
+      // ---- Wege und Zufahrten ----
+      function walk(pts, val, only) { for (var q = 1; q < pts.length; q++) { var a3 = pts[q - 1], b3 = pts[q], L3 = Math.hypot(b3[0] - a3[0], b3[1] - a3[1]), n3 = Math.max(1, Math.ceil(L3 / 1.5)); for (var s3 = 0; s3 <= n3; s3++) { var uu = a3[0] + (b3[0] - a3[0]) * s3 / n3, vv = a3[1] + (b3[1] - a3[1]) * s3 / n3, i5 = Math.floor((uu - u0) / SG), j5 = Math.floor((vv - v0) / SG); if (i5 < 0 || j5 < 0 || i5 >= GW || j5 >= GH) continue; var k5 = j5 * GW + i5; if (only ? F[k5] === 0 : true) F[k5] = val; } } }
+      function cost(pts) { var c3 = 0; for (var q = 1; q < pts.length; q++) { var a3 = pts[q - 1], b3 = pts[q], n3 = Math.ceil(Math.hypot(b3[0] - a3[0], b3[1] - a3[1]) / 2); for (var s3 = 1; s3 < n3; s3++) { var uu = a3[0] + (b3[0] - a3[0]) * s3 / n3, vv = a3[1] + (b3[1] - a3[1]) * s3 / n3; if (!inC(uu, vv)) c3 += 50; else { var i5 = Math.floor((uu - u0) / SG), j5 = Math.floor((vv - v0) / SG), f5 = F[j5 * GW + i5]; if (f5 === 1 && !inMain(uu, vv, fa + 2, fb + 2)) c3 += 3; } } } return c3; }
+      site.items.forEach(function (it) {
+        var c0 = [it.u + it.w / 2, it.v + it.h / 2];
+        if (it.k === "park" || it.k === "garage") {
+          // Zufahrt: kürzester Weg vom Parkplatz zum Rand der Fläche (dort liegt die Straße)
+          var bestL = null;
+          [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(function (dv2) {
+            var sx = c0[0] + dv2[0] * it.w / 2, sy = c0[1] + dv2[1] * it.h / 2;
+            for (var L4 = 2; L4 < 140; L4 += 2) { if (!inC(sx + dv2[0] * L4, sy + dv2[1] * L4)) { var pts = [[sx, sy], [sx + dv2[0] * (L4 + 3), sy + dv2[1] * (L4 + 3)]], cc = cost(pts); if (!bestL || L4 + cc * 4 < bestL.s) bestL = { s: L4 + cc * 4, pts: pts }; break; } }
+          });
+          if (bestL && bestL.s < 160) { site.lanes.push(bestL.pts); walk(bestL.pts, 2, true); }
+          return;
+        }
+        // Fußweg zum Vorplatz des Hauptgebäudes, als L-Form; die günstigere Ecke gewinnt
+        var tg = it.an || mc, A1 = [c0, [tg[0], c0[1]], [tg[0], tg[1]]], A2 = [c0, [c0[0], tg[1]], [tg[0], tg[1]]], c1 = cost(A1), c2 = cost(A2), pth = c1 <= c2 ? A1 : A2;
+        if (Math.min(c1, c2) >= 50) return;   // Weg würde die Fläche verlassen (Bahn, Straße): weglassen
+        site.paths.push(pth); walk(pth, 2, true);
+      });
+      anchors.forEach(function (A9) { var P1 = [A9, [mc[0], A9[1]], mc], P2 = [A9, [A9[0], mc[1]], mc], k1 = cost(P1), k2 = cost(P2); if (Math.min(k1, k2) < 50) { var pp = k1 <= k2 ? P1 : P2; site.paths.push(pp); walk(pp, 2, true); } });
+      // ---- Bäume auf dem Rest ----
+      var tr2 = rec.trees;
+      for (var jt = 0; jt < GH; jt += 2) for (var it2 = 0; it2 < GW; it2 += 2) {
+        var kt = jt * GW + it2; if (!IN[kt] || F[kt] || D[kt] < 3.5) continue;
+        var ut = cu(it2) + (sr() - 0.5) * 3, vt = cv(jt) + (sr() - 0.5) * 3, wt = WP(ut, vt), gn = noise2(wt.x / 34, wt.y / 34, seed + 77);
+        if (sr() > tr2 * (gn > 0.56 ? 1.5 : D[kt] < 7 ? 0.5 : 0.07)) continue;
+        addTree(wt.x, wt.y, 2.4 + sr() * 2.2);
+      }
+      var usedC = 0; for (k = 0; k < N; k++) if (IN[k] && F[k]) usedC++;
+      site.used = usedC / Math.max(1, total);
+
+      // ===== Organische Burg / Tempelanlage =====
+      function organic() {
+        var jp = S.style === "jp", castle = T0 === "castle", O = { castle: castle, jp: jp };
+        sp.noMain = true; site.org = O; site.plaza = null;
+        function iso(thr) { return contours(function (i2, j2) { return D[j2 * GW + i2] >= thr; }, GW, GH, 0, 0).map(function (P) { var Q = P.map(function (q) { return { x: u0 + q.x * SG, y: v0 + q.y * SG }; }); Q.push(Q[0]); return chaikin(Q, 2); }); }
+        var moatIn = castle ? 3 : 0, moatW = castle ? Math.max(5, Math.min(12, maxD * 0.13)) : 0, wallD = moatIn + moatW + (castle ? 2 : 4);
+        if (castle) { O.moatOut = iso(moatIn); O.moatIn = iso(moatIn + moatW); }
+        O.walls = iso(wallD);
+        // Bergfried / Haupthalle an der geräumigsten Stelle
+        var ku = cu(mk % GW), kv = cv((mk / GW) | 0), ks = Math.max(12, Math.min(34, maxD * 0.42));
+        O.keep = { u: ku, v: kv, s: ks };
+        var wk = WP(ku, kv); sp.cx = wk.x; sp.cy = wk.y;
+        // innerer Mauerring bei großen Anlagen
+        var innerD = maxD >= 50 ? maxD * 0.6 : 0;
+        O.inner = innerD ? iso(innerD) : [];
+        // Türme entlang der Mauern: alle ~30 m und an scharfen Ecken
+        O.towers = [];
+        function towersOn(polys, spacing, rad) {
+          polys.forEach(function (P) {
+            var acc = spacing * 0.5, last = null;
+            for (var q = 1; q < P.length; q++) {
+              var a4 = P[q - 1], b4 = P[q], L5 = Math.hypot(b4.x - a4.x, b4.y - a4.y); acc += L5;
+              var nx = P[(q + 1) % P.length], turn = Math.abs(angDiffC(Math.atan2(b4.y - a4.y, b4.x - a4.x), Math.atan2(nx.y - b4.y, nx.x - b4.x)));
+              if ((acc >= spacing || turn > 0.55) && (!last || Math.hypot(b4.x - last.x, b4.y - last.y) > spacing * 0.45)) { O.towers.push([b4.x, b4.y, rad * (turn > 0.55 ? 1.15 : 1)]); last = b4; acc = 0; }
+            }
+          });
+        }
+        towersOn(O.walls, castle ? 30 : 46, castle ? 4.2 : 3.2);
+        towersOn(O.inner, castle ? 24 : 40, castle ? 3.4 : 2.8);
+        // Tor: Mauerpunkt, der einer Straße am nächsten liegt
+        var gate = null;
+        O.walls.forEach(function (P) {
+          for (var q = 2; q < P.length; q += 2) {
+            var w5 = WP(P[q].x, P[q].y), dmin = 1e9;
+            hnear(w5.x, w5.y, 220, function (e, d5) { if (e.r.cls !== "rail" && d5 < dmin) dmin = d5; return false; });
+            if (!gate || dmin < gate.d) { var tx = P[q].x - P[q - 1].x, ty = P[q].y - P[q - 1].y, tl = Math.hypot(tx, ty) || 1; tx /= tl; ty /= tl; var nx = -ty, ny = tx; if (Dat(P[q].x + nx * 4, P[q].y + ny * 4) > Dat(P[q].x - nx * 4, P[q].y - ny * 4)) { nx = -nx; ny = -ny; } gate = { d: dmin, u: P[q].x, v: P[q].y, nx: nx, ny: ny, tx: tx, ty: ty }; }
+          }
+        });
+        O.gate = gate;
+        O.towers = O.towers.filter(function (tw) { return !gate || Math.hypot(tw[0] - gate.u, tw[1] - gate.v) > 9; });
+        // Belegung: Graben, Mauerband, Bergfried
+        for (k = 0; k < N; k++) {
+          if (!IN[k]) continue; var dk = D[k], uk = cu(k % GW), vk = cv((k / GW) | 0);
+          if (dk < wallD + 3) F[k] = dk < wallD - 1.5 && castle && dk > moatIn ? 3 : 1;
+          else if (innerD && Math.abs(dk - innerD) < 3) F[k] = 1;
+          else if (Math.abs(uk - ku) < ks * 0.9 && Math.abs(vk - kv) < ks * 0.9) F[k] = 1;
+        }
+        // Weg vom Tor zum Bergfried
+        if (gate) { var gp = [[gate.u, gate.v], [ku, kv]]; site.paths.push(gp); walk(gp, 2, true); }
+        // Hallen innen entlang der Mauer
+        O.halls = [];
+        var nOuter = O.walls.length;
+        O.walls.concat(O.inner).forEach(function (P, pi) {
+          var acc = 0, gap = pi < nOuter ? 24 : 44;
+          for (var q = 1; q < P.length; q++) {
+            var a4 = P[q - 1], b4 = P[q]; acc += Math.hypot(b4.x - a4.x, b4.y - a4.y); if (acc < gap) continue; acc = 0;
+            var tx = b4.x - a4.x, ty = b4.y - a4.y, tl = Math.hypot(tx, ty) || 1; tx /= tl; ty /= tl; var nx = -ty, ny = tx;
+            if (Dat(b4.x + nx * 4, b4.y + ny * 4) < Dat(b4.x - nx * 4, b4.y - ny * 4)) { nx = -nx; ny = -ny; }
+            var hl = rr(sr, 14, 22), hd = rr(sr, 7, 10), hu = b4.x + nx * (4 + hd / 2), hv = b4.y + ny * (4 + hd / 2);
+            var cs = [[-hl / 2, -hd / 2], [hl / 2, -hd / 2], [hl / 2, hd / 2], [-hl / 2, hd / 2], [0, 0]].map(function (c5) { return [hu + tx * c5[0] + nx * c5[1], hv + ty * c5[0] + ny * c5[1]]; });
+            var good = cs.every(function (c5) { var i5 = Math.floor((c5[0] - u0) / SG), j5 = Math.floor((c5[1] - v0) / SG); if (i5 < 0 || j5 < 0 || i5 >= GW || j5 >= GH) return false; var k5 = j5 * GW + i5; return IN[k5] && D[k5] >= wallD + 2.5 && !(Math.abs(c5[0] - ku) < ks * 0.9 && Math.abs(c5[1] - kv) < ks * 0.9) && F[k5] !== 2; });
+            if (!good || (gate && Math.hypot(hu - gate.u, hv - gate.v) < 18) || O.halls.some(function (h5) { return Math.hypot(h5.u - hu, h5.v - hv) < 17; })) continue;
+            O.halls.push({ u: hu, v: hv, ang: Math.atan2(ty, tx), l: hl, d: hd });
+            cs.forEach(function (c5) { var i5 = Math.floor((c5[0] - u0) / SG), j5 = Math.floor((c5[1] - v0) / SG); F[j5 * GW + i5] = 1; });
+            for (var aa = -hl / 2; aa <= hl / 2; aa += 1.5) for (var bb = -hd / 2; bb <= hd / 2; bb += 1.5) { var i6 = Math.floor((hu + tx * aa + nx * bb - u0) / SG), j6 = Math.floor((hv + ty * aa + ny * bb - v0) / SG); if (i6 >= 0 && j6 >= 0 && i6 < GW && j6 < GH) F[j6 * GW + i6] = 1; }
+          }
+        });
+        // Gärten, Obstwiesen, Teiche in den freien Höfen (wie bei den anderen Anlagen)
+        var olist = !castle ? ["zen", "pond", "hall", "shrine", "garden", "zen", "hall", "shrine", "pond", "hall"] : jp ? ["hall", "zen", "pond", "hall", "garden", "yard", "hall", "well", "orchard"] : ["hall", "yard", "garden", "hall", "well", "orchard", "hall", "garden", "stable", "pond", "orchard"];
+        buildSum();
+        for (var rr2 = 0; rr2 < 8; rr2++) { var uC = 0; for (k = 0; k < N; k++) if (IN[k] && F[k]) uC++; if (rr2 >= 2 && uC / total > 0.55) break; olist.forEach(function (kind) {
+          if (!capOK(kind)) return; var sz = kind === "well" ? [8, 8] : itemSize(kind, sr), best = null; buildSum();
+          for (var o = 0; o < 2; o++) { var wM = o ? sz[1] : sz[0], hM = o ? sz[0] : sz[1], wc = Math.ceil(wM / SG) + 2, hc = Math.ceil(hM / SG) + 2;
+            for (var tr = 0; tr < 360; tr++) { var i4 = Math.floor(sr() * (GW - wc)), j4 = Math.floor(sr() * (GH - hc)); if (i4 < 0 || j4 < 0 || blocked(i4, j4, wc, hc)) continue; var uc = u0 + (i4 + wc / 2) * SG, vc = v0 + (j4 + hc / 2) * SG, sc = sr(); if (!best || sc > best.sc) best = { sc: sc, i: i4, j: j4, wc: wc, hc: hc, u: uc - wM / 2, v: vc - hM / 2, w: wM, h: hM }; } }
+          if (!best) return;
+          for (var jy = best.j + 1; jy < best.j + best.hc - 1; jy++) for (var ix = best.i + 1; ix < best.i + best.wc - 1; ix++) F[jy * GW + ix] = 1;
+          cnt[kind] = (cnt[kind] || 0) + 1;
+          site.items.push({ k: kind, u: best.u, v: best.v, w: best.w, h: best.h, seed: Math.floor(sr() * 1e6), o: castle ? (jp ? "jc" : "c") : "t" });
+        }); }
+        // Bäume: draußen am Graben, drinnen locker
+        for (var jt = 0; jt < GH; jt += 2) for (var it2 = 0; it2 < GW; it2 += 2) {
+          var kt = jt * GW + it2; if (!IN[kt] || F[kt] || D[kt] < 2.5) continue;
+          var wt = WP(cu(it2) + (sr() - 0.5) * 3, cv(jt) + (sr() - 0.5) * 3), gn = noise2(wt.x / 30, wt.y / 30, seed + 78);
+          if (innerD && D[kt] > innerD + 2) continue;   /* innerer Hof bleibt frei */
+          if (sr() > (gn > 0.58 ? 0.75 : D[kt] < wallD ? 0.45 : 0.05)) continue;
+          addTree(wt.x, wt.y, 2.2 + sr() * 2.2);
+        }
+        var usedC = 0; for (k = 0; k < N; k++) if (IN[k] && F[k]) usedC++;
+        site.used = usedC / Math.max(1, total);
+      }
+    }
+    function angDiffC(a, b) { var d = b - a; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI; return d; }
+
     // ---------- Spezialbauten ----------
     comps.r.forEach(function (cp) {
       var sr = mulberry(Math.floor(cp.cx * 31 + cp.cy * 17) + seed * 3), A = cp.area, asp = cp.a / Math.max(1, cp.b), sty = S.style;
@@ -524,11 +833,11 @@
       var type, v = Math.floor(sr() * 3);
       if (wet && A > 10000 && sr() < 0.9) type = "harbor";
       else if (A > 80000 && asp > 2.0 && cp.a > 380) type = "airport";
-      else if (A > 22000) type = pick(sr, sty === "eu" ? ["stadium", "palace", "campus", "stadium", "palace"] : sty === "usa" ? ["stadium", "mall", "campus", "stadium"] : ["stadium", "castle", "campus", "temple"]);
+      else if (A > 22000) type = pick(sr, sty === "eu" ? ["stadium", "palace", "campus", "stadium", "palace", "castle"] : sty === "usa" ? ["stadium", "mall", "campus", "stadium"] : ["stadium", "castle", "campus", "temple"]);
       else if (A > 6000) type = pick(sr, sty === "eu" ? ["cathedral", "opera", "museum", "townhall", "market"] : sty === "usa" ? ["opera", "museum", "townhall", "church", "mall"] : ["temple", "museum", "opera", "townhall", "temple"]);
       else if (A > 1500) type = pick(sr, sty === "eu" ? ["church", "monument", "market"] : sty === "usa" ? ["church", "monument"] : ["temple", "monument"]);
       else type = "monument";
-      if (type === "castle" && asp > 1.8) type = "temple";
+      if (type === "castle" && asp > 1.8 && sty === "jp") type = "temple";
       if (type === "mall" && A < 9000) type = "museum";
       var lk = type;
       if (type === "stadium") lk = sty === "usa" && v === 2 ? "baseball" : v === 1 ? "arena" : "stadium";
@@ -575,8 +884,9 @@
           }
         }
       }
+      if (type !== "harbor" && type !== "airport") planSite(cp, sp, sr);
       C.specials.push(sp);
-      C.labels.push({ x: cp.cx, y: cp.cy, k: lk });
+      C.labels.push({ x: sp.cx, y: sp.cy, k: lk });
     });
     if (C.station) { var sp7 = at(C.rail, C.station.s); C.labels.push({ x: sp7.x - sp7.ty * 30, y: sp7.y + sp7.tx * 30, k: "station" }); }
 
@@ -1002,7 +1312,7 @@
       else if (c9 === 7) { if (h9 < st.trees * 0.45 + 0.06 && L(x9 + 2.5, y9) === 7 && L(x9 - 2.5, y9) === 7 && L(x9, y9 + 2.5) === 7 && L(x9, y9 - 2.5) === 7) addTree(x9, y9, 2 + hash2(tx2, ty2, 9) * 2.4); }
       else if (c9 === 8) { if (S.style !== "usa" && h9 < (S.style === "eu" ? 0.16 : 0.05) && L(x9 + 3, y9) === 8 && L(x9 - 3, y9) === 8 && L(x9, y9 + 3) === 8 && L(x9, y9 - 3) === 8) addTree(x9, y9, 2.2 + hash2(tx2, ty2, 9) * 2); }
       else if (c9 === 0) { if (h9 < st.trees * 0.35 && L(x9 + 3, y9) === 0 && L(x9 - 3, y9) === 0 && L(x9, y9 + 3) === 0 && L(x9, y9 - 3) === 0) addTree(x9, y9, 2.5 + hash2(tx2, ty2, 9) * 2.5); }
-      else if (c9 === 4) { if (h9 < 0.12 && !C.specials.some(function (sp) { var dx = x9 - sp.cx, dy = y9 - sp.cy, u = dx * sp.ux + dy * sp.uy, v = -dx * sp.uy + dy * sp.ux; return (u * u) / Math.pow(sp.fa + 6, 2) + (v * v) / Math.pow(sp.fb + 6, 2) < 1.15 || sp.type === "harbor" || sp.type === "airport" || sp.type === "campus"; }) && L(x9 + 4, y9) === 4 && L(x9 - 4, y9) === 4 && L(x9, y9 + 4) === 4 && L(x9, y9 - 4) === 4) addTree(x9, y9, 2.6 + hash2(tx2, ty2, 9) * 1.6); }
+      else if (c9 === 4) { if (h9 < 0.12 && !mAt(siteM, x9, y9) && !C.specials.some(function (sp) { var dx = x9 - sp.cx, dy = y9 - sp.cy, u = dx * sp.ux + dy * sp.uy, v = -dx * sp.uy + dy * sp.ux; return (u * u) / Math.pow(sp.fa + 6, 2) + (v * v) / Math.pow(sp.fb + 6, 2) < 1.15 || sp.type === "harbor" || sp.type === "airport" || sp.type === "campus"; }) && L(x9 + 4, y9) === 4 && L(x9 - 4, y9) === 4 && L(x9, y9 + 4) === 4 && L(x9, y9 - 4) === 4) addTree(x9, y9, 2.6 + hash2(tx2, ty2, 9) * 1.6); }
       else if (c9 === 6) { var fn = noise2(x9 / 140, y9 / 140, seed + 45); if (fn > 0.62 && h9 < 0.75) addTree(x9, y9, 3.5 + hash2(tx2, ty2, 9) * 2.5); else if (h9 < 0.006) addTree(x9, y9, 4); }
     }
 
@@ -1253,7 +1563,7 @@
     bs.forEach(function (b) { var dx = 0.55 + b.h * 0.42, dy = 0.75 + b.h * 0.55; x.save(); x.translate(dx, dy); polys(b).forEach(function (P) { poly(x, P); x.fill(); }); x.restore(); });
     bs.forEach(function (b) { drawBuilding(x, b, z); });
     // Spezialbauten
-    C.specials.forEach(function (sp) { if (!visP(sp.cx, sp.cy, Math.max(sp.a, sp.b) + 80)) return; drawSpecial(x, sp, C); });
+    C.specials.forEach(function (sp) { if (sp.site ? !visP(sp.site.ox, sp.site.oy, sp.site.R + 30) : !visP(sp.cx, sp.cy, Math.max(sp.a, sp.b) + 80)) return; drawSpecial(x, sp, C); });
     // Autos
     if (z > 0.5) C.cars.forEach(function (c) { if (!visP(c.x, c.y, 4)) return; drawCar(x, c); });
     // Bahn auf einem Viadukt: über den Straßen, mit Schatten
@@ -1376,9 +1686,241 @@
     x.restore();
   }
   // Spezialbauten im eigenen, gedrehten Raum. a, b: halbe Ausdehnung, passend in die rote Fläche eingepasst.
+  // ---------- Spezialbau-Gelände zeichnen (v0.3) ----------
+  // Rahmen: Ursprung site.ox/oy, u entlang der Hauptachse der gemalten Fläche
+  function drawSite(x, sp) {
+    var st = sp.site; if (!st) return;
+    x.save(); x.translate(st.ox, st.oy); x.rotate(Math.atan2(st.uy, st.ux));
+    var SH = "rgba(40,36,30,.22)", O = st.org, LAWN = "#A6CF88", WATER = "#78B0D3";
+    function pathOf(P) { x.moveTo(P[0].x, P[0].y); for (var q = 1; q < P.length; q++) x.lineTo(P[q].x, P[q].y); x.closePath(); }
+    function fillPolys(polys, col) { if (!polys || !polys.length) return; x.beginPath(); polys.forEach(pathOf); x.fillStyle = col; x.fill("evenodd"); }
+    function strokePolys(polys, col, w) { if (!polys || !polys.length) return; x.beginPath(); polys.forEach(pathOf); x.strokeStyle = col; x.lineWidth = w; x.stroke(); }
+    function line(pts, col, w) { x.beginPath(); x.moveTo(pts[0][0], pts[0][1]); for (var q = 1; q < pts.length; q++) x.lineTo(pts[q][0], pts[q][1]); x.strokeStyle = col; x.lineWidth = w; x.stroke(); }
+    x.lineJoin = "round"; x.lineCap = "round";
+    // Grund
+    if (st.base === "lawn") fillPolys(st.lawn, LAWN);
+    else fillPolys(st.lawn, "#DCD5C8");
+    if (O) {
+      if (O.castle) { fillPolys(O.moatOut, "#6E8F6A"); fillPolys(O.moatOut, WATER); strokePolys(O.moatOut, "rgba(60,80,60,.35)", 1); fillPolys(O.moatIn, LAWN); strokePolys(O.moatIn, "#8E8676", 1.2); }
+      // Innenhof innerhalb der Mauer etwas heller (gestampfter Boden bzw. Kies beim Tempel)
+      var court = O.inner.length ? O.inner : O.walls;
+      fillPolys(O.walls, O.castle ? "#B9CFA0" : O.inner.length ? "#A9C98C" : "#E8E3D6");
+      if (O.inner.length) fillPolys(O.inner, O.castle ? "#D6CDBB" : "#E8E3D6");
+      if (!O.castle) { x.save(); x.beginPath(); court.forEach(pathOf); x.clip("evenodd"); x.strokeStyle = "rgba(170,160,140,.35)"; x.lineWidth = 0.25; for (var g = -st.R; g < st.R; g += 1.6) { x.beginPath(); x.moveTo(-st.R, g); x.lineTo(st.R, g); x.stroke(); } x.restore(); }
+    }
+    // Zufahrten und Wege
+    st.lanes.forEach(function (L) { line(L, "#6E7279", 7); line(L, "#83878C", 6); });
+    st.paths.forEach(function (P) { line(P, "#D6CCB4", 3.4); line(P, "#E9DFC4", 2.6); });
+    if (st.plaza) { var pz = st.plaza; x.fillStyle = "#E6E0D2"; if (pz.ell) { x.beginPath(); x.ellipse(pz.u, pz.v, pz.a, pz.b, 0, 0, 6.283); x.fill(); } else x.fillRect(pz.u - pz.a, pz.v - pz.b, pz.a * 2, pz.b * 2); }
+    // Ergänzungen
+    st.items.forEach(function (it) { siteItem(x, it, SH); });
+    // Burg / Tempel: Mauern, Türme, Tor, Hallen, Bergfried
+    if (O) {
+      var wc = O.castle ? "#9C9488" : "#EDEAE2", wtop = O.castle ? "#B8AF9F" : "#4A4F56";
+      x.save(); x.translate(1.4, 1.9); strokePolys(O.walls, SH, 3.6); strokePolys(O.inner, SH, 2.8); x.restore();
+      strokePolys(O.walls, wc, 3.4); strokePolys(O.walls, wtop, O.castle ? 1.2 : 0.9);
+      strokePolys(O.inner, wc, 2.6); strokePolys(O.inner, wtop, O.castle ? 0.9 : 0.7);
+      O.halls.forEach(function (h) {
+        x.save(); x.translate(h.u, h.v); x.rotate(h.ang);
+        var col = O.castle ? (O.jp ? "#5C6168" : (h.l > 18 ? "#8C5A45" : "#7F6A5A")) : "#3E434A";
+        x.fillStyle = SH; x.fillRect(-h.l / 2 + 1.6, -h.d / 2 + 2.2, h.l, h.d);
+        x.fillStyle = col; x.fillRect(-h.l / 2, -h.d / 2, h.l, h.d); x.fillStyle = shade(col, 0.14); x.fillRect(-h.l / 2, -h.d / 2, h.l, h.d / 2);
+        x.strokeStyle = shade(col, -0.3); x.lineWidth = 0.3; x.strokeRect(-h.l / 2, -h.d / 2, h.l, h.d);
+        x.restore();
+      });
+      if (O.gate) {
+        var G = O.gate, ol = O.castle ? 14 : 8;
+        // Brücke bzw. Torweg nach außen, dann Torhaus quer zur Mauer
+        x.save(); x.translate(G.u, G.v); x.transform(G.tx, G.ty, G.nx, G.ny, 0, 0);
+        x.fillStyle = O.castle ? "#8A6E5A" : "#D6CCB4"; x.fillRect(-2.2, -ol - 2, 4.4, ol + 2);
+        if (O.castle) { x.fillStyle = "rgba(255,255,255,.18)"; for (var p = -ol; p < 0; p += 1.2) x.fillRect(-2.2, p, 4.4, 0.3); }
+        x.fillStyle = SH; x.fillRect(-5.5 + 1.6, -3.5 + 2.2, 11, 7);
+        x.fillStyle = O.castle ? "#857D70" : "#3E434A"; x.fillRect(-5.5, -3.5, 11, 7); x.fillStyle = O.castle ? "#A39A8B" : "#565C64"; x.fillRect(-5.5, -3.5, 11, 3.5);
+        if (!O.castle) { x.fillStyle = "#C8432F"; x.fillRect(-3.2, -ol - 1, 0.9, 1.6); x.fillRect(2.3, -ol - 1, 0.9, 1.6); x.fillRect(-4, -ol - 1.4, 8, 0.8); }
+        x.restore();
+      }
+      O.towers.forEach(function (t) {
+        var rd = t[2];
+        x.beginPath(); x.arc(t[0] + rd * 0.5, t[1] + rd * 0.7, rd, 0, 6.283); x.fillStyle = SH; x.fill();
+        if (O.castle && !O.jp) { x.beginPath(); x.arc(t[0], t[1], rd, 0, 6.283); x.fillStyle = "#8E8676"; x.fill(); x.beginPath(); x.arc(t[0], t[1], rd * 0.72, 0, 6.283); x.fillStyle = "#A39A8B"; x.fill(); x.beginPath(); x.arc(t[0] - rd * 0.2, t[1] - rd * 0.2, rd * 0.3, 0, 6.283); x.fillStyle = "#B8AF9F"; x.fill(); }
+        else { x.fillStyle = "#3E434A"; x.fillRect(t[0] - rd, t[1] - rd, rd * 2, rd * 2); x.fillStyle = "#565C64"; x.fillRect(t[0] - rd, t[1] - rd, rd * 2, rd); x.fillStyle = "#F2F0EA"; x.fillRect(t[0] - rd * 0.45, t[1] - rd * 0.45, rd * 0.9, rd * 0.9); }
+      });
+      var K = O.keep, ks = K.s;
+      if (O.castle && !O.jp) {
+        // Bergfried mit Ecktürmen
+        x.fillStyle = SH; x.fillRect(K.u - ks / 2 + 6, K.v - ks / 2 + 8, ks, ks);
+        x.fillStyle = "#8E8676"; x.fillRect(K.u - ks / 2, K.v - ks / 2, ks, ks); x.fillStyle = "#6F7782"; x.fillRect(K.u - ks * 0.38, K.v - ks * 0.38, ks * 0.76, ks * 0.76); x.fillStyle = "#828A95"; x.fillRect(K.u - ks * 0.38, K.v - ks * 0.38, ks * 0.76, ks * 0.38);
+        [[-1, -1], [1, -1], [1, 1], [-1, 1]].forEach(function (c) { x.beginPath(); x.arc(K.u + c[0] * ks / 2, K.v + c[1] * ks / 2, ks * 0.17, 0, 6.283); x.fillStyle = "#9C9488"; x.fill(); x.beginPath(); x.arc(K.u + c[0] * ks / 2, K.v + c[1] * ks / 2, ks * 0.1, 0, 6.283); x.fillStyle = "#6F7782"; x.fill(); });
+      } else if (O.castle) {
+        // japanische Burg: gestufter Hauptturm
+        for (var lv = 0; lv < 4; lv++) { var s3 = ks * (1 - lv * 0.2); if (lv === 0) { x.fillStyle = SH; x.fillRect(K.u - s3 / 2 + 7, K.v - s3 / 2 + 10, s3, s3); } x.fillStyle = lv % 2 ? "#F2F0EA" : "#3E434A"; x.fillRect(K.u - s3 / 2, K.v - s3 / 2, s3, s3); }
+      } else {
+        // Haupthalle mit Pagode daneben
+        var hw = ks * 1.5, hh = ks;
+        x.fillStyle = SH; x.fillRect(K.u - hw / 2 + 3, K.v - hh / 2 + 4, hw, hh);
+        x.fillStyle = "#3E434A"; x.fillRect(K.u - hw / 2, K.v - hh / 2, hw, hh); x.fillStyle = "#565C64"; x.fillRect(K.u - hw / 2, K.v - hh / 2, hw, hh / 2);
+        x.strokeStyle = "#2B2F34"; x.lineWidth = 0.6; x.strokeRect(K.u - hw / 2 + 1.5, K.v - hh / 2 + 1.5, hw - 3, hh - 3); x.beginPath(); x.moveTo(K.u - hw / 2 + hh * 0.3, K.v); x.lineTo(K.u + hw / 2 - hh * 0.3, K.v); x.stroke();
+        var pgu = K.u + hw / 2 + 9, pz2 = Math.min(11, ks * 0.5);
+        for (var lv2 = 0; lv2 < 5; lv2++) { var sz2 = pz2 * (1 - lv2 * 0.16); if (lv2 === 0) { x.fillStyle = SH; x.fillRect(pgu - sz2 / 2 + 6, K.v - sz2 / 2 + 9, sz2, sz2); } x.fillStyle = lv2 % 2 ? "#5C6168" : "#4A4F56"; x.fillRect(pgu - sz2 / 2, K.v - sz2 / 2, sz2, sz2); }
+      }
+    }
+    x.restore();
+  }
+  // Eine Ergänzung zeichnen; lokaler Rahmen: Mitte, längere Seite entlang x
+  function siteItem(x, it, SH) {
+    var r = mulberry(it.seed), L = Math.max(it.w, it.h), S = Math.min(it.w, it.h), hl = L / 2, hs = S / 2;
+    x.save(); x.translate(it.u + it.w / 2, it.v + it.h / 2); if (it.h > it.w) x.rotate(Math.PI / 2);
+    function rect(px, py, w, h, col, hgt) { if (hgt) { x.fillStyle = SH; x.fillRect(px + hgt * 0.4, py + hgt * 0.55, w, h); } x.fillStyle = col; x.fillRect(px, py, w, h); }
+    function roofRect(px, py, w, h, col, hgt) { rect(px, py, w, h, col, hgt); x.fillStyle = shade(col, 0.14); if (w >= h) x.fillRect(px, py, w, h / 2); else x.fillRect(px, py, w / 2, h); x.strokeStyle = shade(col, -0.3); x.lineWidth = 0.3; x.strokeRect(px, py, w, h); }
+    function flat(px, py, w, h, col, hgt) { rect(px, py, w, h, col, hgt); x.strokeStyle = shade(col, -0.18); x.lineWidth = 0.5; x.strokeRect(px + 0.6, py + 0.6, w - 1.2, h - 1.2); for (var q = 0; q < Math.floor(w * h / 120); q++) rect(px + 1.5 + r() * (w - 5), py + 1.5 + r() * (h - 4), 2.2, 1.6, shade(col, -0.12)); }
+    function circ(cx, cy, rad, col) { x.beginPath(); x.arc(cx, cy, rad, 0, 6.283); x.fillStyle = col; x.fill(); }
+    function sTree(cx, cy, rad) { circ(cx + rad * 0.45, cy + rad * 0.6, rad, "rgba(30,40,20,.22)"); circ(cx, cy, rad, "#6C9C55"); circ(cx - rad * 0.28, cy - rad * 0.3, rad * 0.52, "rgba(170,208,128,.5)"); }
+    function umbrella(cx, cy, rad, col) { circ(cx + 0.4, cy + 0.5, rad, SH); circ(cx, cy, rad, col); x.fillStyle = "rgba(255,255,255,.3)"; x.beginPath(); x.moveTo(cx, cy); x.arc(cx, cy, rad, 0, 1.57); x.closePath(); x.fill(); x.beginPath(); x.moveTo(cx, cy); x.arc(cx, cy, rad, 3.14, 4.71); x.closePath(); x.fill(); }
+    var UMB = ["#C2533C", "#F2F0EA", "#3B78B0", "#D9A637", "#4D8F68"];
+    switch (it.k) {
+      case "park": {
+        rect(-hl, -hs, L, S, "#83878C"); x.strokeStyle = "#E7E4DC"; x.lineWidth = 0.15;
+        for (var v2 = -hs + 0.5; v2 + 16 <= hs + 0.6; v2 += 17) for (var u2 = -hl + 1; u2 < hl - 2.5; u2 += 2.6) {
+          x.beginPath(); x.moveTo(u2, v2); x.lineTo(u2, v2 + 5); x.moveTo(u2, v2 + 11); x.lineTo(u2, v2 + 16); x.stroke();
+          if (r() < 0.6) drawCar(x, { x: u2 + 1.3, y: v2 + 2.6, a: Math.PI / 2, c: pick(r, CARS) });
+          if (r() < 0.6) drawCar(x, { x: u2 + 1.3, y: v2 + 13.6, a: Math.PI / 2, c: pick(r, CARS) });
+        }
+        if (S >= 30) { rect(-hl, -0.5, L, 1, "#A6CF88"); for (var t = -hl + 4; t < hl; t += 9) sTree(t, 0, 1.8); }
+        break;
+      }
+      case "garage": {
+        rect(-hl, -hs, L, S, "#8E9196", 9); x.fillStyle = "#9EA1A6"; x.fillRect(-hl + 1, -hs + 1, L - 2, S - 2);
+        x.strokeStyle = "#E7E4DC"; x.lineWidth = 0.15; for (var u3 = -hl + 3; u3 < hl - 3; u3 += 2.6) { x.beginPath(); x.moveTo(u3, -hs + 2); x.lineTo(u3, -hs + 7); x.moveTo(u3, hs - 7); x.lineTo(u3, hs - 2); x.stroke(); if (r() < 0.3) drawCar(x, { x: u3 + 1.3, y: -hs + 4.5, a: Math.PI / 2, c: pick(r, CARS) }); if (r() < 0.3) drawCar(x, { x: u3 + 1.3, y: hs - 4.5, a: Math.PI / 2, c: pick(r, CARS) }); }
+        rect(hl - 9, -2.5, 8, 5, "#7A7E84"); rect(-hl + 2, -1.8, 5, 3.6, "#6E7279");
+        break;
+      }
+      case "pitch": {
+        var sub = it.sub || "soccer";
+        if (sub === "soccer") {
+          rect(-hl, -hs, L, S, "#5FA35A"); for (var s = 0; s < 8; s++) { x.fillStyle = s % 2 ? "rgba(255,255,255,.06)" : "rgba(0,0,0,.05)"; x.fillRect(-hl + s * L / 8, -hs, L / 8, S); }
+          x.strokeStyle = "rgba(255,255,255,.85)"; x.lineWidth = 0.35; x.strokeRect(-hl + 2, -hs + 2, L - 4, S - 4); x.beginPath(); x.moveTo(0, -hs + 2); x.lineTo(0, hs - 2); x.stroke(); x.beginPath(); x.arc(0, 0, S * 0.15, 0, 6.283); x.stroke();
+          x.strokeRect(-hl + 2, -S * 0.22, L * 0.13, S * 0.44); x.strokeRect(hl - 2 - L * 0.13, -S * 0.22, L * 0.13, S * 0.44);
+        } else {
+          var cc = sub === "tennis" ? (r() < 0.5 ? "#B5603F" : "#3F7FA8") : "#C9774E";
+          rect(-hl, -hs, L, S, sub === "tennis" ? "#4E8A55" : "#8E9196"); rect(-hl + 2, -hs + 2, L - 4, S - 4, cc);
+          x.strokeStyle = "rgba(255,255,255,.9)"; x.lineWidth = 0.25; x.strokeRect(-hl + 3, -hs + 3, L - 6, S - 6);
+          x.beginPath(); x.moveTo(0, -hs + 3); x.lineTo(0, hs - 3); x.stroke();
+          if (sub === "tennis") { x.beginPath(); x.moveTo(-hl * 0.55, -hs + 3); x.lineTo(-hl * 0.55, hs - 3); x.moveTo(hl * 0.55, -hs + 3); x.lineTo(hl * 0.55, hs - 3); x.moveTo(-hl * 0.55, 0); x.lineTo(hl * 0.55, 0); x.stroke(); }
+          else { x.beginPath(); x.arc(0, 0, S * 0.13, 0, 6.283); x.stroke(); x.beginPath(); x.arc(-hl + 3, 0, S * 0.3, -1.57, 1.57); x.stroke(); x.beginPath(); x.arc(hl - 3, 0, S * 0.3, 1.57, 4.71); x.stroke(); }
+          x.strokeStyle = "rgba(60,64,70,.6)"; x.lineWidth = 0.3; x.strokeRect(-hl + 0.6, -hs + 0.6, L - 1.2, S - 1.2);
+        }
+        break;
+      }
+      case "kiosk": {
+        rect(-hl, -hs, L, S, "#E3DACA"); roofRect(-hl + 1, -hs + 1, 6, 4.4, pick(r, ["#C2533C", "#3B78B0", "#D9A637"]), 3);
+        for (var q = 0; q < 3; q++) umbrella(-hl + 3 + q * 2.8, hs - 2, 1.2, pick(r, UMB));
+        umbrella(hl - 2, -hs + 2.4, 1.3, pick(r, UMB));
+        break;
+      }
+      case "cafe": {
+        rect(-hl, -hs, L, S, "#E3DACA"); roofRect(-hl + 1, -hs + 1, 7.5, 5.5, pick(r, ["#8C5A45", "#6F7782", "#B5573A"]), 4);
+        for (var q2 = 0; q2 < 5; q2++) umbrella(-hl + 2.2 + (q2 % 3) * 4, hs - 2 - (q2 >= 3 ? 3.2 : 0), 1.3, q2 % 2 ? "#F2F0EA" : "#4D8F68");
+        break;
+      }
+      case "annex": case "clinic": case "faculty": case "parish": case "stable": case "cinema": {
+        var col = it.k === "clinic" ? "#E6E3DC" : it.k === "faculty" ? pick(r, ["#B8705A", "#C9BBA6", "#A35C47"]) : it.k === "stable" ? "#7F6A5A" : it.k === "parish" ? "#8C5A45" : it.k === "cinema" ? "#5E6670" : pick(r, ["#A9ADB2", "#C9BBA6", "#8C8F94"]);
+        var hg = it.k === "clinic" ? 7 : it.k === "faculty" ? 6 : it.k === "cinema" ? 6 : 4;
+        if (it.k === "clinic" || it.k === "annex" || it.k === "cinema") {
+          if (it.k === "clinic" && L > 24 && r() < 0.5) { flat(-hl, -hs, L, S * 0.45, col, hg); flat(-hl, -hs, S * 0.5, S, col, hg); }   // L-Form
+          else flat(-hl, -hs, L, S, col, hg);
+          if (it.k === "cinema") { rect(-hl - 0.5, -hs + 3, 1.6, S - 6, "#C2533C"); }
+        } else roofRect(-hl, -hs, L, S, col, hg);
+        if (it.k === "parish") { rect(-hl - 2, -hs - 2, L + 4, 1.2, "rgba(80,110,60,.6)"); }
+        break;
+      }
+      case "heli": {
+        rect(-hl, -hs, L, S, "#9EA1A6"); circ(0, 0, hs - 1, "#5B5F66"); x.beginPath(); x.arc(0, 0, hs - 2, 0, 6.283); x.strokeStyle = "#E8C547"; x.lineWidth = 0.5; x.stroke();
+        x.fillStyle = "#F2F0EA"; var hz = hs * 0.4; x.fillRect(-hz * 0.6, -hz, hz * 0.3, hz * 2); x.fillRect(hz * 0.3, -hz, hz * 0.3, hz * 2); x.fillRect(-hz * 0.6, -hz * 0.15, hz * 1.2, hz * 0.3);
+        break;
+      }
+      case "fountain": {
+        circ(0, 0, hs, "#E3DACA"); circ(0, 0, hs * 0.55, "#CFC7B6"); circ(0, 0, hs * 0.47, "#8EC0DC"); circ(0, 0, hs * 0.12, "#F2F0EA");
+        for (var b2 = 0; b2 < 6; b2++) { var an = b2 / 6 * 6.283; rect(Math.cos(an) * hs * 0.8 - 1, Math.sin(an) * hs * 0.8 - 0.4, 2, 0.8, "#8A6E5A"); }
+        break;
+      }
+      case "sculpt": {
+        rect(-hl, -hs, L, S, "#E3DACA"); rect(-1.8, -1.8, 3.6, 3.6, "#B8AF9F", 3); circ(0, 0, 1, pick(r, ["#6E8F7E", "#8E8676", "#B08D57"]));
+        break;
+      }
+      case "garden": {
+        // Parterre: Hecke außen, Kieswege im Kreuz, Beete
+        rect(-hl, -hs, L, S, "#5F9150"); rect(-hl + 1, -hs + 1, L - 2, S - 2, "#E9DFC4");
+        var bw = (L - 2 - 3 * 2) / 2, bh = (S - 2 - 3 * 2) / 2, fc = pick(r, ["#C46A7E", "#D9A637", "#B5573A", "#8E6FB0"]);
+        for (var bi = 0; bi < 2; bi++) for (var bj = 0; bj < 2; bj++) {
+          var bx = -hl + 3 + bi * (bw + 2), by = -hs + 3 + bj * (bh + 2);
+          rect(bx, by, bw, bh, "#8DBA6B"); x.strokeStyle = "#5F9150"; x.lineWidth = 0.7; x.strokeRect(bx + 1.2, by + 1.2, bw - 2.4, bh - 2.4);
+          x.fillStyle = fc; x.beginPath(); x.ellipse(bx + bw / 2, by + bh / 2, bw * 0.22, bh * 0.22, 0, 0, 6.283); x.fill();
+        }
+        circ(0, 0, Math.min(2.4, S * 0.1), "#CFC7B6"); circ(0, 0, Math.min(1.8, S * 0.075), "#8EC0DC");
+        break;
+      }
+      case "orchard": {
+        rect(-hl, -hs, L, S, "#B4D592");
+        for (var ou = -hl + 3; ou < hl - 1; ou += 5) for (var ov = -hs + 3; ov < hs - 1; ov += 5) { if (r() < 0.12) continue; var rad = 1.5 + r() * 0.6; circ(ou + 0.6, ov + 0.8, rad, "rgba(30,40,20,.2)"); circ(ou, ov, rad, r() < 0.3 ? "#7FA35A" : "#6C9C55"); if (r() < 0.4) circ(ou - 0.4, ov - 0.3, 0.35, "#C2533C"); }
+        break;
+      }
+      case "pond": {
+        x.beginPath(); var n = 18;
+        for (var pq = 0; pq <= n; pq++) { var a2 = pq / n * 6.283, w2 = 0.82 + 0.18 * Math.sin(a2 * 3 + it.seed % 7) * (0.6 + r() * 0.4); var px = Math.cos(a2) * hl * w2, py = Math.sin(a2) * hs * w2; if (pq) x.lineTo(px, py); else x.moveTo(px, py); }
+        x.closePath(); x.fillStyle = "#6E8F6A"; x.fill(); x.save(); x.scale(0.9, 0.86); x.fillStyle = WATER2; x.fill(); x.restore();
+        if (r() < 0.6) { rect(hl * 0.2, -1, hl * 0.7, 2, "#8A6E5A"); }   // Steg
+        for (var lp = 0; lp < 4; lp++) circ(rr(r, -hl * 0.5, hl * 0.5), rr(r, -hs * 0.4, hs * 0.4), 0.7, "#5F9150");
+        break;
+      }
+      case "cemetery": {
+        rect(-hl, -hs, L, S, "#5F9150"); rect(-hl + 1, -hs + 1, L - 2, S - 2, "#9CC27E");
+        rect(-hl + 1, -0.9, L - 2, 1.8, "#E9DFC4"); rect(-0.9, -hs + 1, 1.8, S - 2, "#E9DFC4");
+        x.fillStyle = "#B9B5AC";
+        for (var gu = -hl + 3; gu < hl - 2; gu += 2.2) for (var gv = -hs + 3; gv < hs - 2; gv += 3.2) { if (Math.abs(gu) < 2 || Math.abs(gv) < 2.2 || r() < 0.18) continue; x.fillRect(gu, gv, 1, 1.8); }
+        for (var ct = -hl + 3; ct < hl; ct += 7) sTree(ct, -hs + 1.5, 1.6);
+        break;
+      }
+      case "stalls": {
+        rect(-hl, -hs, L, S, "#E3DACA");
+        for (var su = -hl + 1; su < hl - 4; su += 5.2) for (var sv = -hs + 1; sv < hs - 4; sv += 7) { if (r() < 0.15) continue; var tc = pick(r, UMB); rect(su, sv, 4.4, 4.4, tc, 1.2); x.fillStyle = "rgba(255,255,255,.25)"; x.fillRect(su, sv, 2.2, 4.4); }
+        break;
+      }
+      case "shrine": {
+        rect(-hl, -hs, L, S, "#E8E3D6"); rect(-3.5, -2.8, 7, 5.6, "#3E434A", 3); x.fillStyle = "#565C64"; x.fillRect(-3.5, -2.8, 7, 2.8);
+        x.fillStyle = "#C8432F"; x.fillRect(-hl + 1, -1.8, 0.7, 3.6); x.fillRect(-hl + 0.5, -2.2, 1.7, 0.6); x.fillRect(-hl + 0.5, 1.6, 1.7, 0.6);
+        break;
+      }
+      case "hall": {
+        var hc = it.o === "t" || it.o === "jc" ? "#3E434A" : pick(r, ["#8C5A45", "#7F6A5A", "#6F7782"]);
+        rect(-hl, -hs, L, S, it.o === "c" ? "#D6CDBB" : "#E8E3D6"); roofRect(-hl + 1.5, -hs + 1.5, L - 3, S - 3, hc, 5);
+        if (it.o !== "c") { x.strokeStyle = "#2B2F34"; x.lineWidth = 0.4; x.beginPath(); x.moveTo(-hl + S * 0.4, 0); x.lineTo(hl - S * 0.4, 0); x.stroke(); }
+        break;
+      }
+      case "zen": {
+        rect(-hl, -hs, L, S, "#5C6168"); rect(-hl + 0.8, -hs + 0.8, L - 1.6, S - 1.6, "#EDEAE0");
+        x.strokeStyle = "rgba(170,160,140,.6)"; x.lineWidth = 0.2; for (var zv = -hs + 1.6; zv < hs - 1; zv += 0.9) { x.beginPath(); x.moveTo(-hl + 1, zv); x.lineTo(hl - 1, zv); x.stroke(); }
+        for (var zr = 0; zr < 3 + (r() * 3 | 0); zr++) { var zu = rr(r, -hl * 0.7, hl * 0.7), zw = rr(r, -hs * 0.6, hs * 0.6), zs = 0.8 + r() * 1.2; circ(zu, zw, zs + 1, "#E0DCCF"); circ(zu + 0.3, zw + 0.4, zs, "rgba(40,36,30,.25)"); circ(zu, zw, zs, "#8E8676"); if (r() < 0.5) circ(zu - 0.4, zw - 0.4, zs * 0.5, "#6E9C5A"); }
+        break;
+      }
+      case "yard": {
+        rect(-hl, -hs, L, S, "#8A6E5A"); rect(-hl + 0.6, -hs + 0.6, L - 1.2, S - 1.2, "#D9C9A6");
+        x.strokeStyle = "rgba(140,110,80,.5)"; x.lineWidth = 0.4; x.beginPath(); x.moveTo(-hl + 3, 0); x.lineTo(hl - 3, 0); x.stroke();
+        for (var yq = 0; yq < 5; yq++) circ(rr(r, -hl + 3, hl - 3), rr(r, -hs + 2, hs - 2), 0.5, "#6B5644");
+        break;
+      }
+      case "well": {
+        circ(0, 0, 3, "#9C9488"); circ(0, 0, 2, "#5B7FA0"); rect(-3.2, -0.3, 6.4, 0.6, "#8A6E5A");
+        break;
+      }
+    }
+    x.restore();
+  }
+  var WATER2 = "#78B0D3";
   function drawSpecial(x, sp, C) {
     var r = mulberry(sp.seed), a = sp.fa, b = sp.fb, T = sp.type, V = sp.v || 0;
     if (T === "harbor") { drawHarbor(x, sp); return; }
+    if (sp.site) drawSite(x, sp);
+    if (sp.noMain) return;
     x.save(); x.translate(sp.cx, sp.cy); x.rotate(Math.atan2(sp.uy, sp.ux));
     var SH = "rgba(40,36,30,.22)";
     function rect(px, py, w, h, col, hgt) { if (hgt) { x.fillStyle = SH; x.fillRect(px + hgt * 0.4, py + hgt * 0.55, w, h); } x.fillStyle = col; x.fillRect(px, py, w, h); }
