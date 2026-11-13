@@ -3,7 +3,7 @@
 (function () {
   "use strict";
 
-  var VERSION = "0.52", RATES = [5, 15, 30];
+  var VERSION = "0.6", RATES = [5, 15, 30];
   var lang = "de";
   function L2(de, en) { return { de: de, en: en }; }
 
@@ -32,6 +32,8 @@
     frameDone: L2("Frame {i} als PNG gespeichert ({w} × {h}).", "Frame {i} saved as PNG ({w} × {h})."), spray: L2("Spraydose", "Spray can"), eraser: L2("Radierer", "Eraser"),
     size: L2("Größe", "Size"), opacity: L2("Deckkraft", "Opacity"), smooth: L2("Glättung", "Smoothing"), hard: L2("Härte", "Hardness"),
     crayon: L2("Wachsmalkreide", "Wax crayon"), crayonS: L2("Kreide", "Crayon"), grain: L2("Körnung", "Grain"),
+    flowL: L2("Frame-Modus", "Frame mode"), fActive: L2("Active Frames", "Active Frames"), fCalm: L2("Calm Frames", "Calm Frames"), calmL: L2("Ruhe", "Calm"),
+    flowNote: L2("Striche bleiben an ihrem Platz und wandern bei Kameraschwenks mit. „Ruhe“: wie stark Kanten am vorigen Frame festhalten.", "Strokes stay in place and travel along with camera pans. “Calm”: how strongly edges hold on to the previous frame."),
     ptype: L2("Pinseltyp", "Brush type"), tStroke: L2("Pinsel", "Brush"), tSpray: L2("Spray", "Spray"), tCrayon: L2("Wachsmalkreide", "Wax crayon"),
     mpBatchDone: L2("Magic Paint in {n} Frames übernommen.", "Magic Paint applied to {n} frames."),
     mpNext: L2("Für alle folgenden Frames übernehmen", "Apply to all following frames"), mpAll: L2("Auf alle Frames anwenden", "Apply to all frames"),
@@ -90,8 +92,8 @@
               "Colours come only from the picker, on purpose: press C and click the image. The pen paints hard lines, the brush soft ones, the spray can sprays dots and keeps spraying while you hold the button. Opacity applies to the whole stroke, so it does not get blotchy where it overlaps. Smoothing lets the stroke trail a little behind the mouse, which calms lines. With a graphics tablet, pen and brush respond to pressure."),
     how4: L2("Quickpaint malt eine Farbfläche automatisch aus, wie ein Chroma Key. Die Härte bestimmt, wie streng die Maske auf die gewählte Farbe reagiert. Gefüllt wird mit Schraffur-Strichen im eingestellten Winkel. Humanize macht daraus eine Handskizze: Striche werden ungleich lang, leicht gebogen, verschieden kräftig, es kommen Kreuzschraffur und skizzierte Umrisse dazu, und die Striche dürfen ein kleines Stück über den Rand laufen, aber nie weit. Solange du D gedrückt hältst, ist die ganze Bemalung ausgeblendet und du siehst das Original.",
                "Quickpaint fills a colour area automatically, like a chroma key. Hardness sets how strictly the mask reacts to the chosen colour. It fills with hatching strokes at the set angle. Humanize turns that into a hand sketch: strokes get uneven lengths, slight curves and varying weight, cross-hatching and sketched outlines are added, and strokes may run slightly past the edge, but never far. While you hold D, all painting is hidden and you see the original."),
-    how5: L2("Magic Paint nimmt dir die Schichtarbeit ab: Es sucht die wichtigsten Farben im Frame (4 bis 16, je nach Qualität), sortiert sie nach Fläche und malt jede als Quickpaint-Schicht in genau dieser Farbe. Frühe Schichten sind großzügig und dick und überlappen, spätere werden feiner und genauer. So ist am Ende fast das ganze Bild gezeichnet. Weil jeder Frame neu gezeichnet wird, wirken die Striche im Video lebendig, wie bei echter Handanimation.",
-               "Magic Paint takes the layer work off your hands: it finds the main colours in the frame (4 to 16 depending on quality), sorts them by area and paints each as a Quickpaint layer in exactly that colour. Early layers are generous, thick and overlapping, later ones get finer and more precise. In the end almost the whole image is drawn. Because each frame is drawn anew, the strokes look alive in the video, like real hand animation."),
+    how5: L2("Magic Paint nimmt dir die Schichtarbeit ab: Es sucht die wichtigsten Farben im Frame (4 bis 16, je nach Qualität), sortiert sie nach Fläche und malt jede als Quickpaint-Schicht in genau dieser Farbe. Frühe Schichten sind großzügig und dick und überlappen, spätere werden feiner und genauer. So ist am Ende fast das ganze Bild gezeichnet. Weil jeder Frame neu gezeichnet wird, wirken die Striche im Video lebendig, wie bei echter Handanimation. Im Modus Calm Frames bleiben die Striche dagegen von Frame zu Frame an ihrem Platz, das Video wirkt ruhiger.",
+               "Magic Paint takes the layer work off your hands: it finds the main colours in the frame (4 to 16 depending on quality), sorts them by area and paints each as a Quickpaint layer in exactly that colour. Early layers are generous, thick and overlapping, later ones get finer and more precise. In the end almost the whole image is drawn. Because each frame is drawn anew, the strokes look alive in the video, like real hand animation. In Calm Frames mode the strokes stay in place from frame to frame instead, so the video looks calmer."),
     how3: L2("Der Export rechnet jeden Frame neu und kodiert ihn als H.264 in Full HD, 1920 × 1080, bei Hochkant-Videos 1080 × 1920. Die Bitrate ist variabel, der Regler gibt den Mittelwert vor. Du kannst die Bemalung über dem Video exportieren oder nur die Bemalung auf Weiß.",
               "The export renders every frame again and encodes it as H.264 in Full HD, 1920 × 1080, or 1080 × 1920 for portrait videos. The bitrate is variable, the slider sets the average. You can export the painting over the video, or only the painting on white.")
   };
@@ -124,7 +126,7 @@
   // ---------- Zustand ----------
   // F: Projekt { file, url, name, dur, vw, vh, fps, n, ow, oh, idx, paints: { i: {cv}|{blob} } }
   var F = null, V = null;
-  var S = { qp: { hard: 55, human: 55, angle: 35, width: 9, seed: 7, type: "stroke" }, mp: { layers: 10, human: 55, angle: 35, width: 10, seed: 3, type: "stroke" }, tool: "brush", sets: {}, color: "#1A1A1A", recent: [], onion: false, hideVid: false, mode: "video", mbit: 12, audio: true, fpsI: 1 };
+  var S = { qp: { hard: 55, human: 55, angle: 35, width: 9, seed: 7, type: "stroke", flow: "active", calm: 60 }, mp: { layers: 10, human: 55, angle: 35, width: 10, seed: 3, type: "stroke", flow: "active", calm: 60 }, tool: "brush", sets: {}, color: "#1A1A1A", recent: [], onion: false, hideVid: false, mode: "video", mbit: 12, audio: true, fpsI: 1 };
   Object.keys(TOOLS).forEach(function (k) { S.sets[k] = Object.assign({}, TOOLS[k].set); });
   function set() { return S.sets[S.tool]; }
   function painted() { return Object.keys(F ? F.paints : {}).length + (V && V.dirty ? 1 : 0); }
@@ -434,7 +436,7 @@
   }
   function endQP() { V.qp = null; V.qView = null; var pn = V.root.querySelector("#fp-qp"); if (pn) pn.hidden = true; need(); }
   function qpFix(p) {
-    var G = qpGrids(); V.qp.key = labAt(G.m, p); V.qp.keyHex = sampleVideo(p); V.qp.stage = "tune";
+    var G = qpGrids(); V.qp.key = labAt(G.m, p); V.qp.keyHex = sampleVideo(p); V.qp.stage = "tune"; calmReset();
     qpMask(); qpGenSoon(0); qpPanel();
   }
   function qpMask() { var G = qpGrids(), k = V.qp.stage === "tune" ? V.qp.key : V.qp.hover; V.qp.mask = k ? maskView(maskOf(G.s, k, S.qp.hard), G.s, V.qp.stage === "tune" ? 0.16 : 0.85) : null; need(); }
@@ -491,13 +493,72 @@
     var d = x.getImageData(0, 0, 1, 1).data;
     return "#" + [d[0], d[1], d[2]].map(function (v) { return (v < 16 ? "0" : "") + v.toString(16); }).join("").toUpperCase();
   }
+  // ---------- Calm Frames: Ruhe zwischen den Frames ----------
+  // Fester Zufall je Rasterplatz (hsh), Kameraschwenk je Frame (calmPan) und Kanten mit Hysterese (calmMask).
+  function hsh(a, b, c, d) {
+    var x = Math.imul(a | 0, 0x9E3779B1) ^ Math.imul((b | 0) + 0x632BE5AB, 0x85EBCA77) ^ Math.imul((c | 0) + 0x1B873593, 0xC2B2AE3D) ^ Math.imul((d | 0) + 0x7FEB352D, 0x27D4EB2F);
+    x ^= x >>> 15; x = Math.imul(x, 0x2C1B3C6D); x ^= x >>> 12; x = Math.imul(x, 0x297A2D39); x ^= x >>> 15; return x | 0;
+  }
+  function calmStore() {
+    if (!V.cs || V.cs.F !== F || V.cs.fps !== F.fps) V.cs = { F: F, fps: F.fps, pans: {}, lums: {}, masks: {} };
+    return V.cs;
+  }
+  function calmReset() { if (V.cs) V.cs.masks = {}; }
+  function lumSmall() {
+    var w = 320, h = Math.max(1, Math.round(w * F.oh / F.ow)), c = V.lumCv && V.lumCv.width === w && V.lumCv.height === h ? V.lumCv : (V.lumCv = canvas(w, h)), x = c.getContext("2d", { willReadFrequently: true });
+    x.imageSmoothingQuality = "high"; x.drawImage(V.frameCv, 0, 0, w, h);
+    var d = x.getImageData(0, 0, w, h).data, Y = new Float32Array(w * h);
+    for (var i = 0; i < Y.length; i++) Y[i] = 0.299 * d[i * 4] + 0.587 * d[i * 4 + 1] + 0.114 * d[i * 4 + 2];
+    return { w: w, h: h, Y: Y };
+  }
+  // Verschiebung des Bildinhalts von A nach B (in Pixeln des kleinen Rasters), nur im Videobereich
+  function shiftEst(A, B) {
+    var w = A.w, h = A.h, Rr = 12, vb = vidBox(), x0 = Math.ceil(vb.x * w) + Rr + 1, x1 = Math.floor((1 - vb.x) * w) - Rr - 1, y0 = Math.ceil(vb.y * h) + Rr + 1, y1 = Math.floor((1 - vb.y) * h) - Rr - 1;
+    if (x1 - x0 < 20 || y1 - y0 < 12) return { x: 0, y: 0 };
+    var E = new Float64Array((2 * Rr + 1) * (2 * Rr + 1)), best = 1e18, bx = 0, by = 0;
+    for (var dy = -Rr; dy <= Rr; dy++) for (var dx = -Rr; dx <= Rr; dx++) {
+      var s0 = 0;
+      for (var y = y0; y < y1; y += 2) { var rb = y * w, ra = (y - dy) * w - dx; for (var x = x0; x < x1; x += 2) s0 += Math.abs(B.Y[rb + x] - A.Y[ra + x]); }
+      E[(dy + Rr) * (2 * Rr + 1) + dx + Rr] = s0; if (s0 < best) { best = s0; bx = dx; by = dy; }
+    }
+    var e0 = E[Rr * (2 * Rr + 1) + Rr];
+    if (best > e0 * 0.97) return { x: 0, y: 0 };   // kein klarer Schwenk: Raster bleibt stehen
+    function sub(m, c, p) { var dn = m - 2 * c + p; return dn > 0 ? clamp(0.5 * (m - p) / dn, -0.5, 0.5) : 0; }
+    var W2 = 2 * Rr + 1, ci = (by + Rr) * W2 + bx + Rr, fx = 0, fy = 0;
+    if (Math.abs(bx) < Rr) fx = sub(E[ci - 1], E[ci], E[ci + 1]);
+    if (Math.abs(by) < Rr) fy = sub(E[ci - W2], E[ci], E[ci + W2]);
+    return { x: bx + fx, y: by + fy };
+  }
+  // Lage des Strich-Rasters für den aktuellen Frame: folgt dem Kameraschwenk ab dem Nachbarframe
+  function calmPan() {
+    var cs = calmStore(), i = F.idx;
+    if (cs.pans[i]) return cs.pans[i];
+    var Y = cs.lums[i] || (cs.lums[i] = lumSmall()), nb = cs.pans[i - 1] ? i - 1 : cs.pans[i + 1] ? i + 1 : -1, p = { x: 0, y: 0 };
+    if (nb >= 0 && cs.lums[nb]) { var d = shiftEst(cs.lums[nb], Y), k = F.ow / Y.w; p = { x: cs.pans[nb].x + d.x * k, y: cs.pans[nb].y + d.y * k }; }
+    cs.pans[i] = p; return p;
+  }
+  // Kanten mit Gedächtnis: war ein Punkt im Nachbarframe drin, braucht er weniger Deckung, um drin zu bleiben, und umgekehrt
+  function calmMask(M, bl, mw, mh, key, k, pan) {
+    var cs = calmStore(), ent = cs.masks[key] || (cs.masks[key] = {}), i = F.idx, prev = ent[i - 1] || ent[i + 1];
+    if (prev && prev.w === mw && prev.h === mh) {
+      var band = 0.04 + 0.32 * k, a = 0.55 * k, f = mw / F.ow, ddx = Math.round((pan.x - prev.px) * f), ddy = Math.round((pan.y - prev.py) * f), PM = prev.M, PB = prev.B;
+      for (var y = 0; y < mh; y++) for (var x = 0; x < mw; x++) {
+        var j = y * mw + x, sx = x - ddx, sy = y - ddy;
+        if (sx < 0 || sy < 0 || sx >= mw || sy >= mh) continue;
+        var sj = sy * mw + sx, b = bl[j] = bl[j] * (1 - a) + PB[sj] * a;   // Deckung mit dem Nachbarframe mischen gegen Rauschen
+        M[j] = b >= (PM[sj] ? 0.5 - band : 0.5 + band) ? 1 : 0;
+      }
+    }
+    ent[i] = { M: M, B: bl.slice(), w: mw, h: mh, px: pan.x, py: pan.y };
+    for (var q in ent) if (Math.abs(+q - i) > 1) delete ent[q];
+  }
   // Skizze bauen. Die Lage der Striche ist ein fester, gerüttelter Raster über der Maske, unabhängig vom Winkel.
   // Der Winkel dreht nur jeden einzelnen Strich um seine eigene Mitte. Jeder Strich wird entlang seiner Richtung
   // auf die Farbfläche gekürzt und darf nur ein kleines Stück überstehen, am Ende beschneidet die leicht erweiterte Maske alles.
   function buildSketch() {
     var G = qpGrids().m;
     V.qp.sketch = V.qp.sketch && V.qp.sketch.width === F.ow ? V.qp.sketch : canvas(F.ow, F.oh);
-    sketch(maskOf(G, V.qp.key, S.qp.hard), { color: S.color, width: S.qp.width, human: S.qp.human, angle: S.qp.angle, seed: S.qp.seed * 7919, type: S.qp.type }, V.qp.sketch);
+    sketch(maskOf(G, V.qp.key, S.qp.hard), { color: S.color, width: S.qp.width, human: S.qp.human, angle: S.qp.angle, seed: S.qp.seed * 7919, type: S.qp.type, calm: S.qp.flow === "calm" ? S.qp.calm : null, key: "q" }, V.qp.sketch);
     need();
   }
   function sketch(raw, o, out) {
@@ -509,6 +570,8 @@
       bl[y * mw + x] = sum / cnt;
     }
     var M = new Uint8Array(n); for (i = 0; i < n; i++) M[i] = bl[i] >= 0.5 ? 1 : 0;
+    var calm = o.calm != null, pan = calm ? calmPan() : null;
+    if (calm) calmMask(M, bl, mw, mh, o.key, o.calm / 100, pan);
     var f = mw / F.ow, h = o.human / 100, sc = F.oh / 1080, w = o.width * sc, R = rng(o.seed), keep = o.keep == null ? 1 : o.keep, am = 1, type = o.type || "stroke";
     function inside(px, py) { var mx = Math.floor(px * f), my = Math.floor(py * f); return mx >= 0 && my >= 0 && mx < mw && my < mh && M[my * mw + mx] === 1; }
     var g2 = out.getContext("2d");
@@ -570,34 +633,50 @@
       ribbon(x0, y0, (x0 + x1) / 2 - uy * bend, (y0 + y1) / 2 + ux * bend, x1, y1, lw, al * am);
     }
     // Rasterpunkte innerhalb der Fläche sammeln, gemischt, damit sich die Striche natürlich überlagern
-    function points(cell) {
+    // Active: Raster mit fortlaufendem Zufall (jeder Frame neu). Calm: jeder Rasterplatz hat seinen eigenen festen Zufall,
+    // das Raster hängt an der Welt (wandert bei Kameraschwenks mit), die Reihenfolge ist fest. Je Punkt: x, y, Schlüssel.
+    function points(cell, pass) {
       if (type === "spray") cell *= 1.6;   // Spray: weniger Stempel, damit die Sprühpunkte sichtbar bleiben
-      var pts = [];
+      var pts = [], k;
+      if (calm) {
+        var ix0 = Math.floor(-pan.x / cell) - 1, ix1 = Math.ceil((F.ow - pan.x) / cell) + 1, iy0 = Math.floor(-pan.y / cell) - 1, iy1 = Math.ceil((F.oh - pan.y) / cell) + 1, tri = [];
+        for (var iy = iy0; iy <= iy1; iy++) for (var ix = ix0; ix <= ix1; ix++) {
+          var hk = hsh(o.seed, pass, ix, iy), r0 = rng(hk);
+          var qx = pan.x + (ix + 0.5) * cell + (r0() - 0.5) * cell * (0.4 + 0.9 * h), qy = pan.y + (iy + 0.5) * cell + (r0() - 0.5) * cell * (0.4 + 0.9 * h);
+          if (inside(qx, qy)) tri.push([qx, qy, hk]);
+        }
+        tri.sort(function (a, b) { return a[2] - b[2]; });
+        for (k = 0; k < tri.length; k++) pts.push(tri[k][0], tri[k][1], tri[k][2] ^ 0x5bd1e995);
+        return pts;
+      }
       for (var gy = cell / 2; gy < F.oh; gy += cell) for (var gx = cell / 2; gx < F.ow; gx += cell) {
         var px = gx + (R() - 0.5) * cell * (0.4 + 0.9 * h), py = gy + (R() - 0.5) * cell * (0.4 + 0.9 * h);
-        if (inside(px, py)) pts.push(px, py);
+        if (inside(px, py)) pts.push(px, py, 0);
       }
-      for (var k = pts.length / 2 - 1; k > 0; k--) { var r = Math.floor(R() * (k + 1)), ax = pts[2 * k], ay = pts[2 * k + 1]; pts[2 * k] = pts[2 * r]; pts[2 * k + 1] = pts[2 * r + 1]; pts[2 * r] = ax; pts[2 * r + 1] = ay; }
+      for (k = pts.length / 3 - 1; k > 0; k--) { var r = Math.floor(R() * (k + 1)), ax = pts[3 * k], ay = pts[3 * k + 1]; pts[3 * k] = pts[3 * r]; pts[3 * k + 1] = pts[3 * r + 1]; pts[3 * r] = ax; pts[3 * r + 1] = ay; }
       return pts;
     }
     var th = o.angle * Math.PI / 180, jit = (0.04 + 0.32 * h), P;
     // 1. breite, blasse Grundstriche: geben Deckung und das schmutzige Kreide-Gefühl
-    P = points(w * 3.6);
-    if (o.base !== false) for (i = 0; i < P.length; i += 2) mark(P[i], P[i + 1], th + (R() - 0.5) * jit, w * (5 + 7 * R()), w * (1.4 + 0.8 * R()), 0.14 + 0.18 * R());
+    P = points(w * 3.6, 1);
+    if (o.base !== false) for (i = 0; i < P.length; i += 3) if (!calm || (R = rng(P[i + 2]))) mark(P[i], P[i + 1], th + (R() - 0.5) * jit, w * (5 + 7 * R()), w * (1.4 + 0.8 * R()), 0.14 + 0.18 * R());
     // 2. Hauptstriche: dicht, deutlich, ungleich lang und kräftig, überlappend
-    P = points(w * (1.75 + 0.35 * h));
-    for (i = 0; i < P.length; i += 2) {
+    P = points(w * (1.75 + 0.35 * h), 2);
+    for (i = 0; i < P.length; i += 3) {
+      if (calm) R = rng(P[i + 2]);
       var big = R() < 0.15 + 0.25 * h;
       mark(P[i], P[i + 1], th + (R() - 0.5) * jit, w * (big ? 9 + 9 * R() : 4 + 5 * R() * (0.5 + h)), w * (0.75 + R() * (0.3 + 0.7 * h)), (0.6 + 0.4 * R()) * (1 - 0.3 * h * R()));
     }
     // 3. Kreuzschraffur in Teilen der Fläche (Humanize)
     if (h > 0.25) {
-      P = points(w * 3.2); var th2 = th + (55 + (R() - 0.5) * 30) * Math.PI / 180;
-      for (i = 0; i < P.length; i += 2) if (R() < (h - 0.25) * 0.9) mark(P[i], P[i + 1], th2 + (R() - 0.5) * jit, w * (4 + 6 * R()), w * (0.6 + 0.5 * R()), 0.55 + 0.3 * R());
+      P = points(w * 3.2, 3); if (calm) R = rng(hsh(o.seed, 9, 1, 1)); var th2 = th + (55 + (R() - 0.5) * 30) * Math.PI / 180;
+      for (i = 0; i < P.length; i += 3) if ((!calm || (R = rng(P[i + 2]))) && R() < (h - 0.25) * 0.9) mark(P[i], P[i + 1], th2 + (R() - 0.5) * jit, w * (4 + 6 * R()), w * (0.6 + 0.5 * R()), 0.55 + 0.3 * R());
     }
     // 4. skizzierte Umrisse entlang der Kante, Richtung folgt der Kante
-    var gstep = Math.max(2, Math.round(w * 1.2 * f));
-    for (var yy2 = 1; yy2 < mh - 1; yy2 += gstep) for (var xx2 = 1; xx2 < mw - 1; xx2 += gstep) {
+    var gstep = Math.max(2, Math.round(w * 1.2 * f)), psx = calm ? Math.round(pan.x * f) : 0, psy = calm ? Math.round(pan.y * f) : 0;
+    var ox2 = calm ? ((psx % gstep) + gstep) % gstep : 0, oy2 = calm ? ((psy % gstep) + gstep) % gstep : 0;
+    for (var yy2 = 1 + oy2; yy2 < mh - 1; yy2 += gstep) for (var xx2 = 1 + ox2; xx2 < mw - 1; xx2 += gstep) {
+      if (calm) R = rng(hsh(o.seed, 4, Math.round((xx2 - psx) / gstep), Math.round((yy2 - psy) / gstep)));
       var k2 = yy2 * mw + xx2, gx2 = bl[k2 + 1] - bl[k2 - 1], gy2 = bl[k2 + mw] - bl[k2 - mw], gm = Math.hypot(gx2, gy2);
       if (gm < 0.2 || bl[k2] < 0.15 || bl[k2] > 0.85) continue;
       if (R() > (0.55 + 0.45 * h) * Math.min(1, keep + 0.2)) continue;
@@ -606,7 +685,7 @@
       var ca = (0.75 + 0.25 * R()) * am, cw = w * (0.6 + 0.5 * R());
       ribbon(px2 - ex, py2 - ey, px2, py2, px2 + ex, py2 + ey, cw, ca);
     }
-    if (type === "crayon") applyGrain(g2, F.ow, F.oh, o.grain == null ? 45 : o.grain, Math.floor(R() * 256), Math.floor(R() * 256));
+    if (type === "crayon") { if (calm) R = rng(hsh(o.seed, 5, 0, 0)); applyGrain(g2, F.ow, F.oh, o.grain == null ? 45 : o.grain, Math.floor(R() * 256) + (calm ? Math.round(pan.x) : 0), Math.floor(R() * 256) + (calm ? Math.round(pan.y) : 0)); }
     // auf die leicht erweiterte Maske beschneiden
     var mc = canvas(mw, mh), mx2 = mc.getContext("2d"), id = mx2.createImageData(mw, mh);
     for (i = 0; i < n; i++) id.data[i * 4 + 3] = Math.round(Math.min(1, bl[i] * 1.6) * 255);
@@ -714,7 +793,7 @@
   async function buildMagic() {
     var mp = V.mp, tok = ++mpTok;
     mp.busy = true; mp.result = null; mp.prog = 0; mp.layers = [];
-    if (!mp.pal || mp.pal.N !== S.mp.layers) mp.pal = makePalette();
+    if (!mp.pal || mp.pal.N !== S.mp.layers) { mp.pal = makePalette(); calmReset(); }
     var pal = mp.pal, C = pal.C, N = pal.N, G = qpGrids(), Gm = G.m, vb = vidBox(), n = Gm.w * Gm.h, i, j, k;
     mp.n = pal.list.length; mpPanel(); need();
     // Pixel den festen Palettenfarben zuordnen
@@ -764,7 +843,7 @@
       }
       mp.layers.push({ col: P.col, w: Math.round(width), hard: hardness, keep: Math.round(keep * 100) });
       if (area > n * 0.0008 || li === 0) {
-        sketch(raw, { color: P.col, width: width, human: S.mp.human, angle: S.mp.angle + P.ao, seed: P.seed, keep: keep, base: t2 < 0.5, type: S.mp.type }, lay);
+        sketch(raw, { color: P.col, width: width, human: S.mp.human, angle: S.mp.angle + P.ao, seed: P.seed, keep: keep, base: t2 < 0.5, type: S.mp.type, calm: S.mp.flow === "calm" ? S.mp.calm : null, key: "m" + kk }, lay);
         rx.drawImage(lay, 0, 0);
       }
       mp.prog = li + 1; mp.preview = res; mpPanel(); need();
@@ -787,21 +866,27 @@
     function sl(k, lab, min, max, u) { return '<div class="fp-row"><label for="fp-m-' + k + '">' + lab + '<span id="fp-m-' + k + '-v">' + S.mp[k] + u + '</span></label><input type="range" id="fp-m-' + k + '" data-mp="' + k + '" min="' + min + '" max="' + max + '" step="1" value="' + S.mp[k] + '"></div>'; }
     var st = mp.applied ? t("mpApplied") : mp.busy || mp.gen ? fmt(t("mpWork"), { i: Math.min(mp.prog + 1, mp.n || S.mp.layers), n: mp.n || S.mp.layers }) : fmt(t("mpDone"), { n: mp.layers.length });
     var html2 = '<div class="fp-qph"><b>' + t("mpH") + '</b><span class="fp-qs" id="fp-mp-st">' + st + '</span><button type="button" class="fp-x" data-fp="mpNo" aria-label="' + t("close") + '" title="' + t("close") + ' (Esc)">×</button></div>' +
-      sl("layers", t("mpLayers"), 4, 16, "") + typeSeg("data-mtype", S.mp.type) + sl("human", t("qpHuman"), 0, 100, " %") + sl("angle", t("mpAngle"), 0, 180, "°") + sl("width", t("mpWidth"), 3, 30, "px") +
+      sl("layers", t("mpLayers"), 4, 16, "") + flowSeg("data-mflow", S.mp, "m") + typeSeg("data-mtype", S.mp.type) + sl("human", t("qpHuman"), 0, 100, " %") + sl("angle", t("mpAngle"), 0, 180, "°") + sl("width", t("mpWidth"), 3, 30, "px") +
       '<div class="fp-mpl">' + mp.layers.map(function (l, i) { return '<span title="' + (i + 1) + " · " + l.col + " · " + l.w + "px · " + t("qpHard") + " " + l.hard + " % · " + t("mpCover") + " " + l.keep + ' %" style="background:' + l.col + '"></span>'; }).join("") + "</div>" +
-      '<p class="fp-desc">' + t(mp.pal ? "mpLocked" : "mpNew") + "</p>" +
+      '<p class="fp-desc fp-mpdesc">' + t(mp.pal ? "mpLocked" : "mpNew") + "</p>" +
       '<div class="fp-qb"><button type="button" class="fp-save" data-fp="mpOk"' + (mp.result && !mp.gen ? "" : " disabled") + ">" + t("qpOk") + '</button><button type="button" class="navbtn" data-fp="mpSeed">' + t("mpNewPal") + "</button></div>" +
       '<div class="fp-qbatch fp-mbatch">' + (V.batch ? '<p class="fp-note2" id="fp-qbat">' + fmt(t("qpBatchRun"), { i: V.batch.i, n: V.batch.n }) + '</p><button type="button" class="fp-save" data-fp="batchStop">' + t("qpStop") + "</button>"
         : '<button type="button" class="fp-qpbtn" data-fp="mpNext"' + (mp.pal ? "" : " disabled") + ">" + t("mpNext") + '</button><button type="button" class="navbtn" data-fp="mpAll"' + (mp.pal ? "" : " disabled") + ">" + t("mpAll") + '</button><p class="fp-note2">' + t("mpBatchNote") + "</p>") + "</div>";
     if (!fresh && pn.dataset.kind === "mp" && !pn.hidden && pn.querySelector("[data-mp]")) {
       var tmp = document.createElement("div"); tmp.innerHTML = html2;
       pn.querySelector("#fp-mp-st").textContent = st;
-      [".fp-mpl", ".fp-qb", ".fp-desc", ".fp-mbatch"].forEach(function (sel) { var a = pn.querySelector(sel), b = tmp.querySelector(sel); if (a && b) a.innerHTML = b.innerHTML; });
+      [".fp-mpl", ".fp-qb", ".fp-mpdesc", ".fp-mbatch"].forEach(function (sel) { var a = pn.querySelector(sel), b = tmp.querySelector(sel); if (a && b) a.innerHTML = b.innerHTML; });
       return;
     }
     pn.dataset.kind = "mp"; pn.innerHTML = html2;
     if (V.qpPos) { pn.style.left = V.qpPos.l + "px"; pn.style.top = V.qpPos.t + "px"; pn.style.right = "auto"; }
     pn.hidden = false;
+  }
+  function flowSeg(attr, o, pre) {
+    var cm = o.flow === "calm";
+    return '<div class="fp-row"><label>' + t("flowL") + '</label><div class="fp-seg">' + [["active", "fActive"], ["calm", "fCalm"]].map(function (q) {
+      return '<button type="button" ' + attr + '="' + q[0] + '" aria-pressed="' + (o.flow === q[0]) + '">' + t(q[1]) + "</button>"; }).join("") + "</div></div>" +
+      (cm ? '<div class="fp-row"><label for="fp-' + pre + '-calm">' + t("calmL") + '<span id="fp-' + pre + '-calm-v">' + o.calm + ' %</span></label><input type="range" id="fp-' + pre + '-calm" data-' + (pre === "q" ? "qp" : "mp") + '="calm" min="0" max="100" step="1" value="' + o.calm + '"></div><p class="fp-desc fp-flown">' + t("flowNote") + "</p>" : "");
   }
   function typeSeg(attr, cur) {
     return '<div class="fp-row"><label>' + t("ptype") + '</label><div class="fp-seg">' + [["stroke", "tStroke"], ["spray", "tSpray"], ["crayon", "tCrayon"]].map(function (o) {
@@ -813,7 +898,7 @@
     function sl(k, lab, min, max, u) { return '<div class="fp-row"><label for="fp-q-' + k + '">' + lab + '<span id="fp-q-' + k + '-v">' + S.qp[k] + u + '</span></label><input type="range" id="fp-q-' + k + '" data-qp="' + k + '" min="' + min + '" max="' + max + '" step="1" value="' + S.qp[k] + '"></div>'; }
     pn.dataset.kind = "qp";
     pn.innerHTML = '<div class="fp-qph"><b>' + t("qpH") + "</b>" + (q.keyHex ? '<span class="fp-qk" style="background:' + q.keyHex + '" title="' + t("qpKey") + '"></span>' : "") + '<span class="fp-qs">' + t(q.applied ? "qpApplied" : q.stage === "pick" ? "qpPick" : "qpTune") + '</span><button type="button" class="fp-x" data-fp="qpNo" aria-label="' + t("close") + '" title="' + t("close") + ' (Esc)">×</button></div>' +
-      sl("hard", t("qpHard"), 0, 100, " %") + (q.stage === "tune" ? typeSeg("data-qtype", S.qp.type) + sl("human", t("qpHuman"), 0, 100, " %") + sl("angle", t("qpAngle"), 0, 180, "°") + sl("width", t("qpWidth"), 2, 40, "px") : '<p class="fp-desc">' + t("qpHardNote") + "</p>") +
+      sl("hard", t("qpHard"), 0, 100, " %") + (q.stage === "tune" ? flowSeg("data-qflow", S.qp, "q") + typeSeg("data-qtype", S.qp.type) + sl("human", t("qpHuman"), 0, 100, " %") + sl("angle", t("qpAngle"), 0, 180, "°") + sl("width", t("qpWidth"), 2, 40, "px") : '<p class="fp-desc">' + t("qpHardNote") + "</p>") +
       '<div class="fp-qb">' + (q.stage === "tune" ? '<button type="button" class="fp-save" data-fp="qpOk"' + (q.applied ? " disabled" : "") + ">" + t("qpOk") + '</button><button type="button" class="navbtn" data-fp="qpSeed">' + t("qpSeed") + '</button><button type="button" class="navbtn" data-fp="qpRepick">' + t("qpRepick") + "</button>" : "") + "</div>" +
       (q.stage === "tune" ? '<div class="fp-qbatch">' + (V.batch ? '<p class="fp-desc" id="fp-qbat">' + fmt(t("qpBatchRun"), { i: V.batch.i, n: V.batch.n }) + '</p><button type="button" class="fp-save" data-fp="batchStop">' + t("qpStop") + "</button>"
         : '<button type="button" class="fp-qpbtn" data-fp="qpNext">' + t("qpNext") + '</button><button type="button" class="navbtn" data-fp="qpAll">' + t("qpAll") + '</button><p class="fp-desc">' + t("qpBatchNote") + "</p>") + "</div>" : "");
@@ -1313,9 +1398,11 @@
     if (V.qp.stage === "tune") { qpMask(); qpGenSoon(); } else V.qp.dirty = true;
   }
   function onClick(e) {
-    var b = e.target.closest("[data-fp],[data-tool],[data-mode],[data-col],[data-slot-load],[data-slot-save],[data-qtype],[data-mtype]"); if (!b) return;
+    var b = e.target.closest("[data-fp],[data-tool],[data-mode],[data-col],[data-slot-load],[data-slot-save],[data-qtype],[data-mtype],[data-qflow],[data-mflow]"); if (!b) return;
     if (V.batch) { if (b.dataset.fp === "batchStop") V.batch.stop = true; return; }
     if (b.dataset.qtype && !V.batch) { S.qp.type = b.dataset.qtype; if (V.qp) { V.qp.done = {}; qpPanel(); qpGenSoon(0); } return; }
+    if (b.dataset.qflow && !V.batch) { S.qp.flow = b.dataset.qflow; calmReset(); if (V.qp) { V.qp.done = {}; qpPanel(); qpGenSoon(0); } return; }
+    if (b.dataset.mflow && !V.batch) { S.mp.flow = b.dataset.mflow; calmReset(); if (V.mp) { V.mp.done = {}; mpTok++; V.mp.busy = true; V.mp.applied = false; V.mp.result = null; V.mp.gen = performance.now(); mpPanel(true); } return; }
     if (b.dataset.mtype && !V.batch) { S.mp.type = b.dataset.mtype; if (V.mp) { V.mp.done = {}; mpTok++; V.mp.busy = true; V.mp.applied = false; V.mp.result = null; V.mp.gen = performance.now(); mpPanel(true); } return; }
     if (b.dataset.slotLoad !== undefined) { if (F && V.layer) slotLoad(+b.dataset.slotLoad); return; }
     if (b.dataset.slotSave !== undefined) { slotSave(+b.dataset.slotSave); return; }

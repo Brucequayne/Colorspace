@@ -5,10 +5,10 @@
   "use strict";
 
   var KEY = "flughafen-v3";
-  var VERSION = "0.69";
+  var VERSION = "0.7";
   var RW_W = 22, TW_W = 14, RD_W = 16, SL_W = 9, RVW = 28;   // RVW: nur gezeichnete Pistenbreite
   var DIVERT = 60;
-  var SIZE = { stand: [64, 66], term: [124, 46], tower: [30, 30], fire: [52, 38], hangar: [84, 62], deck: [72, 38], park: [72, 48], bus: [44, 22], cab: [62, 22], hotels: [50, 34], hotel: [70, 44], hotell: [96, 74], tank: [44, 44] };
+  var SIZE = { stand: [64, 66], term: [124, 46], tower: [30, 30], fire: [52, 38], hangar: [84, 62], deck: [72, 38], park: [72, 48], bus: [44, 22], cab: [62, 22], hotels: [50, 34], hotel: [70, 44], hotell: [96, 74], tank: [44, 44], tpier: [150, 28], twing: [96, 46], thall: [76, 62] };
   var DEG = Math.PI / 180, STEP = 15 * DEG;
   var M_PX = 6, RW_MIN = 250, RW_MAX = 760;   // 1 Pixel Piste = 6 m; Mindestlänge 1.500 m
 
@@ -45,6 +45,8 @@
               "Passengers: an aircraft carries 120 to 400 people, a bus 50, a car or taxi 1 to 4. Arrivals leave the airport by bus, car or taxi. Passengers only board and leave while the aircraft is docked at a gate or stand. Cars and buses come in on the country road that crosses the map, so connect your roads to it. Cars don't drive through each other: they queue, and narrow roads jam. One-way roads keep two lanes: traffic uses the right one, the left one becomes angled parking that earns money like a car park."),
     how3: L2("Flugzeuge landen in Pfeilrichtung und verlassen die Piste über deine Rollwege. Eine Parkposition wird nur angeflogen, wenn ein Rollweg direkt davor liegt und Hin- und Rückweg zur Piste bestehen. Flugzeuge weichen einander aus und warten, wenn der Weg blockiert ist. Steht eine Position mit dem Rücken an einem Terminal, kann sie ein Gate bekommen.",
               "Aircraft land in the direction of the arrow and leave the runway via your taxiways. A stand is only used when a taxiway runs right in front of it with a way there from the runway and back. Aircraft keep their distance and wait when the way is blocked. If a stand's back touches a terminal, it can get a gate."),
+    how6: L2("Terminals fassen je 3.000 Fluggäste, jede Erweiterung (Pier, Flügel, Halle) 1.000 mehr, höchstens 5 je Terminal. Ist alles voll, steigt niemand mehr aus und Autos, Busse und Taxis warten. Jede Parkposition lässt sich zum Langzeit-Parkplatz machen: Airlines stellen dort Flugzeuge 1 bis 5 Minuten ab und zahlen Parkgebühr. Mit dem Wasserpinsel malst du Teiche, Flüsse und Seen, Straßen führen mit Brücken hinüber.",
+              "Terminals hold 3,000 passengers each, every extension (pier, wing, hall) 1,000 more, up to 5 per terminal. When everything is full, nobody gets off and cars, buses and taxis wait. Any stand can become long-term parking: airlines park aircraft there for 1 to 5 minutes and pay a parking fee. The water brush paints ponds, rivers and lakes; roads cross them on bridges."),
     how4: L2("Der Spielstand wird nur in deinem Browser gespeichert.", "Your progress is saved only in your browser."),
     reset: L2("Neues Spiel", "New game"), resetQ: L2("Wirklich alles löschen?", "Really delete everything?"),
     done: L2("Ausgebaut", "Complete"), maxed: L2("Maximum erreicht", "Maximum reached"), lvl: L2("Stufe", "Level"),
@@ -97,7 +99,7 @@
     finOpen: L2("Finanzbericht öffnen", "Open financial report"), finTitle: L2("Finanzbericht", "Financial report"),
     finSub: L2("Umsatz je Bereich in € pro Minute, letzte 15 Minuten", "Revenue by area in € per minute, last 15 minutes"),
     finTot: L2("Gesamt", "Total"), finSum: L2("Umsatz in 15 Minuten: {e}", "Revenue in 15 minutes: {e}"), finEmpty: L2("Noch keine Einnahmen", "No revenue yet"),
-    finCat: L2("Flugbetrieb|Fluggastentgelte|Kerosin an Airlines|Kerosinhandel|Shops|Hotels|Parken, Bus, Taxi|Wartung", "Flight operations|Passenger fees|Fuel to airlines|Fuel trading|Shops|Hotels|Parking, bus, taxi|Maintenance"),
+    finCat: L2("Flugbetrieb|Fluggastentgelte|Kerosin an Airlines|Kerosinhandel|Shops|Hotels|Parken, Bus, Taxi|Wartung|Langzeit-Parken", "Flight operations|Passenger fees|Fuel to airlines|Fuel trading|Shops|Hotels|Parking, bus, taxi|Maintenance|Long-term parking"),
     crisis: L2("Ölkrise", "Oil crisis"), crisisOn: L2("Ölkrise! Der Kerosinpreis steigt stark und bleibt eine Weile hoch.", "Oil crisis! The fuel price rises sharply and stays high for a while."),
     crisisOff: L2("Die Ölkrise ist vorbei, der Kerosinpreis beruhigt sich.", "The oil crisis is over, the fuel price is calming down."), crisisNow: L2("Ölkrise läuft", "Oil crisis ongoing"),
     wx: L2("Wetter", "Weather"), wxOpen: L2("Vorhersage öffnen", "Open forecast"), wxTitle: L2("Wetter und Vorhersage", "Weather and forecast"),
@@ -109,6 +111,9 @@
     smHold: L2("Bestand {n} Stk. · Ø Kaufkurs {a} · Wert {v}", "Holding {n} shares · avg. price {a} · value {v}"), smNone: L2("Keine Aktien im Bestand", "No shares held"),
     smBuyD: L2("Kauf: {n} Aktien zu je {p}", "Buying {n} shares at {p} each"), smSellD: L2("Verkauf: {n} Aktien zu je {p}", "Selling {n} shares at {p} each"),
     smFee: L2("Verkauf zum Kurs abzüglich 1 %", "Sales pay the price minus 1%"), smShares: L2("{n} Stk.", "{n} sh."), smDone: L2("Aktien verkauft", "Shares sold"), smBought: L2("Aktien gekauft", "Shares bought"),
+    smSplit: L2("Aktiensplit bei {n}: Der Kurs hat seinen Höchstwert erreicht, aus 1 Aktie werden 2, der Kurs halbiert sich.", "Stock split at {n}: the price hit its maximum, 1 share becomes 2 and the price halves."),
+    smSplitH: L2("Du hast jetzt {k} Stück.", "You now hold {k} shares."), smRange: L2("Spanne {a} bis {b} · am Höchstwert 25 % Chance auf einen Split 2:1", "Range {a} to {b} · at the maximum a 25% chance of a 2:1 split"),
+    fpSellS: L2("Verkauf", "Sell"), fpNote: L2("Je teurer Kerosin am Markt, desto weniger zahlen die Airlines. In der Krise bringt der Rückverkauf an den Markt mehr.", "The more expensive fuel is on the market, the less airlines pay. In a crisis, selling back to the market earns more."),
     smHint: L2("Airlines leiden unter hohem Ölpreis, Ölfirmen profitieren davon.", "Airlines suffer from high oil prices, oil companies profit from them."),
     storm: L2("Unwetter", "Severe storm"), stormOn: L2("Unwetter zieht auf: Starts sind ausgesetzt, bis es vorbei ist.", "A severe storm is coming: take-offs are suspended until it passes."),
     stormOff: L2("Das Unwetter ist abgezogen, Starts sind wieder frei.", "The storm has passed, take-offs are cleared again."), stormBan: L2("UNWETTER · Starts ausgesetzt", "SEVERE STORM · take-offs suspended"),
@@ -124,6 +129,16 @@
     trPrice: L2("Markt: Einkauf {b} · Rückkauf {s} je Einheit", "Market: buy {b} · sell back {s} per unit"),
     trDone: L2("Kerosin verkauft", "Fuel sold"),
     fuelHint: L2("Klick füllt alle Tanks auf", "Click to refill all tanks"),
+    lpOn: L2("Langzeit-Parkplatz: an", "Long-term parking: on"), lpOff: L2("Langzeit-Parkplatz: aus", "Long-term parking: off"),
+    lpInfo: L2("Langzeit-Parkplatz: Airlines stellen hier Flugzeuge 1 bis 5 Minuten ab. Gebühr pro Sekunde: klein {p}, mittel {n}, groß {w}. Weniger Ertrag als Abfertigungen, dafür kein Fluggastverkehr.", "Long-term parking: airlines park aircraft here for 1 to 5 minutes. Fee per second: small {p}, medium {n}, large {w}. Earns less than turnarounds, but no passenger traffic."),
+    lpNow: L2("Abgestellt: {cs} · noch {s} · bisher {e}", "Parked: {cs} · {s} left · so far {e}"), lpFee: L2("Abstellgebühr", "Parking fee"), lpShort: L2("Abgestellt", "Parked"),
+    lpSetOn: L2("Langzeit-Parkplatz eingerichtet: Hier stellen Airlines jetzt Flugzeuge ab.", "Long-term parking set up: airlines now park aircraft here."), lpSetOff: L2("Wieder normale Parkposition für Abfertigungen.", "Back to a normal stand for turnarounds."),
+    needTermX: L2("Erst ein Terminal bauen", "Build a terminal first"), extNeed: L2("Nur direkt an ein Terminal oder seine Erweiterungen anbauen.", "Only attach directly to a terminal or its extensions."),
+    extMax: L2("Dieses Terminal hat schon 5 Erweiterungen.", "This terminal already has 5 extensions."), extInfo: L2("Erweiterung von {n} · +1.000 Fluggäste", "Extension of {n} · +1,000 passengers"),
+    pierGate: L2("Positionen mit dem Rücken am Pier können ein Gate bekommen.", "Stands with their back to the pier can get a gate."),
+    termCapI: L2("Im Gebäude: {a} von {b} Fluggästen · Erweiterungen {e}/{x}", "In the building: {a} of {b} passengers · extensions {e}/{x}"),
+    termFullI: L2("Terminal voll: Flugzeuge, Autos und Busse warten, bis Platz ist.", "Terminal full: aircraft, cars and buses wait until there is room."),
+    termFull: L2("Terminal voll", "Terminal full"), rename: L2("Umbenennen", "Rename"), termName: L2("Name des Terminals", "Terminal name"),
     tMod: L2("Modernisieren", "Modernise"), tShop: L2("Shops einbauen", "Add shops"), tLng: L2("Lounge einbauen", "Add lounge"),
     tLvl2: L2("Modernes Terminal", "Modern terminal"), tHas: L2("Ausstattung: {x}", "Fitted: {x}"), tNone: L2("keine", "none"),
     shopsW: L2("Shops", "Shops"), lngW: L2("Lounge", "Lounge"), hotelInfo: L2("Gäste: {n} von {k}", "Guests: {n} of {k}"), hotelPay: L2("Hotel", "Hotel"),
@@ -151,6 +166,7 @@
       cv1: L2("Kurve: Klick setzt das Ende", "Curve: click to set the end"),
       cv2: L2("Kurve: Maus biegt die Kurve · Klick baut · Rechtsklick oder Esc setzt das Ende neu", "Curve: the mouse bends the curve · click to build · right-click or Esc to reset the end"),
       brush: L2("Ziehen pflanzt Bäume und Büsche · Umschalt + Ziehen entfernt · Esc beendet", "Drag to plant trees and bushes · Shift + drag removes · Esc to stop"),
+      water: L2("Ziehen malt Wasser · Umschalt + Ziehen entfernt · Esc beendet", "Drag to paint water · Shift + drag removes · Esc to stop"),
       apply: L2("Klick auf eine Parkposition · Esc beendet", "Click a stand · Esc to stop"),
       rw0: L2("Klick setzt den Pistenanfang, hier setzen die Flugzeuge auf", "Click to set the runway start, aircraft touch down here"),
       rw1: L2("Maus bestimmt Richtung und Länge · Klick baut · Umschalt für 15° · Esc bricht ab", "Mouse sets direction and length · click to build · Shift for 15° · Esc cancels"),
@@ -164,7 +180,10 @@
     n: { cap: 190, rev: 40000, turn: 26, len: 28, span: 26.5, swp: 27, roll: 140, need: 350 },
     w: { cap: 400, rev: 90000, turn: 40, len: 38, span: 36.5, swp: 32, roll: 200, heavy: true, need: 500 }
   };
-  var PAXFEE = 30, SHOP = 15, PARKFEE = 5, BUSFARE = 4, TAXIFEE = 18;   // Euro pro Fluggast, pro Sekunde Parken, pro Fahrgast, pro Taxi
+  var PAXFEE = 30, SHOP = 15, PARKFEE = 5, BUSFARE = 4, TAXIFEE = 18;
+  // Langzeit-Parkplatz (v0.7): Airlines stellen Flugzeuge 1–5 Minuten (Echtzeit) ab und zahlen Gebühr pro Sekunde.
+  // Etwa ein Fünftel dessen, was eine Position mit laufenden Abfertigungen bringt, dafür kein Fluggastverkehr.
+  var LPFEE = { p: 90, n: 180, w: 380 };   // Euro pro Fluggast, pro Sekunde Parken, pro Fahrgast, pro Taxi
   var AIRLINES = [ // neutrale Charter- und Regionalflieger: weiß mit grauem Heck
     { c: "SOY", col: "#8C96A0" }, { c: "WOK", col: "#6B7580" }, { c: "TFU", col: "#A3ACB5" },
     { c: "MSO", col: "#5C6670" }, { c: "UMA", col: "#959DA6" }, { c: "KOI", col: "#7D8794" }, { c: "NRI", col: "#4F5963" }
@@ -183,7 +202,7 @@
 
   function fresh() {
     var g = { v: 3, v4: 1, eco: 1, money: 25000000, rep: 50, nid: 1, mods: [],
-      up: { rwy: 0, ils: 0, gh: 0, ext: 0 }, st: { moves: 0, pax: 0, earned: 0, div: 0 }, veg: [], pave: {}, fuel: 0, fpt: 0, fps: Math.random() * 1000 };
+      up: { rwy: 0, ils: 0, gh: 0, ext: 0 }, st: { moves: 0, pax: 0, earned: 0, div: 0 }, veg: [], pave: {}, water: {}, tno: 0, fuel: 0, fpt: 0, fps: Math.random() * 1000 };
     addHighway(g, 430);
     return g;
   }
@@ -210,6 +229,8 @@
           addHighway(s, y1 + 300, xa, xb);
           s.legacyRoads = true;
         }
+        if (!s.water) s.water = {};
+        var tn = 0; s.mods.forEach(function (m) { if (m.t === "term") { tn++; if (!m.name) m.name = "Terminal " + tn; } }); if (!s.tno || s.tno < tn) s.tno = tn;
         if (!s.veg) s.veg = []; if (!s.pave) s.pave = {}; if (s.fuel === undefined) s.fuel = 0; if (!s.fpt) s.fpt = 0; if (s.fps === undefined) s.fps = Math.random() * 1000;
         return s;
       }
@@ -406,7 +427,7 @@
       m._half = has && !!reachIn[m._pn] && !reachOut[m._pn];
       m._conn = has && !!reachIn[m._pn] && !!reachOut[m._pn];
       var d = standDirs(m), h = SIZE.stand[1] / 2 + 6, P = { x: m.x + d.bx * h, y: m.y + d.by * h };
-      m._term = mods("term").some(function (tm) { return inFoot(foot(tm), P, 1); });
+      m._term = G.mods.some(function (tm) { return termLike(tm) && inFoot(foot(tm), P, 1); });
     });
     NET = { N: N, E: E, adj: adj };
     buildRoads();
@@ -537,7 +558,7 @@
   function stats() {
     var st = mods("stand");
     return {
-      stands: st.length, conn: st.filter(function (m) { return m._conn; }).length,
+      stands: st.length, conn: st.filter(function (m) { return m._conn; }).length, lp: st.filter(function (m) { return m._conn && m.lp; }).length,
       gates: st.filter(function (m) { return m._conn && m.gate && m._term; }).length,
       heavy: st.filter(function (m) { return m._conn && m.heavy; }).length,
       rws: mods("runway").length, term: mods("term").length,
@@ -580,13 +601,22 @@
       desc: L2("Fluggastbrücke für eine Position, die mit dem Rücken am Terminal steht.", "A jet bridge for a stand whose back touches a terminal."),
       cost: function () { return 325000; },
       lock: function () { return mods("term").length ? "" : (lang === "de" ? "Erst ein Terminalmodul bauen" : "Build a terminal module first"); } },
-    { id: "term", g: "term", tool: "rect", name: L2("Terminalmodul", "Terminal module"),
-      desc: L2("Gebäudeabschnitt mit Check-in und Kontrolle. Rastet an Positionen und anderen Modulen ein.", "Building section with check-in and security. Snaps to stands and other modules."),
+    { id: "term", g: "term", tool: "rect", name: L2("Terminal", "Terminal"),
+      desc: L2("Eigenes Terminal mit Check-in und Kontrolle für 3.000 Fluggäste. Bekommt beim Bauen einen Namen. Rastet an Positionen und anderen Modulen ein.", "A terminal of its own with check-in and security for 3,000 passengers. Gets a name when built. Snaps to stands and other modules."),
       cost: function () { return 3500000; },
       lock: function () {
         if (!mods("runway").length) return t("needRw");
         return mods("term").length >= 2 && !stats().termRoad ? t("needRoad") : "";
       } },
+    { id: "tpier", g: "term", tool: "rect", name: L2("Terminal-Pier", "Terminal pier"),
+      desc: L2("Langer, schmaler Fingersteg, der vom Terminal aufs Vorfeld ragt. Positionen mit dem Rücken daran bekommen Gates. +1.000 Fluggäste Kapazität, nur direkt an einem Terminal (max. 5 Erweiterungen).", "Long, narrow finger pier reaching from the terminal onto the apron. Stands with their back to it can get gates. +1,000 passenger capacity, only attached to a terminal (max. 5 extensions)."),
+      cost: function () { return EXT.tpier.cost; }, lock: function () { return mods("term").length ? "" : t("needTermX"); } },
+    { id: "twing", g: "term", tool: "rect", name: L2("Terminal-Flügel", "Terminal wing"),
+      desc: L2("Seitenflügel mit Wartebereichen. +1.000 Fluggäste Kapazität, nur direkt an einem Terminal (max. 5 Erweiterungen).", "Side wing with waiting areas. +1,000 passenger capacity, only attached to a terminal (max. 5 extensions)."),
+      cost: function () { return EXT.twing.cost; }, lock: function () { return mods("term").length ? "" : t("needTermX"); } },
+    { id: "thall", g: "term", tool: "rect", name: L2("Terminal-Halle", "Terminal hall"),
+      desc: L2("Große Halle mit Glasdach. +1.000 Fluggäste Kapazität, nur direkt an einem Terminal (max. 5 Erweiterungen).", "Large hall with a glass roof. +1,000 passenger capacity, only attached to a terminal (max. 5 extensions)."),
+      cost: function () { return EXT.thall.cost; }, lock: function () { return mods("term").length ? "" : t("needTermX"); } },
     { id: "heavy", g: "term", tool: "apply", name: L2("Großraum-Position", "Widebody stand"),
       desc: L2("Macht eine Position fit für Langstreckenjets, die am meisten einbringen.", "Makes a stand fit for widebody jets, which earn the most."),
       cost: function () { return 850000; },
@@ -615,6 +645,12 @@
     { id: "hotell", g: "land", tool: "rect", name: L2("Hotel groß", "Large hotel"),
       desc: L2("An einer Straße: großes Hotel mit eigenem Parkplatz davor, 180 Gäste. Zieht die meisten Übernachtungen an.", "On a road: large hotel with its own car park in front, 180 guests. Attracts the most overnight stays."),
       cost: function () { return HOTELS.hotell.cost; }, lock: function () { if (!mods("runway").length) return t("needRw"); if (!mods("term").length) return lang === "de" ? "Erst ein Terminalmodul bauen" : "Build a terminal module first"; return hotels().length >= 12 ? t("maxed") : ""; } },
+    { id: "bridge", g: "land", tool: "line", name: L2("Brücke", "Bridge"),
+      desc: L2("Straße, die über Wasser führen darf. Wie bei der Straße: Taste O wechselt zwischen beiden Richtungen, Einbahn mit Parkstreifen, Einbahn einspurig und Einbahn mit Busspur, Taste C baut Kurven.", "A road that may cross water. As with roads: key O switches between two-way, one-way with parking, one-way single lane and one-way with bus lane, key C builds curves."),
+      cost: function () { return 40000; }, unit: 4000, lock: function () { return mods("runway").length ? "" : t("needRw"); } },
+    { id: "water", g: "land", tool: "brush", name: L2("Wasser", "Water"),
+      desc: L2("Pinsel für Teiche, Flüsse und Seen. Ziehen malt, Umschalt + Ziehen entfernt. Auf Wasser kann nichts gebaut werden, Straßen kommen nur mit Brücken hinüber. 400 € pro Feld.", "Brush for ponds, rivers and lakes. Drag to paint, Shift + drag removes. Nothing can be built on water, roads only cross it with bridges. €400 per tile."),
+      cost: function () { return 400; }, lock: function () { return ""; } },
     { id: "veg", g: "land", tool: "brush", name: L2("Vegetation", "Vegetation"),
       desc: L2("Pinsel mit einer Mischung aus Bäumen und Büschen. Ziehen pflanzt, Umschalt + Ziehen entfernt. Je Pflanze 1.500 €, etwas besserer Ruf.", "Brush with a mix of trees and bushes. Drag to plant, Shift + drag removes. €1,500 per plant, a slightly better reputation."),
       cost: function () { return 1500; }, lock: function () { return ""; } },
@@ -653,8 +689,8 @@
   // Neupreis eines Bauteils (für die Umstellung alter Spielstände)
   function priceOf(m) {
     var len = m.x2 !== undefined ? Math.hypot(m.x2 - m.x1, m.y2 - m.y1) : 0;
-    var base = { runway: rwCost(rwLen(m), 0), taxi: Math.max(25000, len * 2500), road: Math.max(8000, len * 800), stand: 325000, term: 3500000,
-      park: 120000, bus: 60000, cab: 90000, hotels: 900000, hotel: 1600000, hotell: 2400000, tank: 250000, tower: 2500000, fire: 750000, hangar: 6000000, deck: 400000 }[m.t] || 0;
+    var base = { runway: rwCost(rwLen(m), 0), taxi: Math.max(25000, len * 2500), road: m.br ? Math.max(40000, len * 4000) : Math.max(8000, len * 800), stand: 325000, term: 3500000,
+      park: 120000, bus: 60000, cab: 90000, hotels: 900000, hotel: 1600000, hotell: 2400000, tank: 250000, tower: 2500000, fire: 750000, hangar: 6000000, deck: 400000, tpier: EXT.tpier.cost, twing: EXT.twing.cost, thall: EXT.thall.cost }[m.t] || 0;
     if (m.gate) base += 325000; if (m.heavy) base += 850000; if (m.t === "term") { if (m.lvl >= 2) base += TUP.tmod; if (m.shops) base += TUP.tshop; if (m.lounge) base += TUP.tlng; }
     if (m.lvl >= 2 && LVL[m.t]) base += LVL[m.t][0];
     return base;
@@ -665,6 +701,7 @@
     m.id = G.nid++; m.paid = cost;
     if (m.t === "tower" || m.t === "fire" || m.t === "hangar" || m.t === "term") m.lvl = 1;
     if (isHotel(m.t)) { m.hc = G.hcol || 0; G.hcol = (G.hcol || 0) + 1; }
+    if (m.t === "term") { G.tno = (G.tno || 0) + 1; m.name = "Terminal " + G.tno; }
     G.mods.push(m);
     G.money -= cost;
     clearVeg(m);
@@ -675,13 +712,75 @@
   function clearVeg(m) { if (!G.veg || !G.veg.length) return; var f = foot(m); G.veg = G.veg.filter(function (v) { return !inFoot(f, v, v.r * 0.6); }); }
   // Vegetationspinsel: Bäume und Büsche gemischt, nicht auf Gebautem
   var PV = 16;
+  // Wasser (v0.7): Felder wie beim Asphalt, gezeichnet als weiche Uferlinie
+  function wKey(i, j) { return i + "," + j; }
+  function isWater(x, y) { return !!(G.water && G.water[wKey(Math.floor(x / PV), Math.floor(y / PV))]); }
+  // Liegt Wasser unter einem Rechteck (Grundfläche f)?
+  function waterInFoot(f) {
+    if (!G.water) return false; var ks = Object.keys(G.water); if (!ks.length) return false;
+    var c = corners(f), x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity; c.forEach(function (q) { x0 = Math.min(x0, q.x); x1 = Math.max(x1, q.x); y0 = Math.min(y0, q.y); y1 = Math.max(y1, q.y); });
+    for (var j = Math.floor(y0 / PV); j <= Math.floor(y1 / PV); j++) for (var i = Math.floor(x0 / PV); i <= Math.floor(x1 / PV); i++)
+      if (G.water[wKey(i, j)] && inFoot(f, { x: (i + 0.5) * PV, y: (j + 0.5) * PV }, PV * 0.3)) return true;
+    return false;
+  }
+  function waterOnLine(a, b, w) {
+    if (!G.water || !Object.keys(G.water).length) return false;
+    var L = dist(a, b), n = Math.max(1, Math.ceil(L / 5));
+    for (var k = 0; k <= n; k++) { var x = a.x + (b.x - a.x) * k / n, y = a.y + (b.y - a.y) * k / n; if (isWater(x, y) || isWater(x + w / 2, y) || isWater(x - w / 2, y) || isWater(x, y + w / 2) || isWater(x, y - w / 2)) return true; }
+    return false;
+  }
+  var WVER = 0, WCACHE = null;
+  function waterPolys() {
+    var keys = Object.keys(G.water || {}); if (!keys.length) return [];
+    if (WCACHE && WCACHE.v === WVER && WCACHE.n === keys.length && WCACHE.g === G) return WCACHE.p;
+    var i0 = Infinity, i1 = -Infinity, j0 = Infinity, j1 = -Infinity;
+    keys.forEach(function (k) { var c = k.indexOf(","), i = +k.slice(0, c), j = +k.slice(c + 1); if (i < i0) i0 = i; if (i > i1) i1 = i; if (j < j0) j0 = j; if (j > j1) j1 = j; });
+    function v(i, j) { return G.water[i + "," + j] ? 1 : 0; }
+    var nb = {}, pts = {};
+    function P(x, y) { var k = x + ":" + y; pts[k] = { x: x, y: y }; return k; }
+    function seg(a, b) { (nb[a] || (nb[a] = [])).push(b); (nb[b] || (nb[b] = [])).push(a); }
+    for (var j = j0 - 1; j <= j1; j++) for (var i = i0 - 1; i <= i1; i++) {
+      var a = v(i, j), b = v(i + 1, j), c = v(i + 1, j + 1), d = v(i, j + 1), idx = a * 8 + b * 4 + c * 2 + d;
+      if (idx === 0 || idx === 15) continue;
+      var X = (i + 0.5) * PV, Y = (j + 0.5) * PV, T = P(X + PV / 2, Y), Rr = P(X + PV, Y + PV / 2), B = P(X + PV / 2, Y + PV), Lf = P(X, Y + PV / 2);
+      switch (idx) {
+        case 1: case 14: seg(Lf, B); break; case 2: case 13: seg(B, Rr); break; case 3: case 12: seg(Lf, Rr); break;
+        case 4: case 11: seg(T, Rr); break; case 6: case 9: seg(T, B); break; case 7: case 8: seg(T, Lf); break;
+        case 5: seg(T, Rr); seg(Lf, B); break; case 10: seg(T, Lf); seg(B, Rr); break;
+      }
+    }
+    var used = {}, out = [];
+    Object.keys(nb).forEach(function (st) {
+      if (used[st]) return;
+      var loop = [], cur = st, prev = null, guard = 0;
+      while (cur && !used[cur] && guard++ < 200000) { used[cur] = 1; loop.push(pts[cur]); var n = nb[cur], nx = n[0] !== prev && !used[n[0]] ? n[0] : n[1] !== prev && n[1] && !used[n[1]] ? n[1] : null; prev = cur; cur = nx; }
+      if (loop.length >= 3) { var cl = loop.concat([loop[0]]); out.push(chaikin(chaikin(cl, 1), 2)); }
+    });
+    WCACHE = { v: WVER, n: keys.length, g: G, p: out };
+    return out;
+  }
+  function waterAt(p, erase) {
+    WVER++;
+    var Rb = 30, i0 = Math.floor((p.x - Rb) / PV), i1 = Math.floor((p.x + Rb) / PV), j0 = Math.floor((p.y - Rb) / PV), j1 = Math.floor((p.y + Rb) / PV);
+    for (var j = j0; j <= j1; j++) for (var i = i0; i <= i1; i++) {
+      var cx = (i + 0.5) * PV, cy = (j + 0.5) * PV; if (Math.hypot(cx - p.x, cy - p.y) > Rb) continue;
+      var k = wKey(i, j), cp = { x: cx, y: cy };
+      if (erase) { if (G.water[k]) { delete G.water[k]; V.brushed = true; } continue; }
+      if (G.water[k]) continue;
+      // nicht unter Gebautem, außer unter Brücken
+      if (G.mods.some(function (m) { if (m.t === "road" && m.br) return false; if (m.t === "road" || m.t === "taxi" || m.t === "runway") { var e = segEnds(m); return segProj(cp, e[0], e[1]).d < (m.t === "runway" ? RW_W : m.t === "taxi" ? TW_W : RD_W) / 2 + PV * 0.6; } return inFoot(foot(m), cp, PV * 0.6); })) continue;
+      if (G.money < 400) { if (!V.brush.poor) { msg(t("poor")); V.brush.poor = true; } return; }
+      G.water[k] = 1; G.money -= 400; V.brushed = true; delete G.pave[k];
+      if (G.veg.length) G.veg = G.veg.filter(function (v) { return Math.abs(v.x - cx) > PV * 0.6 + v.r * 0.5 || Math.abs(v.y - cy) > PV * 0.6 + v.r * 0.5; });
+    }
+  }
   function paveAt(p, erase) {
     var Rb = 22, i0 = Math.floor((p.x - Rb) / PV), i1 = Math.floor((p.x + Rb) / PV), j0 = Math.floor((p.y - Rb) / PV), j1 = Math.floor((p.y + Rb) / PV);
     for (var j = j0; j <= j1; j++) for (var i = i0; i <= i1; i++) {
       var cx = (i + 0.5) * PV, cy = (j + 0.5) * PV; if (Math.hypot(cx - p.x, cy - p.y) > Rb) continue;
       var k = i + "," + j;
       if (erase) { if (G.pave[k]) { delete G.pave[k]; V.brushed = true; } continue; }
-      if (G.pave[k]) continue;
+      if (G.pave[k] || (G.water && G.water[k])) continue;
       if (G.money < 300) { if (!V.brush.poor) { msg(t("poor")); V.brush.poor = true; } return; }
       G.pave[k] = 1; G.money -= 300; V.brushed = true;
       if (G.veg.length) G.veg = G.veg.filter(function (v) { return Math.abs(v.x - cx) > PV * 0.6 + v.r * 0.5 || Math.abs(v.y - cy) > PV * 0.6 + v.r * 0.5; });
@@ -689,6 +788,7 @@
   }
   function brushAt(p, erase) {
     if (V.tool && V.tool.id === "pave") { paveAt(p, erase); return; }
+    if (V.tool && V.tool.id === "water") { waterAt(p, erase); return; }
     var Rb = 34;
     if (erase) { var n0 = G.veg.length; G.veg = G.veg.filter(function (v) { return dist(v, p) > Rb; }); if (n0 !== G.veg.length) V.brushed = true; return; }
     var B = V.brush; if (B.last && dist(B.last, p) < 9) return; B.last = { x: p.x, y: p.y };
@@ -696,7 +796,7 @@
       if (G.money < 1500) { if (!B.poor) { msg(t("poor")); B.poor = true; } return; }
       var a = Math.random() * Math.PI * 2, rd = Math.sqrt(Math.random()) * Rb, q = { x: p.x + Math.cos(a) * rd, y: p.y + Math.sin(a) * rd };
       var tree = Math.random() < 0.45, r = tree ? 9 + Math.random() * 6 : 4 + Math.random() * 3;
-      if (G.mods.some(function (m) { return inFoot(foot(m), q, r + 3); })) continue;
+      if (G.mods.some(function (m) { return inFoot(foot(m), q, r + 3); }) || isWater(q.x, q.y)) continue;
       if (G.veg.some(function (v) { return dist(v, q) < (v.r + r) * 0.72; })) continue;
       G.veg.push({ x: Math.round(q.x * 10) / 10, y: Math.round(q.y * 10) / 10, r: Math.round(r * 10) / 10, k: tree ? 1 : 0, s: Math.round(Math.random() * 100) / 100 });
       G.money -= 1500; G.rep = Math.min(100, G.rep + 0.01); V.brushed = true;
@@ -746,6 +846,7 @@
         if (d < 70) cand(px, py, ang, d * 0.9, null);
       });
     }
+    if (isExt(type)) return best;   // Erweiterungen rasten nur an Gebäuden ein, nicht an Straßen
     if (type === "park" || type === "bus" || type === "term" || type === "cab" || isHotel(type)) { // bündig an die Straße
       mods("road").forEach(function (m) {
         var a = { x: m.x1, y: m.y1 }, b = { x: m.x2, y: m.y2 }, pr = segProj(cur, a, b);
@@ -763,21 +864,24 @@
 
   function rectValid(type, x, y, a) {
     var s = SIZE[type], f = { x: x, y: y, a: a, hw: s[0] / 2, hh: s[1] / 2 }, soft = { park: 1, bus: 1, cab: 1 };
+    if (waterInFoot(f)) return false;
     // Parkplätze und Haltebuchten dürfen sich gegenseitig um etwa 5 % überlappen
     return !G.mods.some(function (m) { return m.id !== V.ignore && overlap(f, foot(m), soft[type] && soft[m.t] ? 1.5 + Math.min(s[0], s[1]) * 0.05 : 1.5); });
   }
   function runwayValid(x, y, a, len) {
     if (len < RW_MIN) return false;
     var f = { x: x, y: y, a: a, hw: len / 2, hh: RW_W / 2 + 6 };
+    if (waterInFoot(f)) return false;
     return !G.mods.some(function (m) { return m.t !== "taxi" && overlap(f, foot(m), 1.5); });
   }
   function lineValid(type, a, b) {
     if (dist(a, b) < 20) return false;
     var l = dist(a, b), w = type === "taxi" ? TW_W : RD_W;
     var f = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, a: Math.atan2(b.y - a.y, b.x - a.x), hw: l / 2 - 4, hh: w / 2 };
+    if (type !== "bridge" && waterOnLine(a, b, w)) return false;   // über Wasser nur mit Brücke
     return !G.mods.some(function (m) {
       if (type === "taxi" && (m.t === "taxi" || m.t === "runway")) return false;
-      if (type === "road" && m.t === "road") return false;
+      if ((type === "road" || type === "bridge") && m.t === "road") return false;
       return overlap(f, foot(m), 1.5);
     });
   }
@@ -794,7 +898,7 @@
   // ---------- Verkehr ----------
   function interval() {
     var s = stats();
-    var cap = 0.6 + 0.4 * s.conn + 0.2 * s.gates + 0.25 * s.heavy + (s.rws > 1 ? 0.8 : 0);
+    var cap = 0.6 + 0.4 * Math.max(0, s.conn - s.lp) + 0.2 * s.gates + 0.25 * s.heavy + (s.rws > 1 ? 0.8 : 0);
     var land = 1 + (s.termRoad ? 0.15 : 0) + 0.08 * s.bus;
     var repF = 1.35 - G.rep / 100 * 0.7;
     return Math.max(4.5, 50 / (cap * land) * repF);
@@ -803,7 +907,7 @@
     if (!m._conn || (TYPES[k].heavy && !m.heavy) || !depRunway(m, k)) return false;
     return mods("runway").some(function (rw) { return rwFits(rw, k) && (rw._junc || []).some(function (j) { return j.d >= 50 && path(j.n, m._pn); }); });
   }
-  function typeReachable(k) { return mods("stand").some(function (m) { return standOkFor(m, k); }); }
+  function typeReachable(k) { return mods("stand").some(function (m) { return !m.lp && standOkFor(m, k); }); }
   function pickType() {
     var s = stats();
     // Ein Typ kommt, sobald irgendeine passende Piste eine passende Position erreicht (nicht mehr beide Pisten nötig)
@@ -813,13 +917,26 @@
     return r < w.p ? "p" : r < w.p + w.n ? "n" : "w";
   }
   function spawn() {
-    if (R.holdQ.length >= 6 || !stats().conn || fuelOut() || opsBlocked()) return;   // ohne Kerosin ist der Flugbetrieb eingestellt
+    if (R.holdQ.length >= 6 || stats().conn - stats().lp <= 0 || fuelOut() || opsBlocked()) return;   // ohne Kerosin ist der Flugbetrieb eingestellt
     var a = Math.random() < 0.35 ? CARRIERS[Math.floor(Math.random() * CARRIERS.length)] : AIRLINES[Math.floor(Math.random() * AIRLINES.length)];
     var p = { id: ++R.id, type: pickType(), al: a, cs: a.c + (100 + Math.floor(Math.random() * 900)),
       x: 0, y: 0, h: 0, alt: 0.8, ang: Math.random() * 6, wait: 0, fade: 0, state: "hold", path: null, pi: 0 };
     var cap = TYPES[p.type].cap;
     p.cap = cap; p.revF = 1.5 + Math.random() * 0.5; p.paxIn = Math.round(cap * loadF()); p.book = Math.round(cap * loadF());
     bookTrips(p.book);
+    R.planes.push(p); R.holdQ.push(p);
+  }
+  // Langzeit-Parker: kommt nur, wenn eine Langzeit-Position frei ist, ohne Fluggäste
+  function spawnLP() {
+    if (R.holdQ.length >= 6 || fuelOut() || opsBlocked() || R.holdQ.some(function (h) { return h.lp; })) return;
+    var free = mods("stand").filter(function (m) { return m.lp && m._conn && !R.occ[m.id]; });
+    if (!free.length) return;
+    var st = free[Math.floor(Math.random() * free.length)], ks = ["w", "n", "p"].filter(function (k) { return standOkFor(st, k); });
+    if (!ks.length) return;
+    var type = ks.length > 1 && Math.random() < 0.55 ? ks[1] : ks[0];
+    var a = Math.random() < 0.5 ? CARRIERS[Math.floor(Math.random() * CARRIERS.length)] : AIRLINES[Math.floor(Math.random() * AIRLINES.length)];
+    var p = { id: ++R.id, type: type, al: a, cs: a.c + (100 + Math.floor(Math.random() * 900)), lp: true,
+      x: 0, y: 0, h: 0, alt: 0.8, ang: Math.random() * 6, wait: 0, fade: 0, state: "hold", path: null, pi: 0, cap: TYPES[type].cap, revF: 1, paxIn: 0, book: 0 };
     R.planes.push(p); R.holdQ.push(p);
   }
   function rwState(m) { if (!R.rw[m.id]) R.rw[m.id] = { busy: null, next: null, cool: 0, last: "" }; return R.rw[m.id]; }
@@ -871,18 +988,18 @@
     });
     return best || last;
   }
-  function standsFor(type) {   // freie, angebundene Positionen, beste zuerst
-    // Wartet ein Großraumjet, bleiben Großraum-Positionen für ihn frei
-    var wideWaiting = !TYPES[type].heavy && R.holdQ.some(function (h) { return TYPES[h.type].heavy; });
-    var L = mods("stand").filter(function (m) { return m._conn && !R.occ[m.id] && (!TYPES[type].heavy || m.heavy) && !(wideWaiting && m.heavy); });
+  function standsFor(type, lp) {   // freie, angebundene Positionen, beste zuerst
+    // Wartet ein Großraumjet, bleiben Großraum-Positionen für ihn frei; Langzeit-Positionen nur für Langzeit-Parker
+    var wideWaiting = !TYPES[type].heavy && R.holdQ.some(function (h) { return TYPES[h.type].heavy && !h.lp; });
+    var L = mods("stand").filter(function (m) { return m._conn && !R.occ[m.id] && !!m.lp === !!lp && (!TYPES[type].heavy || m.heavy) && (lp || !(wideWaiting && m.heavy)); });
     L.forEach(function (m) { m._sc = (m.gate && m._term ? 2 : 0) - (m.heavy && !TYPES[type].heavy ? 1.5 : 0) + Math.random() * 0.1; });
     return L.sort(function (a, b) { return b._sc - a._sc; });
   }
-  function freeStand(type) {
+  function freeStand(type, lp) {
     var rw = mods("runway")[0], out = null, bs = -99;
     if (!rw) return null;
     mods("stand").forEach(function (m) {
-      if (!m._conn || R.occ[m.id]) return;
+      if (!m._conn || R.occ[m.id] || !!m.lp !== !!lp) return;
       if (TYPES[type].heavy && !m.heavy) return;
       var s = (m.gate && m._term ? 2 : 0) - (m.heavy && !TYPES[type].heavy ? 1.5 : 0) + Math.random() * 0.1;
       if (s > bs) { bs = s; out = m; }
@@ -911,7 +1028,7 @@
     for (var i = 1; i < pa.length; i++) pts.push({ x: pa[i].x, y: pa[i].y, s: i === pa.length - 1 ? 8 : i === pa.length - 2 ? 14 : 40 });
     p.path = pts; p.pi = 0; p.onEnd = park;
   }
-  function touchdown(p) { if (Math.random() < CRASHP) { crash(p); return; } earn(TYPES[p.type].rev * 0.4 * p.paxIn / p.cap * (p.revF || 1), p.x, p.y, "", "fly"); movement(); }
+  function touchdown(p) { if (Math.random() < CRASHP) { crash(p); return; } if (p.lp) { movement(); return; } earn(TYPES[p.type].rev * 0.4 * p.paxIn / p.cap * (p.revF || 1), p.x, p.y, "", "fly"); movement(); }
   function movement() {
     G.st.moves++;
     if (one("deck")) {
@@ -924,6 +1041,7 @@
     var st = byId(p.st);
     p.state = "park"; p.phase = "unload"; p.on = p.paxIn; p.boarded = 0; p.acc = 0; p.starve = 0; p.docked = true;
     if (st) { var d = standDirs(st); p.h = Math.atan2(d.by, d.bx); }
+    if (p.lp) { p.phase = "lpark"; p.lp0 = G.fpt || 0; p.lpDur = 60 + Math.random() * 240; refuel(p); if (p.fuelled) fuelJob(p); return; }
     refuel(p); apronJobs(p, st);
   }
   function fuelJob(p) {
@@ -955,9 +1073,20 @@
       if (refuel(p)) { fuelJob(p); if (ready) { p.phase = "fuel"; p.t = 7; return; } }
     }
     var hasTerm = mods("term").length > 0;
+    if (p.phase === "lpark") {
+      // abgestellt: Gebühr läuft in Echtzeit, nach 1–5 Minuten fliegt die Maschine leer weiter
+      if ((G.fpt || 0) - p.lp0 >= p.lpDur && !p.noFuel) {
+        var secs = (G.fpt || 0) - p.lp0, fee = Math.round(secs * LPFEE[p.type]);
+        earn(fee, p.x, p.y - 14, t("lpFee"), "lpark"); p.boarded = 0; p.book = 0; depart(p);
+      }
+      return;
+    }
     if (p.phase === "unload") {
       p.acc += paxRate(p) * dt;
-      var k = Math.min(p.on, Math.floor(p.acc)); p.acc -= k; p.on -= k;
+      var k = Math.min(p.on, Math.floor(p.acc)), room = hasTerm ? Math.floor(termRoom()) : Infinity;
+      p.full = hasTerm && k > 0 && room < k;   // Terminal voll: Fluggäste bleiben an Bord, bis Platz ist
+      if (p.full) { k = Math.max(0, room); p.acc = Math.min(p.acc, k + 1); }
+      p.acc -= k; p.on -= k;
       if (k) { G.st.pax += k; arrivePax(k); }
       if (p.on <= 0) { p.phase = "clean"; p.t = 3 + p.cap / 80; p.acc = 0; if (p.paxIn) earn(p.paxIn * PAXFEE, p.x, p.y - 10, lang === "de" ? "Fluggastentgelt" : "Passenger fees", "pax"); }
     } else if (p.phase === "clean") {
@@ -1044,9 +1173,34 @@
       var a = tt - c.t, f = a < 25 ? a / 25 : a < 180 ? 1 : Math.exp(-(a - 180) / 1500);
       ln -= c.d * f;
     });
-    return Math.max(0.5, Math.round(q.base * Math.exp(ln) * 100) / 100);
+    // Obergrenze: der Kurs nähert sich dem Höchstwert weich an und überschreitet ihn nie
+    var lm = Math.log(stkMax(q) / q.base), kn = 0.04;
+    if (ln > lm - kn) ln = lm - kn * Math.exp(-(ln - (lm - kn)) / kn);
+    return Math.max(0.5, stkMin(q), Math.round(q.base * Math.exp(ln) * splitF(q, tt) * 100) / 100);
   }
   function stockNow(q) { return stockAt(q, Math.floor(G.fpt || 0)); }
+  // Spanne je Aktie (v0.7): Höchstwert an den natürlichen Spitzen, Tiefstwert ein Drittel davon
+  function stkMax(q) { return Math.round(q.base * Math.exp(1.45 * q.vol) * 100) / 100; }
+  function stkMin(q) { return Math.round(stkMax(q) / 3 * 100) / 100; }
+  // Aktiensplit 2:1: Kurs halbiert sich sofort und wächst über drei Stunden langsam wieder auf das alte Niveau
+  var SPLIT_TAU = 10800;
+  function splitF(q, tt) { var f = 1; (G.splits || []).forEach(function (sp) { if (sp.s !== q.id || tt < sp.t) return; f *= Math.min(1, 0.5 * Math.pow(2, (tt - sp.t) / SPLIT_TAU)); }); return f; }
+  // Erreicht eine Aktie ihren Höchstwert, gibt es mit 25 % Wahrscheinlichkeit einen Split: doppelt so viele Aktien, halber Kurs
+  function splitCheck() {
+    var tt = Math.floor(G.fpt || 0), top = G.stop || (G.stop = {});
+    STOCKS.forEach(function (q) {
+      var p = stockAt(q, tt), mx = stkMax(q);
+      if (p >= mx * 0.985) {
+        if (top[q.id]) return; top[q.id] = 1;
+        if (Math.random() >= 0.25) return;
+        (G.splits || (G.splits = [])).push({ s: q.id, t: tt }); if (G.splits.length > 60) G.splits.shift();
+        var h = (G.port || {})[q.id], had = h && h.n;
+        if (had) h.n *= 2;
+        msg(fmt(t("smSplit"), { n: q.n }) + (had ? " " + fmt(t("smSplitH"), { k: nI(h.n) }) : ""), true);
+        save(); smDraw(true, true); updatePanel(true);
+      } else if (p < mx * 0.93) top[q.id] = 0;
+    });
+  }
   function eur2(v) { var n = v.toLocaleString(loc(), { minimumFractionDigits: 2, maximumFractionDigits: 2 }); return lang === "de" ? n + " €" : "€" + n; }
   function smDepot() {
     var v = 0, c = 0; STOCKS.forEach(function (q) { var h = (G.port || {})[q.id]; if (h && h.n) { v += h.n * stockNow(q); c += h.cost; } });
@@ -1086,8 +1240,10 @@
     var pr = fuelPrice(), buy = Math.min(miss, Math.floor(G.money / pr)); if (buy <= 0) { msg(t("poor")); return; }
     G.fuel += buy; G.money -= buy * pr; logTrade("b", pr); save(); msg(t("fuelBought") + " · " + eurS(buy * pr), true); updatePanel(true); updateSel(); fpDraw(true);
   }
-  // Verkaufspreis folgt dem Markt mit Aufschlag: im Tief eingekauft und im Hoch verkauft lohnt sich am meisten
-  function fuelSellAt(tt) { return Math.round((fuelPriceAt(tt) * 1.25 + 1200) / 10) * 10; }
+  // Verkaufspreis an die Airlines (v0.7): je teurer Kerosin am Markt, desto weniger zahlen sie.
+  // Bei normalem Preis (3.500 €) 6.000 €, bei billigem Kerosin mehr, in der Ölkrise unter dem Marktpreis.
+  // Darum lohnt es, im Tief einzukaufen; in der Krise bringt der Rückverkauf an den Markt mehr als das Tanken.
+  function fuelSellAt(tt) { return Math.round(6000 * Math.pow(FUELBUY / fuelPriceAt(tt), 0.45) / 10) * 10; }
   function fuelSell() { return fuelSellAt(Math.floor(G.fpt || 0)); }
   function fuelOut() { return fuelCap() > 0 && G.fuel < 1; }
   // Jedes Flugzeug tankt: klein 1, mittel 3, groß 8 Einheiten. Ohne Tanks übernimmt ein externer Lieferant (keine Einnahmen).
@@ -1102,6 +1258,29 @@
     p.noFuel = true;
     if (R.clock - (R.fuelMsg || -99) > 30) { R.fuelMsg = R.clock; msg(t("fuelEmpty")); G.rep = Math.max(0, G.rep - 0.5); }
     return false;
+  }
+  // ---------- Terminal-Kapazität und Erweiterungen (v0.7) ----------
+  // Jedes Terminal fasst 3.000 Fluggäste, jede Erweiterung (Pier, Flügel, Halle) 1.000 mehr, höchstens 5 je Terminal.
+  // Ist das Gebäude voll, steigt niemand mehr aus und Autos, Busse und Taxis warten am Bordstein, bis Platz ist.
+  var TERMCAP = 3000, EXTCAP = 1000, EXTMAX = 5;
+  var EXT = { tpier: { cost: 1400000 }, twing: { cost: 1100000 }, thall: { cost: 1250000 } };
+  function isExt(tp) { return !!EXT[tp]; }
+  function termLike(m) { return m.t === "term" || isExt(m.t); }
+  function extsOf(tm) { return G.mods.filter(function (q) { return isExt(q.t) && q.par === tm.id; }); }
+  function termCapOf(tm) { return TERMCAP + EXTCAP * Math.min(EXTMAX, extsOf(tm).length); }
+  function termCap() { return mods("term").reduce(function (a, m) { return a + termCapOf(m); }, 0); }
+  function termRoom() { var c = termCap(); return c ? Math.max(0, c - termPax()) : Infinity; }
+  // Fluggäste betreten das Terminal, soweit Platz ist; zurück kommt, wie viele hineingekommen sind
+  function enterTerm(n) { var k = Math.max(0, Math.min(n, Math.floor(termRoom()))); R.tDep += k; return k; }
+  // An welches Terminal würde eine Erweiterung mit dieser Grundfläche anschließen?
+  function extParentFor(f) {
+    var best = null;
+    G.mods.forEach(function (m) {
+      if (best || !termLike(m) || m.id === V.ignore) return;
+      var mf = foot(m); if (!overlap(f, { x: mf.x, y: mf.y, a: mf.a, hw: mf.hw + 4, hh: mf.hh + 4 }, 0)) return;
+      var par = m.t === "term" ? m : byId(m.par); if (par) best = par;
+    });
+    return best;
   }
   // ---------- Terminal: modernes Terminal mit Shops und Lounges ----------
   var TUP = { tmod: 2000000, tshop: 800000, tlng: 1200000 };
@@ -1129,8 +1308,11 @@
     hs.forEach(function (m) {
       var list = R.hotel[m.id]; if (!list) return;
       for (var i = list.length - 1; i >= 0; i--) {
-        var q = list[i]; q.stay -= dt; q.paid += q.n * 2.2 * dt;
-        if (q.stay <= 0) { earn(Math.round(q.paid + q.n * 90), m.x, m.y - 16, t("hotelPay"), "hotel"); R.tDep += q.n; list.splice(i, 1); }
+        var q = list[i]; q.stay -= dt; if (!q.out) q.paid += q.n * 2.2 * dt;
+        if (q.stay <= 0) {
+          if (!q.out) { q.out = 1; earn(Math.round(q.paid + q.n * 90), m.x, m.y - 16, t("hotelPay"), "hotel"); }
+          q.n -= enterTerm(q.n); if (q.n <= 0) list.splice(i, 1);
+        }
       }
     });
   }
@@ -1221,7 +1403,7 @@
       lotSpots(rm)[lot.i] = true;
       var rv = vehicle("car", tv.inP.concat([{ x: sp.lane.x, y: sp.lane.y, s: 10, r: 1 }, { x: sp.c.x, y: sp.c.y, s: 5 }]), function () {
         rv.h = sp.h; rv.state = "parked";
-        if (dir === "dep") { R.tDep += n; rv.stay = 420 + Math.random() * 240; rv.dep = true; rv.own = n; }
+        if (dir === "dep") { rv.pend = n; rv.stay = 420 + Math.random() * 240; rv.dep = true; rv.own = n; }
         else { var k = Math.min(n, R.tArrCar); R.tArrCar -= k; R.pickRes -= n; rv.n = k; rv.stay = 5 + Math.random() * 6; }
       });
       rv.lot = rm.id; rv.spot = lot.i; rv.back = [sp.c, { x: sp.back.x, y: sp.back.y, r: 1 }].concat(tv.outP);
@@ -1233,7 +1415,7 @@
       lotSpots(m)[lot.i] = true;
       var v = vehicle("car", tr.inP.concat([{ x: E.x, y: E.y, s: 8 }, { x: S.x, y: S.y, s: 5 }]), function () {
         v.h = m.a + Math.PI / 2; v.state = "parked";
-        if (dir === "dep") { R.tDep += n; v.stay = 420 + Math.random() * 240; v.dep = true; v.own = n; }
+        if (dir === "dep") { v.pend = n; v.stay = 420 + Math.random() * 240; v.dep = true; v.own = n; }
         else { var k = Math.min(n, R.tArrCar); R.tArrCar -= k; R.pickRes -= n; v.n = k; v.stay = 5 + Math.random() * 6; }
       });
       v.lot = m.id; v.spot = lot.i; v.back = [S, E].concat(tr.outP);
@@ -1246,7 +1428,7 @@
     var stop = sl > 0 ? { x: A2.x + (B2.x - A2.x) / sl * back2, y: A2.y + (B2.y - A2.y) / sl * back2, r: 1, s: 8 } : A2;
     var v2 = vehicle("car", ip.slice(0, -1).concat([stop]), function () {
       v2.state = "curb"; v2.stay = 1 + Math.random() * 1.5;
-      if (dir === "dep") R.tDep += n; else { var k = Math.min(n, R.tArrCar); R.tArrCar -= k; R.pickRes -= n; }
+      if (dir === "dep") v2.pend = n; else { var k = Math.min(n, R.tArrCar); R.tArrCar -= k; R.pickRes -= n; }
     });
     v2.out = [{ x: A2.x, y: A2.y, r: 1, s: 30 }].concat(tr2.outP.slice(1));
     return true;
@@ -1312,11 +1494,12 @@
     var E = lotEntry(m), B = bayPos(m, o.i), drop = Math.min(R.depTaxi || 0, 1 + Math.floor(Math.random() * 3));
     R.depTaxi -= drop; R.bays[m.id][o.i] = true;
     var v = vehicle("taxi", tr.inP.concat([{ x: E.x, y: E.y, s: 8 }, { x: B.x, y: B.y, s: 5 }]), function () {
-      v.h = m.a; v.state = "taxi"; v.wait = 0; R.tDep += drop;
+      v.h = m.a; v.state = "taxi"; v.wait = 0; v.pend = drop;
     });
     v.rank = m.id; v.bay = o.i; v.back = [B, E].concat(tr.outP); v.c = "#F2C230";
   }
   function taxiWait(v, dt) {
+    if (v.pend > 0) return;   // erst aussteigen lassen, wenn im Terminal Platz ist
     v.wait += dt;
     if (v.wait < 1.2) return;
     var avail = Math.min(R.tArrTaxi || 0, 1 + Math.floor(Math.random() * 4));
@@ -1341,12 +1524,12 @@
     if (mode !== "road") { // zu Fuß: ohne Anbindung an die Landstraße gehen alle direkt rein und raus
       R.accW += 8 * dt;
       var k = Math.floor(R.accW); R.accW -= k;
-      var a = Math.min(k, R.walkIn + R.depBus); R.walkIn = Math.max(0, R.walkIn - a); R.tDep += a;
+      var a = Math.min(k, R.walkIn + R.depBus, Math.floor(termRoom())); R.walkIn = Math.max(0, R.walkIn - a); R.tDep += a;
       R.tArrWalk = Math.max(0, R.tArrWalk + R.tArrBus + R.tArrCar + (R.tArrTaxi || 0) - k); R.tArrBus = R.tArrCar = R.tArrTaxi = 0;
       if (R.depTaxi) { R.walkIn += R.depTaxi; R.depTaxi = 0; }
       R.depCarQ.forEach(function (q) { R.walkIn += q.n; }); R.depCarQ = [];
     } else {
-      if (R.walkIn) { R.tDep += R.walkIn; R.walkIn = 0; }
+      if (R.walkIn) R.walkIn -= enterTerm(R.walkIn);
       if (R.tArrWalk) { R.tArrCar += R.tArrWalk; R.tArrWalk = 0; }
       R.depCarQ.forEach(function (q) { q.t -= dt; });
       // Ankommende gehen zu einem geparkten Auto, das andere Fluggäste vorher abgestellt haben
@@ -1385,7 +1568,7 @@
         var tr = trip(st._acc, true); if (!tr) { R.busT[st.id] = 1; return; }
         var bus = vehicle("bus", tr.inP, function () {
           var drop = Math.min(50, R.depBus), wt = R.stopW[st.id] || 0, pick = Math.min(50, wt);
-          R.depBus -= drop; R.tDep += drop; R.stopW[st.id] = wt - pick;
+          R.depBus -= drop; bus.pend = drop; R.stopW[st.id] = wt - pick;
           if (drop + pick) earn((drop + pick) * BUSFARE, st.x, st.y + 10, "", "land");
           bus.n = pick; bus.drop = drop; bus.state = "curb"; bus.stay = 3;
           if (drop || pick) R.fx.push({ x: st.x, y: st.y - 16, t: 0, txt: "+" + drop + " / −" + pick, col: "#CFE3F0" });
@@ -1396,8 +1579,8 @@
     follow(dt);
     R.veh.slice().forEach(function (v) {
       if (v.path) move(v, dt);
-      else if (v.state === "parked" || v.state === "curb") { v.stay -= dt; if (v.state === "parked") v.parkT = (v.parkT || 0) + dt; if (v.stay <= 0) leave(v); }
-      else if (v.state === "taxi") taxiWait(v, dt);
+      else if (v.state === "parked" || v.state === "curb") { if (v.pend > 0) v.pend -= enterTerm(v.pend); v.stay -= dt; if (v.state === "parked") v.parkT = (v.parkT || 0) + dt; if (v.stay <= 0 && !(v.pend > 0)) leave(v); }
+      else if (v.state === "taxi") { if (v.pend > 0) v.pend -= enterTerm(v.pend); taxiWait(v, dt); }
     });
   }
 
@@ -1436,6 +1619,7 @@
     var st = byId(p.st), T = TYPES[p.type], s = stats();
     var gate = st && st.gate && st._term;
     p.depLF = p.boarded / p.cap;
+    if (p.lp) { p.docked = false; p.phase = "push"; p.t = 0; return; }
     earn(T.rev * 0.2 * p.depLF * (gate ? 1 : 0.6) * (1 + 0.15 * G.up.ext) * (p.revF || 1) + p.boarded * bizShare() * 150 + p.boarded * (PAXFEE + (mods("term").length ? SHOP * (1 + 0.15 * G.up.ext) : 0)), p.x, p.y - 14);
     G.rep = Math.min(100, G.rep + (gate ? 1 : 0.4) + (s.fire >= 2 ? 0.2 : 0));
     p.docked = false; p.phase = "push"; p.t = 0;
@@ -1483,7 +1667,7 @@
     pts.push({ x: l1.x, y: l1.y, s: 90, ev: function () {
       if (Math.random() < CRASHP) { crash(p); return; }
       p.soon = true;
-      earn(TYPES[p.type].rev * 0.4 * p.depLF * (p.revF || 1), p.x, p.y); movement();
+      if (!p.lp) earn(TYPES[p.type].rev * 0.4 * p.depLF * (p.revF || 1), p.x, p.y); movement();
       var h = one("hangar");
       if (h && Math.random() < 0.2 * h.lvl) { earn(TYPES[p.type].rev * 2, h.x, h.y, t("maint"), "maint"); R.hangarT = 14; R.hangarType = p.type; }
     } });
@@ -1520,7 +1704,7 @@
     if (rws.length === 1 && (!rwSoon(r0) || (r0.last === "a" && q0 && q0.length && !q0[0].path))) return;
     var order = R.holdQ.slice().sort(function (a, b) { return (TYPES[b.type].heavy ? 1 : 0) - (TYPES[a.type].heavy ? 1 : 0); });   // Großraumjets zuerst
     for (var oi = 0; oi < order.length; oi++) {
-      var h = order[oi], i = R.holdQ.indexOf(h), cands = standsFor(h.type);
+      var h = order[oi], i = R.holdQ.indexOf(h), cands = standsFor(h.type, h.lp);
       for (var ci = 0; ci < cands.length; ci++) {
         var st = cands[ci]; if (!depRunway(st, h.type)) continue;
         for (var ri = 0; ri < rws.length; ri++) {
@@ -1531,7 +1715,7 @@
       }
     }
   }
-  function arrivalPossible() { return R.holdQ.some(function (p) { return !!freeStand(p.type); }); }
+  function arrivalPossible() { return R.holdQ.some(function (p) { return !!freeStand(p.type, p.lp); }); }
 
   // Flugzeuge am Boden halten Abstand: wer jemanden vor sich hat, bleibt stehen.
   // Stehen sich zwei länger gegenseitig im Weg, rollt eins durch, damit nichts für immer festhängt.
@@ -1561,7 +1745,7 @@
     if (R.jamT > 0) R.jamT -= dt;
   }
   // Finanzbericht: Einnahmen je Bereich in 5-Sekunden-Töpfen (Echtzeit, pausiert mit dem Spiel), 15 Minuten
-  var FINCAT = ["fly", "pax", "fuel", "trade", "shop", "hotel", "land", "maint"], FINCOL = ["#E3B83F", "#7DB3E8", "#E58A73", "#B98AE0", "#8FC79A", "#5FC2C2", "#C9C2B5", "#D97FB0"];
+  var FINCAT = ["fly", "pax", "fuel", "trade", "shop", "hotel", "land", "maint", "lpark"], FINCOL = ["#E3B83F", "#7DB3E8", "#E58A73", "#B98AE0", "#8FC79A", "#5FC2C2", "#C9C2B5", "#D97FB0", "#9FB4C7"];
   var FINB = 5, FINN = 180;
   function finAdd(cat, v) {
     if (!(v > 0)) return;
@@ -1712,6 +1896,8 @@
     Object.keys(R.rw).forEach(function (k) { var r = R.rw[k]; if (!r.busy && r.cool > 0) r.cool -= dt; });
     R.spawnT -= dt;
     if (R.spawnT <= 0) { spawn(); R.spawnT = interval() * (0.7 + Math.random() * 0.6); }
+    R.lpT = (R.lpT === undefined ? 6 : R.lpT) - dt;
+    if (R.lpT <= 0) { spawnLP(); R.lpT = 10 + Math.random() * 14; }
     if (R.hangarT > 0) R.hangarT -= dt;
     R.visitors = Math.max(one("deck") ? 3 : 0, R.visitors - dt * 0.15);
 
@@ -1785,6 +1971,20 @@
     var x0 = V.cam.x - W / 2 / z, y0 = V.cam.y - H / 2 / z, x1 = V.cam.x + W / 2 / z, y1 = V.cam.y + H / 2 / z;
     // Wiese: drei Grüntöne als Rauschmuster, flach und comichaft
     var gp = grassPattern(c); if (gp) { c.fillStyle = gp; c.fillRect(x0, y0, x1 - x0, y1 - y0); }
+    // Wasser: geglättete Umrisse; Ufer als Sandsaum, flache Kante heller, dazu leichtes Glitzern
+    var wpol = waterPolys();
+    if (wpol.length) {
+      var wpath = function () { c.beginPath(); wpol.forEach(function (P) { c.moveTo(P[0].x, P[0].y); for (var q = 1; q < P.length; q++) c.lineTo(P[q].x, P[q].y); c.closePath(); }); };
+      c.lineJoin = "round"; wpath();
+      c.strokeStyle = "#CFC79F"; c.lineWidth = 9; c.stroke();
+      c.fillStyle = "#6FA3BE"; c.fill("evenodd");
+      c.strokeStyle = "#8DBBD0"; c.lineWidth = 3; c.stroke();
+      c.strokeStyle = "rgba(94,147,177,.55)"; c.lineWidth = 1; c.save(); c.clip("evenodd"); c.strokeStyle = "rgba(94,147,177,.5)"; c.lineWidth = 14; wpath(); c.translate(0, 0); c.restore();
+      if (z > 0.6) {
+        var wk = Object.keys(G.water); c.strokeStyle = "rgba(235,245,250,.5)"; c.lineWidth = 1;
+        wk.forEach(function (k) { var i = k.indexOf(","), cx = (+k.slice(0, i) + 0.5) * PV, cy = (+k.slice(i + 1) + 0.5) * PV; if (cx < x0 || cx > x1 || cy < y0 || cy > y1) return; if (((cx * 7 + cy * 3) / PV) % 4 > 0.7) return; var ph = Math.sin(R.clock * 1.3 + cx * 0.07 + cy * 0.05); if (ph < 0.5) return; line(c, cx - 3, cy, cx + 3, cy); });
+      }
+    }
     // gemalte Asphaltflächen
     var pk = Object.keys(G.pave || {});
     if (pk.length) {
@@ -1816,10 +2016,27 @@
         inLocal(c, m, function () { c.fillStyle = COL.pave; rr(c, -s[0] / 2 - 11, -s[1] / 2 - 11, s[0] + 22, s[1] + 22, 10); c.fill(); });
       }
     });
-    // 2. Straßen
+    // 2. Straßen; Brücken bekommen Schatten, Brückenrand und Geländer
+    var brs = mods("road").filter(function (m) { return m.br; });
+    if (brs.length) {
+      c.lineCap = "butt";
+      brs.forEach(function (m) { var w0 = (m.sl ? SL_W : RD_W) + 6; c.strokeStyle = "rgba(20,30,40,.28)"; c.lineWidth = w0; line(c, m.x1 + 4, m.y1 + 6, m.x2 + 4, m.y2 + 6); });
+      brs.forEach(function (m) { var w0 = (m.sl ? SL_W : RD_W) + 6; c.strokeStyle = "#A9A49B"; c.lineWidth = w0; line(c, m.x1, m.y1, m.x2, m.y2); });
+      c.lineCap = "round";
+    }
     mods("road").forEach(function (m) {
       c.strokeStyle = COL.road; c.lineWidth = m.sl ? SL_W : RD_W; line(c, m.x1, m.y1, m.x2, m.y2);
     });
+    if (brs.length) {
+      c.lineCap = "butt";
+      brs.forEach(function (m) {
+        var l = Math.hypot(m.x2 - m.x1, m.y2 - m.y1), a = Math.atan2(m.y2 - m.y1, m.x2 - m.x1), hw2 = (m.sl ? SL_W : RD_W) / 2 + 2.2;
+        c.save(); c.translate(m.x1, m.y1); c.rotate(a);
+        c.strokeStyle = "#E4E1DA"; c.lineWidth = 1.3; line(c, 0, -hw2, l, -hw2); line(c, 0, hw2, l, hw2);
+        c.fillStyle = "#8E8A83"; for (var bp = 0; bp <= l; bp += 12) { c.fillRect(bp - 0.6, -hw2 - 0.9, 1.2, 1.8); c.fillRect(bp - 0.6, hw2 - 0.9, 1.2, 1.8); }
+        c.restore();
+      });
+    }
     c.lineCap = "butt";
     mods("road").forEach(function (m) {
       var l = Math.hypot(m.x2 - m.x1, m.y2 - m.y1), a = Math.atan2(m.y2 - m.y1, m.x2 - m.x1);
@@ -1863,7 +2080,7 @@
       c.strokeStyle = COL.line; c.lineWidth = 1; line(c, m._entry.x, m._entry.y, m.x, m.y);
     });
     // Schatten der Gebäude (Sonne von oben links, nachts schwächer)
-    var SHH = { term: 6, fire: 4, hangar: 7, hotel: 9, hotels: 6, hotell: 0, deck: 2, bus: 2, cab: 1, park: 0.5 }, shA = 0.2 * (1 - dayInfo().dark * 0.8);
+    var SHH = { term: 6, tpier: 5, twing: 6, thall: 7, fire: 4, hangar: 7, hotel: 9, hotels: 6, hotell: 0, deck: 2, bus: 2, cab: 1, park: 0.5 }, shA = 0.2 * (1 - dayInfo().dark * 0.8);
     c.fillStyle = "rgba(20,26,18," + shA + ")";
     G.mods.forEach(function (m) {
       if (m.t === "tank") { c.beginPath(); c.arc(m.x + 4, m.y + 6, SIZE.tank[0] / 2 - 2, 0, Math.PI * 2); c.fill(); return; }
@@ -1891,7 +2108,7 @@
         c.fillStyle = "rgba(170,206,120,.6)"; c.beginPath(); c.arc(v.x - v.r * 0.25, v.y - v.r * 0.3, v.r * 0.38, 0, Math.PI * 2); c.fill();
       }
     });
-    if (V.tool && V.tool.kind === "brush" && V.mouse) { c.strokeStyle = "rgba(21,23,21,.65)"; c.lineWidth = 1.5 / z; c.setLineDash([5 / z, 4 / z]); c.beginPath(); c.arc(V.mouse.x, V.mouse.y, V.tool.id === "pave" ? 22 : 34, 0, Math.PI * 2); c.stroke(); c.setLineDash([]); }
+    if (V.tool && V.tool.kind === "brush" && V.mouse) { c.strokeStyle = "rgba(21,23,21,.65)"; c.lineWidth = 1.5 / z; c.setLineDash([5 / z, 4 / z]); c.beginPath(); c.arc(V.mouse.x, V.mouse.y, V.tool.id === "pave" ? 22 : V.tool.id === "water" ? 30 : 34, 0, Math.PI * 2); c.stroke(); c.setLineDash([]); }
     // Fluggastbrücken
     mods("stand").forEach(function (m) {
       if (!(m.gate && m._term)) return;
@@ -2085,10 +2302,15 @@
       else if (p.phase === "clean") pill(c, p.x, y, t("clean"), "rgba(21,23,21,.65)");
       else if (p.phase === "board") pill(c, p.x, y, t("board") + " " + nf(p.boarded) + "/" + p.cap, "rgba(154,84,10,.9)");
       else if (p.phase === "fuel") pill(c, p.x, y, t("fuelSold") + " …", "rgba(21,23,21,.65)");
+      else if (p.phase === "lpark") pill(c, p.x, y, t("lpShort") + " " + mmss(p.lpDur - ((G.fpt || 0) - p.lp0)) + " · " + eurS(((G.fpt || 0) - p.lp0) * LPFEE[p.type]), "rgba(47,111,143,.92)");
       if (p.noFuel) pill(c, p.x, y - 15 / z, t("noFuel"), "rgba(194,50,38,.95)");
+      else if (p.full && p.phase === "unload") pill(c, p.x, y - 15 / z, t("termFull"), "rgba(194,50,38,.95)");
     });
-    var tc = termCenter();
-    if (tc) pill(c, tc.x, tc.y, "Terminal · " + fmt(t("inTerm"), { n: nf(termPax()) }), "rgba(46,125,91,.92)");
+    var tcap = termCap(), tpx = termPax();
+    mods("term").forEach(function (tm) {
+      var cp = termCapOf(tm), inT = tcap ? tpx * cp / tcap : 0, full = tcap && tpx >= tcap * 0.97;
+      pill(c, tm.x, tm.y, (tm.name || "Terminal") + " · " + nf(inT) + " / " + nf(cp), full ? "rgba(194,65,45,.92)" : "rgba(46,125,91,.92)");
+    });
     mods("bus").forEach(function (m) { if (m._road) pill(c, m.x, m.y - 20 / z, fmt(t("waiting"), { n: nf(R.stopW[m.id] || 0) }), "rgba(31,92,79,.9)"); });
     var tr0 = mods("cab").filter(function (m) { return m._road; });
     if (tr0.length) pill(c, tr0[0].x, tr0[0].y - 20 / z, "Taxi · " + fmt(t("waiting"), { n: nf(R.tArrTaxi || 0) }), "rgba(154,120,10,.92)");
@@ -2147,6 +2369,7 @@
       c.strokeStyle = COL.line; line(c, 0, -h / 2, 0, h / 2 - 8);
       c.fillStyle = "rgba(30,32,30,.7)"; c.font = "600 8px " + FONT;
       c.fillText((m.heavy ? "H" : "") + standNo(m), w / 2 - 12, h / 2 - 9);
+      if (m.lp) { c.fillStyle = "#2F6F8F"; c.fillRect(-w / 2 + 6, -h / 2 + 5, 14, 14); c.fillStyle = "#FFF"; c.font = "700 10px " + FONT; c.fillText("P", -w / 2 + 13, -h / 2 + 12.5); c.strokeStyle = "rgba(47,111,143,.8)"; c.lineWidth = 1; c.setLineDash([4, 3]); c.strokeRect(-w / 2 + 2, -h / 2 + 1, w - 4, h - 2); c.setLineDash([]); }
       if (!m._conn) {
         c.fillStyle = "#C2412D"; c.beginPath(); c.arc(-w / 2 + 10, h / 2 - 10, 6, 0, Math.PI * 2); c.fill();
         c.fillStyle = "#FFF"; c.font = "700 8px " + FONT; c.fillText("!", -w / 2 + 10, h / 2 - 9.5);
@@ -2197,6 +2420,22 @@
       if (e >= 1) { c.fillStyle = "#B9AA9E"; c.fillRect(-w / 2 + 22, h / 2 - 16, w - 44, 7); }
       if (e >= 2) { c.fillStyle = "#7E9A6E"; c.fillRect(-w / 2 + 7, h / 2 - 16, 9, 9); c.fillRect(w / 2 - 16, h / 2 - 16, 9, 9); }
       if (e >= 3) { c.fillStyle = "#AEBFCB"; c.beginPath(); c.arc(0, 0, 9, 0, Math.PI * 2); c.fill(); c.strokeStyle = "#F4F1EC"; c.lineWidth = 1.2; c.stroke(); }
+    } else if (isExt(m.t)) {
+      // Erweiterungen im Stil des modernen Terminals: helle Fassade, Glas
+      c.fillStyle = "#F4F5F2"; c.fillRect(-w / 2, -h / 2, w, h);
+      if (m.t === "tpier") {
+        c.fillStyle = "#A7B9C6"; c.fillRect(-w / 2 + 2, -h / 2 + 2, w - 4, h - 4);
+        c.fillStyle = "#C9D8E2"; c.fillRect(-w / 2 + 4, -2.5, w - 8, 5);
+        c.fillStyle = "#8EA3B2"; for (var pk2 = -w / 2 + 10; pk2 < w / 2 - 6; pk2 += 18) c.fillRect(pk2, -h / 2 + 3, 1.2, h - 6);
+      } else if (m.t === "twing") {
+        c.fillStyle = "#9FB3C1"; c.fillRect(-w / 2 + 2, -h / 2 + 2, w - 4, h - 4);
+        c.fillStyle = "#C3D3DE"; for (var wk2 = 0; wk2 < 3; wk2++) c.fillRect(-w / 2 + 8 + wk2 * 28, -h / 2 + 6, 22, h - 12);
+        c.fillStyle = "#7E9A6E"; c.fillRect(w / 2 - 12, -5, 6, 10);
+      } else {
+        c.fillStyle = "#93AFC2"; c.fillRect(-w / 2 + 2, -h / 2 + 2, w - 4, h - 4);
+        c.fillStyle = "#B6CBD8"; for (var hk2 = -w / 2 + 5; hk2 < w / 2 - 5; hk2 += 9) c.fillRect(hk2, -h / 2 + 4, 5, h - 8);
+        c.strokeStyle = "#E8EEF1"; c.lineWidth = 1; c.strokeRect(-w / 2 + 10, -h / 2 + 10, w - 20, h - 20);
+      }
     } else if (m.t === "tower") {
       c.fillStyle = "rgba(0,0,0,.2)"; c.beginPath(); c.arc(5, 7, 12, 0, Math.PI * 2); c.fill();
       c.fillStyle = "#D7DAD3"; c.fillRect(-10, -10, 20, 20);
@@ -2437,6 +2676,7 @@
       else if (isHotel(m.t)) { if (m.t === "hotell") lg(0, hotelRS(m) > 0 ? h2 - 13 : -h2 + 13, 18, "rgba(255,226,170,", 0.45); for (var u3 = -w2 + 8; u3 < w2 - 4; u3 += 8) for (var v3 = -h2 + 8; v3 < h2 - 4; v3 += 10) if ((u3 * 7 + v3 * 3 + m.id) % 5 < 3 && !(m.t === "hotell" && (hotelRS(m) > 0 ? v3 > h2 - 28 : v3 < -h2 + 28))) lg(u3, v3, 1.8, "rgba(255,214,150,", 0.85); lg(-w2 + 13, 0, 8, "rgba(120,190,255,", 0.6); }
       else if (m.t === "tank") { if (R.clock % 1.6 < 0.8) lg(0, 0, 2.6, "rgba(255,60,50,", 1); lg(0, h2 + 4, 10, "rgba(255,230,190,", 0.3); }
       else if (m.t === "term" && termLvl(m) >= 2) lg(0, 0, 30, "rgba(170,210,255,", 0.25);
+      else if (isExt(m.t)) { for (var u4 = -w2 + 6; u4 < w2 - 4; u4 += 9) { lg(u4, -h2 + 1.5, 2.2, "rgba(220,235,255,", 0.8); lg(u4, h2 - 1.5, 2.2, "rgba(220,235,255,", 0.8); } lg(0, 0, Math.min(w2, 30), "rgba(170,210,255,", 0.22); }
       else if (m.t === "stand") { lg(-w2 + 4, h2 - 4, 26, "rgba(255,236,200,", 0.28); lg(w2 - 4, h2 - 4, 26, "rgba(255,236,200,", 0.28); lg(-w2 + 4, h2 - 4, 1.8, "rgba(255,240,210,", 1); lg(w2 - 4, h2 - 4, 1.8, "rgba(255,240,210,", 1); }
     });
     // Scheinwerfer der Fahrzeuge
@@ -2476,7 +2716,7 @@
     V.tool = { id: "move", kind: "move", mid: m.id }; V.ang = m.a; V.ghost = null; V.sel = null;
     updatePanel(true); updateSel(); updateHint(); updateDozBtn();
   }
-  function dozeGroup(m) { return m.cv ? G.mods.filter(function (q) { return q.cv === m.cv; }) : [m]; }
+  function dozeGroup(m) { return m.cv ? G.mods.filter(function (q) { return q.cv === m.cv; }) : m.t === "term" ? [m].concat(extsOf(m)) : [m]; }
   function dozeAt(p, click) {
     var m = pick(p); if (!m || m.hw) return;
     if (!click && m.t === "runway") return;      // Pisten nur per gezieltem Klick
@@ -2516,6 +2756,11 @@
       var s = snapRect(T.id, p.x, p.y, V.ang);
       var g = s ? { x: s.x, y: s.y, a: s.a } : { x: p.x, y: p.y, a: V.ang };
       g.kind = "rect"; g.t = T.id; g.ok = !lock && G.money >= cost && rectValid(T.id, g.x, g.y, g.a); g.snapped = !!s;
+      if (isExt(T.id)) {
+        var gp2 = extParentFor({ x: g.x, y: g.y, a: g.a, hw: SIZE[T.id][0] / 2, hh: SIZE[T.id][1] / 2 });
+        g.par = gp2; g.extErr = !gp2 ? t("extNeed") : extsOf(gp2).length >= EXTMAX ? t("extMax") : "";
+        if (g.extErr) g.ok = false;
+      }
       V.ghost = g;
     } else if (T.kind === "runway") {
       if (!T.start) { V.ghost = { kind: "rwpt", p: p }; return; }
@@ -2582,16 +2827,22 @@
     if (g.kind === "runway" && g.short) { msg(t("rwShort")); return; }
     var cost = g.cost || b.cost();
     if (G.money < cost) { msg(t("poor")); return; }
+    if (g.extErr) { msg(g.extErr); return; }
     if (!g.ok) { msg(t("blocked")); return; }
-    if (g.kind === "rect") addMod({ t: g.t, x: g.x, y: g.y, a: g.a }, cost);
+    if (g.kind === "rect") {
+      var nmod = { t: g.t, x: g.x, y: g.y, a: g.a }; if (isExt(g.t)) nmod.par = g.par.id;
+      addMod(nmod, cost);
+      if (g.t === "term") { setTool(null); V.sel = nmod.id; updateSel(); nameOpen(nmod); return; }
+    }
     else if (g.kind === "runway") { var nm = addMod({ t: "runway", x: g.x, y: g.y, a: g.a, len: Math.round(g.len) }, cost); setTool(null); startRoute(nm.id, "app"); V.tool.chain = true; msg(t("rwBuilt"), true); return; }
-    else if (g.kind === "line") { var lm = { t: T.id, x1: g.a.x, y1: g.a.y, x2: g.b.x, y2: g.b.y }; if (V.owm) lm.ow = 1; if (V.owm === 2 && T.id === "road") lm.sl = 1; if (V.owm === 3 && T.id === "road") lm.bl = 1; addMod(lm, cost); T.start = { x: g.b.x, y: g.b.y }; }
+    else if (g.kind === "line") { var rdT = T.id === "road" || T.id === "bridge", lm = { t: T.id === "bridge" ? "road" : T.id, x1: g.a.x, y1: g.a.y, x2: g.b.x, y2: g.b.y }; if (T.id === "bridge") lm.br = 1; if (V.owm) lm.ow = 1; if (V.owm === 2 && rdT) lm.sl = 1; if (V.owm === 3 && rdT) lm.bl = 1; addMod(lm, cost); T.start = { x: g.b.x, y: g.b.y }; }
     else if (g.kind === "curve") {
       // alle Stücke auf einmal anlegen, ein gemeinsamer Abriss über die Gruppe
       var gid = G.nid, per = Math.round(cost / (g.pts.length - 1));
       for (var ci = 1; ci < g.pts.length; ci++) {
-        var cm = { t: T.id, x1: g.pts[ci - 1].x, y1: g.pts[ci - 1].y, x2: g.pts[ci].x, y2: g.pts[ci].y, cv: gid, id: G.nid++, paid: per };
-        if (V.owm) cm.ow = 1; if (V.owm === 2 && T.id === "road") cm.sl = 1; if (V.owm === 3 && T.id === "road") cm.bl = 1;
+        var cm = { t: T.id === "bridge" ? "road" : T.id, x1: g.pts[ci - 1].x, y1: g.pts[ci - 1].y, x2: g.pts[ci].x, y2: g.pts[ci].y, cv: gid, id: G.nid++, paid: per };
+        if (T.id === "bridge") cm.br = 1;
+        if (V.owm) cm.ow = 1; if (V.owm === 2 && T.id !== "taxi") cm.sl = 1; if (V.owm === 3 && T.id !== "taxi") cm.bl = 1;
         G.mods.push(cm); clearVeg(cm);
       }
       G.money -= cost; rebuild(); save();
@@ -2626,7 +2877,7 @@
   function demolish(m) {
     if (m.hw) return;
     if (inUse(m)) { msg(t("delBusy")); return; }
-    var grp = m.cv ? G.mods.filter(function (q) { return q.cv === m.cv; }) : [m];
+    var grp = m.cv ? G.mods.filter(function (q) { return q.cv === m.cv; }) : m.t === "term" ? [m].concat(extsOf(m)) : [m];
     grp.forEach(function (q) { G.mods.splice(G.mods.indexOf(q), 1); G.money += Math.round((q.paid || 0) / 2); if (q.t === "road") { R.veh.filter(function (v) { return v.lot === q.id; }).forEach(dropVeh); delete R.spots[q.id]; } });
     if (m.t === "runway") { delete R.rw[m.id]; delete R.q[m.id]; }
     if (m.t === "park" || m.t === "road") { R.veh.filter(function (v) { return v.lot === m.id; }).forEach(dropVeh); delete R.spots[m.id]; }
@@ -2638,6 +2889,7 @@
   }
 
   function onDown(e) {
+    if (V.nameFor) nameClose(true);
     V.stage.focus({ preventScroll: true });
     var r = V.cv.getBoundingClientRect(), sx = e.clientX - r.left, sy = e.clientY - r.top;
     V.mouse = world(sx, sy);
@@ -2745,7 +2997,7 @@
     ".fh-fp .hd button{font:600 1.1rem inherit;width:28px;height:28px;border:1px solid rgba(244,241,236,.35);background:transparent;color:#F4F1EC;cursor:pointer}" +
     ".fh-fp .now{display:flex;align-items:baseline;gap:8px;margin:6px 0 8px}.fh-fp .now span{font:600 1.6rem/1 var(--f-display,inherit);font-variant-numeric:tabular-nums}" +
     ".fh-fp .now small{color:rgba(244,241,236,.6);font-size:.8rem}.fh-fp .now em{font-style:normal;font-size:.85rem;font-variant-numeric:tabular-nums;margin-left:auto}" +
-    ".fh-full .fh-fp canvas{position:static;inset:auto;display:block;width:100%;height:auto;aspect-ratio:840/300;background:rgba(0,0,0,.25)}" +
+    ".fh-full .fh-fp canvas{position:static;inset:auto;display:block;width:100%;height:auto;aspect-ratio:840/300;background:rgba(0,0,0,.25);cursor:crosshair}" +
     ".fh-fp .ax{display:flex;justify-content:space-between;font-size:.7rem;color:rgba(244,241,236,.55);margin-top:3px}" +
     ".fh-hud [data-fhwx]{cursor:pointer}.fh-hud [data-fhwx] dd{display:flex;align-items:center;gap:6px}.fh-hud [data-fhwx]:hover dd{color:#E3B83F}.wxi{display:block;flex:none}" +
     ".fh-wxp{width:min(380px,calc(100% - 24px))}.fh-wxp .wxnow{display:flex;align-items:center;gap:14px;margin:6px 0 10px}.fh-wxp .wxnow b{display:block;font:600 1.6rem/1 var(--f-display,inherit)}.fh-wxp .wxnow span{font-size:.84rem;color:rgba(244,241,236,.75)}" +
@@ -2815,6 +3067,9 @@
     ".fh-help h2{font:600 1.3rem var(--f-display,inherit);margin:0 0 8px}.fh-help p{margin:8px 0;color:rgba(244,241,236,.85);font-size:.9rem;line-height:1.5}" +
     ".fh-help .row{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}" +
     ".fh-help button{font:600 .85rem inherit;padding:8px 14px;border:1px solid rgba(244,241,236,.5);background:transparent;color:#F4F1EC;cursor:pointer}" +
+    ".fh-name{position:absolute;left:50%;top:calc(var(--top) + 60px);transform:translateX(-50%);width:min(340px,calc(100% - 24px));padding:14px 16px;z-index:3}.fh-name b{display:block;font-weight:600;margin-bottom:8px}" +
+    ".fh-name input{width:100%;box-sizing:border-box;font:600 1rem inherit;padding:8px 10px;border:1px solid rgba(244,241,236,.5);border-radius:0;background:rgba(0,0,0,.3);color:#F4F1EC;outline:none}.fh-name input:focus{border-color:#E3B83F}" +
+    ".fh-name .acts{margin-top:10px;display:flex;justify-content:flex-end}.fh-name .acts button{font:600 .85rem inherit;padding:7px 16px;border:1px solid #E3B83F;background:#E3B83F;color:#151715;cursor:pointer}" +
     ".fh-reset[data-armed]{background:#C2412D!important;border-color:#C2412D!important}" +
     ".fh-full [hidden]{display:none!important}" +
     "@media (max-width:760px){.fh-hud dd{font-size:.92rem}.fh-hint{max-width:calc(100% - 24px)}.fh-sel{top:auto;bottom:calc(var(--dock) + 60px)}}";
@@ -2853,7 +3108,7 @@
         return '<button type="button" class="srow" data-stk="' + q.id + '"><i style="background:' + q.col + '"></i><span class="nm"><b>' + q.n + '</b><small>' + t(q.k === "air" ? "smAir" : "smOil") + '</small></span>' +
           '<canvas width="160" height="44" data-spark="' + q.id + '"></canvas><span class="pr" data-spr="' + q.id + '"></span><span class="ch" data-sch="' + q.id + '"></span><span class="hl" data-shl="' + q.id + '"></span></button>';
       }).join("") + '</div>' +
-      '<div class="det"><div class="now"><span id="fh-sm-name"></span><span id="fh-sm-now"></span><em id="fh-sm-d"></em></div>' +
+      '<div class="det"><div class="now"><span id="fh-sm-name"></span><span id="fh-sm-now"></span><em id="fh-sm-d"></em></div><p class="sub" id="fh-sm-rng"></p>' +
       '<canvas id="fh-sm-cv" width="1000" height="357"></canvas><div class="ax"><span>−15 min</span><span>' + t("fpRange") + '</span><span>' + (lang === "de" ? "jetzt" : "now") + '</span></div>' +
       '<p id="fh-sm-hold"></p><div class="fh-trade"><input type="range" id="fh-sm-r" min="0" max="1000" step="1" value="0" aria-label="' + t("stocks") + '">' +
       '<span class="row sm"><span>0</span><span id="fh-sm-tg"></span><span id="fh-sm-mx"></span></span><span class="desc" id="fh-sm-desc"></span><span class="sum" id="fh-sm-sum"></span></div>' +
@@ -2862,7 +3117,7 @@
       '<div class="now"><span id="fh-fp-now"></span><small>' + t("fpBuy") + " " + t("fpUnit") + '</small><em id="fh-fp-d"></em></div>' +
       '<div class="sell"><i></i>' + t("fpSell") + ': <b id="fh-fp-sell"></b></div>' +
       '<canvas id="fh-fp-cv" width="840" height="300"></canvas>' + (function () { var L = t("fpLeg").split("|"); return '<div class="leg"><span><i class="b"></i>' + L[0] + '</span><span><i class="s"></i>' + L[1] + '</span><span><i class="r"></i>' + L[2] + "</span></div>"; })() + '<div style="display:none"></div><div class="ax"><span>−15 min</span><span>' + t("fpRange") + '</span><span>' + (lang === "de" ? "jetzt" : "now") + '</span></div>' +
-      '<p id="fh-fp-info"></p><p id="fh-fp-log" class="log"></p><div class="acts"><button type="button" data-fhfpfill></button></div></div>' +
+      '<p class="log">' + t("fpNote") + '</p><p id="fh-fp-info"></p><p id="fh-fp-log" class="log"></p><div class="acts"><button type="button" data-fhfpfill></button></div></div>' +
       '<div class="fh-ctl"><button type="button" data-ow hidden title="' + t("owTool") + '" aria-label="' + t("owTool") + '">⇄</button>' +
       '<button type="button" data-cv hidden title="' + t("cvTool") + '" aria-label="' + t("cvTool") + '">◠</button>' +
       '<button type="button" class="rot" data-rot="-1" title="' + t("rotL") + '" aria-label="' + t("rotL") + '">⟲</button>' +
@@ -2870,7 +3125,8 @@
       '<button type="button" data-zoom="-1" title="' + t("zoomOut") + '" aria-label="' + t("zoomOut") + '">−</button>' +
       '<button type="button" data-zoom="1" title="' + t("zoomIn") + '" aria-label="' + t("zoomIn") + '">+</button></div>' +
       '<p class="fh-msg fh-panel" id="fh-msg" aria-live="polite"></p>' +
-      '<div class="fh-help fh-panel" id="fh-help" hidden><h2>' + t("howH") + "</h2><p>" + t("how1") + "</p><p>" + t("how2") + "</p><p>" + t("how3") + "</p><p>" + t("how5") + "</p><p>" + t("how4") + "</p>" +
+      '<div class="fh-name fh-panel" id="fh-name" hidden><b>' + t("termName") + '</b><input type="text" id="fh-name-in" maxlength="32" autocomplete="off" spellcheck="false"><div class="acts"><button type="button" data-nameok>OK</button></div></div>' +
+      '<div class="fh-help fh-panel" id="fh-help" hidden><h2>' + t("howH") + "</h2><p>" + t("how1") + "</p><p>" + t("how2") + "</p><p>" + t("how3") + "</p><p>" + t("how5") + "</p><p>" + t("how6") + "</p><p>" + t("how4") + "</p>" +
       '<div class="row"><button type="button" data-fhhelp>' + (lang === "de" ? "Schließen" : "Close") + '</button><button type="button" class="fh-reset" data-fhreset>' + t("reset") + "</button></div></div>" +
       '<div class="fh-dock fh-panel" id="fh-dock"><div class="fh-tabs" role="tablist">' + tabs + '<button type="button" class="fh-tab fh-doz" data-dozer aria-pressed="false" title="' + t("dozerT") + '"><svg viewBox="0 0 28 18" width="26" height="17" aria-hidden="true"><path d="M1 3h3v14H1z" fill="currentColor"/><path d="M4 10h5v2H4z" fill="currentColor"/><path d="M9 7h12V2h6v10H9z" fill="currentColor"/><path d="M22 3.5h3.5v4H22z" fill="#1E211E"/><path d="M8 12.5h19v5H8z" fill="currentColor"/><path d="M10 14h2v2h-2zM14 14h2v2h-2zM18 14h2v2h-2zM22 14h2v2h-2z" fill="#1E211E"/></svg><span>' + t("dozer") + "</span></button></div>" + groups + ups + "</div></div>";
   }
@@ -2927,7 +3183,7 @@
     });
   }
   var NAMES = { runway: L2("Piste", "Runway"), taxi: L2("Rollweg", "Taxiway"), road: L2("Straße", "Road"), stand: L2("Parkposition", "Aircraft stand"),
-    term: L2("Terminalmodul", "Terminal module"), tower: L2("Tower", "Control tower"), fire: L2("Feuerwehr", "Fire station"),
+    term: L2("Terminal", "Terminal"), tpier: L2("Terminal-Pier", "Terminal pier"), twing: L2("Terminal-Flügel", "Terminal wing"), thall: L2("Terminal-Halle", "Terminal hall"), tower: L2("Tower", "Control tower"), fire: L2("Feuerwehr", "Fire station"),
     hangar: L2("Wartungshalle", "Maintenance hangar"), deck: L2("Aussichtsplattform", "Viewing deck"), park: L2("Parkplatz", "Car park"), bus: L2("Bushaltestelle", "Bus stop"), cab: L2("Taxistand", "Taxi rank"), hotels: L2("Hotel klein", "Small hotel"), hotel: L2("Hotel mittel", "Medium hotel"), hotell: L2("Hotel groß", "Large hotel"), tank: L2("Kerosintank", "Fuel tank") };
   function updateSel() { updateSel0(); trUpdate(); }
   function updateSel0() {
@@ -2948,6 +3204,11 @@
       info.push(m._conn ? t("stConn") : m._half ? t("connIn") : t("stNoConn"));
       if (m.heavy && m._conn) info.push(standOkFor(m, "w") ? t("wideOk") : t("wideNo"));
       if (m._conn) info.push(m.gate && m._term ? t("stGate") : t("stBus"));
+      if (m.lp) {
+        info.push(fmt(t("lpInfo"), { p: eur(LPFEE.p), n: eur(LPFEE.n), w: eur(LPFEE.w) }));
+        var lpq = R.occ[m.id]; if (lpq && lpq.lp && lpq.phase === "lpark") info.push(fmt(t("lpNow"), { cs: lpq.cs, s: mmss(lpq.lpDur - ((G.fpt || 0) - lpq.lp0)), e: eurS(((G.fpt || 0) - lpq.lp0) * LPFEE[lpq.type]) }));
+      }
+      acts.push(btn("lp", m.lp ? t("lpOn") : t("lpOff"), !m._conn));
       if (!m.gate) acts.push(btn("gate", t("gate") + " · " + eurS(bdef("gate").cost()), !!bdef("gate").lock() || !m._term));
       if (!m.heavy) acts.push(btn("heavy", t("heavy") + " · " + eurS(bdef("heavy").cost()), !!bdef("heavy").lock()));
     } else if (m.t === "runway") {
@@ -2969,6 +3230,11 @@
     } else if (LVL[m.t]) {
       info.push(t("lvl") + " " + m.lvl + "/2");
       if (m.lvl < 2) acts.push(btn("lvl", fmt(t("up2"), { n: 2 }) + " · " + eurS(LVL[m.t][0]), false));
+    } else if (isExt(m.t)) {
+      var par = byId(m.par);
+      info.push(fmt(t("extInfo"), { n: par ? par.name : "–" }));
+      if (par) info.push(fmt(t("termCapI"), { a: Math.round(termCap() ? termPax() * termCapOf(par) / termCap() : 0).toLocaleString(loc()), b: termCapOf(par).toLocaleString(loc()), e: extsOf(par).length, x: EXTMAX }));
+      if (m.t === "tpier") info.push(t("pierGate"));
     } else if (m.t === "tank") {
       var cp = Math.round(fuelPct());
       info.push('<span class="fh-trade"><span class="row"><span>0 %</span><b id="fh-tr-pct">' + cp + ' %</b><span>100 %</span></span>' +
@@ -2979,6 +3245,10 @@
     } else if (m.t === "term" || m.t === "park" || m.t === "bus" || m.t === "cab" || isHotel(m.t)) {
       if (isHotel(m.t)) info.push(fmt(t("hotelInfo"), { n: hotelGuests(m), k: hotelCap(m) }));
       if (m.t === "term") {
+        var tcp = termCap(), tpx2 = termPax();
+        info.push(fmt(t("termCapI"), { a: Math.round(tcp ? tpx2 * termCapOf(m) / tcp : 0).toLocaleString(loc()), b: termCapOf(m).toLocaleString(loc()), e: extsOf(m).length, x: EXTMAX }));
+        if (tcp && tpx2 >= tcp * 0.97) info.push('<span style="color:#F2A08E">' + t("termFullI") + "</span>");
+        acts.push(btn("rename", t("rename"), false));
         var fit = []; if (m.shops) fit.push(t("shopsW")); if (m.lounge) fit.push(t("lngW"));
         info.push((termLvl(m) >= 2 ? t("tLvl2") : NAMES.term[lang]) + " · " + fmt(t("tHas"), { x: fit.length ? fit.join(", ") : t("tNone") }));
         if (termLvl(m) < 2) acts.push(btn("tmod", t("tMod") + " · " + eurS(TUP.tmod), false));
@@ -2992,19 +3262,31 @@
     }
     if (!m.hw) acts.push(btn("del", V.delArm ? fmt(t("delQ"), { p: eurS((m.paid || 0) / 2) }) : t("del"), false, true));
     if (MOVABLE[m.t] && !m.hw) acts.unshift(btn("move", t("mvBtn") + " · " + eurS(MOVEFEE), G.money < MOVEFEE || inUse(m)));
-    box.innerHTML = "<b>" + (m.hw ? t("hwName") : NAMES[m.t][lang]) + (m.t === "stand" ? " " + standNo(m) : "") + "</b>" + info.map(function (s) { return "<p>" + s + "</p>"; }).join("") + '<div class="acts">' + acts.join("") + "</div>";
+    box.innerHTML = "<b>" + (m.hw ? t("hwName") : m.t === "term" ? esc(m.name || NAMES.term[lang]) : NAMES[m.t][lang]) + (m.t === "stand" ? " " + standNo(m) : "") + "</b>" + info.map(function (s) { return "<p>" + s + "</p>"; }).join("") + '<div class="acts">' + acts.join("") + "</div>";
+  }
+  function esc(x) { return String(x).replace(/[&<>"]/g, function (ch) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[ch]; }); }
+  // Namensfeld für Terminals: erscheint nach dem Bau, vorbelegt mit „Terminal n“, Enter oder OK übernimmt
+  function nameOpen(m) {
+    var box = V.root.querySelector("#fh-name"), inp = V.root.querySelector("#fh-name-in"); if (!box || !inp) return;
+    V.nameFor = m.id; box.hidden = false; inp.value = m.name || ""; setTimeout(function () { try { inp.focus(); inp.select(); } catch (e) {} }, 0);
+  }
+  function nameClose(ok) {
+    var box = V.root.querySelector("#fh-name"), inp = V.root.querySelector("#fh-name-in"); if (!box || box.hidden) return;
+    var m = byId(V.nameFor); box.hidden = true; V.nameFor = null;
+    if (m && ok) { var v = inp.value.replace(/\s+/g, " ").trim().slice(0, 32); if (v) m.name = v; save(); }
+    updateSel(); V.stage.focus({ preventScroll: true });
   }
   function updateHint() {
-    var T = V.tool, k = !T ? "none" : T.kind === "route" ? T.phase : T.kind === "runway" ? (T.start ? "rw1" : "rw0") : T.kind === "rect" ? "rect" : T.kind === "apply" ? "apply" : T.start ? "line1" : (T.id === "road" ? "road0" : "line0");
+    var T = V.tool, k = !T ? "none" : T.kind === "route" ? T.phase : T.kind === "runway" ? (T.start ? "rw1" : "rw0") : T.kind === "rect" ? "rect" : T.kind === "apply" ? "apply" : T.start ? "line1" : (T.id === "road" || T.id === "bridge" ? "road0" : "line0");
     if (T && T.kind === "line" && V.curve) k = !T.start ? k : T.end ? "cv2" : "cv1";
-    if (T && T.kind === "brush") k = "brush";
+    if (T && T.kind === "brush") k = T.id === "water" ? "water" : "brush";
     if (T && (T.kind === "dozer" || T.kind === "move")) { set("fh-hint", t(T.kind === "dozer" ? "dozer" : "mvName") + ": " + TX.hint[T.kind][lang] + (T.kind === "move" ? " · " + eurS(MOVEFEE) : "")); Array.prototype.forEach.call(V.root.querySelectorAll(".fh-ctl .rot"), function (b) { b.hidden = T.kind !== "move"; }); updateCtl(); return; }
     var extra = T && T.kind === "line" ? " · " + owLabel(V.owm) + " (O)" + (V.curve ? " · " + t("cvOn") + " (C)" : "") : "";
     set("fh-hint", (T && T.kind !== "route" ? bdef(T.id).name[lang] + ": " : "") + TX.hint[k][lang] + extra);
     Array.prototype.forEach.call(V.root.querySelectorAll(".fh-ctl .rot"), function (b) { b.hidden = !(T && T.kind === "rect"); });
     updateCtl();
   }
-  function cycleOw() { var n = V.tool && V.tool.id === "road" ? 4 : 2; V.owm = ((V.owm || 0) + 1) % n; updateHint(); updateGhost(); }
+  function cycleOw() { var n = V.tool && (V.tool.id === "road" || V.tool.id === "bridge") ? 4 : 2; V.owm = ((V.owm || 0) + 1) % n; updateHint(); updateGhost(); }
   function owLabel(m) { return !m ? t("owOff") : m === 1 ? (V.tool && V.tool.id === "taxi" ? t("owOn") : t("owPk")) : m === 2 ? t("owSl") : t("owBus"); }
   function updateCtl() {
     var b = V.root.querySelector("[data-ow]"); if (!b) return;
@@ -3052,6 +3334,7 @@
       G.money -= w.cost; w.clr = CLEART; earnFx(w);   // darf ins Minus gehen, sonst stünde der Flughafen für immer still
       save(); updateSel(); updatePanel(true); return;
     }
+    if (e.target.closest("[data-nameok]")) { nameClose(true); return; }
     var ab = e.target.closest("[data-act]");
     if (ab) {
       var m = byId(V.sel); if (!m || ab.getAttribute("aria-disabled") === "true") return;
@@ -3072,6 +3355,8 @@
       else if (a === "fuel") { fillFuel(); }
       else if (a === "trade") { trDo(); }
       else if (a === "move") { startMove(m); }
+      else if (a === "rename") { nameOpen(m); }
+      else if (a === "lp") { m.lp = m.lp ? 0 : 1; save(); msg(t(m.lp ? "lpSetOn" : "lpSetOff"), true); updateSel(); updatePanel(true); }
       else if (a === "tmod" || a === "tshop" || a === "tlng") {
         var pc = TUP[a];
         if (G.money < pc) { msg(t("poor")); return; }
@@ -3114,7 +3399,7 @@
     raf = requestAnimationFrame(frame);
     var dt = Math.min(0.1, (now - (last || now)) / 1000); last = now;
     keysTick(dt);
-    if (!R.paused) { G.fpt = (G.fpt || 0) + dt; fpDraw(); finDraw(); smDraw(); wreckTick(dt); }
+    if (!R.paused) { var s0 = Math.floor(G.fpt || 0); G.fpt = (G.fpt || 0) + dt; if (Math.floor(G.fpt) !== s0) splitCheck(); fpDraw(); finDraw(); smDraw(); wreckTick(dt); }
     V.wxT = (V.wxT || 0) + dt; if (V.wxT > 1) { V.wxT = 0; wxDraw(); }
     trT += dt; if (trT > 0.5) { trT = 0; trUpdate(); }
     if (!R.paused) { var g = dt * R.speed; while (g > 0) { var d = Math.min(0.05, g); tick(d); g -= d; } }
@@ -3160,9 +3445,13 @@
     c2.beginPath(); for (k3 = 0; k3 <= N; k3++) { if (k3) c2.lineTo(X(k3), Y(pts2[k3])); else c2.moveTo(X(k3), Y(pts2[k3])); } c2.strokeStyle = q.k === "oil" && q.col === "#2C2F33" ? "#C9CED4" : q.col; c2.lineWidth = 3; c2.stroke();
     (G.strades || []).forEach(function (m) { if (m.s !== q.id) return; var kk = m.t - (sec - N); if (kk < 0 || kk > N) return; c2.beginPath(); c2.arc(X(kk), Y(m.p), 8, 0, Math.PI * 2); c2.fillStyle = m.k === "b" ? "#E58A73" : "#8FC79A"; c2.fill(); c2.lineWidth = 3; c2.strokeStyle = "#F4F1EC"; c2.stroke(); });
     (G.scrash || []).forEach(function (cc) { if (cc.s !== q.id) return; var kk = cc.t - (sec - N); if (kk < 0 || kk > N) return; var xx2 = X(kk); c2.fillStyle = "rgba(194,65,45,.9)"; c2.fillRect(xx2 - 1.5, 0, 3, H2); c2.font = "700 19px " + FONT; c2.textAlign = xx2 > W2 * 0.8 ? "right" : "left"; c2.fillText(t("crashMk").toUpperCase(), xx2 + (xx2 > W2 * 0.8 ? -8 : 8), H2 - 18); });
+    (G.splits || []).forEach(function (sp) { if (sp.s !== q.id) return; var kk = sp.t - (sec - N); if (kk < 0 || kk > N) return; var xx3 = X(kk); c2.fillStyle = "rgba(227,184,63,.9)"; c2.fillRect(xx3 - 1.5, 0, 3, H2); c2.font = "700 19px " + FONT; c2.textAlign = xx3 > W2 * 0.8 ? "right" : "left"; c2.fillText("SPLIT 2:1", xx3 + (xx3 > W2 * 0.8 ? -8 : 8), 26); });
+    // Höchstwert der Aktie als gestrichelte Linie, wenn er im Bild liegt
+    var smx = stkMax(q); if (Y(smx) > 2) { c2.setLineDash([4, 6]); c2.strokeStyle = "rgba(227,184,63,.55)"; c2.lineWidth = 2; c2.beginPath(); c2.moveTo(0, Y(smx)); c2.lineTo(W2, Y(smx)); c2.stroke(); c2.setLineDash([]); c2.fillStyle = "rgba(227,184,63,.8)"; c2.font = "600 17px " + FONT; c2.textAlign = "left"; c2.fillText("Max " + eur2(smx), 8, Y(smx) - 7); }
+    hoverMark(c2, "sm", N, X, W2, H2, function (k) { return [[pts2[k], Y(pts2[k]), q.k === "oil" && q.col === "#2C2F33" ? "#C9CED4" : q.col, eur2(pts2[k])]]; });
     c2.fillStyle = "#F4F1EC"; c2.fillRect(X(N) - 6, Y(pts2[N]) - 6, 12, 12);
     var now2 = pts2[N], d1 = now2 - stockAt(q, sec - 60), de = document.getElementById("fh-sm-d");
-    set("fh-sm-name", q.n + " · " + q.id); set("fh-sm-now", eur2(now2));
+    set("fh-sm-name", q.n + " · " + q.id); set("fh-sm-now", eur2(now2)); set("fh-sm-rng", fmt(t("smRange"), { a: eur2(stkMin(q)), b: eur2(stkMax(q)) }));
     de.textContent = (d1 >= 0 ? "▲ +" : "▼ −") + eur2(Math.abs(d1)) + " / min"; de.style.color = d1 >= 0 ? "#8FC79A" : "#E58A73";
     set("fh-sm-hold", h0.n ? fmt(t("smHold"), { n: nI(h0.n), a: eur2(h0.cost / h0.n), v: eurS(h0.n * now2) }) + " · " + ((h0.n * now2 - h0.cost) >= 0 ? "+" : "−") + eurS(Math.abs(h0.n * now2 - h0.cost)) : t("smNone"));
     if (reset) { var r = document.getElementById("fh-sm-r"), mx = smMax(q); r.value = mx ? Math.round(h0.n / mx * 1000) : 0; V.smR0 = r.value; }
@@ -3232,6 +3521,25 @@
     set("fh-fin-rate", eurS(finRate()));
     set("fh-fin-sum", all > 0 ? fmt(t("finSum"), { e: eurS(all) }) : t("finEmpty"));
   }
+  // Hover (v0.7): Maus über dem Graphen zeigt Zeitpunkt und Wert an dieser Stelle
+  function hoverMark(c, id, N, X, W, H, valsAt) {
+    var hv = V && V.hv; if (!hv || hv.id !== id) return;
+    var k = Math.max(0, Math.min(N, Math.round(hv.f * N))), x = X(k), vals = valsAt(k);
+    c.save(); c.strokeStyle = "rgba(244,241,236,.6)"; c.lineWidth = 2; c.setLineDash([5, 5]); c.beginPath(); c.moveTo(x, 0); c.lineTo(x, H); c.stroke(); c.setLineDash([]);
+    vals.forEach(function (v) { c.beginPath(); c.arc(x, v[1], 8, 0, Math.PI * 2); c.fillStyle = v[2]; c.fill(); c.lineWidth = 3; c.strokeStyle = "#151715"; c.stroke(); });
+    var ago = N - k, lines = [ago === 0 ? (lang === "de" ? "jetzt" : "now") : (lang === "de" ? "vor " : "") + mmss(ago) + (lang === "de" ? " min" : " min ago")].concat(vals.map(function (v) { return v[3]; }));
+    c.font = "600 21px " + FONT; var bw = 0; lines.forEach(function (l) { bw = Math.max(bw, c.measureText(l).width); }); bw += 24; var bh = lines.length * 27 + 12;
+    var bx = x + 16 + bw > W ? x - 16 - bw : x + 16, by = Math.max(6, Math.min(H - bh - 6, Math.min.apply(null, vals.map(function (v) { return v[1]; })) - bh / 2));
+    c.fillStyle = "rgba(21,23,21,.92)"; c.fillRect(bx, by, bw, bh); c.strokeStyle = "rgba(244,241,236,.3)"; c.lineWidth = 1.5; c.strokeRect(bx + 0.5, by + 0.5, bw - 1, bh - 1);
+    c.textAlign = "left"; c.textBaseline = "alphabetic";
+    lines.forEach(function (l, i) { c.fillStyle = i === 0 ? "rgba(244,241,236,.65)" : vals[i - 1][2]; c.fillText(l, bx + 12, by + 30 + i * 27); });
+    c.restore();
+  }
+  function hoverBind(cv, id, redraw, padL, padR) {
+    function upd(e) { var r = cv.getBoundingClientRect(), px = (e.clientX - r.left) / r.width * cv.width; V.hv = { id: id, f: Math.max(0, Math.min(1, (px - padL) / (cv.width - padL - padR))) }; redraw(true); }
+    cv.addEventListener("pointermove", upd); cv.addEventListener("pointerdown", upd);
+    cv.addEventListener("pointerleave", function () { if (V && V.hv && V.hv.id === id) { V.hv = null; redraw(true); } });
+  }
   // Preisverlauf: nur gezeichnet, wenn das Fenster offen ist, und dann einmal pro Sekunde
   var fpLast = -1;
   function shadeCrisis(c, t0, N, X, H) {
@@ -3251,7 +3559,7 @@
     var cv = box.querySelector("#fh-fp-cv"), c = cv.getContext("2d"), W = cv.width, H = cv.height, N = 900, pts = [], lo = Infinity, hi = -Infinity;
     var sp = [], shi = 0;
     for (var k = 0; k <= N; k++) { var v = fuelPriceAt(sec - N + k); pts.push(v); if (v < lo) lo = v; if (v > hi) hi = v; var sv = fuelSellAt(sec - N + k); sp.push(sv); if (sv > shi) shi = sv; }
-    var ymin = lo * 0.9, ymax = shi * 1.04, padL = 4, padR = 4;
+    var slo = Math.min.apply(null, sp), ymin = Math.min(lo, slo) * 0.9, ymax = Math.max(hi, shi) * 1.04, padL = 4, padR = 4;
     function Y(v) { return H - 14 - (v - ymin) / (ymax - ymin) * (H - 28); }
     function X(k) { return padL + k / N * (W - padL - padR); }
     c.clearRect(0, 0, W, H);
@@ -3266,6 +3574,7 @@
     var iH = pts.indexOf(hi), iL = pts.indexOf(lo); c.font = "600 19px " + FONT;
     [[iH, hi, t("fpHi"), -10], [iL, lo, t("fpLo"), 24]].forEach(function (q) { var x = X(q[0]); c.fillStyle = "#F4F1EC"; c.fillRect(x - 4, Y(q[1]) - 4, 8, 8); c.textAlign = x > W * 0.75 ? "right" : x < W * 0.25 ? "left" : "center"; c.fillText(q[2] + " " + eur(q[1]), x, Math.min(H - 4, Math.max(18, Y(q[1]) + q[3]))); });
     c.fillStyle = "#E3B83F"; c.fillRect(X(N) - 6, Y(pts[N]) - 6, 12, 12);
+    hoverMark(c, "fp", N, X, W, H, function (k) { return [[pts[k], Y(pts[k]), "#E3B83F", t("fpBuy") + " " + eur(pts[k])], [sp[k], Y(sp[k]), "#8FC79A", t("fpSellS") + " " + eur(sp[k])]]; });
     trMarks.forEach(function (q) { var x = X(q.t - (sec - N)), y = Y(q.p); c.beginPath(); c.arc(x, y, 8, 0, Math.PI * 2); c.fillStyle = q.k === "b" ? "#E58A73" : "#8FC79A"; c.fill(); c.lineWidth = 3; c.strokeStyle = "#F4F1EC"; c.stroke(); });
     var now = pts[N], d = now - fuelPriceAt(sec - 60), de = document.getElementById("fh-fp-d");
     set("fh-fp-now", eur(now));
@@ -3301,10 +3610,12 @@
     setTab("air"); window.addEventListener("resize", layoutVars);
     V.stage.focus({ preventScroll: true });
     V.ctx = V.cv.getContext("2d");
+    hoverBind(el.querySelector("#fh-fp-cv"), "fp", fpDraw, 4, 4); hoverBind(el.querySelector("#fh-sm-cv"), "sm", function () { smDraw(true); }, 4, 4);
     fitView();
     el.addEventListener("click", onClick);
     el.addEventListener("input", function (e) { if (e.target.id === "fh-tr") trUpdate(); if (e.target.id === "fh-sm-r") smUpd(); });
     el.addEventListener("pointerdown", onRotDown);
+    el.querySelector("#fh-name-in").addEventListener("keydown", function (e) { if (e.key === "Enter") { e.preventDefault(); nameClose(true); } else if (e.key === "Escape") { e.preventDefault(); nameClose(false); } e.stopPropagation(); });
     window.addEventListener("pointerup", onRotUp);
     V.cv.addEventListener("pointerdown", onDown);
     V.cv.addEventListener("pointermove", onMove);
@@ -3337,5 +3648,6 @@
   window.addEventListener("pagehide", save);
 
   window.Flughafen = { mount: mount, unmount: unmount,
-    _debug: function () { return { G: G, R: R, V: V, tick: tick, addMod: addMod, rebuild: rebuild, stats: stats, snapRect: snapRect, setTool: setTool, act: act, updateGhost: updateGhost, rwEnds: rwEnds, world: world, fuelPriceAt: fuelPriceAt, crisisList: crisisList, crash: crash, wxNow: wxNow }; } };
+    _debug: function () { return { G: G, R: R, V: V, tick: tick, addMod: addMod, rebuild: rebuild, stats: stats, snapRect: snapRect, setTool: setTool, act: act, updateGhost: updateGhost, rwEnds: rwEnds, world: world, fuelPriceAt: fuelPriceAt, crisisList: crisisList, crash: crash, wxNow: wxNow,
+      STOCKS: STOCKS, stockAt: stockAt, stkMax: stkMax, stkMin: stkMin, splitCheck: splitCheck, fuelSellAt: fuelSellAt, termCap: termCap, termPax: termPax, lineValid: lineValid, waterAt: waterAt, fpDraw: fpDraw, smDraw: smDraw, draw: draw, updateSel: updateSel, rectValid: rectValid, foot: foot, overlap: overlap }; } };
 })();
