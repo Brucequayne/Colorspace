@@ -28,6 +28,7 @@
   }
   function ku(e) { var k = e.key.length === 1 ? e.key.toLowerCase() : e.key; I.keys[k] = false; }
   function mm(e) { toArena(e.clientX, e.clientY); }
+  // mousedown statt pointerdown: nur so kommt ein zweiter Knopf an, während der erste gehalten wird (Konter)
   function md(e) {
     if (!I.el || !I.el.contains(e.target) || e.target.tagName !== "CANVAS") return;
     toArena(e.clientX, e.clientY);
@@ -44,8 +45,8 @@
     window.addEventListener("keydown", kd);
     window.addEventListener("keyup", ku);
     window.addEventListener("pointermove", mm);
-    window.addEventListener("pointerdown", md);
-    window.addEventListener("pointerup", mu);
+    window.addEventListener("mousedown", md);
+    window.addEventListener("mouseup", mu);
     window.addEventListener("contextmenu", cm);
     window.addEventListener("wheel", wh, { passive: false });
     window.addEventListener("blur", blur);
@@ -54,8 +55,8 @@
     window.removeEventListener("keydown", kd);
     window.removeEventListener("keyup", ku);
     window.removeEventListener("pointermove", mm);
-    window.removeEventListener("pointerdown", md);
-    window.removeEventListener("pointerup", mu);
+    window.removeEventListener("mousedown", md);
+    window.removeEventListener("mouseup", mu);
     window.removeEventListener("contextmenu", cm);
     window.removeEventListener("wheel", wh);
     window.removeEventListener("blur", blur);

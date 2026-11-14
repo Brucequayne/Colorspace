@@ -14,9 +14,11 @@
     "arena.js",         // Arena-Daten, Kacheln, Kollision, Speichern
     "arenas/standard.js", // Standard-Arena (vom Dev Tool exportierbar)
     "lighting.js",      // Tageszeit, Licht, Schatten
-    "particles.js",     // Blätter, Staub, Spritzer, Stroh
-    "world.js",         // Spielwelt: zeichnet Arena, Objekte, Figuren
-    "player.js",        // Samurai: Bewegung, Angriffe, Blocks
+    "particles.js",     // Blätter, Staub, Spritzer, Stroh, Wind, Wirbel, Tinte
+    "world.js",         // Spielwelt: zeichnet Insel, Objekte, Figuren, Pfeile
+    "player.js",        // Samurai: Bewegung, Dash, Angriffe, Blocks, Bogen, Leben, Energie
+    "enemies.js",       // Gegner und ihre KI (Ronin)
+    "hud.js",           // Lebens- und Energiebalken
     "scene-menu.js",    // Menü
     "scene-intro.js",   // Übergang: Tropfen und Wachstum
     "scene-arena.js",   // Kampf-Arena

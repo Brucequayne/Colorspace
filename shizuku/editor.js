@@ -34,20 +34,30 @@
   var BRUSHES = [
     { id: "meadow", kind: "veg", mix: [["grass", 6], ["fern", 1], ["flower", 1]], name: function () { return L2("Wiese", "Meadow"); } },
     { id: "grass", kind: "veg", mix: [["grass", 1]], name: function () { return SZ.VEG.grass.name(); } },
+    { id: "tallgrass", kind: "veg", mix: [["tallgrass", 1]], name: function () { return SZ.VEG.tallgrass.name(); } },
+    { id: "tallmeadow", kind: "veg", mix: [["tallgrass", 4], ["wildflower", 2], ["grass", 1]], name: function () { return L2("Hohe Wiese", "Tall meadow"); } },
+    { id: "wheat", kind: "veg", mix: [["wheat", 1]], dens: 2.2, name: function () { return L2("Kornfeld", "Grain field"); } },
+    { id: "wildflower", kind: "veg", mix: [["wildflower", 1]], name: function () { return SZ.VEG.wildflower.name(); } },
     { id: "fern", kind: "veg", mix: [["fern", 1]], name: function () { return SZ.VEG.fern.name(); } },
     { id: "lily", kind: "veg", mix: [["lily", 1]], name: function () { return SZ.VEG.lily.name(); } },
     { id: "flower", kind: "veg", mix: [["flower", 1]], name: function () { return SZ.VEG.flower.name(); } },
     { id: "reed", kind: "veg", mix: [["reed", 1]], name: function () { return SZ.VEG.reed.name(); } },
     { id: "lotus", kind: "veg", mix: [["lotus", 1]], name: function () { return SZ.VEG.lotus.name(); } },
     { id: "leaves", kind: "veg", mix: [["leaves", 1]], name: function () { return SZ.VEG.leaves.name(); } },
+    { id: "petals", kind: "veg", mix: [["petals", 1]], name: function () { return SZ.VEG.petals.name(); } },
     { id: "leaffall", kind: "leaf", name: function () { return L2("Laubfall", "Leaf fall"); } },
     { id: "w", kind: "tile", name: function () { return SZ.TILES.w.name(); } },
     { id: "m", kind: "tile", name: function () { return SZ.TILES.m.name(); } },
     { id: "e", kind: "tile", name: function () { return SZ.TILES.e.name(); } },
     { id: "a", kind: "tile", name: function () { return SZ.TILES.a.name(); } },
-    { id: "s", kind: "tile", name: function () { return SZ.TILES.s.name(); } }
+    { id: "s", kind: "tile", name: function () { return SZ.TILES.s.name(); } },
+    { id: "p", kind: "tile", name: function () { return SZ.TILES.p.name(); } },
+    { id: "b", kind: "tile", name: function () { return SZ.TILES.b.name(); } },
+    { id: "h", kind: "tile", name: function () { return SZ.TILES.h.name(); } },
+    { id: "g", kind: "tile", name: function () { return SZ.TILES.g.name(); } },
+    { id: "v", kind: "tile", name: function () { return SZ.TILES.v.name(); } }
   ];
-  var TILE_SW = { s: "#77726A", m: "#5E8040", e: "#6A4E38", a: "#D2C8AC", w: "#2E5A60", "#": "#3E3B38" };
+  var TILE_SW = {}; Object.keys(SZ.TILES).forEach(function (k) { TILE_SW[k] = SZ.TILES[k].sw; });
 
   var E = null;   // Zustand des Editors (bleibt beim Testen erhalten)
 
@@ -109,8 +119,8 @@
       '</div><input type="file" accept=".json,.js,application/json" hidden data-k="file">' +
       '<div class="sz-ed-status"></div>' +
       '<div class="sz-ed-info">' + L2(
-        "Linke Maustaste malt bzw. setzt, rechte löscht. Mausrad: Variante (Objekte) bzw. Pinselgröße. Umschalt: Objekte am 8-px-Raster. Strg+Z: rückgängig.<br>„Speichern“ gilt nur in diesem Browser. Für alle: „Als standard.js exportieren“ und die Datei in den Ordner shizuku/arenas/ hochladen.",
-        "Left mouse paints or places, right deletes. Mouse wheel: variant (objects) or brush size. Shift: snap objects to 8 px. Ctrl+Z: undo.<br>“Save” only applies to this browser. For everyone: “Export as standard.js” and upload the file to the folder shizuku/arenas/.") + '</div>';
+        "Abgrund (Boden oder Pinsel) macht die Insel kleiner, Wasser am Rand wird zum Wasserfall. Linke Maustaste malt bzw. setzt, rechte löscht. Mausrad: Variante (Objekte) bzw. Pinselgröße. Umschalt: Objekte am 8-px-Raster. Strg+Z: rückgängig.<br>„Speichern“ gilt nur in diesem Browser. Für alle: „Als standard.js exportieren“ und die Datei in den Ordner shizuku/arenas/ hochladen.",
+        "Abyss (floor or brush) shrinks the island, water at the edge becomes a waterfall. Left mouse paints or places, right deletes. Mouse wheel: variant (objects) or brush size. Shift: snap objects to 8 px. Ctrl+Z: undo.<br>“Save” only applies to this browser. For everyone: “Export as standard.js” and upload the file to the folder shizuku/arenas/.") + '</div>';
     E.ui.innerHTML = h;
     E.ui.addEventListener("click", onClick);
     E.ui.addEventListener("input", onInput);
@@ -218,15 +228,15 @@
   }
   function vegOk(type, x, y) {
     var c = E.arena.tilePx(x, y), d = SZ.VEG[type];
-    if (c === "#") return false;
+    if (c === "#" || c === "v") return false;
     return d.water ? c === "w" : c !== "w";
   }
   function paintBrush(dt, erase) {
     var I = SZ.input, b = BRUSHES.filter(function (q) { return q.id === E.brush; })[0], r = E.bsize, a = E.arena;
-    if (b.kind === "tile") { inCircle(I.mx, I.my, r * 0.8, function (tx, ty) { if (!a.solidTile(tx, ty)) a.setTile(tx, ty, erase ? "s" : b.id); }); return; }
+    if (b.kind === "tile") { inCircle(I.mx, I.my, r * 0.8, function (tx, ty) { a.setTile(tx, ty, erase ? "s" : b.id); }); return; }
     if (b.kind === "leaf") { inCircle(I.mx, I.my, r * 0.8, function (tx, ty) { a.setLeaf(tx, ty, !erase); }); return; }
     if (erase) { removeVeg(I.mx, I.my, r, b.mix.map(function (q) { return q[0]; })); return; }
-    var n = E.dens * dt * (6 + r * 0.6), total = 0;
+    var n = E.dens * dt * (6 + r * 0.6) * (b.dens || 1), total = 0;
     b.mix.forEach(function (q) { total += q[1]; });
     for (E.acc += n; E.acc >= 1; E.acc--) {
       var ang = Math.random() * 6.283, rr = Math.sqrt(Math.random()) * r, x = I.mx + Math.cos(ang) * rr, y = I.my + Math.sin(ang) * rr * 0.8;

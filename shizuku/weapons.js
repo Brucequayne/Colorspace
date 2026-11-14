@@ -18,7 +18,26 @@
       style: { blade: "#DCE3E8", edge: "#8E99A3", shine: "#FFFFFF", guard: "#C9A445", grip: "#1E1A1C", wrap: "#5B4A3A" },
       attacks: ["kesa", "tsuki", "kaiten"],
       blocks: ["kamae", "ukenagashi", "ashisabaki"]
+    },
+    // Yumi: Linksklick halten zum Spannen, loslassen zum Schießen.
+    // Je länger gespannt (bis full Sekunden), desto schneller und stärker der Pfeil.
+    yumi: {
+      name: function () { return L2("Yumi (Bogen)", "Yumi (bow)"); },
+      type: "bow", full: 1.15, minDraw: 0.12,
+      speed: [170, 640], dmg: [5, 34], drawMove: 0.45, weight: 1,
+      style: { blade: "#DCE3E8", edge: "#8E99A3", shine: "#FFFFFF", guard: "#C9A445", grip: "#1E1A1C", wrap: "#5B4A3A" }, blade: 14,
+      attacks: ["shot", "shot", "shot"],
+      blocks: ["kamae", "ukenagashi", "ashisabaki"]
     }
+  };
+  SZ.WEAPON_ORDER = ["katana", "yumi"];
+
+  // Werte des Samurai
+  SZ.PLAYER = {
+    hp: 100, energy: 100,
+    dashCost: 33, dashSpeed: 330, dashTime: 0.16,
+    regenDelay: 2, regenRate: 45,       // Energie lädt nach 2 s ohne Angriff/Dash, 45 pro Sekunde
+    blockCost: 1.4                      // Energieverlust je Schadenspunkt beim Blocken
   };
 
   // Angriffsarten (zeitlicher Ablauf in Sekunden)
@@ -28,7 +47,10 @@
     // Q + Linksklick: Stich mit Ausfallschritt nach vorn
     tsuki:  { name: function () { return L2("Tsuki", "Tsuki"); }, wind: 0.09, swing: 0.16, rec: 0.22, thrust: true, dmgMul: 1.4, lunge: 190 },
     // E + Linksklick: Drehhieb rundum, langsam und kräftig
-    kaiten: { name: function () { return L2("Kaiten", "Kaiten"); }, wind: 0.12, swing: 0.3, rec: 0.2, arcDeg: 380, dmgMul: 1.7, lunge: 0 }
+    kaiten: { name: function () { return L2("Kaiten", "Kaiten"); }, wind: 0.12, swing: 0.3, rec: 0.2, arcDeg: 380, dmgMul: 1.7, lunge: 0 },
+    // Rechtsklick halten + Linksklick: Konter (Kaeshi-waza). Die ersten 0,24 s parieren,
+    // ein parierter Angriff macht den Gegenschlag deutlich stärker.
+    kaeshi: { name: function () { return L2("Kaeshi-waza (Konter)", "Kaeshi-waza (counter)"); }, wind: 0.24, swing: 0.12, rec: 0.2, arcMul: 1.15, dmgMul: 1, counterMul: 2.6, lunge: 90, counter: true }
   };
   // Blockarten
   SZ.BLOCKS = {

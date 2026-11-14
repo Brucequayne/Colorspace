@@ -24,7 +24,16 @@
     saya: ["#120A0A", "#261414", "#3E1E1C", "#5A2C28"],
     gold: ["#5E481C", "#957530", "#C9A445", "#EBD07C"],
     eye: ["#100C0C", "#100C0C", "#1A1414", "#1A1414"],
-    white: ["#8A8478", "#BEB6A4", "#E2DCCC", "#FAF6EC"]
+    white: ["#8A8478", "#BEB6A4", "#E2DCCC", "#FAF6EC"],
+    straw: ["#6E5626", "#A08038", "#C8A44E", "#E4C878"],
+    rag: ["#2E2A26", "#4C443A", "#6C6252", "#8C806C"],
+    ash: ["#141414", "#22221F", "#34332E", "#4A4842"],
+    rope: ["#3A2A1A", "#5A4228", "#7A5C38", "#9A7A4E"]
+  };
+  // Aussehen je Figur
+  var LOOKS = {
+    samurai: { torso: "kamishimo", sleeve: "ivory", legs: "indigo", wings: "red", saya: true, hat: false, knot: false },
+    ronin: { torso: "kimono", sleeve: "rag", legs: "ash", wings: null, saya: true, hat: true, knot: false, eyes: false }
   };
 
   // ---------- SDF-Grundformen ----------
@@ -69,42 +78,47 @@
     if (anim === "block" || anim === "parry") { P.spread = 3.2; P.crouch = 0.9; P.lf = 1.6; P.rf = -1.4; P.hl = [-1.2, 4.2, 15]; P.hr = [1.4, 4.4, 15.4]; }
     if (anim === "atk") { P.spread = 3.4; P.crouch = 0.7; P.lean = 1.4; P.lf = 2.8; P.rf = -2.2; P.hl = [-1.5, 4.5, 14.5]; P.hr = [2.5, 5, 15]; }
     if (anim === "dash") { P.spread = 2.4; P.crouch = 1.0; P.lean = 2.2; P.lf = 3.5; P.rf = -3; P.rl = 1.2; P.hl = [-4, -2, 13]; P.hr = [4, -2.5, 13]; }
+    if (anim === "bow") { P.spread = 3.4; P.crouch = 0.5; P.lf = 1.8; P.rf = -1.6; P.hl = [-0.6, 6.4, 17.4]; P.hr = [1.6, -0.6, 18.6]; }
+    if (anim === "windup") { P.spread = 3; P.crouch = 0.3; P.lean = -0.6; P.lf = 1.2; P.rf = -2; P.hl = [-0.8, 1.6, 21.5]; P.hr = [1.2, 2, 22.5]; }
+    if (anim === "stagger") { P.spread = 2.6; P.crouch = 0.6; P.lean = -1.6; P.lf = -1; P.rf = 1.4; P.hl = [-5.4, -0.5, 14]; P.hr = [5.4, -0.5, 14]; }
     return P;
   }
 
   // Modell aus Grundformen, je mit Material
-  function model(P) {
+  function model(P, L) {
     var cz = -P.crouch, ln = P.lean, prims = [];
     function add(f, m) { prims.push([f, m]); }
     // Füße (Waraji-Sandalen mit Tabi)
-    [[-1, P.lf, P.ll], [1, P.rf, P.rl]].forEach(function (L) {
-      var x = L[0] * P.spread, y = L[1], lift = L[2];
+    [[-1, P.lf, P.ll], [1, P.rf, P.rl]].forEach(function (G) {
+      var x = G[0] * P.spread, y = G[1], lift = G[2];
       add(box(x, y + 0.8, 0.5 + lift, 1.2, 1.9, 0.5), "sole");
       add(ell(x, y + 0.6, 1.5 + lift, 1.1, 1.7, 0.8), "white");
       // Hakama-Hosenbein, weit ausgestellt
-      add(cone([x * 0.55, ln * 0.4, 11.2 + cz], [x * 1.08, y * 0.85, 2.2 + lift], 2.6, 3.4), "indigo");
+      add(cone([x * 0.55, ln * 0.4, 11.2 + cz], [x * 1.08, y * 0.85, 2.2 + lift], 2.6, 3.4), L.legs);
     });
     // Obi (Gürtel)
     add(ecyl(0, ln * 0.5, 4.3, 3.1, 10.6 + cz, 12.2 + cz), "obi");
     // Oberkörper (Kosode) mit Kataginu-Weste
     add(ecyl(0, ln * 0.6, 3.9, 2.7, 12 + cz, 19.2 + cz + P.breathe), "torso");
     // Kataginu-Schulterflügel
-    add(box(0, ln * 0.65, 19.3 + cz + P.breathe, 7.2, 1.3, 0.55), "red");
+    if (L.wings) add(box(0, ln * 0.65, 19.3 + cz + P.breathe, 7.2, 1.3, 0.55), L.wings);
     // Arme (weite Ärmel) und Hände
     [[-1, P.hl], [1, P.hr]].forEach(function (A) {
       var sh = [A[0] * 4.4, ln * 0.6, 18.2 + cz + P.breathe], h = [A[1][0], A[1][1] + ln * 0.5, A[1][2] + cz];
-      add(cone(sh, h, 1.7, 1.45), "ivory");
+      add(cone(sh, h, 1.7, 1.45), L.sleeve);
       add(ell(h[0], h[1], h[2] - 0.3, 0.95, 0.95, 0.95), "skin");
     });
     // Hals und Kopf
     add(ecyl(0, ln * 0.7, 1.3, 1.2, 19 + cz, 21 + cz), "skin");
     add(ell(0, ln * 0.8 + 0.2, 23.6 + cz + P.breathe, 3.9, 3.7, 4.0), "head");
-    // Chonmage (Haarknoten)
-    add(cone([0, ln * 0.8 - 1.2, 27.4 + cz + P.breathe], [0, ln * 0.8 + 1.6, 28.2 + cz + P.breathe], 1.0, 0.8), "hair");
+    var hz = 23.6 + cz + P.breathe, hy = ln * 0.8 + 0.2;
+    // Haarband hinten am Kopf (die langen Haare werden dynamisch gezeichnet)
+    if (!L.hat) add(ell(0, hy - 3.3, hz + 1.4, 1.1, 0.9, 1.0), "red");
+    // Strohhut (Sugegasa): flacher, weiter Kegel
+    if (L.hat) { add(ell(0, hy, hz + 1.3, 7.2, 7.2, 0.9), "straw"); add(ell(0, hy, hz + 2.2, 4.4, 4.4, 1.7), "straw"); add(ell(0, hy, hz + 3.6, 1.6, 1.6, 1.1), "straw"); }
     // Leere Saya (Schwertscheide) an der linken Hüfte
-    add(cone([-3.8, ln * 0.5 + 1.8, 11.6 + cz], [-4.6, ln * 0.5 - 4.6, 9.8 + cz], 0.62, 0.62), "saya");
-    add(ell(-3.8, ln * 0.5 + 2.1, 11.7 + cz, 0.75, 0.6, 0.75), "gold");
-    return { prims: prims, ln: ln, cz: cz, P: P };
+    if (L.saya) { add(cone([-3.8, ln * 0.5 + 1.8, 11.6 + cz], [-4.6, ln * 0.5 - 4.6, 9.8 + cz], 0.62, 0.62), "saya"); add(ell(-3.8, ln * 0.5 + 2.1, 11.7 + cz, 0.75, 0.6, 0.75), "gold"); }
+    return { prims: prims, ln: ln, cz: cz, P: P, L: L };
   }
 
   // Material mit Details (Gesicht, V-Kragen, Wappen)
@@ -112,12 +126,17 @@
     if (name === "head") {
       var hy = y - (M.ln * 0.8 + 0.2), hz = z - (23.6 + M.cz + M.P.breathe);
       if (hy < 0.9 - Math.max(0, -hz) * 0.5 || hz > 1.5) return "hair";
-      if (hy > 1.5 && Math.abs(hz + 0.1) < 0.55 && Math.abs(Math.abs(x) - 1.45) < 0.55) return "eye";
+      if (M.L.eyes !== false && hy > 1.5 && Math.abs(hz + 0.1) < 0.55 && Math.abs(Math.abs(x) - 1.45) < 0.55) return "eye";
+      if (M.L.hat && hy > 1 && hz < 0.6 && hz > -0.4) return "hair";
       if (hy > 2 && Math.abs(hz - 0.85) < 0.3 && Math.abs(Math.abs(x) - 1.5) < 0.8) return "hair";
       return "skin";
     }
     if (name === "torso") {
       var ty = y - M.ln * 0.6, tz = z - M.cz;
+      if (M.L.torso === "kimono") {
+        if (ty > 0.8 && tz > 14.2 && Math.abs(x + (tz - 14) * 0.25) < (tz - 13.6) * 0.42) return Math.abs(x + (tz - 14) * 0.25) > (tz - 13.6) * 0.3 ? "ivory" : "skin";
+        return "rag";
+      }
       if (ty > 0.8 && tz > 15.5 && Math.abs(x) < (tz - 15.2) * 0.62) return "ivory";
       if (ty > 1.2 && Math.abs(Math.abs(x) - 2.1) < 0.55 && Math.abs(tz - 17.4) < 0.55) return "white";
       if (ty < -1.2 && Math.abs(x) < 0.8 && Math.abs(tz - 17.6) < 0.8) return "white";
@@ -133,8 +152,8 @@
   }
 
   // Raymarching eines Sprites
-  function render(dir, P) {
-    var M = model(P), prims = M.prims;
+  function render(dir, P, L) {
+    var M = model(P, L), prims = M.prims;
     var ang = dir * Math.PI / 4, fx = Math.cos(ang), fy = Math.sin(ang), rx = -fy, ry = fx;
     var cv = SZ.canvas(SW, SH), img = cv.ctx.createImageData(SW, SH), d = img.data;
     var Lx = -0.5, Ly = 0.42, Lz = 0.76;
@@ -165,19 +184,24 @@
     return { cv: cv, sil: SZ.silhouette(cv) };
   }
 
-  var FRAMES = { idle: 2, walk: 6, block: 1, parry: 1, atk: 1, dash: 1 };
+  var FRAMES = { idle: 2, walk: 6, block: 1, parry: 1, atk: 1, dash: 1, bow: 1, windup: 1, stagger: 1 };
+  var USE = { samurai: ["idle", "walk", "block", "parry", "atk", "dash", "bow", "stagger"], ronin: ["idle", "walk", "atk", "windup", "stagger", "block"] };
   var cache = {}, queue = [];
-  function frame(dir, anim, k) {
+  function frame(dir, anim, k, look) {
+    look = look || "samurai";
     var n = FRAMES[anim] || 1; k = ((k % n) + n) % n;
-    var key = dir + ":" + anim + ":" + k;
-    if (!cache[key]) cache[key] = render(dir, pose(anim, k, n));
+    var key = look + ":" + dir + ":" + anim + ":" + k;
+    if (!cache[key]) cache[key] = render(dir, pose(anim, k, n), LOOKS[look]);
     return cache[key];
   }
   // Vorab im Hintergrund rendern, damit das Spiel nicht ruckelt
-  function prewarm() { queue = []; Object.keys(FRAMES).forEach(function (a) { for (var k = 0; k < FRAMES[a]; k++) for (var d = 0; d < 8; d++) queue.push([d, a, k]); }); }
+  function prewarm() {
+    queue = [];
+    Object.keys(USE).forEach(function (look) { USE[look].forEach(function (a) { for (var k = 0; k < FRAMES[a]; k++) for (var d = 0; d < 8; d++) queue.push([d, a, k, look]); }); });
+  }
   function work(ms) {
     var t0 = performance.now();
-    while (queue.length && performance.now() - t0 < ms) { var q = queue.shift(); frame(q[0], q[1], q[2]); }
+    while (queue.length && performance.now() - t0 < ms) { var q = queue.shift(); frame(q[0], q[1], q[2], q[3]); }
     return queue.length;
   }
 
@@ -204,5 +228,72 @@
     return { tip: { x: ox + tip.x, y: oy + tip.y }, base: { x: x0, y: y0 }, depth: (h.depth + tip.depth) / 2 };
   }
 
-  SZ.samurai = { frame: frame, FRAMES: FRAMES, prewarm: prewarm, work: work, proj: proj, drawSword: drawSword, AX: AX, AY: AY, W: SW, H: SH, PAL: PAL };
+  // ---------- Lange Haare: kleine Kette mit Trägheit, Schwerkraft und Wind ----------
+  function Hair(n, seg) { this.n = n || 7; this.seg = seg || 2.1; this.p = null; }
+  Hair.prototype.anchor = function (face, ox, oy, lean) {
+    var d = Math.round(face / (Math.PI / 4)) * Math.PI / 4, fx = Math.cos(d), fy = Math.sin(d);
+    var pr = proj(-fx * (3.2 + lean * 0.3), -fy * (3.2 + lean * 0.3), 24.6);
+    return { x: ox + pr.x, y: oy + pr.y, fx: fx, fy: fy };
+  };
+  Hair.prototype.update = function (dt, a, wind, t) {
+    var P = this.p, n = this.n, seg = this.seg, i;
+    if (!P) { P = this.p = []; for (i = 0; i < n; i++) P.push({ x: a.x, y: a.y + i * seg, px: a.x, py: a.y + i * seg }); }
+    var gust = (Math.sin(t * 1.3) * 0.5 + Math.sin(t * 3.7 + 1) * 0.3 + 0.6) * wind;
+    P[0].x = a.x; P[0].y = a.y; P[0].px = a.x; P[0].py = a.y;
+    var h = Math.min(dt, 0.033);
+    for (i = 1; i < n; i++) {
+      var q = P[i], vx = (q.x - q.px) * 0.9, vy = (q.y - q.py) * 0.9;
+      q.px = q.x; q.py = q.y;
+      var k = i / n;
+      q.x += vx + (gust * 26 * k - a.fx * 34) * h * h * 60;
+      q.y += vy + (150 - a.fy * 18) * h * h * 60 * 0.6;
+    }
+    for (var it = 0; it < 3; it++) for (i = 1; i < n; i++) {
+      var A = P[i - 1], B = P[i], dx = B.x - A.x, dy = B.y - A.y, dd = Math.sqrt(dx * dx + dy * dy) || 1, f = (dd - seg) / dd;
+      B.x -= dx * f; B.y -= dy * f;
+    }
+  };
+  Hair.prototype.draw = function (ctx, alpha) {
+    var P = this.p; if (!P) return;
+    var pen = SZ.pen(ctx);
+    ctx.globalAlpha = alpha == null ? 1 : alpha;
+    for (var i = 1; i < P.length; i++) {
+      var a = P[i - 1], b = P[i];
+      pen.line(a.x, a.y, b.x, b.y, i < 3 ? "#0E0A0A" : "#171111");
+      if (i < 5) pen.line(a.x + 1, a.y, b.x + 1, b.y, "#171111");
+      if (i === 2) pen.px(a.x, a.y, "#3A3030");
+    }
+    ctx.globalAlpha = 1;
+  };
+
+  // ---------- Yumi (Langbogen): senkrecht in der linken Hand, Sehne nach Ladung gespannt ----------
+  function drawBow(ctx, ox, oy, hand, ang, draw, shake) {
+    var fx = Math.cos(ang), fy = Math.sin(ang), pen = SZ.pen(ctx), pts = [];
+    var jx = shake ? (Math.random() - 0.5) * shake : 0, jy = shake ? (Math.random() - 0.5) * shake : 0;
+    var bend = 1.6 + draw * 2.6;
+    for (var i = 0; i <= 12; i++) {
+      var s = i / 12, z = -7 + s * 22, u = (z - 0) / (z < 0 ? 7 : 15);
+      var off = bend * (1 - u * u);
+      var p = proj(hand[0] + fx * off, hand[1] + fy * off, hand[2] + z);
+      pts.push({ x: ox + p.x + jx, y: oy + p.y + jy });
+    }
+    var nockW = proj(hand[0] - fx * draw * 7, hand[1] - fy * draw * 7, hand[2]);
+    var nock = { x: ox + nockW.x + jx, y: oy + nockW.y + jy };
+    pen.line(pts[0].x, pts[0].y, nock.x, nock.y, "#E8E0CC"); pen.line(nock.x, nock.y, pts[12].x, pts[12].y, "#E8E0CC");
+    for (var k = 1; k < pts.length; k++) pen.line(pts[k - 1].x, pts[k - 1].y, pts[k].x, pts[k].y, k === 5 ? "#C9A445" : "#2A1A14");
+    pen.px(pts[3].x - 1, pts[3].y, "#5A3A2A"); pen.px(pts[9].x - 1, pts[9].y, "#5A3A2A");
+    return nock;
+  }
+  // Pfeil von nock in Richtung ang (Welt-Ebene), z über dem Boden schon im Bildpunkt enthalten
+  function drawArrow(ctx, x, y, ang, len, glint) {
+    var dx = Math.cos(ang), dy = Math.sin(ang) * SE, l = Math.sqrt(dx * dx + dy * dy) || 1, pen = SZ.pen(ctx);
+    dx /= l; dy /= l;
+    var tx = x + dx * len, ty = y + dy * len;
+    pen.line(x, y, tx, ty, "#8A6A44");
+    pen.px(tx, ty, glint ? "#FFFFFF" : "#C8CED4"); pen.px(tx - dx, ty - dy, "#9AA2AA");
+    pen.px(x - dy, y + dx, "#E8E0D0"); pen.px(x + dy, y - dx, "#E8E0D0"); pen.px(x + dx - dy, y + dy + dx, "#B8302A");
+    return { x: tx, y: ty };
+  }
+
+  SZ.samurai = { Hair: Hair, drawBow: drawBow, drawArrow: drawArrow, frame: frame, FRAMES: FRAMES, prewarm: prewarm, work: work, proj: proj, drawSword: drawSword, AX: AX, AY: AY, W: SW, H: SH, PAL: PAL };
 })();

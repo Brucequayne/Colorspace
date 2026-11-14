@@ -33,12 +33,17 @@
     ".sz-toast{position:absolute;right:84px;bottom:92px;max-width:260px;background:#151515;border:1px solid #3A3A3A;padding:8px 12px;font-size:.8rem;color:#CFCAC0}" +
     ".sz-toast[hidden]{display:none}" +
     // Arena
+    ".sz-wave{position:absolute;left:50%;top:18%;transform:translateX(-50%);font-size:.85rem;letter-spacing:.35em;color:#EDE6D6;text-shadow:0 1px 6px #000;pointer-events:none;animation:szWave 2.6s ease forwards;white-space:nowrap}.sz-wave b{display:block;text-align:center;font:300 2.2rem/1.1 'Hiragino Mincho ProN','Yu Mincho','Noto Serif JP',serif;letter-spacing:0;margin-bottom:4px}" +
+    "@keyframes szWave{0%{opacity:0;transform:translate(-50%,6px)}15%,70%{opacity:1;transform:translate(-50%,0)}100%{opacity:0}}" +
     ".sz-hint{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);max-width:calc(100% - 40px);text-align:center;font-size:.76rem;color:#D8D3C8;background:rgba(10,10,10,.62);border:1px solid rgba(255,255,255,.08);padding:6px 12px;pointer-events:none;animation:szHint 9s ease forwards}" +
     "@keyframes szHint{0%{opacity:0}8%,75%{opacity:1}100%{opacity:0}}";
 
   var M = SZ.main = {
     root: null, ui: null, cv: null, lo: null, scene: null, name: "", raf: 0, last: 0,
     view: { x: 0, y: 0, w: W, h: H, s: 1, dpr: 1 }, sidebar: 0,
+    slowT: 0, slowS: 1,
+    // Kurze Zeitlupe (Faktor, Dauer in echten Sekunden)
+    slowmo: function (s, dur) { if (M.slowT <= 0 || s <= M.slowS) { M.slowS = s; M.slowT = dur; } },
 
     mount: function (el, lang) {
       SZ.lang = lang === "en" ? "en" : "de";
@@ -85,8 +90,11 @@
       if (!M.root) return;
       M.raf = requestAnimationFrame(M.frame);
       var dt = Math.min(0.05, (now - M.last) / 1000); M.last = now;
+      var ts = 1;
+      if (M.slowT > 0) { M.slowT -= dt; ts = M.slowS; }
+      M.realDt = dt;
       if (M.scene) {
-        M.scene.update(dt);
+        M.scene.update(dt * ts);
         var lo = M.lo.ctx;
         lo.setTransform(1, 0, 0, 1, 0, 0); lo.globalAlpha = 1; lo.globalCompositeOperation = "source-over";
         M.scene.render(lo);

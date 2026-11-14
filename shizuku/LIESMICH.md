@@ -9,19 +9,21 @@ Kein Build-Schritt nötig: jede Datei hier ist direkt die Datei, die im Browser 
 | `core.js` | Namensraum `SZ`, Arena-Maße (480 × 272 px, Kacheln 16 px), `L2`, Mathe, Zufall, Rauschen, Pixel-Helfer |
 | `input.js` | Tastatur und Maus, Umrechnung in Arena-Pixel |
 | `audio.js` | Platzhalter für Musik und Sounds (`SZ.audio.play("name")` steht schon an allen Stellen) |
-| `weapons.js` | Waffen mit Werten, 3 Angriffsarten, 3 Blockarten |
-| `art-tiles.js` | Boden: Steinplatten, Moos, Erde, geharkter Sand, Wasser, Mauern |
-| `art-objects.js` | Objekte (Laterne, Torii, Bäume, Bambus, Busch, Fels, Jizō, Makiwara) und Vegetation |
-| `art-samurai.js` | Samurai als kleines 3D-Modell, gerendert in 8 Richtungen; Schwert |
+| `weapons.js` | Waffen (Katana, Yumi) mit Werten, Angriffs- und Blockarten, Werte des Samurai (Leben, Energie, Dash) |
+| `art-tiles.js` | Boden: Steinplatten, Tempelplatten, Kopfstein, Bruchstein, Kies, Moos, Erde, Sand, Wasser, Mauer, Abgrund; Klippen, Wasserfälle, Wolken |
+| `art-objects.js` | Objekte (Laterne, Torii, Kirschbäume, Laubbäume, Zypresse, Zeder, Ahorn, Kiefer, Bambus, Büsche, Felsen, Jizō, Makiwara) und Vegetation, Treffer-Effekte |
+| `art-samurai.js` | Figuren als kleines 3D-Modell (Samurai, Ronin), gerendert in 8 Richtungen; Schwert, Bogen, Pfeil, lange Haare |
 | `arena.js` | Arena-Daten, Bodenarten mit Lauftempo, Kollision, Speichern, eingebauter Tempel |
 | `arenas/standard.js` | Standard-Arena (kann vom Dev Tool exportiert werden) |
 | `lighting.js` | Tageszeit, Sonnenstand, Schatten, rotes Glühen, Laternenlicht |
 | `particles.js` | Blätter, Staub, Spritzer, Ringe, Stroh, Funken, Nachbilder |
 | `world.js` | Spielwelt: zeichnet alles in der richtigen Reihenfolge, Wachstum |
-| `player.js` | Samurai-Steuerung, Angriffe, Blocks, Treffer |
+| `player.js` | Samurai: Bewegung, Dash, Angriffe, Konter, Blocks, Bogen, Leben, Energie |
+| `enemies.js` | Gegner und KI (Ronin) |
+| `hud.js` | Lebens- und Energiebalken, Waffensymbol |
 | `scene-menu.js` | Menü (雫, Gliederpuppe, versteckter Dev-Zugang) |
 | `scene-intro.js` | Übergang: Tropfen fällt, Arena wächst |
-| `scene-arena.js` | Kampf-Arena |
+| `scene-arena.js` | Kampf-Arena mit Gegnerwellen |
 | `editor.js` | Dev Tool |
 | `main.js` | Canvas, Skalierung, Szenenwechsel, Hauptschleife |
 

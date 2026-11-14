@@ -1,22 +1,31 @@
 /* Shizuku – world.js
-   Die Spielwelt einer Arena: Boden-Cache, Wasser, Moos, Vegetation, Objekte, Figuren, Partikel,
-   Schatten und Licht. Wird von Arena, Übergang und Dev Tool gemeinsam benutzt.
-   Wachstum: growth = { t, cx, cy } lässt Moos und Pflanzen von einem Punkt aus nach außen wachsen. */
+   Die Spielwelt einer Arena: Tiefe mit Wolken, Wasserfälle, Insel-Boden, Wasser, Moos, Vegetation,
+   Objekte, Figuren, Pfeile, Partikel, Schatten und Licht. Wird von Arena, Übergang und Dev Tool benutzt.
+   Wachstum: growth = { t, cx, cy } lässt Moos und Pflanzen von einem Punkt aus nach außen wachsen.
+   Druck (pushes): Wind von Dash und Pfeilen biegt Pflanzen weg. */
 (function () {
   var SZ = window.SZ, W = SZ.W, H = SZ.H, m = SZ.m;
+  var CANOPY_COLS = {
+    maple: ["#A82722", "#D24A2C", "#E07A34", "#8E1F1A"], sakura: ["#F2A6C0", "#FFD0DE", "#FFE8EE", "#E888A8"],
+    tree: ["#2E6B3A", "#4A8E44", "#78B858"], cypress: ["#245632", "#3A7840"], cedar: ["#1E4A2A", "#2E6838"], pine: ["#2F4D2C", "#46693A"],
+    bamboo: ["#5E8A38", "#8FB84E", "#C8D890"], bush: ["#2E6B3A", "#4A8E44", "#78B858"]
+  };
 
   function World(arena) {
     this.arena = arena;
     this.time = arena.time;
-    this.timeSpeed = 0;      // Spielstunden pro Sekunde (0 = Zeit steht)
-    this.clock = 0;          // Sekunden seit Start (Animationen)
+    this.timeSpeed = 0;
+    this.clock = 0;
     this.wind = 1;
     this.parts = new SZ.Particles();
     this.growth = null;
     this.shake = 0;
     this.ground = null;
-    this.sc = SZ.canvas(W, H);   // Schatten-Ebene
+    this.sc = SZ.canvas(W, H);
     this.mossDyn = null;
+    this.pushes = [];
+    this.arrows = [];
+    this.enemies = [];
     this.rebuild();
   }
   var Wd = World.prototype;
@@ -25,7 +34,7 @@
   Wd.refreshSolids = function () { this.solids = this.arena.solids(); };
 
   // ---------- Wachstum ----------
-  Wd.GROW_SPAN = 2.5;    // Sekunden, bis die Welle den äußersten Rand erreicht
+  Wd.GROW_SPAN = 2.5;
   Wd.startGrowth = function (cx, cy) {
     var maxD = 0;
     [[0, 0], [W, 0], [0, H], [W, H]].forEach(function (p) { maxD = Math.max(maxD, m.dist(cx, cy, p[0], p[1] * 1.25)); });
@@ -35,7 +44,6 @@
     this.mossBirth = b;
     if (!this.mossDyn) this.mossDyn = SZ.canvas(W, H);
   };
-  // Geburtszeitpunkt eines Punkts: Entfernung zum Tropfen plus organisches Rauschen
   Wd.birth = function (x, y, n) {
     var G = this.growth; if (!G) return -1;
     var d = m.dist(G.cx, G.cy, x, y * 1.25) / G.maxD;
@@ -48,24 +56,125 @@
   };
   Wd.growthDone = function () { return !this.growth; };
 
+  // ---------- Wind- und Druckwellen ----------
+  Wd.push = function (x, y, r, str, life) { this.pushes.push({ x: x, y: y, r: r, s: str, life: life || 0.6, age: 0 }); if (this.pushes.length > 120) this.pushes.shift(); };
+  Wd.bendAt = function (x, y) {
+    var dx = 0;
+    for (var i = 0; i < this.pushes.length; i++) {
+      var p = this.pushes[i], d = Math.abs(x - p.x) + Math.abs(y - p.y) * 1.3;
+      if (d < p.r) { var k = (1 - d / p.r) * p.s * (1 - p.age / p.life); dx += (x >= p.x ? 1 : -1) * k; }
+    }
+    return m.clamp(dx, -3, 3);
+  };
+
+  // ---------- Treffer an Objekten: Wackeln und Partikel ----------
+  Wd.hitObject = function (o, hx, hy, power) {
+    var d = SZ.OBJECTS[o.t], fx = d.fx || {}, c = SZ.objCenter(o), p = this.parts;
+    power = power || 1;
+    o._rt = o._rt || {}; o._rt.shake = Math.min(1.4, 0.6 + power * 0.5); o._rt.flash = 0.7;
+    var hz = Math.min(18, d.h * 0.35);
+    if (fx.straw) { p.straw(o.x, o.y - 12, 10); p.spark(o.x, o.y - 12, 12, 6); SZ.audio.play("hit_straw"); }
+    if (fx.chips) { p.chips(hx, hy, hz, Math.round(6 + power * 6), fx.chips); SZ.audio.play(fx.sparks ? "hit_stone" : "hit_wood"); }
+    if (fx.sparks) p.spark(hx, hy, hz, Math.round(4 + power * 5));
+    var cols = CANOPY_COLS[o.t];
+    if ((fx.leaves || fx.petals) && cols) p.leafBurst(o.x, o.y - 2, Math.round(4 + power * 6), cols, d.h * 0.45, d.h * 0.8, d.w * 0.6);
+  };
+
   // ---------- Takt ----------
   Wd.update = function (dt) {
     this.clock += dt;
     if (this.timeSpeed) this.time = (this.time + this.timeSpeed * dt + 24) % 24;
-    if (this.growth) { this.growth.t += dt; if (this.growth.t > this.GROW_SPAN + 1.5) { this.growth = null; } }
+    if (this.growth) { this.growth.t += dt; if (this.growth.t > this.GROW_SPAN + 1.5) this.growth = null; }
     if (this.shake > 0) this.shake = Math.max(0, this.shake - dt * 30);
     var self = this, a = this.arena;
-    // Laub von Ahornbäumen
+    for (var pi = this.pushes.length - 1; pi >= 0; pi--) { this.pushes[pi].age += dt; if (this.pushes[pi].age > this.pushes[pi].life) this.pushes.splice(pi, 1); }
     a.obj.forEach(function (o) {
       var d = SZ.OBJECTS[o.t];
       if (d.leaves && Math.random() < dt * 0.9 * self.grown(o.x, o.y, 1.2)) self.parts.leaf(o.x + (Math.random() - 0.5) * 38, o.y - 2 + Math.random() * 14, 18 + Math.random() * 18);
+      if (d.petals && Math.random() < dt * 1.3 * self.grown(o.x, o.y, 1.2)) self.parts.petal(o.x, o.y, 22 + Math.random() * 18);
     });
-    // Laubfall-Zonen
     for (var i = 0; i < a.leaf.length; i++) if (a.leaf[i] === "1" && Math.random() < dt * 0.05) {
       var tx = i % SZ.COLS, ty = (i / SZ.COLS) | 0, x = (tx + Math.random()) * SZ.TILE, y = (ty + Math.random()) * SZ.TILE;
       if (this.grown(x, y, 1) >= 1) this.parts.leaf(x, y, 34 + Math.random() * 20);
     }
+    // Gischt an Wasserfällen
+    var falls = this.ground.falls;
+    for (var f = 0; f < falls.length; f++) if (!falls[f].back && Math.random() < dt * 2.2) this.parts.mist(falls[f].x0 + Math.random() * (falls[f].x1 - falls[f].x0), falls[f].y0 + 2 + Math.random() * 10);
+    this.updateArrows(dt);
     this.parts.update(dt, this);
+  };
+
+  // ---------- Pfeile ----------
+  Wd.addArrow = function (o) { this.arrows.push(o); return o; };
+  Wd.updateArrows = function (dt) {
+    var self = this, a = this.arena;
+    for (var i = this.arrows.length - 1; i >= 0; i--) {
+      var r = this.arrows[i];
+      if (r.stuck) { r.age += dt; if (r.age > 7) this.arrows.splice(i, 1); continue; }
+      var steps = Math.max(1, Math.ceil(Math.hypot(r.vx, r.vy) * dt / 3));
+      for (var s = 0; s < steps && !r.stuck && !r.dead; s++) {
+        var h = dt / steps;
+        r.x += r.vx * h; r.y += r.vy * h; r.dist += Math.hypot(r.vx, r.vy) * h;
+        if (!r.overVoid) r.z = Math.max(2, r.z - r.drop * h);
+        // Luftwirbel bei starken Schüssen
+        if (r.power > 0.55 && r.dist - r.lastFx > (r.power > 0.85 ? 5 : 8)) {
+          r.lastFx = r.dist;
+          var side = (r.fxSide = -(r.fxSide || 1));
+          var nx = -Math.sin(r.ang), ny = Math.cos(r.ang);
+          if (a.tilePx(r.x, r.y) !== "v") {
+            self.parts.swirl(r.x + nx * side * 4, r.y + ny * side * 3, 3 + r.power * 5, side, 0.5 + r.power * 0.6);
+            if (r.power > 0.85 && Math.random() < 0.5) self.parts.swirl(r.x - nx * side * 7, r.y - ny * side * 5, 2 + Math.random() * 3, -side, 0.6);
+            if (Math.random() < 0.6) self.parts.dust(r.x, r.y, 1);
+            self.push(r.x, r.y, 10 + r.power * 12, 2.5 * r.power, 0.7);
+          }
+          self.parts.wind(r.x, r.y - r.z, r.ang, 10 + r.power * 12, 0.35, 0.5 * r.power);
+        }
+        // Treffer: Gegner
+        for (var e = 0; e < self.enemies.length; e++) {
+          var en = self.enemies[e];
+          if (en.dead || r.hit.indexOf(en) >= 0) continue;
+          if (Math.abs(en.x - r.x) < 6 && r.y > en.y - 9 && r.y < en.y + 5) {
+            r.hit.push(en);
+            en.hurt(r.dmg, r.ang, 0.6 + r.power, "arrow");
+            if (r.power < 0.85 || r.hit.length > 2) { r.dead = true; break; }
+          }
+        }
+        if (r.dead) break;
+        // Treffer: feste Objekte (bleibt stecken)
+        var tile = a.tilePx(r.x, r.y);
+        if (tile === "v") r.overVoid = true;
+        if (tile === "#") { r.stuck = true; r.age = 0; break; }
+        for (var k = 0; k < self.solids.length; k++) {
+          var c = self.solids[k], o = c[3], dd = SZ.OBJECTS[o.t];
+          if (Math.abs(r.x - c[0]) < c[2] && Math.abs(r.y - c[1]) < c[2] * 0.8 + 1 && r.z < dd.h * 0.9) {
+            r.stuck = true; r.age = 0; r.x -= r.vx * h; r.y -= r.vy * h;
+            self.hitObject(o, r.x, r.y, 0.4 + r.power);
+            break;
+          }
+        }
+      }
+      if (r.dead || r.x < -40 || r.x > W + 40 || r.y < -40 || r.y > H + 40) { this.arrows.splice(i, 1); continue; }
+      r.trail.push({ x: r.x, y: r.y - r.z, t: this.clock });
+      while (r.trail.length && this.clock - r.trail[0].t > 0.16) r.trail.shift();
+    }
+  };
+  Wd.drawArrows = function (ctx) {
+    var now = this.clock;
+    this.arrows.forEach(function (r) {
+      // Spur
+      if (!r.stuck && r.trail.length > 1) {
+        for (var i = 1; i < r.trail.length; i++) {
+          var k = 1 - (now - r.trail[i].t) / 0.16;
+          ctx.strokeStyle = "rgba(255,250,236," + (k * (0.2 + r.power * 0.6)) + ")"; ctx.lineWidth = r.power > 0.8 ? 2 : 1;
+          ctx.beginPath(); ctx.moveTo(r.trail[i - 1].x, r.trail[i - 1].y); ctx.lineTo(r.trail[i].x, r.trail[i].y); ctx.stroke();
+        }
+      }
+      if (!r.overVoid) { ctx.fillStyle = "rgba(0,0,0,0.25)"; ctx.fillRect(Math.round(r.x - Math.cos(r.ang) * 4), Math.round(r.y), 6, 1); }
+      var len = r.stuck ? 5 : 8, tx = r.x - Math.cos(r.ang) * len, ty = r.y - r.z - Math.sin(r.ang) * len * 0.42;
+      ctx.globalAlpha = r.stuck ? Math.min(1, (7 - r.age) / 1) : 1;
+      SZ.samurai.drawArrow(ctx, tx, ty, r.ang, len, r.power > 0.85 && !r.stuck);
+      ctx.globalAlpha = 1;
+    });
   };
 
   Wd.lights = function (S) {
@@ -80,11 +189,35 @@
   // ---------- Zeichnen ----------
   function drawGrow(ctx, cv, x, y, ax, ay, g) {
     var sy = m.easeOutBack(g), sx = 0.55 + 0.45 * m.easeOutCubic(g);
-    var w = cv.width * sx, h = cv.height * sy;
-    ctx.drawImage(cv, 0, 0, cv.width, cv.height, Math.round(x - ax * sx), Math.round(y - ay * sy), Math.max(1, Math.round(w)), Math.max(1, Math.round(h)));
+    ctx.drawImage(cv, 0, 0, cv.width, cv.height, Math.round(x - ax * sx), Math.round(y - ay * sy), Math.max(1, Math.round(cv.width * sx)), Math.max(1, Math.round(cv.height * sy)));
   }
 
-  // opts: ents (Figuren mit draw/drawShadow/y), afterGround(ctx), player (für Kronen-Transparenz)
+  Wd.drawVeg = function (ctx, v, ents) {
+    var s = SZ.sprite("veg", v.t, v.v), d = s.def, gr = this.grown(v.x, v.y, 0.75);
+    if (gr <= 0) return;
+    if (gr < 1) { drawGrow(ctx, s.cv, v.x, v.y, d.ax, d.ay, gr); return; }
+    var x0 = Math.round(v.x - d.ax), y0 = Math.round(v.y - d.ay);
+    if (d.flat) { ctx.drawImage(s.cv, x0, y0); return; }
+    var bend = this.bendAt(v.x, v.y);
+    if (d.tall && ents) for (var i = 0; i < ents.length; i++) {
+      var e = ents[i], dx = v.x - e.x, dy = v.y - e.y;
+      if (Math.abs(dx) < 8 && Math.abs(dy) < 5) bend += (dx >= 0 ? 1 : -1) * (2 - Math.abs(dx) / 4);
+    }
+    var amp = d.tall ? 1.4 : 0.9;
+    var sw = Math.round(Math.sin(this.clock * 1.7 + v.x * 0.07 + v.y * 0.05) * amp * this.wind + bend);
+    if (d.tall) {
+      var third = (d.h / 3) | 0, sw1 = Math.round(sw * 0.5);
+      ctx.drawImage(s.cv, 0, third * 2, d.w, d.h - third * 2, x0, y0 + third * 2, d.w, d.h - third * 2);
+      ctx.drawImage(s.cv, 0, third, d.w, third, x0 + sw1, y0 + third, d.w, third);
+      ctx.drawImage(s.cv, 0, 0, d.w, third, x0 + sw, y0, d.w, third);
+    } else {
+      var half = (d.h / 2) | 0;
+      ctx.drawImage(s.cv, 0, half, d.w, d.h - half, x0, y0 + half, d.w, d.h - half);
+      ctx.drawImage(s.cv, 0, 0, d.w, half, x0 + sw, y0, d.w, half);
+    }
+  };
+
+  // opts: ents (Figuren mit draw/drawShadow/y), afterGround(ctx), beforeLight(ctx), player (Kronen-Transparenz)
   Wd.render = function (ctx, opts) {
     opts = opts || {};
     var self = this, a = this.arena, g = this.ground, S = SZ.light.sky(this.time), t = this.clock;
@@ -92,7 +225,9 @@
     ctx.save();
     if (this.shake > 0.2) ctx.translate(Math.round((Math.random() - 0.5) * this.shake), Math.round((Math.random() - 0.5) * this.shake));
 
-    // Boden, Wasser, Moos
+    // Tiefe, Wasserfälle, Insel
+    SZ.ground.drawAbyss(ctx, t);
+    SZ.ground.drawFalls(ctx, g, t);
     ctx.drawImage(g.base, 0, 0);
     SZ.ground.drawWater(ctx, g, t);
     if (this.growth && this.mossBirth) {
@@ -108,23 +243,17 @@
     } else ctx.drawImage(g.moss, 0, 0);
     if (opts.afterGround) opts.afterGround(ctx);
 
-    // Vegetation (flach, wiegt im Wind)
-    a.veg.forEach(function (v) {
-      var s = SZ.sprite("veg", v.t, v.v), d = s.def, gr = self.grown(v.x, v.y, 0.75);
-      if (gr <= 0) return;
-      if (gr < 1) { drawGrow(ctx, s.cv, v.x, v.y, d.ax, d.ay, gr); return; }
-      var x0 = Math.round(v.x - d.ax), y0 = Math.round(v.y - d.ay);
-      if (d.flat) { ctx.drawImage(s.cv, x0, y0); return; }
-      var half = (d.h / 2) | 0, sw = Math.round(Math.sin(t * 1.7 + v.x * 0.07 + v.y * 0.05) * 0.9 * self.wind);
-      ctx.drawImage(s.cv, 0, half, d.w, d.h - half, x0, y0 + half, d.w, d.h - half);
-      ctx.drawImage(s.cv, 0, 0, d.w, half, x0 + sw, y0, d.w, half);
-    });
+    var ents = (opts.ents || []).concat(this.enemies);
+    // Niedrige Vegetation
+    var tall = [];
+    a.veg.forEach(function (v) { if (SZ.VEG[v.t].tall) tall.push(v); else self.drawVeg(ctx, v, ents); });
     this.parts.drawLow(ctx);
 
-    // Liste aller stehenden Dinge, nach Fußpunkt sortiert
+    // Alles Stehende nach Fußpunkt sortiert
     var items = [];
     a.obj.forEach(function (o) { items.push({ y: o.y, o: o }); });
-    (opts.ents || []).forEach(function (e) { items.push({ y: e.y, e: e }); });
+    tall.forEach(function (v) { items.push({ y: v.y, v: v }); });
+    ents.forEach(function (e) { items.push({ y: e.y, e: e }); });
     items.sort(function (p, q) { return p.y - q.y; });
 
     // Schatten
@@ -132,6 +261,7 @@
     sc.setTransform(1, 0, 0, 1, 0, 0); sc.clearRect(0, 0, W, H);
     if (sh.alpha > 0.01) {
       items.forEach(function (it) {
+        if (it.v) return;
         if (it.e) { if (it.e.drawShadow) it.e.drawShadow(sc, sh); return; }
         var o = it.o, s = SZ.sprite("obj", o.t, o.v), d = s.def, gr = d.grows ? self.grown(o.x, o.y, 1.2) : 1;
         if (gr <= 0) return;
@@ -140,12 +270,14 @@
         sc.drawImage(s.sil, 0, 0);
       });
       sc.setTransform(1, 0, 0, 1, 0, 0);
+      // Schatten nur auf der Insel, nicht in der Tiefe
+      sc.globalCompositeOperation = "destination-in"; sc.drawImage(g.base, 0, 0); sc.globalCompositeOperation = "source-over";
       ctx.globalAlpha = sh.alpha; ctx.drawImage(this.sc, 0, 0); ctx.globalAlpha = 1;
     }
 
-    // Objekte und Figuren
     var pl = opts.player;
     items.forEach(function (it) {
+      if (it.v) { self.drawVeg(ctx, it.v, ents); return; }
       if (it.e) { it.e.draw(ctx); return; }
       var o = it.o, s = SZ.sprite("obj", o.t, o.v), d = s.def, rt = o._rt || {};
       var gr = d.grows ? self.grown(o.x, o.y, 1.2) : 1;
@@ -156,9 +288,10 @@
       var fade = d.canopy && pl && pl.y < o.y - 2 && Math.abs(pl.x - o.x) < d.w / 2 && pl.y > o.y - d.canopy - 8;
       if (fade) ctx.globalAlpha = 0.55;
       ctx.drawImage(s.cv, x0, y0);
-      if (rt.flash > 0) { ctx.globalCompositeOperation = "lighter"; ctx.globalAlpha = rt.flash; ctx.drawImage(s.cv, x0, y0); ctx.globalCompositeOperation = "source-over"; }
+      if (rt.flash > 0) { ctx.globalCompositeOperation = "lighter"; ctx.globalAlpha = rt.flash * 0.6; ctx.drawImage(s.cv, x0, y0); ctx.globalCompositeOperation = "source-over"; }
       ctx.globalAlpha = 1;
     });
+    this.drawArrows(ctx);
     this.parts.drawHigh(ctx);
     if (opts.beforeLight) opts.beforeLight(ctx);
     SZ.light.apply(ctx, S, this.lights(S), t);
@@ -166,7 +299,6 @@
     return S;
   };
 
-  // Laufzeitwerte der Objekte (Wackeln, Aufblitzen) abklingen lassen
   Wd.tickObjects = function (dt) {
     this.arena.obj.forEach(function (o) {
       if (!o._rt) return;
