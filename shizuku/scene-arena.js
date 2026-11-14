@@ -45,8 +45,8 @@
       SZ.hud.reset();
       SZ.main.root.classList.add("sz-play");
       SZ.main.ui.innerHTML = '<div class="sz-hint">' +
-        L2("WASD laufen · Maus zielen · Leertaste Dash · Linksklick Angriff · Rechtsklick Block · Block halten + Linksklick: Konter · Q / E halten: Typ 2 / 3 · 1 / 2 oder Mausrad: Katana / Yumi · Esc Menü",
-           "WASD move · mouse aim · space dash · left click attack · right click block · hold block + left click: counter · hold Q / E: type 2 / 3 · 1 / 2 or wheel: katana / yumi · Esc menu") + '</div>';
+        L2("WASD laufen · Shift Sprint · Maus zielen · Leertaste Dash · Linksklick Angriff · Rechtsklick Block · Block halten + Linksklick: Konter · Q / E halten: Typ 2 / 3 · 1 / 2 oder Mausrad: Katana / Yumi · Esc Menü",
+           "WASD move · shift sprint · mouse aim · space dash · left click attack · right click block · hold block + left click: counter · hold Q / E: type 2 / 3 · 1 / 2 or wheel: katana / yumi · Esc menu") + '</div>';
     },
     exit: function () { SZ.main.root.classList.remove("sz-play"); },
     state: function () { return S; },   // für Tests

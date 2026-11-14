@@ -6,9 +6,9 @@
   var SZ = window.SZ, W = SZ.W, H = SZ.H;
 
   var AMB = [
-    [0, [50, 60, 104]], [4.5, [58, 64, 108]], [5.4, [118, 86, 110]], [6.1, [238, 154, 124]], [7.0, [250, 196, 160]],
+    [0, [60, 76, 134]], [4.5, [66, 80, 134]], [5.4, [118, 92, 120]], [6.1, [238, 154, 124]], [7.0, [250, 196, 160]],
     [8.6, [255, 236, 214]], [12, [255, 252, 244]], [15.6, [255, 240, 214]], [17.1, [252, 212, 166]], [18.1, [246, 162, 126]],
-    [18.9, [176, 104, 116]], [19.8, [82, 68, 112]], [21, [50, 60, 104]], [24, [50, 60, 104]]
+    [18.9, [176, 104, 116]], [19.8, [88, 82, 132]], [21, [60, 76, 134]], [24, [60, 76, 134]]
   ];
   function amb(t) {
     t = ((t % 24) + 24) % 24;
@@ -25,19 +25,28 @@
     t = ((t % 24) + 24) % 24;
     var night = t < 5 || t > 20 ? 1 : t < 6.6 ? 1 - SZ.m.smooth((t - 5) / 1.6) : t > 18.3 ? SZ.m.smooth((t - 18.3) / 1.7) : 0;
     var rise = bump(t, 6.1, 1.1), set = bump(t, 18.1, 1.2);
-    var day = t > 6 && t < 18.6, sh;
+    var day = t > 6 && t < 18.6, sh, moonAz = 0;
+    // Schattenrichtung (pro Höhenpixel) und Dicke: bei tiefem Licht wird die Breite des Objekts
+    // quer zur Schattenrichtung gelegt, damit lange Schatten nicht zu dünnen Strichen werden.
+    function mk(a, L, alpha) {
+      var rx = -Math.cos(a), ry = -Math.sin(a), h = Math.abs(rx);
+      return { x: rx * L, y: ry * L * 0.55 - 0.12, alpha: alpha, az: a, xa: 1 - 0.62 * h, xb: 0.5 * h };
+    }
     if (day) {
       var p = (t - 6) / 12, a = p * Math.PI, elev = Math.max(0.02, Math.sin(Math.min(1, Math.max(0, p)) * Math.PI)) * 62 * Math.PI / 180;
-      var L = SZ.m.clamp(1 / Math.tan(elev), 0.4, 3.4);
-      var fade = SZ.m.smooth(Math.min(t - 6, 18.6 - t) / 0.5);
-      sh = { x: -Math.cos(a) * L, y: -Math.sin(a) * L * 0.55 - 0.32, alpha: 0.36 * fade, az: a };
+      var L = SZ.m.clamp(1 / Math.tan(elev), 0.4, 3.2);
+      sh = mk(a, L, 0.36 * SZ.m.smooth(Math.min(t - 6, 18.6 - t) / 0.5));
     } else {
-      sh = { x: 0.25, y: -0.35, alpha: 0.14 * night, az: Math.PI * 1.5 };
+      // Mond: geht um 19 Uhr im Osten auf und um 5 Uhr im Westen unter
+      var q = (((t - 19) % 24) + 24) % 24 / 10, ma = Math.min(1, q) * Math.PI;
+      var me = Math.max(0.05, Math.sin(Math.min(1, q) * Math.PI)) * 48 * Math.PI / 180;
+      moonAz = ma;
+      sh = mk(ma, SZ.m.clamp(1 / Math.tan(me), 0.6, 2.4), q < 1 ? 0.3 * night * SZ.m.smooth(Math.min(q, 1 - q) / 0.06) : 0);
     }
     return {
       t: t, amb: amb(t), night: night,
       glow: Math.max(rise, set), glowAz: rise > set ? 0 : Math.PI,   // 0 = Licht von rechts, PI = von links
-      shadow: sh
+      shadow: sh, moonAz: moonAz
     };
   }
 
@@ -81,6 +90,14 @@
       rg2.addColorStop(1, "rgba(0,0,0,0)");
       ctx.fillStyle = rg2; ctx.fillRect(0, 0, W, H);
     }
+    // Kühles Mondlicht von der Seite des Mondes
+    if (S.night > 0.05 && S.shadow.alpha > 0.01) {
+      ctx.globalCompositeOperation = "screen";
+      var mx = W / 2 + Math.cos(S.moonAz) * W * 0.6, my = Math.sin(S.moonAz) * H * 0.7 + H * 0.2;
+      var mg = ctx.createRadialGradient(mx, my, 10, mx, my, W * 0.9);
+      mg.addColorStop(0, "rgba(110,150,230," + (0.2 * S.night) + ")"); mg.addColorStop(1, "rgba(60,90,170," + (0.05 * S.night) + ")");
+      ctx.fillStyle = mg; ctx.fillRect(0, 0, W, H);
+    }
     ctx.globalCompositeOperation = "lighter";
     lights.forEach(function (L) {
       if (L.k * S.night < 0.05) return;
@@ -107,5 +124,11 @@
     return base * fl;
   }
 
-  SZ.light = { sky: sky, apply: apply, lampK: lampK };
+  // Sprite-Silhouette als Schatten auf den Boden legen (Ankerpunkt ax/ay → Weltpunkt X/Y, k = Wachstum)
+  function shadowXf(sc, sh, X, Y, ax, ay, k) {
+    k = k == null ? 1 : k;
+    var a = sh.xa, b = sh.xb, c = -sh.x * k, d = -sh.y * k;
+    sc.setTransform(a, b, c, d, X - a * ax - c * ay, Y - b * ax - d * ay);
+  }
+  SZ.light = { sky: sky, apply: apply, lampK: lampK, shadowXf: shadowXf };
 })();

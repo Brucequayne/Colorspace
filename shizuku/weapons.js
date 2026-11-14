@@ -24,7 +24,7 @@
     yumi: {
       name: function () { return L2("Yumi (Bogen)", "Yumi (bow)"); },
       type: "bow", full: 1.15, minDraw: 0.12,
-      speed: [170, 640], dmg: [5, 34], drawMove: 0.45, weight: 1,
+      speed: [221, 832], dmg: [5, 34], drawMove: 0.45, weight: 1,
       style: { blade: "#DCE3E8", edge: "#8E99A3", shine: "#FFFFFF", guard: "#C9A445", grip: "#1E1A1C", wrap: "#5B4A3A" }, blade: 14,
       attacks: ["shot", "shot", "shot"],
       blocks: ["kamae", "ukenagashi", "ashisabaki"]
@@ -35,6 +35,7 @@
   // Werte des Samurai
   SZ.PLAYER = {
     hp: 100, energy: 100,
+    walk: 66, sprint: 1.6,              // Grundtempo (Pixel/s) und Faktor beim Sprinten (Shift)
     dashCost: 33, dashSpeed: 330, dashTime: 0.16,
     regenDelay: 2, regenRate: 45,       // Energie lädt nach 2 s ohne Angriff/Dash, 45 pro Sekunde
     blockCost: 1.4                      // Energieverlust je Schadenspunkt beim Blocken

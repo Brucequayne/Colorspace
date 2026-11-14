@@ -39,6 +39,11 @@
   P.petal = function (x, y, z) { return this.leafBurst(x, y, 1, ["#F2A6C0", "#FFD0DE", "#FFE8EE", "#E888A8"], z, z, 34); };
   // Windstreifen (Dash, Pfeil)
   P.wind = function (x, y, ang, len, life, alpha) { this.add({ type: "wind", x: x, y: y, z: 0, ang: ang, len: len, life: life || 0.3, a: alpha || 0.6, vx: Math.cos(ang) * 30, vy: Math.sin(ang) * 18 }); };
+  // Bugwelle: Luft wird vom Pfeil quer zur Seite gedrückt (Streifen parallel zur Flugbahn, die nach außen gleiten)
+  P.wake = function (x, y, ang, side, power) {
+    var nx = -Math.sin(ang) * side, ny = Math.cos(ang) * side, s = 70 + Math.random() * 70 * power;
+    this.add({ type: "wake", x: x, y: y, z: 0, ang: ang, vx: nx * s - Math.cos(ang) * 10, vy: ny * s * 0.6 - Math.sin(ang) * 6, len: 5 + Math.random() * 7 * power, life: 0.35 + Math.random() * 0.25, a: 0.45 + power * 0.4 });
+  };
   // Luftwirbel am Boden
   P.swirl = function (x, y, r0, dir, life) { this.add({ type: "swirl", x: x, y: y, z: 0, r0: r0, dir: dir || 1, a0: Math.random() * 6.28, life: life || 0.7 }); };
   // Tintenrauch (Gegner erscheinen und vergehen)
@@ -64,6 +69,8 @@
         // nur Zeit
       } else if (p.type === "wind") {
         p.x += p.vx * dt; p.y += p.vy * dt;
+      } else if (p.type === "wake") {
+        p.x += p.vx * dt; p.y += p.vy * dt; var dk = Math.pow(0.02, dt); p.vx *= dk; p.vy *= dk;
       } else if (p.type === "ink" || p.type === "mist") {
         p.x += p.vx * dt; p.y += p.vy * dt; p.z += (p.vz || 0) * dt; p.vx *= 0.94; p.vy *= 0.94;
       } else {
@@ -96,6 +103,10 @@
         for (var j = 0; j < 8; j++) { var aa = a0 + j * 0.3 * p.dir; ctx.fillRect(Math.round(p.x + Math.cos(aa) * r), Math.round(p.y + Math.sin(aa) * r * 0.5), 1, 1); }
         ctx.fillStyle = "rgba(170,160,140," + (0.4 * (1 - q)) + ")";
         ctx.fillRect(Math.round(p.x + Math.cos(a0 + 3) * r * 0.6), Math.round(p.y + Math.sin(a0 + 3) * r * 0.3), 1, 1);
+      } else if (p.type === "wake") {
+        var kw = (1 - p.age / p.life) * p.a, wx = Math.cos(p.ang), wy = Math.sin(p.ang) * 0.6;
+        ctx.fillStyle = "rgba(245,242,232," + kw + ")";
+        for (var w3 = 0; w3 < p.len; w3++) if (w3 % 3 !== 2) ctx.fillRect(Math.round(p.x - wx * w3), Math.round(p.y - wy * w3), 1, 1);
       } else if (p.type === "wind") {
         var kk = (1 - p.age / p.life) * p.a, ex = Math.cos(p.ang), ey = Math.sin(p.ang) * 0.6;
         ctx.fillStyle = "rgba(245,242,232," + kk + ")";

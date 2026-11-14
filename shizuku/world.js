@@ -116,18 +116,18 @@
         var h = dt / steps;
         r.x += r.vx * h; r.y += r.vy * h; r.dist += Math.hypot(r.vx, r.vy) * h;
         if (!r.overVoid) r.z = Math.max(2, r.z - r.drop * h);
-        // Luftwirbel bei starken Schüssen
-        if (r.power > 0.55 && r.dist - r.lastFx > (r.power > 0.85 ? 5 : 8)) {
+        // Bugwelle bei starken Schüssen: Wind wird zu beiden Seiten weggedrückt
+        if (r.power > 0.45 && r.dist - r.lastFx > (r.power > 0.85 ? 3 : 5)) {
           r.lastFx = r.dist;
-          var side = (r.fxSide = -(r.fxSide || 1));
           var nx = -Math.sin(r.ang), ny = Math.cos(r.ang);
           if (a.tilePx(r.x, r.y) !== "v") {
-            self.parts.swirl(r.x + nx * side * 4, r.y + ny * side * 3, 3 + r.power * 5, side, 0.5 + r.power * 0.6);
-            if (r.power > 0.85 && Math.random() < 0.5) self.parts.swirl(r.x - nx * side * 7, r.y - ny * side * 5, 2 + Math.random() * 3, -side, 0.6);
-            if (Math.random() < 0.6) self.parts.dust(r.x, r.y, 1);
-            self.push(r.x, r.y, 10 + r.power * 12, 2.5 * r.power, 0.7);
+            for (var sd = -1; sd <= 1; sd += 2) {
+              self.parts.wake(r.x + nx * sd * 2, r.y + ny * sd * 1.5, r.ang, sd, r.power);
+              if (Math.random() < 0.35 * r.power) self.parts.add({ type: "dust", x: r.x + nx * sd * 3, y: r.y + ny * sd * 2, z: 0.5, vx: nx * sd * (50 + Math.random() * 50), vy: ny * sd * 30, vz: 4 + Math.random() * 6, life: 0.4 + Math.random() * 0.3, col: "#B8B0A2" });
+            }
+            self.push(r.x, r.y, 10 + r.power * 14, 3 * r.power, 0.8);
           }
-          self.parts.wind(r.x, r.y - r.z, r.ang, 10 + r.power * 12, 0.35, 0.5 * r.power);
+          if (Math.random() < 0.5) self.parts.wind(r.x, r.y - r.z, r.ang, 8 + r.power * 12, 0.3, 0.45 * r.power);
         }
         // Treffer: Gegner
         for (var e = 0; e < self.enemies.length; e++) {
@@ -266,7 +266,7 @@
         var o = it.o, s = SZ.sprite("obj", o.t, o.v), d = s.def, gr = d.grows ? self.grown(o.x, o.y, 1.2) : 1;
         if (gr <= 0) return;
         var k = m.easeOutCubic(gr);
-        sc.setTransform(1, 0, -sh.x * k, -sh.y * k, o.x - d.ax + d.ay * sh.x * k, o.y + d.ay * sh.y * k);
+        SZ.light.shadowXf(sc, sh, o.x, o.y, d.ax, d.ay, k);
         sc.drawImage(s.sil, 0, 0);
       });
       sc.setTransform(1, 0, 0, 1, 0, 0);

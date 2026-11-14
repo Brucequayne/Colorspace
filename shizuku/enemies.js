@@ -172,7 +172,7 @@
   E.drawShadow = function (sc, sh) {
     if (this.dead || this.state === "spawn") return;
     var s = this.sprite(), A = SZ.samurai;
-    sc.setTransform(1, 0, -sh.x, -sh.y, this.x - A.AX + A.AY * sh.x, this.y + A.AY * sh.y);
+    SZ.light.shadowXf(sc, sh, this.x, this.y, A.AX, A.AY);
     sc.drawImage(s.sil, 0, 0);
   };
   E.draw = function (ctx) {

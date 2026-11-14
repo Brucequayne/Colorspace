@@ -8,7 +8,7 @@
    Leben und Energie: Energie lädt nach 2 s ohne Angriff oder Dash. Blocken kostet Energie. */
 (function () {
   var SZ = window.SZ, m = SZ.m, TAU = Math.PI * 2;
-  var SPEED = 86, R = 4;
+  var R = 4;
 
   function Player(world, x, y) {
     var C = SZ.PLAYER;
@@ -146,7 +146,9 @@
     }
 
     // Bewegung und Aktionen
-    var spd = SPEED * a.speedAt(this.x, this.y), tx = ix * spd, ty = iy * spd;
+    // Sprint mit Shift: nur beim normalen Laufen (nicht in Deckung, beim Spannen oder Angreifen)
+    this.sprinting = this.control && I.down("Shift") && (ix || iy) && !this.guard && !this.act;
+    var spd = C.walk * (this.sprinting ? C.sprint : 1) * a.speedAt(this.x, this.y), tx = ix * spd, ty = iy * spd;
     if (this.guard) { tx *= SZ.BLOCKS.kamae.moveMul; ty *= SZ.BLOCKS.kamae.moveMul; }
     ac = this.act;
     var snap = 14;
@@ -202,10 +204,10 @@
       this.walkPh += moved / 22;
       this.stepT -= dt;
       if (this.stepT <= 0) {
-        this.stepT = 0.3;
+        this.stepT = this.sprinting ? 0.2 : 0.32;
         var tile = a.tilePx(this.x, this.y);
         if (tile === "w") { w.parts.ring(this.x, this.y, 7, 0.7); w.parts.splash(this.x, this.y, 2, 0.4); SZ.audio.play("step_water"); }
-        else { w.parts.dust(this.x, this.y, 2, tile === "a" ? "#D6CCB0" : tile === "e" ? "#7A5E44" : tile === "g" ? "#B8B2A4" : "#A8A096"); SZ.audio.play("step"); }
+        else { if (this.sprinting) w.push(this.x, this.y, 10, 1.5, 0.4); w.parts.dust(this.x, this.y, this.sprinting ? 3 : 2, tile === "a" ? "#D6CCB0" : tile === "e" ? "#7A5E44" : tile === "g" ? "#B8B2A4" : "#A8A096"); SZ.audio.play("step"); }
       }
     }
     this.moving = moved > 0.2;
@@ -293,15 +295,15 @@
     if (ac) {
       if (ac.type === "atk") return ac.kind === "kaeshi" && ac.t < ac.wind ? "block" : "atk";
       if (ac.type === "parry") return "parry";
-      if (ac.type === "draw" || ac.type === "loose") return "bow";
+      if (ac.type === "draw" || ac.type === "loose") return this.moving ? "bowwalk" : "bow";
       if (ac.type === "hurt") return "stagger";
       return "dash";
     }
-    if (this.guard) return "block";
+    if (this.guard) return this.moving ? "blockwalk" : "block";
     return this.moving ? "walk" : "idle";
   };
   P.sprite = function () {
-    var an = this.animName(), k = an === "walk" ? Math.floor(this.walkPh * 6) : an === "idle" ? Math.floor(this.idleT / 0.7) : 0;
+    var an = this.animName(), k = (an === "walk" || an === "blockwalk" || an === "bowwalk") ? Math.floor(this.walkPh * (an === "walk" ? 6 : 8)) : an === "idle" ? Math.floor(this.idleT / 0.7) : 0;
     return SZ.samurai.frame(this.dir, an, k, "samurai");
   };
 
@@ -342,7 +344,7 @@
   P.drawShadow = function (sc, sh) {
     if (this.dead) return;
     var s = this.sprite(), A = SZ.samurai;
-    sc.setTransform(1, 0, -sh.x, -sh.y, this.x - A.AX + A.AY * sh.x, this.y + A.AY * sh.y);
+    SZ.light.shadowXf(sc, sh, this.x, this.y, A.AX, A.AY);
     sc.globalAlpha = this.appear;
     sc.drawImage(s.sil, 0, 0);
     sc.globalAlpha = 1;

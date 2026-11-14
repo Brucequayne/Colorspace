@@ -75,6 +75,15 @@
       P.hl = [-4.6, 0.6 - s * 2.2, 11.8]; P.hr = [4.6, 0.6 + s * 2.2, 11.8];
       P.crouch = Math.abs(s) * 0.4; P.lean = 0.5;
     }
+    if (anim === "blockwalk" || anim === "bowwalk") {
+      // Gehen in Deckung bzw. mit gespanntem Bogen: kürzere Schritte, Arme bleiben in Haltung
+      var a2 = (k / n) * Math.PI * 2, s2 = Math.sin(a2), c2 = Math.cos(a2);
+      P.spread = 3; P.crouch = 0.8 + Math.abs(s2) * 0.25;
+      P.lf = 0.6 + s2 * 2.2; P.rf = -0.6 - s2 * 2.2; P.ll = Math.max(0, c2) * 1.0; P.rl = Math.max(0, -c2) * 1.0;
+      if (anim === "blockwalk") { P.hl = [-1.2, 4.2, 15]; P.hr = [1.4, 4.4, 15.4]; }
+      else { P.hl = [-0.6, 6.4, 17.4]; P.hr = [1.6, -0.6, 18.6]; }
+      return P;
+    }
     if (anim === "block" || anim === "parry") { P.spread = 3.2; P.crouch = 0.9; P.lf = 1.6; P.rf = -1.4; P.hl = [-1.2, 4.2, 15]; P.hr = [1.4, 4.4, 15.4]; }
     if (anim === "atk") { P.spread = 3.4; P.crouch = 0.7; P.lean = 1.4; P.lf = 2.8; P.rf = -2.2; P.hl = [-1.5, 4.5, 14.5]; P.hr = [2.5, 5, 15]; }
     if (anim === "dash") { P.spread = 2.4; P.crouch = 1.0; P.lean = 2.2; P.lf = 3.5; P.rf = -3; P.rl = 1.2; P.hl = [-4, -2, 13]; P.hr = [4, -2.5, 13]; }
@@ -184,8 +193,8 @@
     return { cv: cv, sil: SZ.silhouette(cv) };
   }
 
-  var FRAMES = { idle: 2, walk: 6, block: 1, parry: 1, atk: 1, dash: 1, bow: 1, windup: 1, stagger: 1 };
-  var USE = { samurai: ["idle", "walk", "block", "parry", "atk", "dash", "bow", "stagger"], ronin: ["idle", "walk", "atk", "windup", "stagger", "block"] };
+  var FRAMES = { idle: 2, walk: 6, block: 1, parry: 1, atk: 1, dash: 1, bow: 1, windup: 1, stagger: 1, blockwalk: 6, bowwalk: 6 };
+  var USE = { samurai: ["idle", "walk", "block", "parry", "atk", "dash", "bow", "stagger", "blockwalk", "bowwalk"], ronin: ["idle", "walk", "atk", "windup", "stagger", "block"] };
   var cache = {}, queue = [];
   function frame(dir, anim, k, look) {
     look = look || "samurai";
