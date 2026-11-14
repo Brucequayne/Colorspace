@@ -21,8 +21,19 @@
     });
   }
   armor("l", false); armor("h", true);
+  // v0.57.2: Metallgerüste (Fachwerk). 25 % Gewicht und 20 % Leben der leichten Panzerung gleicher Größe; Luft geht hindurch (dichtet nicht)
+  (function () {
+    var m = T.lblk.mass / (0.7 * 0.75), hp = T.lblk.hp;   // def() rechnet die Gewichtsminderung noch einmal ein
+    [["tr1", "full", 1, 1, L2("Metallgerüst 1×1", "Metal truss 1×1"), 1], ["tr2", "full", 1, 2, L2("Metallgerüst 1×2", "Metal truss 1×2"), 2], ["tr3", "full", 1, 3, L2("Metallgerüst 1×3", "Metal truss 1×3"), 3],
+     ["tp1", "ramp1", 1, 1, L2("Gerüst-Rampe 1×1", "Truss slope 1×1"), 0.5], ["tp2", "ramp2", 1, 2, L2("Gerüst-Rampe 1×2", "Truss slope 1×2"), 1], ["tp3", "ramp3", 1, 3, L2("Gerüst-Rampe 1×3", "Truss slope 1×3"), 1.5]].forEach(function (a) {
+      def(a[0], { cat: "catTr", kind: "truss", shape: a[1], w: a[2], h: a[3], mass: Math.round(m * a[5] * 0.25 * 100) / 100, hp: Math.max(1, Math.round(hp * Math.max(0.6, a[5]) * 0.2)), col: "#7F8B98", n: a[4] });
+    });
+  })();
+  // v0.57.2: längere Antennen. ar = Reichweiten-Faktor (1×3 = 1, 1×4 = 1,5, 1×5 = 2)
+  def("an4", { cat: "catTh", kind: "ant", ar: 1.5, w: 1, h: 4, mass: 1.2, hp: 40, n: L2("Antenne 1×4", "Antenna 1×4"), col: "#7E8995" });
+  def("an5", { cat: "catTh", kind: "ant", ar: 2, w: 1, h: 5, mass: 1.5, hp: 48, n: L2("Antenne 1×5", "Antenna 1×5"), col: "#7E8995" });
   // Kosten in Credits (Cr): im Editor ist alles gratis; die Preise stehen in der Bauteilliste und im Infofeld
-  var COSTS = { atm: 900, lc1: 15, lc2: 15, lsm: 15, cks: 1200, ckm: 2400, ckl: 4200, ckt: 700, dk3: 2200, dk4: 3400, ths: 450, thf: 650, shs: 1400, shl: 3800, thl: 1600, gyr: 700, col: 300, ant: 400, bat: 350, rea: 2000, flo: 15, wal: 25, dor: 60, hat: 150, win: 40, mgn: 900, msl: 1300, msh: 2400, g25: 1800, g120: 3600, stu: 40, tis: 80, bet: 120, dbt: 180, toi: 150, dus: 200, tgc: 1600, rgn: 2600, tmg: 3400, t25: 5200, t120: 8800, trg: 9800, bt6: 2100, kr1: 60, kr2: 110, kr6: 300, kry: 900, pul: 450 };
+  var COSTS = { tr1: 8, tr2: 15, tr3: 22, tp1: 5, tp2: 8, tp3: 12, an4: 650, an5: 950, atm: 900, lc1: 15, lc2: 15, lsm: 15, cks: 1200, ckm: 2400, ckl: 4200, ckt: 700, dk3: 2200, dk4: 3400, ths: 450, thf: 650, shs: 1400, shl: 3800, thl: 1600, gyr: 700, col: 300, ant: 400, bat: 350, rea: 2000, flo: 15, wal: 25, dor: 60, hat: 150, win: 40, mgn: 900, msl: 1300, msh: 2400, g25: 1800, g120: 3600, stu: 40, tis: 80, bet: 120, dbt: 180, toi: 150, dus: 200, tgc: 1600, rgn: 2600, tmg: 3400, t25: 5200, t120: 8800, trg: 9800, bt6: 2100, kr1: 60, kr2: 110, kr6: 300, kry: 900, pul: 450 };
   function applyCosts() { Object.keys(T).forEach(function (id) { var ty = T[id]; ty.cost = COSTS[id] || (ty.kind === "armor" ? Math.max(5, Math.round(ty.mass * (ty.heavy ? 26 : 57))) : 100); }); }
   function cr(v) { return nf(Math.round(v)) + " Cr"; }
   def("ckt", { cat: "catCo", kind: "cock", w: 1, h: 2, mass: 0.9, hp: 150, n: L2("Cockpit winzig 1×2", "Tiny cockpit 1×2"), col: "#9AA5B1" });
@@ -108,10 +119,10 @@
   });
   // Perks wurden in v0.47 abgeschafft. PM bleibt als neutrales Objekt (alles 0), damit die Werte-Haken im Code nichts verändern.
   var PM = { side: 0, brake: 0, mgRate: 0, batCap: 0, msRl: 0, hp: 0, prod: 0, walk: false, radar: 0, oc: 0, msDmg: 0, cockHp: 0, msTurn: 0, crit: 0, batW: false, heavyW: 0 };
-  CATS = ["catLA", "catHA", "catRA", "catOA", "catCo", "catTh", "catEn", "catIn", "catDe", "catIt", "catWe", "catTu"];
+  CATS = ["catLA", "catHA", "catRA", "catOA", "catTr", "catCo", "catTh", "catEn", "catIn", "catDe", "catIt", "catWe", "catTu"];
   var MECH = { cock: 1, thr: 1, gyro: 1, ant: 1, bat: 1, reac: 1, door: 1, hatch: 1, mg: 1, rg: 1, gun: 1, cool: 1, ms: 1, tcomp: 1, shield: 1, dock: 1, tur: 1 };
   var ROOMABLE = { bat: 1, reac: 1, gyro: 1, cool: 1, tcomp: 1, shield: 1 };   // Maschinen, die in einem Raum stehen dürfen und dann zum Raum gehören
-  function replaceable(newT, o) { return o && T[newT].kind !== "floor" && T[o.b.t].kind === "floor"; }
+  function replaceable(newT, o) { return o && (T[newT].kind !== "floor" || T[newT].loot) && T[o.b.t].kind === "floor"; }   // Gegenstände zum Auslegen dürfen auf vorhandenen Boden
   var DV = [[0, -1], [1, 0], [0, 1], [-1, 0]];     // N, O, S, W als Zellversatz
 
   // Welche lokalen Außenkanten verbinden (conn) und dichten (seal)? d: 0 N, 1 O, 2 S, 3 W
@@ -122,6 +133,11 @@
       if (sh === "ramp2" || sh === "ramp3" || sh === "round2") return { c: d === 3 || (d === 2 && last), s: d === 3 || (d === 2 && last) };
       if (sh === "half") return { c: d !== 0, s: d === 2 };
       return { c: true, s: true };
+    }
+    if (k === "truss") {   // Gerüst: verbindet wie Panzerung gleicher Form, dichtet aber nie
+      if (sh === "ramp1") return { c: d === 2 || d === 3, s: false };
+      if (sh === "ramp2" || sh === "ramp3") return { c: d === 3 || (d === 2 && last), s: false };
+      return { c: true, s: false };
     }
     if (k === "thr") return { c: d !== 2, s: true };                       // Düse hinten verbindet nicht
     if (k === "mg" || k === "rg" || k === "gun" || k === "ant" || k === "ms") return { c: last && d !== 0, s: true };   // nur am hinteren Ende

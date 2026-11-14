@@ -37,6 +37,7 @@ Diese Datei wird **gebaut** – aus den Teilen in `spacerogue-src/src/`.
 | `53-ki.js` | Gegner-KI |
 | `54-figur.js` | Luft, Luken, Jetpack, Schweißen, Laufen, Pistole, Inventar |
 | `55-andocken.js` | Andocken |
+| `47-luftstrom.js` | Luftfäden an offenen Stellen (seit v0.57.2): `airOpenings` (Boden/Tür ohne Nachbarblock, je Körper zwischengespeichert), `drawAirflow`, Werte in `AIRF` |
 | `57-gegenstaende.js` | Gegenstände (seit v0.57): `ITEMS`, Schnellleiste `FL.hot` und Inventar `FL.inv`, aufheben (E) und ablegen (Q), Ziehen im Inventar, liegende (`bd.items`) und treibende (`FL.loose`) Gegenstände, Bankautomat, Kontostand (`spacerogue-konto-v1`) |
 | `56-turrets.js` | Turrets: KI-Zielwahl, Schwenken mit Vorhalt, Feuern, Hitze-Disziplin (`turretsAuto`) |
 | `60-zeichnen-flug.js` | Flugansicht, Effekte, Radar, HUD |
@@ -111,3 +112,10 @@ Folgen für Änderungen:
   `spacerogue-konto-v1` (neuer Schlüssel, die alten bleiben unverändert).
   Volltest: Spielablauf unverändert, der Fingerabdruck ändert sich nur durch 87 zusätzliche Zeichenaufrufe (Symbole der vier neuen
   Bauteile in der Bauteilliste). Ohne jsdom geprüft (in Chromium); beim nächsten Lauf mit jsdom die Referenz mit `--merken` neu setzen.
+- v0.57.1: Gegenstände zum Auslegen ersetzen vorhandenen Boden (`replaceable`, `tryPlace`), im Flug Boden des Raums über `lootFloor`.
+  Leertaste zu Fuß/draußen (`spaceAct`, `edgeOff`, `edgeLand` in `57-gegenstaende.js`) statt automatischem Hinaus-/Hineinschweben
+  am offenen Rand. Hinweis am Ziel in der Welt: `drawUsePrompt`. Volltest: Ablauf unverändert, nur +20 Zeichenaufrufe (Credits-Symbol).
+- v0.57.2: Gerüste `tr1`–`tr3`, `tp1`–`tp3` (`kind: "truss"`, Kategorie `catTr`): Verbindung wie Panzerung gleicher Form, dichten nie
+  (`edgeRule`), Grafik `trussArt` in `40-zeichnen-bloecke.js`. Antennen `an4`/`an5` mit Reichweiten-Faktor `ar` (1,5 / 2);
+  `bd.antM` = Faktoren absteigend, `antRange` = 600 m × stärkste + 300 m × jede weitere, höchstens 1.800 m (bzw. die stärkste allein).
+  Luftfäden `47-luftstrom.js`. Volltest: Ablauf unverändert, nur Zeichenaufrufe der neuen Bauteil-Symbole.

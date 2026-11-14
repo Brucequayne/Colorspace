@@ -6,7 +6,7 @@
   function makeBody(blocks, ctrl) {
     var bd = { blocks: blocks, x: 0, y: 0, a: 0, vx: 0, vy: 0, w: 0, ctrl: !!ctrl, energy: 0, cap: 0, flames: {} };
     blocks.forEach(function (b) {
-      var lt = T[b.t]; if (lt.loot) { (bd.items || (bd.items = [])).push({ id: lt.loot, n: lt.amt || 1, x: b.x + 0.5, y: b.y + 0.5, a: ((b.x * 7 + b.y * 13) % 12) * 0.5 }); b.t = "flo"; b.hp = undefined; }   // Gegenstand liegt auf normalem Boden
+      var lt = T[b.t]; if (lt.loot) { (bd.items || (bd.items = [])).push({ id: lt.loot, n: lt.amt || 1, x: b.x + 0.5, y: b.y + 0.5, a: ((b.x * 7 + b.y * 13) % 12) * 0.5 }); b.t = lootFloor(blocks, b); b.hp = undefined; }   // Gegenstand liegt auf dem Boden des Raums
       if (b.hp === undefined) b.hp = T[b.t].hp;
     });
     recalc(bd, true);
@@ -23,7 +23,7 @@
     bd.map = buildMap(bd.blocks); bd.roomsDirty = true;
     bd.cool = coolMap(bd.blocks, bd.map); bd.ocMax = ocMaxOf(bd.blocks, bd.cool) * (pm ? 1 + pm.oc : 1);
     bd.seat = bd.blocks.filter(function (b) { return T[b.t].kind === "cock"; })[0] || null;
-    bd.cock = st.cock; bd.thrSum = st.thr[0] + st.thr[1] + st.thr[2] + st.thr[3]; bd.nAnt = bd.blocks.filter(function (b) { return T[b.t].kind === "ant"; }).length; bd.tcomp = bd.blocks.some(function (b) { return T[b.t].kind === "tcomp"; });
+    bd.cock = st.cock; bd.thrSum = st.thr[0] + st.thr[1] + st.thr[2] + st.thr[3]; bd.antM = bd.blocks.filter(function (b) { return T[b.t].kind === "ant"; }).map(function (b) { return T[b.t].ar || 1; }).sort(function (a, b) { return b - a; }); bd.nAnt = bd.antM.length; bd.tcomp = bd.blocks.some(function (b) { return T[b.t].kind === "tcomp"; });
     bd.cells = []; bd.map.forEach(function (v, k) { var q = k.split(","); bd.cells.push([+q[0] + 0.5, +q[1] + 0.5, v.b]); });
     if (!bd.id) bd.id = ++BID;
     var r = 0; bd.blocks.forEach(function (b) { var f = fp(b); [[b.x, b.y], [b.x + f[0], b.y + f[1]]].forEach(function (p) { r = Math.max(r, Math.hypot(p[0] - bd.com[0], p[1] - bd.com[1])); }); }); bd.rad = r * CELL_M + 2;

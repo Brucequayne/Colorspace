@@ -78,11 +78,7 @@
     FL.enterCd = Math.max(0, FL.enterCd - dt);
     var lp = toLocal(bd, E.x, E.y), o = bd.map.get(key(Math.floor(lp.x), Math.floor(lp.y)));
     // Offenes Schiff: über eine Bodenzelle am offenen Rand schweben, dann steigt man direkt wieder ein
-    if (o && openEdgeKind(T[o.b.t].kind) && FL.enterCd <= 0) {
-      var cx0 = Math.floor(lp.x), cy0 = Math.floor(lp.y), edge = false;
-      for (var dd = 0; dd < 4; dd++) if (!bd.map.has(key(cx0 + DV[dd][0], cy0 + DV[dd][1]))) edge = true;
-      if (edge) enterAt(bd, cx0, cy0);
-    }
+    // seit v0.57.1: landen nur noch mit der Leertaste (spaceAct)
   }
   // Schweißgerät: repariert Blöcke (15 HP/s) und baut zerstörte Blöcke an ihrer alten Stelle wieder auf
   function lostAt(bd, x, y) {
@@ -140,7 +136,7 @@
         }
       }
       // Offenes Schiff: Boden oder Tür ohne Wand zum All, dort direkt hinaustreten (Luken nur mit F)
-      if (cur && openEdgeKind(T[cur.b.t].kind)) { var nx = P.x + lx * 0.75, ny = P.y + ly * 0.75; if (!bd.map.get(key(Math.floor(nx), Math.floor(ny)))) { exitShip(bd, nx, ny, true, Math.atan2(ly, lx)); return; } }
+      // Offener Rand (Boden/Tür ohne Wand zum All): seit v0.57.1 nicht mehr automatisch hinaus, sondern mit der Leertaste (spaceAct)
     } else P.ph *= Math.pow(0.001, dt);
     // Boden unter den Füßen weggeschossen: die Figur treibt ins All
     if (!walkable(bd, P.x, P.y)) { exitShip(bd, P.x, P.y); FL.eva.vx -= Math.cos(P.face + bd.a) * 1.2; FL.eva.vy -= Math.sin(P.face + bd.a) * 1.2; return; }

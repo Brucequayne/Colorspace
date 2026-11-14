@@ -72,6 +72,7 @@
       if (!FL.seated && /^[1-9]$/.test(k)) { FL.slot = +k; syncHot(); if (invOpen()) invRender(); return; }
       if (!FL.seated && k === "e") { useKey(); return; }    // zu Fuß und draußen: E aufheben / Bankautomat
       if (!FL.seated && k === "q") { dropHeld(); return; }  // Q legt den Gegenstand in der Hand ab
+      if (!FL.seated && k === " ") { e.preventDefault(); spaceAct(); return; }   // Leertaste: am offenen Rand vom Boden lösen / draußen landen
       if (k === "f") { toggleSeat(); return; }
       if (k === "v" || k === "tab") { S.view = S.view === "in" ? "out" : "in"; syncUI(); e.preventDefault(); return; }
       if (!FL.seated) return;
