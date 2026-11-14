@@ -110,6 +110,11 @@ window.PATCHNOTES = {
   ],
 
   // ================= Spiele =================
+  shizuku: [
+    { v: "0.1", t: "2026-11-14T22:43:00+01:00",
+      de: ["Neues Spiel: Shizuku (雫), ein kunstvolles Pixel-Kampfspiel im alten Tempel", "Minimalistisches Menü: Klick auf 雫 startet den Übergang, ein Tautropfen fällt in die Arena", "Moos, Gras, Blumen und Bäume wachsen in höchstens 4 Sekunden von innen nach außen", "Samurai in 8 Richtungen mit Katana: WASD laufen, Maus zielen", "3 Angriffe und 3 Blocks: Linksklick und Rechtsklick, mit Q oder E gehalten Typ 2 und 3", "Bodenarten bremsen: Wasser, Sand, Erde", "Tageszeit mit roten Sonnenauf- und -untergängen, langen Schatten und Laternenlicht", "Dev Tool zum Bauen von Arenen: Boden, Objekte, Pinsel, Laubfall, Uhrzeit, Export"],
+      en: ["New game: Shizuku (雫), an artful pixel combat game in an old temple", "Minimal menu: clicking 雫 starts the transition, a dewdrop falls into the arena", "Moss, grass, flowers and trees grow from the centre outwards in at most 4 seconds", "Samurai in 8 directions with a katana: WASD to move, mouse to aim", "3 attacks and 3 blocks: left and right click, hold Q or E for type 2 and 3", "Floor types slow you down: water, sand, soil", "Time of day with red sunrises and sunsets, long shadows and lantern light", "Dev tool for building arenas: floor, objects, brushes, leaf fall, time of day, export"] }
+  ],
   citygen: [
     { v: "0.5", t: "2026-11-12T23:25:00+01:00",
       de: ["Neue Malfarbe Orange: Gewerbe", "Außerhalb des Zentrums wird Orange zum Gewerbegebiet mit großflächigem Handel: Möbelhaus, Verbrauchermarkt, Baumarkt mit Gartencenter, Elektromarkt, Discounter, Autohaus, Schnellrestaurant, Tankstelle und Gewerbehallen", "Die Märkte stehen hinten, davor große Kundenparkplätze mit Fahrgassen, Grüninseln, Bäumen und Zufahrt zur wichtigsten Straße. Sehr tiefe Flächen bekommen dahinter Lagerhallen mit LKW-Hof", "In orangen Flächen außerhalb des Zentrums entstehen keine Wohnstraßen, damit Platz für große Märkte bleibt. Läuft eine Straße mitten durch, wird jede Seite für sich geplant", "Im Zentrum bleiben die Häuser stehen, davor kommt Außengastronomie: Tische und Schirme auf dem Gehweg und Holzpodeste mit Tischen auf der Parkspur. Dort parken dann keine Autos mehr"],
