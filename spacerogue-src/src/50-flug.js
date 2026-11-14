@@ -6,7 +6,7 @@
   function makeBody(blocks, ctrl) {
     var bd = { blocks: blocks, x: 0, y: 0, a: 0, vx: 0, vy: 0, w: 0, ctrl: !!ctrl, energy: 0, cap: 0, flames: {} };
     blocks.forEach(function (b) {
-      var lt = T[b.t]; if (lt.loot) { (bd.items || (bd.items = [])).push({ id: lt.loot, n: lt.amt || 1, x: b.x + 0.5, y: b.y + 0.5, a: ((b.x * 7 + b.y * 13) % 12) * 0.5 }); b.t = "flo"; b.hp = undefined; }   // Gegenstand liegt auf normalem Boden
+      var lt = T[b.t]; if (lt.loot) { (bd.items || (bd.items = [])).push({ id: lt.loot, n: lt.amt || 1, x: b.x + 0.5, y: b.y + 0.5, a: ((b.x * 7 + b.y * 13) % 12) * 0.5 }); b.t = lootFloor(blocks, b); b.hp = undefined; }   // Gegenstand liegt auf dem Boden des Raums
       if (b.hp === undefined) b.hp = T[b.t].hp;
     });
     recalc(bd, true);

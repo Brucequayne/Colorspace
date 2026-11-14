@@ -31,7 +31,7 @@
     var put = [list[0]]; if (list[1] && okB) put.push(list[1]);
     // Böden unter dem neuen Teil werden ersetzt
     var under = new Set(); put.forEach(function (q) { cellsOf(q).forEach(function (c) { under.add(key(c.c[0], c.c[1])); }); });
-    if (T[g.t].kind !== "floor") S.blocks = S.blocks.filter(function (q) { return !(T[q.t].kind === "floor" && under.has(key(q.x, q.y))); });
+    if (T[g.t].kind !== "floor" || T[g.t].loot) S.blocks = S.blocks.filter(function (q) { return !(T[q.t].kind === "floor" && under.has(key(q.x, q.y))); });
     put.forEach(function (q) { S.blocks.push(clean(q)); });
     save(); return true;
   }

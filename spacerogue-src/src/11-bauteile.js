@@ -111,7 +111,7 @@
   CATS = ["catLA", "catHA", "catRA", "catOA", "catCo", "catTh", "catEn", "catIn", "catDe", "catIt", "catWe", "catTu"];
   var MECH = { cock: 1, thr: 1, gyro: 1, ant: 1, bat: 1, reac: 1, door: 1, hatch: 1, mg: 1, rg: 1, gun: 1, cool: 1, ms: 1, tcomp: 1, shield: 1, dock: 1, tur: 1 };
   var ROOMABLE = { bat: 1, reac: 1, gyro: 1, cool: 1, tcomp: 1, shield: 1 };   // Maschinen, die in einem Raum stehen dürfen und dann zum Raum gehören
-  function replaceable(newT, o) { return o && T[newT].kind !== "floor" && T[o.b.t].kind === "floor"; }
+  function replaceable(newT, o) { return o && (T[newT].kind !== "floor" || T[newT].loot) && T[o.b.t].kind === "floor"; }   // Gegenstände zum Auslegen dürfen auf vorhandenen Boden
   var DV = [[0, -1], [1, 0], [0, 1], [-1, 0]];     // N, O, S, W als Zellversatz
 
   // Welche lokalen Außenkanten verbinden (conn) und dichten (seal)? d: 0 N, 1 O, 2 S, 3 W

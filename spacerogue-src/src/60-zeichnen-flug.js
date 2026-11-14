@@ -144,7 +144,7 @@
       });
       c.restore();
     });
-    drawLoose(c, tm);
+    drawLoose(c, tm); drawUsePrompt(c, ppm);
     if (FL.out && FL.eva) { c.save(); c.translate(FL.eva.x, FL.eva.y); c.scale(CELL_M / PX, CELL_M / PX); drawAstronaut(c, 0, 0, FL.eva.face, FL.eva.ph, 1.25, FL.welding, heldGun()); c.restore(); }
     (FL.missiles || []).forEach(function (m) {
       c.save(); c.translate(m.x, m.y); c.rotate(m.h); if (m.k > 1) c.scale(1.7, 1.7);   // Schwere Rakete: größer

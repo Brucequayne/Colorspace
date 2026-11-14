@@ -5,7 +5,7 @@
 (function () {
   "use strict";
 
-  var VERSION = "0.57";
+  var VERSION = "0.57.1";
   var CELL_M = 2.5, PX = 24;              // Meter je Zelle, Pixel je Zelle bei Zoom 1
   var lang = "de";
   function L2(de, en) { return { de: de, en: en }; }
@@ -24,6 +24,8 @@
     itNone: L2("Nichts in der Hand zum Ablegen", "Nothing in hand to drop"), itNothing: L2("Hier ist nichts zum Aufheben", "Nothing to pick up here"),
     atmHint: L2("E · {n} einzahlen", "E · deposit {n}"), atmHint0: L2("Bankautomat · keine Credits im Inventar", "ATM · no credits in inventory"), atmEmpty: L2("Keine Credits im Inventar", "No credits in inventory"), atmIn: L2("+{n} eingezahlt", "+{n} deposited"),
     invHot: L2("Schnellleiste 1–9", "Hotbar 1–9"),
+    spOff: L2("Leertaste · vom Boden lösen", "Space · push off the floor"), spLand: L2("Leertaste · landen", "Space · land"), spNone: L2("Hier ist kein offener Rand", "No open edge here"),
+    atmLbl: L2("Geld einzahlen", "Deposit money"), itLbl: L2("Aufheben", "Pick up"),
     tBuild: L2("Bauen", "Build"), tabBlk: L2("Blocks", "Blocks"), tabEnv: L2("Environmental", "Environmental"), envLayer: L2("Ebene", "Layer"), envBack: L2("Hinten", "Back"), envGame: L2("Spielebene", "Game"), envFront: L2("Vorne", "Front"), envScale: L2("Größe", "Size"), envRot: L2("Drehung", "Rotation"), envRnd: L2("Zufall", "Random"), envOn: L2("an", "on"), envOff: L2("aus", "off"), envHelp: L2("Klick setzt · Ziehen streut ein Feld · Rechtsklick entfernt (nur aktive Ebene) · R dreht · + / − Größe", "Click places · drag scatters a field · right click removes (active layer only) · R rotates · + / − size"), envCount: L2("Environment", "Environment"), envAst: L2("Asteroiden", "Asteroids"), envBd: L2("Backdrops", "Backdrops"), envBdH: L2("Planeten und Sonnen ganz hinten in der Skybox, unabhängig von der Ebene. Planeten werden von der nächsten Sonne beleuchtet.", "Planets and suns at the very back of the skybox, regardless of layer. Planets are lit by the nearest sun."), expScene: L2("Ganze Szene", "Whole scene"), expStruct: L2("Nur Struktur", "Structure only"), sceneLoaded: L2("Szene geladen", "Scene loaded"), tErase: L2("Abreißen", "Remove"), tPaint: L2("Malen", "Paint"),
     rot: L2("Drehen (R)", "Rotate (R)"), flip: L2("Spiegeln (F)", "Flip (F)"), sym: L2("Symmetrie (M)", "Symmetry (M)"), axis: L2("Achse", "Axis"), symIn: L2("im Block", "through block"), symGap: L2("zwischen Blöcken", "between blocks"),
     vIn: L2("Innen", "Interior"), vOut: L2("Außen", "Exterior"), view: L2("Ansicht (V)", "View (V)"),
@@ -200,7 +202,7 @@
   CATS = ["catLA", "catHA", "catRA", "catOA", "catCo", "catTh", "catEn", "catIn", "catDe", "catIt", "catWe", "catTu"];
   var MECH = { cock: 1, thr: 1, gyro: 1, ant: 1, bat: 1, reac: 1, door: 1, hatch: 1, mg: 1, rg: 1, gun: 1, cool: 1, ms: 1, tcomp: 1, shield: 1, dock: 1, tur: 1 };
   var ROOMABLE = { bat: 1, reac: 1, gyro: 1, cool: 1, tcomp: 1, shield: 1 };   // Maschinen, die in einem Raum stehen dürfen und dann zum Raum gehören
-  function replaceable(newT, o) { return o && T[newT].kind !== "floor" && T[o.b.t].kind === "floor"; }
+  function replaceable(newT, o) { return o && (T[newT].kind !== "floor" || T[newT].loot) && T[o.b.t].kind === "floor"; }   // Gegenstände zum Auslegen dürfen auf vorhandenen Boden
   var DV = [[0, -1], [1, 0], [0, 1], [-1, 0]];     // N, O, S, W als Zellversatz
 
   // Welche lokalen Außenkanten verbinden (conn) und dichten (seal)? d: 0 N, 1 O, 2 S, 3 W
@@ -552,7 +554,7 @@
     var put = [list[0]]; if (list[1] && okB) put.push(list[1]);
     // Böden unter dem neuen Teil werden ersetzt
     var under = new Set(); put.forEach(function (q) { cellsOf(q).forEach(function (c) { under.add(key(c.c[0], c.c[1])); }); });
-    if (T[g.t].kind !== "floor") S.blocks = S.blocks.filter(function (q) { return !(T[q.t].kind === "floor" && under.has(key(q.x, q.y))); });
+    if (T[g.t].kind !== "floor" || T[g.t].loot) S.blocks = S.blocks.filter(function (q) { return !(T[q.t].kind === "floor" && under.has(key(q.x, q.y))); });
     put.forEach(function (q) { S.blocks.push(clean(q)); });
     save(); return true;
   }
@@ -2040,7 +2042,7 @@
   function makeBody(blocks, ctrl) {
     var bd = { blocks: blocks, x: 0, y: 0, a: 0, vx: 0, vy: 0, w: 0, ctrl: !!ctrl, energy: 0, cap: 0, flames: {} };
     blocks.forEach(function (b) {
-      var lt = T[b.t]; if (lt.loot) { (bd.items || (bd.items = [])).push({ id: lt.loot, n: lt.amt || 1, x: b.x + 0.5, y: b.y + 0.5, a: ((b.x * 7 + b.y * 13) % 12) * 0.5 }); b.t = "flo"; b.hp = undefined; }   // Gegenstand liegt auf normalem Boden
+      var lt = T[b.t]; if (lt.loot) { (bd.items || (bd.items = [])).push({ id: lt.loot, n: lt.amt || 1, x: b.x + 0.5, y: b.y + 0.5, a: ((b.x * 7 + b.y * 13) % 12) * 0.5 }); b.t = lootFloor(blocks, b); b.hp = undefined; }   // Gegenstand liegt auf dem Boden des Raums
       if (b.hp === undefined) b.hp = T[b.t].hp;
     });
     recalc(bd, true);
@@ -2838,11 +2840,7 @@
     FL.enterCd = Math.max(0, FL.enterCd - dt);
     var lp = toLocal(bd, E.x, E.y), o = bd.map.get(key(Math.floor(lp.x), Math.floor(lp.y)));
     // Offenes Schiff: über eine Bodenzelle am offenen Rand schweben, dann steigt man direkt wieder ein
-    if (o && openEdgeKind(T[o.b.t].kind) && FL.enterCd <= 0) {
-      var cx0 = Math.floor(lp.x), cy0 = Math.floor(lp.y), edge = false;
-      for (var dd = 0; dd < 4; dd++) if (!bd.map.has(key(cx0 + DV[dd][0], cy0 + DV[dd][1]))) edge = true;
-      if (edge) enterAt(bd, cx0, cy0);
-    }
+    // seit v0.57.1: landen nur noch mit der Leertaste (spaceAct)
   }
   // Schweißgerät: repariert Blöcke (15 HP/s) und baut zerstörte Blöcke an ihrer alten Stelle wieder auf
   function lostAt(bd, x, y) {
@@ -2900,7 +2898,7 @@
         }
       }
       // Offenes Schiff: Boden oder Tür ohne Wand zum All, dort direkt hinaustreten (Luken nur mit F)
-      if (cur && openEdgeKind(T[cur.b.t].kind)) { var nx = P.x + lx * 0.75, ny = P.y + ly * 0.75; if (!bd.map.get(key(Math.floor(nx), Math.floor(ny)))) { exitShip(bd, nx, ny, true, Math.atan2(ly, lx)); return; } }
+      // Offener Rand (Boden/Tür ohne Wand zum All): seit v0.57.1 nicht mehr automatisch hinaus, sondern mit der Leertaste (spaceAct)
     } else P.ph *= Math.pow(0.001, dt);
     // Boden unter den Füßen weggeschossen: die Figur treibt ins All
     if (!walkable(bd, P.x, P.y)) { exitShip(bd, P.x, P.y); FL.eva.vx -= Math.cos(P.face + bd.a) * 1.2; FL.eva.vy -= Math.sin(P.face + bd.a) * 1.2; return; }
@@ -3148,7 +3146,9 @@
     credits: { n: L2("Credits", "Credits"), stack: true }
   };
   ITEMS.welder.ic = HOT[0].ic; ITEMS.pistol.ic = HOT[1].ic; ITEMS.smg.ic = HOT[2].ic;
-  ITEMS.credits.ic = '<svg viewBox="0 0 24 24"><path d="M4 15h16v4H4z" fill="#A9862C"/><path d="M4 11h16v4H4z" fill="#C9A23B"/><path d="M4 7h16v4H4z" fill="#E3B83F"/><path d="M4 7h16" stroke="#F6DA7E" stroke-width="1.2"/><path d="M10.5 8.4h3M12 8.4v1.6" stroke="#6B5214" stroke-width="1.2"/></svg>';
+  // Geldbündel: zwei Packen Scheine mit Banderole
+  ITEMS.credits.ic = '<svg viewBox="0 0 24 24"><path d="M5 12h15v7H5z" fill="#3F7A55"/><path d="M5 12h15v2H5z" fill="#6FAE80"/><path d="M5 16h15M5 17.6h15" stroke="#2E5C40" stroke-width=".6"/><path d="M11 12h3v7h-3z" fill="#E8DFC8"/>' +
+    '<path d="M3 6h15v7H3z" fill="#4A8A62"/><path d="M3 6h15v2H3z" fill="#86C496"/><path d="M3 10h15M3 11.6h15" stroke="#2E5C40" stroke-width=".6"/><path d="M9 6h3v7H9z" fill="#F2EBD8"/><circle cx="5.6" cy="7" r=".7" fill="#2E5C40"/><circle cx="15.4" cy="7" r=".7" fill="#2E5C40"/></svg>';
   var KONTO = "spacerogue-konto-v1", PICK_R = 0.95, PICK_EVA = 1.6, ATM_R = 1.35;
   function itemName(it) { var d = ITEMS[it.id]; return d.stack ? d.n[lang] + " × " + nf(it.n) : d.n[lang]; }
   // ---------- Kontostand (bleibt auf dem Gerät gespeichert) ----------
@@ -3240,22 +3240,83 @@
         b.items.splice(i, 1);
       }
     });
-    FL.useT = findUse();
+    FL.useT = findUse(); FL.spT = FL.seated ? null : FL.out ? edgeLand() : edgeOff();
   }
   function useHint() {
-    var u = FL && FL.useT; if (!u) return "";
-    if (u.k === "atm") { var n = creditsHeld(); return n ? fmt(t("atmHint"), { n: cr(n) }) : t("atmHint0"); }
-    return fmt(t("itHint"), { n: itemName(u.q) });
+    var u = FL && FL.useT, h = "";
+    if (u) h = u.k === "atm" ? (creditsHeld() ? fmt(t("atmHint"), { n: cr(creditsHeld()) }) : t("atmHint0")) : fmt(t("itHint"), { n: itemName(u.q) });
+    var sp = FL && FL.spT ? t(FL.spT.k === "off" ? "spOff" : "spLand") : "";
+    return h && sp ? h + "   ·   " + sp : h || sp;
+  }
+  // Gegenstand im Editor auf einen Boden gesetzt: im Flug bekommt die Zelle den Boden des Raums (häufigster Nachbarboden)
+  function lootFloor(blocks, b) {
+    var M = {}, best = "flo", bn = 0;
+    blocks.forEach(function (q) { if (Math.abs(q.x - b.x) + Math.abs(q.y - b.y) === 1 && T[q.t].kind === "floor" && !T[q.t].loot) { M[q.t] = (M[q.t] || 0) + 1; if (M[q.t] > bn) { bn = M[q.t]; best = q.t; } } });
+    return best;
+  }
+  // ---------- Leertaste (v0.57.1): am offenen Rand vom Boden lösen, draußen am Rand landen ----------
+  function edgeOff() {   // zu Fuß: steht die Figur auf Boden/Tür mit offener Seite zum All? Richtung = die offene Seite, die am ehesten in Blickrichtung liegt
+    if (!FL || FL.seated || FL.out) return null;
+    var bd = FL.pb || FL.me, P = FL.pilot, cx = Math.floor(P.x), cy = Math.floor(P.y), o = bd.map.get(key(cx, cy)), best = null, bs = -9;
+    if (!o || !openEdgeKind(T[o.b.t].kind)) return null;
+    for (var d = 0; d < 4; d++) {
+      if (bd.map.has(key(cx + DV[d][0], cy + DV[d][1]))) continue;
+      var sc = Math.cos(Math.atan2(DV[d][1], DV[d][0]) - P.face); if (sc > bs) { bs = sc; best = d; }
+    }
+    return best === null ? null : { k: "off", bd: bd, d: best, cx: cx, cy: cy };
+  }
+  function edgeLand() {   // draußen: nächste Boden-/Türzelle mit offener Seite in Reichweite
+    if (!FL || !FL.out || !FL.eva) return null;
+    var best = null, bd2 = 2.2;   // Reichweite in Zellen (2,2 Zellen = 5,5 m)
+    FL.bodies.forEach(function (bd) {
+      if (bd.enemy || bd.dead) return;
+      var lp = toLocal(bd, FL.eva.x, FL.eva.y), x0 = Math.floor(lp.x), y0 = Math.floor(lp.y);
+      for (var yy = y0 - 2; yy <= y0 + 2; yy++) for (var xx = x0 - 2; xx <= x0 + 2; xx++) {
+        var o = bd.map.get(key(xx, yy)); if (!o || !openEdgeKind(T[o.b.t].kind) || !canStand(bd, xx + 0.5, yy + 0.5)) continue;
+        var open = false; for (var d = 0; d < 4; d++) if (!bd.map.has(key(xx + DV[d][0], yy + DV[d][1]))) open = true;
+        if (!open) continue;
+        var dist = Math.hypot(lp.x - xx - 0.5, lp.y - yy - 0.5); if (dist < bd2) { bd2 = dist; best = { k: "land", bd: bd, cx: xx, cy: yy }; }
+      }
+    });
+    return best;
+  }
+  function spaceAct() {
+    var s = FL.out ? edgeLand() : edgeOff();
+    if (!s) { note(t("spNone")); return; }
+    if (s.k === "land") { enterAt(s.bd, s.cx, s.cy); return; }
+    var dx = DV[s.d][0], dy = DV[s.d][1], P = FL.pilot;
+    exitShip(s.bd, s.cx + 0.5 + dx * 0.85, s.cy + 0.5 + dy * 0.85, false, Math.atan2(dy, dx));   // sanft abstoßen (0,3 m/s nach außen)
+  }
+  // Hinweis direkt am Ziel in der Welt (Bankautomat, Gegenstand)
+  function drawUsePrompt(c, ppm) {
+    var u = FL && FL.useT; if (!u) return;
+    var w, txt = t(u.k === "atm" ? "atmLbl" : "itLbl");
+    if (u.k === "atm") { var f = fp(u.b), pb = FL.pb || FL.me; w = toWorld(pb, u.b.x + f[0] / 2, u.b.y + f[1] / 2); }
+    else if (u.k === "loose") w = { x: u.q.x, y: u.q.y };
+    else w = toWorld(u.bd, u.q.x, u.q.y);
+    var fs = 12 / ppm, y = w.y - 26 / ppm;
+    c.save(); c.font = "700 " + fs + "px " + FONTS(); c.textBaseline = "middle"; c.textAlign = "left";
+    var tw = c.measureText(txt).width, kw = 16 / ppm, pad = 6 / ppm, W = kw + pad * 3 + tw, H = 22 / ppm, x = w.x - W / 2;
+    c.fillStyle = "rgba(14,18,26,.86)"; c.fillRect(x, y - H / 2, W, H); c.strokeStyle = "rgba(242,193,78,.75)"; c.lineWidth = 1 / ppm; c.strokeRect(x, y - H / 2, W, H);
+    c.fillStyle = "#F2C14E"; c.fillRect(x + pad, y - kw / 2, kw, kw); c.fillStyle = "#14181F"; c.textAlign = "center"; c.fillText("E", x + pad + kw / 2, y + 0.5 / ppm);
+    c.fillStyle = "#EEF2F6"; c.textAlign = "left"; c.fillText(txt, x + pad * 2 + kw, y + 0.5 / ppm);
+    c.restore();
   }
   // ---------- Zeichnen in der Welt ----------
   // Gegenstand auf dem Boden: c im Schiffsmaßstab (1 Zelle = s Pixel), Mitte cx/cy
   function itemArt(c, id, cx, cy, s, a) {
     c.save(); c.translate(cx, cy); c.rotate(a || 0); var u = s / 24;
     c.fillStyle = "rgba(0,0,0,.35)"; c.fillRect(-9 * u, -6 * u + 1.5 * u, 18 * u, 12 * u);
-    if (id === "credits") {
-      [["#A9862C", 3], ["#C9A23B", -1], ["#E3B83F", -5]].forEach(function (r) { c.fillStyle = r[0]; c.fillRect(-7 * u, r[1] * u, 14 * u, 4 * u); });
-      c.fillStyle = "#F6DA7E"; c.fillRect(-7 * u, -5 * u, 14 * u, 0.9 * u);
-      c.fillStyle = "#6B5214"; c.fillRect(-1.5 * u, -4 * u, 3 * u, 0.8 * u); c.fillRect(-0.4 * u, -4 * u, 0.8 * u, 2 * u);
+    if (id === "credits") {   // zwei Geldbündel, leicht versetzt, mit Banderole
+      [[2.2, 2.6, "#3F7A55", "#6FAE80"], [-2.2, -2.2, "#4A8A62", "#86C496"]].forEach(function (p) {
+        var bx = p[0] * u, by = p[1] * u, w = 13 * u, h = 7 * u;
+        c.fillStyle = "#2E5C40"; c.fillRect(bx - w / 2 + 0.6 * u, by - h / 2 + 0.9 * u, w, h);   // Kante des Packens
+        c.fillStyle = p[2]; c.fillRect(bx - w / 2, by - h / 2, w, h);
+        c.fillStyle = p[3]; c.fillRect(bx - w / 2 + 0.7 * u, by - h / 2 + 0.7 * u, w - 1.4 * u, h - 1.4 * u);   // oberster Schein
+        c.strokeStyle = "#2E5C40"; c.lineWidth = 0.5 * u; c.strokeRect(bx - w / 2 + 1.5 * u, by - h / 2 + 1.5 * u, w - 3 * u, h - 3 * u);
+        c.fillStyle = "#2E5C40"; c.beginPath(); c.arc(bx, by, 1.3 * u, 0, Math.PI * 2); c.fill();
+        c.fillStyle = "#EFE7D2"; c.fillRect(bx - 4.6 * u, by - h / 2 - 0.2 * u, 2.4 * u, h + 0.4 * u);   // Banderole
+      });
     } else if (id === "smg") {
       c.fillStyle = "#9AA5B1"; c.fillRect(-9 * u, -2 * u, 15 * u, 3.4 * u); c.fillRect(-9 * u, -3 * u, 3 * u, 5 * u);
       c.fillStyle = "#6A7480"; c.fillRect(-1 * u, 1.4 * u, 2.4 * u, 5 * u); c.fillRect(-5 * u, 1.4 * u, 2 * u, 3 * u);
@@ -3475,7 +3536,7 @@
       });
       c.restore();
     });
-    drawLoose(c, tm);
+    drawLoose(c, tm); drawUsePrompt(c, ppm);
     if (FL.out && FL.eva) { c.save(); c.translate(FL.eva.x, FL.eva.y); c.scale(CELL_M / PX, CELL_M / PX); drawAstronaut(c, 0, 0, FL.eva.face, FL.eva.ph, 1.25, FL.welding, heldGun()); c.restore(); }
     (FL.missiles || []).forEach(function (m) {
       c.save(); c.translate(m.x, m.y); c.rotate(m.h); if (m.k > 1) c.scale(1.7, 1.7);   // Schwere Rakete: größer
@@ -3656,8 +3717,8 @@
   function ctlHtml() {
     var de = lang === "de", G = [
       [de ? "Im Sitz" : "Seated", [["WASD", de ? "Fliegen" : "Fly"], ["Q / E", de ? "Drehen" : "Rotate"], [de ? "Linksklick" : "Left click", de ? "Feuern" : "Fire"], ["R", de ? "Waffe wechseln" : "Switch weapon"], ["Z", de ? "Trägheitsdämpfer" : "Inertia dampers"], ["C", "Cruise Control"], ["X", "Overcharge"], [de ? "Umschalt" : "Shift", de ? "Hochgeschw. freigeben" : "Unlock high speed"], ["F", de ? "Aufstehen / Hinsetzen" : "Get up / sit down"], ["V", de ? "Innen / Außen" : "Inside / outside"], ["I", de ? "Inventar" : "Inventory"], ["P", de ? "Andocken / Abdocken" : "Dock / undock"]]],
-      [de ? "Zu Fuß" : "On foot", [["WASD", de ? "Laufen" : "Walk"], [de ? "Umschalt" : "Shift", de ? "Sprinten" : "Sprint"], ["1–9", de ? "Werkzeug wählen" : "Select tool"], [de ? "Linksklick" : "Left click", de ? "Benutzen (Schweißen, Schießen, MP halten)" : "Use (weld, shoot, hold SMG)"], ["E", de ? "Aufheben · Bankautomat" : "Pick up · ATM"], ["Q", de ? "Gegenstand ablegen" : "Drop item"], ["I", de ? "Inventar" : "Inventory"], [de ? "F auf Luke" : "F on hatch", de ? "Aussteigen (auch durch die Decke)" : "Exit (also through the ceiling)"], [de ? "Offener Rand" : "Open edge", de ? "Direkt hinaus und hinein" : "Step straight out and in"]]],
-      [de ? "Draußen" : "Outside", [["WASD", "Jetpack"], [de ? "Umschalt" : "Shift", de ? "Tempo ans Schiff" : "Match ship speed"], ["E / Q", de ? "Aufheben / Ablegen" : "Pick up / Drop"], [de ? "F über Luke" : "F above hatch", de ? "Einsteigen" : "Get in"]]],
+      [de ? "Zu Fuß" : "On foot", [["WASD", de ? "Laufen" : "Walk"], [de ? "Umschalt" : "Shift", de ? "Sprinten" : "Sprint"], ["1–9", de ? "Werkzeug wählen" : "Select tool"], [de ? "Linksklick" : "Left click", de ? "Benutzen (Schweißen, Schießen, MP halten)" : "Use (weld, shoot, hold SMG)"], ["E", de ? "Aufheben · Bankautomat" : "Pick up · ATM"], ["Q", de ? "Gegenstand ablegen" : "Drop item"], ["I", de ? "Inventar" : "Inventory"], [de ? "F auf Luke" : "F on hatch", de ? "Aussteigen (auch durch die Decke)" : "Exit (also through the ceiling)"], [de ? "Leertaste am offenen Rand" : "Space at an open edge", de ? "Vom Boden lösen" : "Push off the floor"]]],
+      [de ? "Draußen" : "Outside", [["WASD", "Jetpack"], [de ? "Umschalt" : "Shift", de ? "Tempo ans Schiff" : "Match ship speed"], ["E / Q", de ? "Aufheben / Ablegen" : "Pick up / Drop"], [de ? "F über Luke" : "F above hatch", de ? "Einsteigen" : "Get in"], [de ? "Leertaste am Rand" : "Space near an edge", de ? "Landen" : "Land"]]],
       ["Test", [[de ? "Rechtsklick" : "Right click", de ? "Block beschädigen" : "Damage block"], [de ? "Mausrad" : "Wheel", "Zoom"], ["Esc", de ? "Zurück zum Editor" : "Back to editor"]]]
     ];
     return '<div class="sr-ctl" hidden>' + G.map(function (g) { return "<small>" + g[0] + "</small><dl>" + g[1].map(function (r) { return "<dt>" + r[0] + "</dt><dd>" + r[1] + "</dd>"; }).join("") + "</dl>"; }).join("") + "</div>";
@@ -4014,6 +4075,7 @@
       if (!FL.seated && /^[1-9]$/.test(k)) { FL.slot = +k; syncHot(); if (invOpen()) invRender(); return; }
       if (!FL.seated && k === "e") { useKey(); return; }    // zu Fuß und draußen: E aufheben / Bankautomat
       if (!FL.seated && k === "q") { dropHeld(); return; }  // Q legt den Gegenstand in der Hand ab
+      if (!FL.seated && k === " ") { e.preventDefault(); spaceAct(); return; }   // Leertaste: am offenen Rand vom Boden lösen / draußen landen
       if (k === "f") { toggleSeat(); return; }
       if (k === "v" || k === "tab") { S.view = S.view === "in" ? "out" : "in"; syncUI(); e.preventDefault(); return; }
       if (!FL.seated) return;

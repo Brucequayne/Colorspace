@@ -111,3 +111,6 @@ Folgen für Änderungen:
   `spacerogue-konto-v1` (neuer Schlüssel, die alten bleiben unverändert).
   Volltest: Spielablauf unverändert, der Fingerabdruck ändert sich nur durch 87 zusätzliche Zeichenaufrufe (Symbole der vier neuen
   Bauteile in der Bauteilliste). Ohne jsdom geprüft (in Chromium); beim nächsten Lauf mit jsdom die Referenz mit `--merken` neu setzen.
+- v0.57.1: Gegenstände zum Auslegen ersetzen vorhandenen Boden (`replaceable`, `tryPlace`), im Flug Boden des Raums über `lootFloor`.
+  Leertaste zu Fuß/draußen (`spaceAct`, `edgeOff`, `edgeLand` in `57-gegenstaende.js`) statt automatischem Hinaus-/Hineinschweben
+  am offenen Rand. Hinweis am Ziel in der Welt: `drawUsePrompt`. Volltest: Ablauf unverändert, nur +20 Zeichenaufrufe (Credits-Symbol).
