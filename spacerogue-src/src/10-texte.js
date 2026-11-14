@@ -2,7 +2,7 @@
   var TX = {
     back: L2("Apps", "Apps"), title: L2("Space Rogue", "Space Rogue"),
     catLA: L2("Panzerung leicht", "Light armour"), catHA: L2("Panzerung schwer", "Heavy armour"), vars: L2("Varianten", "Variants"), varStd: L2("Standard", "Standard"), catRA: L2("Panzerung rostig", "Rusty armour"), catOA: L2("Panzerung bewachsen", "Overgrown armour"), catCo: L2("Cockpit", "Cockpit"),
-    catTh: L2("Antrieb und Steuerung", "Propulsion"), catEn: L2("Energie", "Power"), catIn: L2("Innenraum", "Interior"), catWe: L2("Waffen", "Weapons"), catTu: L2("Turrets (KI-gesteuert)", "Turrets (AI controlled)"), hTur: L2("Turrets", "Turrets"), hTurA: L2("feuern", "firing"), catDe: L2("Einrichtung", "Furniture"), catIt: L2("Gegenstände zum Auslegen", "Items to place"),
+    catTh: L2("Antrieb und Steuerung", "Propulsion"), catEn: L2("Energie", "Power"), catIn: L2("Innenraum", "Interior"), catWe: L2("Waffen", "Weapons"), catTu: L2("Turrets (KI-gesteuert)", "Turrets (AI controlled)"), hTur: L2("Turrets", "Turrets"), hTurA: L2("feuern", "firing"), catDe: L2("Einrichtung", "Furniture"), catTr: L2("Gerüste", "Trusses"), catIt: L2("Gegenstände zum Auslegen", "Items to place"),
     bal: L2("Konto", "Account"), balT: L2("Kontostand · Credits am Bankautomaten einzahlen", "Account balance · deposit credits at an ATM"),
     itHint: L2("E · {n} aufheben", "E · pick up {n}"), itTaken: L2("{n} aufgehoben", "Picked up {n}"), itDropped: L2("{n} abgelegt", "Dropped {n}"),
     itFull: L2("Inventar voll", "Inventory full"), itFixed: L2("Schweißgerät und Pistole bleiben fest auf Platz 1 und 2", "Welder and pistol stay fixed on slots 1 and 2"), itFixedS: L2("fest", "fixed"),
