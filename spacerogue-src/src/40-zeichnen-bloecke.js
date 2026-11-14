@@ -14,33 +14,6 @@
     else if (sh === "half") c.rect(0, h / 2, w, h / 2);
     else c.rect(0, 0, w, h);
   }
-  // Metallgerüst (v0.57.2): offenes Fachwerk aus Vierkantprofilen; man sieht hindurch. Rampe: Rahmen entlang der Schräge
-  function trussArt(c, ty, w, h, s, col, lw) {
-    var bw = Math.max(1.5, s * 0.1), dk = shade(col, -0.45), lt = shade(col, 0.22), n = Math.round(h / s), ramp = ty.shape !== "full";
-    function beam(x1, y1, x2, y2, wd) {   // Profil mit heller Oberkante und dunklem Rand
-      c.lineCap = "butt"; c.strokeStyle = dk; c.lineWidth = wd + lw * 1.6; c.beginPath(); c.moveTo(x1, y1); c.lineTo(x2, y2); c.stroke();
-      c.strokeStyle = col; c.lineWidth = wd; c.stroke(); c.strokeStyle = lt; c.lineWidth = Math.max(0.6, wd * 0.28); c.stroke();
-    }
-    c.save(); shapePath(c, ty.shape, w, h); c.clip();
-    c.fillStyle = "rgba(0,0,0,.18)"; c.fillRect(0, 0, w, h);   // leichter Schatten, Hintergrund scheint durch
-    var bh = bw / 2;
-    for (var i = 0; i < n; i++) {   // je Zelle ein Feld mit Diagonalen
-      var y0 = i * s, y1 = y0 + s;
-      if (!ramp) { beam(bh, y0 + bh, w - bh, y1 - bh, bw * 0.55); beam(w - bh, y0 + bh, bh, y1 - bh, bw * 0.55); }
-      beam(0, y1 - (i === n - 1 ? bh : 0), w, y1 - (i === n - 1 ? bh : 0), bw * (i === n - 1 ? 1 : 0.7));
-    }
-    if (ramp) {   // Sprossen zur Schräge und Diagonalen dazwischen (Fachwerk-Dreieck)
-      var nr = n * 2 + 1;
-      for (var j = 1; j < nr; j++) { var yy = h * j / nr, xx = w * yy / h; if (xx > bw * 1.5) beam(bh, yy, xx - bh * 0.6, yy, bw * 0.5); }
-      for (var j2 = 1; j2 < nr; j2++) { var ya = h * j2 / nr, yb = h * (j2 + 1) / nr, xb = w * ya / h; if (xb > bw * 1.5) beam(bh, yb, xb - bh * 0.6, ya, bw * 0.4); }
-    }
-    beam(bh, 0, bh, h, bw);   // Längsträger links
-    if (!ramp) { beam(w - bh, 0, w - bh, h, bw); beam(0, bh, w, bh, bw); }
-    else beam(bh * 0.5, bh * 0.2, w - bh * 0.2, h - bh * 0.5, bw);   // Träger entlang der Schräge
-    c.fillStyle = shade(col, 0.35); var rs = Math.max(1, s * 0.05);   // Knotenbleche / Bolzen
-    for (var k2 = 0; k2 <= n; k2++) { var ky = Math.min(h - bh, Math.max(bh, k2 * s)); c.fillRect(bh - rs, ky - rs, rs * 2, rs * 2); if (!ramp) c.fillRect(w - bh - rs, ky - rs, rs * 2, rs * 2); }
-    c.restore();
-  }
   // b: Block, s: Pixel je Zelle, view: "in"/"out", dmg: Anteil Leben (0…1)
   function drawBlock(c, b, s, view, hpk, tm, opts) {
     var ty = T[b.t], f = fp(b), w = ty.w * s, h = ty.h * s, k = ty.kind;
@@ -51,7 +24,6 @@
     c.translate(-w / 2, -h / 2);
     var col = b.c || ty.col, lw = Math.max(1, s / 16), dam = hpk !== undefined && hpk <= 0.5;
     c.lineJoin = "miter";
-    if (k === "truss") { trussArt(c, ty, w, h, s, col, lw); if (dam) damageMarks(c, w, h, b, s, ty.shape); c.restore(); return; }
     if (k === "armor" || k === "win") {
       if (k === "win") { c.fillStyle = shade(col, -0.15); c.fillRect(0, 0, w, h); c.fillStyle = GLASS; c.fillRect(w * 0.18, h * 0.18, w * 0.64, h * 0.64); c.fillStyle = GLASS2; c.fillRect(w * 0.22, h * 0.22, w * 0.2, h * 0.56); }
       else {
@@ -185,8 +157,6 @@
       c.fillStyle = shade(col, -0.1); c.fillRect(w * 0.1, h - s, w * 0.8, s);
       c.fillStyle = LIGHT; c.fillRect(w * 0.44, h * 0.08, w * 0.12, h - s);
       c.fillRect(w * 0.2, h * 0.3, w * 0.6, lw * 1.5); c.fillRect(w * 0.28, h * 0.5, w * 0.44, lw * 1.5);
-      if (ty.h >= 4) { c.fillRect(w * 0.14, h * 0.18, w * 0.72, lw * 1.5); c.fillRect(w * 0.32, h * 0.66, w * 0.36, lw * 1.5); }
-      if (ty.h >= 5) { c.fillStyle = shade(col, 0.1); c.fillRect(w * 0.36, h * 0.38, w * 0.28, s * 0.22); }
       c.fillStyle = Math.sin(tm * 5) > 0 ? "#E0533F" : "#7A2A20"; c.fillRect(w * 0.42, h * 0.04, w * 0.16, w * 0.16);
       c.strokeStyle = shade(col, -0.55); c.lineWidth = lw; c.strokeRect(w * 0.1, h - s, w * 0.8, s);
     } else if (k === "mg") {

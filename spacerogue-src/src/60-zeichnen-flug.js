@@ -128,7 +128,6 @@
       }
       if (bd === FL.me && !FL.seated && (FL.pb || FL.me) === FL.me) drawGhosts(c, bd, tm);
       if (!bd.enemy && S.view === "in") drawBodyItems(c, bd, tm);
-      if (!bd.enemy && !FL.seated) drawAirflow(c, bd, tm);
       if (bd === (FL.pb || FL.me) && !FL.seated && !FL.out) drawAstronaut(c, FL.pilot.x * PX, FL.pilot.y * PX, FL.pilot.face, FL.pilot.ph, PX / 24 * 1.25, FL.welding, heldGun());
       // Überhitzung und Ladung an den Waffen
       bd.blocks.forEach(function (b) {
@@ -145,7 +144,7 @@
       });
       c.restore();
     });
-    drawLoose(c, tm); drawUsePrompt(c, ppm);
+    drawLoose(c, tm);
     if (FL.out && FL.eva) { c.save(); c.translate(FL.eva.x, FL.eva.y); c.scale(CELL_M / PX, CELL_M / PX); drawAstronaut(c, 0, 0, FL.eva.face, FL.eva.ph, 1.25, FL.welding, heldGun()); c.restore(); }
     (FL.missiles || []).forEach(function (m) {
       c.save(); c.translate(m.x, m.y); c.rotate(m.h); if (m.k > 1) c.scale(1.7, 1.7);   // Schwere Rakete: größer
@@ -238,11 +237,7 @@
     flHud();
   }
   // Antennen: Gegner außerhalb des Bildes, aber in Antennenreichweite, als rotes Dreieck am Bildschirmrand
-  // Reichweite: stärkste Antenne 600 m × Faktor, jede weitere +300 m × Faktor; Obergrenze 1.800 m (mindestens die stärkste Antenne allein)
-  function antRange(bd) {
-    if (!bd.nAnt) return 0; var M = bd.antM || [], r = 600 * (M[0] || 1); for (var i = 1; i < M.length; i++) r += 300 * M[i];
-    return Math.min(Math.max(1800, 600 * (M[0] || 1)), r) * (bd.player ? 1 + PM.radar : 1);
-  }
+  function antRange(bd) { return bd.nAnt ? Math.min(1800, 600 + 300 * (bd.nAnt - 1)) * (bd.player ? 1 + PM.radar : 1) : 0; }
   function radarEdges(c, W, H, ppm) {
     var me = FL.me, rg = antRange(me); if (!rg || FL.bodies.indexOf(me) < 0) return;
     FL.bodies.forEach(function (bd) {
