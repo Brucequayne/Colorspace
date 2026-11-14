@@ -5,7 +5,7 @@
 (function () {
   "use strict";
 
-  var VERSION = "0.56";
+  var VERSION = "0.57";
   var CELL_M = 2.5, PX = 24;              // Meter je Zelle, Pixel je Zelle bei Zoom 1
   var lang = "de";
   function L2(de, en) { return { de: de, en: en }; }
@@ -17,7 +17,13 @@
   var TX = {
     back: L2("Apps", "Apps"), title: L2("Space Rogue", "Space Rogue"),
     catLA: L2("Panzerung leicht", "Light armour"), catHA: L2("Panzerung schwer", "Heavy armour"), vars: L2("Varianten", "Variants"), varStd: L2("Standard", "Standard"), catRA: L2("Panzerung rostig", "Rusty armour"), catOA: L2("Panzerung bewachsen", "Overgrown armour"), catCo: L2("Cockpit", "Cockpit"),
-    catTh: L2("Antrieb und Steuerung", "Propulsion"), catEn: L2("Energie", "Power"), catIn: L2("Innenraum", "Interior"), catWe: L2("Waffen", "Weapons"), catTu: L2("Turrets (KI-gesteuert)", "Turrets (AI controlled)"), hTur: L2("Turrets", "Turrets"), hTurA: L2("feuern", "firing"), catDe: L2("Einrichtung", "Furniture"),
+    catTh: L2("Antrieb und Steuerung", "Propulsion"), catEn: L2("Energie", "Power"), catIn: L2("Innenraum", "Interior"), catWe: L2("Waffen", "Weapons"), catTu: L2("Turrets (KI-gesteuert)", "Turrets (AI controlled)"), hTur: L2("Turrets", "Turrets"), hTurA: L2("feuern", "firing"), catDe: L2("Einrichtung", "Furniture"), catIt: L2("Gegenstände zum Auslegen", "Items to place"),
+    bal: L2("Konto", "Account"), balT: L2("Kontostand · Credits am Bankautomaten einzahlen", "Account balance · deposit credits at an ATM"),
+    itHint: L2("E · {n} aufheben", "E · pick up {n}"), itTaken: L2("{n} aufgehoben", "Picked up {n}"), itDropped: L2("{n} abgelegt", "Dropped {n}"),
+    itFull: L2("Inventar voll", "Inventory full"), itFixed: L2("Schweißgerät und Pistole bleiben fest auf Platz 1 und 2", "Welder and pistol stay fixed on slots 1 and 2"), itFixedS: L2("fest", "fixed"),
+    itNone: L2("Nichts in der Hand zum Ablegen", "Nothing in hand to drop"), itNothing: L2("Hier ist nichts zum Aufheben", "Nothing to pick up here"),
+    atmHint: L2("E · {n} einzahlen", "E · deposit {n}"), atmHint0: L2("Bankautomat · keine Credits im Inventar", "ATM · no credits in inventory"), atmEmpty: L2("Keine Credits im Inventar", "No credits in inventory"), atmIn: L2("+{n} eingezahlt", "+{n} deposited"),
+    invHot: L2("Schnellleiste 1–9", "Hotbar 1–9"),
     tBuild: L2("Bauen", "Build"), tabBlk: L2("Blocks", "Blocks"), tabEnv: L2("Environmental", "Environmental"), envLayer: L2("Ebene", "Layer"), envBack: L2("Hinten", "Back"), envGame: L2("Spielebene", "Game"), envFront: L2("Vorne", "Front"), envScale: L2("Größe", "Size"), envRot: L2("Drehung", "Rotation"), envRnd: L2("Zufall", "Random"), envOn: L2("an", "on"), envOff: L2("aus", "off"), envHelp: L2("Klick setzt · Ziehen streut ein Feld · Rechtsklick entfernt (nur aktive Ebene) · R dreht · + / − Größe", "Click places · drag scatters a field · right click removes (active layer only) · R rotates · + / − size"), envCount: L2("Environment", "Environment"), envAst: L2("Asteroiden", "Asteroids"), envBd: L2("Backdrops", "Backdrops"), envBdH: L2("Planeten und Sonnen ganz hinten in der Skybox, unabhängig von der Ebene. Planeten werden von der nächsten Sonne beleuchtet.", "Planets and suns at the very back of the skybox, regardless of layer. Planets are lit by the nearest sun."), expScene: L2("Ganze Szene", "Whole scene"), expStruct: L2("Nur Struktur", "Structure only"), sceneLoaded: L2("Szene geladen", "Scene loaded"), tErase: L2("Abreißen", "Remove"), tPaint: L2("Malen", "Paint"),
     rot: L2("Drehen (R)", "Rotate (R)"), flip: L2("Spiegeln (F)", "Flip (F)"), sym: L2("Symmetrie (M)", "Symmetry (M)"), axis: L2("Achse", "Axis"), symIn: L2("im Block", "through block"), symGap: L2("zwischen Blöcken", "between blocks"),
     vIn: L2("Innen", "Interior"), vOut: L2("Außen", "Exterior"), view: L2("Ansicht (V)", "View (V)"),
@@ -41,7 +47,7 @@
     cruise: L2("Cruise-Modus", "Cruise mode"), cruiseOn: L2("Cruise an: Das Schiff bremst nicht mehr von selbst, seitlich bleibt der Kurs stabil", "Cruise on: the ship no longer brakes by itself, sideways the course stays stable"), cruiseOff: L2("Cruise aus: Die Dämpfer bremsen wieder in alle Richtungen", "Cruise off: dampers brake in all directions again"),
     hiSpeed: L2("Hohe Geschwindigkeit", "High speed"),
     hiOn: L2("Hochgeschwindigkeit frei", "High speed unlocked"), hiOff: L2("Hochgeschwindigkeit gesperrt", "High speed locked"),
-    invT: L2("Inventar", "Inventory"), invSub: L2("64 Plätze · Gegenstände folgen in einem späteren Update · I oder Esc schließt", "64 slots · items will follow in a later update · I or Esc closes"),
+    invT: L2("Inventar", "Inventory"), invSub: L2("Ziehen zum Verschieben · aus dem Fenster ziehen legt ab · E aufheben · Q ablegen · I oder Esc schließt", "Drag to move · drag out of the window to drop · E pick up · Q drop · I or Esc closes"),
     perksBtn: L2("Inventar (I)", "Inventory (I)"), sCost: L2("Kosten", "Cost"), costFree: L2("im Editor kostenlos", "free in the editor"),
     ocOn: L2("Overcharge aktiv", "Overcharge active"), ocOff: L2("Overcharge aus", "Overcharge off"), controls: L2("Steuerung", "Controls"),
     crFloatOn: L2("Cruise Control an", "Cruise control on"), crFloatOff: L2("Cruise Control aus", "Cruise control off"),
@@ -105,7 +111,7 @@
   }
   armor("l", false); armor("h", true);
   // Kosten in Credits (Cr): im Editor ist alles gratis; die Preise stehen in der Bauteilliste und im Infofeld
-  var COSTS = { cks: 1200, ckm: 2400, ckl: 4200, ckt: 700, dk3: 2200, dk4: 3400, ths: 450, thf: 650, shs: 1400, shl: 3800, thl: 1600, gyr: 700, col: 300, ant: 400, bat: 350, rea: 2000, flo: 15, wal: 25, dor: 60, hat: 150, win: 40, mgn: 900, msl: 1300, msh: 2400, g25: 1800, g120: 3600, stu: 40, tis: 80, bet: 120, dbt: 180, toi: 150, dus: 200, tgc: 1600, rgn: 2600, tmg: 3400, t25: 5200, t120: 8800, trg: 9800, bt6: 2100, kr1: 60, kr2: 110, kr6: 300, kry: 900, pul: 450 };
+  var COSTS = { atm: 900, lc1: 15, lc2: 15, lsm: 15, cks: 1200, ckm: 2400, ckl: 4200, ckt: 700, dk3: 2200, dk4: 3400, ths: 450, thf: 650, shs: 1400, shl: 3800, thl: 1600, gyr: 700, col: 300, ant: 400, bat: 350, rea: 2000, flo: 15, wal: 25, dor: 60, hat: 150, win: 40, mgn: 900, msl: 1300, msh: 2400, g25: 1800, g120: 3600, stu: 40, tis: 80, bet: 120, dbt: 180, toi: 150, dus: 200, tgc: 1600, rgn: 2600, tmg: 3400, t25: 5200, t120: 8800, trg: 9800, bt6: 2100, kr1: 60, kr2: 110, kr6: 300, kry: 900, pul: 450 };
   function applyCosts() { Object.keys(T).forEach(function (id) { var ty = T[id]; ty.cost = COSTS[id] || (ty.kind === "armor" ? Math.max(5, Math.round(ty.mass * (ty.heavy ? 26 : 57))) : 100); }); }
   function cr(v) { return nf(Math.round(v)) + " Cr"; }
   def("ckt", { cat: "catCo", kind: "cock", w: 1, h: 2, mass: 0.9, hp: 150, n: L2("Cockpit winzig 1×2", "Tiny cockpit 1×2"), col: "#9AA5B1" });
@@ -159,6 +165,12 @@
   def("kr6", { cat: "catDe", kind: "deco", dk: "crate", w: 2, h: 3, mass: 3, hp: 120, n: L2("Cargo-Kiste 2×3", "Cargo crate 2×3"), col: "#9AA5B1" });
   def("kry", { cat: "catDe", kind: "deco", dk: "cryo", w: 1, h: 2, mass: 0.9, hp: 45, n: L2("Kryokapsel 1×2", "Cryo pod 1×2"), col: "#9AA5B1" });
   def("pul", { cat: "catDe", kind: "deco", dk: "console", w: 1, h: 2, mass: 0.7, hp: 40, n: L2("Bedienmodul 1×2", "Control console 1×2"), col: "#9AA5B1" });
+  // v0.57: Bankautomat (Credits einzahlen, E) und Gegenstände zum Auslegen (nur Developer Tool). Gegenstände sind Boden mit loot/amt:
+  // beim Testflug wird daraus normaler Boden, auf dem der Gegenstand liegt (siehe 57-gegenstaende.js)
+  def("atm", { cat: "catDe", kind: "deco", dk: "atm", w: 1, h: 1, mass: 0.5, hp: 60, dev: true, n: L2("Bankautomat 1×1", "ATM 1×1"), col: "#9AA5B1" });
+  def("lc1", { cat: "catIt", kind: "floor", loot: "credits", amt: 100, w: 1, h: 1, mass: 0.18, hp: 32, dev: true, n: L2("Credits × 100", "Credits × 100"), col: "#5A626C" });
+  def("lc2", { cat: "catIt", kind: "floor", loot: "credits", amt: 1000, w: 1, h: 1, mass: 0.18, hp: 32, dev: true, n: L2("Credits × 1.000", "Credits × 1,000"), col: "#5A626C" });
+  def("lsm", { cat: "catIt", kind: "floor", loot: "smg", amt: 1, w: 1, h: 1, mass: 0.18, hp: 32, dev: true, n: L2("Maschinenpistole", "Submachine gun"), col: "#5A626C" });
   applyCosts();
   // Panzerung 1×2: so schwer wie zwei einzelne Blöcke, aber 15 % günstiger
   T.lbl2.cost = Math.round(T.lblk.cost * 2 * 0.85); T.hbl2.cost = Math.round(T.hblk.cost * 2 * 0.85);
@@ -185,7 +197,7 @@
   });
   // Perks wurden in v0.47 abgeschafft. PM bleibt als neutrales Objekt (alles 0), damit die Werte-Haken im Code nichts verändern.
   var PM = { side: 0, brake: 0, mgRate: 0, batCap: 0, msRl: 0, hp: 0, prod: 0, walk: false, radar: 0, oc: 0, msDmg: 0, cockHp: 0, msTurn: 0, crit: 0, batW: false, heavyW: 0 };
-  CATS = ["catLA", "catHA", "catRA", "catOA", "catCo", "catTh", "catEn", "catIn", "catDe", "catWe", "catTu"];
+  CATS = ["catLA", "catHA", "catRA", "catOA", "catCo", "catTh", "catEn", "catIn", "catDe", "catIt", "catWe", "catTu"];
   var MECH = { cock: 1, thr: 1, gyro: 1, ant: 1, bat: 1, reac: 1, door: 1, hatch: 1, mg: 1, rg: 1, gun: 1, cool: 1, ms: 1, tcomp: 1, shield: 1, dock: 1, tur: 1 };
   var ROOMABLE = { bat: 1, reac: 1, gyro: 1, cool: 1, tcomp: 1, shield: 1 };   // Maschinen, die in einem Raum stehen dürfen und dann zum Raum gehören
   function replaceable(newT, o) { return o && T[newT].kind !== "floor" && T[o.b.t].kind === "floor"; }
@@ -629,7 +641,7 @@
     } else if (k === "floor" || k === "wall" || k === "door") {
       if (view === "out") { roof(c, w, h, col, lw); }
       else if (k === "floor" && ty.va === "grid") gridFloorArt(c, w, h, s, lw);
-      else if (k === "floor") { c.fillStyle = FLOOR; c.fillRect(0, 0, w, h); c.strokeStyle = FLOOR2; c.lineWidth = lw; c.strokeRect(lw / 2, lw / 2, w - lw, h - lw); c.fillStyle = FLOOR2; c.fillRect(w * 0.45, h * 0.45, w * 0.1, h * 0.1); }
+      else if (k === "floor") { c.fillStyle = FLOOR; c.fillRect(0, 0, w, h); c.strokeStyle = FLOOR2; c.lineWidth = lw; c.strokeRect(lw / 2, lw / 2, w - lw, h - lw); c.fillStyle = FLOOR2; c.fillRect(w * 0.45, h * 0.45, w * 0.1, h * 0.1); if (ty.loot) { c.strokeStyle = "rgba(242,193,78,.7)"; c.lineWidth = lw; c.strokeRect(w * 0.1, h * 0.1, w * 0.8, h * 0.8); itemArt(c, ty.loot, w / 2, h / 2, s * 0.95, -0.3); } }
       else if (k === "wall") { c.fillStyle = shade(col, -0.35); c.fillRect(0, 0, w, h); c.fillStyle = shade(col, -0.15); c.fillRect(w * 0.15, 0, w * 0.7, h); if (ty.va === "pipes") pipeArt(c, w, h, s, lw, b.c); c.strokeStyle = shade(col, -0.55); c.lineWidth = lw; c.strokeRect(lw / 2, lw / 2, w - lw, h - lw); }
       else { c.fillStyle = FLOOR; c.fillRect(0, 0, w, h); c.fillStyle = shade(col, -0.3); c.fillRect(0, 0, w * 0.12, h); c.fillRect(w * 0.88, 0, w * 0.12, h); c.fillStyle = "#D9A21B"; c.fillRect(w * 0.12, h * 0.38, w * 0.37, h * 0.24); c.fillRect(w * 0.51, h * 0.38, w * 0.37, h * 0.24); c.fillStyle = DARK; c.fillRect(w * 0.49, h * 0.38, w * 0.02, h * 0.24); }
       if (k === "door" && view === "out") { c.fillStyle = "#D9A21B"; c.fillRect(w * 0.42, h * 0.1, w * 0.16, h * 0.8); }
@@ -835,6 +847,13 @@
       c.fillStyle = "#9AA5B1"; c.fillRect(w * 0.44, h * 0.15, w * 0.12, h * 0.05);
     } else if (dk === "crate" && va === "ind") {
       crateIndArt(c, w, h, s, lw, acc, ol);
+    } else if (dk === "atm") {   // Bankautomat (v0.57): Gehäuse, Bildschirm, Tastenfeld, Kartenschlitz
+      c.fillStyle = "#4A535E"; c.fillRect(w * 0.08, h * 0.08, w * 0.84, h * 0.84);
+      c.fillStyle = "#2A3038"; c.fillRect(w * 0.08, h * 0.08, w * 0.84, h * 0.12);
+      c.fillStyle = "#1B3A2E"; c.fillRect(w * 0.2, h * 0.26, w * 0.6, h * 0.26); c.fillStyle = "#57D18A"; c.fillRect(w * 0.27, h * 0.33, w * 0.3, h * 0.05); c.fillRect(w * 0.27, h * 0.42, w * 0.18, h * 0.04);
+      c.fillStyle = "#9AA5B1"; for (var ay = 0; ay < 2; ay++) for (var ax = 0; ax < 3; ax++) c.fillRect(w * (0.24 + ax * 0.18), h * (0.6 + ay * 0.12), w * 0.12, h * 0.08);
+      c.fillStyle = "#E3B83F"; c.fillRect(w * 0.3, h * 0.84, w * 0.4, h * 0.03);
+      c.strokeStyle = ol || "#2A2F36"; c.lineWidth = lw; c.strokeRect(w * 0.08, h * 0.08, w * 0.84, h * 0.84);
     } else if (dk === "crate") {
       crateArt(c, w, h, s, lw, acc, ol);
     } else if (dk === "cryo") {
@@ -2020,7 +2039,10 @@
   function hpMax(bd, b) { var h = T[b.t].hp; if (bd && bd.player) { h *= 1 + PM.hp; if (T[b.t].kind === "cock") h *= 1 + PM.cockHp; } return h; }
   function makeBody(blocks, ctrl) {
     var bd = { blocks: blocks, x: 0, y: 0, a: 0, vx: 0, vy: 0, w: 0, ctrl: !!ctrl, energy: 0, cap: 0, flames: {} };
-    blocks.forEach(function (b) { if (b.hp === undefined) b.hp = T[b.t].hp; });
+    blocks.forEach(function (b) {
+      var lt = T[b.t]; if (lt.loot) { (bd.items || (bd.items = [])).push({ id: lt.loot, n: lt.amt || 1, x: b.x + 0.5, y: b.y + 0.5, a: ((b.x * 7 + b.y * 13) % 12) * 0.5 }); b.t = "flo"; b.hp = undefined; }   // Gegenstand liegt auf normalem Boden
+      if (b.hp === undefined) b.hp = T[b.t].hp;
+    });
     recalc(bd, true);
     bd.energy = bd.cap;
     return bd;
@@ -2060,7 +2082,7 @@
     FL.missiles = []; FL.hits = []; FL.sig = 0; FL.banner = 0; me.id = ++BID;
     FL.items = []; FL.pb = me; FL.dock = null; FL.shHits = []; FL.shPct = 0; me.shE = 0; FL.kills = 0; FL.shTarget = 0; FL.shAcc = 0;
     var kcb = V.root.querySelector(".sr-kc b"); if (kcb) kcb.textContent = "0";
-    me.player = true; recalc(me); me.energy = me.cap; me.name = S.names.ship || t("shipDef"); FL.slot = 1; FL.pbLast = undefined;
+    me.player = true; recalc(me); me.energy = me.cap; me.name = S.names.ship || t("shipDef"); FL.slot = 1; itemsInit(); FL.pbLast = undefined;
     FL.suit = SUIT.max; FL.out = false; FL.eva = null; FL.enterCd = 0; FL.ko = 0; me.lost = []; me.air = new Map();
     if (stMode && S.station.length) {
       // Raumstation: statischer Körper vor dem Schiff, bewegt sich nie, auch nicht durch Stöße
@@ -2114,6 +2136,7 @@
     // Luken aller eigenen Körper schließen nach dem Durchgehen wieder (auch die der Station, wenn man nicht dort ist)
     FL.bodies.forEach(function (b) { if (b === (FL.pb || me) || (b !== me && !b.station)) return; b.blocks.forEach(function (hb) { if (T[hb.t].kind !== "hatch") return; if (hb.openT > 0) hb.openT -= dt; var o = hb.openT > 0; if (o !== !!hb.open) { hb.open = o; b.roomsDirty = true; } }); });
     if (FL.out) evaTick(evaBody(), dt);
+    itemsTick(dt);
     FL.bodies.slice().forEach(function (bd) {
       // Raketen: jede Werfer-Art (leicht/schwer) lädt für sich nach
       if (bd.mst) Object.keys(bd.mst).forEach(function (g) { var q = bd.mst[g]; q.cd = Math.max(0, q.cd - dt); if (q.rl > 0) { q.rl -= dt; if (q.rl <= 0) { q.rl = 0; bd.blocks.forEach(function (b) { if (b.t === g) b.ammo = msMax(b); }); } } });
@@ -2809,8 +2832,8 @@
     E.ph += E.thr ? dt * 4 : 0;
     // Schweißen draußen: Punkt vor der Figur im Schiffsraster
     FL.welding = false; FL.weldB = null; FL.weldG = null;
-    if (FL.fire && FL.slot === 1) { FL.welding = true; var tp = toLocal(bd, E.x + Math.cos(E.face) * 1.6, E.y + Math.sin(E.face) * 1.6); weldAt(bd, tp.x, tp.y, dt); }
-    if (FL.fire && FL.slot === 3) fireHand(SMG);
+    if (FL.fire && held() === "welder") { FL.welding = true; var tp = toLocal(bd, E.x + Math.cos(E.face) * 1.6, E.y + Math.sin(E.face) * 1.6); weldAt(bd, tp.x, tp.y, dt); }
+    if (FL.fire && held() === "smg") fireHand(SMG);
     // Zurück ins Schiff über eine Luke
     FL.enterCd = Math.max(0, FL.enterCd - dt);
     var lp = toLocal(bd, E.x, E.y), o = bd.map.get(key(Math.floor(lp.x), Math.floor(lp.y)));
@@ -2884,8 +2907,8 @@
     // Schweißgerät: repariert oder baut den Block direkt vor der Figur
     FL.welding = false; FL.weldB = null; FL.weldG = null;
     { var mw2 = mouseWorld(); if (mw2) { var lm = toLocal(bd, mw2.x, mw2.y), wa = Math.atan2(lm.y - P.y, lm.x - P.x), dd2 = Math.atan2(Math.sin(wa - P.face), Math.cos(wa - P.face)); P.face += dd2 * Math.min(1, dt * 16); } }   // zu Fuß immer zur Maus schauen
-    if (FL.fire && FL.slot === 1) { FL.welding = true; weldAt(bd, P.x + Math.cos(P.face) * 0.8, P.y + Math.sin(P.face) * 0.8, dt); }
-    if (FL.fire && FL.slot === 3) fireHand(SMG);
+    if (FL.fire && held() === "welder") { FL.welding = true; weldAt(bd, P.x + Math.cos(P.face) * 0.8, P.y + Math.sin(P.face) * 0.8, dt); }
+    if (FL.fire && held() === "smg") fireHand(SMG);
   }
   function toggleSeat() {
     var me = FL.me;
@@ -2930,12 +2953,15 @@
   }
   function syncHot() {
     var el = V.root.querySelector(".sr-hot"); if (!el || !FL) return;
-    el.querySelectorAll("i").forEach(function (q, i) { q.classList.toggle("on", FL.slot === i + 1); });
-    var nm = HOT[FL.slot - 1]; set("sr-hot-n", nm ? nm.n[lang] : t("emptySlot"));
+    el.querySelectorAll(".sr-hot-row i").forEach(function (q, i) {
+      var it = FL.hot ? FL.hot[i] : null; q.classList.toggle("on", FL.slot === i + 1);
+      q.innerHTML = "<u>" + (i + 1) + "</u>" + (it ? ITEMS[it.id].ic + (ITEMS[it.id].stack ? "<b>" + nf(it.n) + "</b>" : "") : ""); q.title = it ? itemName(it) : "";
+    });
+    var it0 = FL.hot ? FL.hot[FL.slot - 1] : null; set("sr-hot-n", it0 ? itemName(it0) : t("emptySlot"));
   }
   function hotHtml() {
     var h = ""; for (var i = 0; i < 9; i++) h += '<i title="' + (HOT[i] ? HOT[i].n[lang] : "") + '"><u>' + (i + 1) + "</u>" + (HOT[i] ? HOT[i].ic : "") + "</i>";
-    return '<div class="sr-hot"><div class="sr-hot-row">' + h + '</div><span id="sr-hot-n"></span></div>';
+    return '<div class="sr-hot"><div class="sr-use"></div><div class="sr-hot-row">' + h + '</div><span id="sr-hot-n"></span></div>';
   }
   // Ortsname beim Überschreiten der Schwelle: 3 s sichtbar, bis 4 s ausgeblendet
   function showPlace(name) {
@@ -2943,11 +2969,9 @@
     el.textContent = name; el.classList.remove("go"); void el.offsetWidth; el.classList.add("go");
   }
   // ---------- Charakter-Inventar ----------
-  // 8×8 leere Plätze wie in Survival-Spielen; Gegenstände folgen in einem späteren Update
+  // 8×8 Plätze wie in Survival-Spielen, darunter die Schnellleiste 1–9 (v0.57: Gegenstände, siehe 57-gegenstaende.js)
   function openInv() {
-    if (!FL) return; var el = V.root.querySelector(".sr-inv"); el.hidden = false;
-    var g = el.querySelector(".sr-inv-grid"); if (!g.childElementCount) { var h = ""; for (var i = 0; i < INV.w * INV.h; i++) h += '<i class="sr-slot"></i>'; g.innerHTML = h; }
-    var n = (FL.items || []).length; el.querySelector(".sr-inv-cnt").textContent = n + " / " + (INV.w * INV.h);
+    if (!FL) return; var el = V.root.querySelector(".sr-inv"); el.hidden = false; invRender();
   }
   function closeInv() { if (!V) return; V.root.querySelector(".sr-inv").hidden = true; }
   function invOpen() { var el = V && V.root.querySelector(".sr-inv"); return !!(el && !el.hidden); }
@@ -3112,6 +3136,199 @@
       }
     });
   }
+  // ===== 57-gegenstaende.js · Gegenstände (v0.57): aufheben, ablegen, Inventar mit Ziehen und Ablegen, Credits, Bankautomat, Kontostand =====
+  // Spieler: FL.hot (Schnellleiste 1–9) und FL.inv (Inventar 8×8). Ein Platz ist leer (null) oder { id, n }.
+  // In der Welt: bd.items = [{ id, n, x, y, a }] liegen im Raster eines Körpers (Schiff/Station) und fahren mit,
+  // FL.loose = [{ id, n, x, y, vx, vy, a, w }] treiben frei im All (Weltkoordinaten in m).
+  // Credits liegen im Developer Tool als Boden-Bauteil mit loot/amt bereit (11-bauteile.js); beim Testflug wird daraus Boden plus Gegenstand.
+  var ITEMS = {
+    welder: { n: L2("Schweißgerät", "Welder"), fix: true },
+    pistol: { n: L2("Pistole", "Pistol"), fix: true, gun: 1 },
+    smg: { n: L2("Maschinenpistole", "Submachine gun"), gun: 2 },
+    credits: { n: L2("Credits", "Credits"), stack: true }
+  };
+  ITEMS.welder.ic = HOT[0].ic; ITEMS.pistol.ic = HOT[1].ic; ITEMS.smg.ic = HOT[2].ic;
+  ITEMS.credits.ic = '<svg viewBox="0 0 24 24"><path d="M4 15h16v4H4z" fill="#A9862C"/><path d="M4 11h16v4H4z" fill="#C9A23B"/><path d="M4 7h16v4H4z" fill="#E3B83F"/><path d="M4 7h16" stroke="#F6DA7E" stroke-width="1.2"/><path d="M10.5 8.4h3M12 8.4v1.6" stroke="#6B5214" stroke-width="1.2"/></svg>';
+  var KONTO = "spacerogue-konto-v1", PICK_R = 0.95, PICK_EVA = 1.6, ATM_R = 1.35;
+  function itemName(it) { var d = ITEMS[it.id]; return d.stack ? d.n[lang] + " × " + nf(it.n) : d.n[lang]; }
+  // ---------- Kontostand (bleibt auf dem Gerät gespeichert) ----------
+  function balGet() { try { return Math.max(0, parseInt(localStorage.getItem(KONTO), 10) || 0); } catch (e) { return 0; } }
+  function balAdd(n) { var v = balGet() + n; try { localStorage.setItem(KONTO, String(v)); } catch (e) {} balSync(); return v; }
+  function balSync() { if (V) set("sr-bal-v", cr(balGet())); }
+  // ---------- Spieler-Inventar ----------
+  function itemsInit() {
+    FL.hot = [{ id: "welder", n: 1 }, { id: "pistol", n: 1 }, { id: "smg", n: 1 }, null, null, null, null, null, null];
+    FL.inv = []; for (var i = 0; i < INV.w * INV.h; i++) FL.inv.push(null);
+    FL.loose = []; FL.useT = null;
+  }
+  function held() { var it = FL && FL.hot ? FL.hot[FL.slot - 1] : null; return it ? it.id : null; }
+  function heldGun() { var h = held(); return h && ITEMS[h].gun ? ITEMS[h].gun : 0; }
+  function slotArr(s) { return s.charAt(0) === "h" ? FL.hot : FL.inv; }
+  function slotGet(s) { return slotArr(s)[+s.slice(1)]; }
+  function slotSet(s, v) { slotArr(s)[+s.slice(1)] = v; }
+  function slotFixed(s) { return s.charAt(0) === "h" && +s.slice(1) < 2; }   // Schweißgerät und Pistole bleiben fest auf 1 und 2
+  // Aufnehmen: Stapel zuerst zusammenlegen; Waffen bevorzugt in die Schnellleiste, Credits ins Inventar
+  function invAdd(it) {
+    var d = ITEMS[it.id], all = FL.hot.concat(FL.inv), i;
+    if (d.stack) for (i = 0; i < all.length; i++) if (all[i] && all[i].id === it.id) { all[i].n += it.n; return true; }
+    var order = d.stack ? ["inv", "hot"] : ["hot", "inv"];
+    for (var o = 0; o < 2; o++) { var arr = FL[order[o]]; for (i = arr === FL.hot ? 2 : 0; i < arr.length; i++) if (!arr[i]) { arr[i] = { id: it.id, n: it.n }; return true; } }
+    return false;
+  }
+  function invCount() { return FL.inv.filter(Boolean).length; }
+  function creditsHeld() { var n = 0; FL.hot.concat(FL.inv).forEach(function (q) { if (q && q.id === "credits") n += q.n; }); return n; }
+  function creditsTake() { var n = 0; [FL.hot, FL.inv].forEach(function (arr) { arr.forEach(function (q, i) { if (q && q.id === "credits") { n += q.n; arr[i] = null; } }); }); return n; }
+  function itemsChanged() { syncHot(); if (invOpen()) invRender(); }
+  // ---------- Welt: ablegen, aufheben, Boden weg ----------
+  function dropItem(it) {
+    if (!it) return;
+    if (FL.out && FL.eva) {   // draußen: der Gegenstand treibt mit dem Tempo der Figur weiter
+      var E = FL.eva; FL.loose.push({ id: it.id, n: it.n, x: E.x + Math.cos(E.face) * 0.6, y: E.y + Math.sin(E.face) * 0.6, vx: E.vx + Math.cos(E.face) * 0.6, vy: E.vy + Math.sin(E.face) * 0.6, a: E.face, w: (Math.random() - 0.5) * 2 });
+    } else {
+      var pb = FL.pb || FL.me, P = FL.pilot, fx = P.x + Math.cos(P.face) * 0.55, fy = P.y + Math.sin(P.face) * 0.55;
+      if (!walkable(pb, fx, fy)) { fx = P.x; fy = P.y; }
+      (pb.items || (pb.items = [])).push({ id: it.id, n: it.n, x: fx, y: fy, a: P.face + (Math.random() - 0.5) * 0.8 });
+    }
+    floatTxt(fmt(t("itDropped"), { n: itemName(it) }));
+  }
+  function dropHeld() {
+    var s = "h" + (FL.slot - 1), it = slotGet(s);
+    if (!it) { note(t("itNone")); return; }
+    if (slotFixed(s)) { note(t("itFixed")); return; }
+    slotSet(s, null); dropItem(it); itemsChanged();
+  }
+  // Was liegt in Reichweite? Gegenstände zuerst, sonst ein Bankautomat
+  function findUse() {
+    if (!FL || FL.seated) return null;
+    var best = null, bd2 = Infinity;
+    if (FL.out && FL.eva) {
+      var E = FL.eva;
+      FL.loose.forEach(function (q) { var d = Math.hypot(q.x - E.x, q.y - E.y); if (d < PICK_EVA && d < bd2) { bd2 = d; best = { k: "loose", q: q }; } });
+      FL.bodies.forEach(function (b) { (b.items || []).forEach(function (q) { var w = toWorld(b, q.x, q.y), d = Math.hypot(w.x - E.x, w.y - E.y); if (d < PICK_EVA && d < bd2) { bd2 = d; best = { k: "body", q: q, bd: b }; } }); });
+      return best;
+    }
+    var pb = FL.pb || FL.me, P = FL.pilot;
+    (pb.items || []).forEach(function (q) { var d = Math.hypot(q.x - P.x, q.y - P.y); if (d < PICK_R && d < bd2) { bd2 = d; best = { k: "body", q: q, bd: pb }; } });
+    if (best) return best;
+    pb.blocks.forEach(function (b) {
+      if (T[b.t].dk !== "atm") return; var f = fp(b), cx = Math.max(b.x, Math.min(b.x + f[0], P.x)), cy = Math.max(b.y, Math.min(b.y + f[1], P.y)), d = Math.hypot(cx - P.x, cy - P.y);
+      if (d < ATM_R && d < bd2) { bd2 = d; best = { k: "atm", b: b }; }
+    });
+    return best;
+  }
+  function useKey() {
+    var u = findUse(); if (!u) { note(t("itNothing")); return; }
+    if (u.k === "atm") {
+      var n = creditsTake(); if (!n) { note(t("atmEmpty")); return; }
+      balAdd(n); floatTxt(fmt(t("atmIn"), { n: cr(n) }), "242,193,78"); itemsChanged(); return;
+    }
+    var q = u.q;
+    if (!invAdd({ id: q.id, n: q.n })) { note(t("itFull")); return; }
+    if (u.k === "loose") FL.loose.splice(FL.loose.indexOf(q), 1); else u.bd.items.splice(u.bd.items.indexOf(q), 1);
+    floatTxt(fmt(t("itTaken"), { n: itemName(q) }), q.id === "credits" ? "242,193,78" : undefined); itemsChanged();
+  }
+  function itemsTick(dt) {
+    if (!FL.loose) return;
+    FL.loose.forEach(function (q) { q.x += q.vx * dt; q.y += q.vy * dt; q.a += q.w * dt; });
+    // Boden unter einem Gegenstand zerstört oder Körper zerbrochen: er treibt ins All
+    FL.bodies.forEach(function (b) {
+      if (!b.items || !b.items.length) return;
+      for (var i = b.items.length - 1; i >= 0; i--) {
+        var q = b.items[i]; if (walkable(b, q.x, q.y)) continue;
+        var w = toWorld(b, q.x, q.y), rx = w.x - b.x, ry = w.y - b.y;
+        FL.loose.push({ id: q.id, n: q.n, x: w.x, y: w.y, vx: b.vx - b.w * ry + (Math.random() - 0.5), vy: b.vy + b.w * rx + (Math.random() - 0.5), a: q.a + b.a, w: (Math.random() - 0.5) * 3 });
+        b.items.splice(i, 1);
+      }
+    });
+    FL.useT = findUse();
+  }
+  function useHint() {
+    var u = FL && FL.useT; if (!u) return "";
+    if (u.k === "atm") { var n = creditsHeld(); return n ? fmt(t("atmHint"), { n: cr(n) }) : t("atmHint0"); }
+    return fmt(t("itHint"), { n: itemName(u.q) });
+  }
+  // ---------- Zeichnen in der Welt ----------
+  // Gegenstand auf dem Boden: c im Schiffsmaßstab (1 Zelle = s Pixel), Mitte cx/cy
+  function itemArt(c, id, cx, cy, s, a) {
+    c.save(); c.translate(cx, cy); c.rotate(a || 0); var u = s / 24;
+    c.fillStyle = "rgba(0,0,0,.35)"; c.fillRect(-9 * u, -6 * u + 1.5 * u, 18 * u, 12 * u);
+    if (id === "credits") {
+      [["#A9862C", 3], ["#C9A23B", -1], ["#E3B83F", -5]].forEach(function (r) { c.fillStyle = r[0]; c.fillRect(-7 * u, r[1] * u, 14 * u, 4 * u); });
+      c.fillStyle = "#F6DA7E"; c.fillRect(-7 * u, -5 * u, 14 * u, 0.9 * u);
+      c.fillStyle = "#6B5214"; c.fillRect(-1.5 * u, -4 * u, 3 * u, 0.8 * u); c.fillRect(-0.4 * u, -4 * u, 0.8 * u, 2 * u);
+    } else if (id === "smg") {
+      c.fillStyle = "#9AA5B1"; c.fillRect(-9 * u, -2 * u, 15 * u, 3.4 * u); c.fillRect(-9 * u, -3 * u, 3 * u, 5 * u);
+      c.fillStyle = "#6A7480"; c.fillRect(-1 * u, 1.4 * u, 2.4 * u, 5 * u); c.fillRect(-5 * u, 1.4 * u, 2 * u, 3 * u);
+      c.fillStyle = "#D5DADF"; c.fillRect(6 * u, -1.2 * u, 3 * u, 1.6 * u);
+    } else if (id === "pistol") {
+      c.fillStyle = "#9AA5B1"; c.fillRect(-6 * u, -2 * u, 11 * u, 3 * u); c.fillRect(-6 * u, 1 * u, 3 * u, 4.5 * u);
+      c.fillStyle = "#D5DADF"; c.fillRect(5 * u, -1.4 * u, 2 * u, 1.6 * u);
+    } else {   // Schweißgerät
+      c.fillStyle = "#9AA5B1"; c.fillRect(-7 * u, -1.8 * u, 10 * u, 3.6 * u);
+      c.fillStyle = "#8EE0FF"; c.fillRect(3 * u, -1 * u, 4 * u, 2 * u);
+    }
+    c.restore();
+  }
+  // Leichtes Glimmen, damit man liegende Dinge im dunklen Schiff findet
+  function itemGlow(c, cx, cy, s, tm, hot) {
+    var k = 0.5 + 0.5 * Math.sin(tm * 3 + cx * 0.01), r = s * (0.42 + k * 0.06);
+    c.strokeStyle = hot ? "rgba(242,193,78,.85)" : "rgba(242,193,78," + (0.18 + k * 0.2) + ")"; c.lineWidth = Math.max(1, s * 0.035);
+    c.strokeRect(cx - r, cy - r, r * 2, r * 2);
+  }
+  function drawBodyItems(c, bd, tm) {
+    if (!bd.items || !bd.items.length) return;
+    var hu = FL.useT && FL.useT.k === "body" ? FL.useT.q : null;
+    bd.items.forEach(function (q) { itemGlow(c, q.x * PX, q.y * PX, PX, tm, q === hu); itemArt(c, q.id, q.x * PX, q.y * PX, PX * 0.9, q.a); });
+  }
+  function drawLoose(c, tm) {
+    if (!FL.loose || !FL.loose.length) return;
+    var hu = FL.useT && FL.useT.k === "loose" ? FL.useT.q : null;
+    FL.loose.forEach(function (q) { c.save(); c.translate(q.x, q.y); c.scale(CELL_M / PX, CELL_M / PX); itemGlow(c, 0, 0, PX, tm, q === hu); itemArt(c, q.id, 0, 0, PX * 0.9, q.a); c.restore(); });
+  }
+  // ---------- Inventar-Fenster: Schnellleiste + 8×8, Ziehen und Ablegen ----------
+  function slotHtml(s, it) {
+    var fx = slotFixed(s), lb = s.charAt(0) === "h" ? "<u>" + (+s.slice(1) + 1) + "</u>" : "";
+    return '<i class="sr-slot' + (it ? " full" : "") + (fx ? " fix" : "") + (s === "h" + (FL.slot - 1) ? " on" : "") + '" data-s="' + s + '"' + (it ? ' title="' + itemName(it) + (fx ? " · " + t("itFixedS") : "") + '"' : "") + ">" + lb +
+      (it ? ITEMS[it.id].ic + (ITEMS[it.id].stack ? "<b>" + nf(it.n) + "</b>" : "") : "") + "</i>";
+  }
+  function invRender() {
+    var el = V.root.querySelector(".sr-inv"); if (!el || !FL || !FL.inv) return;
+    var g = el.querySelector(".sr-inv-grid"), hb = el.querySelector(".sr-inv-hot"), h = "", i;
+    for (i = 0; i < FL.inv.length; i++) h += slotHtml("i" + i, FL.inv[i]);
+    g.innerHTML = h; h = "";
+    for (i = 0; i < 9; i++) h += slotHtml("h" + i, FL.hot[i]);
+    hb.innerHTML = h;
+    el.querySelector(".sr-inv-cnt").textContent = invCount() + " / " + (INV.w * INV.h);
+  }
+  // Ziehen: Gegenstand an der Maus; über einem Platz loslassen = verschieben, tauschen oder Stapel zusammenlegen;
+  // außerhalb des Fensters loslassen = vor der Figur auf den Boden legen
+  function invDown(e) {
+    var sl = e.target.closest(".sr-inv [data-s]"); if (!sl || !FL || e.button !== 0) return;
+    var s = sl.getAttribute("data-s"), it = slotGet(s); if (!it) return;
+    e.preventDefault(); e.stopPropagation();
+    if (slotFixed(s)) { note(t("itFixed")); return; }
+    var gh = document.createElement("div"); gh.className = "sr-drag"; gh.innerHTML = ITEMS[it.id].ic + (ITEMS[it.id].stack ? "<b>" + nf(it.n) + "</b>" : "");
+    V.root.appendChild(gh); V.drag = { s: s, el: gh }; sl.classList.add("lift"); invDragMove(e);
+  }
+  function invDragMove(e) {
+    if (!V || !V.drag) return; var r = V.root.getBoundingClientRect();
+    V.drag.el.style.left = (e.clientX - r.left - 23) + "px"; V.drag.el.style.top = (e.clientY - r.top - 23) + "px";
+  }
+  function invDragEnd(e) {
+    if (!V || !V.drag) return; var d = V.drag; V.drag = null; d.el.remove();
+    if (!FL || !FL.inv) return;
+    var hit = document.elementFromPoint(e.clientX, e.clientY), tg = hit && hit.closest ? hit.closest(".sr-inv [data-s]") : null, it = slotGet(d.s);
+    if (!it) { invRender(); return; }
+    if (tg) {
+      var s2 = tg.getAttribute("data-s");
+      if (s2 !== d.s && !slotFixed(s2)) {
+        var o = slotGet(s2);
+        if (o && o.id === it.id && ITEMS[it.id].stack) { o.n += it.n; slotSet(d.s, null); }
+        else { slotSet(s2, it); slotSet(d.s, o); }
+      }
+    } else if (!(hit && hit.closest && hit.closest(".sr-inv-box"))) { slotSet(d.s, null); dropItem(it); }
+    itemsChanged();
+  }
   // ===== 60-zeichnen-flug.js · Zeichnen: Flugansicht (Schweife, Staub, Effekte, Schiffe, Radar, HUD) =====
   // Schweif der Vortriebsdüsen (Schub nach vorne): Punkte bleiben im Raum stehen und verblassen, so sieht man die eigene Bahn
   function trailTick() {
@@ -3241,7 +3458,8 @@
         if (lt < 1) { c.fillStyle = "rgba(4,6,12," + (0.78 * (1 - lt) + fl) + ")"; bd.cells.forEach(function (q) { c.fillRect((q[0] - 0.5) * PX, (q[1] - 0.5) * PX, PX, PX); }); }
       }
       if (bd === FL.me && !FL.seated && (FL.pb || FL.me) === FL.me) drawGhosts(c, bd, tm);
-      if (bd === (FL.pb || FL.me) && !FL.seated && !FL.out) drawAstronaut(c, FL.pilot.x * PX, FL.pilot.y * PX, FL.pilot.face, FL.pilot.ph, PX / 24 * 1.25, FL.welding, FL.slot === 2 ? 1 : FL.slot === 3 ? 2 : 0);
+      if (!bd.enemy && S.view === "in") drawBodyItems(c, bd, tm);
+      if (bd === (FL.pb || FL.me) && !FL.seated && !FL.out) drawAstronaut(c, FL.pilot.x * PX, FL.pilot.y * PX, FL.pilot.face, FL.pilot.ph, PX / 24 * 1.25, FL.welding, heldGun());
       // Überhitzung und Ladung an den Waffen
       bd.blocks.forEach(function (b) {
         var ty = T[b.t], f = fp(b), cx = (b.x + f[0] / 2) * PX, cy = (b.y + f[1] / 2) * PX;
@@ -3257,7 +3475,8 @@
       });
       c.restore();
     });
-    if (FL.out && FL.eva) { c.save(); c.translate(FL.eva.x, FL.eva.y); c.scale(CELL_M / PX, CELL_M / PX); drawAstronaut(c, 0, 0, FL.eva.face, FL.eva.ph, 1.25, FL.welding, FL.slot === 2 ? 1 : FL.slot === 3 ? 2 : 0); c.restore(); }
+    drawLoose(c, tm);
+    if (FL.out && FL.eva) { c.save(); c.translate(FL.eva.x, FL.eva.y); c.scale(CELL_M / PX, CELL_M / PX); drawAstronaut(c, 0, 0, FL.eva.face, FL.eva.ph, 1.25, FL.welding, heldGun()); c.restore(); }
     (FL.missiles || []).forEach(function (m) {
       c.save(); c.translate(m.x, m.y); c.rotate(m.h); if (m.k > 1) c.scale(1.7, 1.7);   // Schwere Rakete: größer
       c.fillStyle = "rgba(255,190,90,.85)"; c.beginPath(); c.moveTo(-0.9, -0.28); c.lineTo(-2.4 - Math.random() * 0.8, 0); c.lineTo(-0.9, 0.28); c.closePath(); c.fill();
@@ -3417,8 +3636,9 @@
     set("sr-h-air", (FL.breath === "room" ? "" : t(FL.breath === "jet" ? "airJet" : "airSuit") + " · ") + mmss(FL.suit));
     var ae = V.root.querySelector("#sr-h-air"); if (ae) ae.className = FL.breath === "room" ? "on" : ak < 0.25 ? "warn" : "off";
     var sb = V.root.querySelector('[data-act="seat"]'); if (sb) { set("sr-h-seatb", FL.seated ? t("exitSeat") : t("sitDown")); }
-    var wb = V.root.querySelector("#sr-h-weld"); if (wb) { wb.parentNode.hidden = FL.seated || FL.slot !== 1; set("sr-h-weld", FL.weldG ? fmt(t(FL.weldOk ? "weldBuild" : "weldWait"), { n: T[FL.weldG.t].n[lang] }) : FL.weldB ? fmt(t("weldOn"), { n: T[FL.weldB.t].n[lang], p: Math.round(FL.weldB.hp / hpMax(FL.me, FL.weldB) * 100) }) : t("hWeldIdle")); }
+    var wb = V.root.querySelector("#sr-h-weld"); if (wb) { wb.parentNode.hidden = FL.seated || held() !== "welder"; set("sr-h-weld", FL.weldG ? fmt(t(FL.weldOk ? "weldBuild" : "weldWait"), { n: T[FL.weldG.t].n[lang] }) : FL.weldB ? fmt(t("weldOn"), { n: T[FL.weldB.t].n[lang], p: Math.round(FL.weldB.hp / hpMax(FL.me, FL.weldB) * 100) }) : t("hWeldIdle")); }
     var se = V.root.querySelector("#sr-h-seat"); if (se) se.className = !me.seat ? "warn" : "";
+    var ue = V.root.querySelector(".sr-use"); if (ue) { var uh = useHint(); if (ue.textContent !== uh) ue.textContent = uh; ue.classList.toggle("on", !!uh); }
   }
 
   // ===== 70-ui.js · UI: HTML-Aufbau, Infofeld, Spieltipps-Anzeige =====
@@ -3436,8 +3656,8 @@
   function ctlHtml() {
     var de = lang === "de", G = [
       [de ? "Im Sitz" : "Seated", [["WASD", de ? "Fliegen" : "Fly"], ["Q / E", de ? "Drehen" : "Rotate"], [de ? "Linksklick" : "Left click", de ? "Feuern" : "Fire"], ["R", de ? "Waffe wechseln" : "Switch weapon"], ["Z", de ? "Trägheitsdämpfer" : "Inertia dampers"], ["C", "Cruise Control"], ["X", "Overcharge"], [de ? "Umschalt" : "Shift", de ? "Hochgeschw. freigeben" : "Unlock high speed"], ["F", de ? "Aufstehen / Hinsetzen" : "Get up / sit down"], ["V", de ? "Innen / Außen" : "Inside / outside"], ["I", de ? "Inventar" : "Inventory"], ["P", de ? "Andocken / Abdocken" : "Dock / undock"]]],
-      [de ? "Zu Fuß" : "On foot", [["WASD", de ? "Laufen" : "Walk"], [de ? "Umschalt" : "Shift", de ? "Sprinten" : "Sprint"], ["1–9", de ? "Werkzeug wählen" : "Select tool"], [de ? "Linksklick" : "Left click", de ? "1 Schweißen · 2 Pistole · 3 MP (halten)" : "1 weld · 2 pistol · 3 SMG (hold)"], [de ? "F auf Luke" : "F on hatch", de ? "Aussteigen (auch durch die Decke)" : "Exit (also through the ceiling)"], [de ? "Offener Rand" : "Open edge", de ? "Direkt hinaus und hinein" : "Step straight out and in"]]],
-      [de ? "Draußen" : "Outside", [["WASD", "Jetpack"], [de ? "Umschalt" : "Shift", de ? "Tempo ans Schiff" : "Match ship speed"], [de ? "F über Luke" : "F above hatch", de ? "Einsteigen" : "Get in"]]],
+      [de ? "Zu Fuß" : "On foot", [["WASD", de ? "Laufen" : "Walk"], [de ? "Umschalt" : "Shift", de ? "Sprinten" : "Sprint"], ["1–9", de ? "Werkzeug wählen" : "Select tool"], [de ? "Linksklick" : "Left click", de ? "Benutzen (Schweißen, Schießen, MP halten)" : "Use (weld, shoot, hold SMG)"], ["E", de ? "Aufheben · Bankautomat" : "Pick up · ATM"], ["Q", de ? "Gegenstand ablegen" : "Drop item"], ["I", de ? "Inventar" : "Inventory"], [de ? "F auf Luke" : "F on hatch", de ? "Aussteigen (auch durch die Decke)" : "Exit (also through the ceiling)"], [de ? "Offener Rand" : "Open edge", de ? "Direkt hinaus und hinein" : "Step straight out and in"]]],
+      [de ? "Draußen" : "Outside", [["WASD", "Jetpack"], [de ? "Umschalt" : "Shift", de ? "Tempo ans Schiff" : "Match ship speed"], ["E / Q", de ? "Aufheben / Ablegen" : "Pick up / Drop"], [de ? "F über Luke" : "F above hatch", de ? "Einsteigen" : "Get in"]]],
       ["Test", [[de ? "Rechtsklick" : "Right click", de ? "Block beschädigen" : "Damage block"], [de ? "Mausrad" : "Wheel", "Zoom"], ["Esc", de ? "Zurück zum Editor" : "Back to editor"]]]
     ];
     return '<div class="sr-ctl" hidden>' + G.map(function (g) { return "<small>" + g[0] + "</small><dl>" + g[1].map(function (r) { return "<dt>" + r[0] + "</dt><dd>" + r[1] + "</dd>"; }).join("") + "</dl>"; }).join("") + "</div>";
@@ -3490,7 +3710,7 @@
       '<feColorMatrix in="SourceGraphic" type="matrix" values="0 0 0 0 0 0 1 0 0 0 0 0 0 0 0 0 0 0 1 0" result="g"/>' +
       '<feColorMatrix in="SourceGraphic" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 1 0 0 0 0 0 1 0" result="b"/><feOffset id="srCAo2" in="b" dx="0" dy="0" result="bo"/>' +
       '<feBlend in="ro" in2="g" mode="screen" result="rg"/><feBlend in="rg" in2="bo" mode="screen"/></filter></svg>' +
-      '<div class="sr-top"><a class="sr-back" href="#">← ' + t("back") + '</a><b class="sr-ttl">' + t("title") + ' <small>v' + VERSION + '</small></b>' +
+      '<div class="sr-top"><a class="sr-back" href="#">← ' + t("back") + '</a><b class="sr-ttl">' + t("title") + ' <small>v' + VERSION + '</small></b><span class="sr-bal" title="' + t("balT") + '"><small>' + t("bal") + '</small><b id="sr-bal-v"></b></span>' +
       '<div class="sr-ed-only sr-tbar"><span class="sr-seg"><button type="button" data-act="ed-ship">' + t("edShip") + '</button><button type="button" data-act="ed-st">' + t("edSt") + '</button></span><input id="sr-name" class="sr-name" maxlength="28" spellcheck="false" placeholder="' + t("namePh") + '"><button type="button" data-act="undo">' + t("undo") + '</button><button type="button" data-act="starter">' + t("starter") + '</button><button type="button" data-act="clear">' + t("clear") + '</button><button type="button" data-act="exp">Export</button><button type="button" data-act="imp">Import</button><button type="button" data-act="npc">' + t("hangar") + '</button><button type="button" class="sr-dev-only" data-act="dev-lock">' + t("devLock") + '</button></div>' +
       '<div class="sr-sp"></div><div class="sr-seg"><button type="button" data-view="in">' + t("vIn") + '</button><button type="button" data-view="out">' + t("vOut") + '</button></div>' +
       '<button type="button" class="sr-go sr-ed-only" data-act="test">' + t("test") + ' ▸</button><button type="button" class="sr-go sr-fl-only" data-act="edit">◂ ' + t("toEd") + '</button></div>' +
@@ -3516,7 +3736,7 @@
       '<label class="sr-uis sr-fl-only" title="' + (lang === "de" ? "Größe des Infofelds" : "Info panel size") + '"><svg viewBox="0 0 20 20" width="14" height="14"><rect x="2" y="3" width="7" height="14" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M12 7h6M12 10h6M12 13h4" stroke="currentColor" stroke-width="1.6"/></svg><input type="range" id="sr-uis" min="1" max="1.5" step="0.05" value="1"><span id="sr-uis-v">100 %</span></label>' +
       '<button type="button" class="sr-ctlb sr-fl-only" data-act="ctl" aria-pressed="false">' + t("controls") + '</button>' +
       '<button type="button" class="sr-shipn" data-act="rename" title="' + t("renameT") + '"></button><input class="sr-shipn-in" maxlength="28" spellcheck="false" hidden>' +
-      '<div class="sr-inv" hidden><div class="sr-inv-box"><div class="sr-inv-h"><div><b>' + t("invT") + '</b><small>' + t("invSub") + '</small></div><span class="sr-inv-cnt"></span><button type="button" data-act="inv-x">' + (lang === "de" ? "Schließen (I)" : "Close (I)") + '</button></div><div class="sr-inv-grid"></div></div></div>' +
+      '<div class="sr-inv" hidden><div class="sr-inv-box"><div class="sr-inv-h"><div><b>' + t("invT") + '</b><small>' + t("invSub") + '</small></div><span class="sr-inv-cnt"></span><button type="button" data-act="inv-x">' + (lang === "de" ? "Schließen (I)" : "Close (I)") + '</button></div><div class="sr-inv-grid"></div><small class="sr-inv-hl">' + t("invHot") + '</small><div class="sr-inv-hot"></div></div></div>' +
       hotHtml() + '<div class="sr-place"></div>' +
       '<div class="sr-kc sr-fl-only"><small>' + t("kills") + '</small><b>0</b></div>' +
       '<div class="sr-ebot sr-fl-only"><div class="sr-ebot-bar"><i id="sr-be-s"></i><i id="sr-be-e"></i></div><span id="sr-be-t"></span>' +
@@ -3690,6 +3910,14 @@
     ".sr-inv-box{background:rgba(18,23,32,.96);border:1px solid #33405A;padding:14px 16px;display:flex;flex-direction:column;gap:12px;max-width:100%;max-height:calc(100% - 40px);overflow:auto}" +
     ".sr-inv-h{display:flex;justify-content:space-between;align-items:flex-start;gap:14px}.sr-inv-h>div{display:flex;flex-direction:column;gap:3px}.sr-inv-h b{font-size:1.05rem;color:#EEF2F5}.sr-inv-h small{font-size:.74rem;color:#8FA0B8}.sr-inv-cnt{margin-left:auto;font-size:.78rem;color:#C9D1D9;font-variant-numeric:tabular-nums;padding-top:3px}" +
     ".sr-inv-grid{display:grid;grid-template-columns:repeat(8,48px);grid-auto-rows:48px;gap:4px}.sr-slot{display:block;background:rgba(38,49,66,.45);border:1px solid rgba(70,86,110,.6);box-shadow:inset 0 0 0 1px rgba(0,0,0,.25)}.sr-slot:hover{border-color:rgba(140,165,200,.8);background:rgba(50,64,86,.55)}" +
+    // v0.57: Kontostand, Gegenstände in Schnellleiste und Inventar, Ziehen, Aufheben-Hinweis
+    ".sr-bal{display:inline-flex;align-items:baseline;gap:6px;background:rgba(60,50,25,.35);border:1px solid rgba(242,193,78,.45);padding:3px 9px}.sr-bal small{font-size:.66rem;letter-spacing:.08em;text-transform:uppercase;color:#C9A85A}.sr-bal b{font-size:.84rem;color:#F2C14E;font-variant-numeric:tabular-nums}" +
+    ".sr-hot i b,.sr-slot b,.sr-drag b{position:absolute;right:3px;bottom:1px;font-size:.62rem;font-weight:700;color:#F6DA7E;text-shadow:0 1px 2px #000;font-variant-numeric:tabular-nums}" +
+    ".sr-use{min-height:1.2em;font-size:.8rem;font-weight:600;color:#F2C14E;text-shadow:0 1px 3px rgba(0,0,0,.9);opacity:0;transition:opacity .15s}.sr-use.on{opacity:1}" +
+    ".sr-slot{position:relative;display:flex!important;align-items:center;justify-content:center;cursor:default;user-select:none;touch-action:none}.sr-slot.full{cursor:grab;background:rgba(50,64,86,.6)}.sr-slot.fix{cursor:not-allowed}.sr-slot svg{width:30px;height:30px;pointer-events:none}.sr-slot u{position:absolute;left:3px;top:1px;text-decoration:none;font-size:.6rem;font-weight:700;color:#8FA0B8}.sr-slot.fix::after{content:\"\";position:absolute;right:3px;top:3px;width:5px;height:5px;background:#8FA0B8}.sr-slot.on{border-color:#F2C14E}.sr-slot.lift{opacity:.35}" +
+    ".sr-inv-hl{font-size:.68rem;letter-spacing:.08em;text-transform:uppercase;color:#8FA0B8;margin-bottom:-6px}.sr-inv-hot{display:grid;grid-template-columns:repeat(9,48px);grid-auto-rows:48px;gap:4px}" +
+    ".sr-drag{position:absolute;z-index:9;width:46px;height:46px;display:flex;align-items:center;justify-content:center;background:rgba(30,38,52,.9);border:1px solid #F2C14E;pointer-events:none}.sr-drag svg{width:30px;height:30px}" +
+    "@media (max-width:520px){.sr-inv-hot{grid-template-columns:repeat(9,30px);grid-auto-rows:30px;gap:3px}.sr-slot svg{width:22px;height:22px}}" +
     "@media (max-width:520px){.sr-inv-grid{grid-template-columns:repeat(8,34px);grid-auto-rows:34px;gap:3px}}" +
     ".sr-name{width:150px;margin-right:6px;padding:5px 8px;background:rgba(14,19,28,.7);border:1px solid #3A4658;color:#E8ECEF;font:inherit;font-size:.8rem;border-radius:0}" +
     ".sr-root .sr-blk{position:relative}.sr-vf{position:absolute;top:0;right:0;width:15px;height:15px;cursor:pointer;background:linear-gradient(225deg,#101620 0 50%,#E3B83F 50% 100%);box-shadow:-1px 1px 0 rgba(0,0,0,.5)}.sr-vf:hover{width:19px;height:19px;background:linear-gradient(225deg,#101620 0 50%,#F2CC5A 50% 100%)}.sr-blk[aria-pressed=true] .sr-vf{background:linear-gradient(225deg,#2A3550 0 50%,#E3B83F 50% 100%)}.sr-vpop{position:absolute;z-index:6;width:206px;background:#0B1018;border:1px solid #E3B83F;box-shadow:0 8px 24px rgba(0,0,0,.6);padding:6px}.sr-vpop h5{margin:0 0 6px;font-size:.66rem;letter-spacing:.08em;text-transform:uppercase;color:#8FA0B8;font-weight:600}.sr-vpop>div{display:grid;grid-template-columns:repeat(3,1fr);gap:4px}.sr-vo{display:flex;flex-direction:column;align-items:center;gap:2px;padding:4px 2px;background:#101620;border:1px solid #263142;color:#B9C4D4;cursor:pointer;min-width:0}.sr-vo img{width:40px;height:40px}.sr-vo span{font-size:.6rem;text-align:center;line-height:1.15}.sr-vo:hover{border-color:#8FA0B8}.sr-vo[aria-pressed=true]{border-color:#E3B83F;background:#2A3550;color:#fff}.sr-root:not(.envt) .sr-envp,.sr-root.envt .sr-paint,.sr-root.envt .sr-opts,.sr-root.envt .sr-list{display:none}.sr-envtabs{padding:0 8px 8px}.sr-envtabs .sr-seg{display:flex;margin:0}.sr-envtabs .sr-seg button{flex:1;font-size:.74rem;padding:6px 2px}.sr-envp{display:flex;flex-direction:column;gap:6px;padding:0 8px 8px;flex:1;min-height:0}.sr-envp>small,.sr-envcat{font:600 .68rem var(--f-body,inherit);letter-spacing:.08em;text-transform:uppercase;color:#8FA0B8}.sr-envl{display:flex;margin:0}.sr-envl button{flex:1;font-size:.72rem;padding:6px 2px}.sr-envl button[aria-pressed=true]{background:#2A3550;border-color:#E3B83F;color:#fff}.sr-envr{display:flex;flex-direction:column;gap:2px}.sr-envr small{color:#8FA0B8;font-size:.7rem}.sr-envr b{color:#E6EAF0;font-weight:600}.sr-envr input{width:100%}.sr-envrnd{font-size:.74rem;padding:5px}.sr-envrnd[aria-pressed=true]{background:#2E6B4C;border-color:#57D18A;color:#fff}.sr-envh{margin:0;color:#7D8AA0;font-size:.68rem;line-height:1.4}.sr-envlist{overflow:auto;flex:1;min-height:0;align-content:start}.sr-envb span{font-size:.62rem;text-align:center;line-height:1.15}.sr-root:not(.st) .sr-blk[data-dev],.sr-root:not(.st) .sr-cat[data-dev],.sr-root:not(.st) .sr-dev-only{display:none}.sr-dev-box{width:min(340px,100%)}.sr-dev-in{background:#141414;color:#E8E8E8;border:1px solid #3A3A3A;border-radius:0;font:600 22px ui-monospace,Menlo,Consolas,monospace;letter-spacing:.5em;padding:10px 12px;text-align:center}.sr-dev-in:focus{outline:none;border-color:#57D18A}.sr-dev-msg{color:#E07A6A;font-size:.85rem}.sr-seg{display:inline-flex;margin-right:6px}.sr-seg button{border-radius:0}.sr-seg button[aria-pressed=true]{background:#2E6B4C;border-color:#57D18A;color:#fff}" +
@@ -3723,7 +3951,7 @@
     var m = worldMouse(e); V.mouse = m;
     if (S.mode === "fly") {
       audioInit();
-      if (e.button === 0) { FL.fire = true; if (!FL.seated && FL.slot === 2) firePistol(); }
+      if (e.button === 0) { FL.fire = true; if (!FL.seated && held() === "pistol") firePistol(); }
       if (e.button === 2) { var ppm = PX * V.zoom / CELL_M, wx = FL.cam.x + (m.sx - V.W / 2) / ppm, wy = FL.cam.y + (m.sy - V.H / 2) / ppm, h = hitAt(wx, wy, null); if (h) { damage(h.bd, h.b, T[h.b.t].hp * 0.26, wx, wy); spark(wx, wy, 6); } }
       return;
     }
@@ -3743,6 +3971,7 @@
     V.lastCell = key(cx, cy);
   }
   function onMove(e) {
+    if (V && V.drag) { invDragMove(e); return; }
     if (!V) return;
     var m = worldMouse(e);
     if (S.mode === "fly") { if (e.shiftKey) FL.mdx += e.movementX || 0; V.mouse = m; return; }
@@ -3762,7 +3991,7 @@
     else if (S.tool === "paint") { if (paintAt(cx, cy)) syncUI(); }
     else if (S.tool === "build" && V.row) { V.row.ex = cx; V.row.ey = cy; }
   }
-  function onUp(e) { if (!V) return; V.envLast = null; V.pan = null; V.down = null; if (FL) FL.fire = false; if (V.row) { placeRow(); V.row = null; syncUI(); } }
+  function onUp(e) { if (V && V.drag) invDragEnd(e); if (!V) return; V.envLast = null; V.pan = null; V.down = null; if (FL) FL.fire = false; if (V.row) { placeRow(); V.row = null; syncUI(); } }
   function onWheel(e) { e.preventDefault(); var k = e.deltaY < 0 ? 1.12 : 1 / 1.12; V.zoom = Math.max(S.mode === "fly" ? ZMIN_FL : S.ed === "station" ? ZMIN_ST : 0.3, Math.min(3, V.zoom * k)); }
   function finishRename(ok) {
     var ib = V.root.querySelector(".sr-shipn-in"), bb = V.root.querySelector(".sr-shipn"); if (!ib || ib.hidden) return;
@@ -3782,7 +4011,9 @@
       if (k === "shift") { FL.keys.shift = true; if (!e.repeat && FL.seated && !FL.out) { FL.hiOk = !FL.hiOk; if (FL.hiOk) FL.ca = Math.max(FL.ca || 0, 0.3); floatTxt(t(FL.hiOk ? "hiOn" : "hiOff")); } }
       if (e.repeat) return;
       // zu Fuß und draußen: Zahlentasten wählen das Werkzeug; Schiffstasten wirken nur im Cockpit
-      if (!FL.seated && /^[1-9]$/.test(k)) { FL.slot = +k; syncHot(); return; }
+      if (!FL.seated && /^[1-9]$/.test(k)) { FL.slot = +k; syncHot(); if (invOpen()) invRender(); return; }
+      if (!FL.seated && k === "e") { useKey(); return; }    // zu Fuß und draußen: E aufheben / Bankautomat
+      if (!FL.seated && k === "q") { dropHeld(); return; }  // Q legt den Gegenstand in der Hand ab
       if (k === "f") { toggleSeat(); return; }
       if (k === "v" || k === "tab") { S.view = S.view === "in" ? "out" : "in"; syncUI(); e.preventDefault(); return; }
       if (!FL.seated) return;
@@ -3972,9 +4203,9 @@
     V = { root: el, cv: el.querySelector("#sr-cv"), zoom: 1.25, cam: { x: 0.5, y: 0 }, keys: {}, ovOld: document.body.style.overflow };
     V.ctx = V.cv.getContext("2d");
     document.body.style.overflow = "hidden";
-    fitCam(); layout(); syncUI();
+    fitCam(); layout(); syncUI(); balSync();
     var us = 1; try { us = parseFloat(localStorage.getItem("spacerogue-ui")) || 1; } catch (e) {} hudScale(us);
-    V.cv.addEventListener("pointerdown", onDown); window.addEventListener("pointermove", onMove); window.addEventListener("pointerup", onUp); window.addEventListener("pointercancel", onUp);
+    V.cv.addEventListener("pointerdown", onDown); V.root.addEventListener("pointerdown", invDown); window.addEventListener("pointermove", onMove); window.addEventListener("pointerup", onUp); window.addEventListener("pointercancel", onUp);
     var vl = V.root.querySelector(".sr-list"); if (vl) vl.addEventListener("scroll", function () { closeVar(); });   // Liste scrollt: Variantenfenster zu
     V.cv.addEventListener("wheel", onWheel, { passive: false }); V.cv.addEventListener("contextmenu", function (e) { e.preventDefault(); });
     V.cv.addEventListener("pointerleave", function () { if (V && S.mode !== "fly") V.mouse = null; });

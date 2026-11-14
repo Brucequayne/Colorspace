@@ -41,7 +41,7 @@
     } else if (k === "floor" || k === "wall" || k === "door") {
       if (view === "out") { roof(c, w, h, col, lw); }
       else if (k === "floor" && ty.va === "grid") gridFloorArt(c, w, h, s, lw);
-      else if (k === "floor") { c.fillStyle = FLOOR; c.fillRect(0, 0, w, h); c.strokeStyle = FLOOR2; c.lineWidth = lw; c.strokeRect(lw / 2, lw / 2, w - lw, h - lw); c.fillStyle = FLOOR2; c.fillRect(w * 0.45, h * 0.45, w * 0.1, h * 0.1); }
+      else if (k === "floor") { c.fillStyle = FLOOR; c.fillRect(0, 0, w, h); c.strokeStyle = FLOOR2; c.lineWidth = lw; c.strokeRect(lw / 2, lw / 2, w - lw, h - lw); c.fillStyle = FLOOR2; c.fillRect(w * 0.45, h * 0.45, w * 0.1, h * 0.1); if (ty.loot) { c.strokeStyle = "rgba(242,193,78,.7)"; c.lineWidth = lw; c.strokeRect(w * 0.1, h * 0.1, w * 0.8, h * 0.8); itemArt(c, ty.loot, w / 2, h / 2, s * 0.95, -0.3); } }
       else if (k === "wall") { c.fillStyle = shade(col, -0.35); c.fillRect(0, 0, w, h); c.fillStyle = shade(col, -0.15); c.fillRect(w * 0.15, 0, w * 0.7, h); if (ty.va === "pipes") pipeArt(c, w, h, s, lw, b.c); c.strokeStyle = shade(col, -0.55); c.lineWidth = lw; c.strokeRect(lw / 2, lw / 2, w - lw, h - lw); }
       else { c.fillStyle = FLOOR; c.fillRect(0, 0, w, h); c.fillStyle = shade(col, -0.3); c.fillRect(0, 0, w * 0.12, h); c.fillRect(w * 0.88, 0, w * 0.12, h); c.fillStyle = "#D9A21B"; c.fillRect(w * 0.12, h * 0.38, w * 0.37, h * 0.24); c.fillRect(w * 0.51, h * 0.38, w * 0.37, h * 0.24); c.fillStyle = DARK; c.fillRect(w * 0.49, h * 0.38, w * 0.02, h * 0.24); }
       if (k === "door" && view === "out") { c.fillStyle = "#D9A21B"; c.fillRect(w * 0.42, h * 0.1, w * 0.16, h * 0.8); }
@@ -247,6 +247,13 @@
       c.fillStyle = "#9AA5B1"; c.fillRect(w * 0.44, h * 0.15, w * 0.12, h * 0.05);
     } else if (dk === "crate" && va === "ind") {
       crateIndArt(c, w, h, s, lw, acc, ol);
+    } else if (dk === "atm") {   // Bankautomat (v0.57): Gehäuse, Bildschirm, Tastenfeld, Kartenschlitz
+      c.fillStyle = "#4A535E"; c.fillRect(w * 0.08, h * 0.08, w * 0.84, h * 0.84);
+      c.fillStyle = "#2A3038"; c.fillRect(w * 0.08, h * 0.08, w * 0.84, h * 0.12);
+      c.fillStyle = "#1B3A2E"; c.fillRect(w * 0.2, h * 0.26, w * 0.6, h * 0.26); c.fillStyle = "#57D18A"; c.fillRect(w * 0.27, h * 0.33, w * 0.3, h * 0.05); c.fillRect(w * 0.27, h * 0.42, w * 0.18, h * 0.04);
+      c.fillStyle = "#9AA5B1"; for (var ay = 0; ay < 2; ay++) for (var ax = 0; ax < 3; ax++) c.fillRect(w * (0.24 + ax * 0.18), h * (0.6 + ay * 0.12), w * 0.12, h * 0.08);
+      c.fillStyle = "#E3B83F"; c.fillRect(w * 0.3, h * 0.84, w * 0.4, h * 0.03);
+      c.strokeStyle = ol || "#2A2F36"; c.lineWidth = lw; c.strokeRect(w * 0.08, h * 0.08, w * 0.84, h * 0.84);
     } else if (dk === "crate") {
       crateArt(c, w, h, s, lw, acc, ol);
     } else if (dk === "cryo") {

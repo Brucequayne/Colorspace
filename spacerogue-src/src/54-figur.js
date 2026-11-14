@@ -72,8 +72,8 @@
     E.ph += E.thr ? dt * 4 : 0;
     // Schweißen draußen: Punkt vor der Figur im Schiffsraster
     FL.welding = false; FL.weldB = null; FL.weldG = null;
-    if (FL.fire && FL.slot === 1) { FL.welding = true; var tp = toLocal(bd, E.x + Math.cos(E.face) * 1.6, E.y + Math.sin(E.face) * 1.6); weldAt(bd, tp.x, tp.y, dt); }
-    if (FL.fire && FL.slot === 3) fireHand(SMG);
+    if (FL.fire && held() === "welder") { FL.welding = true; var tp = toLocal(bd, E.x + Math.cos(E.face) * 1.6, E.y + Math.sin(E.face) * 1.6); weldAt(bd, tp.x, tp.y, dt); }
+    if (FL.fire && held() === "smg") fireHand(SMG);
     // Zurück ins Schiff über eine Luke
     FL.enterCd = Math.max(0, FL.enterCd - dt);
     var lp = toLocal(bd, E.x, E.y), o = bd.map.get(key(Math.floor(lp.x), Math.floor(lp.y)));
@@ -147,8 +147,8 @@
     // Schweißgerät: repariert oder baut den Block direkt vor der Figur
     FL.welding = false; FL.weldB = null; FL.weldG = null;
     { var mw2 = mouseWorld(); if (mw2) { var lm = toLocal(bd, mw2.x, mw2.y), wa = Math.atan2(lm.y - P.y, lm.x - P.x), dd2 = Math.atan2(Math.sin(wa - P.face), Math.cos(wa - P.face)); P.face += dd2 * Math.min(1, dt * 16); } }   // zu Fuß immer zur Maus schauen
-    if (FL.fire && FL.slot === 1) { FL.welding = true; weldAt(bd, P.x + Math.cos(P.face) * 0.8, P.y + Math.sin(P.face) * 0.8, dt); }
-    if (FL.fire && FL.slot === 3) fireHand(SMG);
+    if (FL.fire && held() === "welder") { FL.welding = true; weldAt(bd, P.x + Math.cos(P.face) * 0.8, P.y + Math.sin(P.face) * 0.8, dt); }
+    if (FL.fire && held() === "smg") fireHand(SMG);
   }
   function toggleSeat() {
     var me = FL.me;
@@ -193,12 +193,15 @@
   }
   function syncHot() {
     var el = V.root.querySelector(".sr-hot"); if (!el || !FL) return;
-    el.querySelectorAll("i").forEach(function (q, i) { q.classList.toggle("on", FL.slot === i + 1); });
-    var nm = HOT[FL.slot - 1]; set("sr-hot-n", nm ? nm.n[lang] : t("emptySlot"));
+    el.querySelectorAll(".sr-hot-row i").forEach(function (q, i) {
+      var it = FL.hot ? FL.hot[i] : null; q.classList.toggle("on", FL.slot === i + 1);
+      q.innerHTML = "<u>" + (i + 1) + "</u>" + (it ? ITEMS[it.id].ic + (ITEMS[it.id].stack ? "<b>" + nf(it.n) + "</b>" : "") : ""); q.title = it ? itemName(it) : "";
+    });
+    var it0 = FL.hot ? FL.hot[FL.slot - 1] : null; set("sr-hot-n", it0 ? itemName(it0) : t("emptySlot"));
   }
   function hotHtml() {
     var h = ""; for (var i = 0; i < 9; i++) h += '<i title="' + (HOT[i] ? HOT[i].n[lang] : "") + '"><u>' + (i + 1) + "</u>" + (HOT[i] ? HOT[i].ic : "") + "</i>";
-    return '<div class="sr-hot"><div class="sr-hot-row">' + h + '</div><span id="sr-hot-n"></span></div>';
+    return '<div class="sr-hot"><div class="sr-use"></div><div class="sr-hot-row">' + h + '</div><span id="sr-hot-n"></span></div>';
   }
   // Ortsname beim Überschreiten der Schwelle: 3 s sichtbar, bis 4 s ausgeblendet
   function showPlace(name) {
@@ -206,11 +209,9 @@
     el.textContent = name; el.classList.remove("go"); void el.offsetWidth; el.classList.add("go");
   }
   // ---------- Charakter-Inventar ----------
-  // 8×8 leere Plätze wie in Survival-Spielen; Gegenstände folgen in einem späteren Update
+  // 8×8 Plätze wie in Survival-Spielen, darunter die Schnellleiste 1–9 (v0.57: Gegenstände, siehe 57-gegenstaende.js)
   function openInv() {
-    if (!FL) return; var el = V.root.querySelector(".sr-inv"); el.hidden = false;
-    var g = el.querySelector(".sr-inv-grid"); if (!g.childElementCount) { var h = ""; for (var i = 0; i < INV.w * INV.h; i++) h += '<i class="sr-slot"></i>'; g.innerHTML = h; }
-    var n = (FL.items || []).length; el.querySelector(".sr-inv-cnt").textContent = n + " / " + (INV.w * INV.h);
+    if (!FL) return; var el = V.root.querySelector(".sr-inv"); el.hidden = false; invRender();
   }
   function closeInv() { if (!V) return; V.root.querySelector(".sr-inv").hidden = true; }
   function invOpen() { var el = V && V.root.querySelector(".sr-inv"); return !!(el && !el.hidden); }

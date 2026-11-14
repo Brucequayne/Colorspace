@@ -29,9 +29,9 @@
     V = { root: el, cv: el.querySelector("#sr-cv"), zoom: 1.25, cam: { x: 0.5, y: 0 }, keys: {}, ovOld: document.body.style.overflow };
     V.ctx = V.cv.getContext("2d");
     document.body.style.overflow = "hidden";
-    fitCam(); layout(); syncUI();
+    fitCam(); layout(); syncUI(); balSync();
     var us = 1; try { us = parseFloat(localStorage.getItem("spacerogue-ui")) || 1; } catch (e) {} hudScale(us);
-    V.cv.addEventListener("pointerdown", onDown); window.addEventListener("pointermove", onMove); window.addEventListener("pointerup", onUp); window.addEventListener("pointercancel", onUp);
+    V.cv.addEventListener("pointerdown", onDown); V.root.addEventListener("pointerdown", invDown); window.addEventListener("pointermove", onMove); window.addEventListener("pointerup", onUp); window.addEventListener("pointercancel", onUp);
     var vl = V.root.querySelector(".sr-list"); if (vl) vl.addEventListener("scroll", function () { closeVar(); });   // Liste scrollt: Variantenfenster zu
     V.cv.addEventListener("wheel", onWheel, { passive: false }); V.cv.addEventListener("contextmenu", function (e) { e.preventDefault(); });
     V.cv.addEventListener("pointerleave", function () { if (V && S.mode !== "fly") V.mouse = null; });

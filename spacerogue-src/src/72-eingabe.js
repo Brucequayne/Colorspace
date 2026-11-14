@@ -9,7 +9,7 @@
     var m = worldMouse(e); V.mouse = m;
     if (S.mode === "fly") {
       audioInit();
-      if (e.button === 0) { FL.fire = true; if (!FL.seated && FL.slot === 2) firePistol(); }
+      if (e.button === 0) { FL.fire = true; if (!FL.seated && held() === "pistol") firePistol(); }
       if (e.button === 2) { var ppm = PX * V.zoom / CELL_M, wx = FL.cam.x + (m.sx - V.W / 2) / ppm, wy = FL.cam.y + (m.sy - V.H / 2) / ppm, h = hitAt(wx, wy, null); if (h) { damage(h.bd, h.b, T[h.b.t].hp * 0.26, wx, wy); spark(wx, wy, 6); } }
       return;
     }
@@ -29,6 +29,7 @@
     V.lastCell = key(cx, cy);
   }
   function onMove(e) {
+    if (V && V.drag) { invDragMove(e); return; }
     if (!V) return;
     var m = worldMouse(e);
     if (S.mode === "fly") { if (e.shiftKey) FL.mdx += e.movementX || 0; V.mouse = m; return; }
@@ -48,7 +49,7 @@
     else if (S.tool === "paint") { if (paintAt(cx, cy)) syncUI(); }
     else if (S.tool === "build" && V.row) { V.row.ex = cx; V.row.ey = cy; }
   }
-  function onUp(e) { if (!V) return; V.envLast = null; V.pan = null; V.down = null; if (FL) FL.fire = false; if (V.row) { placeRow(); V.row = null; syncUI(); } }
+  function onUp(e) { if (V && V.drag) invDragEnd(e); if (!V) return; V.envLast = null; V.pan = null; V.down = null; if (FL) FL.fire = false; if (V.row) { placeRow(); V.row = null; syncUI(); } }
   function onWheel(e) { e.preventDefault(); var k = e.deltaY < 0 ? 1.12 : 1 / 1.12; V.zoom = Math.max(S.mode === "fly" ? ZMIN_FL : S.ed === "station" ? ZMIN_ST : 0.3, Math.min(3, V.zoom * k)); }
   function finishRename(ok) {
     var ib = V.root.querySelector(".sr-shipn-in"), bb = V.root.querySelector(".sr-shipn"); if (!ib || ib.hidden) return;
@@ -68,7 +69,9 @@
       if (k === "shift") { FL.keys.shift = true; if (!e.repeat && FL.seated && !FL.out) { FL.hiOk = !FL.hiOk; if (FL.hiOk) FL.ca = Math.max(FL.ca || 0, 0.3); floatTxt(t(FL.hiOk ? "hiOn" : "hiOff")); } }
       if (e.repeat) return;
       // zu Fuß und draußen: Zahlentasten wählen das Werkzeug; Schiffstasten wirken nur im Cockpit
-      if (!FL.seated && /^[1-9]$/.test(k)) { FL.slot = +k; syncHot(); return; }
+      if (!FL.seated && /^[1-9]$/.test(k)) { FL.slot = +k; syncHot(); if (invOpen()) invRender(); return; }
+      if (!FL.seated && k === "e") { useKey(); return; }    // zu Fuß und draußen: E aufheben / Bankautomat
+      if (!FL.seated && k === "q") { dropHeld(); return; }  // Q legt den Gegenstand in der Hand ab
       if (k === "f") { toggleSeat(); return; }
       if (k === "v" || k === "tab") { S.view = S.view === "in" ? "out" : "in"; syncUI(); e.preventDefault(); return; }
       if (!FL.seated) return;

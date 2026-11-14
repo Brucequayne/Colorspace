@@ -37,6 +37,7 @@ Diese Datei wird **gebaut** – aus den Teilen in `spacerogue-src/src/`.
 | `53-ki.js` | Gegner-KI |
 | `54-figur.js` | Luft, Luken, Jetpack, Schweißen, Laufen, Pistole, Inventar |
 | `55-andocken.js` | Andocken |
+| `57-gegenstaende.js` | Gegenstände (seit v0.57): `ITEMS`, Schnellleiste `FL.hot` und Inventar `FL.inv`, aufheben (E) und ablegen (Q), Ziehen im Inventar, liegende (`bd.items`) und treibende (`FL.loose`) Gegenstände, Bankautomat, Kontostand (`spacerogue-konto-v1`) |
 | `56-turrets.js` | Turrets: KI-Zielwahl, Schwenken mit Vorhalt, Feuern, Hitze-Disziplin (`turretsAuto`) |
 | `60-zeichnen-flug.js` | Flugansicht, Effekte, Radar, HUD |
 | `70-ui.js`, `71-css.js` | HTML-Aufbau, Infofeld, Aussehen |
@@ -103,3 +104,10 @@ Folgen für Änderungen:
   Neue Teile: `bt6` große Batterie, `kr1`/`kr2`/`kr6` Kisten, `kry` Kryokapsel, `pul` Bedienmodul (Deko).
 - v0.55: Turrets (`kind: "tur"`, `tw` = Waffe). Werte in `TUR` (`12-balance.js`), Logik in `56-turrets.js`, Grafik `turretArt`
   (Sockel im normalen Durchgang, Kopf nach der Hülle). Kisten-Variante `…g` (grau, industriell).
+- v0.57: Gegenstände (`57-gegenstaende.js`). Spieler hat `FL.hot` (Schnellleiste, 9) und `FL.inv` (64), Plätze `null` oder `{ id, n }`;
+  Werkzeug/Waffe kommt aus dem gehaltenen Gegenstand (`held()`, `heldGun()`), nicht mehr aus der Platznummer. Schweißgerät und
+  Pistole liegen fest auf 1 und 2 (`slotFixed`). Zum Auslegen im Developer Tool: Boden-Bauteile mit `loot`/`amt` (`lc1`, `lc2`, `lsm`),
+  `makeBody` macht daraus normalen Boden plus `bd.items`. Bankautomat `atm` (Deko, `dk: "atm"`). Kontostand in `localStorage` unter
+  `spacerogue-konto-v1` (neuer Schlüssel, die alten bleiben unverändert).
+  Volltest: Spielablauf unverändert, der Fingerabdruck ändert sich nur durch 87 zusätzliche Zeichenaufrufe (Symbole der vier neuen
+  Bauteile in der Bauteilliste). Ohne jsdom geprüft (in Chromium); beim nächsten Lauf mit jsdom die Referenz mit `--merken` neu setzen.

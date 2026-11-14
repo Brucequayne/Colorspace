@@ -5,7 +5,10 @@
   function hpMax(bd, b) { var h = T[b.t].hp; if (bd && bd.player) { h *= 1 + PM.hp; if (T[b.t].kind === "cock") h *= 1 + PM.cockHp; } return h; }
   function makeBody(blocks, ctrl) {
     var bd = { blocks: blocks, x: 0, y: 0, a: 0, vx: 0, vy: 0, w: 0, ctrl: !!ctrl, energy: 0, cap: 0, flames: {} };
-    blocks.forEach(function (b) { if (b.hp === undefined) b.hp = T[b.t].hp; });
+    blocks.forEach(function (b) {
+      var lt = T[b.t]; if (lt.loot) { (bd.items || (bd.items = [])).push({ id: lt.loot, n: lt.amt || 1, x: b.x + 0.5, y: b.y + 0.5, a: ((b.x * 7 + b.y * 13) % 12) * 0.5 }); b.t = "flo"; b.hp = undefined; }   // Gegenstand liegt auf normalem Boden
+      if (b.hp === undefined) b.hp = T[b.t].hp;
+    });
     recalc(bd, true);
     bd.energy = bd.cap;
     return bd;
@@ -45,7 +48,7 @@
     FL.missiles = []; FL.hits = []; FL.sig = 0; FL.banner = 0; me.id = ++BID;
     FL.items = []; FL.pb = me; FL.dock = null; FL.shHits = []; FL.shPct = 0; me.shE = 0; FL.kills = 0; FL.shTarget = 0; FL.shAcc = 0;
     var kcb = V.root.querySelector(".sr-kc b"); if (kcb) kcb.textContent = "0";
-    me.player = true; recalc(me); me.energy = me.cap; me.name = S.names.ship || t("shipDef"); FL.slot = 1; FL.pbLast = undefined;
+    me.player = true; recalc(me); me.energy = me.cap; me.name = S.names.ship || t("shipDef"); FL.slot = 1; itemsInit(); FL.pbLast = undefined;
     FL.suit = SUIT.max; FL.out = false; FL.eva = null; FL.enterCd = 0; FL.ko = 0; me.lost = []; me.air = new Map();
     if (stMode && S.station.length) {
       // Raumstation: statischer Körper vor dem Schiff, bewegt sich nie, auch nicht durch Stöße
@@ -99,6 +102,7 @@
     // Luken aller eigenen Körper schließen nach dem Durchgehen wieder (auch die der Station, wenn man nicht dort ist)
     FL.bodies.forEach(function (b) { if (b === (FL.pb || me) || (b !== me && !b.station)) return; b.blocks.forEach(function (hb) { if (T[hb.t].kind !== "hatch") return; if (hb.openT > 0) hb.openT -= dt; var o = hb.openT > 0; if (o !== !!hb.open) { hb.open = o; b.roomsDirty = true; } }); });
     if (FL.out) evaTick(evaBody(), dt);
+    itemsTick(dt);
     FL.bodies.slice().forEach(function (bd) {
       // Raketen: jede Werfer-Art (leicht/schwer) lädt für sich nach
       if (bd.mst) Object.keys(bd.mst).forEach(function (g) { var q = bd.mst[g]; q.cd = Math.max(0, q.cd - dt); if (q.rl > 0) { q.rl -= dt; if (q.rl <= 0) { q.rl = 0; bd.blocks.forEach(function (b) { if (b.t === g) b.ammo = msMax(b); }); } } });

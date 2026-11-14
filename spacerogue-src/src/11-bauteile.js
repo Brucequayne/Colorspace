@@ -22,7 +22,7 @@
   }
   armor("l", false); armor("h", true);
   // Kosten in Credits (Cr): im Editor ist alles gratis; die Preise stehen in der Bauteilliste und im Infofeld
-  var COSTS = { cks: 1200, ckm: 2400, ckl: 4200, ckt: 700, dk3: 2200, dk4: 3400, ths: 450, thf: 650, shs: 1400, shl: 3800, thl: 1600, gyr: 700, col: 300, ant: 400, bat: 350, rea: 2000, flo: 15, wal: 25, dor: 60, hat: 150, win: 40, mgn: 900, msl: 1300, msh: 2400, g25: 1800, g120: 3600, stu: 40, tis: 80, bet: 120, dbt: 180, toi: 150, dus: 200, tgc: 1600, rgn: 2600, tmg: 3400, t25: 5200, t120: 8800, trg: 9800, bt6: 2100, kr1: 60, kr2: 110, kr6: 300, kry: 900, pul: 450 };
+  var COSTS = { atm: 900, lc1: 15, lc2: 15, lsm: 15, cks: 1200, ckm: 2400, ckl: 4200, ckt: 700, dk3: 2200, dk4: 3400, ths: 450, thf: 650, shs: 1400, shl: 3800, thl: 1600, gyr: 700, col: 300, ant: 400, bat: 350, rea: 2000, flo: 15, wal: 25, dor: 60, hat: 150, win: 40, mgn: 900, msl: 1300, msh: 2400, g25: 1800, g120: 3600, stu: 40, tis: 80, bet: 120, dbt: 180, toi: 150, dus: 200, tgc: 1600, rgn: 2600, tmg: 3400, t25: 5200, t120: 8800, trg: 9800, bt6: 2100, kr1: 60, kr2: 110, kr6: 300, kry: 900, pul: 450 };
   function applyCosts() { Object.keys(T).forEach(function (id) { var ty = T[id]; ty.cost = COSTS[id] || (ty.kind === "armor" ? Math.max(5, Math.round(ty.mass * (ty.heavy ? 26 : 57))) : 100); }); }
   function cr(v) { return nf(Math.round(v)) + " Cr"; }
   def("ckt", { cat: "catCo", kind: "cock", w: 1, h: 2, mass: 0.9, hp: 150, n: L2("Cockpit winzig 1×2", "Tiny cockpit 1×2"), col: "#9AA5B1" });
@@ -76,6 +76,12 @@
   def("kr6", { cat: "catDe", kind: "deco", dk: "crate", w: 2, h: 3, mass: 3, hp: 120, n: L2("Cargo-Kiste 2×3", "Cargo crate 2×3"), col: "#9AA5B1" });
   def("kry", { cat: "catDe", kind: "deco", dk: "cryo", w: 1, h: 2, mass: 0.9, hp: 45, n: L2("Kryokapsel 1×2", "Cryo pod 1×2"), col: "#9AA5B1" });
   def("pul", { cat: "catDe", kind: "deco", dk: "console", w: 1, h: 2, mass: 0.7, hp: 40, n: L2("Bedienmodul 1×2", "Control console 1×2"), col: "#9AA5B1" });
+  // v0.57: Bankautomat (Credits einzahlen, E) und Gegenstände zum Auslegen (nur Developer Tool). Gegenstände sind Boden mit loot/amt:
+  // beim Testflug wird daraus normaler Boden, auf dem der Gegenstand liegt (siehe 57-gegenstaende.js)
+  def("atm", { cat: "catDe", kind: "deco", dk: "atm", w: 1, h: 1, mass: 0.5, hp: 60, dev: true, n: L2("Bankautomat 1×1", "ATM 1×1"), col: "#9AA5B1" });
+  def("lc1", { cat: "catIt", kind: "floor", loot: "credits", amt: 100, w: 1, h: 1, mass: 0.18, hp: 32, dev: true, n: L2("Credits × 100", "Credits × 100"), col: "#5A626C" });
+  def("lc2", { cat: "catIt", kind: "floor", loot: "credits", amt: 1000, w: 1, h: 1, mass: 0.18, hp: 32, dev: true, n: L2("Credits × 1.000", "Credits × 1,000"), col: "#5A626C" });
+  def("lsm", { cat: "catIt", kind: "floor", loot: "smg", amt: 1, w: 1, h: 1, mass: 0.18, hp: 32, dev: true, n: L2("Maschinenpistole", "Submachine gun"), col: "#5A626C" });
   applyCosts();
   // Panzerung 1×2: so schwer wie zwei einzelne Blöcke, aber 15 % günstiger
   T.lbl2.cost = Math.round(T.lblk.cost * 2 * 0.85); T.hbl2.cost = Math.round(T.hblk.cost * 2 * 0.85);
@@ -102,7 +108,7 @@
   });
   // Perks wurden in v0.47 abgeschafft. PM bleibt als neutrales Objekt (alles 0), damit die Werte-Haken im Code nichts verändern.
   var PM = { side: 0, brake: 0, mgRate: 0, batCap: 0, msRl: 0, hp: 0, prod: 0, walk: false, radar: 0, oc: 0, msDmg: 0, cockHp: 0, msTurn: 0, crit: 0, batW: false, heavyW: 0 };
-  CATS = ["catLA", "catHA", "catRA", "catOA", "catCo", "catTh", "catEn", "catIn", "catDe", "catWe", "catTu"];
+  CATS = ["catLA", "catHA", "catRA", "catOA", "catCo", "catTh", "catEn", "catIn", "catDe", "catIt", "catWe", "catTu"];
   var MECH = { cock: 1, thr: 1, gyro: 1, ant: 1, bat: 1, reac: 1, door: 1, hatch: 1, mg: 1, rg: 1, gun: 1, cool: 1, ms: 1, tcomp: 1, shield: 1, dock: 1, tur: 1 };
   var ROOMABLE = { bat: 1, reac: 1, gyro: 1, cool: 1, tcomp: 1, shield: 1 };   // Maschinen, die in einem Raum stehen dürfen und dann zum Raum gehören
   function replaceable(newT, o) { return o && T[newT].kind !== "floor" && T[o.b.t].kind === "floor"; }
