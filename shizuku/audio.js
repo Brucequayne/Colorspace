@@ -37,10 +37,12 @@
     step:        { f: seq("Characterstep", 7), vol: 0.32, rate: [0.94, 1.06] },
     step_grass:  { f: seq("step_mosundgras", 7), vol: 0.38, rate: [0.94, 1.06] },
     step_water:  { f: seq("step_water", 5), vol: 0.45, rate: [0.94, 1.06] },
-    // Wasser-Element: der Platsch kommt ~0,9 s nach Dateibeginn (davor baut sich das Wasser auf)
-    water_place: { f: seq("Watersplash_placement", 2), vol: 0.9 },
+    // Wasser-Element: zwei Platzier-Sounds; hit = wann der Platsch nach Start kommt (s), damit er auf den Aufprall fällt
+    water_place_1: { f: ["Watersplash_placement_1.mp3"], vol: 0.9, hit: 0.36 },
+    water_place_2: { f: ["Watersplash_placement_2.mp3"], vol: 0.9, hit: 0.19 },
     water_absorb: { f: ["Watersplash_absorb.mp3"], vol: 0.9 }
   };
+  SZ.SOUND_HIT = function (name) { return (SOUNDS[name] && SOUNDS[name].hit) || 0; };
   var LOOPS = { wind: "Wind.mp3", waterfall: "Flowingwaterfall.mp3" };
   // Soundtracks: jeder Lauf bekommt zufällig einen davon
   var MUSIC = ["shizuku_OST_1.mp3"];

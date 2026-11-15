@@ -139,18 +139,18 @@
     S.queue.forEach(function (q, i) {
       if (q.fx) return;   // läuft gerade: die Animation zeigt sich selbst
       var a = 0.22 + 0.12 * Math.sin(t * 5 + i), dr = q.kind === "drain";
-      ctx.fillStyle = (dr ? "rgba(120,240,200," : "rgba(110,190,240,") + a + ")"; ctx.fillRect(q.tx * T, q.ty * T, T, T);
-      ctx.strokeStyle = dr ? "rgba(170,255,225,0.9)" : "rgba(150,215,250,0.9)"; ctx.lineWidth = 1; ctx.strokeRect(q.tx * T + 0.5, q.ty * T + 0.5, T - 1, T - 1);
+      ctx.fillStyle = (dr ? "rgba(150,220,190," : "rgba(110,156,150,") + a + ")"; ctx.fillRect(q.tx * T, q.ty * T, T, T);
+      ctx.strokeStyle = dr ? "rgba(180,240,215,0.9)" : "rgba(150,196,190,0.9)"; ctx.lineWidth = 1; ctx.strokeRect(q.tx * T + 0.5, q.ty * T + 0.5, T - 1, T - 1);
     });
     if (!S.waterMode || !I.inside) return;
     var tx = Math.floor(I.mx / T), ty = Math.floor(I.my / T), A = tileAction(tx, ty);
     if (A.kind === "queued") return;
     var pulse = 0.6 + 0.4 * Math.sin(t * 7), x0 = tx * T, y0 = ty * T;
-    ctx.strokeStyle = !A.ok ? "rgba(230,90,70," + pulse + ")" : A.kind === "drain" ? "rgba(160,255,215," + pulse + ")" : "rgba(170,230,255," + pulse + ")";
+    ctx.strokeStyle = !A.ok ? "rgba(230,90,70," + pulse + ")" : A.kind === "drain" ? "rgba(180,240,215," + pulse + ")" : "rgba(170,210,204," + pulse + ")";
     ctx.strokeRect(x0 + 0.5, y0 + 0.5, T - 1, T - 1);
     if (!A.ok) return;
     if (A.kind === "flood") {   // kleine Wellen
-      ctx.fillStyle = "rgba(200,240,255,0.75)";
+      ctx.fillStyle = "rgba(200,228,222,0.8)";
       for (var k = 0; k < 3; k++) { var yy = y0 + 4 + k * 4; for (var x = 2; x < 14; x++) if (Math.sin(x * 0.9 + t * 6 + k) > 0.3) ctx.fillRect(x0 + x, yy + Math.round(Math.sin(x * 0.9 + t * 6 + k)), 1, 1); }
     } else {                    // aufsteigende Tropfen
       ctx.fillStyle = "rgba(200,255,235,0.85)";

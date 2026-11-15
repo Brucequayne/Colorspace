@@ -9,7 +9,8 @@
 (function () {
   var SZ = window.SZ, m = SZ.m, TAU = Math.PI * 2, T = SZ.TILE;
   // Flache Anime-Palette: keine Kontur, keine Glanzpunkte, nur Farbflächen in Ebenen
-  var COL = { back: "#2A5FC4", deep: "#3478DA", body: "#4F9EEC", mid: "#86CBF7", hi: "#CBEEFF", foam: "#FFFFFF" };
+  // Gleiche Farben wie das Wasser auf dem Boden (art-tiles.js: Tiefe 22,46,54 · Mitte 62,104,98 · Lichtlinien 110,156,150 / 150,196,190 · Glitzer 235,245,240)
+  var COL = { back: "#1A3840", deep: "#2B5052", body: "#3E6862", mid: "#6E9C96", hi: "#96C4BE", foam: "#EBF5F0" };
   var COST = SZ.ELEMENT_COST = { flood: 100, drain: 200, bind: 150 };
   SZ.WATER = { healPct: 0.07, bindRange: 4, bindHold: 1.5, whipDmg: 4, whips: 3 };
 
@@ -287,9 +288,11 @@
     this.t += dt;
     var t = this.t, w = this.w, sp = this.spray, cx = this.cx, cy = this.cy, i;
     sp.update(dt);
-    // Platzier-Sound so starten, dass sein Platsch (~0,9 s nach Beginn) auf den Aufprall fällt
-    var sndAt = [1.48, 0, 0.2][this.v];
-    if (t >= sndAt && this.once("snd")) SZ.audio.play("water_place", { x: cx, offset: this.v === 1 ? 0.25 : 0 });
+    // Platzier-Sound so starten, dass sein Platsch genau auf den Aufprall fällt
+    // (Aufprall: Schlange 2,38 s, Fontäne 0,65 s, Himmelsstrahl 1,1 s)
+    if (!this.snd) { WaterCast.n = (WaterCast.n || 0) + 1; this.snd = "water_place_" + (WaterCast.n % 2 + 1); }
+    var sndAt = Math.max(0, [2.38, 0.65, 1.1][this.v] - SZ.SOUND_HIT(this.snd));
+    if (t >= sndAt && this.once("snd")) SZ.audio.play(this.snd, { x: cx });
     var G = this.geo();
     // Spritzer von den Wasserkörpern
     G.forEach(function (g) {
@@ -344,7 +347,7 @@
     }
     if (this.v === 2 && t > 0.35 && t < 1.1) {   // Schatten des kommenden Strahls
       var u = m.clamp((t - 0.35) / 0.6, 0, 1);
-      ctx.fillStyle = "rgba(10,30,60," + (0.35 * u) + ")"; ctx.beginPath(); ctx.ellipse(cx, cy, 6 + u * 9, (6 + u * 9) * 0.55, 0, 0, TAU); ctx.fill();
+      ctx.fillStyle = "rgba(16,34,40," + (0.35 * u) + ")"; ctx.beginPath(); ctx.ellipse(cx, cy, 6 + u * 9, (6 + u * 9) * 0.55, 0, 0, TAU); ctx.fill();
     }
     var self = this;
     this.geo().forEach(function (g) { if (g.back) body(ctx, g.pts, t, 1, function (p) { return p.y < py; }); });
@@ -417,8 +420,8 @@
       this.healed = true;
       var p = this.p, add = p.hpMax * SZ.WATER.healPct;
       p.hp = Math.min(p.hpMax, p.hp + add);
-      for (var i = 0; i < 18; i++) w.parts.add({ type: "spark", x: p.x + rnd(-8, 8), y: p.y + rnd(-3, 3), z: rnd(2, 20), vx: rnd(-8, 8), vy: rnd(-4, 4), vz: rnd(20, 50), life: rnd(0.5, 0.9), col: i % 2 ? "#BFF6FF" : "#8FF0C8" });
-      w.parts.ring(p.x, p.y, 16, 0.7, "rgba(170,250,230,"); w.parts.ring(p.x, p.y, 26, 1, "rgba(150,230,255,");
+      for (var i = 0; i < 18; i++) w.parts.add({ type: "spark", x: p.x + rnd(-8, 8), y: p.y + rnd(-3, 3), z: rnd(2, 20), vx: rnd(-8, 8), vy: rnd(-4, 4), vz: rnd(20, 50), life: rnd(0.5, 0.9), col: i % 2 ? "#C8E2DC" : "#96C4BE" });
+      w.parts.ring(p.x, p.y, 16, 0.7, "rgba(200,228,222,"); w.parts.ring(p.x, p.y, 26, 1, "rgba(150,196,190,");
       sp.burst(p.x, p.y, 16, 14, 40, 40, 1);
       if (this.onHeal) this.onHeal(add);
     }
@@ -441,7 +444,7 @@
         ctx.save(); ctx.beginPath(); ctx.ellipse(this.cx, this.cy, r, r * 0.8, 0, 0, TAU); ctx.clip();
         if (this.snap) ctx.drawImage(this.snap, x0, y0, T, T); else { ctx.fillStyle = COL.deep; ctx.fillRect(x0, y0, T, T); }
         ctx.restore();
-        ctx.strokeStyle = "rgba(220,250,255,0.85)"; ctx.lineWidth = 1; ctx.beginPath(); ctx.ellipse(this.cx, this.cy, r, r * 0.8, 0, 0, TAU); ctx.stroke();
+        ctx.strokeStyle = "rgba(200,228,222,0.85)"; ctx.lineWidth = 1; ctx.beginPath(); ctx.ellipse(this.cx, this.cy, r, r * 0.8, 0, 0, TAU); ctx.stroke();
         // nasser Rand auf dem Sand
         ctx.fillStyle = "rgba(60,50,40,0.18)"; ctx.beginPath(); ctx.ellipse(this.cx, this.cy, Math.min(T * 0.6, r + 3), Math.min(T * 0.5, (r + 3) * 0.8), 0, 0, TAU); ctx.fill();
       }

@@ -17,10 +17,10 @@
   P.splash = function (x, y, n, power) {
     for (var i = 0; i < n; i++) {
       var a = Math.random() * 6.28, s = (20 + Math.random() * 50) * (power || 1);
-      this.add({ type: "drop", x: x, y: y, z: 1, vx: Math.cos(a) * s, vy: Math.sin(a) * s * 0.6, vz: 30 + Math.random() * 60 * (power || 1), life: 1.2, col: Math.random() < 0.5 ? "#CDEFF2" : "#8FCAD6" });
+      this.add({ type: "drop", x: x, y: y, z: 1, vx: Math.cos(a) * s, vy: Math.sin(a) * s * 0.6, vz: 30 + Math.random() * 60 * (power || 1), life: 1.2, col: Math.random() < 0.5 ? "#C8E2DC" : "#96C4BE" });
     }
   };
-  P.ring = function (x, y, r1, life, col) { this.add({ type: "ring", x: x, y: y, z: 0, r1: r1, life: life || 1, col: col || "rgba(190,235,240," }); };
+  P.ring = function (x, y, r1, life, col) { this.add({ type: "ring", x: x, y: y, z: 0, r1: r1, life: life || 1, col: col || "rgba(200,230,222," }); };
   P.straw = function (x, y, n) {
     for (var i = 0; i < n; i++) this.add({ type: "straw", x: x, y: y, z: 10 + Math.random() * 8, vx: (Math.random() - 0.5) * 70, vy: (Math.random() - 0.5) * 30, vz: 20 + Math.random() * 40, life: 1.4, col: Math.random() < 0.5 ? "#D8BC6A" : "#B0924A" });
   };

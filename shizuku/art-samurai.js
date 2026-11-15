@@ -39,8 +39,9 @@
     samurai: { torso: "kamishimo", sleeve: "ivory", legs: "indigo", wings: "red", saya: true, hat: false, knot: false },
     ronin: { torso: "kimono", sleeve: "rag", legs: "ash", wings: null, saya: true, hat: true, knot: false, eyes: false },
     // Heavy Ronin: lackierte Rüstung mit roter Schnürung, Schulterplatten, Hüftschurz, Stirnband, 30 % größer
-    // Yumi-heishi: Bogenschütze in moosgrünem Kimono, brauner Hakama, Stirnband und Köcher auf dem Rücken, ohne Schwert
-    yumi: { torso: "kimono", robe: "moss", sleeve: "moss", legs: "earth", wings: null, saya: false, hat: false, hachimaki: true, quiver: true },
+    // Yumi-heishi: Bogenschütze in moosgrünem Kimono, brauner Hakama, rotem Kopftuch (hinten geknotet, Schnurenden hängen)
+    // und Köcher auf dem Rücken, ohne Schwert
+    yumi: { torso: "kimono", robe: "moss", sleeve: "moss", legs: "earth", wings: null, saya: false, hat: false, scarf: true, quiver: true },
     heavy: { torso: "armor", sleeve: "armor", legs: "ash", wings: null, sode: true, kusazuri: true, saya: true, hat: false, hachimaki: true, scale: 1.3 }
   };
 
@@ -138,7 +139,13 @@
     add(ell(0, ln * 0.8 + 0.2, 23.6 + cz + P.breathe, 3.9, 3.7, 4.0), "head");
     var hz = 23.6 + cz + P.breathe, hy = ln * 0.8 + 0.2;
     // Haarband hinten am Kopf (die langen Haare werden dynamisch gezeichnet)
-    if (!L.hat) add(ell(0, hy - 3.3, hz + 1.4, 1.1, 0.9, 1.0), "red");
+    if (!L.hat && !L.scarf) add(ell(0, hy - 3.3, hz + 1.4, 1.1, 0.9, 1.0), "red");
+    // Kopftuch: Knoten am Hinterkopf, zwei Schnurenden hängen herab
+    if (L.scarf) {
+      add(ell(0, hy - 3.7, hz + 0.4, 1.3, 1.0, 1.1), "red");
+      add(cone([-0.5, hy - 4.1, hz + 0.1], [-1.5, hy - 5.0, hz - 4.6], 0.4, 0.3), "lace");
+      add(cone([0.5, hy - 4.1, hz + 0.1], [1.1, hy - 4.6, hz - 3.6], 0.4, 0.3), "lace");
+    }
     // Strohhut (Sugegasa): flacher, weiter Kegel
     if (L.hat) { add(ell(0, hy, hz + 1.3, 7.2, 7.2, 0.9), "straw"); add(ell(0, hy, hz + 2.2, 4.4, 4.4, 1.7), "straw"); add(ell(0, hy, hz + 3.6, 1.6, 1.6, 1.1), "straw"); }
     // Köcher auf dem Rücken mit Pfeilfedern
@@ -154,6 +161,7 @@
     if (name === "armor") return (((z - M.cz) * 1.15) % 1 + 1) % 1 < 0.2 ? "lace" : "armor";
     if (name === "head") {
       var hy = y - (M.ln * 0.8 + 0.2), hz = z - (23.6 + M.cz + M.P.breathe);
+      if (M.L.scarf && (hz > 0.45 || (hy < 0.9 && hz > -1.4))) return "red";   // Kopftuch über Ober- und Hinterkopf
       if (hy < 0.9 - Math.max(0, -hz) * 0.5 || hz > 1.5) return "hair";
       if (M.L.eyes !== false && hy > 1.5 && Math.abs(hz + 0.1) < 0.55 && Math.abs(Math.abs(x) - 1.45) < 0.55) return "eye";
       if (M.L.hat && hy > 1 && hz < 0.6 && hz > -0.4) return "hair";
