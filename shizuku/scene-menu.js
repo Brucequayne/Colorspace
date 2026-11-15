@@ -50,7 +50,7 @@
         kunai: { d: L2("Mehr Schaden und Reichweite als Shuriken, 1 Wurf pro Sekunde.", "More damage and range than shuriken, 1 throw per second."), r: 0.82, s: 0.8, k: 0.3 }
       };
       var ELEM = {
-        water: { n: L2("Wasser", "Water"), d: L2("Q zwischen den Wellen: Kacheln in Wasser verwandeln (300 Gleichgewicht je Kachel). Im Wasser kein Tempoverlust.", "Q between waves: turn tiles into water (300 balance per tile). No slowdown in water.") },
+        water: { n: L2("Wasser", "Water"), d: L2("Q zwischen den Wellen: eine Kachel fluten (100) oder Wasser absorbieren (200, +7 % Leben). X: Wasserfessel, einmal pro Welle (neu kaufen: 150). Im Wasser kein Tempoverlust.", "Q between waves: flood one tile (100) or absorb water (200, +7 % health). X: water bind, once per wave (buy again: 150). No slowdown in water.") },
         none: { n: L2("Kein Element", "No element"), d: L2("Ohne Element-Fähigkeit.", "No element ability.") }
       };
       function iconURL(id) { var c = SZ.canvas(13, 13); SZ.weaponIcon(c.ctx, 1, 1, id); return c.toDataURL(); }

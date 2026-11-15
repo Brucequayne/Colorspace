@@ -419,6 +419,7 @@
     ctx.drawImage(this._vegHigh, 0, 0);
     var tall = this._liveTall || [];
     this.parts.drawLow(ctx);
+    this.fx.forEach(function (f) { if (f.drawLow) f.drawLow(ctx); });   // Effekte unter den Figuren
 
     // Alles Stehende nach Fußpunkt sortiert
     var items = [];

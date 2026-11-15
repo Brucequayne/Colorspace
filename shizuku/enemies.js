@@ -53,6 +53,15 @@
     if (this.hpT > 0) this.hpT -= dt;
     if (this.dead) { this.deadT += dt; if (this.deadT > 1.8) this.gone = true; this.vx *= 0.9; this.vy *= 0.9; var np0 = a.move(this.x, this.y, this.vx * dt, this.vy * dt, D.radius, w.solids); this.x = np0.x; this.y = np0.y; return; }
     if (this.state === "spawn") { if (this.st > 0.65) this.go("approach"); return; }
+    // Von Wasser gefesselt: kann sich nicht bewegen und nicht angreifen
+    if (this.held > 0) {
+      this.held -= dt;
+      if (this.state !== "held") this.go("held");
+      var hk = Math.max(0, 1 - dt * 14); this.vx *= hk; this.vy *= hk; this.moving = false;
+      var nph = a.move(this.x, this.y, this.vx * dt, this.vy * dt, D.radius, w.solids); this.x = nph.x; this.y = nph.y;
+      if (this.held <= 0) { this.held = 0; this.go("approach"); }
+      return;
+    }
 
     var dx = pl.x - this.x, dy = pl.y - this.y, dist = Math.sqrt(dx * dx + dy * dy), ang = Math.atan2(dy, dx);
     var plAlive = !pl.dead;
@@ -161,7 +170,7 @@
     this.hp -= dmg; this.flash = 1; this.hpT = 3;
     w.parts.spark(this.x, this.y - 12 * this.sc, 12, this.D.armored ? 12 : 8);
     w.parts.ink(this.x + Math.cos(ang) * 4, this.y - 10, 3, "110,18,16");
-    SZ.audio.play(src === "arrow" ? "arrow_hit" : "hit_flesh", { x: this.x });
+    SZ.audio.play(src === "arrow" ? "arrow_hit" : "hit_flesh", { x: this.x, vol: src === "water" ? 0.6 : 1 });
     if (this.hp <= 0) {
       this.hp = 0; this.dead = true; this.deadT = 0; this.fallDir = Math.cos(ang) >= 0 ? 1 : -1;
       var kb = this.D.armored ? 30 : 120;
@@ -184,6 +193,7 @@
       case "swing": return "atk";
       case "recover": return this.st < 0.2 ? "atk" : "idle";
       case "stagger": return "stagger";
+      case "held": return "stagger";
       case "hold": return this.moving ? "walk" : "idle";
     }
     return this.moving ? "walk" : "idle";

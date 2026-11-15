@@ -74,26 +74,101 @@
     banner(n, sub);
     spawnGroup(w, p, spec.r, spec.h, hpMul);
   }
-  function validTile(tx, ty) {
-    if (tx < 0 || ty < 0 || tx >= SZ.COLS || ty >= SZ.ROWS) return false;
-    var c = S.world.arena.tile(tx, ty);
-    return c !== "w" && c !== "v" && c !== "#";
+  // ---------- Wasser-Element ----------
+  // Zwischen den Wellen (Q): Kachel anklicken = fluten (100, eine pro Pause), Wasser anklicken = absorbieren (200, heilt 7 %).
+  // Jederzeit (X): Wasserfessel, einmal pro Welle; verbraucht kann sie zwischen den Wellen für 150 neu gekauft werden.
+  function tileAt(tx, ty) { return (tx < 0 || ty < 0 || tx >= SZ.COLS || ty >= SZ.ROWS) ? "v" : S.world.arena.tile(tx, ty); }
+  function reserved() { var C = SZ.ELEMENT_COST; return S.queue.reduce(function (n, q) { return n + (q.paid ? 0 : C[q.kind]); }, 0); }
+  function floodsQueued() { return S.queue.filter(function (q) { return q.kind === "flood" && !q.paid; }).length; }
+  function drainsQueued() { return S.queue.filter(function (q) { return q.kind === "drain" && !q.healed; }).length; }
+  // Was ein Klick auf (tx, ty) täte: { kind, ok, why }
+  function tileAction(tx, ty) {
+    var c = tileAt(tx, ty), C = SZ.ELEMENT_COST, free = S.points - reserved(), p = S.player;
+    if (S.queue.some(function (q) { return q.tx === tx && q.ty === ty; })) return { kind: "queued", ok: false };
+    if (c === "w") {
+      if (free < C.drain) return { kind: "drain", ok: false, why: "poor" };
+      if (p.hp + drainsQueued() * p.hpMax * SZ.WATER.healPct >= p.hpMax - 0.5) return { kind: "drain", ok: false, why: "full" };
+      return { kind: "drain", ok: true };
+    }
+    if (c === "v" || c === "#") return { kind: "flood", ok: false, why: "tile" };
+    if (S.floodLeft - floodsQueued() <= 0) return { kind: "flood", ok: false, why: "used" };
+    if (free < C.flood) return { kind: "flood", ok: false, why: "poor" };
+    return { kind: "flood", ok: true };
   }
-  // Auswahl im Wasser-Modus zeichnen (Kachel unter der Maus, gewählte Kacheln)
   function drawWaterSel(ctx) {
-    var I = SZ.input, T = SZ.TILE, t = S.world.clock, cost = SZ.ELEMENT_COST.water;
+    var I = SZ.input, T = SZ.TILE, t = S.world.clock;
     S.queue.forEach(function (q, i) {
-      var a = 0.25 + 0.15 * Math.sin(t * 5 + i);
-      ctx.fillStyle = "rgba(110,190,230," + a + ")"; ctx.fillRect(q[0] * T, q[1] * T, T, T);
-      ctx.strokeStyle = i === 0 && S.casting ? "rgba(230,250,255,0.95)" : "rgba(140,210,240,0.85)"; ctx.lineWidth = 1; ctx.strokeRect(q[0] * T + 0.5, q[1] * T + 0.5, T - 1, T - 1);
+      if (q.fx) return;   // läuft gerade: die Animation zeigt sich selbst
+      var a = 0.22 + 0.12 * Math.sin(t * 5 + i), dr = q.kind === "drain";
+      ctx.fillStyle = (dr ? "rgba(120,240,200," : "rgba(110,190,240,") + a + ")"; ctx.fillRect(q.tx * T, q.ty * T, T, T);
+      ctx.strokeStyle = dr ? "rgba(170,255,225,0.9)" : "rgba(150,215,250,0.9)"; ctx.lineWidth = 1; ctx.strokeRect(q.tx * T + 0.5, q.ty * T + 0.5, T - 1, T - 1);
     });
     if (!S.waterMode || !I.inside) return;
-    var tx = Math.floor(I.mx / T), ty = Math.floor(I.my / T), ok = validTile(tx, ty) && S.points - S.queue.length * cost >= cost;
-    var pulse = 0.6 + 0.4 * Math.sin(t * 7);
-    ctx.strokeStyle = ok ? "rgba(170,230,255," + pulse + ")" : "rgba(230,90,70," + pulse + ")";
-    ctx.strokeRect(tx * T + 0.5, ty * T + 0.5, T - 1, T - 1);
-    // kleine Wellen in der Kachel
-    if (ok) { ctx.fillStyle = "rgba(200,240,255,0.7)"; for (var k = 0; k < 3; k++) { var yy = ty * T + 4 + k * 4; for (var x = 2; x < 14; x++) if (Math.sin(x * 0.9 + t * 6 + k) > 0.3) ctx.fillRect(tx * T + x, yy + Math.round(Math.sin(x * 0.9 + t * 6 + k)), 1, 1); } }
+    var tx = Math.floor(I.mx / T), ty = Math.floor(I.my / T), A = tileAction(tx, ty);
+    if (A.kind === "queued") return;
+    var pulse = 0.6 + 0.4 * Math.sin(t * 7), x0 = tx * T, y0 = ty * T;
+    ctx.strokeStyle = !A.ok ? "rgba(230,90,70," + pulse + ")" : A.kind === "drain" ? "rgba(160,255,215," + pulse + ")" : "rgba(170,230,255," + pulse + ")";
+    ctx.strokeRect(x0 + 0.5, y0 + 0.5, T - 1, T - 1);
+    if (!A.ok) return;
+    if (A.kind === "flood") {   // kleine Wellen
+      ctx.fillStyle = "rgba(200,240,255,0.75)";
+      for (var k = 0; k < 3; k++) { var yy = y0 + 4 + k * 4; for (var x = 2; x < 14; x++) if (Math.sin(x * 0.9 + t * 6 + k) > 0.3) ctx.fillRect(x0 + x, yy + Math.round(Math.sin(x * 0.9 + t * 6 + k)), 1, 1); }
+    } else {                    // aufsteigende Tropfen
+      ctx.fillStyle = "rgba(200,255,235,0.85)";
+      for (var j = 0; j < 4; j++) { var ph = (t * 1.4 + j / 4) % 1; ctx.fillRect(x0 + 3 + j * 3, Math.round(y0 + 13 - ph * 11), 1, 2); }
+    }
+  }
+  function toast(txt) {
+    var el = SZ.main.ui.querySelector(".sz-etoast"); if (!el) return;
+    el.textContent = txt; el.hidden = false; clearTimeout(S.toastT);
+    S.toastT = setTimeout(function () { el.hidden = true; }, 1800);
+  }
+  function waterUpdate(I, p) {
+    var w = S.world, C = SZ.ELEMENT_COST;
+    if (p.element !== "water") { p.inputLock = false; return; }
+    // Q: Wasser-Modus (nur zwischen den Wellen)
+    if (S.between && !p.dead && I.hit("q")) { S.waterMode = !S.waterMode; if (!S.waterMode) S.queue = S.queue.filter(function (q) { return q.fx; }); }
+    if (!S.between || p.dead) S.waterMode = false;
+    p.inputLock = S.waterMode;
+    if (S.waterMode && I.inside) {
+      var tx = Math.floor(I.mx / SZ.TILE), ty = Math.floor(I.my / SZ.TILE), qi = S.queue.findIndex(function (q) { return q.tx === tx && q.ty === ty; });
+      if (I.lmbHit && qi < 0) {
+        var A = tileAction(tx, ty);
+        if (A.ok) S.queue.push({ tx: tx, ty: ty, kind: A.kind });
+        else {
+          SZ.audio.play("block", { vol: 0.25, rate: 1.6 });
+          if (A.why === "used") toast(L2("Pro Pause kann nur eine Kachel geflutet werden.", "Only one tile can be flooded per break."));
+          else if (A.why === "poor") toast(L2("Nicht genug Gleichgewicht.", "Not enough balance."));
+          else if (A.why === "full") toast(L2("Leben ist schon voll.", "Health is already full."));
+        }
+      }
+      if (I.rmbHit && qi >= 0 && !S.queue[qi].fx) S.queue.splice(qi, 1);
+    }
+    // Warteschlange abarbeiten
+    if (!S.casting && S.queue.length && !p.act && !p.dead) {
+      var q = S.queue[0];
+      if (q.kind === "flood") {
+        q.fx = new SZ.WaterCast(w, p, q.tx, q.ty, S.castN++);
+        q.fx.onConvert = function () { q.paid = true; S.points -= C.flood; S.floodLeft--; };
+      } else {
+        q.fx = new SZ.WaterDrain(w, p, q.tx, q.ty);
+        q.fx.onConvert = function () { q.paid = true; S.points -= C.drain; };
+        q.fx.onHeal = function () { q.healed = true; };
+      }
+      S.casting = p.startCast(q.fx);
+    }
+    if (S.casting && S.casting.done) { S.casting = null; S.queue.shift(); }
+    // X: Wasserfessel
+    if (I.hit("x") && !p.dead) {
+      if (S.bindReady) {
+        var tg = SZ.water.targets(w);
+        if (!tg.length) { SZ.audio.play("block", { vol: 0.25, rate: 1.6 }); toast(S.between ? L2("Keine Gegner da.", "No enemies here.") : SZ.water.hasWater(w.arena) ? L2("Kein Gegner in Wassernähe (bis 4 Kacheln).", "No enemy near water (up to 4 tiles).") : L2("Es gibt kein Wasser auf der Map.", "There is no water on the map.")); }
+        else if (!p.act || p.act.type === "throw" || p.act.type === "loose") { S.bindReady = false; p.startCast(new SZ.WaterBind(w, p, tg), 0.5); }
+      } else if (S.between && !S.waterMode) {
+        if (S.points - reserved() >= C.bind) { S.points -= C.bind; S.bindReady = true; pop("−" + C.bind); SZ.audio.play("step_water", { x: p.x, vol: 1.2, rate: 1.2 }); }
+        else { SZ.audio.play("block", { vol: 0.25, rate: 1.6 }); toast(L2("Nicht genug Gleichgewicht.", "Not enough balance.")); }
+      } else SZ.audio.play("block", { vol: 0.2, rate: 1.8 });
+    }
   }
   function hudDom() {
     var ui = SZ.main.ui, top = ui.querySelector(".sz-top");
@@ -103,20 +178,31 @@
     if (top.dataset.w !== wv) { top.querySelector("span").textContent = wv; top.dataset.w = wv; }
     var nx = ui.querySelector(".sz-next"), show = S.between && !S.player.dead && !S.out && !S.waterMode;
     if (nx.hidden === show) nx.hidden = !show;
-    // Element-Hinweis: Wasser mit Q
-    var eq = ui.querySelector(".sz-elq"), es = S.player.element === "water" && S.between && !S.player.dead && !S.out;
+    var water = S.player.element === "water", C = SZ.ELEMENT_COST, free = S.points - reserved();
+    // Element-Hinweis zwischen den Wellen: Q
+    var eq = ui.querySelector(".sz-elq"), es = water && S.between && !S.player.dead && !S.out;
     if (eq.hidden === es) eq.hidden = !es;
     if (es) {
-      var cost = SZ.ELEMENT_COST.water, txt = S.waterMode
-        ? L2("Wasser: Kachel anklicken (" + cost + " Gleichgewicht) · Rechtsklick entfernen · Q beenden", "Water: click a tile (" + cost + " balance) · right click removes · Q ends")
-        : L2("Wasser (" + cost + " Gleichgewicht je Kachel)", "Water (" + cost + " balance per tile)");
+      var left = Math.max(0, S.floodLeft - floodsQueued()), txt = S.waterMode
+        ? L2("Kachel: Fluten " + C.flood + " (noch " + left + ") · Wasser: Absorbieren " + C.drain + " (+7 % Leben) · Rechtsklick entfernen · Q beenden",
+             "Tile: flood " + C.flood + " (" + left + " left) · Water: absorb " + C.drain + " (+7 % health) · right click removes · Q ends")
+        : L2("Wasser · Fluten " + C.flood + " · Absorbieren " + C.drain, "Water · flood " + C.flood + " · absorb " + C.drain);
       if (eq.dataset.t !== txt) { eq.querySelector("b").textContent = txt; eq.dataset.t = txt; }
-      eq.classList.toggle("on", S.waterMode); eq.classList.toggle("poor", S.points - S.queue.length * cost < cost);
+      eq.classList.toggle("on", S.waterMode); eq.classList.toggle("poor", free < C.flood);
+    }
+    // Wasserfessel (X)
+    var ex = ui.querySelector(".sz-elx"), xs = water && !S.player.dead && !S.out;
+    if (ex.hidden === xs) ex.hidden = !xs;
+    if (xs) {
+      var st = S.bindReady ? "ready" : S.between ? "buy" : "used";
+      var xt = st === "ready" ? L2("Wasserfessel", "Water bind") : st === "buy" ? L2("Wasserfessel kaufen · " + C.bind, "Buy water bind · " + C.bind) : L2("Wasserfessel verbraucht", "Water bind used");
+      if (ex.dataset.t !== xt) { ex.querySelector("b").textContent = xt; ex.dataset.t = xt; }
+      ex.className = "sz-elx " + st + (st === "buy" && free < C.bind ? " poor" : "");
     }
   }
   function pop(amount) {
     var top = SZ.main.ui.querySelector(".sz-top"), e = document.createElement("em");
-    e.textContent = "+" + amount; top.appendChild(e);
+    e.textContent = typeof amount === "string" ? amount : "+" + amount; top.appendChild(e);
     setTimeout(function () { e.remove(); }, 1400);
   }
 
@@ -129,16 +215,18 @@
       }
       pl.control = true; pl.appear = 1;
       S = { world: world, player: pl, out: 0, back: opt && opt.back, wave: 0, between: true, points: 0, reinf: null, waveClock: 0,
-            waterMode: false, queue: [], casting: null, castN: 0 };
+            waterMode: false, queue: [], casting: null, castN: 0, floodLeft: 1, bindReady: true };
       SZ.hud.reset();
       if (!opt || !opt.world) SZ.audio.musicStart();
       SZ.main.root.classList.add("sz-play");
       SZ.main.ui.innerHTML = '<div class="sz-top" title="' + L2("Gleichgewicht", "Balance") + '"><div><small>' + L2("Gleichgewicht", "Balance") + '</small><i></i><b>0</b></div><span></span></div>' +
         '<div class="sz-next"><kbd>E</kbd>' + L2("nächste Welle", "next wave") + '</div>' +
         '<div class="sz-elq" hidden><span class="sz-wv">' + SZ.WAVE_SVG + '</span><kbd>Q</kbd><b></b></div>' +
+        '<div class="sz-elx" hidden><span class="sz-wv">' + SZ.WAVE_SVG + '</span><kbd>X</kbd><b></b></div>' +
+        '<div class="sz-etoast" hidden></div>' +
         '<div class="sz-hint">' +
-        L2("WASD laufen · Maus zielen · Leertaste Dash · Linksklick Katana ziehen, dann Hieb · Linksklick halten: Stich · Shift + Linksklick: Drehhieb · Rechtsklick Block · Block halten + Linksklick: Konter · Q / E + Rechtsklick: Parade / Ausweichen · Wurfwaffen: Linksklick halten · 1 / 2: Waffe wechseln · zwischen den Wellen: Q Wasser, E nächste Welle · M Ton · Esc Menü",
-           "WASD move · mouse aim · space dash · left click draw katana, then slash · hold left click: thrust · shift + left click: spin · right click block · hold block + left click: counter · Q / E + right click: parry / dodge · throwing weapons: hold left click · 1 / 2: switch weapon · between waves: Q water, E next wave · M sound · Esc menu") + '</div>';
+        L2("WASD laufen · Maus zielen · Leertaste Dash · Linksklick Katana ziehen, dann Hieb · Linksklick halten: Stich · Shift + Linksklick: Drehhieb · Rechtsklick Block · Block halten + Linksklick: Konter · Q / E + Rechtsklick: Parade / Ausweichen · Wurfwaffen: Linksklick halten · 1 / 2: Waffe wechseln · X Wasserfessel · zwischen den Wellen: Q Wasser, E nächste Welle · M Ton · Esc Menü",
+           "WASD move · mouse aim · space dash · left click draw katana, then slash · hold left click: thrust · shift + left click: spin · right click block · hold block + left click: counter · Q / E + right click: parry / dodge · throwing weapons: hold left click · 1 / 2: switch weapon · X water bind · between waves: Q water, E next wave · M sound · Esc menu") + '</div>';
     },
     exit: function () { SZ.main.root.classList.remove("sz-play"); },
     state: function () { return S; },   // für Tests
@@ -166,23 +254,8 @@
       var alive = w.enemies.filter(function (e) { return !e.dead; }).length;
       S.waveClock += dt;
       if (S.reinf && (alive <= 1 || S.waveClock > 8)) { var R = S.reinf; S.reinf = null; spawnGroup(w, p, R.r, R.h, R.hpMul); alive = 1; }
-      if (!S.between && alive === 0 && !S.reinf) S.between = true;
-      // Wasser-Element zwischen den Wellen: Q schaltet den Modus, Klick wählt Kacheln
-      var cost = SZ.ELEMENT_COST.water;
-      if (S.between && !p.dead && p.element === "water" && I.hit("q")) { S.waterMode = !S.waterMode; if (!S.waterMode) S.queue = S.casting ? S.queue.slice(0, 1) : []; }
-      p.inputLock = S.waterMode;
-      if (S.waterMode && I.inside) {
-        var tx = Math.floor(I.mx / SZ.TILE), ty = Math.floor(I.my / SZ.TILE), qi = S.queue.findIndex(function (q) { return q[0] === tx && q[1] === ty; });
-        if (I.lmbHit && qi < 0 && validTile(tx, ty) && S.points - S.queue.length * cost >= cost) S.queue.push([tx, ty]);
-        else if (I.lmbHit && qi < 0) SZ.audio.play("block", { vol: 0.25, rate: 1.6 });
-        if (I.rmbHit && qi > 0) S.queue.splice(qi, 1);
-        if (I.rmbHit && qi === 0 && !S.casting) S.queue.splice(0, 1);
-      }
-      if (!S.casting && S.queue.length && !p.act && !p.dead) {
-        var q = S.queue[0];
-        S.casting = p.startCast(q[0], q[1], S.castN++, function () { S.points -= cost; });
-      }
-      if (S.casting && S.casting.done) { S.casting = null; S.queue.shift(); }
+      if (!S.between && alive === 0 && !S.reinf) { S.between = true; S.floodLeft = 1; }
+      waterUpdate(I, p);
       if (S.between && !p.dead && I.hit("e") && !S.casting && !S.queue.length) { S.waterMode = false; p.inputLock = false; startWave(); }
     },
     render: function (ctx) {

@@ -75,13 +75,12 @@
     w.push(this.x, this.y, 22, 3, 0.6);
     SZ.audio.play("dash", { x: this.x });
   };
-  // Wasser beschwören: Waffe einstecken, Hände heben, Kachel (tx, ty) in Wasser verwandeln
-  P.startCast = function (tx, ty, variant, onConvert) {
-    if (this.weapon.sheath && !this.sheathed) { this.sheathed = true; SZ.audio.play("unsheathe", { x: this.x, rate: 1.25, vol: 0.7 }); }
-    var fx = new SZ.WaterCast(this.world, this, tx, ty, variant);
-    fx.onConvert = onConvert;
+  // Element-Fähigkeit ausführen: fx ist ein Effekt mit pose(), update(), draw() (siehe element-water.js).
+  // dur: nur so lange steht der Samurai in Pose (z. B. Wasserfessel im Kampf); ohne dur bis der Effekt fertig ist.
+  P.startCast = function (fx, dur) {
+    if (!dur && this.weapon.sheath && !this.sheathed) { this.sheathed = true; SZ.audio.play("unsheathe", { x: this.x, rate: 1.25, vol: 0.7 }); }
     this.world.fx.push(fx);
-    this.act = { type: "cast", t: 0, fx: fx }; this.guard = null; this.press = null;
+    this.act = { type: "cast", t: 0, fx: fx, dur: dur || 0 }; this.guard = null; this.press = null;
     if (this.drawSnd) { this.drawSnd.stop(0.05); this.drawSnd = null; }
     return fx;
   };
@@ -185,7 +184,7 @@
         }
       }
       this.guard = null;
-      if (!ac && I.rmb && !this.inputLock && !(this.sheathed && Wp.sheath)) {
+      if (!ac && I.rmb && !this.inputLock && Wp.type !== "throw" && !(this.sheathed && Wp.sheath)) {   // Wurfwaffen können nicht blocken
         var bk = Wp.blocks[mi];
         if (bk === "kamae") this.guard = "kamae";
         else if (I.rmbHit && bk === "ukenagashi") this.startParry();
@@ -256,7 +255,7 @@
         if (ac.t >= ac.dur) this.act = null;
       } else if (ac.type === "cast") {
         tx = ty = 0;
-        if (ac.fx.done) this.act = null;
+        if (ac.fx.done || (ac.dur && ac.t >= ac.dur)) this.act = null;
       } else if (ac.type === "throw") {
         tx *= 0.75; ty *= 0.75;
         if (ac.t > ac.dur) this.act = null;

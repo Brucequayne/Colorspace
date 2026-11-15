@@ -64,6 +64,10 @@
     ".sz-elq{position:absolute;left:50%;bottom:84px;transform:translateX(-50%);display:flex;align-items:center;gap:9px;font-size:.8rem;letter-spacing:.06em;color:#CFE8F2;text-shadow:0 1px 4px #000;pointer-events:none;white-space:nowrap}" +
     ".sz-elq[hidden]{display:none}.sz-elq .sz-wv{width:22px;height:22px;color:#7CC4E4}.sz-elq kbd{font:600 .8rem/1 var(--f-body,system-ui);border:1px solid rgba(124,196,228,.7);padding:4px 7px;background:rgba(10,20,26,.6)}" +
     ".sz-elq.on kbd{background:#7CC4E4;color:#0A141A}.sz-elq.on{color:#FFFFFF}.sz-elq.poor b{color:#D88A7A}" +
+    ".sz-elx{position:absolute;left:14px;bottom:14px;display:flex;align-items:center;gap:8px;font-size:.78rem;letter-spacing:.06em;color:#CFE8F2;text-shadow:0 1px 4px #000;pointer-events:none;white-space:nowrap}" +
+    ".sz-elx[hidden]{display:none}.sz-elx .sz-wv{width:20px;height:20px;color:#7CC4E4}.sz-elx kbd{font:600 .78rem/1 var(--f-body,system-ui);border:1px solid rgba(124,196,228,.7);padding:4px 7px;background:rgba(10,20,26,.6)}" +
+    ".sz-elx.ready kbd{background:#7CC4E4;color:#0A141A}.sz-elx.used{opacity:.45}.sz-elx.poor b{color:#D88A7A}" +
+    ".sz-etoast{position:absolute;left:50%;bottom:118px;transform:translateX(-50%);background:rgba(14,14,14,.85);border:1px solid #3A3A3A;padding:6px 12px;font-size:.78rem;color:#E6DED0;pointer-events:none;white-space:nowrap}.sz-etoast[hidden]{display:none}" +
     ".sz-wave i{display:block;font-style:normal;margin-top:4px;font-size:.72rem;letter-spacing:.15em;color:#D8B58A;text-align:center}" +
     ".sz-mute{position:absolute;right:14px;top:52px;font-size:.75rem;color:#D8D3C8;background:rgba(10,10,10,.62);border:1px solid rgba(255,255,255,.08);padding:4px 10px;pointer-events:none;animation:szHint 2.4s ease forwards}" +
     ".sz-hint{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);max-width:calc(100% - 40px);text-align:center;font-size:.76rem;color:#D8D3C8;background:rgba(10,10,10,.62);border:1px solid rgba(255,255,255,.08);padding:6px 12px;pointer-events:none;animation:szHint 9s ease forwards}" +
