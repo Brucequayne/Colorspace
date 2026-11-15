@@ -14,6 +14,7 @@
     enter: function (opt) {
       SZ.main.ui.innerHTML = "";
       SZ.audio.ambience(null);
+      SZ.audio.musicStart();   // neuer Lauf, neuer (gleichbleibender) Soundtrack
       var arena = opt && opt.arena ? new SZ.arena.Arena(opt.arena) : SZ.arena.active();
       var world = new SZ.World(arena), sp = world.arena.spawn;
       world.startGrowth(sp[0], sp[1] - 4);
@@ -44,7 +45,7 @@
       w.update(dt);
       p.update(dt, SZ.input);
       // Ambiente blendet mit dem Aufprall ein
-      if (S.hit) { var amb = w.ambience(p.x, p.y), k = Math.min(1, (S.t - IMPACT) / 1.5); amb.wind *= k; amb.waterfall *= k; SZ.audio.ambience(amb); }
+      if (S.hit) { var amb = w.ambience(p.x, p.y), k = Math.min(1, (S.t - IMPACT) / 1.5); amb.wind *= k; amb.waterfall *= k; SZ.audio.ambience(amb); SZ.audio.musicLevel(0.4, 1.2); }
       // Übergang in die Arena, sobald alles gewachsen ist
       if (S.hit && w.growthDone()) SZ.main.go("arena", { world: w, player: p, back: S.back });
     },

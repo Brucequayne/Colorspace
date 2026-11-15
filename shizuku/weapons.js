@@ -14,8 +14,17 @@
   SZ.WEAPONS = {
     katana: {
       name: function () { return L2("Katana", "Katana"); },
-      dmg: 10, reach: 21, arc: 130, speed: 1, weight: 1, blade: 14,
+      dmg: 10, reach: 21, arc: 130, speed: 1, weight: 1, blade: 14, knock: 1, sheath: true,
       style: { blade: "#DCE3E8", edge: "#8E99A3", shine: "#FFFFFF", guard: "#C9A445", grip: "#1E1A1C", wrap: "#5B4A3A" },
+      attacks: ["kesa", "tsuki", "kaiten"],
+      blocks: ["kamae", "ukenagashi", "ashisabaki"]
+    },
+    // Yari (Speer): gleiche Steuerung wie das Katana, aber mehr Reichweite, weniger Schaden, stärkerer Rückstoß.
+    // Kein Ziehen nötig. Benutzt vorerst die Katana-Sounds.
+    yari: {
+      name: function () { return L2("Yari (Speer)", "Yari (spear)"); },
+      dmg: 7, reach: 31, arc: 110, speed: 0.92, weight: 1.1, blade: 24, knock: 1.8, spear: true,
+      style: { blade: "#D4DBE0", edge: "#7E8993", shine: "#FFFFFF", guard: "#2A1C16", grip: "#6A4A30", wrap: "#4A3020" },
       attacks: ["kesa", "tsuki", "kaiten"],
       blocks: ["kamae", "ukenagashi", "ashisabaki"]
     },
@@ -30,7 +39,16 @@
       blocks: ["kamae", "ukenagashi", "ashisabaki"]
     }
   };
-  SZ.WEAPON_ORDER = ["katana", "yumi"];
+  // Loadout: zwei Waffen-Slots (Tasten 1 / 2), im Menü wählbar, im Browser gespeichert
+  var LKEY = "shizuku.loadout";
+  SZ.loadout = {
+    all: ["katana", "yari", "yumi"],
+    get: function () {
+      try { var a = JSON.parse(localStorage.getItem(LKEY)); if (a && a.length === 2 && SZ.WEAPONS[a[0]] && SZ.WEAPONS[a[1]] && a[0] !== a[1]) return a; } catch (e) {}
+      return ["katana", "yumi"];
+    },
+    set: function (a) { try { localStorage.setItem(LKEY, JSON.stringify(a)); } catch (e) {} }
+  };
 
   // Werte des Samurai
   SZ.PLAYER = {

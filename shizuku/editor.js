@@ -260,6 +260,7 @@
       if (!E) E = { tool: "brush", tile: "m", brush: "meadow", obj: "toro", ov: 0, bsize: 14, tsize: 1, dens: 5, wind: 1, grid: false, timeRun: false, timeSpeedV: 0.5, undo: [], acc: 0, drag: null, stroke: false };
       SZ.main.setSidebar(PANEL);
       SZ.audio.ambience(null);
+      SZ.audio.musicStop();
       if (!E.arena || !E.keep) loadArena(SZ.arena.working());
       E.keep = false;
       build();

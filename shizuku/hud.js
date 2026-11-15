@@ -16,7 +16,9 @@
   function icon(ctx, x, y, kind) {
     var p = SZ.pen(ctx);
     p.rect(x - 1, y - 1, 13, 13, "#0A0808"); p.rect(x, y, 11, 11, "#1E1A18");
-    if (kind === "bow") {
+    if (kind === "spear") {
+      p.line(x + 1, y + 10, x + 8, y + 3, "#8A6440"); p.line(x + 8, y + 3, x + 10, y + 1, "#DCE3E8"); p.px(x + 10, y + 0, "#FFFFFF"); p.px(x + 7, y + 4, "#B8302A");
+    } else if (kind === "bow") {
       var pts = [[3, 1], [4, 2], [5, 4], [5, 6], [5, 8], [4, 9], [3, 10]];
       pts.forEach(function (q) { p.px(x + q[0] + 1, y + q[1], "#C9A06A"); });
       p.line(x + 4, y + 1, x + 4, y + 10, "#E8E0CC"); p.line(x + 3, y + 5, x + 9, y + 5, "#9A8060"); p.px(x + 9, y + 5, "#DCE3E8");
@@ -26,6 +28,7 @@
     }
   }
 
+  SZ.weaponIcon = function (ctx, x, y, id) { var W = SZ.WEAPONS[id]; icon(ctx, x, y, W.type === "bow" ? "bow" : W.spear ? "spear" : "katana"); };
   SZ.hud = {
     reset: function () { chip = 1; chipT = 0; lastHp = 1; },
     draw: function (ctx, pl, dt) {
@@ -42,7 +45,13 @@
       var back = pl.exhausted ? (Math.floor(Date.now() / 250) % 2 ? "#5A1C16" : "#3A1410") : "#24201A";
       bar(ctx, x, y + 7, 74, 3, e, low ? "#8A7A5A" : "#E2D29A", low ? null : "#FFF4C8", back);
       ctx.fillStyle = "#0A0808"; ctx.fillRect(x + Math.round(74 / 3), y + 7, 1, 3); ctx.fillRect(x + Math.round(74 * 2 / 3), y + 7, 1, 3);
-      icon(ctx, x + 80, y - 1, pl.weapon.type === "bow" ? "bow" : "katana");
+      // Zwei Slots: aktive Waffe hell, die andere gedimmt
+      (pl.slots || []).forEach(function (id, i) {
+        var W = SZ.WEAPONS[id], k = W.type === "bow" ? "bow" : W.spear ? "spear" : "katana";
+        ctx.globalAlpha = i === pl.wi ? 1 : 0.4;
+        icon(ctx, x + 80 + i * 15, y - 1, k);
+        ctx.globalAlpha = 1;
+      });
     }
   };
 })();

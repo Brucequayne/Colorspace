@@ -8,9 +8,9 @@ Kein Build-Schritt nötig: jede Datei hier ist direkt die Datei, die im Browser 
 |---|---|
 | `core.js` | Namensraum `SZ`, Arena-Maße (480 × 272 px, Kacheln 16 px), `L2`, Mathe, Zufall, Rauschen, Pixel-Helfer |
 | `input.js` | Tastatur und Maus, Umrechnung in Arena-Pixel |
-| `audio.js` | Sounds und Ambiente: Ereignis → Dateien (Varianten wechseln sich ab), Stereo, Loops, Stummschalten (M) |
+| `audio.js` | Sounds und Ambiente: Ereignis → Dateien (Varianten wechseln sich ab), Stereo, Loops, Soundtrack pro Lauf (`MUSIC`), Stummschalten (M) |
 | `audio/` | Alle Sound-Dateien (mp3) |
-| `weapons.js` | Waffen (Katana, Yumi) mit Werten, Angriffs- und Blockarten, Werte des Samurai (Leben, Energie, Dash) |
+| `weapons.js` | Waffen (Katana, Yari, Yumi) mit Werten, Loadout (2 Slots), Angriffs- und Blockarten, Werte des Samurai (Leben, Energie, Dash) |
 | `art-tiles.js` | Boden: Steinplatten, Tempelplatten, Kopfstein, Bruchstein, Kies, Moos, Erde, Sand, Wasser, Mauer, Abgrund; Klippen, Wasserfälle, Wolken |
 | `art-objects.js` | Objekte (Laterne, Torii, Kirschbäume, Laubbäume, Zypresse, Zeder, Ahorn, Kiefer, Bambus, Büsche, Felsen, Jizō, Makiwara) und Vegetation, Treffer-Effekte |
 | `art-samurai.js` | Figuren als kleines 3D-Modell (Samurai, Ronin), gerendert in 8 Richtungen; Schwert, Bogen, Pfeil, lange Haare |

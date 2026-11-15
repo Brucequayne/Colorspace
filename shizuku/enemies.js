@@ -40,7 +40,7 @@
     this.trail = []; this.atkAng = 0; this.hitDone = false;
     this.sc = D.scale || 1;
     world.parts.ink(x, y - 8 * this.sc, D.armored ? 30 : 18); world.parts.swirl(x, y, 8 * this.sc, 1, 0.7);
-    SZ.audio.play("spawn", { x: x });
+    SZ.audio.play(D.armored ? "spawn_heavy" : "spawn", { x: x });
   }
   var E = Enemy.prototype;
 

@@ -16,7 +16,7 @@
     this.world = world;
     this.x = x; this.y = y; this.vx = 0; this.vy = 0;
     this.face = Math.PI / 2; this.dir = 2; this.bodyAng = this.face;
-    this.wi = 0; this.weapon = SZ.WEAPONS.katana;
+    this.slots = SZ.loadout.get(); this.wi = 0; this.weapon = SZ.WEAPONS[this.slots[0]];
     this.act = null; this.guard = null;
     this.combo = 0; this.comboSide = 1; this.queued = false; this.comboT = 0;
     this.walkPh = 0; this.stepT = 0; this.idleT = 0;
@@ -33,10 +33,10 @@
 
   P.modeIndex = function (I) { return I.down("q") ? 1 : I.down("e") ? 2 : 0; };
   P.setWeapon = function (i) {
-    i = ((i % SZ.WEAPON_ORDER.length) + SZ.WEAPON_ORDER.length) % SZ.WEAPON_ORDER.length;
+    var n = this.slots.length; i = ((i % n) + n) % n;
     if (i === this.wi) { this.wantW = null; return; }
     if (this.act && (this.act.type === "atk" || this.act.type === "draw" || this.act.type === "loose")) { this.wantW = i; return; }
-    this.wantW = null; this.wi = i; this.weapon = SZ.WEAPONS[SZ.WEAPON_ORDER[i]];
+    this.wantW = null; this.wi = i; this.weapon = SZ.WEAPONS[this.slots[i]]; this.press = null;
   };
   P.spend = function () { this.enT = 0; };
 
@@ -134,7 +134,7 @@
         }
       } else {
         // Katana
-        if (I.lmbHit && this.sheathed) {
+        if (I.lmbHit && this.sheathed && Wp.sheath) {
           if (!ac) { this.act = ac = { type: "unsheathe", t: 0, dur: 0.5, drawn: false }; SZ.audio.play("unsheathe", { x: this.x }); }
         } else if (I.lmbHit) {
           if (!ac && this.guard) this.startAttack("kaeshi");
@@ -155,7 +155,7 @@
         }
       }
       this.guard = null;
-      if (!ac && I.rmb && !(this.sheathed && Wp.type !== "bow")) {
+      if (!ac && I.rmb && !(this.sheathed && Wp.sheath)) {
         var bk = Wp.blocks[mi];
         if (bk === "kamae") this.guard = "kamae";
         else if (I.rmbHit && bk === "ukenagashi") this.startParry();
@@ -327,7 +327,7 @@
       var a0 = f - Math.PI * 0.7, a1 = f + 0.45;
       return { hand: [m.lerp(h0[0], h1[0], e), m.lerp(h0[1], h1[1], e), m.lerp(h0[2], h1[2], e) + Math.sin(e * Math.PI) * 3], ang: a0 + (a1 - a0) * e, tilt: m.lerp(0.1, -0.55, e), swinging: u < 1, flash: u > 0.85 && u < 1.15 };
     }
-    if (this.sheathed && this.weapon.type !== "bow") return { sheathed: true };
+    if (this.sheathed && this.weapon.sheath) return { sheathed: true };
     if (ac && ac.type === "charge") {
       // Stich aufladen: Klinge nach hinten gezogen, Spitze nach vorn; voll geladen zittert sie
       var q2 = m.clamp(ac.t / SZ.ATTACKS.tsuki.chargeTime, 0, 1), tr = ac.full ? (Math.random() - 0.5) * 0.08 : 0;
@@ -379,7 +379,8 @@
       if (e.dead || ac.hits.indexOf(e) >= 0 || !inArc(e.x, e.y, 3 + (e.D.radius - 4))) return;
       ac.hits.push(e);
       var mul = ac.countered ? ac.A.counterMul || 2.4 : 1;
-      e.hurt(ac.dmg * mul, Math.atan2(e.y - self.y, e.x - self.x), ac.kind === "kaiten" ? 1.3 : ac.countered ? 1.8 : ac.kind === "tsuki" ? 1 + ac.charge * 0.6 : 1, "sword");
+      var pow = (ac.kind === "kaiten" ? 1.3 : ac.countered ? 1.8 : ac.kind === "tsuki" ? 1 + ac.charge * 0.6 : 1) * (self.weapon.knock || 1);   // Speer: stärkerer Rückstoß
+      e.hurt(ac.dmg * mul, Math.atan2(e.y - self.y, e.x - self.x), pow, "sword");
       if (ac.countered) { w.parts.ring(e.x, e.y - 2, 20, 0.5, "rgba(170,240,255,"); SZ.main.slowmo(0.2, 0.25); w.shake = 4; }
       self.hitstop = ac.countered ? 0.1 : 0.05;
     });

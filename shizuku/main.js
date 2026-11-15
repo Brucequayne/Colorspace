@@ -30,6 +30,20 @@
     ".sz-pass input{width:96px;height:24px;background:#121212;border:1px solid #3A3A3A;border-radius:0;color:#E9E6DF;font:13px monospace;padding:0 6px;letter-spacing:.3em;outline:none}" +
     ".sz-pass input:focus{border-color:#777}.sz-no{animation:szNo .35s}" +
     "@keyframes szNo{25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}" +
+    // Loadout
+    ".sz-lo{position:absolute;inset:0;background:rgba(0,0,0,.72);display:flex;align-items:center;justify-content:center;animation:szIn .3s ease both;z-index:5}.sz-lo[hidden]{display:none}" +
+    ".sz-lo-box{width:min(620px,calc(100% - 32px));background:#161616;border:1px solid #3A3A3A;padding:20px 22px;color:#E4E0D8}" +
+    ".sz-lo-box h2{margin:0 0 14px;font:600 .8rem/1 var(--f-body,system-ui);letter-spacing:.3em;text-transform:uppercase;color:#CFCAC0}" +
+    ".sz-lo-box button{font:inherit;color:inherit;background:#1E1E1E;border:1px solid #3A3A3A;border-radius:0;cursor:pointer;text-align:left}" +
+    ".sz-lo-box button:hover{border-color:#8A857C}.sz-lo-box img{image-rendering:pixelated;width:39px;height:39px;display:block}" +
+    ".sz-lo-box kbd{font:600 .7rem/1 var(--f-body,system-ui);border:1px solid #6A665E;padding:2px 5px;color:#CFCAC0}" +
+    ".sz-lo-slots{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px}" +
+    ".sz-lo-slots button{display:flex;align-items:center;gap:10px;padding:8px 10px}.sz-lo-slots button[aria-pressed=true]{border-color:#E8A04A;background:#231C14}" +
+    ".sz-lo-list{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}" +
+    ".sz-lo-list button{display:flex;flex-direction:column;gap:6px;padding:10px}.sz-lo-list button.on{border-color:#6A665E;background:#1C1C1C}" +
+    ".sz-lo-list b{font-size:.9rem;display:flex;gap:6px;align-items:center}.sz-lo-list small{font-size:.72rem;color:#9A968E;line-height:1.35}" +
+    ".sz-lo-bar{display:grid;grid-template-columns:70px 1fr;align-items:center;gap:6px;font-size:.68rem;color:#9A968E}.sz-lo-bar i{height:4px;background:#2A2A2A;display:block}.sz-lo-bar u{display:block;height:100%;background:#D8C890;text-decoration:none}" +
+    ".sz-lo-hint{margin:12px 0 0;font-size:.74rem;color:#8E8A82}.sz-lo-close{margin-top:12px;padding:6px 16px}" +
     ".sz-toast{position:absolute;right:84px;bottom:92px;max-width:260px;background:#151515;border:1px solid #3A3A3A;padding:8px 12px;font-size:.8rem;color:#CFCAC0}" +
     ".sz-toast[hidden]{display:none}" +
     // Arena

@@ -98,6 +98,7 @@
       pl.control = true; pl.appear = 1;
       S = { world: world, player: pl, out: 0, back: opt && opt.back, wave: 0, between: true, points: 0, reinf: null, waveClock: 0 };
       SZ.hud.reset();
+      if (!opt || !opt.world) SZ.audio.musicStart();
       SZ.main.root.classList.add("sz-play");
       SZ.main.ui.innerHTML = '<div class="sz-top" title="' + L2("Energiepunkte", "Energy points") + '"><div><i></i><b>0</b></div><span></span></div>' +
         '<div class="sz-next"><kbd>E</kbd>' + L2("nächste Welle", "next wave") + '</div>' +
@@ -109,13 +110,15 @@
     state: function () { return S; },   // für Tests
     update: function (dt) {
       var I = SZ.input, w = S.world, p = S.player;
-      if (S.out > 0) { SZ.audio.ambience(null); S.out += SZ.main.realDt; if (S.out > 0.7) { if (S.back === "editor") { SZ.scenes.editor.resume(); SZ.main.go("editor"); } else SZ.main.go("menu", { fromGame: true }); } return; }
+      if (S.out > 0) { SZ.audio.ambience(null); SZ.audio.musicStop(); S.out += SZ.main.realDt; if (S.out > 0.7) { if (S.back === "editor") { SZ.scenes.editor.resume(); SZ.main.go("editor"); } else SZ.main.go("menu", { fromGame: true }); } return; }
       if (I.hit("Escape")) { S.out = 0.0001; p.control = false; return; }
       if (p.dead && p.deadT > 2.4) { S.out = 0.0001; return; }
       if (p.hitstop > 0) { p.hitstop -= dt; return; }
       w.update(dt);
       p.update(dt, I);
       SZ.audio.ambience(w.ambience(p.x, p.y));
+      // Musik: in der Welle voll, dazwischen leiser, nach dem Tod fast weg
+      SZ.audio.musicLevel(p.dead ? 0.12 : S.between ? 0.4 : 1, S.between ? 1.6 : 0.8);
       for (var i = w.enemies.length - 1; i >= 0; i--) { w.enemies[i].update(dt, p); if (w.enemies[i].gone) w.enemies.splice(i, 1); }
       w.tickObjects(dt);
       // Energiepunkte für besiegte Gegner

@@ -229,7 +229,22 @@
   function proj(dx, dy, dz) { return { x: dx, y: dy * SE - dz * CE, depth: dy * CE + dz * SE }; }
 
   // Schwert zeichnen: Griff am Punkt hand (Weltversatz), Klinge in Richtung ang (Welt-Ebene), Neigung tilt (−1..1)
+  // Speer: langer Holzschaft, kurze Stahlklinge mit rotem Büschel, Schaft ragt hinter die Hand
+  function drawSpear(ctx, ox, oy, hand, ang, tilt, w, flash) {
+    var st = w.style, L = w.blade, dx = Math.cos(ang), dy = Math.sin(ang), dz = tilt;
+    var nrm = Math.sqrt(dx * dx + dy * dy + dz * dz); dx /= nrm; dy /= nrm; dz /= nrm;
+    function P(k) { return proj(hand[0] + dx * k, hand[1] + dy * k, hand[2] + dz * k); }
+    var p = SZ.pen(ctx), butt = P(-9), h = P(0), neck = P(L - 6), tip = P(L);
+    p.line(ox + butt.x, oy + butt.y, ox + neck.x, oy + neck.y, st.grip);
+    p.px(ox + butt.x, oy + butt.y, st.wrap); var mid = P(L * 0.45); p.px(ox + mid.x, oy + mid.y, st.wrap);
+    var tuft = P(L - 6.5); p.px(ox + tuft.x, oy + tuft.y, "#B8302A"); p.px(ox + tuft.x, oy + tuft.y + 1, "#8A2220");
+    p.line(ox + neck.x + 0.5, oy + neck.y + 1, ox + tip.x + 0.5, oy + tip.y + 1, st.edge);
+    p.line(ox + neck.x, oy + neck.y, ox + tip.x, oy + tip.y, flash ? "#FFFFFF" : st.blade);
+    var sh = P(L - 2); p.px(ox + sh.x, oy + sh.y, st.shine);
+    return { tip: { x: ox + tip.x, y: oy + tip.y }, base: { x: ox + neck.x, y: oy + neck.y }, depth: (h.depth + tip.depth) / 2 };
+  }
   function drawSword(ctx, ox, oy, hand, ang, tilt, w, flash) {
+    if (w.spear) return drawSpear(ctx, ox, oy, hand, ang, tilt, w, flash);
     var st = w.style, L = w.blade;
     var dx = Math.cos(ang), dy = Math.sin(ang), dz = tilt;
     var nrm = Math.sqrt(dx * dx + dy * dy + dz * dz); dx /= nrm; dy /= nrm; dz /= nrm;

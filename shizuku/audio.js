@@ -4,6 +4,8 @@
      aber nie zweimal hintereinander dieselbe. Leichte Tonhöhen-Streuung für Lebendigkeit.
    - Stereo: Sounds mit Position (x in Arena-Pixeln) werden links/rechts verteilt.
    - Loops (Wind, Wasserfall) laufen nahtlos; der Wasserfall wird lauter, je näher man ihm kommt.
+   - Musik: pro Lauf ein Soundtrack aus MUSIC, nahtlos im Dauerloop. In der Welle voll,
+     zwischen den Wellen leiser, mit weichen Übergängen.
    - Taste M schaltet stumm (wird gemerkt).
    Browser erlauben Ton erst nach einer Nutzeraktion: SZ.audio.unlock() beim ersten Klick. */
 (function () {
@@ -31,15 +33,18 @@
     arrow_hit:   { f: ["Bow_ArrowShotimpacthit.mp3"], vol: 0.75, rate: [0.97, 1.03], offset: 0.78 },   // Datei hat ~0,8 s Anlauf vor dem Einschlag
     arrow_wood:  { f: ["Bow_ArrowShotimpactwood.mp3"], vol: 0.6, rate: [0.95, 1.05] },
     spawn:       { f: seq("Roninspawn", 4), vol: 0.6 },
+    spawn_heavy: { f: ["Heavy_Ronin_Spawn_1.mp3", "Heavy_Ronin_Spawn_2.mp3"], vol: 0.75 },
     step:        { f: seq("Characterstep", 7), vol: 0.32, rate: [0.94, 1.06] },
     step_grass:  { f: seq("step_mosundgras", 7), vol: 0.38, rate: [0.94, 1.06] },
     step_water:  { f: seq("step_water", 5), vol: 0.45, rate: [0.94, 1.06] }
   };
   var LOOPS = { wind: "Wind.mp3", waterfall: "Flowingwaterfall.mp3" };
+  // Soundtracks: jeder Lauf bekommt zufällig einen davon
+  var MUSIC = ["shizuku_OST_1.mp3"];
 
-  var ctx = null, master = null, sfxBus = null, ambBus = null, buffers = {}, last = {}, loops = {}, loading = false, muted = false;
+  var ctx = null, master = null, sfxBus = null, ambBus = null, musBus = null, mus = null, musWant = null, musLevel = 0, buffers = {}, last = {}, loops = {}, loading = false, muted = false;
   try { muted = localStorage.getItem("shizuku.mute") === "1"; } catch (e) {}
-  var volume = { sfx: 0.85, amb: 0.7 };
+  var volume = { sfx: 0.85, amb: 0.7, music: 0.5 };
 
   function load(file, cb) {
     if (buffers[file]) { if (buffers[file] !== "loading" && cb) cb(buffers[file]); return; }
@@ -77,13 +82,16 @@
         master = ctx.createGain(); master.gain.value = muted ? 0 : 1; master.connect(ctx.destination);
         sfxBus = ctx.createGain(); sfxBus.gain.value = volume.sfx; sfxBus.connect(master);
         ambBus = ctx.createGain(); ambBus.gain.value = volume.amb; ambBus.connect(master);
+        musBus = ctx.createGain(); musBus.gain.value = volume.music; musBus.connect(master);
       }
       if (ctx.state === "suspended") ctx.resume();
       if (!loading) {
         loading = true;
         Object.keys(SOUNDS).forEach(function (k) { SOUNDS[k].f.forEach(function (f) { load(f); }); });
         Object.keys(LOOPS).forEach(function (k) { load(LOOPS[k]); });
+        MUSIC.forEach(function (f) { load(f); });
       }
+      if (musWant) A.musicLevel(musLevel);
     },
     ready: function () { return !!ctx; },
     // Sound abspielen. opt: x (Arena-Pixel für Stereo), vol, rate. Rückgabe: Griff mit stop()
@@ -139,10 +147,33 @@
     },
     isMuted: function () { return muted; },
     loopsActive: function () { return Object.keys(loops).map(function (k) { return k + ":" + loops[k].g.gain.value.toFixed(2); }); },
-    music: function () { /* Soundtrack folgt */ },
+    // Soundtrack für einen neuen Lauf wählen (bleibt den ganzen Lauf gleich)
+    musicStart: function () {
+      if (mus && mus.src) { var old = mus; old.g.gain.setTargetAtTime(0, ctx.currentTime, 0.4); setTimeout(function () { try { old.src.stop(); } catch (e) {} }, 2500); }
+      mus = null; musWant = MUSIC[(Math.random() * MUSIC.length) | 0]; musLevel = 0;
+    },
+    // Lautstärke der Musik 0..1, weicher Übergang (tau Sekunden)
+    musicLevel: function (lv, tau) {
+      musLevel = lv;
+      if (!ctx || !musWant) return;
+      if (!mus) {
+        var buf = buffers[musWant]; if (!buf || buf === "loading") return;   // lädt noch, nächster Aufruf versucht es wieder
+        var src = ctx.createBufferSource(), g = ctx.createGain(), tr = trim(buf);
+        src.buffer = buf; src.loop = true; src.loopStart = tr.start; src.loopEnd = tr.end;
+        g.gain.value = 0; src.connect(g); g.connect(musBus); src.start(0, tr.start);
+        mus = { src: src, g: g, lv: -1 };
+      }
+      if (Math.abs(mus.lv - lv) > 0.001) { mus.g.gain.setTargetAtTime(lv, ctx.currentTime, tau || 0.9); mus.lv = lv; }
+    },
+    musicStop: function () {
+      musWant = null;
+      if (mus && ctx) { var old = mus; old.g.gain.setTargetAtTime(0, ctx.currentTime, 0.5); setTimeout(function () { try { old.src.stop(); } catch (e) {} }, 3000); }
+      mus = null;
+    },
     stopAll: function () {
       Object.keys(loops).forEach(function (k) { try { loops[k].src.stop(); } catch (e) {} });
       loops = {};
+      if (mus) { try { mus.src.stop(); } catch (e) {} } mus = null; musWant = null;
       if (ctx && ctx.state === "running") ctx.suspend();
     }
   };
