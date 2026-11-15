@@ -2,7 +2,7 @@
    Namensraum SZ, feste Maße der Arena, Sprache (L2), Mathe-Helfer, Zufall mit Startwert und Rauschen. */
 (function () {
   var SZ = window.SZ = window.SZ || {};
-  SZ.VERSION = "0.15.2";
+  SZ.VERSION = "0.16";
   SZ.scenes = {};   // menu, intro, arena, editor (je eigene Datei)
 
   // Interne Auflösung: die Arena füllt genau dieses Bild, es wird pixelgenau hochskaliert.

@@ -135,7 +135,7 @@
         for (var e = 0; e < self.enemies.length; e++) {
           var en = self.enemies[e];
           if (en.dead || r.hit.indexOf(en) >= 0) continue;
-          if (Math.abs(en.x - r.x) < 6 && r.y > en.y - 9 && r.y < en.y + 5) {
+          if (Math.abs(en.x - r.x) < 6 * en.sc && r.y > en.y - 9 * en.sc && r.y < en.y + 5) {
             r.hit.push(en);
             en.hurt(r.dmg, r.ang, 0.6 + r.power, "arrow");
             if (r.power < 0.85 || r.hit.length > 2) { r.dead = true; break; }

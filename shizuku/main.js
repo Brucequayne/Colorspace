@@ -35,7 +35,16 @@
     // Arena
     ".sz-wave{position:absolute;left:50%;top:18%;transform:translateX(-50%);font-size:.85rem;letter-spacing:.35em;color:#EDE6D6;text-shadow:0 1px 6px #000;pointer-events:none;animation:szWave 2.6s ease forwards;white-space:nowrap}.sz-wave b{display:block;text-align:center;font:300 2.2rem/1.1 'Hiragino Mincho ProN','Yu Mincho','Noto Serif JP',serif;letter-spacing:0;margin-bottom:4px}" +
     "@keyframes szWave{0%{opacity:0;transform:translate(-50%,6px)}15%,70%{opacity:1;transform:translate(-50%,0)}100%{opacity:0}}" +
-    ".sz-mute{position:absolute;right:14px;top:12px;font-size:.75rem;color:#D8D3C8;background:rgba(10,10,10,.62);border:1px solid rgba(255,255,255,.08);padding:4px 10px;pointer-events:none;animation:szHint 2.4s ease forwards}" +
+    ".sz-top{position:absolute;right:14px;top:10px;text-align:right;pointer-events:none;color:#EDE6D6;text-shadow:0 1px 4px #000}" +
+    ".sz-top div{display:flex;align-items:center;justify-content:flex-end;gap:7px;font:600 .95rem/1 var(--f-body,system-ui);font-variant-numeric:tabular-nums}" +
+    ".sz-top i{width:9px;height:9px;background:#F2C66A;transform:rotate(45deg);box-shadow:0 0 8px rgba(255,200,100,.7)}" +
+    ".sz-top span{display:block;margin-top:5px;font-size:.72rem;color:#BDB6A8;letter-spacing:.04em}" +
+    ".sz-top em{position:absolute;right:0;top:-2px;font-style:normal;font-size:.8rem;color:#FFD88A;animation:szPop 1.4s ease-out forwards}" +
+    "@keyframes szPop{0%{opacity:0;transform:translateY(8px)}15%{opacity:1}100%{opacity:0;transform:translateY(-18px)}}" +
+    ".sz-next{position:absolute;left:50%;bottom:52px;transform:translateX(-50%);display:flex;align-items:center;gap:10px;font-size:.85rem;letter-spacing:.12em;color:#EDE6D6;text-shadow:0 1px 4px #000;pointer-events:none;animation:szBreath 2.4s ease-in-out infinite}" +
+    ".sz-next[hidden]{display:none}.sz-next kbd{font:600 .8rem/1 var(--f-body,system-ui);border:1px solid rgba(255,255,255,.55);padding:4px 7px;background:rgba(10,10,10,.5)}" +
+    ".sz-wave i{display:block;font-style:normal;margin-top:4px;font-size:.72rem;letter-spacing:.15em;color:#D8B58A;text-align:center}" +
+    ".sz-mute{position:absolute;right:14px;top:52px;font-size:.75rem;color:#D8D3C8;background:rgba(10,10,10,.62);border:1px solid rgba(255,255,255,.08);padding:4px 10px;pointer-events:none;animation:szHint 2.4s ease forwards}" +
     ".sz-hint{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);max-width:calc(100% - 40px);text-align:center;font-size:.76rem;color:#D8D3C8;background:rgba(10,10,10,.62);border:1px solid rgba(255,255,255,.08);padding:6px 12px;pointer-events:none;animation:szHint 9s ease forwards}" +
     "@keyframes szHint{0%{opacity:0}8%,75%{opacity:1}100%{opacity:0}}";
 

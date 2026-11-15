@@ -20,7 +20,7 @@ Kein Build-Schritt nötig: jede Datei hier ist direkt die Datei, die im Browser 
 | `particles.js` | Blätter, Staub, Spritzer, Ringe, Stroh, Funken, Nachbilder |
 | `world.js` | Spielwelt: zeichnet alles in der richtigen Reihenfolge, Wachstum |
 | `player.js` | Samurai: Bewegung, Dash, Angriffe, Konter, Blocks, Bogen, Leben, Energie |
-| `enemies.js` | Gegner und KI (Ronin) |
+| `enemies.js` | Gegner und KI (Ronin, Heavy Ronin) |
 | `hud.js` | Lebens- und Energiebalken, Waffensymbol |
 | `scene-menu.js` | Menü (雫, Gliederpuppe, versteckter Dev-Zugang) |
 | `scene-intro.js` | Übergang: Tropfen fällt, Arena wächst |

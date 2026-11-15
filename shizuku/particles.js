@@ -50,6 +50,10 @@
   P.ink = function (x, y, n, col) {
     for (var i = 0; i < n; i++) { var a = Math.random() * 6.28, s = 6 + Math.random() * 22; this.add({ type: "ink", x: x + Math.cos(a) * 3, y: y + Math.sin(a) * 2, z: 2 + Math.random() * 16, vx: Math.cos(a) * s, vy: Math.sin(a) * s * 0.5, vz: 4 + Math.random() * 10, life: 0.6 + Math.random() * 0.7, r: 2 + Math.random() * 3, col: col || "20,16,18" }); }
   };
+  // Energie-Kugel fliegt im Bogen zur Punkteanzeige oben rechts
+  P.orb = function (x, y, tx, ty) {
+    this.add({ type: "orb", x: x, y: y, z: 0, sx: x + (Math.random() - 0.5) * 16, sy: y + (Math.random() - 0.5) * 10, tx: tx, ty: ty, cx: x + (Math.random() - 0.5) * 120, cy: Math.min(y, ty) - 30 - Math.random() * 50, life: 0.7 + Math.random() * 0.5, delay: Math.random() * 0.25 });
+  };
   // Gischt am Wasserfall
   P.mist = function (x, y) { this.add({ type: "mist", x: x, y: y, z: 0, vx: (Math.random() - 0.5) * 6, vy: 6 + Math.random() * 8, vz: 0, life: 1.4 + Math.random(), r: 2 + Math.random() * 3 }); };
 
@@ -65,6 +69,9 @@
           p.z += (p.vz + Math.sin(p.ph * 1.3) * 4) * dt;
           if (p.z <= 0) { p.z = 0; p.ground = p.age; if (world && world.arena.tilePx(p.x, p.y) === "w") { p.float = true; } }
         } else if (p.float) { p.x += 3 * wind * dt; }
+      } else if (p.type === "orb") {
+        var u = Math.max(0, (p.age - p.delay) / (p.life - p.delay)), e = u * u * (3 - 2 * u);
+        p.x = (1 - e) * (1 - e) * p.sx + 2 * (1 - e) * e * p.cx + e * e * p.tx; p.y = (1 - e) * (1 - e) * p.sy + 2 * (1 - e) * e * p.cy + e * e * p.ty;
       } else if (p.type === "ring" || p.type === "ghost" || p.type === "swirl") {
         // nur Zeit
       } else if (p.type === "wind") {
@@ -126,6 +133,7 @@
         ctx.fillRect(x, y, f ? 2 : 1, f ? 1 : 2);
       } else if (p.type === "dust") { ctx.globalAlpha = k * 0.7; ctx.fillStyle = p.col; ctx.fillRect(x, y, 1, 1); ctx.globalAlpha = 1; }
       else if (p.type === "drop" || p.type === "straw") { ctx.fillStyle = p.col; ctx.fillRect(x, y, 1, p.type === "straw" && !p.small ? 2 : 1); }
+      else if (p.type === "orb") { ctx.fillStyle = "rgba(255,214,120,0.35)"; ctx.fillRect(x - 1, y - 1, 3, 3); ctx.fillStyle = "#FFF0C0"; ctx.fillRect(x, y, 1, 1); }
       else if (p.type === "ink") { ctx.fillStyle = "rgba(" + p.col + "," + (0.7 * k) + ")"; var rr = Math.round(p.r * (1 + (1 - k) * 1.2)); ctx.fillRect(x - rr, y - rr, rr * 2, rr * 2); }
       else if (p.type === "mist") { ctx.fillStyle = "rgba(220,236,240," + (0.35 * k) + ")"; var r3 = Math.round(p.r * (1 + (1 - k))); ctx.fillRect(x - r3, y - r3, r3 * 2, r3); }
       else if (p.type === "spark") { ctx.globalAlpha = k; ctx.fillStyle = p.col; ctx.fillRect(x, y, 1, 1); ctx.globalAlpha = 1; }

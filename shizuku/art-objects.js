@@ -254,6 +254,41 @@
         else { for (var i = 0; i < 7; i++) stone(p, 12 + rnd() * 14, 30 + rnd() * 3, 2 + rnd() * 2, 2 + rnd() * 2, s + i, false); }  // Kiesel
       }
     },
+    fence: {
+      name: function () { return L2("Roter Holzzaun", "Red wooden fence"); },
+      w: 32, h: 44, ax: 16, ay: 42, variants: 4, fx: { chips: ["#B5402C", "#D4593C", "#8A2C1F", "#1F1B1B"] },
+      solidV: [
+        [[-11, -1, 3], [-4, -1, 3], [4, -1, 3], [11, -1, 3]],
+        [[-5, -1, 3], [4, -1, 3]],
+        [[0, -1, 3], [0, -8, 3], [0, -15, 3], [0, -22, 3], [0, -29, 3]],
+        [[0, -1, 2]]
+      ],
+      draw: function (p, ctx, rnd, v) {
+        var red = "#B5402C", rl = "#D4593C", rd = "#8A2C1F", blk = "#1F1B1B", bl = "#3A3434";
+        function post(x, base, h) {
+          p.rect(x, base - h, 2, h, red); p.px(x, base - h, rl); p.rect(x, base - h + 1, 1, h - 1, rl); p.rect(x + 1, base - h + 2, 1, h - 2, rd);
+          p.rect(x - 1, base - h - 2, 4, 2, blk); p.rect(x - 1, base - h - 2, 4, 1, bl);   // Kappe
+          p.rect(x - 1, base - 1, 4, 1, "#2A2422");                                        // Fuß
+        }
+        if (v === 0 || v === 1) {
+          var x0 = v === 0 ? 2 : 9, x1 = v === 0 ? 29 : 22, base = 42;
+          p.rect(x0, base - 9, x1 - x0 + 2, 2, red); p.rect(x0, base - 9, x1 - x0 + 2, 1, rl); p.rect(x0, base - 7, x1 - x0 + 2, 1, rd);   // oberer Riegel
+          p.rect(x0, base - 4, x1 - x0 + 2, 1, rd);                                                                                      // unterer Riegel
+          var xs = v === 0 ? [2, 11, 20, 29] : [9, 22];
+          xs.forEach(function (x) { post(x, base, 11); });
+        } else if (v === 2) {
+          // Zaun nach Norden (längs): Pfosten hintereinander, Riegel als senkrechte Linien
+          var bases = [12, 22, 32, 42];
+          bases.forEach(function (b, i) {
+            post(15, b, 7);
+            if (i < 3) { p.rect(17, b - 6, 1, 10, rl); p.rect(18, b - 6, 1, 10, rd); p.rect(17, b - 2, 2, 1, rd); }   // Riegel zur nächsten Stütze
+          });
+        } else {
+          post(15, 42, 12);
+          p.rect(13, 34, 6, 1, "#C8A85A"); p.px(13, 35, "#C8A85A"); p.px(18, 35, "#A88A48"); p.px(13, 36, "#E8E0CC"); p.px(18, 37, "#E8E0CC");   // Seil mit Papierstreifen
+        }
+      }
+    },
     jizo: {
       name: function () { return L2("Jizō-Statue", "Jizō statue"); },
       w: 12, h: 18, ax: 6, ay: 17, variants: 1, solid: [[0, -2, 4]], fx: { chips: STONE, sparks: true },

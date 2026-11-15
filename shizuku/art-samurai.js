@@ -28,12 +28,16 @@
     straw: ["#6E5626", "#A08038", "#C8A44E", "#E4C878"],
     rag: ["#2E2A26", "#4C443A", "#6C6252", "#8C806C"],
     ash: ["#141414", "#22221F", "#34332E", "#4A4842"],
-    rope: ["#3A2A1A", "#5A4228", "#7A5C38", "#9A7A4E"]
+    rope: ["#3A2A1A", "#5A4228", "#7A5C38", "#9A7A4E"],
+    armor: ["#101114", "#1E2027", "#33363F", "#555A66"],
+    lace: ["#3A0E0C", "#6A1A15", "#962A1F", "#C04230"]
   };
   // Aussehen je Figur
   var LOOKS = {
     samurai: { torso: "kamishimo", sleeve: "ivory", legs: "indigo", wings: "red", saya: true, hat: false, knot: false },
-    ronin: { torso: "kimono", sleeve: "rag", legs: "ash", wings: null, saya: true, hat: true, knot: false, eyes: false }
+    ronin: { torso: "kimono", sleeve: "rag", legs: "ash", wings: null, saya: true, hat: true, knot: false, eyes: false },
+    // Heavy Ronin: lackierte Rüstung mit roter Schnürung, Schulterplatten, Hüftschurz, Stirnband, 30 % größer
+    heavy: { torso: "armor", sleeve: "armor", legs: "ash", wings: null, sode: true, kusazuri: true, saya: true, hat: false, hachimaki: true, scale: 1.3 }
   };
 
   // ---------- SDF-Grundformen ----------
@@ -111,6 +115,8 @@
     add(ecyl(0, ln * 0.6, 3.9, 2.7, 12 + cz, 19.2 + cz + P.breathe), "torso");
     // Kataginu-Schulterflügel
     if (L.wings) add(box(0, ln * 0.65, 19.3 + cz + P.breathe, 7.2, 1.3, 0.55), L.wings);
+    if (L.sode) { add(box(-5.1, ln * 0.6, 17.3 + cz + P.breathe, 1.9, 1.7, 2.4), "armor"); add(box(5.1, ln * 0.6, 17.3 + cz + P.breathe, 1.9, 1.7, 2.4), "armor"); }
+    if (L.kusazuri) add(ecyl(0, ln * 0.5, 4.9, 3.7, 7.8 + cz, 11.2 + cz), "armor");
     // Arme (weite Ärmel) und Hände
     [[-1, P.hl], [1, P.hr]].forEach(function (A) {
       var sh = [A[0] * 4.4, ln * 0.6, 18.2 + cz + P.breathe], h = [A[1][0], A[1][1] + ln * 0.5, A[1][2] + cz];
@@ -132,16 +138,20 @@
 
   // Material mit Details (Gesicht, V-Kragen, Wappen)
   function material(name, x, y, z, M) {
+    // Rüstungsplatten mit waagerechter Schnürung
+    if (name === "armor") return (((z - M.cz) * 1.15) % 1 + 1) % 1 < 0.2 ? "lace" : "armor";
     if (name === "head") {
       var hy = y - (M.ln * 0.8 + 0.2), hz = z - (23.6 + M.cz + M.P.breathe);
       if (hy < 0.9 - Math.max(0, -hz) * 0.5 || hz > 1.5) return "hair";
       if (M.L.eyes !== false && hy > 1.5 && Math.abs(hz + 0.1) < 0.55 && Math.abs(Math.abs(x) - 1.45) < 0.55) return "eye";
       if (M.L.hat && hy > 1 && hz < 0.6 && hz > -0.4) return "hair";
+      if (M.L.hachimaki && hz > 0.55 && hz < 1.2) return "white";
       if (hy > 2 && Math.abs(hz - 0.85) < 0.3 && Math.abs(Math.abs(x) - 1.5) < 0.8) return "hair";
       return "skin";
     }
     if (name === "torso") {
       var ty = y - M.ln * 0.6, tz = z - M.cz;
+      if (M.L.torso === "armor") return material("armor", x, y, z, M);
       if (M.L.torso === "kimono") {
         if (ty > 0.8 && tz > 14.2 && Math.abs(x + (tz - 14) * 0.25) < (tz - 13.6) * 0.42) return Math.abs(x + (tz - 14) * 0.25) > (tz - 13.6) * 0.3 ? "ivory" : "skin";
         return "rag";
@@ -164,11 +174,12 @@
   function render(dir, P, L) {
     var M = model(P, L), prims = M.prims;
     var ang = dir * Math.PI / 4, fx = Math.cos(ang), fy = Math.sin(ang), rx = -fy, ry = fx;
-    var cv = SZ.canvas(SW, SH), img = cv.ctx.createImageData(SW, SH), d = img.data;
+    var sc = L.scale || 1, sw = Math.round(SW * sc), sh = Math.round(SH * sc), ax = Math.round(AX * sc), ay = Math.round(AY * sc);
+    var cv = SZ.canvas(sw, sh), img = cv.ctx.createImageData(sw, sh), d = img.data;
     var Lx = -0.5, Ly = 0.42, Lz = 0.76;
     function toModel(wx, wy, wz) { return [wx * rx + wy * ry, wx * fx + wy * fy, wz]; }
-    for (var py = 0; py < SH; py++) for (var px = 0; px < SW; px++) {
-      var sx = px + 0.5 - AX, sy = py + 0.5 - AY;
+    for (var py = 0; py < sh; py++) for (var px = 0; px < sw; px++) {
+      var sx = (px + 0.5 - ax) / sc, sy = (py + 0.5 - ay) / sc;
       var t = 22, hit = -1, hx = 0, hy = 0, hz = 0;
       for (var it = 0; it < 90 && t > -10; it++) {
         var wy = sy * SE + t * CE, wz = -sy * CE + t * SE;
@@ -185,16 +196,16 @@
       var v = 0.22 + lam * 0.85;
       var mat = material(prims[hit][1], hx, hy, hz, M), pal = PAL[mat] || PAL.red;
       var tone = v < 0.42 ? 0 : v < 0.68 ? 1 : v < 0.92 ? 2 : 3;
-      var c = SZ.hex(pal[tone]), i = (py * SW + px) * 4;
+      var c = SZ.hex(pal[tone]), i = (py * sw + px) * 4;
       d[i] = c[0]; d[i + 1] = c[1]; d[i + 2] = c[2]; d[i + 3] = 255;
     }
     cv.ctx.putImageData(img, 0, 0);
     SZ.outline(cv, "#0E0A0A");
-    return { cv: cv, sil: SZ.silhouette(cv) };
+    return { cv: cv, sil: SZ.silhouette(cv), ax: ax, ay: ay };
   }
 
   var FRAMES = { idle: 2, walk: 6, block: 1, parry: 1, atk: 1, dash: 1, bow: 1, windup: 1, stagger: 1, blockwalk: 6, bowwalk: 6 };
-  var USE = { samurai: ["idle", "walk", "block", "parry", "atk", "dash", "bow", "stagger", "blockwalk", "bowwalk"], ronin: ["idle", "walk", "atk", "windup", "stagger", "block"] };
+  var USE = { samurai: ["idle", "walk", "block", "parry", "atk", "dash", "bow", "stagger", "blockwalk", "bowwalk"], ronin: ["idle", "walk", "atk", "windup", "stagger", "block"], heavy: ["idle", "walk", "atk", "windup", "stagger"] };
   var cache = {}, queue = [];
   function frame(dir, anim, k, look) {
     look = look || "samurai";

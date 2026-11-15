@@ -1,7 +1,8 @@
 /* Shizuku – player.js
    Der Samurai.
    Laufen WASD · Blick zur Maus (8 Richtungen) · Leertaste Dash (kostet 33 % Energie)
-   Katana: Linksklick Angriff, Rechtsklick Block, Q bzw. E gehalten = Typ 2 bzw. 3,
+   Katana: Linksklick tippen = Hieb, Linksklick halten = Stich aufladen (loslassen = Stich),
+           Shift + Linksklick = Drehhieb, Rechtsklick Block (Q / E + Rechtsklick: Parade / Ausweichschritt),
            Rechtsklick halten + Linksklick = Konter (pariert im richtigen Moment, dann starker Gegenschlag)
    Yumi:   Linksklick halten zum Spannen, loslassen zum Schießen
    Waffe wechseln: 1 / 2 oder Mausrad.
@@ -39,13 +40,15 @@
   };
   P.spend = function () { this.enT = 0; };
 
-  P.startAttack = function (kind) {
+  P.startAttack = function (kind, charge) {
     var A = SZ.ATTACKS[kind], w = this.weapon, sp = w.speed || 1;
+    charge = charge || 0;
     if (kind === "kesa") { if (this.combo >= (A.combo || 1)) this.combo = 0; this.comboSide = this.combo % 2 === 0 ? 1 : -1; this.combo++; }
     else this.combo = 0;
     var arc = (A.arcDeg || w.arc * (A.arcMul || 1) * (kind === "kesa" && this.combo === 3 ? 1.25 : 1)) * Math.PI / 180;
     this.act = { type: "atk", kind: kind, A: A, t: 0, ang: this.face, arc: arc, side: kind === "kaeshi" ? 1 : this.comboSide, hits: [],
-      wind: A.wind / sp, swing: A.swing / sp, rec: A.rec / sp, dmg: w.dmg * A.dmgMul, countered: false };
+      wind: A.wind / sp, swing: A.swing / sp, rec: A.rec / sp, dmg: w.dmg * A.dmgMul * (1 + charge * (A.chargeDmg || 0)), countered: false,
+      charge: charge, lunge: A.lunge + charge * (A.chargeLunge || 0), reachBonus: (A.reachBonus || 0) + charge * (A.chargeReach || 0) };
     this.trail = [];
     this.spend();
     if (kind !== "kaeshi") SZ.audio.play(kind === "tsuki" ? "thrust" : kind === "kaiten" ? "swing_e" : "swing", { x: this.x });
@@ -116,9 +119,10 @@
       if (I.wheel && !ac) this.setWeapon(this.wi + (I.wheel > 0 ? 1 : -1));
       if (this.wantW != null) this.setWeapon(this.wantW);
       Wp = this.weapon;
+      if (Wp.type === "bow") this.press = null;
       var lock = ac && (ac.type === "atk" || ac.type === "unsheathe" || ac.type === "dash" || ac.type === "hurt" || ac.type === "dodge");
       if (!lock) this.face = Math.atan2(I.my - (this.y - 12), I.mx - this.x);
-      if ((I.hit(" ")) && (!ac || ac.type === "loose" || (ac.type === "atk" && ac.t > ac.wind + ac.swing))) { this.startDash(ix, iy); ac = this.act; }
+      if ((I.hit(" ")) && (!ac || ac.type === "loose" || ac.type === "charge" || (ac.type === "atk" && ac.t > ac.wind + ac.swing))) { this.startDash(ix, iy); ac = this.act; }
       var mi = this.modeIndex(I);
       if (Wp.type === "bow") {
         this.guard = null;
@@ -134,9 +138,20 @@
           if (!ac) { this.act = ac = { type: "unsheathe", t: 0, dur: 0.5, drawn: false }; SZ.audio.play("unsheathe", { x: this.x }); }
         } else if (I.lmbHit) {
           if (!ac && this.guard) this.startAttack("kaeshi");
-          else if (!ac) this.startAttack(Wp.attacks[mi]);
-          else if (ac.type === "atk" && ac.kind === "kesa" && Wp.attacks[mi] === "kesa" && ac.t > ac.wind) this.queued = true;
+          else if (!ac && I.down("Shift")) this.startAttack("kaiten");
+          else if (!ac) this.press = { t: 0, charging: false };      // Tippen oder Halten? Entscheidet sich beim Loslassen
+          else if (ac.type === "atk" && ac.kind === "kesa" && ac.t > ac.wind) this.queued = true;
           ac = this.act;
+        }
+        // Linksklick gehalten: nach 0,16 s Stich aufladen; losgelassen: Hieb bzw. Stich
+        if (this.press) {
+          var pr = this.press; pr.t += dt;
+          if (!I.lmb) {
+            if (pr.charging && this.act && this.act.type === "charge") { var cc = SZ.m.clamp(this.act.t / SZ.ATTACKS.tsuki.chargeTime, 0, 1); this.act = null; this.startAttack("tsuki", cc); }
+            else if (!pr.charging && !this.act) this.startAttack("kesa");
+            this.press = null; ac = this.act;
+          } else if (!pr.charging && pr.t >= 0.16 && !this.act) { pr.charging = true; this.act = ac = { type: "charge", t: 0, full: false }; this.spend(); }
+          else if (pr.charging && (!this.act || this.act.type !== "charge")) this.press = null;
         }
       }
       this.guard = null;
@@ -149,9 +164,9 @@
     }
 
     // Bewegung und Aktionen
-    // Sprint mit Shift: nur beim normalen Laufen (nicht in Deckung, beim Spannen oder Angreifen)
-    this.sprinting = this.control && I.down("Shift") && (ix || iy) && !this.guard && !this.act;
-    var spd = C.walk * (this.sprinting ? C.sprint : 1) * a.speedAt(this.x, this.y), tx = ix * spd, ty = iy * spd;
+    // Erschöpft: Energie ganz leer → 25 % langsamer, bis sie wieder lädt
+    this.exhausted = this.en < 1 && this.enT < C.regenDelay;
+    var spd = C.walk * (this.exhausted ? C.exhaustMul : 1) * a.speedAt(this.x, this.y), tx = ix * spd, ty = iy * spd;
     if (this.guard) { tx *= SZ.BLOCKS.kamae.moveMul; ty *= SZ.BLOCKS.kamae.moveMul; }
     ac = this.act;
     var snap = 14;
@@ -161,7 +176,7 @@
         if (ac.kind === "kaeshi" && ac.t >= ac.wind && ac.t - dt < ac.wind) SZ.audio.play("swing", { x: this.x, rate: ac.countered ? 0.92 : 1 });
         tx *= 0.3 / Wp.weight; ty *= 0.3 / Wp.weight;
         if (ac.t > ac.wind && ac.t < ac.wind + ac.swing) {
-          var lk = ac.A.lunge * (1 - (ac.t - ac.wind) / ac.swing);
+          var lk = ac.lunge * (1 - (ac.t - ac.wind) / ac.swing);
           tx += Math.cos(ac.ang) * lk; ty += Math.sin(ac.ang) * lk;
         }
         var end = ac.wind + ac.swing + ac.rec;
@@ -192,6 +207,13 @@
       } else if (ac.type === "loose") {
         tx *= 0.5; ty *= 0.5;
         if (ac.t > ac.dur) this.act = null;
+      } else if (ac.type === "charge") {
+        tx *= 0.5; ty *= 0.5;
+        if (!ac.full && ac.t >= SZ.ATTACKS.tsuki.chargeTime) {
+          ac.full = true; w.parts.swirl(this.x, this.y, 6, 1, 0.5);
+          var gp = this.swordPose(), tp = SZ.samurai.proj(gp.hand[0] + Math.cos(gp.ang) * 13, gp.hand[1] + Math.sin(gp.ang) * 13, gp.hand[2]);
+          w.parts.spark(this.x + tp.x, this.y + tp.y + 6, 6, 5, "#FFFFFF");
+        }
       } else if (ac.type === "unsheathe") {
         tx *= 0.6; ty *= 0.6;
         if (!ac.drawn && ac.t >= 0.32) {
@@ -217,13 +239,13 @@
       this.walkPh += moved / 22;
       this.stepT -= dt;
       if (this.stepT <= 0) {
-        this.stepT = this.sprinting ? 0.2 : 0.32;
+        this.stepT = 0.32;
         var tile = a.tilePx(this.x, this.y);
         if (tile === "w") { w.parts.ring(this.x, this.y, 7, 0.7); w.parts.splash(this.x, this.y, 2, 0.4); SZ.audio.play("step_water", { x: this.x }); }
-        else { if (this.sprinting) w.push(this.x, this.y, 10, 1.5, 0.4); w.parts.dust(this.x, this.y, this.sprinting ? 3 : 2, tile === "a" ? "#D6CCB0" : tile === "e" ? "#7A5E44" : tile === "g" ? "#B8B2A4" : "#A8A096");
+        else { w.parts.dust(this.x, this.y, 2, tile === "a" ? "#D6CCB0" : tile === "e" ? "#7A5E44" : tile === "g" ? "#B8B2A4" : "#A8A096");
           // Moos, Erde oder Pflanzen unter den Füßen → weicher Schritt
           var px = this.x, py = this.y, soft = tile === "m" || tile === "e" || a.veg.some(function (v) { return Math.abs(v.x - px) < 6 && Math.abs(v.y - py) < 4 && v.t !== "lotus" && v.t !== "leaves" && v.t !== "petals"; });
-          SZ.audio.play(soft ? "step_grass" : "step", { x: this.x, vol: this.sprinting ? 1.15 : 1 }); }
+          SZ.audio.play(soft ? "step_grass" : "step", { x: this.x }); }
       }
     }
     this.moving = moved > 0.2;
@@ -306,6 +328,11 @@
       return { hand: [m.lerp(h0[0], h1[0], e), m.lerp(h0[1], h1[1], e), m.lerp(h0[2], h1[2], e) + Math.sin(e * Math.PI) * 3], ang: a0 + (a1 - a0) * e, tilt: m.lerp(0.1, -0.55, e), swinging: u < 1, flash: u > 0.85 && u < 1.15 };
     }
     if (this.sheathed && this.weapon.type !== "bow") return { sheathed: true };
+    if (ac && ac.type === "charge") {
+      // Stich aufladen: Klinge nach hinten gezogen, Spitze nach vorn; voll geladen zittert sie
+      var q2 = m.clamp(ac.t / SZ.ATTACKS.tsuki.chargeTime, 0, 1), tr = ac.full ? (Math.random() - 0.5) * 0.08 : 0;
+      return { hand: Wv(3.4, 1.5 - q2 * 3.2, 14.2), ang: f + tr, tilt: -0.04, flash: ac.full && Math.floor(this.world.clock * 10) % 3 === 0 };
+    }
     if (ac && ac.type === "parry") { var pw = ac.t < ac.B.window; return { hand: Wv(1, 4, 16), ang: f - Math.PI / 2 + 0.7, tilt: 0.85, parry: pw }; }
     if (ac && (ac.type === "dodge" || ac.type === "dash")) return { hand: Wv(4, -1.5, 13), ang: f + Math.PI * 0.8, tilt: -0.3 };
     if (ac && ac.type === "hurt") return { hand: Wv(4.6, 0, 13), ang: f + 1.2, tilt: -0.6 };
@@ -322,6 +349,7 @@
       if (ac.type === "parry") return "parry";
       if (ac.type === "draw" || ac.type === "loose") return this.moving ? "bowwalk" : "bow";
       if (ac.type === "hurt") return "stagger";
+      if (ac.type === "charge") return "atk";
       if (ac.type === "unsheathe") return ac.t > 0.08 && ac.t < 0.45 ? "atk" : this.moving ? "walk" : "idle";
       return "dash";
     }
@@ -340,7 +368,7 @@
     var self = this, w = this.world, reach = this.weapon.reach;
     function inArc(tx, ty, extra) {
       var dist = m.dist(self.x, self.y, tx, ty), ang = Math.atan2(ty - self.y, tx - self.x);
-      if (ac.kind === "tsuki") return dist < reach + 10 + extra && Math.abs(m.angDiff(ac.ang, ang)) < 0.45;
+      if (ac.kind === "tsuki") return dist < reach + 10 + extra + (ac.reachBonus || 0) && Math.abs(m.angDiff(ac.ang, ang)) < 0.45;
       if (dist > reach + 6 + extra) return false;
       if (dist < 8) return true;
       var a0 = sp.s0, a1 = sp.cur, lo = Math.min(a0, a1), hi = Math.max(a0, a1), aa = ang;
@@ -348,10 +376,10 @@
       return aa <= hi + 0.15;
     }
     w.enemies.forEach(function (e) {
-      if (e.dead || ac.hits.indexOf(e) >= 0 || !inArc(e.x, e.y, 3)) return;
+      if (e.dead || ac.hits.indexOf(e) >= 0 || !inArc(e.x, e.y, 3 + (e.D.radius - 4))) return;
       ac.hits.push(e);
       var mul = ac.countered ? ac.A.counterMul || 2.4 : 1;
-      e.hurt(ac.dmg * mul, Math.atan2(e.y - self.y, e.x - self.x), ac.kind === "kaiten" ? 1.3 : ac.countered ? 1.8 : 1, "sword");
+      e.hurt(ac.dmg * mul, Math.atan2(e.y - self.y, e.x - self.x), ac.kind === "kaiten" ? 1.3 : ac.countered ? 1.8 : ac.kind === "tsuki" ? 1 + ac.charge * 0.6 : 1, "sword");
       if (ac.countered) { w.parts.ring(e.x, e.y - 2, 20, 0.5, "rgba(170,240,255,"); SZ.main.slowmo(0.2, 0.25); w.shake = 4; }
       self.hitstop = ac.countered ? 0.1 : 0.05;
     });
