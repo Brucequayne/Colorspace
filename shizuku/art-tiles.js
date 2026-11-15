@@ -241,16 +241,26 @@
             var es = isVoid(tx, ty + 1) ? T - 1 - ly : 99;
             if (isVoid(tx - 1, ty + 1)) es = Math.min(es, Math.max(lx, T - 1 - ly));
             if (isVoid(tx + 1, ty + 1)) es = Math.min(es, Math.max(T - 1 - lx, T - 1 - ly));
-            if (ev < 4) {
-              var en = noise(x / 3, y / 3, seed + 55);
-              if (ev < 1 + en * 3 && en > 0.35) a = 0;
-              else if (ev < 2 + en * 3) ao *= 0.72;
-            }
+            // Kante bleibt geschlossen (keine Löcher zum Himmel), nur ein dunkler Rand
+            if (ev < 1) ao *= 0.62; else if (ev < 2) ao *= 0.8;
             if (es < 1) col = [col[0] * 1.15, col[1] * 1.12, col[2] * 1.08];
           }
           if (ao < 1) col = [col[0] * ao, col[1] * ao, col[2] * ao];
         }
         d[i] = col[0]; d[i + 1] = col[1]; d[i + 2] = col[2]; d[i + 3] = a;
+      }
+    }
+
+    // ---------- Seitenkanten: schmale Felskante im Abgrund neben der Insel ----------
+    for (var sy2 = 0; sy2 < H; sy2++) {
+      var sty = (sy2 / T) | 0;
+      for (var sx2 = 0; sx2 < W; sx2++) {
+        var stx = (sx2 / T) | 0; if (tl(stx, sty) !== "v") continue;
+        var slx = sx2 - stx * T, j0 = (sy2 * W + sx2) * 4, sc = null;
+        var leftI = tl(stx - 1, sty) !== "v" && tl(stx - 1, sty) !== "w", rightI = tl(stx + 1, sty) !== "v" && tl(stx + 1, sty) !== "w";
+        if (leftI && slx < 2) sc = slx === 0 ? [72, 64, 58] : [40, 34, 32];
+        if (rightI && slx > T - 3) sc = slx === T - 1 ? [86, 78, 70] : [40, 34, 32];
+        if (sc) { var sn = (hash(sx2, sy2, seed + 57) - 0.5) * 14; d[j0] = sc[0] + sn; d[j0 + 1] = sc[1] + sn; d[j0 + 2] = sc[2] + sn; d[j0 + 3] = 255; }
       }
     }
 
@@ -263,9 +273,12 @@
         if (top === "v" || tl(ctx2, r + 1) !== "v") continue;
         var y0 = (r + 1) * T;
         // Abstand zur seitlichen Inselkante (für abgerundete Unterseite)
+        // Abstand zum Ende der Kante; geht die Insel dort eine Reihe tiefer weiter, wird nicht abgerundet (sonst Spalt)
         var dl = 0, dr = 0;
-        while (dl < 40 && tl(Math.floor((cx - dl - 1) / T), r) !== "v" && cx - dl - 1 >= 0) dl++;
-        while (dr < 40 && tl(Math.floor((cx + dr + 1) / T), r) !== "v" && cx + dr + 1 < W) dr++;
+        while (dl < 40 && cx - dl - 1 >= 0 && tl(Math.floor((cx - dl - 1) / T), r) !== "v" && tl(Math.floor((cx - dl - 1) / T), r + 1) === "v") dl++;
+        while (dr < 40 && cx + dr + 1 < W && tl(Math.floor((cx + dr + 1) / T), r) !== "v" && tl(Math.floor((cx + dr + 1) / T), r + 1) === "v") dr++;
+        var endL = cx - dl - 1 < 0 || tl(Math.floor((cx - dl - 1) / T), r) === "v", endR = cx + dr + 1 >= W || tl(Math.floor((cx + dr + 1) / T), r) === "v";
+        if (!endL) dl = 40; if (!endR) dr = 40;
         var edge = Math.min(dl, dr), taper = Math.sqrt(Math.min(1, (edge + 1) / 12));
         var depthPx = Math.round((16 + noise(cx / 5, r, seed + 61) * 12 + hash(cx, r, seed + 63) * 3) * taper) + 2;
         var isW = top === "w";

@@ -111,6 +111,9 @@ window.PATCHNOTES = {
 
   // ================= Spiele =================
   shizuku: [
+    { v: "0.13", t: "2026-11-15T00:57:00+01:00",
+      de: ["Map-Pool: das Spiel wählt die Arena zufällig aus einer Liste von Maps (vorerst nur der Tempel)", "Dev Tool: „Für Map-Pool exportieren“ erzeugt die Datei für neue Maps, Pool-Maps lassen sich zum Bearbeiten laden", "Inselränder am Abgrund sind jetzt geschlossen: keine Lücken mehr, durch die der Himmel scheint", "Klippen laufen an Stufen der Kante durchgehend weiter, seitliche Kanten haben eine schmale Felskante"],
+      en: ["Map pool: the game picks the arena at random from a list of maps (only the temple for now)", "Dev tool: “Export for map pool” creates the file for new maps, pool maps can be loaded for editing", "Island edges at the abyss are now closed: no more gaps where the sky shows through", "Cliffs continue across steps in the edge, side edges get a narrow rock rim"] },
     { v: "0.12", t: "2026-11-15T00:41:00+01:00",
       de: ["Starke Pfeile drücken den Wind jetzt zur Seite weg: Luftstreifen und Staub gleiten quer zur Flugbahn nach außen, wie eine Bugwelle", "Pfeile fliegen 30 % schneller", "Nachts leichtes blaues Mondlicht, der Mond wandert über den Himmel und wirft eigene Schatten", "Schatten am Morgen und Abend sind deutlich dicker", "Sprint mit Shift", "Langsameres Grundtempo beim Laufen", "Gehen in Deckung und mit gespanntem Bogen hat jetzt eine eigene Laufanimation"],
       en: ["Strong arrows now push the wind aside: streaks of air and dust glide outwards across the flight path, like a bow wave", "Arrows fly 30% faster", "Soft blue moonlight at night, the moon moves across the sky and casts its own shadows", "Morning and evening shadows are much thicker", "Sprint with shift", "Slower base walking speed", "Walking while blocking or with a drawn bow now has its own walk animation"] },

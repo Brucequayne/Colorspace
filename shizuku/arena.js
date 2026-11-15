@@ -177,7 +177,18 @@
   SZ.arena = {
     Arena: Arena,
     blank: function () { return new Arena({}); },
-    standard: function () { return SZ.ARENA_STANDARD ? new Arena(JSON.parse(JSON.stringify(SZ.ARENA_STANDARD))) : makeTemple(); },
+    // Map-Pool (arenas/pool.js): Liste aller Maps für alle Spieler
+    pool: function () {
+      var P = (SZ.ARENA_POOL && SZ.ARENA_POOL.length) ? SZ.ARENA_POOL : ["tempel"];
+      return P.map(function (e, i) { return { i: i, name: typeof e === "string" ? "Tempel" : (e.name || "Map " + (i + 1)), entry: e }; });
+    },
+    fromPool: function (i) {
+      var P = this.pool(), e = P[((i % P.length) + P.length) % P.length].entry;
+      return typeof e === "string" ? makeTemple() : new Arena(JSON.parse(JSON.stringify(e)));
+    },
+    // Zufällige Map aus dem Pool
+    standard: function () { return this.fromPool(Math.floor(Math.random() * this.pool().length)); },
+    // Im Dev Tool lokal gespeicherte Arena hat Vorrang (nur in diesem Browser), sonst Pool
     active: function () {
       var s = SZ.store.get(KEY);
       if (s) { try { return new Arena(JSON.parse(s)); } catch (e) {} }

@@ -12,7 +12,7 @@
     "art-objects.js",   // Objekte und Vegetation als Pixel-Sprites
     "art-samurai.js",   // Samurai in 8 Richtungen, Schwert
     "arena.js",         // Arena-Daten, Kacheln, Kollision, Speichern
-    "arenas/standard.js", // Standard-Arena (vom Dev Tool exportierbar)
+    "arenas/pool.js",   // Map-Pool: alle Arenen für alle Spieler
     "lighting.js",      // Tageszeit, Licht, Schatten
     "particles.js",     // Blätter, Staub, Spritzer, Stroh, Wind, Wirbel, Tinte
     "world.js",         // Spielwelt: zeichnet Insel, Objekte, Figuren, Pfeile

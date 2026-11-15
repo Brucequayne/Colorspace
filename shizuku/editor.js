@@ -21,7 +21,7 @@
     ".sz-ed-list .sw{width:30px;height:18px;border:1px solid #000}" +
     ".sz-ed-row{display:flex;align-items:center;gap:8px;margin:6px 0}.sz-ed-row label{flex:0 0 64px;color:#ACA89F}.sz-ed-row input[type=range]{min-width:0}.sz-ed-pre{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin:6px 0}.sz-ed-pre button{padding:5px 2px;font-size:.74rem}.sz-ed-row input[type=range]{flex:1;accent-color:#E8A04A}.sz-ed-row output{flex:0 0 42px;text-align:right;font-variant-numeric:tabular-nums}" +
     ".sz-ed-btns{display:grid;grid-template-columns:1fr 1fr;gap:4px}.sz-ed-btns .w{grid-column:1/-1}" +
-    ".sz-ed-btns .go{background:#E8A04A;color:#1C1D1C;border-color:#E8A04A;font-weight:600}" +
+    ".sz-ed-btns .go{background:#E8A04A;color:#1C1D1C;border-color:#E8A04A;font-weight:600}.sz-ed-btns .go2{border-color:#E8A04A;color:#F0C890}.sz-ed-btns select{width:100%}" +
     ".sz-ed-info{margin-top:12px;color:#8E8A82;font-size:.74rem;line-height:1.45}" +
     ".sz-ed-status{margin-top:8px;min-height:1.4em;color:#B9F0CF;font-size:.78rem}" +
     ".sz-ed-pos{position:absolute;right:10px;top:8px;font:12px monospace;color:#CFCAC0;background:rgba(0,0,0,.55);padding:3px 7px;pointer-events:none}";
@@ -109,22 +109,23 @@
       '<button type="button" data-a="grow">' + L2("Wachstum zeigen", "Show growth") + '</button>' +
       '<button type="button" data-a="undo">' + L2("Rückgängig", "Undo") + '</button>' +
       '<button type="button" class="w" data-a="save">' + L2("Speichern (dieser Browser)", "Save (this browser)") + '</button>' +
-      '<button type="button" data-a="std">' + L2("Standard laden", "Load default") + '</button>' +
+      '<select data-k="poolsel" class="w" aria-label="Map-Pool"></select>' +
+      '<button type="button" data-a="std">' + L2("Pool-Map laden", "Load pool map") + '</button>' +
       '<button type="button" data-a="blank">' + L2("Leere Arena", "Empty arena") + '</button>' +
-      '<button type="button" data-a="export">' + L2("Export JSON", "Export JSON") + '</button>' +
+      '<button type="button" class="w go2" data-a="export">' + L2("Für Map-Pool exportieren (.json)", "Export for map pool (.json)") + '</button>' +
       '<button type="button" data-a="import">' + L2("Import", "Import") + '</button>' +
-      '<button type="button" class="w" data-a="stdjs">' + L2("Als standard.js exportieren", "Export as standard.js") + '</button>' +
       '<button type="button" data-a="forget">' + L2("Lokale Arena löschen", "Forget local arena") + '</button>' +
       '<button type="button" data-a="menu">' + L2("← Menü", "← Menu") + '</button>' +
       '</div><input type="file" accept=".json,.js,application/json" hidden data-k="file">' +
       '<div class="sz-ed-status"></div>' +
       '<div class="sz-ed-info">' + L2(
-        "Abgrund (Boden oder Pinsel) macht die Insel kleiner, Wasser am Rand wird zum Wasserfall. Linke Maustaste malt bzw. setzt, rechte löscht. Mausrad: Variante (Objekte) bzw. Pinselgröße. Umschalt: Objekte am 8-px-Raster. Strg+Z: rückgängig.<br>„Speichern“ gilt nur in diesem Browser. Für alle: „Als standard.js exportieren“ und die Datei in den Ordner shizuku/arenas/ hochladen.",
-        "Abyss (floor or brush) shrinks the island, water at the edge becomes a waterfall. Left mouse paints or places, right deletes. Mouse wheel: variant (objects) or brush size. Shift: snap objects to 8 px. Ctrl+Z: undo.<br>“Save” only applies to this browser. For everyone: “Export as standard.js” and upload the file to the folder shizuku/arenas/.") + '</div>';
+        "Abgrund (Boden oder Pinsel) macht die Insel kleiner, Wasser am Rand wird zum Wasserfall. Linke Maustaste malt bzw. setzt, rechte löscht. Mausrad: Variante (Objekte) bzw. Pinselgröße. Umschalt: Objekte am 8-px-Raster. Strg+Z: rückgängig.<br>„Speichern“ gilt nur in diesem Browser. Für alle Spieler: „Für Map-Pool exportieren“ und die .json-Datei an Claude schicken, sie kommt dann in den Map-Pool.",
+        "Abyss (floor or brush) shrinks the island, water at the edge becomes a waterfall. Left mouse paints or places, right deletes. Mouse wheel: variant (objects) or brush size. Shift: snap objects to 8 px. Ctrl+Z: undo.<br>“Save” only applies to this browser. For all players: “Export for map pool” and send the .json file to Claude, it then goes into the map pool.") + '</div>';
     E.ui.innerHTML = h;
     E.ui.addEventListener("click", onClick);
     E.ui.addEventListener("input", onInput);
     E.ui.querySelector("[data-k=file]").addEventListener("change", onFile);
+    E.ui.querySelector("[data-k=poolsel]").innerHTML = SZ.arena.pool().map(function (p) { return '<option value="' + p.i + '">' + (p.i + 1) + ". " + p.name.replace(/</g, "") + "</option>"; }).join("");
     renderOpts(); syncUI();
   }
 
@@ -181,14 +182,10 @@
     else if (a === "undo") undo();
     else if (a === "grow") { var sp = E.arena.spawn; E.world.startGrowth(sp[0], sp[1] - 4); E.world.parts.splash(sp[0], sp[1] - 4, 20, 1); }
     else if (a === "save") { E.arena.time = E.world.time; status(SZ.arena.saveLocal(E.arena) ? L2("Gespeichert. Diese Arena wird jetzt in diesem Browser gespielt.", "Saved. This arena is now played in this browser.") : L2("Speichern nicht möglich.", "Could not save.")); }
-    else if (a === "std") { snapshot(); loadArena(SZ.arena.standard()); status(L2("Standard-Arena geladen (noch nicht gespeichert).", "Default arena loaded (not saved yet).")); }
+    else if (a === "std") { snapshot(); var ps = E.ui.querySelector("[data-k=poolsel]"); loadArena(SZ.arena.fromPool(+ps.value || 0)); status(L2("Pool-Map geladen (noch nicht gespeichert).", "Pool map loaded (not saved yet).")); }
     else if (a === "blank") { snapshot(); var t = E.world.time; loadArena(SZ.arena.blank()); E.world.time = E.arena.time = t; syncUI(); }
     else if (a === "forget") { SZ.arena.clearLocal(); status(L2("Lokale Arena gelöscht. Gespielt wird wieder die Standard-Arena.", "Local arena removed. The default arena is played again.")); }
-    else if (a === "export") { E.arena.time = E.world.time; download("shizuku-arena-" + (E.arena.name || "arena").replace(/[^a-z0-9]+/gi, "-").toLowerCase() + ".json", JSON.stringify(E.arena.serialize())); }
-    else if (a === "stdjs") {
-      E.arena.time = E.world.time;
-      download("standard.js", "/* Shizuku – Standard-Arena „" + E.arena.name.replace(/\*\//g, "") + "“, exportiert aus dem Dev Tool am " + (function (d) { function z(n) { return (n < 10 ? "0" : "") + n; } return d.getFullYear() + "-" + z(d.getMonth() + 1) + "-" + z(d.getDate()) + " " + z(d.getHours()) + ":" + z(d.getMinutes()); })(new Date()) + ".\n   Diese Datei in den Ordner shizuku/arenas/ hochladen. */\nwindow.SZ.ARENA_STANDARD = " + JSON.stringify(E.arena.serialize()) + ";\n", "text/javascript");
-    }
+    else if (a === "export") { E.arena.time = E.world.time; download("shizuku-map-" + (E.arena.name || "map").replace(/[^a-z0-9]+/gi, "-").toLowerCase() + ".json", JSON.stringify(E.arena.serialize())); }
     else if (a === "import") E.ui.querySelector("[data-k=file]").click();
     else if (a === "test") { E.arena.time = E.world.time; SZ.main.go("intro", { arena: E.arena.serialize(), back: "editor" }); }
     else if (a === "menu") SZ.main.go("menu");
