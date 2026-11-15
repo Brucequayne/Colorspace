@@ -68,13 +68,15 @@
   };
 
   // ---------- Treffer an Objekten: Wackeln und Partikel ----------
-  Wd.hitObject = function (o, hx, hy, power) {
+  Wd.hitObject = function (o, hx, hy, power, src) {
     var d = SZ.OBJECTS[o.t], fx = d.fx || {}, c = SZ.objCenter(o), p = this.parts;
     power = power || 1;
     o._rt = o._rt || {}; o._rt.shake = Math.min(1.4, 0.6 + power * 0.5); o._rt.flash = 0.7;
     var hz = Math.min(18, d.h * 0.35);
-    if (fx.straw) { p.straw(o.x, o.y - 12, 10); p.spark(o.x, o.y - 12, 12, 6); SZ.audio.play("hit_straw"); }
-    if (fx.chips) { p.chips(hx, hy, hz, Math.round(6 + power * 6), fx.chips); SZ.audio.play(fx.sparks ? "hit_stone" : "hit_wood"); }
+    if (fx.straw) { p.straw(o.x, o.y - 12, 10); p.spark(o.x, o.y - 12, 12, 6); }
+    if (fx.chips) p.chips(hx, hy, hz, Math.round(6 + power * 6), fx.chips);
+    // Klang: Pfeil schlägt ein bzw. Klinge trifft Holz/Stroh (für Stein gibt es noch keinen Sound)
+    if (fx.straw || (fx.chips && !fx.sparks)) SZ.audio.play(src === "arrow" ? "arrow_wood" : fx.straw ? "hit_straw" : "hit_wood", { x: o.x });
     if (fx.sparks) p.spark(hx, hy, hz, Math.round(4 + power * 5));
     var cols = CANOPY_COLS[o.t];
     if ((fx.leaves || fx.petals) && cols) p.leafBurst(o.x, o.y - 2, Math.round(4 + power * 6), cols, d.h * 0.45, d.h * 0.8, d.w * 0.6);
@@ -148,7 +150,7 @@
           var c = self.solids[k], o = c[3], dd = SZ.OBJECTS[o.t];
           if (Math.abs(r.x - c[0]) < c[2] && Math.abs(r.y - c[1]) < c[2] * 0.8 + 1 && r.z < dd.h * 0.9) {
             r.stuck = true; r.age = 0; r.x -= r.vx * h; r.y -= r.vy * h;
-            self.hitObject(o, r.x, r.y, 0.4 + r.power);
+            self.hitObject(o, r.x, r.y, 0.4 + r.power, "arrow");
             break;
           }
         }
@@ -253,6 +255,17 @@
     if (!force && this.los(x, y, tx, ty)) return Math.atan2(ty - y, tx - x);
     var a = this.flowDir(x, y, tx, ty);
     return a == null ? Math.atan2(ty - y, tx - x) : a;
+  };
+
+  // Ambiente: Wind immer leise, Wasserfall lauter je näher (x/y = Hörposition, meist der Spieler)
+  Wd.ambience = function (x, y) {
+    var best = 1e9, bx = SZ.W / 2;
+    this.ground.falls.forEach(function (f) {
+      var nx = Math.max(f.x0, Math.min(f.x1, x)), ny = f.back ? f.y0 : Math.max(f.y0, y), d = Math.hypot(nx - x, (ny - y) * 1.2);
+      if (d < best) { best = d; bx = nx; }
+    });
+    var fall = best < 1e8 ? 0.75 * Math.max(0.14, 1 - best / 260) : 0;
+    return { wind: 0.12 + 0.1 * Math.min(2, this.wind), waterfall: fall, waterPan: Math.max(-0.7, Math.min(0.7, (bx / SZ.W - 0.5) * 1.4)) };
   };
 
   Wd.lights = function (S) {

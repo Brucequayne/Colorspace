@@ -46,19 +46,20 @@
       SZ.hud.reset();
       SZ.main.root.classList.add("sz-play");
       SZ.main.ui.innerHTML = '<div class="sz-hint">' +
-        L2("WASD laufen · Shift Sprint · Maus zielen · Leertaste Dash · Linksklick Katana ziehen bzw. Angriff · Rechtsklick Block · Block halten + Linksklick: Konter · Q / E halten: Typ 2 / 3 · 1 / 2 oder Mausrad: Katana / Yumi · Esc Menü",
-           "WASD move · shift sprint · mouse aim · space dash · left click draw katana or attack · right click block · hold block + left click: counter · hold Q / E: type 2 / 3 · 1 / 2 or wheel: katana / yumi · Esc menu") + '</div>';
+        L2("WASD laufen · Shift Sprint · Maus zielen · Leertaste Dash · Linksklick Katana ziehen bzw. Angriff · Rechtsklick Block · Block halten + Linksklick: Konter · Q / E halten: Typ 2 / 3 · 1 / 2 oder Mausrad: Katana / Yumi · M Ton · Esc Menü",
+           "WASD move · shift sprint · mouse aim · space dash · left click draw katana or attack · right click block · hold block + left click: counter · hold Q / E: type 2 / 3 · 1 / 2 or wheel: katana / yumi · M sound · Esc menu") + '</div>';
     },
     exit: function () { SZ.main.root.classList.remove("sz-play"); },
     state: function () { return S; },   // für Tests
     update: function (dt) {
       var I = SZ.input, w = S.world, p = S.player;
-      if (S.out > 0) { S.out += SZ.main.realDt; if (S.out > 0.7) { if (S.back === "editor") { SZ.scenes.editor.resume(); SZ.main.go("editor"); } else SZ.main.go("menu", { fromGame: true }); } return; }
+      if (S.out > 0) { SZ.audio.ambience(null); S.out += SZ.main.realDt; if (S.out > 0.7) { if (S.back === "editor") { SZ.scenes.editor.resume(); SZ.main.go("editor"); } else SZ.main.go("menu", { fromGame: true }); } return; }
       if (I.hit("Escape")) { S.out = 0.0001; p.control = false; return; }
       if (p.dead && p.deadT > 2.4) { S.out = 0.0001; return; }
       if (p.hitstop > 0) { p.hitstop -= dt; return; }
       w.update(dt);
       p.update(dt, I);
+      SZ.audio.ambience(w.ambience(p.x, p.y));
       for (var i = w.enemies.length - 1; i >= 0; i--) { w.enemies[i].update(dt, p); if (w.enemies[i].gone) w.enemies.splice(i, 1); }
       w.tickObjects(dt);
       // Wellen

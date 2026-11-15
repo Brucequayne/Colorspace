@@ -35,6 +35,7 @@
     // Arena
     ".sz-wave{position:absolute;left:50%;top:18%;transform:translateX(-50%);font-size:.85rem;letter-spacing:.35em;color:#EDE6D6;text-shadow:0 1px 6px #000;pointer-events:none;animation:szWave 2.6s ease forwards;white-space:nowrap}.sz-wave b{display:block;text-align:center;font:300 2.2rem/1.1 'Hiragino Mincho ProN','Yu Mincho','Noto Serif JP',serif;letter-spacing:0;margin-bottom:4px}" +
     "@keyframes szWave{0%{opacity:0;transform:translate(-50%,6px)}15%,70%{opacity:1;transform:translate(-50%,0)}100%{opacity:0}}" +
+    ".sz-mute{position:absolute;right:14px;top:12px;font-size:.75rem;color:#D8D3C8;background:rgba(10,10,10,.62);border:1px solid rgba(255,255,255,.08);padding:4px 10px;pointer-events:none;animation:szHint 2.4s ease forwards}" +
     ".sz-hint{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);max-width:calc(100% - 40px);text-align:center;font-size:.76rem;color:#D8D3C8;background:rgba(10,10,10,.62);border:1px solid rgba(255,255,255,.08);padding:6px 12px;pointer-events:none;animation:szHint 9s ease forwards}" +
     "@keyframes szHint{0%{opacity:0}8%,75%{opacity:1}100%{opacity:0}}";
 
@@ -53,6 +54,8 @@
       M.ctx = M.cv.getContext("2d");
       M.lo = SZ.canvas(W, H);
       SZ.input.attach(M.root);
+      M.root.addEventListener("pointerdown", function () { SZ.audio.unlock(); });
+      M.root.addEventListener("keydown", function () { SZ.audio.unlock(); });
       SZ.samurai.prewarm();
       window.addEventListener("resize", M.layout);
       M.sidebar = 0; M.layout();
@@ -104,6 +107,11 @@
         c.imageSmoothingEnabled = false;
         c.drawImage(M.lo, Math.round(v.x * d), Math.round(v.y * d), Math.round(v.w * d), Math.round(v.h * d));
         if (M.scene && M.scene.renderTop) M.scene.renderTop(c, v);
+      }
+      if (SZ.input.hit("m") && M.name !== "editor") {
+        var mu = SZ.audio.toggleMute(), el = M.root.querySelector(".sz-mute") || M.root.appendChild(document.createElement("div"));
+        el.className = "sz-mute"; el.textContent = mu ? SZ.L2("Ton aus (M)", "Sound off (M)") : SZ.L2("Ton an (M)", "Sound on (M)");
+        el.style.animation = "none"; void el.offsetWidth; el.style.animation = "";
       }
       SZ.input.endFrame();
       // Samurai-Sprites im Hintergrund vorbereiten

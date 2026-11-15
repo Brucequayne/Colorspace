@@ -28,6 +28,7 @@
   var stamp = "";
   try { var m = /[?&]v=([^&]+)/.exec(document.currentScript.src); if (m) stamp = m[1]; } catch (e) {}
   var base = "shizuku/";
+  window.SZ = window.SZ || {}; window.SZ.STAMP = stamp;   // auch für Sounds in shizuku/audio/
   var state = "idle", pending = null, failed = false;
 
   function loadAll(done) {

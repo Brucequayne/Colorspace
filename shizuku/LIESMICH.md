@@ -8,7 +8,8 @@ Kein Build-Schritt nötig: jede Datei hier ist direkt die Datei, die im Browser 
 |---|---|
 | `core.js` | Namensraum `SZ`, Arena-Maße (480 × 272 px, Kacheln 16 px), `L2`, Mathe, Zufall, Rauschen, Pixel-Helfer |
 | `input.js` | Tastatur und Maus, Umrechnung in Arena-Pixel |
-| `audio.js` | Platzhalter für Musik und Sounds (`SZ.audio.play("name")` steht schon an allen Stellen) |
+| `audio.js` | Sounds und Ambiente: Ereignis → Dateien (Varianten wechseln sich ab), Stereo, Loops, Stummschalten (M) |
+| `audio/` | Alle Sound-Dateien (mp3) |
 | `weapons.js` | Waffen (Katana, Yumi) mit Werten, Angriffs- und Blockarten, Werte des Samurai (Leben, Energie, Dash) |
 | `art-tiles.js` | Boden: Steinplatten, Tempelplatten, Kopfstein, Bruchstein, Kies, Moos, Erde, Sand, Wasser, Mauer, Abgrund; Klippen, Wasserfälle, Wolken |
 | `art-objects.js` | Objekte (Laterne, Torii, Kirschbäume, Laubbäume, Zypresse, Zeder, Ahorn, Kiefer, Bambus, Büsche, Felsen, Jizō, Makiwara) und Vegetation, Treffer-Effekte |
@@ -31,7 +32,7 @@ Kein Build-Schritt nötig: jede Datei hier ist direkt die Datei, die im Browser 
 In `shizuku.js` in die Liste `FILES` an der passenden Stelle eintragen.
 
 ## Eigene Grafiken und Sounds (später)
-- Sounds: in `shizuku/audio/` ablegen und in `audio.js` unter `FILES` eintragen.
+- Sounds: in `shizuku/audio/` ablegen und in `audio.js` unter `SOUNDS` (Ereignisse) bzw. `LOOPS` (Ambiente) eintragen.
 - Samurai-Sprites: `SZ.samurai.frame(richtung, animation, bild)` liefert ein Bild. Diese Funktion
   kann auf ein Sprite-Sheet umgestellt werden, das restliche Spiel bleibt gleich.
 

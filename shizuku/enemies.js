@@ -29,7 +29,7 @@
     this.dead = false; this.deadT = 0; this.gone = false;
     this.trail = []; this.atkAng = 0; this.hitDone = false;
     world.parts.ink(x, y - 8, 18); world.parts.swirl(x, y, 8, 1, 0.7);
-    SZ.audio.play("spawn");
+    SZ.audio.play("spawn", { x: x });
   }
   var E = Enemy.prototype;
 
@@ -71,8 +71,8 @@
         turn = 3.2;
         var close = dist > D.reach - 2 ? 34 : -8;
         tx = Math.cos(ang) * close; ty = Math.sin(ang) * close;
-        if (this.st > D.windup - 0.14 && this.st - dt <= D.windup - 0.14) { SZ.audio.play("glint"); w.parts.spark(this.x + Math.cos(this.face) * 3, this.y - 22, 0, 4, "#FFFFFF"); }
-        if (this.st >= D.windup) { this.atkAng = this.face; this.hitDone = false; this.trail = []; this.go("swing"); SZ.audio.play("swing", { rate: 0.85 }); }
+        if (this.st > D.windup - 0.14 && this.st - dt <= D.windup - 0.14) {  w.parts.spark(this.x + Math.cos(this.face) * 3, this.y - 22, 0, 4, "#FFFFFF"); }
+        if (this.st >= D.windup) { this.atkAng = this.face; this.hitDone = false; this.trail = []; this.go("swing"); SZ.audio.play("swing", { rate: 0.86, x: this.x }); }
         break;
       case "swing":
         turn = 0;
@@ -138,7 +138,7 @@
     this.hp -= dmg; this.flash = 1; this.hpT = 3;
     w.parts.spark(this.x, this.y - 12, 12, 8);
     w.parts.ink(this.x + Math.cos(ang) * 4, this.y - 10, 3, "110,18,16");
-    SZ.audio.play("hit_flesh");
+    SZ.audio.play(src === "arrow" ? "arrow_hit" : "hit_flesh", { x: this.x });
     if (this.hp <= 0) {
       this.hp = 0; this.dead = true; this.deadT = 0; this.fallDir = Math.cos(ang) >= 0 ? 1 : -1;
       this.vx = Math.cos(ang) * 120 * power; this.vy = Math.sin(ang) * 120 * power;
@@ -146,7 +146,6 @@
       w.parts.chips(this.x, this.y - 2, 24, 8, ["#C8A44E", "#E4C878", "#A08038"]);   // Strohfasern vom Hut
       w.shake = Math.max(w.shake, 3);
       SZ.main.slowmo(0.35, 0.18);
-      SZ.audio.play("die");
       return;
     }
     this.stagger(this.D.stagger + (power > 1.2 ? 0.25 : 0), ang, power);

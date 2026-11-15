@@ -1,6 +1,6 @@
 /* Shizuku – scene-menu.js
    Minimalistisches Menü: schwarzer Bildschirm, in der Mitte 雫. Klick darauf startet den Übergang.
-   Unten rechts: Samurai-Gliederpuppe (Charaktererstellung, kommt später).
+   Unten rechts: Samurai-Gliederpuppe (Loadout, kommt später).
    Unten links, kaum sichtbar: Zugang zum Dev Tool (Code-geschützt). */
 (function () {
   var SZ = window.SZ, L2 = SZ.L2;
@@ -17,12 +17,13 @@
   SZ.scenes.menu = {
     enter: function (opt) {
       leaving = false;
+      SZ.audio.ambience(null);
       ui = SZ.main.ui;
       ui.innerHTML =
         '<div class="sz-menu' + (opt && opt.fromGame ? " sz-slow" : "") + '">' +
         '<a class="sz-back" href="#" title="' + L2("Zurück zu Color Space", "Back to Color Space") + '">← Color Space</a>' +
         '<button type="button" class="sz-kanji" aria-label="' + L2("Shizuku starten", "Start Shizuku") + '"><span>雫</span></button>' +
-        '<button type="button" class="sz-mq" title="' + L2("Charaktererstellung", "Character creation") + '">' + MANNEQUIN + '</button>' +
+        '<button type="button" class="sz-mq" title="Loadout">' + MANNEQUIN + '</button>' +
         '<div class="sz-devbox"><button type="button" class="sz-dev" aria-label="Dev"></button>' +
         '<form class="sz-pass" hidden><input type="password" inputmode="numeric" autocomplete="off" maxlength="12" aria-label="Code"></form></div>' +
         '<div class="sz-toast" hidden></div></div>';
@@ -34,7 +35,7 @@
         setTimeout(function () { SZ.main.go("intro"); }, 520);
       });
       root.querySelector(".sz-mq").addEventListener("click", function () {
-        toast(L2("Charaktererstellung kommt in einer späteren Version.", "Character creation is coming in a later version."));
+        toast(L2("Loadout kommt in einer späteren Version.", "Loadout is coming in a later version."));
       });
       var form = root.querySelector(".sz-pass"), inp = form.querySelector("input");
       root.querySelector(".sz-dev").addEventListener("click", function () {

@@ -36,7 +36,6 @@
     if (i === this.wi) { this.wantW = null; return; }
     if (this.act && (this.act.type === "atk" || this.act.type === "draw" || this.act.type === "loose")) { this.wantW = i; return; }
     this.wantW = null; this.wi = i; this.weapon = SZ.WEAPONS[SZ.WEAPON_ORDER[i]];
-    SZ.audio.play("equip");
   };
   P.spend = function () { this.enT = 0; };
 
@@ -49,17 +48,17 @@
       wind: A.wind / sp, swing: A.swing / sp, rec: A.rec / sp, dmg: w.dmg * A.dmgMul, countered: false };
     this.trail = [];
     this.spend();
-    if (kind !== "kaeshi") SZ.audio.play(kind === "tsuki" ? "thrust" : "swing", { rate: 0.95 + Math.random() * 0.1 });
+    if (kind !== "kaeshi") SZ.audio.play(kind === "tsuki" ? "thrust" : kind === "kaiten" ? "swing_e" : "swing", { x: this.x });
   };
-  P.startParry = function () { this.act = { type: "parry", t: 0, B: SZ.BLOCKS.ukenagashi, ang: this.face }; SZ.audio.play("parry"); };
+  P.startParry = function () { this.act = { type: "parry", t: 0, B: SZ.BLOCKS.ukenagashi, ang: this.face }; };
   P.startDodge = function (ix, iy) {
     var B = SZ.BLOCKS.ashisabaki, a = ix || iy ? Math.atan2(iy, ix) : this.face + Math.PI;
     this.act = { type: "dodge", t: 0, B: B, ang: a };
-    this.inv = B.dur; SZ.audio.play("dodge");
+    this.inv = B.dur; SZ.audio.play("dodge", { x: this.x });
   };
   P.startDash = function (ix, iy) {
     var C = SZ.PLAYER;
-    if (this.en < C.dashCost - 0.01) { SZ.audio.play("tired"); return; }
+    if (this.en < C.dashCost - 0.01) return;
     this.en -= C.dashCost; this.spend();
     var a = ix || iy ? Math.atan2(iy, ix) : this.face;
     this.act = { type: "dash", t: 0, ang: a, dur: C.dashTime };
@@ -68,7 +67,7 @@
     w.parts.swirl(this.x, this.y, 7, 1, 0.6); w.parts.swirl(this.x, this.y, 4, -1, 0.5);
     w.parts.dust(this.x, this.y, 5);
     w.push(this.x, this.y, 22, 3, 0.6);
-    SZ.audio.play("dash");
+    SZ.audio.play("dash", { x: this.x });
   };
   P.isParrying = function () {
     var a = this.act;
@@ -93,8 +92,8 @@
       w.push(this.x, this.y, 30, 3, 0.8);
       w.parts.dust(this.x, this.y, 6);
       SZ.main.slowmo(0.3, 0.14);
-      SZ.audio.play("bow_strong");
-    } else SZ.audio.play("bow", { rate: 0.9 + c * 0.3 });
+      SZ.audio.play("bow_strong", { x: this.x });
+    } else SZ.audio.play("bow", { x: this.x, rate: 0.94 + c * 0.12, vol: 0.6 + c * 0.4 });
   };
 
   P.update = function (dt, I) {
@@ -123,15 +122,16 @@
       var mi = this.modeIndex(I);
       if (Wp.type === "bow") {
         this.guard = null;
-        if (!ac && I.lmbHit) { this.act = ac = { type: "draw", t: 0, full: false }; SZ.audio.play("bow_draw"); }
+        if (!ac && I.lmbHit) { this.act = ac = { type: "draw", t: 0, full: false }; this.drawSnd = SZ.audio.play("bow_draw", { x: this.x }); }
         if (ac && ac.type === "draw" && !I.lmb) {
+          if (this.drawSnd) { this.drawSnd.stop(0.06); this.drawSnd = null; }
           if (ac.t >= Wp.minDraw) this.loose(ac.t / Wp.full); else this.act = null;
           ac = this.act;
         }
       } else {
         // Katana
         if (I.lmbHit && this.sheathed) {
-          if (!ac) { this.act = ac = { type: "unsheathe", t: 0, dur: 0.5, drawn: false }; SZ.audio.play("unsheathe"); }
+          if (!ac) { this.act = ac = { type: "unsheathe", t: 0, dur: 0.5, drawn: false }; SZ.audio.play("unsheathe", { x: this.x }); }
         } else if (I.lmbHit) {
           if (!ac && this.guard) this.startAttack("kaeshi");
           else if (!ac) this.startAttack(Wp.attacks[mi]);
@@ -158,6 +158,7 @@
     if (ac) {
       ac.t += dt;
       if (ac.type === "atk") {
+        if (ac.kind === "kaeshi" && ac.t >= ac.wind && ac.t - dt < ac.wind) SZ.audio.play("swing", { x: this.x, rate: ac.countered ? 0.92 : 1 });
         tx *= 0.3 / Wp.weight; ty *= 0.3 / Wp.weight;
         if (ac.t > ac.wind && ac.t < ac.wind + ac.swing) {
           var lk = ac.A.lunge * (1 - (ac.t - ac.wind) / ac.swing);
@@ -187,7 +188,7 @@
         } else if (ac.t > ac.dur + 0.08) { this.act = null; w.parts.swirl(this.x, this.y, 5, -1, 0.45); }
       } else if (ac.type === "draw") {
         tx *= Wp.drawMove; ty *= Wp.drawMove;
-        if (!ac.full && ac.t >= Wp.full) { ac.full = true; w.parts.swirl(this.x, this.y, 6, 1, 0.5); SZ.audio.play("bow_full"); }
+        if (!ac.full && ac.t >= Wp.full) { ac.full = true; w.parts.swirl(this.x, this.y, 6, 1, 0.5); }
       } else if (ac.type === "loose") {
         tx *= 0.5; ty *= 0.5;
         if (ac.t > ac.dur) this.act = null;
@@ -218,8 +219,11 @@
       if (this.stepT <= 0) {
         this.stepT = this.sprinting ? 0.2 : 0.32;
         var tile = a.tilePx(this.x, this.y);
-        if (tile === "w") { w.parts.ring(this.x, this.y, 7, 0.7); w.parts.splash(this.x, this.y, 2, 0.4); SZ.audio.play("step_water"); }
-        else { if (this.sprinting) w.push(this.x, this.y, 10, 1.5, 0.4); w.parts.dust(this.x, this.y, this.sprinting ? 3 : 2, tile === "a" ? "#D6CCB0" : tile === "e" ? "#7A5E44" : tile === "g" ? "#B8B2A4" : "#A8A096"); SZ.audio.play("step"); }
+        if (tile === "w") { w.parts.ring(this.x, this.y, 7, 0.7); w.parts.splash(this.x, this.y, 2, 0.4); SZ.audio.play("step_water", { x: this.x }); }
+        else { if (this.sprinting) w.push(this.x, this.y, 10, 1.5, 0.4); w.parts.dust(this.x, this.y, this.sprinting ? 3 : 2, tile === "a" ? "#D6CCB0" : tile === "e" ? "#7A5E44" : tile === "g" ? "#B8B2A4" : "#A8A096");
+          // Moos, Erde oder Pflanzen unter den Füßen → weicher Schritt
+          var px = this.x, py = this.y, soft = tile === "m" || tile === "e" || a.veg.some(function (v) { return Math.abs(v.x - px) < 6 && Math.abs(v.y - py) < 4 && v.t !== "lotus" && v.t !== "leaves" && v.t !== "petals"; });
+          SZ.audio.play(soft ? "step_grass" : "step", { x: this.x, vol: this.sprinting ? 1.15 : 1 }); }
       }
     }
     this.moving = moved > 0.2;
@@ -243,7 +247,7 @@
       this.flash = 0.6;
       w.parts.spark(mx, my + 12, 12, 16, "#BFF4FF"); w.parts.ring(this.x, this.y - 2, 16, 0.4, "rgba(170,240,255,");
       w.shake = 2; SZ.main.slowmo(0.25, 0.22);
-      SZ.audio.play("parry_hit");
+      SZ.audio.play("parry_hit", { x: this.x });
       return "parry";
     }
     if (this.guard && front) {
@@ -252,11 +256,11 @@
       if (this.en < 0) {
         this.en = 0; this.hp -= dmg * 0.5; this.guard = null;
         this.act = { type: "hurt", t: 0, dur: 0.45 }; this.vx = -Math.cos(a) * 120; this.vy = -Math.sin(a) * 120;
-        w.shake = 3; SZ.audio.play("guard_break");
+        w.shake = 3; SZ.audio.play("guard_break", { x: this.x });
         this.checkDeath(); return "break";
       }
       this.vx = -Math.cos(a) * 70; this.vy = -Math.sin(a) * 70; w.shake = 1.5;
-      SZ.audio.play("block");
+      SZ.audio.play("block", { x: this.x });
       return "block";
     }
     this.hp -= dmg; this.flash = 1;
@@ -264,7 +268,7 @@
     this.vx = -Math.cos(a) * 150; this.vy = -Math.sin(a) * 150;
     w.shake = 3; this.hitstop = 0.06;
     w.parts.spark(this.x, this.y - 12, 10, 8, "#E8503A");
-    SZ.audio.play("hurt");
+    SZ.audio.play("hurt", { x: this.x });
     this.checkDeath();
     return "hit";
   };
