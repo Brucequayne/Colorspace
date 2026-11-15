@@ -16,7 +16,12 @@
   function icon(ctx, x, y, kind) {
     var p = SZ.pen(ctx);
     p.rect(x - 1, y - 1, 13, 13, "#0A0808"); p.rect(x, y, 11, 11, "#1E1A18");
-    if (kind === "spear") {
+    if (kind === "star") {
+      p.px(x + 5, y + 5, "#5E666E"); [[5, 2], [5, 3], [5, 7], [5, 8], [2, 5], [3, 5], [7, 5], [8, 5]].forEach(function (q) { p.px(x + q[0], y + q[1], "#DCE3E8"); });
+      p.px(x + 4, y + 4, "#9AA2AA"); p.px(x + 6, y + 6, "#9AA2AA"); p.px(x + 6, y + 4, "#9AA2AA"); p.px(x + 4, y + 6, "#9AA2AA");
+    } else if (kind === "knife") {
+      p.line(x + 3, y + 7, x + 8, y + 2, "#C8CED4"); p.px(x + 9, y + 1, "#FFFFFF"); p.line(x + 1, y + 9, x + 2, y + 8, "#2A1E1A"); p.px(x, y + 10, "#8A7A5A"); p.px(x + 1, y + 10, "#8A7A5A");
+    } else if (kind === "spear") {
       p.line(x + 1, y + 10, x + 8, y + 3, "#8A6440"); p.line(x + 8, y + 3, x + 10, y + 1, "#DCE3E8"); p.px(x + 10, y + 0, "#FFFFFF"); p.px(x + 7, y + 4, "#B8302A");
     } else if (kind === "bow") {
       var pts = [[3, 1], [4, 2], [5, 4], [5, 6], [5, 8], [4, 9], [3, 10]];
@@ -28,7 +33,8 @@
     }
   }
 
-  SZ.weaponIcon = function (ctx, x, y, id) { var W = SZ.WEAPONS[id]; icon(ctx, x, y, W.type === "bow" ? "bow" : W.spear ? "spear" : "katana"); };
+  SZ.weaponIcon = function (ctx, x, y, id) { var W = SZ.WEAPONS[id]; icon(ctx, x, y, kindOf(W)); };
+  function kindOf(W) { return W.type === "bow" ? "bow" : W.type === "throw" ? W.proj : W.spear ? "spear" : "katana"; }
   SZ.hud = {
     reset: function () { chip = 1; chipT = 0; lastHp = 1; },
     draw: function (ctx, pl, dt) {
@@ -47,7 +53,7 @@
       ctx.fillStyle = "#0A0808"; ctx.fillRect(x + Math.round(74 / 3), y + 7, 1, 3); ctx.fillRect(x + Math.round(74 * 2 / 3), y + 7, 1, 3);
       // Zwei Slots: aktive Waffe hell, die andere gedimmt
       (pl.slots || []).forEach(function (id, i) {
-        var W = SZ.WEAPONS[id], k = W.type === "bow" ? "bow" : W.spear ? "spear" : "katana";
+        var W = SZ.WEAPONS[id], k = kindOf(W);
         ctx.globalAlpha = i === pl.wi ? 1 : 0.4;
         icon(ctx, x + 80 + i * 15, y - 1, k);
         ctx.globalAlpha = 1;

@@ -26,6 +26,7 @@
     this.pushes = [];
     this.arrows = [];
     this.enemies = [];
+    this.fx = [];      // laufende Effekte mit update(dt)/draw(ctx), z. B. Wasser-Beschwörung
     this.rebuild();
   }
   var Wd = World.prototype;
@@ -103,6 +104,7 @@
     var falls = this.ground.falls;
     for (var f = 0; f < falls.length; f++) if (!falls[f].back && Math.random() < dt * 2.2) this.parts.mist(falls[f].x0 + Math.random() * (falls[f].x1 - falls[f].x0), falls[f].y0 + 2 + Math.random() * 10);
     this.updateArrows(dt);
+    for (var fi = this.fx.length - 1; fi >= 0; fi--) if (this.fx[fi].update(dt) === false) this.fx.splice(fi, 1);
     this.parts.update(dt, this);
   };
 
@@ -118,6 +120,12 @@
         var h = dt / steps;
         r.x += r.vx * h; r.y += r.vy * h; r.dist += Math.hypot(r.vx, r.vy) * h;
         if (!r.overVoid) r.z = Math.max(2, r.z - r.drop * h);
+        if (r.spin != null) r.spin += h * 26;
+        // Wurfwaffen: nach der Reichweite fallen sie zu Boden und bleiben liegen
+        if (r.range && r.dist > r.range && !r.overVoid) {
+          r.z -= 220 * h; var dmp = Math.exp(-9 * h); r.vx *= dmp; r.vy *= dmp;
+          if (r.z <= 1) { r.z = 0.5; r.stuck = true; r.age = 3.5; r.onGround = true; break; }
+        }
         // Bugwelle bei starken Schüssen: Wind wird zu beiden Seiten weggedrückt
         if (r.power > 0.45 && r.dist - r.lastFx > (r.power > 0.85 ? 3 : 5)) {
           r.lastFx = r.dist;
@@ -137,7 +145,7 @@
           if (en.dead || r.hit.indexOf(en) >= 0) continue;
           if (Math.abs(en.x - r.x) < 6 * en.sc && r.y > en.y - 9 * en.sc && r.y < en.y + 5) {
             r.hit.push(en);
-            en.hurt(r.dmg, r.ang, 0.6 + r.power, "arrow");
+            en.hurt(r.dmg, r.ang, r.knock != null ? r.knock : 0.6 + r.power, "arrow");
             if (r.power < 0.85 || r.hit.length > 2) { r.dead = true; break; }
           }
         }
@@ -172,9 +180,24 @@
         }
       }
       if (!r.overVoid) { ctx.fillStyle = "rgba(0,0,0,0.25)"; ctx.fillRect(Math.round(r.x - Math.cos(r.ang) * 4), Math.round(r.y), 6, 1); }
-      var len = r.stuck ? 5 : 8, tx = r.x - Math.cos(r.ang) * len, ty = r.y - r.z - Math.sin(r.ang) * len * 0.42;
       ctx.globalAlpha = r.stuck ? Math.min(1, (7 - r.age) / 1) : 1;
-      SZ.samurai.drawArrow(ctx, tx, ty, r.ang, len, r.power > 0.85 && !r.stuck);
+      var px = Math.round(r.x), py = Math.round(r.y - r.z);
+      if (r.kind === "star") {
+        // Wurfstern: dreht sich (abwechselnd + und ×)
+        var cross = Math.floor((r.spin || 0) / 1.2) % 2 === 0;
+        ctx.fillStyle = "#5E666E"; ctx.fillRect(px, py, 1, 1);
+        ctx.fillStyle = "#C8CED4";
+        if (cross || r.stuck) { ctx.fillRect(px - 1, py, 1, 1); ctx.fillRect(px + 1, py, 1, 1); ctx.fillRect(px, py - 1, 1, 1); ctx.fillRect(px, py + 1, 1, 1); }
+        else { ctx.fillRect(px - 1, py - 1, 1, 1); ctx.fillRect(px + 1, py + 1, 1, 1); ctx.fillRect(px + 1, py - 1, 1, 1); ctx.fillRect(px - 1, py + 1, 1, 1); }
+      } else if (r.kind === "knife") {
+        // Kunai: dunkle Klinge, Griff mit Ring
+        var kx = Math.cos(r.ang), ky = Math.sin(r.ang) * 0.42, pen = SZ.pen(ctx), L2 = r.stuck ? 3 : 5;
+        pen.line(px - kx * L2, py - ky * L2, px, py, "#9AA2AA"); pen.px(px, py, "#E4E8EC");
+        pen.line(px - kx * (L2 + 3), py - ky * (L2 + 3), px - kx * L2, py - ky * L2, "#2A1E1A"); pen.px(px - kx * (L2 + 4), py - ky * (L2 + 4), "#8A7A5A");
+      } else {
+        var len = r.stuck ? 5 : 8, tx = r.x - Math.cos(r.ang) * len, ty = r.y - r.z - Math.sin(r.ang) * len * 0.42;
+        SZ.samurai.drawArrow(ctx, tx, ty, r.ang, len, r.power > 0.85 && !r.stuck);
+      }
       ctx.globalAlpha = 1;
     });
   };
@@ -266,6 +289,24 @@
     });
     var fall = best < 1e8 ? 0.75 * Math.max(0.14, 1 - best / 260) : 0;
     return { wind: 0.12 + 0.1 * Math.min(2, this.wind), waterfall: fall, waterPan: Math.max(-0.7, Math.min(0.7, (bx / SZ.W - 0.5) * 1.4)) };
+  };
+
+  // ---------- Kachel in Wasser verwandeln (Wasser-Element) ----------
+  // Entfernt alles, was auf der Kachel steht oder wächst, und zeichnet nur die Umgebung neu.
+  Wd.convertTile = function (tx, ty, to) {
+    var a = this.arena, T = SZ.TILE, x0 = tx * T, y0 = ty * T, x1 = x0 + T, y1 = y0 + T, p = this.parts;
+    function inside(x, y) { return x >= x0 && x < x1 && y >= y0 && y < y1; }
+    a.obj = a.obj.filter(function (o) {
+      if (!inside(o.x, o.y)) return true;
+      var d = SZ.OBJECTS[o.t], cols = (d.fx && d.fx.chips) || ["#8A857C", "#5E8040"];
+      p.chips(o.x, o.y - 2, 6, 10, cols); p.splash(o.x, o.y, 6, 0.6);
+      return false;
+    });
+    a.veg = a.veg.filter(function (v) { if (!inside(v.x, v.y)) return true; if (Math.random() < 0.3) p.chips(v.x, v.y - 2, 3, 2, ["#4A7E3A", "#7AAE52"]); return false; });
+    a.setTile(tx, ty, to || "w");
+    this.ground = SZ.ground.build(a, this.ground, { x0: tx - 2, y0: ty - 2, x1: tx + 3, y1: ty + 5 });
+    this.ground.rev = a.rev;
+    this.refreshSolids(); this._vegDirty = true;
   };
 
   Wd.lights = function (S) {
@@ -422,6 +463,7 @@
       ctx.globalAlpha = 1;
     });
     this.drawArrows(ctx);
+    this.fx.forEach(function (f) { f.draw(ctx); });
     this.parts.drawHigh(ctx);
     if (opts.beforeLight) opts.beforeLight(ctx);
     SZ.light.apply(ctx, S, this.lights(S), t);

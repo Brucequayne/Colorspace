@@ -30,6 +30,7 @@
         '<div class="sz-toast" hidden></div>' +
         '<div class="sz-lo" hidden><div class="sz-lo-box" role="dialog" aria-label="Loadout"><h2>Loadout</h2>' +
         '<div class="sz-lo-slots"></div><div class="sz-lo-list"></div>' +
+        '<h2 class="sz-lo-h2">' + L2("Element", "Element") + '</h2><div class="sz-lo-elem"></div>' +
         '<p class="sz-lo-hint">' + L2("Slot wählen, dann Waffe. Im Kampf wechseln die Tasten 1 und 2.", "Pick a slot, then a weapon. In combat, keys 1 and 2 switch.") + '</p>' +
         '<button type="button" class="sz-lo-close">' + L2("Fertig", "Done") + '</button></div></div></div>';
       var root = ui.firstChild, kanji = root.querySelector(".sz-kanji");
@@ -44,11 +45,21 @@
       var INFO = {
         katana: { d: L2("Ausgewogen. Muss zu Beginn gezogen werden.", "Balanced. Must be drawn at the start."), r: 0.52, s: 0.83, k: 0.45 },
         yari: { d: L2("Große Reichweite, weniger Schaden, starker Rückstoß.", "Long reach, less damage, strong knockback."), r: 0.78, s: 0.58, k: 0.85 },
-        yumi: { d: L2("Fernkampf. Je länger gespannt, desto stärker.", "Ranged. The longer the draw, the stronger."), r: 1, s: 0.7, k: 0.3 }
+        yumi: { d: L2("Fernkampf. Je länger gespannt, desto stärker.", "Ranged. The longer the draw, the stronger."), r: 1, s: 0.7, k: 0.3 },
+        shuriken: { d: L2("Hohe Feuerrate (3 pro Sekunde), kurze Reichweite, kein Durchschlagen.", "High rate of fire (3 per second), short range, no piercing."), r: 0.6, s: 0.35, k: 0.15 },
+        kunai: { d: L2("Mehr Schaden und Reichweite als Shuriken, 1 Wurf pro Sekunde.", "More damage and range than shuriken, 1 throw per second."), r: 0.82, s: 0.8, k: 0.3 }
+      };
+      var ELEM = {
+        water: { n: L2("Wasser", "Water"), d: L2("Q zwischen den Wellen: Kacheln in Wasser verwandeln (300 Gleichgewicht je Kachel). Im Wasser kein Tempoverlust.", "Q between waves: turn tiles into water (300 balance per tile). No slowdown in water.") },
+        none: { n: L2("Kein Element", "No element"), d: L2("Ohne Element-Fähigkeit.", "No element ability.") }
       };
       function iconURL(id) { var c = SZ.canvas(13, 13); SZ.weaponIcon(c.ctx, 1, 1, id); return c.toDataURL(); }
       function bar(lbl, v) { return '<div class="sz-lo-bar"><span>' + lbl + '</span><i><u style="width:' + Math.round(v * 100) + '%"></u></i></div>'; }
       function renderLo() {
+        var el = SZ.loadout.element();
+        lo.querySelector(".sz-lo-elem").innerHTML = Object.keys(ELEM).map(function (k) {
+          return '<button type="button" data-el="' + k + '" class="' + (k === el ? "on" : "") + '">' + (k === "water" ? '<span class="sz-wv">' + SZ.WAVE_SVG + '</span>' : '<span class="sz-wv">·</span>') + '<b>' + ELEM[k].n + '</b><small>' + ELEM[k].d + '</small></button>';
+        }).join("");
         lo.querySelector(".sz-lo-slots").innerHTML = slots.map(function (id, i) {
           return '<button type="button" data-slot="' + i + '" aria-pressed="' + (i === active) + '"><kbd>' + (i + 1) + '</kbd><img alt="" src="' + iconURL(id) + '"><b>' + SZ.WEAPONS[id].name() + '</b></button>';
         }).join("");
@@ -60,7 +71,8 @@
       }
       lo.addEventListener("click", function (e) {
         if (e.target === lo || e.target.closest(".sz-lo-close")) { lo.hidden = true; return; }
-        var sb = e.target.closest("[data-slot]"), wb = e.target.closest("[data-w]");
+        var sb = e.target.closest("[data-slot]"), wb = e.target.closest("[data-w]"), eb = e.target.closest("[data-el]");
+        if (eb) { SZ.loadout.setElement(eb.dataset.el); renderLo(); return; }
         if (sb) { active = +sb.dataset.slot; renderLo(); }
         if (wb) {
           var id = wb.dataset.w, other = 1 - active;

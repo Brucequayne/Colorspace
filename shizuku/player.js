@@ -27,6 +27,9 @@
     this.dead = false; this.deadT = 0;
     this.hair = new SZ.samurai.Hair(8, 2.1);
     this.sword = null;
+    this.element = SZ.loadout.element();   // "water" oder "none"
+    this.throwCd = 0;
+    this.inputLock = false;                // true: Maus für den Element-Modus reserviert (keine Angriffe)
     this.sheathed = true;     // Stage-Beginn: Katana steckt in der Scheide, erster Linksklick zieht es
   }
   var P = Player.prototype;
@@ -72,9 +75,30 @@
     w.push(this.x, this.y, 22, 3, 0.6);
     SZ.audio.play("dash", { x: this.x });
   };
+  // Wasser beschwören: Waffe einstecken, Hände heben, Kachel (tx, ty) in Wasser verwandeln
+  P.startCast = function (tx, ty, variant, onConvert) {
+    if (this.weapon.sheath && !this.sheathed) { this.sheathed = true; SZ.audio.play("unsheathe", { x: this.x, rate: 1.25, vol: 0.7 }); }
+    var fx = new SZ.WaterCast(this.world, this, tx, ty, variant);
+    fx.onConvert = onConvert;
+    this.world.fx.push(fx);
+    this.act = { type: "cast", t: 0, fx: fx }; this.guard = null; this.press = null;
+    if (this.drawSnd) { this.drawSnd.stop(0.05); this.drawSnd = null; }
+    return fx;
+  };
   P.isParrying = function () {
     var a = this.act;
     return !!a && ((a.type === "parry" && a.t < a.B.window) || (a.type === "atk" && a.kind === "kaeshi" && a.t < a.wind));
+  };
+
+  // Wurfwaffe: ein Stern bzw. Messer in Blickrichtung
+  P.throwItem = function () {
+    var W = this.weapon, a = this.face, w = this.world;
+    w.addArrow({ kind: W.proj, x: this.x + Math.cos(a) * 6, y: this.y + Math.sin(a) * 4, z: 13, vx: Math.cos(a) * W.speed, vy: Math.sin(a) * W.speed, ang: a,
+      dmg: W.dmg, power: 0.2, knock: W.knock, drop: 0, range: W.range, dist: 0, lastFx: 0, hit: [], trail: [], spin: Math.random() * 6 });
+    this.throwCd = 1 / W.rate;
+    this.act = { type: "throw", t: 0, dur: Math.min(0.16, 0.8 / W.rate) };
+    this.spend();
+    SZ.audio.play("swing", { x: this.x, rate: W.proj === "star" ? 1.45 : 1.2, vol: 0.55 });
   };
 
   // Bogen: Pfeil lösen
@@ -101,6 +125,7 @@
 
   P.update = function (dt, I) {
     var w = this.world, a = w.arena, C = SZ.PLAYER;
+    if (this.throwCd > 0) this.throwCd -= dt;
     if (this.dead) { this.deadT += dt; this.hair.update(dt, this.hair.anchor(this.bodyAng, this.x, this.y, 0), w.wind, w.clock); return; }
     if (this.inv > 0) this.inv -= dt;
     if (this.flash > 0) this.flash -= dt * 4;
@@ -119,12 +144,17 @@
       if (I.wheel && !ac) this.setWeapon(this.wi + (I.wheel > 0 ? 1 : -1));
       if (this.wantW != null) this.setWeapon(this.wantW);
       Wp = this.weapon;
-      if (Wp.type === "bow") this.press = null;
-      var lock = ac && (ac.type === "atk" || ac.type === "unsheathe" || ac.type === "dash" || ac.type === "hurt" || ac.type === "dodge");
+      if (Wp.type === "bow" || Wp.type === "throw") this.press = null;
+      var lock = ac && (ac.type === "cast" || ac.type === "atk" || ac.type === "unsheathe" || ac.type === "dash" || ac.type === "hurt" || ac.type === "dodge");
       if (!lock) this.face = Math.atan2(I.my - (this.y - 12), I.mx - this.x);
-      if ((I.hit(" ")) && (!ac || ac.type === "loose" || ac.type === "charge" || (ac.type === "atk" && ac.t > ac.wind + ac.swing))) { this.startDash(ix, iy); ac = this.act; }
+      if ((I.hit(" ")) && !(ac && ac.type === "cast") && (!ac || ac.type === "loose" || ac.type === "charge" || (ac.type === "atk" && ac.t > ac.wind + ac.swing))) { this.startDash(ix, iy); ac = this.act; }
       var mi = this.modeIndex(I);
-      if (Wp.type === "bow") {
+      if (this.inputLock || (ac && ac.type === "cast")) {
+        // Element-Modus bzw. Beschwörung: keine Angriffe oder Blocks
+      } else if (Wp.type === "throw") {
+        // Wurfwaffe: gehalten = Dauerfeuer mit der Feuerrate
+        if (I.lmb && this.throwCd <= 0 && (!ac || ac.type === "throw")) { this.throwItem(); ac = this.act; }
+      } else if (Wp.type === "bow") {
         this.guard = null;
         if (!ac && I.lmbHit) { this.act = ac = { type: "draw", t: 0, full: false }; this.drawSnd = SZ.audio.play("bow_draw", { x: this.x }); }
         if (ac && ac.type === "draw" && !I.lmb) {
@@ -155,7 +185,7 @@
         }
       }
       this.guard = null;
-      if (!ac && I.rmb && !(this.sheathed && Wp.sheath)) {
+      if (!ac && I.rmb && !this.inputLock && !(this.sheathed && Wp.sheath)) {
         var bk = Wp.blocks[mi];
         if (bk === "kamae") this.guard = "kamae";
         else if (I.rmbHit && bk === "ukenagashi") this.startParry();
@@ -166,7 +196,8 @@
     // Bewegung und Aktionen
     // Erschöpft: Energie ganz leer → 25 % langsamer, bis sie wieder lädt
     this.exhausted = this.en < 1 && this.enT < C.regenDelay;
-    var spd = C.walk * (this.exhausted ? C.exhaustMul : 1) * a.speedAt(this.x, this.y), tx = ix * spd, ty = iy * spd;
+    var tileSpd = (this.element === "water" && a.tilePx(this.x, this.y) === "w") ? 1 : a.speedAt(this.x, this.y);   // Wasser-Element: kein Tempoverlust im Wasser
+    var spd = C.walk * (this.exhausted ? C.exhaustMul : 1) * tileSpd, tx = ix * spd, ty = iy * spd;
     if (this.guard) { tx *= SZ.BLOCKS.kamae.moveMul; ty *= SZ.BLOCKS.kamae.moveMul; }
     ac = this.act;
     var snap = 14;
@@ -223,6 +254,12 @@
           w.parts.swirl(this.x, this.y, 6, 1, 0.45);
         }
         if (ac.t >= ac.dur) this.act = null;
+      } else if (ac.type === "cast") {
+        tx = ty = 0;
+        if (ac.fx.done) this.act = null;
+      } else if (ac.type === "throw") {
+        tx *= 0.75; ty *= 0.75;
+        if (ac.t > ac.dur) this.act = null;
       } else if (ac.type === "hurt") {
         tx = ty = 0; snap = 6;
         if (ac.t > ac.dur) this.act = null;
@@ -252,7 +289,8 @@
     this.idleT += dt;
     // Körper dreht beim Schwung mit dem Schwert mit
     var sp = this.swordPose();
-    if (this.act && this.act.type === "atk" && sp.cur != null) this.bodyAng = this.act.kind === "kaiten" ? sp.cur : this.face + m.angDiff(this.face, sp.cur) * 0.65;
+    if (this.act && this.act.type === "cast") this.bodyAng = this.act.fx.pose().ang;
+    else if (this.act && this.act.type === "atk" && sp.cur != null) this.bodyAng = this.act.kind === "kaiten" ? sp.cur : this.face + m.angDiff(this.face, sp.cur) * 0.65;
     else this.bodyAng = this.face;
     this.dir = m.dir8(this.bodyAng);
     this.hair.update(dt, this.hair.anchor(this.bodyAng, this.x, this.y, 0), w.wind + Math.min(2, Math.hypot(this.vx, this.vy) / 80), w.clock);
@@ -349,7 +387,8 @@
       if (ac.type === "parry") return "parry";
       if (ac.type === "draw" || ac.type === "loose") return this.moving ? "bowwalk" : "bow";
       if (ac.type === "hurt") return "stagger";
-      if (ac.type === "charge") return "atk";
+      if (ac.type === "cast") return ac.fx.pose().anim;
+      if (ac.type === "charge" || ac.type === "throw") return "atk";
       if (ac.type === "unsheathe") return ac.t > 0.08 && ac.t < 0.45 ? "atk" : this.moving ? "walk" : "idle";
       return "dash";
     }
@@ -420,7 +459,15 @@
     ctx.globalAlpha = this.appear;
     if (hairBehind) this.hair.draw(ctx, this.appear);
 
-    if (w.type === "bow") {
+    if (w.type === "throw" || (ac && ac.type === "cast")) {
+      // Wurfwaffe (Stern/Messer klein in der Hand) oder Beschwörung (Hände frei)
+      ctx.drawImage(s.cv, x - A.AX, y - A.AY);
+      if (w.type === "throw" && !(ac && ac.type === "cast")) {
+        var ff = this.face, hp = A.proj(Math.cos(ff) * 4 - Math.sin(ff) * 4.4, Math.sin(ff) * 4 + Math.cos(ff) * 4.4, 12.5);
+        ctx.fillStyle = "#C8CED4"; ctx.fillRect(Math.round(x + hp.x), Math.round(y + hp.y), w.proj === "star" ? 2 : 1, w.proj === "star" ? 2 : 3);
+      }
+      this.sword = null;
+    } else if (w.type === "bow") {
       var f = this.face, fx = Math.cos(f), fy = Math.sin(f), rx = -fy, ry = fx;
       var aiming = ac && (ac.type === "draw" || ac.type === "loose");
       var hand = aiming ? [-0.6 * rx + 6.4 * fx, -0.6 * ry + 6.4 * fy, 17.4] : [-4.4 * rx + 1 * fx, -4.4 * ry + 1 * fy, 12.5];

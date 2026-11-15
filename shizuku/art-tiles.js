@@ -131,13 +131,22 @@
     return [col[0] + (c.n1 - 0.5) * 10, col[1] + (c.n1 - 0.5) * 10, col[2] + (c.n1 - 0.5) * 8];
   };
 
-  function build(arena) {
+  // rect (optional, in Kacheln {x0,y0,x1,y1}) zeichnet nur diesen Bereich neu und übernimmt den Rest aus prev
+  function build(arena, prev, rect) {
+    var part = !!(prev && rect && prev.img);
+    var px0 = 0, py0 = 0, px1 = W, py1 = H;
+    if (part) { px0 = Math.max(0, rect.x0 * T); py0 = Math.max(0, rect.y0 * T); px1 = Math.min(W, rect.x1 * T); py1 = Math.min(H, rect.y1 * T); }
     var seed = arena.seed | 0;
-    var cv = SZ.canvas(W, H), img = cv.ctx.createImageData(W, H), d = img.data;
-    var ctx = { seed: seed, sl: slabs(seed), rocks: arena.obj.filter(function (o) { return o.t === "rock"; }) };
-    ctx.cracks = crackSet(ctx.sl);
+    var cv = part ? prev.base : SZ.canvas(W, H), img = part ? prev.img : cv.ctx.createImageData(W, H), d = img.data;
+    var ctx = { seed: seed, sl: part ? prev.sl : slabs(seed), rocks: arena.obj.filter(function (o) { return o.t === "rock"; }) };
+    ctx.cracks = part ? prev.cracks : crackSet(ctx.sl);
     var mossF = field(arena, "m");
     var mossPix = [], mossCol = [], mossN = [];
+    if (part) for (var q0 = 0; q0 < prev.mossPix.length; q0++) {
+      var qp = prev.mossPix[q0], qx = qp % W, qy = (qp / W) | 0;
+      if (qx >= px0 && qx < px1 && qy >= py0 && qy < py1) continue;
+      mossPix.push(qp); mossCol.push(prev.mossCol[q0]); mossN.push(prev.mossN[q0]);
+    }
     function tl(tx, ty) { return arena.tile(tx, ty); }
     function isVoid(tx, ty) { return tl(tx, ty) === "v"; }
     function surf(ch) { return !(ch in EXACT); }
@@ -166,9 +175,9 @@
       return best;
     }
 
-    for (var y = 0; y < H; y++) {
+    for (var y = py0; y < py1; y++) {
       var ty = (y / T) | 0, ly = y - ty * T;
-      for (var x = 0; x < W; x++) {
+      for (var x = px0; x < px1; x++) {
         var tx = (x / T) | 0, lx = x - tx * T, ch = arena.tiles[ty * C + tx], i = (y * W + x) * 4, col = null, a = 255;
         ctx.n1 = hash(x, y, seed); ctx.nf = fbm(x / 7, y / 7, seed, 2); ctx.joint = false;
 
@@ -252,9 +261,9 @@
     }
 
     // ---------- Seitenkanten: schmale Felskante im Abgrund neben der Insel ----------
-    for (var sy2 = 0; sy2 < H; sy2++) {
+    for (var sy2 = py0; sy2 < py1; sy2++) {
       var sty = (sy2 / T) | 0;
-      for (var sx2 = 0; sx2 < W; sx2++) {
+      for (var sx2 = px0; sx2 < px1; sx2++) {
         var stx = (sx2 / T) | 0; if (tl(stx, sty) !== "v") continue;
         var slx = sx2 - stx * T, j0 = (sy2 * W + sx2) * 4, sc = null;
         var leftI = tl(stx - 1, sty) !== "v" && tl(stx - 1, sty) !== "w", rightI = tl(stx + 1, sty) !== "v" && tl(stx + 1, sty) !== "w";
@@ -266,7 +275,7 @@
 
     // ---------- Klippen unter der Südkante ----------
     var falls = [];
-    for (var cx = 0; cx < W; cx++) {
+    for (var cx = px0; cx < px1; cx++) {
       var ctx2 = (cx / T) | 0;
       for (var r = 0; r < R; r++) {
         var top = tl(ctx2, r);
@@ -313,15 +322,18 @@
         }
       }
     }
-    cv.ctx.putImageData(img, 0, 0);
+    if (part) cv.ctx.putImageData(img, 0, 0, px0, py0, px1 - px0, py1 - py0); else cv.ctx.putImageData(img, 0, 0);
 
     // Moos-Ebene
-    var mcv = SZ.canvas(W, H), mimg = mcv.ctx.createImageData(W, H);
+    var mcv, mimg;
+    if (part) { mcv = prev.moss; mimg = prev.mimg; for (var cy3 = py0; cy3 < py1; cy3++) mimg.data.fill(0, (cy3 * W + px0) * 4, (cy3 * W + px1) * 4); }
+    else { mcv = SZ.canvas(W, H); mimg = mcv.ctx.createImageData(W, H); }
     for (var mk = 0; mk < mossPix.length; mk++) {
       var p = mossPix[mk] * 4; if (d[p + 3] === 0) continue;
+      if (part) { var mx2 = mossPix[mk] % W, my2 = (mossPix[mk] / W) | 0; if (mx2 < px0 || mx2 >= px1 || my2 < py0 || my2 >= py1) continue; }
       var mcol = mossCol[mk]; mimg.data[p] = mcol[0]; mimg.data[p + 1] = mcol[1]; mimg.data[p + 2] = mcol[2]; mimg.data[p + 3] = 255;
     }
-    mcv.ctx.putImageData(mimg, 0, 0);
+    if (part) mcv.ctx.putImageData(mimg, 0, 0, px0, py0, px1 - px0, py1 - py0); else mcv.ctx.putImageData(mimg, 0, 0);
 
     // Wasserkacheln und Wasserfall-Ströme
     var water = [];
@@ -332,7 +344,7 @@
       if (isVoid(wx2 + 1, wy)) falls.push({ x0: wx2 * T + T, x1: wx2 * T + T + 6, y0: wy * T + 3, side: 1 });
       if (isVoid(wx2, wy - 1)) falls.push({ x0: wx2 * T, x1: wx2 * T + T, y0: wy * T, back: true });
     }
-    return { base: cv, moss: mcv, mossPix: mossPix, mossCol: mossCol, mossN: mossN, water: water, falls: falls, rev: arena.rev, wcv: SZ.canvas(W, H) };
+    return { base: cv, img: img, moss: mcv, mimg: mimg, sl: ctx.sl, cracks: ctx.cracks, mossPix: mossPix, mossCol: mossCol, mossN: mossN, water: water, falls: falls, rev: arena.rev, wcv: part ? prev.wcv : SZ.canvas(W, H) };
   }
 
   // Wasser: wandernde Lichtlinien und Glitzern

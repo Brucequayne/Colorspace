@@ -17,6 +17,7 @@
     "particles.js",     // Blätter, Staub, Spritzer, Stroh, Wind, Wirbel, Tinte
     "world.js",         // Spielwelt: zeichnet Insel, Objekte, Figuren, Pfeile
     "player.js",        // Samurai: Bewegung, Dash, Angriffe, Blocks, Bogen, Leben, Energie
+    "element-water.js", // Wasser-Element: Beschwörung, Kachel → Wasser
     "enemies.js",       // Gegner und ihre KI (Ronin)
     "hud.js",           // Lebens- und Energiebalken
     "scene-menu.js",    // Menü

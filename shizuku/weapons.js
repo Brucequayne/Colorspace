@@ -39,16 +39,34 @@
       blocks: ["kamae", "ukenagashi", "ashisabaki"]
     }
   };
+  // Wurfwaffen: Linksklick (gehalten = Dauerfeuer) wirft mit der Feuerrate rate (Würfe pro Sekunde).
+  // Kein Durchschlagen: ein Geschoss trifft höchstens einen Gegner. Nach range Pixeln fällt es zu Boden.
+  SZ.WEAPONS.shuriken = {
+    name: function () { return L2("Shuriken (Wurfsterne)", "Shuriken (throwing stars)"); },
+    type: "throw", proj: "star", rate: 3, dmg: 5, speed: 380, range: 170, knock: 0.35, weight: 1,
+    blocks: ["kamae", "ukenagashi", "ashisabaki"], attacks: [], style: SZ.WEAPONS.katana.style, blade: 14
+  };
+  SZ.WEAPONS.kunai = {
+    name: function () { return L2("Kunai (Wurfmesser)", "Kunai (throwing knives)"); },
+    type: "throw", proj: "knife", rate: 1, dmg: 14, speed: 430, range: 290, knock: 0.7, weight: 1,
+    blocks: ["kamae", "ukenagashi", "ashisabaki"], attacks: [], style: SZ.WEAPONS.katana.style, blade: 14
+  };
+
   // Loadout: zwei Waffen-Slots (Tasten 1 / 2), im Menü wählbar, im Browser gespeichert
   var LKEY = "shizuku.loadout";
   SZ.loadout = {
-    all: ["katana", "yari", "yumi"],
+    all: ["katana", "yari", "yumi", "shuriken", "kunai"],
     get: function () {
       try { var a = JSON.parse(localStorage.getItem(LKEY)); if (a && a.length === 2 && SZ.WEAPONS[a[0]] && SZ.WEAPONS[a[1]] && a[0] !== a[1]) return a; } catch (e) {}
       return ["katana", "yumi"];
     },
-    set: function (a) { try { localStorage.setItem(LKEY, JSON.stringify(a)); } catch (e) {} }
+    set: function (a) { try { localStorage.setItem(LKEY, JSON.stringify(a)); } catch (e) {} },
+    // Element des Laufs: "water" oder "none" (weitere folgen)
+    element: function () { try { var e = localStorage.getItem("shizuku.element"); if (e === "water" || e === "none") return e; } catch (er) {} return "water"; },
+    setElement: function (e) { try { localStorage.setItem("shizuku.element", e); } catch (er) {} }
   };
+  // Wellensymbol (SVG) für das Wasser-Element
+  SZ.WAVE_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square"><path d="M2 8c3-3 5 3 8 0s5 3 8 0 4 1 4 1"/><path d="M2 13c3-3 5 3 8 0s5 3 8 0 4 1 4 1"/><path d="M2 18c3-3 5 3 8 0s5 3 8 0 4 1 4 1"/></g></svg>';
 
   // Werte des Samurai
   SZ.PLAYER = {

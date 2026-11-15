@@ -10,7 +10,7 @@ Kein Build-Schritt nötig: jede Datei hier ist direkt die Datei, die im Browser 
 | `input.js` | Tastatur und Maus, Umrechnung in Arena-Pixel |
 | `audio.js` | Sounds und Ambiente: Ereignis → Dateien (Varianten wechseln sich ab), Stereo, Loops, Soundtrack pro Lauf (`MUSIC`), Stummschalten (M) |
 | `audio/` | Alle Sound-Dateien (mp3) |
-| `weapons.js` | Waffen (Katana, Yari, Yumi) mit Werten, Loadout (2 Slots), Angriffs- und Blockarten, Werte des Samurai (Leben, Energie, Dash) |
+| `weapons.js` | Waffen (Katana, Yari, Yumi, Shuriken, Kunai) mit Werten, Loadout (2 Slots und Element), Angriffs- und Blockarten, Werte des Samurai (Leben, Energie, Dash) |
 | `art-tiles.js` | Boden: Steinplatten, Tempelplatten, Kopfstein, Bruchstein, Kies, Moos, Erde, Sand, Wasser, Mauer, Abgrund; Klippen, Wasserfälle, Wolken |
 | `art-objects.js` | Objekte (Laterne, Torii, Kirschbäume, Laubbäume, Zypresse, Zeder, Ahorn, Kiefer, Bambus, Büsche, Felsen, Jizō, Makiwara) und Vegetation, Treffer-Effekte |
 | `art-samurai.js` | Figuren als kleines 3D-Modell (Samurai, Ronin), gerendert in 8 Richtungen; Schwert, Bogen, Pfeil, lange Haare |
@@ -19,7 +19,8 @@ Kein Build-Schritt nötig: jede Datei hier ist direkt die Datei, die im Browser 
 | `lighting.js` | Tageszeit, Sonnenstand, Schatten, rotes Glühen, Laternenlicht |
 | `particles.js` | Blätter, Staub, Spritzer, Ringe, Stroh, Funken, Nachbilder |
 | `world.js` | Spielwelt: zeichnet alles in der richtigen Reihenfolge, Wachstum |
-| `player.js` | Samurai: Bewegung, Dash, Angriffe, Konter, Blocks, Bogen, Leben, Energie |
+| `player.js` | Samurai: Bewegung, Dash, Angriffe, Konter, Blocks, Bogen, Wurfwaffen, Wasser beschwören, Leben, Energie |
+| `element-water.js` | Wasser-Element: drei Beschwörungs-Varianten, verwandelt eine Kachel in Wasser (Kosten in `SZ.ELEMENT_COST`) |
 | `enemies.js` | Gegner und KI (Ronin, Heavy Ronin) |
 | `hud.js` | Lebens- und Energiebalken, Waffensymbol |
 | `scene-menu.js` | Menü (雫, Gliederpuppe, versteckter Dev-Zugang) |
