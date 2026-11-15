@@ -28,7 +28,7 @@
     bow_draw:    { f: ["Bow_Spannen.mp3"], vol: 0.7 },
     bow:         { f: ["Bow_ArrowShot.mp3"], vol: 0.7, rate: [0.98, 1.05] },
     bow_strong:  { f: ["Bow_ArrowShot.mp3"], vol: 1.0, rate: [0.88, 0.92] },
-    arrow_hit:   { f: ["Bow_ArrowShotimpacthit.mp3"], vol: 0.75, rate: [0.95, 1.05] },
+    arrow_hit:   { f: ["Bow_ArrowShotimpacthit.mp3"], vol: 0.75, rate: [0.97, 1.03], offset: 0.78 },   // Datei hat ~0,8 s Anlauf vor dem Einschlag
     arrow_wood:  { f: ["Bow_ArrowShotimpactwood.mp3"], vol: 0.6, rate: [0.95, 1.05] },
     spawn:       { f: seq("Roninspawn", 4), vol: 0.6 },
     step:        { f: seq("Characterstep", 7), vol: 0.32, rate: [0.94, 1.06] },
@@ -48,6 +48,17 @@
       .then(function (b) { return new Promise(function (ok, no) { ctx.decodeAudioData(b, ok, no); }); })
       .then(function (buf) { buffers[file] = buf; if (cb) cb(buf); })
       .catch(function () { delete buffers[file]; });
+  }
+  // Stille vor dem ersten hörbaren Signal (−44 dB unter der Spitze), damit Effekte genau im Moment starten
+  var leadCache = typeof WeakMap !== "undefined" ? new WeakMap() : null;
+  function lead(buf) {
+    if (leadCache && leadCache.has(buf)) return leadCache.get(buf);
+    var d = buf.getChannelData(0), n = d.length, pk = 0, i;
+    for (i = 0; i < n; i++) { var v = Math.abs(d[i]); if (v > pk) pk = v; }
+    var th = pk * 0.006; for (i = 0; i < n && Math.abs(d[i]) < th; i++) {}
+    var t = Math.max(0, i / buf.sampleRate - 0.003);
+    if (leadCache) leadCache.set(buf, t);
+    return t;
   }
   // Stille am Anfang/Ende einer MP3 finden (Encoder-Polster), damit Loops nahtlos sind
   function trim(buf) {
@@ -87,14 +98,16 @@
       src.buffer = buf;
       var r = S.rate ? S.rate[0] + Math.random() * (S.rate[1] - S.rate[0]) : 1;
       src.playbackRate.value = r * (opt.rate || 1);
-      g.gain.value = (S.vol || 1) * (opt.vol == null ? 1 : opt.vol);
+      var gv = (S.vol || 1) * (opt.vol == null ? 1 : opt.vol), off = Math.max(lead(buf), S.offset || 0);
+      if (S.offset) { g.gain.setValueAtTime(0, ctx.currentTime); g.gain.linearRampToValueAtTime(gv, ctx.currentTime + 0.012); }   // weich einblenden, kein Knacken
+      else g.gain.value = gv;
       src.connect(g);
       if (opt.x != null && ctx.createStereoPanner) {
         var p = ctx.createStereoPanner(); p.pan.value = Math.max(-0.8, Math.min(0.8, (opt.x / SZ.W - 0.5) * 1.4));
         g.connect(p); out = p;
       }
       out.connect(sfxBus);
-      src.start();
+      src.start(0, Math.min(off, buf.duration - 0.05));
       return { stop: function (fade) { try { var t = ctx.currentTime; g.gain.setTargetAtTime(0, t, (fade || 0.05) / 3); src.stop(t + (fade || 0.05) + 0.05); } catch (e) {} } };
     },
     // Ambiente-Lautstärken setzen: { wind: 0..1, waterfall: 0..1, waterPan: -1..1 }. null = alles ausblenden

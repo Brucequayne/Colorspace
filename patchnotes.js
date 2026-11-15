@@ -111,6 +111,9 @@ window.PATCHNOTES = {
 
   // ================= Spiele =================
   shizuku: [
+    { v: "0.15.2", t: "2026-11-15T02:40:00+01:00",
+      de: ["Behoben: Der Einschlag-Sound beim Pfeiltreffer kam fast eine Sekunde zu spät, jetzt ist er genau im Moment des Treffers", "Alle Effekt-Sounds starten ohne Stille am Anfang, Treffer und Blocks klingen dadurch direkter"],
+      en: ["Fixed: the impact sound of an arrow hit came almost a second late, it now plays exactly at the moment of the hit", "All sound effects start without silence at the beginning, so hits and blocks sound more immediate"] },
     { v: "0.15.1", t: "2026-11-15T02:38:00+01:00",
       de: ["Behoben: Eine früher im Dev Tool gespeicherte Arena konnte den Map-Pool ersetzen, die Arena war dann im Spiel leer. Gespielt wird jetzt immer der Map-Pool", "Dev Tool: „Speichern“ heißt jetzt „Arbeitsstand speichern“ und gilt nur noch für das Dev Tool und „Testen“"],
       en: ["Fixed: an arena saved earlier in the dev tool could replace the map pool, leaving the arena empty in the game. The game now always plays the map pool", "Dev tool: “Save” is now “Save work in progress” and only applies to the dev tool and “Test”"] },
