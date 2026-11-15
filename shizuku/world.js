@@ -177,6 +177,84 @@
     });
   };
 
+  // ---------- Wegfindung (Raster 8 px) ----------
+  // Blockiert: Abgrund, Mauern und Objekte (um den Gegner-Radius vergrößert).
+  // Distanzkarte zum Ziel per Breitensuche (8 Nachbarn, keine Ecken abschneiden), von allen Gegnern geteilt.
+  var NG = 8, GW = W / NG, GH = Math.ceil(H / NG);
+  Wd.nav = function () {
+    if (this._nav && this._navSolids === this.solids && this._navRev === this.arena.rev) return this._nav;
+    var b = new Uint8Array(GW * GH), a = this.arena, R = 5, sol = this.solids;
+    for (var gy = 0; gy < GH; gy++) for (var gx = 0; gx < GW; gx++) {
+      var cx = gx * NG + 4, cy = gy * NG + 4, bl = !a.walkable(cx, cy, R);
+      for (var i = 0; !bl && i < sol.length; i++) {
+        var c = sol[i], dx = cx - c[0], dy = (cy - c[1]) * 1.4;
+        if (dx * dx + dy * dy < (c[2] + R) * (c[2] + R)) bl = true;
+      }
+      b[gy * GW + gx] = bl ? 1 : 0;
+    }
+    this._nav = b; this._navSolids = sol; this._navRev = this.arena.rev; this._flow = null;
+    return b;
+  };
+  Wd.blockedAt = function (x, y) {
+    var gx = Math.floor(x / NG), gy = Math.floor(y / NG);
+    if (gx < 0 || gy < 0 || gx >= GW || gy >= GH) return true;
+    return this.nav()[gy * GW + gx] === 1;
+  };
+  Wd.flowTo = function (tx, ty) {
+    var b = this.nav(), gx = SZ.m.clamp(Math.floor(tx / NG), 0, GW - 1), gy = SZ.m.clamp(Math.floor(ty / NG), 0, GH - 1), F = this._flow;
+    if (F && F.gx === gx && F.gy === gy && this.clock - F.t < 0.5) return F;
+    var dist = new Int16Array(GW * GH).fill(-1), q = new Int32Array(GW * GH), qh = 0, qt = 0;
+    // Ziel blockiert? Dann die nächste freie Zelle nehmen
+    var start = gy * GW + gx;
+    if (b[start]) {
+      var best = -1;
+      for (var r = 1; r < 6 && best < 0; r++) for (var oy = -r; oy <= r && best < 0; oy++) for (var ox = -r; ox <= r; ox++) {
+        var nx = gx + ox, ny = gy + oy; if (nx < 0 || ny < 0 || nx >= GW || ny >= GH) continue;
+        if (!b[ny * GW + nx]) { best = ny * GW + nx; break; }
+      }
+      if (best >= 0) start = best;
+    }
+    dist[start] = 0; q[qt++] = start;
+    while (qh < qt) {
+      var cur = q[qh++], cx = cur % GW, cy = (cur / GW) | 0, cd = dist[cur];
+      for (var dy = -1; dy <= 1; dy++) for (var dx = -1; dx <= 1; dx++) {
+        if (!dx && !dy) continue;
+        var x2 = cx + dx, y2 = cy + dy; if (x2 < 0 || y2 < 0 || x2 >= GW || y2 >= GH) continue;
+        var j = y2 * GW + x2; if (b[j] || dist[j] >= 0) continue;
+        if (dx && dy && (b[cy * GW + x2] || b[y2 * GW + cx])) continue;
+        dist[j] = cd + 1; q[qt++] = j;
+      }
+    }
+    this._flow = { gx: gx, gy: gy, t: this.clock, dist: dist };
+    return this._flow;
+  };
+  // Richtung (Winkel) entlang der Distanzkarte, oder null
+  Wd.flowDir = function (x, y, tx, ty) {
+    var F = this.flowTo(tx, ty), b = this.nav(), gx = Math.floor(x / NG), gy = Math.floor(y / NG), best = 1e9, bx = 0, by = 0;
+    for (var dy = -1; dy <= 1; dy++) for (var dx = -1; dx <= 1; dx++) {
+      if (!dx && !dy) continue;
+      var x2 = gx + dx, y2 = gy + dy; if (x2 < 0 || y2 < 0 || x2 >= GW || y2 >= GH) continue;
+      var j = y2 * GW + x2, d = F.dist[j]; if (d < 0) continue;
+      if (dx && dy && (b[gy * GW + x2] || b[y2 * GW + gx])) continue;
+      var dd = d + (dx && dy ? 0.4 : 0);
+      if (dd < best) { best = dd; bx = x2; by = y2; }
+    }
+    if (best === 1e9) return null;
+    return Math.atan2(by * NG + 4 - y, bx * NG + 4 - x);
+  };
+  // Freie Sichtlinie (für den Gegner-Körper breit genug)?
+  Wd.los = function (x0, y0, x1, y1) {
+    var d = SZ.m.dist(x0, y0, x1, y1), n = Math.ceil(d / 4);
+    for (var i = 1; i < n; i++) { var t = i / n; if (this.blockedAt(x0 + (x1 - x0) * t, y0 + (y1 - y0) * t)) return false; }
+    return true;
+  };
+  // Lenkung zum Ziel: direkt bei freier Sicht, sonst über die Distanzkarte
+  Wd.steer = function (x, y, tx, ty, force) {
+    if (!force && this.los(x, y, tx, ty)) return Math.atan2(ty - y, tx - x);
+    var a = this.flowDir(x, y, tx, ty);
+    return a == null ? Math.atan2(ty - y, tx - x) : a;
+  };
+
   Wd.lights = function (S) {
     var out = [], self = this;
     this.arena.obj.forEach(function (o, i) {
@@ -204,18 +282,28 @@
       if (Math.abs(dx) < 8 && Math.abs(dy) < 5) bend += (dx >= 0 ? 1 : -1) * (2 - Math.abs(dx) / 4);
     }
     var amp = d.tall ? 1.4 : 0.9;
-    var sw = Math.round(Math.sin(this.clock * 1.7 + v.x * 0.07 + v.y * 0.05) * amp * this.wind + bend);
+    var sw = Math.max(-4, Math.min(4, Math.round(Math.sin(this.clock * 1.7 + v.x * 0.07 + v.y * 0.05) * amp * this.wind + bend)));
+    ctx.drawImage(swaySprite(s, v.t, v.v, sw), x0 - 4, y0);
+  };
+  // Pflanze in einer Wiegestellung (oben um sw Pixel versetzt), einmal gezeichnet und gemerkt
+  var swayCache = {};
+  function swaySprite(s, t, vv, sw) {
+    var key = t + ":" + vv + ":" + sw, c = swayCache[key];
+    if (c) return c;
+    var d = s.def; c = SZ.canvas(d.w + 8, d.h); var x = c.ctx;
     if (d.tall) {
       var third = (d.h / 3) | 0, sw1 = Math.round(sw * 0.5);
-      ctx.drawImage(s.cv, 0, third * 2, d.w, d.h - third * 2, x0, y0 + third * 2, d.w, d.h - third * 2);
-      ctx.drawImage(s.cv, 0, third, d.w, third, x0 + sw1, y0 + third, d.w, third);
-      ctx.drawImage(s.cv, 0, 0, d.w, third, x0 + sw, y0, d.w, third);
+      x.drawImage(s.cv, 0, third * 2, d.w, d.h - third * 2, 4, third * 2, d.w, d.h - third * 2);
+      x.drawImage(s.cv, 0, third, d.w, third, 4 + sw1, third, d.w, third);
+      x.drawImage(s.cv, 0, 0, d.w, third, 4 + sw, 0, d.w, third);
     } else {
       var half = (d.h / 2) | 0;
-      ctx.drawImage(s.cv, 0, half, d.w, d.h - half, x0, y0 + half, d.w, d.h - half);
-      ctx.drawImage(s.cv, 0, 0, d.w, half, x0 + sw, y0, d.w, half);
+      x.drawImage(s.cv, 0, half, d.w, d.h - half, 4, half, d.w, d.h - half);
+      x.drawImage(s.cv, 0, 0, d.w, half, 4 + sw, 0, d.w, half);
     }
-  };
+    swayCache[key] = c;
+    return c;
+  }
 
   // opts: ents (Figuren mit draw/drawShadow/y), afterGround(ctx), beforeLight(ctx), player (Kronen-Transparenz)
   Wd.render = function (ctx, opts) {
@@ -244,9 +332,38 @@
     if (opts.afterGround) opts.afterGround(ctx);
 
     var ents = (opts.ents || []).concat(this.enemies);
-    // Niedrige Vegetation
-    var tall = [];
-    a.veg.forEach(function (v) { if (SZ.VEG[v.t].tall) tall.push(v); else self.drawVeg(ctx, v, ents); });
+    // Vegetation: wird nur jedes 3. Bild (im Wachstum jedes 2.) in eine Zwischenebene gezeichnet.
+    // Hohe Halme nahe Figuren oder vor Objekten bleiben live und werden mit ihnen nach Tiefe sortiert.
+    this._vegN = (this._vegN || 0) + 1;
+    // Takt: 0 = niedrige Hälfte A, 1 = hohe, 2 = niedrige Hälfte B, 3 = hohe (im Wachstum alles öfter)
+    var ph = this.growth ? this._vegN % 2 * 2 : this._vegN % 4;
+    var first = !this._vegLow || this._vegDirty;
+    for (var half = 0; half < 2; half++) {
+      if (!(first || ph === half * 2 || (this.growth && ph === 0))) continue;
+      var lo = (this._vegLow || (this._vegLow = [SZ.canvas(W, H), SZ.canvas(W, H)]))[half];
+      lo.ctx.clearRect(0, 0, W, H);
+      for (var vi = half; vi < a.veg.length; vi += 2) { var vv = a.veg[vi]; if (!SZ.VEG[vv.t].tall) self.drawVeg(lo.ctx, vv, ents); }
+    }
+    if (first || ph === 1 || ph === 3) {
+      var hi = this._vegHigh || (this._vegHigh = SZ.canvas(W, H)), live = [], tallL = [];
+      hi.ctx.clearRect(0, 0, W, H);
+      a.veg.forEach(function (v) { if (SZ.VEG[v.t].tall) tallL.push(v); });
+      tallL.sort(function (p, q) { return p.y - q.y; });
+      tallL.forEach(function (v) {
+        var near = false, i;
+        for (i = 0; i < ents.length && !near; i++) if (Math.abs(ents[i].x - v.x) < 28 && Math.abs(ents[i].y - v.y) < 30) near = true;
+        for (i = 0; i < a.obj.length && !near; i++) {
+          var o = a.obj[i], od = SZ.OBJECTS[o.t];
+          if (v.y > o.y && v.y - 20 < o.y && Math.abs(v.x - o.x) < od.w / 2 + 8) near = true;
+        }
+        if (near) live.push(v); else self.drawVeg(hi.ctx, v, ents);
+      });
+      this._liveTall = live;
+    }
+    this._vegDirty = false;
+    ctx.drawImage(this._vegLow[0], 0, 0); ctx.drawImage(this._vegLow[1], 0, 0);
+    ctx.drawImage(this._vegHigh, 0, 0);
+    var tall = this._liveTall || [];
     this.parts.drawLow(ctx);
 
     // Alles Stehende nach Fußpunkt sortiert

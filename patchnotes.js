@@ -111,6 +111,9 @@ window.PATCHNOTES = {
 
   // ================= Spiele =================
   shizuku: [
+    { v: "0.14", t: "2026-11-15T01:28:00+01:00",
+      de: ["Erste eigene Map im Map-Pool: Sensei Garden (ersetzt den Tempel)", "Bessere Wegfindung: Gegner laufen um Objekt-Gruppen herum statt hängen zu bleiben und erkennen, wenn sie feststecken", "Gegner erscheinen nur noch an Stellen, von denen sie den Spieler erreichen können", "Zu Beginn der Stage steckt das Katana in der Scheide; der erste Linksklick zieht es mit einer Klingenspur, erst dann kann man angreifen und blocken", "Deutlich schneller bei Maps mit sehr vielen Pflanzen"],
+      en: ["First custom map in the map pool: Sensei Garden (replaces the temple)", "Better pathfinding: enemies walk around clusters of objects instead of getting stuck, and notice when they are stuck", "Enemies now only appear where they can reach the player", "At the start of a stage the katana is sheathed; the first left click draws it with a blade trail, only then can you attack and block", "Much faster on maps with lots of plants"] },
     { v: "0.13", t: "2026-11-15T00:57:00+01:00",
       de: ["Map-Pool: das Spiel wählt die Arena zufällig aus einer Liste von Maps (vorerst nur der Tempel)", "Dev Tool: „Für Map-Pool exportieren“ erzeugt die Datei für neue Maps, Pool-Maps lassen sich zum Bearbeiten laden", "Inselränder am Abgrund sind jetzt geschlossen: keine Lücken mehr, durch die der Himmel scheint", "Klippen laufen an Stufen der Kante durchgehend weiter, seitliche Kanten haben eine schmale Felskante"],
       en: ["Map pool: the game picks the arena at random from a list of maps (only the temple for now)", "Dev tool: “Export for map pool” creates the file for new maps, pool maps can be loaded for editing", "Island edges at the abyss are now closed: no more gaps where the sky shows through", "Cliffs continue across steps in the edge, side edges get a narrow rock rim"] },

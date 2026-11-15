@@ -26,6 +26,7 @@
     this.dead = false; this.deadT = 0;
     this.hair = new SZ.samurai.Hair(8, 2.1);
     this.sword = null;
+    this.sheathed = true;     // Stage-Beginn: Katana steckt in der Scheide, erster Linksklick zieht es
   }
   var P = Player.prototype;
 
@@ -116,7 +117,7 @@
       if (I.wheel && !ac) this.setWeapon(this.wi + (I.wheel > 0 ? 1 : -1));
       if (this.wantW != null) this.setWeapon(this.wantW);
       Wp = this.weapon;
-      var lock = ac && (ac.type === "atk" || ac.type === "dash" || ac.type === "hurt" || ac.type === "dodge");
+      var lock = ac && (ac.type === "atk" || ac.type === "unsheathe" || ac.type === "dash" || ac.type === "hurt" || ac.type === "dodge");
       if (!lock) this.face = Math.atan2(I.my - (this.y - 12), I.mx - this.x);
       if ((I.hit(" ")) && (!ac || ac.type === "loose" || (ac.type === "atk" && ac.t > ac.wind + ac.swing))) { this.startDash(ix, iy); ac = this.act; }
       var mi = this.modeIndex(I);
@@ -129,7 +130,9 @@
         }
       } else {
         // Katana
-        if (I.lmbHit) {
+        if (I.lmbHit && this.sheathed) {
+          if (!ac) { this.act = ac = { type: "unsheathe", t: 0, dur: 0.5, drawn: false }; SZ.audio.play("unsheathe"); }
+        } else if (I.lmbHit) {
           if (!ac && this.guard) this.startAttack("kaeshi");
           else if (!ac) this.startAttack(Wp.attacks[mi]);
           else if (ac.type === "atk" && ac.kind === "kesa" && Wp.attacks[mi] === "kesa" && ac.t > ac.wind) this.queued = true;
@@ -137,7 +140,7 @@
         }
       }
       this.guard = null;
-      if (!ac && I.rmb) {
+      if (!ac && I.rmb && !(this.sheathed && Wp.type !== "bow")) {
         var bk = Wp.blocks[mi];
         if (bk === "kamae") this.guard = "kamae";
         else if (I.rmbHit && bk === "ukenagashi") this.startParry();
@@ -188,6 +191,15 @@
       } else if (ac.type === "loose") {
         tx *= 0.5; ty *= 0.5;
         if (ac.t > ac.dur) this.act = null;
+      } else if (ac.type === "unsheathe") {
+        tx *= 0.6; ty *= 0.6;
+        if (!ac.drawn && ac.t >= 0.32) {
+          ac.drawn = true; this.sheathed = false;
+          var gp = this.swordPose(), tip = SZ.samurai.proj(gp.hand[0] + Math.cos(gp.ang) * 12, gp.hand[1] + Math.sin(gp.ang) * 12, gp.hand[2] - 6);
+          w.parts.spark(this.x + tip.x, this.y + tip.y + 4, 4, 5, "#FFFFFF");
+          w.parts.swirl(this.x, this.y, 6, 1, 0.45);
+        }
+        if (ac.t >= ac.dur) this.act = null;
       } else if (ac.type === "hurt") {
         tx = ty = 0; snap = 6;
         if (ac.t > ac.dur) this.act = null;
@@ -281,6 +293,15 @@
       var ang = s0 + (s1 - s0) * q;
       return { hand: [Math.cos(ang) * 5.5, Math.sin(ang) * 5.5, 14.5], ang: ang, tilt: 0.06, swinging: tt > ac.wind && tt < ac.wind + ac.swing, s0: s0, cur: ang };
     }
+    if (ac && ac.type === "unsheathe") {
+      // Ziehen aus der Scheide an der linken Hüfte: Bogen nach vorn, zuletzt Ruhehaltung
+      var u = ac.t / 0.32;
+      if (u < 0.25) return { sheathed: true };
+      var e = m.easeOutCubic((u - 0.25) / 0.75), h0 = Wv(-3.6, 2.8, 12.4), h1 = Wv(4.6, 1.6, 12);
+      var a0 = f - Math.PI * 0.7, a1 = f + 0.45;
+      return { hand: [m.lerp(h0[0], h1[0], e), m.lerp(h0[1], h1[1], e), m.lerp(h0[2], h1[2], e) + Math.sin(e * Math.PI) * 3], ang: a0 + (a1 - a0) * e, tilt: m.lerp(0.1, -0.55, e), swinging: u < 1, flash: u > 0.85 && u < 1.15 };
+    }
+    if (this.sheathed && this.weapon.type !== "bow") return { sheathed: true };
     if (ac && ac.type === "parry") { var pw = ac.t < ac.B.window; return { hand: Wv(1, 4, 16), ang: f - Math.PI / 2 + 0.7, tilt: 0.85, parry: pw }; }
     if (ac && (ac.type === "dodge" || ac.type === "dash")) return { hand: Wv(4, -1.5, 13), ang: f + Math.PI * 0.8, tilt: -0.3 };
     if (ac && ac.type === "hurt") return { hand: Wv(4.6, 0, 13), ang: f + 1.2, tilt: -0.6 };
@@ -297,6 +318,7 @@
       if (ac.type === "parry") return "parry";
       if (ac.type === "draw" || ac.type === "loose") return this.moving ? "bowwalk" : "bow";
       if (ac.type === "hurt") return "stagger";
+      if (ac.type === "unsheathe") return ac.t > 0.08 && ac.t < 0.45 ? "atk" : this.moving ? "walk" : "idle";
       return "dash";
     }
     if (this.guard) return this.moving ? "blockwalk" : "block";
@@ -381,11 +403,25 @@
       this.sword = null;
     } else {
       var sp = this.swordPose();
+      if (sp.sheathed) {
+        // Griff schaut vorn aus der Scheide
+        ctx.drawImage(s.cv, x - A.AX, y - A.AY);
+        var f2 = this.face, fx2 = Math.cos(f2), fy2 = Math.sin(f2), rx2 = -fy2, ry2 = fx2;
+        var hb = [-3.7 * rx2 + 2.7 * fx2, -3.7 * ry2 + 2.7 * fy2, 12.2], hd = [0.35 * rx2 + 1 * fx2, 0.35 * ry2 + 1 * fy2, 0.45];
+        var p0 = A.proj(hb[0], hb[1], hb[2]), p1 = A.proj(hb[0] + hd[0] * 4.5, hb[1] + hd[1] * 4.5, hb[2] + hd[2] * 4.5);
+        var hidden = Math.sin(f2) < -0.3;   // von hinten verdeckt der Körper den Griff
+        if (!hidden) { var pen = SZ.pen(ctx); pen.line(x + p0.x, y + p0.y, x + p1.x, y + p1.y, w.style.grip); pen.px(x + (p0.x + p1.x) / 2, y + (p0.y + p1.y) / 2, w.style.wrap); pen.px(x + p0.x, y + p0.y, w.style.guard); }
+        this.sword = null;
+        if (!hairBehind) this.hair.draw(ctx, this.appear);
+        ctx.globalAlpha = 1;
+        if (this.flash > 0 && !this.dead) { ctx.save(); ctx.globalCompositeOperation = "lighter"; ctx.globalAlpha = Math.min(0.7, this.flash); ctx.drawImage(s.cv, x - A.AX, y - A.AY); ctx.restore(); }
+        return;
+      }
       var mid = A.proj(sp.hand[0] + Math.cos(sp.ang) * 6, sp.hand[1] + Math.sin(sp.ang) * 6, sp.hand[2]);
       var behind = mid.depth < 3.5 && Math.sin(sp.ang) < 0.2;
-      if (behind) this.sword = A.drawSword(ctx, x, y, sp.hand, sp.ang, sp.tilt, w, sp.parry);
+      if (behind) this.sword = A.drawSword(ctx, x, y, sp.hand, sp.ang, sp.tilt, w, sp.parry || sp.flash);
       ctx.drawImage(s.cv, x - A.AX, y - A.AY);
-      if (!behind) this.sword = A.drawSword(ctx, x, y, sp.hand, sp.ang, sp.tilt, w, sp.parry);
+      if (!behind) this.sword = A.drawSword(ctx, x, y, sp.hand, sp.ang, sp.tilt, w, sp.parry || sp.flash);
       if (sp.swinging && this.sword) this.trail.push({ a: this.sword.tip, b: this.sword.base, t: this.world.clock, c: ac && ac.countered });
       var now = this.world.clock;
       this.trail = this.trail.filter(function (p) { return now - p.t < 0.12; });

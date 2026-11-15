@@ -18,7 +18,8 @@
     var a = w.arena;
     for (var i = 0; i < 200; i++) {
       var x = 24 + Math.random() * (SZ.W - 48), y = 34 + Math.random() * (SZ.H - 64);
-      if (!a.walkable(x, y, 7) || a.tilePx(x, y) === "w") continue;
+      if (!a.walkable(x, y, 7) || a.tilePx(x, y) === "w" || w.blockedAt(x, y)) continue;
+      var F = w.flowTo(pl.x, pl.y); if (F.dist[Math.floor(y / 8) * (SZ.W / 8) + Math.floor(x / 8)] < 0) continue;   // muss den Spieler erreichen können
       if (SZ.m.dist(x, y, pl.x, pl.y) < 95) continue;
       if (w.solids.some(function (c) { return SZ.m.dist(x, y, c[0], c[1]) < c[2] + 8; })) continue;
       if (w.enemies.some(function (e) { return SZ.m.dist(x, y, e.x, e.y) < 24; })) continue;
@@ -45,8 +46,8 @@
       SZ.hud.reset();
       SZ.main.root.classList.add("sz-play");
       SZ.main.ui.innerHTML = '<div class="sz-hint">' +
-        L2("WASD laufen · Shift Sprint · Maus zielen · Leertaste Dash · Linksklick Angriff · Rechtsklick Block · Block halten + Linksklick: Konter · Q / E halten: Typ 2 / 3 · 1 / 2 oder Mausrad: Katana / Yumi · Esc Menü",
-           "WASD move · shift sprint · mouse aim · space dash · left click attack · right click block · hold block + left click: counter · hold Q / E: type 2 / 3 · 1 / 2 or wheel: katana / yumi · Esc menu") + '</div>';
+        L2("WASD laufen · Shift Sprint · Maus zielen · Leertaste Dash · Linksklick Katana ziehen bzw. Angriff · Rechtsklick Block · Block halten + Linksklick: Konter · Q / E halten: Typ 2 / 3 · 1 / 2 oder Mausrad: Katana / Yumi · Esc Menü",
+           "WASD move · shift sprint · mouse aim · space dash · left click draw katana or attack · right click block · hold block + left click: counter · hold Q / E: type 2 / 3 · 1 / 2 or wheel: katana / yumi · Esc menu") + '</div>';
     },
     exit: function () { SZ.main.root.classList.remove("sz-play"); },
     state: function () { return S; },   // für Tests

@@ -50,14 +50,19 @@
     switch (this.state) {
       case "approach":
         if (!plAlive) { this.go("idle"); break; }
-        tx = Math.cos(ang) * D.speed; ty = Math.sin(ang) * D.speed;
+        var mv = w.steer(this.x, this.y, pl.x, pl.y, this.forceFlow > 0);
+        tx = Math.cos(mv) * D.speed; ty = Math.sin(mv) * D.speed;
         if (dist < D.reach + (this.cd <= 0 ? 6 : 12)) this.go(this.cd <= 0 ? "windup" : "strafe");
         break;
       case "strafe":
         if (!plAlive) { this.go("idle"); break; }
+        if (!w.los(this.x, this.y, pl.x, pl.y)) { this.go("approach"); break; }
+        // Seitwärts nur, wo Platz ist; sonst Richtung wechseln
+        var px = -Math.sin(ang) * this.strafe, py = Math.cos(ang) * this.strafe;
+        if (w.blockedAt(this.x + px * 10, this.y + py * 10)) { this.strafe *= -1; px = -px; py = -py; if (w.blockedAt(this.x + px * 10, this.y + py * 10)) { px = py = 0; } }
         var keep = (dist - (D.reach + 11)) * 2.2;
-        tx = Math.cos(ang) * keep - Math.sin(ang) * this.strafe * D.speed * 0.6;
-        ty = Math.sin(ang) * keep + Math.cos(ang) * this.strafe * D.speed * 0.6;
+        tx = Math.cos(ang) * keep + px * D.speed * 0.6;
+        ty = Math.sin(ang) * keep + py * D.speed * 0.6;
         if (Math.random() < dt * 0.4) this.strafe *= -1;
         if (this.cd <= 0 && dist < D.reach + 13) this.go("windup");
         else if (dist > D.reach + 34) this.go("approach");
@@ -113,6 +118,11 @@
     var moved = m.dist(this.x, this.y, np.x, np.y);
     this.x = np.x; this.y = np.y;
     this.moving = moved > 0.25 && (this.state === "approach" || this.state === "strafe");
+    // Festgefahren? Dann eine Weile strikt der Wegkarte folgen
+    if (this.forceFlow > 0) this.forceFlow -= dt;
+    var want = Math.sqrt(tx * tx + ty * ty) * dt;
+    if ((this.state === "approach" || this.state === "strafe") && want > 0.3 && moved < want * 0.25) this.stuckT = (this.stuckT || 0) + dt; else this.stuckT = 0;
+    if (this.stuckT > 0.35) { this.stuckT = 0; this.forceFlow = 1.6; this.strafe *= -1; if (this.state === "strafe") this.go("approach"); }
     if (this.moving) this.walkPh += moved / 22;
   };
 
