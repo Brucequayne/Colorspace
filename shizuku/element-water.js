@@ -287,6 +287,9 @@
     this.t += dt;
     var t = this.t, w = this.w, sp = this.spray, cx = this.cx, cy = this.cy, i;
     sp.update(dt);
+    // Platzier-Sound so starten, dass sein Platsch (~0,9 s nach Beginn) auf den Aufprall fällt
+    var sndAt = [1.48, 0, 0.2][this.v];
+    if (t >= sndAt && this.once("snd")) SZ.audio.play("water_place", { x: cx, offset: this.v === 1 ? 0.25 : 0 });
     var G = this.geo();
     // Spritzer von den Wasserkörpern
     G.forEach(function (g) {
@@ -301,19 +304,19 @@
       if (t > 0.3 && t < 0.8 && Math.random() < dt * 40) sp.add(this.p.x + rnd(-14, 14), this.p.y + rnd(-8, 8), 0, rnd(-10, 10), rnd(-6, 6), rnd(60, 130), rnd(0.8, 1.8));
       if (t > 2.38 && this.once("hit")) {
         sp.burst(cx, cy, 2, 55, 85, 150, 1.8); w.shake = Math.max(w.shake, 1.6); splashList(this.splashes, cx, cy, 9, 22, 11, t);
-        w.parts.ring(cx, cy, 20, 0.8); SZ.audio.play("step_water", { x: cx, vol: 1.8, rate: 0.7 });
+        w.parts.ring(cx, cy, 20, 0.8);
       }
     } else if (this.v === 1) {
       if (t > 0.3 && t < 0.7 && Math.random() < dt * 30) sp.add(cx + rnd(-6, 6), cy + rnd(-4, 4), 0, rnd(-8, 8), rnd(-5, 5), rnd(40, 90), rnd(0.7, 1.4));
-      if (t > 0.65 && this.once("burst")) { sp.burst(cx, cy, 1, 30, 50, 170, 1.7); splashList(this.splashes, cx, cy, 7, 16, 9, t); w.shake = Math.max(w.shake, 1.2); SZ.audio.play("step_water", { x: cx, vol: 1.6, rate: 0.6 }); }
+      if (t > 0.65 && this.once("burst")) { sp.burst(cx, cy, 1, 30, 50, 170, 1.7); splashList(this.splashes, cx, cy, 7, 16, 9, t); w.shake = Math.max(w.shake, 1.2); }
       var H = this.geyserH();
       if (H > 8 && t < 1.8) for (i = 0; i < 3; i++) if (Math.random() < dt * 30) { var a3 = Math.random() * TAU; sp.add(cx + Math.cos(a3) * 5, cy + Math.sin(a3) * 3, H + 3, Math.cos(a3) * rnd(25, 60), Math.sin(a3) * rnd(10, 30), rnd(30, 90), rnd(0.9, 2)); }
       if (t > 0.65 && t < 2 && Math.random() < dt * 6) w.parts.ring(cx, cy, 13, 0.6);
       if (t > 1.75 && this.once("fall")) for (i = 0; i < 26; i++) { var a4 = Math.random() * TAU; sp.add(cx + rnd(-6, 6), cy, rnd(10, 40), Math.cos(a4) * rnd(20, 70), Math.sin(a4) * rnd(10, 35), rnd(-10, 50), rnd(1, 2.2)); }
-      if (t > 2.05 && this.once("hit")) { sp.burst(cx, cy, 1, 40, 80, 120, 1.7); splashList(this.splashes, cx, cy, 8, 18, 10, t); w.parts.ring(cx, cy, 22, 0.9); SZ.audio.play("step_water", { x: cx, vol: 1.7, rate: 0.75 }); }
+      if (t > 2.05 && this.once("hit")) { sp.burst(cx, cy, 1, 40, 80, 120, 1.7); splashList(this.splashes, cx, cy, 8, 18, 10, t); w.parts.ring(cx, cy, 22, 0.9); }
     } else {
       if (t > 0.35 && t < 0.95 && Math.random() < dt * 16) sp.add(cx + rnd(-10, 10), cy + rnd(-5, 5), rnd(60, 90), 0, 0, -rnd(40, 90), rnd(0.9, 1.6));   // erste Tropfen
-      if (t > 1.1 && this.once("hit")) { w.shake = Math.max(w.shake, 2.5); sp.burst(cx, cy, 1, 40, 110, 160, 1.9); splashList(this.splashes, cx, cy, 14, 30, 13, t); SZ.audio.play("step_water", { x: cx, vol: 2, rate: 0.55 }); }
+      if (t > 1.1 && this.once("hit")) { w.shake = Math.max(w.shake, 2.5); sp.burst(cx, cy, 1, 40, 110, 160, 1.9); splashList(this.splashes, cx, cy, 14, 30, 13, t); }
       if (t > 1.1 && t < 1.95) {
         for (i = 0; i < 4; i++) if (Math.random() < dt * 60) { var a5 = Math.random() * TAU; sp.add(cx + Math.cos(a5) * 13, cy + Math.sin(a5) * 7, rnd(1, 6), Math.cos(a5) * rnd(50, 120), Math.sin(a5) * rnd(25, 60), rnd(40, 130), rnd(0.9, 2.2)); }
         if (Math.random() < dt * 8) w.parts.ring(cx, cy, 24, 0.6);
@@ -402,7 +405,8 @@
     var t = this.t, w = this.w, sp = this.spray, Hd = this.hands();
     sp.update(dt);
     if (t > 0.3 && t < 0.7 && Math.random() < dt * 35) sp.add(this.cx + rnd(-6, 6), this.cy + rnd(-4, 4), 0, rnd(-6, 6), rnd(-4, 4), rnd(40, 80), rnd(0.7, 1.5));
-    if (t > 0.6 && this.once("lift")) { sp.burst(this.cx, this.cy, 1, 16, 30, 90, 1.4); splashList(this.splashes, this.cx, this.cy, 6, 12, 8, t); SZ.audio.play("step_water", { x: this.cx, vol: 1.4, rate: 0.7 }); }
+    if (t >= 0.25 && this.once("snd")) SZ.audio.play("water_absorb", { x: this.cx });
+    if (t > 0.6 && this.once("lift")) { sp.burst(this.cx, this.cy, 1, 16, 30, 90, 1.4); splashList(this.splashes, this.cx, this.cy, 6, 12, 8, t); }
     if (t > 0.6 && t < 1.95 && Math.random() < dt * 24) { var a = Math.random() * TAU; sp.add(Hd.x + Math.cos(a) * 6, Hd.y + Math.sin(a) * 3, Hd.z + rnd(-3, 5), -Math.cos(a) * 20, -Math.sin(a) * 10, rnd(-10, 30), rnd(0.6, 1.1)); }
     if (!this.converted && t >= 0.62) {
       this.converted = true;
@@ -416,7 +420,6 @@
       for (var i = 0; i < 18; i++) w.parts.add({ type: "spark", x: p.x + rnd(-8, 8), y: p.y + rnd(-3, 3), z: rnd(2, 20), vx: rnd(-8, 8), vy: rnd(-4, 4), vz: rnd(20, 50), life: rnd(0.5, 0.9), col: i % 2 ? "#BFF6FF" : "#8FF0C8" });
       w.parts.ring(p.x, p.y, 16, 0.7, "rgba(170,250,230,"); w.parts.ring(p.x, p.y, 26, 1, "rgba(150,230,255,");
       sp.burst(p.x, p.y, 16, 14, 40, 40, 1);
-      SZ.audio.play("step_water", { x: p.x, vol: 1.2, rate: 1.3 });
       if (this.onHeal) this.onHeal(add);
     }
     if (t >= 2.6 && !sp.list.length) { this.done = true; return false; }

@@ -139,8 +139,22 @@
           }
           if (Math.random() < 0.5) self.parts.wind(r.x, r.y - r.z, r.ang, 8 + r.power * 12, 0.3, 0.45 * r.power);
         }
+        // Feindlicher Pfeil: trifft den Spieler (Block: zerbricht, Parade: fliegt zurück, Ausweichen: fliegt durch)
+        var pl = self.player;
+        if (r.hostile && pl && !pl.dead && r.hit.indexOf(pl) < 0 && Math.abs(pl.x - r.x) < 5 && r.y > pl.y - 8 && r.y < pl.y + 4) {
+          r.hit.push(pl);
+          var res = pl.hurt(r.dmg, r.x - Math.cos(r.ang) * 30, r.y - Math.sin(r.ang) * 30, "arrow");
+          if (res === "parry") {
+            r.hostile = false; r.hit = [pl]; r.ang += Math.PI + (Math.random() - 0.5) * 0.2; r.dmg *= 1.5; r.power = 0.6;
+            var sp2 = Math.hypot(r.vx, r.vy) * 1.15; r.vx = Math.cos(r.ang) * sp2; r.vy = Math.sin(r.ang) * sp2; r.dist = 0;
+          } else if (res === "block" || res === "break") {
+            self.parts.chips(r.x, r.y, r.z, 6, ["#8A6A44", "#5E4630", "#D8D2C4"]); r.dead = true; break;
+          } else if (res === "hit") {
+            SZ.audio.play("arrow_hit", { x: r.x, vol: 0.8 }); r.dead = true; break;
+          }
+        }
         // Treffer: Gegner
-        for (var e = 0; e < self.enemies.length; e++) {
+        for (var e = 0; e < self.enemies.length && !r.hostile; e++) {
           var en = self.enemies[e];
           if (en.dead || r.hit.indexOf(en) >= 0) continue;
           if (Math.abs(en.x - r.x) < 6 * en.sc && r.y > en.y - 9 * en.sc && r.y < en.y + 5) {
@@ -175,7 +189,7 @@
       if (!r.stuck && r.trail.length > 1) {
         for (var i = 1; i < r.trail.length; i++) {
           var k = 1 - (now - r.trail[i].t) / 0.16;
-          ctx.strokeStyle = "rgba(255,250,236," + (k * (0.2 + r.power * 0.6)) + ")"; ctx.lineWidth = r.power > 0.8 ? 2 : 1;
+          ctx.strokeStyle = (r.hostile ? "rgba(255,190,170," : "rgba(255,250,236,") + (k * (0.2 + r.power * 0.6)) + ")"; ctx.lineWidth = r.power > 0.8 ? 2 : 1;
           ctx.beginPath(); ctx.moveTo(r.trail[i - 1].x, r.trail[i - 1].y); ctx.lineTo(r.trail[i].x, r.trail[i].y); ctx.stroke();
         }
       }

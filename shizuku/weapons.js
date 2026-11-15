@@ -43,12 +43,12 @@
   // Kein Durchschlagen: ein Geschoss trifft höchstens einen Gegner. Nach range Pixeln fällt es zu Boden.
   SZ.WEAPONS.shuriken = {
     name: function () { return L2("Shuriken (Wurfsterne)", "Shuriken (throwing stars)"); },
-    type: "throw", proj: "star", rate: 3, dmg: 5, speed: 380, range: 170, knock: 0.35, weight: 1,
+    type: "throw", proj: "star", rate: 3, dmg: 6.5, speed: 380, range: 170, knock: 0.35, weight: 1,
     blocks: ["kamae", "ukenagashi", "ashisabaki"], attacks: [], style: SZ.WEAPONS.katana.style, blade: 14
   };
   SZ.WEAPONS.kunai = {
     name: function () { return L2("Kunai (Wurfmesser)", "Kunai (throwing knives)"); },
-    type: "throw", proj: "knife", rate: 1, dmg: 14, speed: 430, range: 290, knock: 0.7, weight: 1,
+    type: "throw", proj: "knife", rate: 1, dmg: 18.2, speed: 430, range: 290, knock: 0.7, weight: 1,
     blocks: ["kamae", "ukenagashi", "ashisabaki"], attacks: [], style: SZ.WEAPONS.katana.style, blade: 14
   };
 

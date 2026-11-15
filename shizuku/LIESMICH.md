@@ -17,15 +17,15 @@ Kein Build-Schritt nötig: jede Datei hier ist direkt die Datei, die im Browser 
 | `arena.js` | Arena-Daten, Bodenarten mit Lauftempo, Kollision, Speichern, eingebauter Tempel |
 | `arenas/standard.js` | Standard-Arena (kann vom Dev Tool exportiert werden) |
 | `lighting.js` | Tageszeit, Sonnenstand, Schatten, rotes Glühen, Laternenlicht |
-| `particles.js` | Blätter, Staub, Spritzer, Ringe, Stroh, Funken, Nachbilder |
+| `particles.js` | Blätter, Staub, Spritzer, Blut (bleibt als Flecken liegen), Ringe, Stroh, Funken, Nachbilder |
 | `world.js` | Spielwelt: zeichnet alles in der richtigen Reihenfolge, Wachstum |
 | `player.js` | Samurai: Bewegung, Dash, Angriffe, Konter, Blocks, Bogen, Wurfwaffen, Wasser beschwören, Leben, Energie |
 | `element-water.js` | Wasser-Element: Fluten (3 Varianten), Absorbieren (heilt, Kachel wird Sand), Wasserfessel (X). Kosten in `SZ.ELEMENT_COST`, Werte in `SZ.WATER` |
-| `enemies.js` | Gegner und KI (Ronin, Heavy Ronin) |
+| `enemies.js` | Gegner und KI (Ronin, Heavy Ronin, Yumi-heishi = Bogenschütze mit eigener KI: zweite Reihe, Flucht als Letzter) |
 | `hud.js` | Lebens- und Energiebalken, Waffensymbol |
 | `scene-menu.js` | Menü (雫, Gliederpuppe, versteckter Dev-Zugang) |
 | `scene-intro.js` | Übergang: Tropfen fällt, Arena wächst |
-| `scene-arena.js` | Kampf-Arena mit Gegnerwellen |
+| `scene-arena.js` | Kampf-Arena mit Gegnerwellen (`WAVES` feste Wellen, danach `waveSpec`; Aufstellungen in `spawnGroup`) |
 | `editor.js` | Dev Tool |
 | `main.js` | Canvas, Skalierung, Szenenwechsel, Hauptschleife |
 

@@ -32,6 +32,16 @@
   P.chips = function (x, y, z, n, cols) {
     for (var i = 0; i < n; i++) { var a = Math.random() * 6.28, s = 30 + Math.random() * 70; this.add({ type: "straw", x: x, y: y, z: z, vx: Math.cos(a) * s, vy: Math.sin(a) * s * 0.5, vz: 20 + Math.random() * 50, life: 0.9 + Math.random() * 0.5, col: cols[(Math.random() * cols.length) | 0], small: true }); }
   };
+  // Blut: Tropfen fliegen in Schlagrichtung (ang), fallen mit Schwerkraft und bleiben als Flecken liegen
+  var BLOOD = ["#7A0F0F", "#9E1A16", "#B82420", "#5E0B0C", "#C8342A"];
+  P.blood = function (x, y, z, n, ang, power) {
+    var pw = power == null ? 1 : Math.max(0.4, Math.min(2, power));
+    for (var i = 0; i < n; i++) {
+      var a = ang + (Math.random() - 0.5) * 1.6, s = (25 + Math.random() * 75) * pw;
+      this.add({ type: "blood", x: x + (Math.random() - 0.5) * 3, y: y + (Math.random() - 0.5) * 2, z: z + (Math.random() - 0.5) * 4,
+                 vx: Math.cos(a) * s, vy: Math.sin(a) * s * 0.55, vz: 15 + Math.random() * 55, life: 3, col: BLOOD[(Math.random() * BLOOD.length) | 0], big: Math.random() < 0.3 });
+    }
+  };
   // Blätter oder Blüten, die aus einer Krone fallen
   P.leafBurst = function (x, y, n, cols, zmin, zmax, spread) {
     for (var i = 0; i < n; i++) this.add({ type: "leaf", x: x + (Math.random() - 0.5) * (spread || 30), y: y + (Math.random() - 0.3) * 10, z: zmin + Math.random() * (zmax - zmin), vx: (Math.random() - 0.5) * 30, vy: (Math.random() - 0.5) * 8, vz: -6 - Math.random() * 6, life: 6 + Math.random() * 5, col: cols[(Math.random() * cols.length) | 0], ph: Math.random() * 6.28, ground: 0 });
@@ -78,6 +88,15 @@
         p.x += p.vx * dt; p.y += p.vy * dt;
       } else if (p.type === "wake") {
         p.x += p.vx * dt; p.y += p.vy * dt; var dk = Math.pow(0.02, dt); p.vx *= dk; p.vy *= dk;
+      } else if (p.type === "blood") {
+        if (p.ground) continue;
+        p.vz -= 260 * dt; p.x += p.vx * dt; p.y += p.vy * dt; p.z += p.vz * dt;
+        if (p.z <= 0) {   // landet: wird zum Fleck (im Wasser löst er sich auf)
+          p.z = 0; p.ground = true; p.vx = p.vy = p.vz = 0;
+          var wet = world && world.arena.tilePx(p.x, p.y) === "w";
+          p.life = p.age + (wet ? 0.25 : 5 + Math.random() * 4);
+          p.streak = !wet && Math.random() < 0.4; p.sang = Math.random() < 0.5;
+        }
       } else if (p.type === "ink" || p.type === "mist") {
         p.x += p.vx * dt; p.y += p.vy * dt; p.z += (p.vz || 0) * dt; p.vx *= 0.94; p.vy *= 0.94;
       } else {
@@ -100,6 +119,12 @@
         var r = p.r1 * SZ.m.easeOutCubic(p.age / p.life);
         ctx.strokeStyle = p.col + (0.55 * k) + ")"; ctx.lineWidth = 1;
         ctx.beginPath(); ctx.ellipse(p.x, p.y, r, r * 0.55, 0, 0, 6.283); ctx.stroke();
+      } else if (p.type === "blood" && p.ground) {
+        ctx.globalAlpha = Math.min(0.85, (p.life - p.age) / 1.5);
+        var bx = Math.round(p.x), by = Math.round(p.y);
+        ctx.fillStyle = p.col; ctx.fillRect(bx, by, p.streak && !p.sang ? 1 : 2, p.streak && !p.sang ? 2 : 1);
+        if (p.big) { ctx.fillRect(bx, by + 1, 1, 1); ctx.fillStyle = "#D23A2E"; ctx.fillRect(bx, by, 1, 1); }
+        ctx.globalAlpha = 1;
       } else if (p.type === "leaf" && p.z <= 0) {
         ctx.globalAlpha = Math.min(1, (p.life - p.age) / 1.5);
         ctx.fillStyle = p.col; ctx.fillRect(Math.round(p.x), Math.round(p.y), 2, 1);
@@ -132,6 +157,7 @@
         var f = Math.sin(p.ph * 2) > 0;
         ctx.fillRect(x, y, f ? 2 : 1, f ? 1 : 2);
       } else if (p.type === "dust") { ctx.globalAlpha = k * 0.7; ctx.fillStyle = p.col; ctx.fillRect(x, y, 1, 1); ctx.globalAlpha = 1; }
+      else if (p.type === "blood" && !p.ground) { ctx.fillStyle = p.col; ctx.fillRect(x, y, 1, p.big && p.vz < 0 ? 2 : 1); }
       else if (p.type === "drop" || p.type === "straw") { ctx.fillStyle = p.col; ctx.fillRect(x, y, 1, p.type === "straw" && !p.small ? 2 : 1); }
       else if (p.type === "orb") { ctx.fillStyle = "rgba(255,214,120,0.35)"; ctx.fillRect(x - 1, y - 1, 3, 3); ctx.fillStyle = "#FFF0C0"; ctx.fillRect(x, y, 1, 1); }
       else if (p.type === "ink") { ctx.fillStyle = "rgba(" + p.col + "," + (0.7 * k) + ")"; var rr = Math.round(p.r * (1 + (1 - k) * 1.2)); ctx.fillRect(x - rr, y - rr, rr * 2, rr * 2); }

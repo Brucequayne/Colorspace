@@ -30,13 +30,17 @@
     ash: ["#141414", "#22221F", "#34332E", "#4A4842"],
     rope: ["#3A2A1A", "#5A4228", "#7A5C38", "#9A7A4E"],
     armor: ["#101114", "#1E2027", "#33363F", "#555A66"],
-    lace: ["#3A0E0C", "#6A1A15", "#962A1F", "#C04230"]
+    lace: ["#3A0E0C", "#6A1A15", "#962A1F", "#C04230"],
+    moss: ["#151C12", "#26321E", "#3B4C2C", "#58693E"],
+    earth: ["#1C140E", "#33261A", "#4E3A26", "#6C5236"]
   };
   // Aussehen je Figur
   var LOOKS = {
     samurai: { torso: "kamishimo", sleeve: "ivory", legs: "indigo", wings: "red", saya: true, hat: false, knot: false },
     ronin: { torso: "kimono", sleeve: "rag", legs: "ash", wings: null, saya: true, hat: true, knot: false, eyes: false },
     // Heavy Ronin: lackierte Rüstung mit roter Schnürung, Schulterplatten, Hüftschurz, Stirnband, 30 % größer
+    // Yumi-heishi: Bogenschütze in moosgrünem Kimono, brauner Hakama, Stirnband und Köcher auf dem Rücken, ohne Schwert
+    yumi: { torso: "kimono", robe: "moss", sleeve: "moss", legs: "earth", wings: null, saya: false, hat: false, hachimaki: true, quiver: true },
     heavy: { torso: "armor", sleeve: "armor", legs: "ash", wings: null, sode: true, kusazuri: true, saya: true, hat: false, hachimaki: true, scale: 1.3 }
   };
 
@@ -137,6 +141,8 @@
     if (!L.hat) add(ell(0, hy - 3.3, hz + 1.4, 1.1, 0.9, 1.0), "red");
     // Strohhut (Sugegasa): flacher, weiter Kegel
     if (L.hat) { add(ell(0, hy, hz + 1.3, 7.2, 7.2, 0.9), "straw"); add(ell(0, hy, hz + 2.2, 4.4, 4.4, 1.7), "straw"); add(ell(0, hy, hz + 3.6, 1.6, 1.6, 1.1), "straw"); }
+    // Köcher auf dem Rücken mit Pfeilfedern
+    if (L.quiver) { add(cone([2.1, ln * 0.6 - 3.0, 11.8 + cz], [3.4, ln * 0.6 - 3.5, 22.4 + cz], 1.05, 1.2), "rope"); add(ell(3.5, ln * 0.6 - 3.5, 23.5 + cz, 1.15, 0.95, 1.05), "white"); }
     // Leere Saya (Schwertscheide) an der linken Hüfte
     if (L.saya) { add(cone([-3.8, ln * 0.5 + 1.8, 11.6 + cz], [-4.6, ln * 0.5 - 4.6, 9.8 + cz], 0.62, 0.62), "saya"); add(ell(-3.8, ln * 0.5 + 2.1, 11.7 + cz, 0.75, 0.6, 0.75), "gold"); }
     return { prims: prims, ln: ln, cz: cz, P: P, L: L };
@@ -160,7 +166,7 @@
       if (M.L.torso === "armor") return material("armor", x, y, z, M);
       if (M.L.torso === "kimono") {
         if (ty > 0.8 && tz > 14.2 && Math.abs(x + (tz - 14) * 0.25) < (tz - 13.6) * 0.42) return Math.abs(x + (tz - 14) * 0.25) > (tz - 13.6) * 0.3 ? "ivory" : "skin";
-        return "rag";
+        return M.L.robe || "rag";
       }
       if (ty > 0.8 && tz > 15.5 && Math.abs(x) < (tz - 15.2) * 0.62) return "ivory";
       if (ty > 1.2 && Math.abs(Math.abs(x) - 2.1) < 0.55 && Math.abs(tz - 17.4) < 0.55) return "white";
@@ -211,7 +217,7 @@
   }
 
   var FRAMES = { idle: 2, walk: 6, block: 1, parry: 1, atk: 1, dash: 1, bow: 1, windup: 1, stagger: 1, blockwalk: 6, bowwalk: 6, cast_up: 1, cast_flow: 1, cast_flow2: 1, cast_push: 1, cast_low: 1 };
-  var USE = { samurai: ["idle", "walk", "block", "parry", "atk", "dash", "bow", "stagger", "blockwalk", "bowwalk", "cast_up", "cast_flow", "cast_flow2", "cast_push", "cast_low"], ronin: ["idle", "walk", "atk", "windup", "stagger", "block"], heavy: ["idle", "walk", "atk", "windup", "stagger"] };
+  var USE = { samurai: ["idle", "walk", "block", "parry", "atk", "dash", "bow", "stagger", "blockwalk", "bowwalk", "cast_up", "cast_flow", "cast_flow2", "cast_push", "cast_low"], ronin: ["idle", "walk", "atk", "windup", "stagger", "block"], heavy: ["idle", "walk", "atk", "windup", "stagger"], yumi: ["idle", "walk", "bow", "stagger"] };
   var cache = {}, queue = [];
   function frame(dir, anim, k, look) {
     look = look || "samurai";

@@ -36,7 +36,10 @@
     spawn_heavy: { f: ["Heavy_Ronin_Spawn_1.mp3", "Heavy_Ronin_Spawn_2.mp3"], vol: 0.75 },
     step:        { f: seq("Characterstep", 7), vol: 0.32, rate: [0.94, 1.06] },
     step_grass:  { f: seq("step_mosundgras", 7), vol: 0.38, rate: [0.94, 1.06] },
-    step_water:  { f: seq("step_water", 5), vol: 0.45, rate: [0.94, 1.06] }
+    step_water:  { f: seq("step_water", 5), vol: 0.45, rate: [0.94, 1.06] },
+    // Wasser-Element: der Platsch kommt ~0,9 s nach Dateibeginn (davor baut sich das Wasser auf)
+    water_place: { f: seq("Watersplash_placement", 2), vol: 0.9 },
+    water_absorb: { f: ["Watersplash_absorb.mp3"], vol: 0.9 }
   };
   var LOOPS = { wind: "Wind.mp3", waterfall: "Flowingwaterfall.mp3" };
   // Soundtracks: jeder Lauf bekommt zufällig einen davon
@@ -106,7 +109,7 @@
       src.buffer = buf;
       var r = S.rate ? S.rate[0] + Math.random() * (S.rate[1] - S.rate[0]) : 1;
       src.playbackRate.value = r * (opt.rate || 1);
-      var gv = (S.vol || 1) * (opt.vol == null ? 1 : opt.vol), off = Math.max(lead(buf), S.offset || 0);
+      var gv = (S.vol || 1) * (opt.vol == null ? 1 : opt.vol), off = Math.max(lead(buf), S.offset || 0) + (opt.offset || 0);
       if (S.offset) { g.gain.setValueAtTime(0, ctx.currentTime); g.gain.linearRampToValueAtTime(gv, ctx.currentTime + 0.012); }   // weich einblenden, kein Knacken
       else g.gain.value = gv;
       src.connect(g);

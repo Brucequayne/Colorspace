@@ -17,18 +17,21 @@
     c.fillRect(x - 3, y, 2, 1); c.fillRect(x + 2, y, 2, 1); c.fillRect(x, y - 3, 1, 2); c.fillRect(x, y + 2, 1, 2);
     c.fillStyle = "#E2462F"; c.fillRect(x, y, 1, 1);
   }
-  function spawnPoint(w, pl) {
-    var a = w.arena;
-    for (var i = 0; i < 200; i++) {
+  // Freier Spawnpunkt; mit Ziel (gx, gy) wird der passende Punkt gewählt, der dem Ziel am nächsten liegt
+  function spawnPoint(w, pl, gx, gy) {
+    var a = w.arena, best = null, bd = 1e9, found = 0, F = w.flowTo(pl.x, pl.y);
+    for (var i = 0; i < 260 && found < (gx == null ? 1 : 30); i++) {
       var x = 24 + Math.random() * (SZ.W - 48), y = 34 + Math.random() * (SZ.H - 64);
       if (!a.walkable(x, y, 7) || a.tilePx(x, y) === "w" || w.blockedAt(x, y)) continue;
-      var F = w.flowTo(pl.x, pl.y); if (F.dist[Math.floor(y / 8) * (SZ.W / 8) + Math.floor(x / 8)] < 0) continue;   // muss den Spieler erreichen können
+      if (F.dist[Math.floor(y / 8) * (SZ.W / 8) + Math.floor(x / 8)] < 0) continue;   // muss den Spieler erreichen können
       if (SZ.m.dist(x, y, pl.x, pl.y) < 95) continue;
       if (w.solids.some(function (c) { return SZ.m.dist(x, y, c[0], c[1]) < c[2] + 8; })) continue;
       if (w.enemies.some(function (e) { return SZ.m.dist(x, y, e.x, e.y) < 24; })) continue;
-      return [x, y];
+      found++;
+      var d = gx == null ? 0 : SZ.m.dist(x, y, gx, gy);
+      if (d < bd) { bd = d; best = [x, y]; }
     }
-    return null;
+    return best;
   }
   function banner(n, sub) {
     var old = SZ.main.ui.querySelector(".sz-wave"); if (old) old.remove();
@@ -38,41 +41,77 @@
   }
 
   // ---------- Wellen ----------
-  // r = Ronin, h = Heavy Ronin, rr/hh = Verstärkung (kommt, wenn höchstens einer übrig ist oder nach 8 s)
+  // Eine Welle: a = sofort (ronin / heavy / yumi), re = Verstärkung (kommt, wenn höchstens einer übrig ist oder nach 8 s),
+  // form = Aufstellung beim Erscheinen:
+  //   ring  – verteilt rundherum
+  //   wall  – Nahkämpfer vorne, Bogenschützen dahinter (alle von einer Seite)
+  //   pincer – Nahkämpfer von einer Seite, Bogenschützen von der Gegenseite
+  //   flank – zwei Gruppen von links und rechts
+  //   ambush – Bogenschützen in den Ecken, Nahkämpfer nah dran
+  function sub(de, en) { return function () { return L2(de, en); }; }
   var WAVES = [
-    { r: 1 },
-    { r: 2 },
-    { h: 1, sub: function () { return L2("Ein Schwerer, allein", "A heavy one, alone"); } },
-    { r: 3 },
-    { h: 1, r: 2 },
-    { r: 2, rr: 2, sub: function () { return L2("Mit Verstärkung", "With reinforcements"); } },
-    { h: 2, sub: function () { return L2("Zwei Schwere", "Two heavies"); } },
-    { r: 4, hh: 1, sub: function () { return L2("Mit Verstärkung", "With reinforcements"); } },
-    { r: 6 },
-    { h: 2, r: 2, rr: 2 }
+    { a: { ronin: 1 } },
+    { a: { ronin: 2 } },
+    { a: { yumi: 1 }, sub: sub("Ein Bogenschütze", "An archer") },
+    { a: { ronin: 2, yumi: 1 }, form: "wall", sub: sub("Schütze hinter der Linie", "Archer behind the line") },
+    { a: { heavy: 1 }, sub: sub("Ein Schwerer, allein", "A heavy one, alone") },
+    { a: { ronin: 3 }, re: { yumi: 2 }, sub: sub("Bögen als Verstärkung", "Bows as reinforcements") },
+    { a: { heavy: 1, yumi: 2 }, form: "wall", sub: sub("Schild und Bogen", "Shield and bow") },
+    { a: { yumi: 3 }, form: "ring", sub: sub("Aus allen Richtungen", "From every direction") },
+    { a: { ronin: 4 }, re: { heavy: 1 }, form: "flank", sub: sub("Von beiden Seiten", "From both sides") },
+    { a: { heavy: 2, yumi: 2 }, form: "pincer", sub: sub("Die Zange", "The pincer") },
+    { a: { ronin: 2, yumi: 3 }, re: { ronin: 2 }, form: "ambush", sub: sub("Hinterhalt", "Ambush") },
+    { a: { heavy: 1, ronin: 3, yumi: 3 }, form: "wall", sub: sub("Schlachtreihe", "Battle line") }
   ];
+  // Ab Welle 13: wechselnde Vorlagen, wachsend bis 10 Gegner (höchstens 4 Bogenschützen gleichzeitig)
   function waveSpec(n) {
     if (n <= WAVES.length) return WAVES[n - 1];
-    // Danach: wachsend bis 9 Gegner gleichzeitig, ab und zu Sonderwellen
-    var k = n - WAVES.length, total = Math.min(9, 5 + Math.floor(k / 2)), roll = Math.random();
-    if (roll < 0.15) return { h: Math.min(4, 2 + Math.floor(k / 3)), sub: function () { return L2("Nur Schwere", "Heavies only"); } };
-    if (roll < 0.3) return { r: Math.min(9, total + 2), sub: function () { return L2("Ein Schwarm Ronin", "A swarm of ronin"); } };
-    var h = Math.max(1, Math.round(total * (0.2 + Math.random() * 0.2))), r = total - h;
-    return { r: Math.ceil(r / 2), h: Math.ceil(h / 2), rr: Math.floor(r / 2), hh: Math.floor(h / 2) };
+    var k = n - WAVES.length, total = Math.min(10, 6 + Math.floor(k / 2)), roll = Math.random(), ri = function (a, b) { return a + Math.floor(Math.random() * (b - a + 1)); };
+    var y = Math.min(4, ri(1, 2 + Math.floor(k / 4)));
+    if (roll < 0.14) return { a: { heavy: Math.min(4, 2 + Math.floor(k / 3)), yumi: ri(1, 2) }, form: "wall", sub: sub("Eiserne Mauer", "Iron wall") };
+    if (roll < 0.28) return { a: { ronin: Math.min(8, total), yumi: 1 }, form: "ring", sub: sub("Ein Schwarm Ronin", "A swarm of ronin") };
+    if (roll < 0.42) return { a: { yumi: y, ronin: 2 }, re: { ronin: Math.max(1, total - y - 2) }, form: "ambush", sub: sub("Hinterhalt", "Ambush") };
+    if (roll < 0.56) return { a: { ronin: Math.ceil((total - y) / 2), yumi: y }, re: { heavy: 1, ronin: Math.max(0, Math.floor((total - y) / 2) - 1) }, form: "pincer", sub: sub("Die Zange", "The pincer") };
+    if (roll < 0.7) return { a: { ronin: Math.ceil(total / 2) }, re: { ronin: Math.floor(total / 2) - 1, yumi: 1 }, form: "flank", sub: sub("Von beiden Seiten", "From both sides") };
+    if (roll < 0.8) return { a: { yumi: Math.min(4, y + 1) }, re: { heavy: 1, ronin: Math.max(1, total - y - 2) }, form: "ring", sub: sub("Pfeilhagel", "Arrow rain") };
+    var h = Math.max(1, Math.round(total * (0.15 + Math.random() * 0.15))), r = Math.max(1, total - h - y);
+    return { a: { ronin: Math.ceil(r / 2), heavy: Math.ceil(h / 2), yumi: y }, re: { ronin: Math.floor(r / 2), heavy: Math.floor(h / 2) }, form: ["wall", "pincer", "flank", "ring"][ri(0, 3)] };
   }
-  function spawnGroup(w, p, r, h, hpMul) {
+  SZ.waveSpec = waveSpec;   // für Tests und den Dev-Tool-Einblick
+  function count(o) { var n = 0; for (var k in o) n += o[k] || 0; return n; }
+  // Gegner nach Aufstellung erscheinen lassen
+  function spawnGroup(w, p, group, hpMul, form) {
     var list = [];
-    for (var i = 0; i < (h || 0); i++) list.push("heavy");
-    for (var j = 0; j < (r || 0); j++) list.push("ronin");
-    list.forEach(function (t) { var sp = spawnPoint(w, p); if (sp) w.enemies.push(new SZ.Enemy(w, t, sp[0], sp[1], { hpMul: hpMul })); });
+    ["heavy", "ronin", "yumi"].forEach(function (t) { for (var i = 0; i < (group[t] || 0); i++) list.push(t); });
+    var base = Math.random() * Math.PI * 2, W = SZ.W, H = SZ.H, cx = W / 2, cy = H / 2;
+    // Zielpunkt je Gegner (null = irgendwo)
+    function goal(t, i, n) {
+      var archer = t === "yumi", ang, d;
+      switch (form) {
+        case "wall": ang = base + (i - (n - 1) / 2) * 0.28; d = archer ? 175 : 105; break;
+        case "pincer": ang = base + (archer ? Math.PI : 0) + (Math.random() - 0.5) * 0.7; d = archer ? 160 : 110; break;
+        case "flank": ang = base + (i % 2 ? Math.PI : 0) + (Math.random() - 0.5) * 0.5; d = archer ? 165 : 120; break;
+        case "ambush":
+          if (archer) { var c = [[30, 40], [W - 30, 40], [30, H - 30], [W - 30, H - 30]][(i + Math.floor(base * 2)) % 4]; return c; }
+          ang = base + i * 1.7; d = 100; break;
+        case "ring": ang = base + i / Math.max(1, n) * Math.PI * 2; d = archer ? 160 : 120; break;
+        default: return null;
+      }
+      return [SZ.m.clamp(p.x + Math.cos(ang) * d, 24, W - 24), SZ.m.clamp(p.y + Math.sin(ang) * d * 0.75, 34, H - 30)];
+    }
+    list.forEach(function (t, i) {
+      var g = goal(t, i, list.length), sp = g ? spawnPoint(w, p, g[0], g[1]) : spawnPoint(w, p);
+      if (sp) w.enemies.push(new SZ.Enemy(w, t, sp[0], sp[1], { hpMul: hpMul }));
+    });
   }
   function startWave() {
-    var w = S.world, p = S.player, n = ++S.wave, spec = waveSpec(n), hpMul = n > 10 ? 1 + (n - 10) * 0.06 : 1;
+    var w = S.world, p = S.player, n = ++S.wave, spec = waveSpec(n), hpMul = n > 12 ? 1 + (n - 12) * 0.06 : 1;
     S.between = false; S.waveClock = 0;
-    S.reinf = (spec.rr || spec.hh) ? { r: spec.rr || 0, h: spec.hh || 0, hpMul: hpMul } : null;
-    var sub = spec.sub ? spec.sub() : (spec.h || spec.hh) ? L2("Heavy Ronin dabei", "Heavy Ronin among them") : "";
-    banner(n, sub);
-    spawnGroup(w, p, spec.r, spec.h, hpMul);
+    S.reinf = spec.re && count(spec.re) ? { g: spec.re, hpMul: hpMul } : null;
+    var all = {}; [spec.a, spec.re || {}].forEach(function (o) { for (var k in o) all[k] = (all[k] || 0) + o[k]; });
+    var sub2 = spec.sub ? spec.sub() : all.heavy && all.yumi ? L2("Heavy Ronin und Bogenschützen", "Heavy ronin and archers") : all.yumi ? L2("Bogenschützen dabei", "Archers among them") : all.heavy ? L2("Heavy Ronin dabei", "Heavy Ronin among them") : "";
+    banner(n, sub2);
+    spawnGroup(w, p, spec.a, hpMul, spec.form);
   }
   // ---------- Wasser-Element ----------
   // Zwischen den Wellen (Q): Kachel anklicken = fluten (100, eine pro Pause), Wasser anklicken = absorbieren (200, heilt 7 %).
@@ -172,7 +211,7 @@
   }
   function hudDom() {
     var ui = SZ.main.ui, top = ui.querySelector(".sz-top");
-    var alive = S.world.enemies.filter(function (e) { return !e.dead; }).length + (S.reinf ? S.reinf.r + S.reinf.h : 0);
+    var alive = S.world.enemies.filter(function (e) { return !e.dead; }).length + (S.reinf ? count(S.reinf.g) : 0);
     var pts = String(S.points), wv = S.wave ? L2("Welle ", "Wave ") + S.wave + (S.between ? "" : " · " + alive + L2(" übrig", " left")) : "";
     if (top.dataset.p !== pts) { top.querySelector("b").textContent = pts; top.dataset.p = pts; }
     if (top.dataset.w !== wv) { top.querySelector("span").textContent = wv; top.dataset.w = wv; }
@@ -253,7 +292,7 @@
       // Wellen: Verstärkung, Ende, nächste Welle mit E
       var alive = w.enemies.filter(function (e) { return !e.dead; }).length;
       S.waveClock += dt;
-      if (S.reinf && (alive <= 1 || S.waveClock > 8)) { var R = S.reinf; S.reinf = null; spawnGroup(w, p, R.r, R.h, R.hpMul); alive = 1; }
+      if (S.reinf && (alive <= 1 || S.waveClock > 8)) { var R = S.reinf; S.reinf = null; spawnGroup(w, p, R.g, R.hpMul, "ring"); alive = 1; }
       if (!S.between && alive === 0 && !S.reinf) { S.between = true; S.floodLeft = 1; }
       waterUpdate(I, p);
       if (S.between && !p.dead && I.hit("e") && !S.casting && !S.queue.length) { S.waterMode = false; p.inputLock = false; startWave(); }

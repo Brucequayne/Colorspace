@@ -15,6 +15,7 @@
     var C = SZ.PLAYER;
     this.world = world;
     this.x = x; this.y = y; this.vx = 0; this.vy = 0;
+    world.player = this;
     this.face = Math.PI / 2; this.dir = 2; this.bodyAng = this.face;
     this.slots = SZ.loadout.get(); this.wi = 0; this.weapon = SZ.WEAPONS[this.slots[0]];
     this.act = null; this.guard = null;
@@ -301,6 +302,7 @@
     if (this.dead || this.inv > 0) return "miss";
     var w = this.world, a = Math.atan2(fy - this.y, fx - this.x), front = Math.abs(m.angDiff(this.face, a)) < 1.3;
     var mx = (this.x + fx) / 2, my = (this.y + fy) / 2 - 12;
+    if (src === "arrow" && this.weapon.type) front = false;   // Pfeile lassen sich nur mit Nahkampfwaffen abwehren
     if (this.isParrying() && front) {
       if (this.act.type === "atk") this.act.countered = true;
       this.flash = 0.6;
@@ -326,7 +328,7 @@
     this.act = { type: "hurt", t: 0, dur: 0.28 }; this.guard = null;
     this.vx = -Math.cos(a) * 150; this.vy = -Math.sin(a) * 150;
     w.shake = 3; this.hitstop = 0.06;
-    w.parts.spark(this.x, this.y - 12, 10, 8, "#E8503A");
+    w.parts.blood(this.x, this.y, 11, 6 + Math.round(dmg * 0.4), a + Math.PI, 0.9);
     SZ.audio.play("hurt", { x: this.x });
     this.checkDeath();
     return "hit";
@@ -334,7 +336,7 @@
   P.checkDeath = function () {
     if (this.hp > 0) return;
     this.hp = 0; this.dead = true; this.deadT = 0; this.act = null; this.guard = null; this.control = false;
-    this.world.parts.ink(this.x, this.y - 6, 10, "120,20,18");
+    this.world.parts.blood(this.x, this.y, 8, 22, this.world.clock * 7, 1.1);
     SZ.main.slowmo(0.25, 0.6);
   };
 
