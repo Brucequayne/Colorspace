@@ -108,19 +108,19 @@
       '<button type="button" class="w go" data-a="test">' + L2("▶ Testen (mit Übergang)", "▶ Test (with transition)") + '</button>' +
       '<button type="button" data-a="grow">' + L2("Wachstum zeigen", "Show growth") + '</button>' +
       '<button type="button" data-a="undo">' + L2("Rückgängig", "Undo") + '</button>' +
-      '<button type="button" class="w" data-a="save">' + L2("Speichern (dieser Browser)", "Save (this browser)") + '</button>' +
+      '<button type="button" class="w" data-a="save">' + L2("Arbeitsstand speichern", "Save work in progress") + '</button>' +
       '<select data-k="poolsel" class="w" aria-label="Map-Pool"></select>' +
       '<button type="button" data-a="std">' + L2("Pool-Map laden", "Load pool map") + '</button>' +
       '<button type="button" data-a="blank">' + L2("Leere Arena", "Empty arena") + '</button>' +
       '<button type="button" class="w go2" data-a="export">' + L2("Für Map-Pool exportieren (.json)", "Export for map pool (.json)") + '</button>' +
       '<button type="button" data-a="import">' + L2("Import", "Import") + '</button>' +
-      '<button type="button" data-a="forget">' + L2("Lokale Arena löschen", "Forget local arena") + '</button>' +
+      '<button type="button" data-a="forget">' + L2("Arbeitsstand löschen", "Discard work in progress") + '</button>' +
       '<button type="button" data-a="menu">' + L2("← Menü", "← Menu") + '</button>' +
       '</div><input type="file" accept=".json,.js,application/json" hidden data-k="file">' +
       '<div class="sz-ed-status"></div>' +
       '<div class="sz-ed-info">' + L2(
-        "Abgrund (Boden oder Pinsel) macht die Insel kleiner, Wasser am Rand wird zum Wasserfall. Linke Maustaste malt bzw. setzt, rechte löscht. Mausrad: Variante (Objekte) bzw. Pinselgröße. Umschalt: Objekte am 8-px-Raster. Strg+Z: rückgängig.<br>„Speichern“ gilt nur in diesem Browser. Für alle Spieler: „Für Map-Pool exportieren“ und die .json-Datei an Claude schicken, sie kommt dann in den Map-Pool.",
-        "Abyss (floor or brush) shrinks the island, water at the edge becomes a waterfall. Left mouse paints or places, right deletes. Mouse wheel: variant (objects) or brush size. Shift: snap objects to 8 px. Ctrl+Z: undo.<br>“Save” only applies to this browser. For all players: “Export for map pool” and send the .json file to Claude, it then goes into the map pool.") + '</div>';
+        "Abgrund (Boden oder Pinsel) macht die Insel kleiner, Wasser am Rand wird zum Wasserfall. Linke Maustaste malt bzw. setzt, rechte löscht. Mausrad: Variante (Objekte) bzw. Pinselgröße. Umschalt: Objekte am 8-px-Raster. Strg+Z: rückgängig.<br>„Arbeitsstand speichern“ gilt nur hier im Dev Tool (und für „Testen“), gespielt wird immer der Map-Pool. Für alle Spieler: „Für Map-Pool exportieren“ und die .json-Datei an Claude schicken, sie kommt dann in den Map-Pool.",
+        "Abyss (floor or brush) shrinks the island, water at the edge becomes a waterfall. Left mouse paints or places, right deletes. Mouse wheel: variant (objects) or brush size. Shift: snap objects to 8 px. Ctrl+Z: undo.<br>“Save work in progress” only applies here in the dev tool (and to “Test”), the game always plays the map pool. For all players: “Export for map pool” and send the .json file to Claude, it then goes into the map pool.") + '</div>';
     E.ui.innerHTML = h;
     E.ui.addEventListener("click", onClick);
     E.ui.addEventListener("input", onInput);
@@ -181,10 +181,10 @@
     else if (a === "grid") E.grid = !E.grid;
     else if (a === "undo") undo();
     else if (a === "grow") { var sp = E.arena.spawn; E.world.startGrowth(sp[0], sp[1] - 4); E.world.parts.splash(sp[0], sp[1] - 4, 20, 1); }
-    else if (a === "save") { E.arena.time = E.world.time; status(SZ.arena.saveLocal(E.arena) ? L2("Gespeichert. Diese Arena wird jetzt in diesem Browser gespielt.", "Saved. This arena is now played in this browser.") : L2("Speichern nicht möglich.", "Could not save.")); }
+    else if (a === "save") { E.arena.time = E.world.time; status(SZ.arena.saveLocal(E.arena) ? L2("Arbeitsstand gespeichert. Er öffnet sich beim nächsten Mal im Dev Tool; gespielt wird weiter der Map-Pool.", "Work in progress saved. It opens in the dev tool next time; the game still plays the map pool.") : L2("Speichern nicht möglich.", "Could not save.")); }
     else if (a === "std") { snapshot(); var ps = E.ui.querySelector("[data-k=poolsel]"); loadArena(SZ.arena.fromPool(+ps.value || 0)); status(L2("Pool-Map geladen (noch nicht gespeichert).", "Pool map loaded (not saved yet).")); }
     else if (a === "blank") { snapshot(); var t = E.world.time; loadArena(SZ.arena.blank()); E.world.time = E.arena.time = t; syncUI(); }
-    else if (a === "forget") { SZ.arena.clearLocal(); status(L2("Lokale Arena gelöscht. Gespielt wird wieder die Standard-Arena.", "Local arena removed. The default arena is played again.")); }
+    else if (a === "forget") { SZ.arena.clearLocal(); status(L2("Arbeitsstand gelöscht. Beim nächsten Öffnen startet das Dev Tool mit der ersten Pool-Map.", "Work in progress discarded. Next time the dev tool opens with the first pool map.")); }
     else if (a === "export") { E.arena.time = E.world.time; download("shizuku-map-" + (E.arena.name || "map").replace(/[^a-z0-9]+/gi, "-").toLowerCase() + ".json", JSON.stringify(E.arena.serialize())); }
     else if (a === "import") E.ui.querySelector("[data-k=file]").click();
     else if (a === "test") { E.arena.time = E.world.time; SZ.main.go("intro", { arena: E.arena.serialize(), back: "editor" }); }
@@ -260,7 +260,7 @@
       if (!E) E = { tool: "brush", tile: "m", brush: "meadow", obj: "toro", ov: 0, bsize: 14, tsize: 1, dens: 5, wind: 1, grid: false, timeRun: false, timeSpeedV: 0.5, undo: [], acc: 0, drag: null, stroke: false };
       SZ.main.setSidebar(PANEL);
       SZ.audio.ambience(null);
-      if (!E.arena || !E.keep) loadArena(SZ.arena.active());
+      if (!E.arena || !E.keep) loadArena(SZ.arena.working());
       E.keep = false;
       build();
     },

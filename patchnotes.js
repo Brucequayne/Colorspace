@@ -111,6 +111,9 @@ window.PATCHNOTES = {
 
   // ================= Spiele =================
   shizuku: [
+    { v: "0.15.1", t: "2026-11-15T02:38:00+01:00",
+      de: ["Behoben: Eine früher im Dev Tool gespeicherte Arena konnte den Map-Pool ersetzen, die Arena war dann im Spiel leer. Gespielt wird jetzt immer der Map-Pool", "Dev Tool: „Speichern“ heißt jetzt „Arbeitsstand speichern“ und gilt nur noch für das Dev Tool und „Testen“"],
+      en: ["Fixed: an arena saved earlier in the dev tool could replace the map pool, leaving the arena empty in the game. The game now always plays the map pool", "Dev tool: “Save” is now “Save work in progress” and only applies to the dev tool and “Test”"] },
     { v: "0.15", t: "2026-11-15T02:30:00+01:00",
       de: ["Erste Sounds: Schwert ziehen, Hiebe, Stich, Drehhieb, Treffer, Blocks, Paraden, Bogen spannen und schießen, Pfeil-Einschläge, Dash, Schmerz, Ronin-Erscheinen", "Schritte klingen je nach Untergrund: Stein, Moos und Gras oder Wasser", "Nummerierte Sound-Varianten wechseln sich ab, nie zweimal dieselbe hintereinander, mit leichter Tonhöhen-Streuung", "Sounds kommen von links oder rechts, je nachdem wo sie passieren", "Ambiente: Wind und Wasserfall; der Wasserfall wird lauter, je näher man ihm kommt", "Taste M schaltet den Ton stumm", "Charaktererstellung heißt jetzt Loadout"],
       en: ["First sounds: drawing the sword, slashes, thrust, spin attack, hits, blocks, parries, drawing and shooting the bow, arrow impacts, dash, pain, ronin appearing", "Footsteps sound different on stone, moss and grass, or water", "Numbered sound variants take turns, never the same twice in a row, with slight pitch variation", "Sounds come from left or right depending on where they happen", "Ambience: wind and waterfall; the waterfall gets louder the closer you are", "Press M to mute", "Character creation is now called Loadout"] },

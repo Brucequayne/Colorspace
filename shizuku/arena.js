@@ -188,11 +188,13 @@
     },
     // Zufällige Map aus dem Pool
     standard: function () { return this.fromPool(Math.floor(Math.random() * this.pool().length)); },
-    // Im Dev Tool lokal gespeicherte Arena hat Vorrang (nur in diesem Browser), sonst Pool
-    active: function () {
+    // Gespielt wird immer eine Map aus dem Pool
+    active: function () { return this.standard(); },
+    // Arbeitsstand des Dev Tools (nur in diesem Browser, wird nie gespielt außer über „Testen“)
+    working: function () {
       var s = SZ.store.get(KEY);
       if (s) { try { return new Arena(JSON.parse(s)); } catch (e) {} }
-      return this.standard();
+      return this.fromPool(0);
     },
     hasLocal: function () { return !!SZ.store.get(KEY); },
     saveLocal: function (a) { return SZ.store.set(KEY, JSON.stringify(a.serialize())); },
