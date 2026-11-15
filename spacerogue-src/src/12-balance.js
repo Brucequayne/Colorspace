@@ -2,6 +2,8 @@
   // ===== Waffen: Minigun (MG), Raketen (MS), Railgun (RG). dmg = Schaden, e = Energie je Schuss. Die Schwere Rakete nutzt MS mit den Faktoren aus 11-bauteile.js (mk, ek)
   var MG = { rate: 12, speed: 462, life: 1.48, dmg: 7, heat: 0.042, cool: 0.42, warn: 0.78, lock: 3.2, e: 0.4 };
   var MS = { v0: 30, acc: 420, vmax: 340, turn: 0.45, life: 4, dmg: 55, splash: 2.6, sdmg: 28, reload: 2.5, gap: 0.18, e: 6 };
+  // Laser (v0.57.5): Dauerstrahl ohne Flugzeit. dps = Schaden pro Sekunde, e = Energie pro Sekunde, range = Reichweite (m)
+  var LSR = { dps: 26, e: 7, range: 620 };
   var RG = { charge: 0.7, cd: 2.2, dmg: 150, range: 700, e: 67.5 };   // v0.39: +50 % Energie pro Schuss
   // Anzugluft in Sekunden; Raumluft füllt sich in dichten Räumen auf und entweicht durch Lecks
   var SUIT = { max: 180, refill: 20, jet: 3, acc: 5, breathe: 0.35 }, AIR = { fill: 0.22, vent: 0.9 }, WELD = 15;
@@ -52,12 +54,13 @@
     else if (k === "gun") { dmg = GUN[id].dmg; rpm = GUN[id].rpm; }
     else if (k === "ms") { dmg = MS.dmg * (ty.mk || 1); rpm = 60 * (ty.rk || 2) / MS.reload; }
     else if (k === "rg") { dmg = RG.dmg; rpm = 60 / (RG.charge + RG.cd); }
+    else if (k === "lsr") return { dmg: LSR.dps, rpm: 0, dps: LSR.dps, beam: true };   // Dauerstrahl: Schaden pro Sekunde
     else return null;
     return { dmg: dmg, rpm: rpm, dps: dmg * rpm / 60 };
   }
   // Waffengruppe eines Blocks (Taste R schaltet durch): Minigun, je Geschütz- und Raketentyp eine eigene Gruppe, Railgun
-  var WGROUPS = ["mg", "g25", "g120", "msl", "msh", "rg"];
-  function grpOf(b) { var k = T[b.t].kind; return k === "mg" ? "mg" : k === "rg" ? "rg" : (k === "gun" || k === "ms") ? b.t : null; }
+  var WGROUPS = ["mg", "lsr", "g25", "g120", "msl", "msh", "rg"];
+  function grpOf(b) { var k = T[b.t].kind; return k === "mg" ? "mg" : k === "lsr" ? "lsr" : k === "rg" ? "rg" : (k === "gun" || k === "ms") ? b.t : null; }
   function grpSpeed(g) { return GUN[g] ? GUN[g] : { speed: MG.speed, life: MG.life }; }
   var INV = { w: 8, h: 8 };
   // ===== Andocken: Reichweite, Spalt, Tempo des Autopiloten

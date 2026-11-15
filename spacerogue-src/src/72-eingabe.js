@@ -59,6 +59,7 @@
   function onKey(e) {
     if (V && e.target.classList && e.target.classList.contains("sr-shipn-in")) { if (e.key === "Enter") finishRename(true); else if (e.key === "Escape") finishRename(false); e.stopPropagation(); return; }
     if (!V || e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA") return;
+    if (V.menu) return;   // im Menü keine Spieltasten
     var k = e.key.toLowerCase();
     if (k === "escape" && V.root.querySelector(".sr-vpop") && !V.root.querySelector(".sr-vpop").hidden) { closeVar(); return; }
     if (S.mode === "fly") {
@@ -94,7 +95,7 @@
       else S.envS = Math.max(envSMin(S.envSel), Math.min(envSMax(S.envSel), S.envS * (k === "]" || k === "+" || k === "=" ? 1.1 : 1 / 1.1)));
       syncUI(); return;
     }
-    if (k === "r") { S.r = (S.r + (e.shiftKey ? 3 : 1)) % 4; syncUI(); }
+    if (k === "r") { S.r = (S.r + (e.shiftKey ? 3 : 1)) % 4; if (SET.auto) { SET.auto = false; setSave(); menuSync(); note(t("autoOff")); } syncUI(); }
     else if (k === "f") { S.f = S.f ? 0 : 1; syncUI(); }
     else if (k === "m") { cycleSym(); syncUI(); }
     else if (k === "v" || k === "tab") { S.view = S.view === "in" ? "out" : "in"; syncUI(); e.preventDefault(); }
@@ -108,6 +109,7 @@
   }
   function undo() { var u = S.undo.pop(); if (!u) return; var o = JSON.parse(u); if (Array.isArray(o)) S.blocks = o; else { S.blocks = o.b; S.env = o.e.map(envUnpack).filter(Boolean); } save(); syncUI(); }
   function onClick(e) {
+    if (menuClick(e)) return;   // Startmenü und Einstellungen
     var vf = e.target.closest("[data-vf]"), vo = e.target.closest("[data-vopt]");
     if (vf) { e.preventDefault(); openVar(vf); return; }        // Falte: Varianten zeigen
     if (vo) { pickVar(vo.getAttribute("data-vopt")); return; }  // Variante gewählt: Fenster schließt sofort
@@ -126,7 +128,7 @@
     if (nb) { var sh = NPC.filter(function (q) { return String(q.id) === nb.getAttribute("data-npc"); })[0]; if (sh) { setEd("ship"); pushUndo(); S.blocks = npcBlocks(sh); if (sh.code.color) S.color = sh.code.color; save(); fitCam(); V.root.querySelector(".sr-npc").hidden = true; syncUI(); note(sh.n[lang] + (lang === "de" ? " geladen · Rückgängig holt dein Schiff zurück" : " loaded · Undo brings your ship back")); } return; }
     if (!a) return;
     var act = a.getAttribute("data-act");
-    if (act === "rot") S.r = (S.r + 1) % 4;
+    if (act === "rot") { S.r = (S.r + 1) % 4; if (SET.auto) { SET.auto = false; setSave(); menuSync(); note(t("autoOff")); } }   // von Hand drehen schaltet Auto-Drehen aus
     else if (act === "flip") S.f = S.f ? 0 : 1;
     else if (act === "sym") S.sym = !S.sym;
     else if (act === "symm") { S.symGap = !S.symGap; S.sym = true; save(); }
@@ -154,6 +156,8 @@
     else if (act === "io-open") { V.root.querySelector(".sr-io-file").click(); return; }
     else if (act === "io-load") { var bl = parseShip(V.root.querySelector(".sr-exio textarea").value); var ienv = S.ed === "station" ? parseEnv(V.root.querySelector(".sr-exio textarea").value) : null; if (bl && S.ed !== "station") bl = bl.filter(function (b) { return !T[b.t].dev; });   /* Dev-Bauteile nur im Developer Tool */ if (!bl || (!bl.length && !ienv)) { note(lang === "de" ? "Code ungültig." : "Invalid code."); return; } pushUndo(); S.blocks = bl; if (ienv) S.env = ienv; save(); fitCam(); V.root.querySelector(".sr-exio").hidden = true; if (ienv) note(t("sceneLoaded") + " (" + bl.length + (lang === "de" ? " Blöcke, " : " blocks, ") + ienv.length + " Assets)."); else note(lang === "de" ? "Schiff geladen (" + bl.length + " Blöcke)." : "Ship loaded (" + bl.length + " blocks)."); }
     else if (act === "test") { startTest(); return; }
+    else if (act === "menu") { menuOpen(); return; }
+    else if (act === "auto") { SET.auto = !SET.auto; setSave(); menuSync(); note(t(SET.auto ? "autoOn" : "autoOff")); return; }
     else if (act === "edit") { stopTest(); return; }
     else if (act === "targets") { if (FL) spawnTargets(); return; }
     else if (act === "seat") { if (FL) toggleSeat(); a.blur(); return; }
@@ -161,6 +165,7 @@
   }
   function onInput(e) {
     if (e.target.id === "sr-col") { S.color = e.target.value; S.tool = "paint"; save(); syncUI(); }
+    if (menuInput(e)) return;
     if (e.target.id === "sr-uis") { hudScale(+e.target.value); try { localStorage.setItem("spacerogue-ui", String(V.uis)); } catch (er) {} }
     if (e.target.id === "sr-shp" && FL) setShield(+e.target.value);
     if (e.target.id === "sr-name") { S.names[S.ed] = e.target.value.trim(); save(); }

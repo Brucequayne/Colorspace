@@ -30,6 +30,7 @@ function run(code) {
   w.eval(code);
   const T = w.__SRT, SR = w.SpaceRogue, log = [];
   SR.mount(w.document.getElementById("app"), "de");
+  w.document.querySelector('[data-menu="editor"]').click();   // v0.57.5: Startmenü → Editor
   function snap(tag) {
     const { S, FL } = T.st(), o = { tag, mode: S.mode, ed: S.ed, nb: S.blocks.length, calls };
     if (FL) { o.t = FL.t; o.bodies = FL.bodies.map(b => [b.x, b.y, b.a, b.vx, b.vy, b.w, b.energy, b.shE || 0, b.blocks.length, b.blocks.reduce((a, q) => a + q.hp, 0), !!b.dead, !!b.disarmed, b.ai ? b.ai.state + ":" + b.ai.man + ":" + b.ai.mor : ""]); o.n = [FL.parts.length, FL.shots.length, FL.missiles.length, FL.kills, FL.suit, FL.seated, FL.out, FL.pilot.x, FL.pilot.y]; }

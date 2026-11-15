@@ -23,7 +23,7 @@
     bd.map = buildMap(bd.blocks); bd.roomsDirty = true;
     bd.cool = coolMap(bd.blocks, bd.map); bd.ocMax = ocMaxOf(bd.blocks, bd.cool) * (pm ? 1 + pm.oc : 1);
     bd.seat = bd.blocks.filter(function (b) { return T[b.t].kind === "cock"; })[0] || null;
-    bd.cock = st.cock; bd.thrSum = st.thr[0] + st.thr[1] + st.thr[2] + st.thr[3]; bd.antM = bd.blocks.filter(function (b) { return T[b.t].kind === "ant"; }).map(function (b) { return T[b.t].ar || 1; }).sort(function (a, b) { return b - a; }); bd.nAnt = bd.antM.length; bd.tcomp = bd.blocks.some(function (b) { return T[b.t].kind === "tcomp"; });
+    bd.cock = st.cock; bd.thrSum = st.thr[0] + st.thr[1] + st.thr[2] + st.thr[3]; bd.antM = bd.blocks.filter(function (b) { return T[b.t].kind === "ant"; }).map(function (b) { return T[b.t].ar || 1; }).sort(function (a, b) { return b - a; }); bd.nAnt = bd.antM.length; bd.nScan = bd.blocks.filter(function (b) { return T[b.t].kind === "scan"; }).length; bd.tcomp = bd.blocks.some(function (b) { return T[b.t].kind === "tcomp"; });
     bd.cells = []; bd.map.forEach(function (v, k) { var q = k.split(","); bd.cells.push([+q[0] + 0.5, +q[1] + 0.5, v.b]); });
     if (!bd.id) bd.id = ++BID;
     var r = 0; bd.blocks.forEach(function (b) { var f = fp(b); [[b.x, b.y], [b.x + f[0], b.y + f[1]]].forEach(function (p) { r = Math.max(r, Math.hypot(p[0] - bd.com[0], p[1] - bd.com[1])); }); }); bd.rad = r * CELL_M + 2;

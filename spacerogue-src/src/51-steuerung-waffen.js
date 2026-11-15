@@ -94,6 +94,12 @@
         for (var si = 0; si < (big ? 6 : 2); si++) FL.parts.push({ x: tip.x, y: tip.y, vx: bd.vx + d.x * 4 + (Math.random() - 0.5) * 5, vy: bd.vy + d.y * 4 + (Math.random() - 0.5) * 5, life: 0, max: 0.6 + Math.random() * 0.5, k: "smoke", sz: big ? 1.4 : 0.8 });
       });
     }
+    // Laser (v0.57.5): Strahl ohne Flugzeit, solange gefeuert wird; zieht Energie pro Sekunde und trifft sofort
+    if (firing && g === "lsr") bd.blocks.forEach(function (b) {
+      if (T[b.t].kind !== "lsr") return;
+      var need = LSR.e * dt; if (bd.energy < need) { b.lz = null; return; }
+      bd.energy -= need; fireLaser(bd, b, dt);
+    });
     if (firing && g === "rg") bd.blocks.forEach(function (b) {
       if (T[b.t].kind !== "rg" || b.cd > 0) return;
       b.holding = true;
@@ -107,7 +113,7 @@
   function gunMount(bd, b) { var d = dirOut(b, 0), f = fp(b), h = T[b.t].h; return { lx: b.x + f[0] / 2 - DV[d][0] * h / 2, ly: b.y + f[1] / 2 - DV[d][1] * h / 2 }; }
   function turretTick(bd, dt, aim) {
     bd.blocks.forEach(function (b) {
-      var k = T[b.t].kind; if (k !== "mg" && k !== "rg" && k !== "gun") return;
+      var k = T[b.t].kind; if (k !== "mg" && k !== "rg" && k !== "gun" && k !== "lsr") return;
       var want = 0;
       if (bd.tcomp && aim) {
         var m = gunMount(bd, b), mw = toWorld(bd, m.lx, m.ly), d = dirWorld(bd, dirOut(b, 0));
@@ -125,6 +131,20 @@
   function muzzle(bd, b) {
     var ty = T[b.t], d = dirOut(b, 0), f = fp(b), cx = b.x + f[0] / 2 + DV[d][0] * (ty.h / 2 + 0.1), cy = b.y + f[1] / 2 + DV[d][1] * (ty.h / 2 + 0.1);
     return toWorld(bd, cx, cy);
+  }
+  function fireLaser(bd, b, dt) {
+    var p = gunTip(bd, b), d = gunDir(bd, b), end = null, hit = null;
+    for (var s = 0; s < LSR.range; s += 0.6) {
+      var x = p.x + d.x * s, y = p.y + d.y * s;
+      if (FL.envG && FL.envG.length && envHit(x, y)) { end = { x: x, y: y }; break; }   // Asteroiden halten den Strahl auf
+      var h = hitAt(x, y, bd); if (h) { end = { x: x, y: y }; hit = h; break; }
+    }
+    if (!end) end = { x: p.x + d.x * LSR.range, y: p.y + d.y * LSR.range };
+    if (hit) {
+      damage(hit.bd, hit.b, LSR.dps * dt * (bd.player ? 1 + (PM.dmg || 0) : 1), end.x, end.y);
+      b.lzT = (b.lzT || 0) + dt; if (b.lzT > 0.09) { b.lzT = 0; spark(end.x, end.y, 3); if (bd === FL.me) hitMark(end.x, end.y, hit.bd); }
+    }
+    b.lz = { x0: p.x, y0: p.y, x1: end.x, y1: end.y, hit: !!(hit || end.x !== p.x + d.x * LSR.range), t: FL.t };
   }
   function fireRail(bd, b) { fireRailFrom(bd, gunTip(bd, b), gunDir(bd, b)); }
   function fireRailFrom(bd, p, d) {   // auch für den Railgun-Turret

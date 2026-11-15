@@ -24,12 +24,12 @@
     lang = l === "en" ? "en" : "de";
     var o = document.getElementById("sr-css"); if (o) o.remove();
     var st = document.createElement("style"); st.id = "sr-css"; st.textContent = CSS; document.head.appendChild(st);
-    load();
+    load(); setLoad();
     el.innerHTML = html();
     V = { root: el, cv: el.querySelector("#sr-cv"), zoom: 1.25, cam: { x: 0.5, y: 0 }, keys: {}, ovOld: document.body.style.overflow };
     V.ctx = V.cv.getContext("2d");
     document.body.style.overflow = "hidden";
-    fitCam(); layout(); syncUI(); balSync();
+    fitCam(); layout(); syncUI(); balSync(); menuOpen(); menuSync();
     var us = 1; try { us = parseFloat(localStorage.getItem("spacerogue-ui")) || 1; } catch (e) {} hudScale(us);
     V.cv.addEventListener("pointerdown", onDown); V.root.addEventListener("pointerdown", invDown); window.addEventListener("pointermove", onMove); window.addEventListener("pointerup", onUp); window.addEventListener("pointercancel", onUp);
     var vl = V.root.querySelector(".sr-list"); if (vl) vl.addEventListener("scroll", function () { closeVar(); });   // Liste scrollt: Variantenfenster zu
@@ -51,5 +51,5 @@
     document.body.style.overflow = V.ovOld || "";
     FL = null; if (S) S.mode = "edit"; V = null;
   }
-  window.SpaceRogue = { mount: mount, unmount: unmount, _debug: function () { return { S: S, V: V, FL: FL, T: T, stats: stats, rooms: rooms, components: components, starter: starter, startTest: startTest, damage: damage, dockFace: dockFace, wx: WX_TEX, spawnEnemy: spawnEnemy, NPC: NPC, bd: { ids: BD_IDS, sprite: bdSprite, glow: bdSunGlow, env: ENV, code: sceneCode, parse: parseEnv } }; } };
+  window.SpaceRogue = { mount: mount, unmount: unmount, _debug: function () { return { S: S, V: V, FL: FL, T: T, edRot: edRot, tryPlace: tryPlace, ghostAt: ghostAt, antRange: antRange, SET: SET, stats: stats, rooms: rooms, components: components, starter: starter, startTest: startTest, damage: damage, dockFace: dockFace, wx: WX_TEX, spawnEnemy: spawnEnemy, NPC: NPC, bd: { ids: BD_IDS, sprite: bdSprite, glow: bdSunGlow, env: ENV, code: sceneCode, parse: parseEnv } }; } };
 })();

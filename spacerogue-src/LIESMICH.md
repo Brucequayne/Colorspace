@@ -38,6 +38,9 @@ Diese Datei wird **gebaut** – aus den Teilen in `spacerogue-src/src/`.
 | `54-figur.js` | Luft, Luken, Jetpack, Schweißen, Laufen, Pistole, Inventar |
 | `55-andocken.js` | Andocken |
 | `47-luftstrom.js` | Luftfäden an offenen Stellen (seit v0.57.2): `airOpenings` (Boden/Tür ohne Nachbarblock, je Körper zwischengespeichert), `drawAirflow`, Werte in `AIRF` |
+| `32-autodrehen.js` | Auto-Drehen beim Bauen (seit v0.57.5): `edRot(cx, cy)` bewertet alle vier Drehungen (Anschlüsse, freie Düse/Mündung, Triebwerk vom Schiff weg, Waffen nach vorn); `SET` = Einstellungen |
+| `58-scanner.js` | Scanner (seit v0.57.5): `scanTargets`, `scanEdges` (Asteroiden, Stationen, Wracks in Antennenreichweite am Bildrand), `hudDodge` |
+| `74-menue.js` | Spielmenü und Einstellungen (seit v0.57.5): `menuOpen`/`menuClose`, `menuClick`, Speicherschlüssel `spacerogue-settings-v1` |
 | `57-gegenstaende.js` | Gegenstände (seit v0.57): `ITEMS`, Schnellleiste `FL.hot` und Inventar `FL.inv`, aufheben (E) und ablegen (Q), Ziehen im Inventar, liegende (`bd.items`) und treibende (`FL.loose`) Gegenstände, Bankautomat, Kontostand (`spacerogue-konto-v1`) |
 | `56-turrets.js` | Turrets: KI-Zielwahl, Schwenken mit Vorhalt, Feuern, Hitze-Disziplin (`turretsAuto`) |
 | `60-zeichnen-flug.js` | Flugansicht, Effekte, Radar, HUD |
@@ -119,3 +122,8 @@ Folgen für Änderungen:
   (`edgeRule`), Grafik `trussArt` in `40-zeichnen-bloecke.js`. Antennen `an4`/`an5` mit Reichweiten-Faktor `ar` (1,5 / 2);
   `bd.antM` = Faktoren absteigend, `antRange` = 600 m × stärkste + 300 m × jede weitere, höchstens 1.800 m (bzw. die stärkste allein).
   Luftfäden `47-luftstrom.js`. Volltest: Ablauf unverändert, nur Zeichenaufrufe der neuen Bauteil-Symbole.
+- v0.57.5: Startmenü (`74-menue.js`; Tests klicken nach dem Start auf „Editor“), Auto-Drehen (`32-autodrehen.js`, genutzt in
+  `rowList` und in der Vorschau), Laser `lsr` (`kind: "lsr"`, Werte `LSR` in 12-balance, `fireLaser` in 51, Strahl `drawLasers` in 60,
+  Waffengruppe `lsr`), Scanner `scn` (`kind: "scan"`, `bd.nScan`, `58-scanner.js`), Cockpit-Varianten `ckt2` (`va: "bub"`) und
+  `cks2`/`ckm2`/`ckl2` (`va: "pano"`). Ansichtswechsel beim Aus-/Einsteigen über `FL.outWas` in 60. Volltest: Spielzustand unverändert;
+  weniger Zeichenaufrufe nur in der Phase draußen (jetzt Außenansicht) und mehr Bauteil-Symbole.

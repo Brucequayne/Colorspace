@@ -80,8 +80,16 @@
       c.fillStyle = shade(col, -0.3); c.fillRect(0, h - lw * 2, w, lw * 2); c.fillRect(0, 0, lw * 2, h); c.fillRect(w - lw * 2, 0, lw * 2, h);
       var tiny = ty.w === 1, cw = w - s * 0.5, ch = s * (tiny ? 0.95 : ty.h > 3 ? 1.6 : 1.2);
       if (tiny) {   // 1×2: Kanzel füllt die vordere Zelle, dahinter ein schmaler Sitz
+        if (ty.va === "bub") {   // Kugelkanzel (v0.57.5): runde Glaskuppel mit Ring und Spiegelung
+          var bx2 = w / 2, by2 = s * 0.52, br = s * 0.4;
+          c.fillStyle = shade(col, -0.25); c.beginPath(); c.arc(bx2, by2, br + lw * 1.6, 0, 6.283); c.fill();
+          c.fillStyle = GLASS; c.beginPath(); c.arc(bx2, by2, br, 0, 6.283); c.fill();
+          c.fillStyle = GLASS2; c.beginPath(); c.arc(bx2 - br * 0.28, by2 - br * 0.28, br * 0.45, 0, 6.283); c.fill();
+          c.fillStyle = "rgba(255,255,255,.55)"; c.fillRect(bx2 - br * 0.5, by2 - br * 0.55, br * 0.22, br * 0.22);
+        } else {
         c.fillStyle = GLASS; c.beginPath(); c.moveTo(s * 0.16, ch); c.lineTo(s * 0.16, s * 0.4); c.lineTo(w / 2, s * 0.08); c.lineTo(w - s * 0.16, s * 0.4); c.lineTo(w - s * 0.16, ch); c.closePath(); c.fill();
         c.fillStyle = GLASS2; c.beginPath(); c.moveTo(s * 0.26, ch * 0.88); c.lineTo(s * 0.26, s * 0.44); c.lineTo(w / 2 - s * 0.06, s * 0.22); c.lineTo(w / 2 - s * 0.06, ch * 0.88); c.closePath(); c.fill();
+        }
         if (view === "in") {
           c.fillStyle = FLOOR; c.fillRect(s * 0.16, ch + lw, w - s * 0.32, h - ch - s * 0.16);
           var tx2 = w / 2, ty2 = s * 1.45; c.fillStyle = "#5A3E2B"; c.fillRect(tx2 - s * 0.26, ty2 - s * 0.26, s * 0.52, s * 0.52); c.fillStyle = "#7A5A40"; c.fillRect(tx2 - s * 0.19, ty2 - s * 0.18, s * 0.38, s * 0.36);
@@ -92,8 +100,17 @@
         c.restore(); return;
       }
       var bigCk = ty.h >= 4;
+      if (ty.va === "pano") {   // Panorama-Kanzel (v0.57.5): breites, flaches Glasband mit Streben, Farbstreifen an den Seiten
+        var py0 = s * 0.14, py1 = ch;
+        c.fillStyle = shade(col, -0.28); c.beginPath(); c.moveTo(s * 0.1, py1 + lw); c.lineTo(s * 0.1, py0 + s * 0.22); c.lineTo(s * 0.34, py0 - s * 0.04); c.lineTo(w - s * 0.34, py0 - s * 0.04); c.lineTo(w - s * 0.1, py0 + s * 0.22); c.lineTo(w - s * 0.1, py1 + lw); c.closePath(); c.fill();
+        c.fillStyle = GLASS; c.beginPath(); c.moveTo(s * 0.18, py1); c.lineTo(s * 0.18, py0 + s * 0.24); c.lineTo(s * 0.38, py0 + s * 0.04); c.lineTo(w - s * 0.38, py0 + s * 0.04); c.lineTo(w - s * 0.18, py0 + s * 0.24); c.lineTo(w - s * 0.18, py1); c.closePath(); c.fill();
+        c.fillStyle = GLASS2; c.fillRect(s * 0.3, py0 + s * 0.2, (w - s * 0.6) * 0.42, s * 0.14);
+        c.fillStyle = shade(col, -0.35); var ns = Math.max(2, ty.w + 1); for (var si = 1; si < ns; si++) c.fillRect(s * 0.18 + (w - s * 0.36) * si / ns - lw * 0.8, py0 + s * 0.06, lw * 1.6, py1 - py0 - s * 0.06);
+        c.fillStyle = b.c ? b.c : ACC; c.fillRect(0, py1 + s * 0.12, lw * 2.4, h - py1 - s * 0.5); c.fillRect(w - lw * 2.4, py1 + s * 0.12, lw * 2.4, h - py1 - s * 0.5);
+      } else {
       c.fillStyle = GLASS; c.beginPath(); c.moveTo(s * 0.25, ch); c.lineTo(s * 0.25, s * 0.45); c.lineTo(w / 2, s * 0.08); c.lineTo(w - s * 0.25, s * 0.45); c.lineTo(w - s * 0.25, ch); c.closePath(); c.fill();
       c.fillStyle = GLASS2; c.beginPath(); c.moveTo(s * 0.4, ch * 0.9); c.lineTo(s * 0.4, s * 0.5); c.lineTo(w / 2 - s * 0.1, s * 0.25); c.lineTo(w / 2 - s * 0.1, ch * 0.9); c.closePath(); c.fill();
+      }
       if (view === "in") {
         c.fillStyle = FLOOR; c.fillRect(s * 0.25, ch + lw, cw, h - ch - s * 0.35);
         c.fillStyle = MID; c.fillRect(s * 0.4, ch + lw, cw - s * 0.3, s * 0.28);
@@ -235,6 +252,27 @@
       var chg = opts && opts.charge ? opts.charge : 0;
       c.fillStyle = "rgba(120,220,255," + (0.25 + chg * 0.75) + ")"; c.fillRect(w * 0.42, h * 0.08, w * 0.16, h - s * 1.15);
       c.strokeStyle = shade(col, -0.55); c.lineWidth = lw; c.strokeRect(w * 0.08, h - s * 1.2, w * 0.84, s * 1.2);
+    } else if (k === "lsr") {   // Laser (v0.57.5): flaches Gehäuse, Kühlrippen, schlanker Emitter mit roten Fokusringen und Linse
+      var fire = opts && opts.lz ? 1 : 0;
+      c.fillStyle = shade(col, -0.15); c.fillRect(w * 0.1, h - s * 1.05, w * 0.8, s * 1.05);
+      c.fillStyle = shade(col, -0.4); for (var fr = 0; fr < 4; fr++) c.fillRect(w * 0.16, h - s * (0.9 - fr * 0.2), w * 0.68, s * 0.07);
+      c.fillStyle = b.c || "#8C3A34"; c.fillRect(w * 0.22, h - s * 1.0, w * 0.56, s * 0.14);
+      c.fillStyle = MID; c.fillRect(w * 0.36, s * 0.12, w * 0.28, h - s * 1.1);
+      c.fillStyle = DARK; c.fillRect(w * 0.43, s * 0.12, w * 0.14, h - s * 1.1);
+      for (var ri = 0; ri < 3; ri++) { c.fillStyle = "rgba(255," + (90 + fire * 80) + ",70," + (0.55 + fire * 0.4) + ")"; c.fillRect(w * 0.31, s * (0.3 + ri * 0.22), w * 0.38, s * 0.06); }
+      c.fillStyle = fire ? "#FFD6C8" : "#D2584A"; c.fillRect(w * 0.38, s * 0.02, w * 0.24, s * 0.13);
+      c.strokeStyle = shade(col, -0.55); c.lineWidth = lw; c.strokeRect(w * 0.1, h - s * 1.05, w * 0.8, s * 1.05);
+    } else if (k === "scan") {   // Scanner (v0.57.5): Sockel mit drehender Schüssel und grünem Abtastsektor
+      var cxs = w / 2, cys = h / 2, R = Math.min(w, h) * 0.42, an = (tm || 0) * 1.2 + (b.x + b.y) * 0.7;
+      c.fillStyle = shade(col, -0.2); c.fillRect(w * 0.06, h * 0.06, w * 0.88, h * 0.88);
+      c.strokeStyle = shade(col, -0.55); c.lineWidth = lw; c.strokeRect(w * 0.06, h * 0.06, w * 0.88, h * 0.88);
+      c.fillStyle = "rgba(87,209,138,.16)"; c.beginPath(); c.moveTo(cxs, cys); c.arc(cxs, cys, R, an - 0.5, an + 0.5); c.closePath(); c.fill();
+      c.fillStyle = shade(col, 0.12); c.beginPath(); c.arc(cxs, cys, R * 0.78, 0, 6.283); c.fill();
+      c.strokeStyle = shade(col, -0.5); c.lineWidth = lw; c.stroke();
+      c.strokeStyle = shade(col, -0.3); c.beginPath(); c.arc(cxs, cys, R * 0.5, 0, 6.283); c.stroke();
+      c.strokeStyle = "#57D18A"; c.lineWidth = Math.max(1, s * 0.05); c.beginPath(); c.moveTo(cxs, cys); c.lineTo(cxs + Math.cos(an) * R * 0.95, cys + Math.sin(an) * R * 0.95); c.stroke();
+      c.fillStyle = DARK; c.beginPath(); c.arc(cxs, cys, R * 0.14, 0, 6.283); c.fill();
+      c.fillStyle = "#57D18A"; c.fillRect(w * 0.12, h * 0.12, s * 0.12, s * 0.12);
     }
     if (k === "cock" && ty.h >= 4 && view === "in") {
       // große Cockpits: hinten eine Wand mit Schiebetür, dadurch ein eigener, abgeschlossener Raum

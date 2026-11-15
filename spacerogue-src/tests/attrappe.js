@@ -15,6 +15,7 @@ function boot(lang) {
   w.eval(hooked());
   env.T = w.__SRT; env.SR = w.SpaceRogue; env.root = w.document.getElementById("app");
   env.SR.mount(env.root, lang || "de");
+  env.root.querySelector('[data-menu="editor"]').click();   // v0.57.5: Startmenü → Editor
   env.st = () => env.T.st();
   // seconds Sekunden Flug simulieren; bricht ab, sobald der Flug endet
   env.fly = (seconds, each) => { const n = Math.round(seconds * 120); for (let i = 0; i < n; i++) { const FL = env.T.st().FL; if (!FL || FL.paused) return i / 120; if (each) each(FL, i); env.T.flTick(1 / 120); env.clock += 1000 / 120; if (i % 4 === 0) env.T.flDraw(); } return seconds; };

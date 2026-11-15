@@ -67,7 +67,7 @@
       '<feColorMatrix in="SourceGraphic" type="matrix" values="0 0 0 0 0 0 1 0 0 0 0 0 0 0 0 0 0 0 1 0" result="g"/>' +
       '<feColorMatrix in="SourceGraphic" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 1 0 0 0 0 0 1 0" result="b"/><feOffset id="srCAo2" in="b" dx="0" dy="0" result="bo"/>' +
       '<feBlend in="ro" in2="g" mode="screen" result="rg"/><feBlend in="rg" in2="bo" mode="screen"/></filter></svg>' +
-      '<div class="sr-top"><a class="sr-back" href="#">← ' + t("back") + '</a><b class="sr-ttl">' + t("title") + ' <small>v' + VERSION + '</small></b><span class="sr-bal" title="' + t("balT") + '"><small>' + t("bal") + '</small><b id="sr-bal-v"></b></span>' +
+      '<div class="sr-top"><a class="sr-back" href="#">← ' + t("back") + '</a><button type="button" class="sr-mnu sr-ed-only" data-act="menu">☰ ' + t("mMenu") + '</button><b class="sr-ttl">' + t("title") + ' <small>v' + VERSION + '</small></b><span class="sr-bal" title="' + t("balT") + '"><small>' + t("bal") + '</small><b id="sr-bal-v"></b></span>' +
       '<div class="sr-ed-only sr-tbar"><span class="sr-seg"><button type="button" data-act="ed-ship">' + t("edShip") + '</button><button type="button" data-act="ed-st">' + t("edSt") + '</button></span><input id="sr-name" class="sr-name" maxlength="28" spellcheck="false" placeholder="' + t("namePh") + '"><button type="button" data-act="undo">' + t("undo") + '</button><button type="button" data-act="starter">' + t("starter") + '</button><button type="button" data-act="clear">' + t("clear") + '</button><button type="button" data-act="exp">Export</button><button type="button" data-act="imp">Import</button><button type="button" data-act="npc">' + t("hangar") + '</button><button type="button" class="sr-dev-only" data-act="dev-lock">' + t("devLock") + '</button></div>' +
       '<div class="sr-sp"></div><div class="sr-seg"><button type="button" data-view="in">' + t("vIn") + '</button><button type="button" data-view="out">' + t("vOut") + '</button></div>' +
       '<button type="button" class="sr-go sr-ed-only" data-act="test">' + t("test") + ' ▸</button><button type="button" class="sr-go sr-fl-only" data-act="edit">◂ ' + t("toEd") + '</button></div>' +
@@ -78,9 +78,9 @@
       '<label class="sr-envr"><small>' + t("envRot") + ' <b id="sr-env-rv"></b></small><input type="range" id="sr-env-r" min="0" max="355" step="5"></label>' +
       '<button type="button" data-act="env-rnd" class="sr-envrnd"></button><p class="sr-envh">' + t("envHelp") + '</p><small class="sr-envcat">' + t("envAst") + '</small><div class="sr-grid sr-envlist"></div><small class="sr-envcat">' + t("envBd") + '</small><p class="sr-envh">' + t("envBdH") + '</p><div class="sr-grid sr-envlist sr-bdlist"></div></div>' +
       '<div class="sr-paint"><label>' + t("color") + ' <input type="color" id="sr-col"></label><div class="sr-sws">' + sw + '</div></div>' +
-      '<div class="sr-opts"><button type="button" data-act="rot">' + t("rot") + '</button><button type="button" data-act="flip">' + t("flip") + '</button><button type="button" data-act="sym">' + t("sym") + '</button><button type="button" data-act="symm" class="sr-symm"></button></div>' +
+      '<div class="sr-opts"><button type="button" data-act="rot">' + t("rot") + '</button><button type="button" data-act="flip">' + t("flip") + '</button><button type="button" data-act="sym">' + t("sym") + '</button><button type="button" data-act="symm" class="sr-symm"></button><button type="button" data-act="auto" class="sr-auto" title="' + t("autoOn") + '">' + t("autoR") + '</button></div>' +
       '<div class="sr-list">' + pal + '</div><div class="sr-vpop" hidden></div></aside>' +
-      '<aside class="sr-info sr-ed-only" id="sr-info"></aside>' +
+      '<aside class="sr-info sr-ed-only" id="sr-info"></aside>' + menuHtml() +
       '<div class="sr-hud sr-fl-only"><div class="sr-hr"><small>' + t("speed") + '</small><span><b id="sr-h-sp"></b><em id="sr-h-spb"></em></span></div>' +
       '<div><small>' + t("energy") + ' <span id="sr-h-en"></span></small><i class="sr-eb sr-eb2"><i id="sr-h-sbar"></i><i id="sr-h-ebar"></i></i></div>' +
       '<div><small>' + t("weapon") + ' (R)</small><b id="sr-h-w"></b></div>' +
@@ -130,7 +130,7 @@
     if (!fly) info();
   }
   // Waffenwerte: im Tooltip der Bauteilliste und als eigener Abschnitt im Infofeld (je Typ Anzahl, Schaden, Feuerrate, DPS)
-  function wTip(id) { var w = wStats(id); return w ? " · " + t("wDmg") + " " + nf(w.dmg) + " · " + nf(w.rpm) + " RPM · " + nf(w.dps, 1) + " DPS" : ""; }
+  function wTip(id) { var w = wStats(id); return w ? (w.beam ? " · " + t("wBeam") + " · " + nf(w.dps, 1) + " DPS · " + nf(LSR.e) + " E/s" : " · " + t("wDmg") + " " + nf(w.dmg) + " · " + nf(w.rpm) + " RPM · " + nf(w.dps, 1) + " DPS") : ""; }
   function weapTxt() {
     var cnt = {}, ord = []; S.blocks.forEach(function (b) { if (!wStats(b.t)) return; if (!cnt[b.t]) { cnt[b.t] = 0; ord.push(b.t); } cnt[b.t]++; });
     if (!ord.length) return "<h4>" + t("sWeap") + "</h4><p>" + t("wNone") + "</p>";
@@ -138,7 +138,7 @@
     ord.forEach(function (id) {
       var w = wStats(id), n = cnt[id]; tot += w.dps * n;
       h += "<div><span>" + n + "× " + T[id].n[lang].replace(/ \d+×\d+$/, "") + "</span><b>" + nf(w.dps * n, 1) + " DPS</b></div>" +
-        "<p class='sr-ws'>" + t("wDmg") + " " + nf(w.dmg) + " · " + nf(w.rpm) + " RPM · " + nf(w.dps, 1) + " DPS " + t("wEach") + "</p>";
+        "<p class='sr-ws'>" + (w.beam ? t("wBeam") + " · " + nf(w.dps, 1) + " DPS · " + nf(LSR.e) + " E/s " + t("wEach") : t("wDmg") + " " + nf(w.dmg) + " · " + nf(w.rpm) + " RPM · " + nf(w.dps, 1) + " DPS " + t("wEach")) + "</p>";
     });
     return h + "<div><span>" + t("wTotal") + "</span><b>" + nf(tot, 1) + " DPS</b></div>";
   }
@@ -195,6 +195,7 @@
   }
   function tipTick(dt) {
     var el = V.root.querySelector(".sr-tip"); if (!el) return;
+    if (!SET.tips) { FL.tipT = 0; if (!el.hidden) hideTip(el); return; }   // Einstellungen: Tipps aus
     if (inCombat()) { FL.tipT = 0; if (!el.hidden) hideTip(el); return; }
     FL.tipT = (FL.tipT || 0) + dt;
     if (FL.tipT >= TIP.every) {

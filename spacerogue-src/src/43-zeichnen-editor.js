@@ -45,7 +45,7 @@
     if (V.mouse && !V.pan && !(S.ed === "station" && S.envTab)) {
       var cx = Math.floor(V.mouse.x), cy = Math.floor(V.mouse.y);
       if (S.tool === "build") {
-        var ghosts = V.row ? rowList() : [ghostAt(cx, cy, S.sel, S.r, S.f)];
+        var er = V.row ? null : edRot(cx, cy), ghosts = V.row ? rowList() : [ghostAt(cx, cy, S.sel, er[0], er[1])];
         ghosts.forEach(function (g, gi) {
           var list = placeList(g), ok = !S.blocks.length || canPlace(g, M) || (V.row && gi > 0);
           list.forEach(function (q, i) {
@@ -79,7 +79,7 @@
   }
   function kg(t) { return nf(Math.round(t * 1000)) + " kg"; }
   function arrowFor(c, b, s) {   // zeigt bei Triebwerken die Schubrichtung, bei Waffen die Schussrichtung
-    var ty = T[b.t]; if (ty.kind !== "thr" && ty.kind !== "mg" && ty.kind !== "rg" && ty.kind !== "gun" && ty.kind !== "ms") return;
+    var ty = T[b.t]; if (ty.kind !== "thr" && ty.kind !== "mg" && ty.kind !== "rg" && ty.kind !== "gun" && ty.kind !== "ms" && ty.kind !== "lsr") return;
     var d = dirOut(b, 0), f = fp(b), cx = (b.x + f[0] / 2) * s, cy = (b.y + f[1] / 2) * s, L = Math.max(f[0], f[1]) * s * 0.5 + s * 0.8;
     var dx = DV[d][0], dy = DV[d][1], ex = cx + dx * L, ey = cy + dy * L;
     c.strokeStyle = ty.kind === "thr" ? "#57D18A" : "#E0533F"; c.fillStyle = c.strokeStyle; c.lineWidth = 2;

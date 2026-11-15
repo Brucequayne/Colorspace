@@ -30,10 +30,11 @@
     });
   })();
   // v0.57.2: längere Antennen. ar = Reichweiten-Faktor (1×3 = 1, 1×4 = 1,5, 1×5 = 2)
+  def("scn", { cat: "catTh", kind: "scan", w: 2, h: 2, mass: 1.6, hp: 70, n: L2("Scanner 2×2", "Scanner 2×2"), col: "#7E8995" });   // v0.57.5: zeigt Strukturen in Antennenreichweite
   def("an4", { cat: "catTh", kind: "ant", ar: 1.5, w: 1, h: 4, mass: 1.2, hp: 40, n: L2("Antenne 1×4", "Antenna 1×4"), col: "#7E8995" });
   def("an5", { cat: "catTh", kind: "ant", ar: 2, w: 1, h: 5, mass: 1.5, hp: 48, n: L2("Antenne 1×5", "Antenna 1×5"), col: "#7E8995" });
   // Kosten in Credits (Cr): im Editor ist alles gratis; die Preise stehen in der Bauteilliste und im Infofeld
-  var COSTS = { tr1: 8, tr2: 15, tr3: 22, tp1: 5, tp2: 8, tp3: 12, an4: 650, an5: 950, atm: 900, lc1: 15, lc2: 15, lsm: 15, cks: 1200, ckm: 2400, ckl: 4200, ckt: 700, dk3: 2200, dk4: 3400, ths: 450, thf: 650, shs: 1400, shl: 3800, thl: 1600, gyr: 700, col: 300, ant: 400, bat: 350, rea: 2000, flo: 15, wal: 25, dor: 60, hat: 150, win: 40, mgn: 900, msl: 1300, msh: 2400, g25: 1800, g120: 3600, stu: 40, tis: 80, bet: 120, dbt: 180, toi: 150, dus: 200, tgc: 1600, rgn: 2600, tmg: 3400, t25: 5200, t120: 8800, trg: 9800, bt6: 2100, kr1: 60, kr2: 110, kr6: 300, kry: 900, pul: 450 };
+  var COSTS = { lsr: 1500, scn: 1400, tr1: 8, tr2: 15, tr3: 22, tp1: 5, tp2: 8, tp3: 12, an4: 650, an5: 950, atm: 900, lc1: 15, lc2: 15, lsm: 15, cks: 1200, ckm: 2400, ckl: 4200, ckt: 700, dk3: 2200, dk4: 3400, ths: 450, thf: 650, shs: 1400, shl: 3800, thl: 1600, gyr: 700, col: 300, ant: 400, bat: 350, rea: 2000, flo: 15, wal: 25, dor: 60, hat: 150, win: 40, mgn: 900, msl: 1300, msh: 2400, g25: 1800, g120: 3600, stu: 40, tis: 80, bet: 120, dbt: 180, toi: 150, dus: 200, tgc: 1600, rgn: 2600, tmg: 3400, t25: 5200, t120: 8800, trg: 9800, bt6: 2100, kr1: 60, kr2: 110, kr6: 300, kry: 900, pul: 450 };
   function applyCosts() { Object.keys(T).forEach(function (id) { var ty = T[id]; ty.cost = COSTS[id] || (ty.kind === "armor" ? Math.max(5, Math.round(ty.mass * (ty.heavy ? 26 : 57))) : 100); }); }
   function cr(v) { return nf(Math.round(v)) + " Cr"; }
   def("ckt", { cat: "catCo", kind: "cock", w: 1, h: 2, mass: 0.9, hp: 150, n: L2("Cockpit winzig 1×2", "Tiny cockpit 1×2"), col: "#9AA5B1" });
@@ -65,6 +66,7 @@
   def("msh", { cat: "catWe", kind: "ms", w: 1, h: 2, mass: 2.4, hp: 60, rk: 1, mk: 4, ek: 2, n: L2("Schwere Rakete 1×2", "Heavy missile 1×2"), col: "#7E8995" });
   function msMax(b) { return T[b.t].rk || 2; }   // Magazingröße eines Raketenwerfers
   def("tgc", { cat: "catWe", kind: "tcomp", w: 1, h: 2, mass: 0.8, hp: 45, n: L2("Zielcomputer 1×2", "Targeting computer 1×2"), col: "#7E8995" });
+  def("lsr", { cat: "catWe", kind: "lsr", w: 1, h: 2, mass: 1.4, hp: 60, n: L2("Laser 1×2", "Laser 1×2"), col: "#7E8995" });   // v0.57.5: Dauerstrahl
   def("rgn", { cat: "catWe", kind: "rg", w: 1, h: 3, mass: 3.8, hp: 120, n: L2("Railgun 1×3", "Railgun 1×3"), col: "#7E8995" });
   // Turrets (v0.55): KI-gesteuert, schwenken ±20°, groß und schwer (für Fregatten und Korvetten). tw = Waffe, Werte wie diese, Energie doppelt (TUR)
   def("tmg", { cat: "catTu", kind: "tur", tw: "mg", w: 2, h: 3, mass: 6.5, hp: 230, n: L2("Minigun-Turret 2×3", "Minigun turret 2×3"), col: "#6E7884" });
@@ -103,6 +105,8 @@
   }
   ["lblk", "lbl2", "hblk", "hbl2"].forEach(function (id) { variant(id, id + "v", "vent", L2("Lüftung", "vent")); });
   variant("flo", "flog", "grid", L2("Gitter", "grating"));
+  // v0.57.5: je Cockpit-Größe eine zweite Kanzel – winzig: Kugelkanzel, sonst Panorama mit Streben
+  variant("ckt", "ckt2", "bub", L2("Kugelkanzel", "bubble canopy")); ["cks", "ckm", "ckl"].forEach(function (id) { variant(id, id + "2", "pano", L2("Panorama", "panorama")); });
   variant("wal", "walr", "pipes", L2("mit Rohren", "with pipes"));
   ["kr1", "kr2", "kr6"].forEach(function (id) { variant(id, id + "g", "ind", L2("grau, industriell", "grey, industrial")); });
   // Verwitterte Panzerung (v0.54.2, nur Developer Tool): jede Panzerform als rostige (…r) und zugewucherte (…m) Variante.
@@ -120,7 +124,7 @@
   // Perks wurden in v0.47 abgeschafft. PM bleibt als neutrales Objekt (alles 0), damit die Werte-Haken im Code nichts verändern.
   var PM = { side: 0, brake: 0, mgRate: 0, batCap: 0, msRl: 0, hp: 0, prod: 0, walk: false, radar: 0, oc: 0, msDmg: 0, cockHp: 0, msTurn: 0, crit: 0, batW: false, heavyW: 0 };
   CATS = ["catLA", "catHA", "catRA", "catOA", "catTr", "catCo", "catTh", "catEn", "catIn", "catDe", "catIt", "catWe", "catTu"];
-  var MECH = { cock: 1, thr: 1, gyro: 1, ant: 1, bat: 1, reac: 1, door: 1, hatch: 1, mg: 1, rg: 1, gun: 1, cool: 1, ms: 1, tcomp: 1, shield: 1, dock: 1, tur: 1 };
+  var MECH = { lsr: 1, scan: 1, cock: 1, thr: 1, gyro: 1, ant: 1, bat: 1, reac: 1, door: 1, hatch: 1, mg: 1, rg: 1, gun: 1, cool: 1, ms: 1, tcomp: 1, shield: 1, dock: 1, tur: 1 };
   var ROOMABLE = { bat: 1, reac: 1, gyro: 1, cool: 1, tcomp: 1, shield: 1 };   // Maschinen, die in einem Raum stehen dürfen und dann zum Raum gehören
   function replaceable(newT, o) { return o && (T[newT].kind !== "floor" || T[newT].loot) && T[o.b.t].kind === "floor"; }   // Gegenstände zum Auslegen dürfen auf vorhandenen Boden
   var DV = [[0, -1], [1, 0], [0, 1], [-1, 0]];     // N, O, S, W als Zellversatz
@@ -140,7 +144,7 @@
       return { c: true, s: false };
     }
     if (k === "thr") return { c: d !== 2, s: true };                       // Düse hinten verbindet nicht
-    if (k === "mg" || k === "rg" || k === "gun" || k === "ant" || k === "ms") return { c: last && d !== 0, s: true };   // nur am hinteren Ende
+    if (k === "mg" || k === "rg" || k === "gun" || k === "ant" || k === "ms" || k === "lsr") return { c: last && d !== 0, s: true };   // nur am hinteren Ende
     if (k === "cock") return { c: true, s: true };
     if (k === "tur") return { c: !(d === 0 && ly === 0), s: true };          // Turret: überall anbaubar außer an der Mündungsseite                         // auch vorne an der Kanzel lässt sich anbauen
     return { c: true, s: true };

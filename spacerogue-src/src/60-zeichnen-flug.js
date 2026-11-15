@@ -128,7 +128,7 @@
       }
       if (bd === FL.me && !FL.seated && (FL.pb || FL.me) === FL.me) drawGhosts(c, bd, tm);
       if (!bd.enemy && S.view === "in") drawBodyItems(c, bd, tm);
-      if (!bd.enemy && !FL.seated) drawAirflow(c, bd, tm);
+      if (!bd.enemy && !FL.seated && SET.air) drawAirflow(c, bd, tm);
       if (bd === (FL.pb || FL.me) && !FL.seated && !FL.out) drawAstronaut(c, FL.pilot.x * PX, FL.pilot.y * PX, FL.pilot.face, FL.pilot.ph, PX / 24 * 1.25, FL.welding, heldGun());
       // Überhitzung und Ladung an den Waffen
       bd.blocks.forEach(function (b) {
@@ -214,6 +214,7 @@
     var lw0 = c.lineWidth; c.lineWidth = 0.14; c.strokeStyle = "#FFE3A0";
     FL.shots.forEach(function (p) { if (!p.pl) return; var l = Math.hypot(p.vx, p.vy) || 1; c.beginPath(); c.moveTo(p.x, p.y); c.lineTo(p.x - p.vx / l * 0.9, p.y - p.vy / l * 0.9); c.stroke(); });
     c.lineWidth = lw0;
+    drawLasers(c, ppm, tm);
     FL.beams.forEach(function (b) { var a = 1 - b.life / 0.3; c.strokeStyle = "rgba(140,230,255," + a + ")"; c.lineWidth = 1.4 * a + 0.2; c.beginPath(); c.moveTo(b.x0, b.y0); c.lineTo(b.x1, b.y1); c.stroke(); c.strokeStyle = "rgba(255,255,255," + a + ")"; c.lineWidth = 0.4; c.stroke(); });
     FL.parts.forEach(function (q) {
       var k = q.life / q.max;
@@ -232,13 +233,28 @@
     envFlDraw(c, W, H, ppm, 1);    // Environment vorne
     drawDust(c, W, H, ppm, DUST.front);
     if (fxc) { bdFxEnd(V.ctx, W, H, suns); c = V.ctx; }
-    radarEdges(c, W, H, ppm);
+    radarEdges(c, W, H, ppm); scanEdges(c, W, H, ppm);
     drawFloat(c, W, H, ppm);
     FL.cam.x -= shk.x; FL.cam.y -= shk.y;
     flHud();
   }
   // Antennen: Gegner außerhalb des Bildes, aber in Antennenreichweite, als rotes Dreieck am Bildschirmrand
   // Reichweite: stärkste Antenne 600 m × Faktor, jede weitere +300 m × Faktor; Obergrenze 1.800 m (mindestens die stärkste Antenne allein)
+  // Laserstrahl (v0.57.5): weicher roter Schein, heller Kern, am Treffpunkt ein Glühen
+  function drawLasers(c, ppm, tm) {
+    FL.bodies.forEach(function (bd) {
+      bd.blocks.forEach(function (b) {
+        var z = b.lz; if (!z || FL.t - z.t > 0.05) return;
+        var fl = 0.85 + 0.15 * Math.sin(tm * 60 + b.x * 3);
+        c.save(); c.lineCap = "round"; c.globalCompositeOperation = "lighter";
+        [[7, "rgba(255,60,50,.10)"], [3.6, "rgba(255,80,60,.28)"], [1.6, "rgba(255,170,150,.85)"], [0.7, "rgba(255,245,240,.95)"]].forEach(function (q) {
+          c.strokeStyle = q[1]; c.lineWidth = q[0] * fl / ppm; c.beginPath(); c.moveTo(z.x0, z.y0); c.lineTo(z.x1, z.y1); c.stroke();
+        });
+        if (z.hit) { var r = (5 + 2 * Math.sin(tm * 40)) / ppm, gr = c.createRadialGradient(z.x1, z.y1, 0, z.x1, z.y1, r * 2.2); gr.addColorStop(0, "rgba(255,240,220,.9)"); gr.addColorStop(0.4, "rgba(255,110,70,.45)"); gr.addColorStop(1, "rgba(255,60,40,0)"); c.fillStyle = gr; c.beginPath(); c.arc(z.x1, z.y1, r * 2.2, 0, 6.283); c.fill(); }
+        c.restore();
+      });
+    });
+  }
   function antRange(bd) {
     if (!bd.nAnt) return 0; var M = bd.antM || [], r = 600 * (M[0] || 1); for (var i = 1; i < M.length; i++) r += 300 * M[i];
     return Math.min(Math.max(1800, 600 * (M[0] || 1)), r) * (bd.player ? 1 + PM.radar : 1);
@@ -251,7 +267,7 @@
       var sx = W / 2 + (bd.x - FL.cam.x) * ppm, sy = H / 2 + (bd.y - FL.cam.y) * ppm, m = 26;
       if (sx > -10 && sx < W + 10 && sy > -10 && sy < H + 10) return;
       var vx = sx - W / 2, vy = sy - H / 2, L = m, R = W - m, Tp = 84, Bt = H - m;   // oben unter der Werkzeugleiste bleiben
-      var k = Math.min(vx > 0 ? (R - W / 2) / vx : vx < 0 ? (L - W / 2) / vx : 1e9, vy > 0 ? (Bt - H / 2) / vy : vy < 0 ? (Tp - H / 2) / vy : 1e9), ex = W / 2 + vx * k, ey = H / 2 + vy * k, an = Math.atan2(vy, vx);
+      var k = Math.min(vx > 0 ? (R - W / 2) / vx : vx < 0 ? (L - W / 2) / vx : 1e9, vy > 0 ? (Bt - H / 2) / vy : vy < 0 ? (Tp - H / 2) / vy : 1e9), ex = W / 2 + vx * k, ey = H / 2 + vy * k, an = Math.atan2(vy, vx); ex = hudDodge(ex, ey);
       c.save(); c.translate(ex, ey); c.rotate(an); c.globalAlpha = 0.55 + 0.35 * (1 - d / rg);
       c.fillStyle = "#E0533F"; c.beginPath(); c.moveTo(11, 0); c.lineTo(-5, -6.5); c.lineTo(-1.5, 0); c.lineTo(-5, 6.5); c.closePath(); c.fill();
       c.restore();
@@ -278,6 +294,7 @@
     var rootEl = V.root.querySelector(".sr-root"), ft = !FL.seated; if (rootEl.classList.contains("foot") !== ft) { rootEl.classList.toggle("foot", ft); syncHot(); }
     // Standardansicht: im Cockpit außen, zu Fuß innen (mit V weiterhin umschaltbar)
     if (FL.seatWas !== FL.seated) { FL.seatWas = FL.seated; S.view = FL.seated ? "out" : "in"; syncUI(); }
+    if (!!FL.outWas !== !!FL.out) { FL.outWas = !!FL.out; if (!FL.seated) { S.view = FL.out ? "out" : "in"; syncUI(); } }   // v0.57.5: ins All → Außenansicht, wieder drin → Innenansicht
     var snb = V.root.querySelector(".sr-shipn"); if (snb && !snb.classList.contains("edit")) { var nm = FL.me.name || t("shipDef"); if (snb.textContent !== nm) snb.textContent = nm; }
     var me = FL.me, sp = Math.hypot(me.vx, me.vy), g = FL.groups[FL.wsel];
     set("sr-h-sp", nf(sp, 1) + " m/s");
@@ -301,6 +318,7 @@
     if (g === "mg") { var h = 0, oh = 0; me.blocks.forEach(function (b) { if (T[b.t].kind === "mg") { h = Math.max(h, b.heat || 0); oh = Math.max(oh, b.oh || 0); } }); wtxt += oh > 0 ? " · !!! " + nf(oh, 1) + " s" : " · " + Math.round(h * 100) + " %"; }
     if (g === "msl" || g === "msh") { var am = 0, mx = 0, mq = me.mst && me.mst[g]; me.blocks.forEach(function (b) { if (b.t === g) { am += b.ammo === undefined ? msMax(b) : b.ammo; mx += msMax(b); } }); wtxt += mq && mq.rl > 0 ? (lang === "de" ? " · lädt " : " · reloading ") + nf(mq.rl, 1) + " s" : " · " + am + " / " + mx; }
     if (GUN[g]) { var gc = 0; me.blocks.forEach(function (b) { if (b.t === g) gc = Math.max(gc, b.gcd || 0); }); wtxt += gc > 0.05 ? " · " + nf(gc, 1) + " s" : " · " + t("wReady"); }
+    if (g === "lsr") wtxt += " · " + (me.energy < LSR.e * 0.05 ? t("lsrE") : nf(LSR.e * me.blocks.filter(function (b) { return T[b.t].kind === "lsr"; }).length) + " E/s");
     if (g === "rg") { var cd = 0; me.blocks.forEach(function (b) { if (T[b.t].kind === "rg") cd = Math.max(cd, b.cd || 0); }); wtxt += cd > 0 ? " · " + nf(cd, 1) + " s" : " · bereit".replace("bereit", lang === "de" ? "bereit" : "ready"); }
     var tn = 0, ta = 0; me.blocks.forEach(function (b) { if (T[b.t].kind === "tur") { tn++; if (b.tgt) ta++; } });   // Turrets: Anzahl, davon mit Ziel
     if (tn) wtxt += " · " + t("hTur") + " " + ta + "/" + tn;   // z. B. „Turrets 2/4“: zwei von vier haben ein Ziel

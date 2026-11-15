@@ -38,14 +38,15 @@
   // Reihe: vom Startfeld in Zugrichtung (waagerecht oder senkrecht), Abstand = Größe des Teils
   function rowList() {
     var R0 = V.row; if (!R0) return [];
-    var ty = T[S.sel], fw = S.r % 2 ? ty.h : ty.w, fh = S.r % 2 ? ty.w : ty.h, dx = R0.ex - R0.sx, dy = R0.ey - R0.sy, out = [];
+    var ar = edRot(R0.sx, R0.sy), rr = ar[0], ff = ar[1];   // Auto-Drehen: Drehung aus der Startzelle gilt für die ganze Reihe
+    var ty = T[S.sel], fw = rr % 2 ? ty.h : ty.w, fh = rr % 2 ? ty.w : ty.h, dx = R0.ex - R0.sx, dy = R0.ey - R0.sy, out = [];
     if (R0.area && S.ed === "station") {   // Stations-Editor: mit Umschalt eine ganze Fläche ziehen
       var nx = Math.floor(Math.abs(dx) / fw) + 1, ny = Math.floor(Math.abs(dy) / fh) + 1, gx = dx < 0 ? -1 : 1, gy = dy < 0 ? -1 : 1;
-      for (var j = 0; j < Math.min(ny, 40); j++) for (var i2 = 0; i2 < Math.min(nx, 40); i2++) out.push(ghostAt(R0.sx + gx * fw * i2, R0.sy + gy * fh * j, S.sel, S.r, S.f));
+      for (var j = 0; j < Math.min(ny, 40); j++) for (var i2 = 0; i2 < Math.min(nx, 40); i2++) out.push(ghostAt(R0.sx + gx * fw * i2, R0.sy + gy * fh * j, S.sel, rr, ff));
       return out;
     }
     var horiz = Math.abs(dx) >= Math.abs(dy), step = horiz ? fw : fh, n = Math.floor(Math.abs(horiz ? dx : dy) / step) + 1, sg = (horiz ? dx : dy) < 0 ? -1 : 1;
-    for (var i = 0; i < Math.min(n, 60); i++) out.push(ghostAt(R0.sx + (horiz ? sg * step * i : 0), R0.sy + (horiz ? 0 : sg * step * i), S.sel, S.r, S.f));
+    for (var i = 0; i < Math.min(n, 60); i++) out.push(ghostAt(R0.sx + (horiz ? sg * step * i : 0), R0.sy + (horiz ? 0 : sg * step * i), S.sel, rr, ff));
     return out;
   }
   function placeRow() {
