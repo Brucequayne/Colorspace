@@ -185,6 +185,7 @@
     if (spec.spread) a += (Math.random() - 0.5) * 2 * spec.spread;
     var dx = Math.cos(a), dy = Math.sin(a);
     FL.shots.push({ x: mx, y: my, vx: vx0 + dx * spec.speed, vy: vy0 + dy * spec.speed, life: 0, own: null, pl: true, dmg: spec.dmg });   // volle Kollision, auch eigenes Schiff
+    sndShot(spec);
     FL.parts.push({ x: mx + dx * 0.1, y: my + dy * 0.1, vx: vx0, vy: vy0, life: 0, max: 0.04, k: "flash", sz: 0.18 });
   }
   function syncHot() {

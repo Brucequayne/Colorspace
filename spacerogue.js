@@ -5,7 +5,7 @@
 (function () {
   "use strict";
 
-  var VERSION = "0.57.5";
+  var VERSION = "0.58";
   var CELL_M = 2.5, PX = 24;              // Meter je Zelle, Pixel je Zelle bei Zoom 1
   var lang = "de";
   function L2(de, en) { return { de: de, en: en }; }
@@ -31,7 +31,7 @@
     mStoryT: L2("Die Story mit Missionen ist in Entwicklung.", "The story with missions is in development."), mMenu: L2("Menü", "Menu"), mBack: L2("Zurück", "Back"),
     mEdT: L2("Schiffe und Stationen bauen und im Testflug ausprobieren", "Build ships and stations and try them in a test flight"),
     setHud: L2("HUD-Größe", "HUD size"), setAuto: L2("Auto-Drehen beim Bauen", "Auto-rotate when building"), setAir: L2("Luftströmung an Öffnungen", "Air streaks at openings"), setTips: L2("Tipps im Testflug", "Tips during test flights"),
-    on: L2("An", "On"), off: L2("Aus", "Off"),
+    on: L2("An", "On"), off: L2("Aus", "Off"), setSfx: L2("Lautstärke Effekte", "Effects volume"),
     spOff: L2("Leertaste · vom Boden lösen", "Space · push off the floor"), spLand: L2("Leertaste · landen", "Space · land"), spNone: L2("Hier ist kein offener Rand", "No open edge here"),
     atmLbl: L2("Geld einzahlen", "Deposit money"), itLbl: L2("Aufheben", "Pick up"),
     tBuild: L2("Bauen", "Build"), tabBlk: L2("Blocks", "Blocks"), tabEnv: L2("Environmental", "Environmental"), envLayer: L2("Ebene", "Layer"), envBack: L2("Hinten", "Back"), envGame: L2("Spielebene", "Game"), envFront: L2("Vorne", "Front"), envScale: L2("Größe", "Size"), envRot: L2("Drehung", "Rotation"), envRnd: L2("Zufall", "Random"), envOn: L2("an", "on"), envOff: L2("aus", "off"), envHelp: L2("Klick setzt · Ziehen streut ein Feld · Rechtsklick entfernt (nur aktive Ebene) · R dreht · + / − Größe", "Click places · drag scatters a field · right click removes (active layer only) · R rotates · + / − size"), envCount: L2("Environment", "Environment"), envAst: L2("Asteroiden", "Asteroids"), envBd: L2("Backdrops", "Backdrops"), envBdH: L2("Planeten und Sonnen ganz hinten in der Skybox, unabhängig von der Ebene. Planeten werden von der nächsten Sonne beleuchtet.", "Planets and suns at the very back of the skybox, regardless of layer. Planets are lit by the nearest sun."), expScene: L2("Ganze Szene", "Whole scene"), expStruct: L2("Nur Struktur", "Structure only"), sceneLoaded: L2("Szene geladen", "Scene loaded"), tErase: L2("Abreißen", "Remove"), tPaint: L2("Malen", "Paint"),
@@ -639,7 +639,7 @@
   //  − Seiten ohne Anschluss, die gegen einen Block stoßen (Düse gegen die Hülle)
   //  Triebwerke: Düse lieber vom Schiff weg; Waffen und Laser: Mündung lieber nach vorn (Flugrichtung).
   // Gleichstand: die zuletzt gewählte Drehung (S.r). Spiegeln (S.f) bleibt, wie man es eingestellt hat.
-  var SET = { auto: true, air: true, tips: true };   // Einstellungen (74-menue.js lädt und speichert sie)
+  var SET = { auto: true, air: true, tips: true, sfx: 1 };   // Einstellungen (74-menue.js lädt und speichert sie)
   var AR_C = { ref: null, n: -1, M: null, cx: 0, cy: 0 };
   function arMap() {   // Karte der Blöcke, nur neu bei Änderungen (neue Liste oder andere Länge)
     if (AR_C.ref !== S.blocks || AR_C.n !== S.blocks.length) { var bb = S.blocks.length ? bounds(S.blocks) : null; AR_C = { ref: S.blocks, n: S.blocks.length, M: buildMap(S.blocks), cx: bb ? (bb.x0 + bb.x1) / 2 : 0, cy: bb ? (bb.y0 + bb.y1) / 2 : 0 }; }
@@ -3152,6 +3152,7 @@
     if (spec.spread) a += (Math.random() - 0.5) * 2 * spec.spread;
     var dx = Math.cos(a), dy = Math.sin(a);
     FL.shots.push({ x: mx, y: my, vx: vx0 + dx * spec.speed, vy: vy0 + dy * spec.speed, life: 0, own: null, pl: true, dmg: spec.dmg });   // volle Kollision, auch eigenes Schiff
+    sndShot(spec);
     FL.parts.push({ x: mx + dx * 0.1, y: my + dy * 0.1, vx: vx0, vy: vy0, life: 0, max: 0.04, k: "flash", sz: 0.18 });
   }
   function syncHot() {
@@ -3636,6 +3637,59 @@
       c.restore();
     });
   }
+  // ===== 59-sound.js · Sounds aus Dateien (v0.58) =====
+  // Noahs Sounds liegen als .mp3 in spacerogue-sounds/ und werden beim ersten Klick geladen (Web Audio).
+  // Beim Abspielen wird die Stille am Anfang übersprungen (Start ab dem ersten hörbaren Sample), damit Schüsse ohne Verzögerung kommen.
+  // Lautstärken kommen aus den Dateien (Noahs Mischung), dazu nur der Regler „Effekte“ in den Einstellungen.
+  var SND = {
+    dir: "spacerogue-sounds/handwaffen/",
+    files: { pDraw: "pistole_rausholen.mp3", pShot: "pistole_schuss.mp3", mDraw: "mp_rausholen.mp3", mShot: "mp_schuss.mp3", mCase: "mp_huelse.mp3" },
+    buf: {}, off: {}, busy: false, out: null, voices: {}
+  };
+  // Stimmen je Sound: wie viele gleichzeitig klingen dürfen; die älteste wird kurz ausgeblendet (MP-Dauerfeuer bleibt klar)
+  var SND_MAX = { mShot: 4, mCase: 3, pShot: 3, pDraw: 1, mDraw: 1 };
+  function sndLoad() {
+    audioInit(); if (!AC || SND.busy) return; SND.busy = true;
+    SND.out = AC.createGain(); SND.out.gain.value = SET.sfx; SND.out.connect(AC.destination);
+    Object.keys(SND.files).forEach(function (k) {
+      fetch(SND.dir + SND.files[k]).then(function (r) { if (!r.ok) throw new Error(r.status); return r.arrayBuffer(); })
+        .then(function (a) { return new Promise(function (ok, no) { AC.decodeAudioData(a, ok, no); }); })
+        .then(function (b) { SND.buf[k] = b; SND.off[k] = sndLead(b); })
+        .catch(function () {});   // fehlt eine Datei, bleibt es an der Stelle still
+    });
+  }
+  function sndLead(b) {   // erste Stelle über -50 dB, 3 ms Vorlauf
+    var d = b.getChannelData(0), th = 0.0032, n = Math.min(d.length, Math.floor(b.sampleRate * 0.2));
+    for (var i = 0; i < n; i++) if (Math.abs(d[i]) > th) return Math.max(0, i / b.sampleRate - 0.003);
+    return 0;
+  }
+  function sndVol(v) { SET.sfx = v; if (SND.out) SND.out.gain.value = v; }
+  // k: Name, o: { pitch: ±Anteil Zufall, gain: Faktor, delay: s }
+  function snd(k, o) {
+    if (!AC || AC.state !== "running" || !SND.buf[k] || !SND.out || SET.sfx <= 0) return;
+    o = o || {};
+    try {
+      var t0 = AC.currentTime + (o.delay || 0), src = AC.createBufferSource(), g = AC.createGain();
+      src.buffer = SND.buf[k]; src.playbackRate.value = 1 + (o.pitch ? (Math.random() - 0.5) * 2 * o.pitch : 0);
+      g.gain.value = o.gain == null ? 1 : o.gain; src.connect(g); g.connect(SND.out);
+      var L = SND.voices[k] || (SND.voices[k] = []);
+      while (L.length >= (SND_MAX[k] || 3)) { var old = L.shift(); try { old.g.gain.setTargetAtTime(0, t0, 0.012); old.s.stop(t0 + 0.06); } catch (e) {} }
+      var v = { s: src, g: g }; L.push(v); src.onended = function () { var i = L.indexOf(v); if (i >= 0) L.splice(i, 1); };
+      src.start(t0, SND.off[k] || 0);
+    } catch (e) {}
+  }
+  // Handwaffen: Ziehen beim Wechsel auf Pistole/MP, Schuss je Schuss, Hülsen bei der MP (nur auf Boden, nicht im All)
+  function sndHeld() {
+    var h = FL && !FL.seated ? held() : null;
+    if (h !== SND.lastHeld) { SND.lastHeld = h; if (h === "pistol") snd("pDraw"); else if (h === "smg") snd("mDraw"); }
+  }
+  function sndShot(spec) {
+    if (spec === SMG) {
+      snd("mShot", { pitch: 0.025, gain: 0.92 + Math.random() * 0.08 });
+      SND.cn = (SND.cn || 0) + 1;
+      if (!FL.out && SND.cn % 2 === 0) snd("mCase", { pitch: 0.07, gain: 0.8 + Math.random() * 0.3, delay: 0.28 + Math.random() * 0.3 });   // jede zweite Hülse hörbar, landet etwas später
+    } else snd("pShot", { pitch: 0.02 });
+  }
   // ===== 60-zeichnen-flug.js · Zeichnen: Flugansicht (Schweife, Staub, Effekte, Schiffe, Radar, HUD) =====
   // Schweif der Vortriebsdüsen (Schub nach vorne): Punkte bleiben im Raum stehen und verblassen, so sieht man die eigene Bahn
   function trailTick() {
@@ -3932,6 +3986,7 @@
     var rootEl = V.root.querySelector(".sr-root"), ft = !FL.seated; if (rootEl.classList.contains("foot") !== ft) { rootEl.classList.toggle("foot", ft); syncHot(); }
     // Standardansicht: im Cockpit außen, zu Fuß innen (mit V weiterhin umschaltbar)
     if (FL.seatWas !== FL.seated) { FL.seatWas = FL.seated; S.view = FL.seated ? "out" : "in"; syncUI(); }
+    sndHeld();
     if (!!FL.outWas !== !!FL.out) { FL.outWas = !!FL.out; if (!FL.seated) { S.view = FL.out ? "out" : "in"; syncUI(); } }   // v0.57.5: ins All → Außenansicht, wieder drin → Innenansicht
     var snb = V.root.querySelector(".sr-shipn"); if (snb && !snb.classList.contains("edit")) { var nm = FL.me.name || t("shipDef"); if (snb.textContent !== nm) snb.textContent = nm; }
     var me = FL.me, sp = Math.hypot(me.vx, me.vy), g = FL.groups[FL.wsel];
@@ -4289,7 +4344,7 @@
     V.cv.focus && V.cv.focus();
     var m = worldMouse(e); V.mouse = m;
     if (S.mode === "fly") {
-      audioInit();
+      audioInit(); sndLoad();
       if (e.button === 0) { FL.fire = true; if (!FL.seated && held() === "pistol") firePistol(); }
       if (e.button === 2) { var ppm = PX * V.zoom / CELL_M, wx = FL.cam.x + (m.sx - V.W / 2) / ppm, wy = FL.cam.y + (m.sy - V.H / 2) / ppm, h = hitAt(wx, wy, null); if (h) { damage(h.bd, h.b, T[h.b.t].hp * 0.26, wx, wy); spark(wx, wy, 6); } }
       return;
@@ -4521,7 +4576,7 @@
   // Beim Start erscheint das Menü: Story (in Entwicklung), Editor, Einstellungen. Aus dem Editor führt „Menü“ zurück.
   // Einstellungen liegen unter einem eigenen Speicherschlüssel; die HUD-Größe bleibt wie bisher unter spacerogue-ui.
   var SETK = "spacerogue-settings-v1";
-  function setLoad() { try { var o = JSON.parse(localStorage.getItem(SETK) || "{}"); ["auto", "air", "tips"].forEach(function (k) { if (typeof o[k] === "boolean") SET[k] = o[k]; }); } catch (e) {} }
+  function setLoad() { try { var o = JSON.parse(localStorage.getItem(SETK) || "{}"); ["auto", "air", "tips"].forEach(function (k) { if (typeof o[k] === "boolean") SET[k] = o[k]; }); if (typeof o.sfx === "number") SET.sfx = Math.max(0, Math.min(1, o.sfx)); } catch (e) {} }
   function setSave() { try { localStorage.setItem(SETK, JSON.stringify(SET)); } catch (e) {} }
   function menuHtml() {
     function tg(k) { return '<div class="sr-mrow"><span>' + t(k === "auto" ? "setAuto" : k === "air" ? "setAir" : "setTips") + '</span><span class="sr-seg"><button type="button" data-set="' + k + '" data-v="1">' + t("on") + '</button><button type="button" data-set="' + k + '" data-v="0">' + t("off") + "</button></span></div>"; }
@@ -4534,6 +4589,7 @@
       '<p class="sr-mmsg"></p></div>' +
       '<div class="sr-mset" hidden><h4>' + t("mSet") + '</h4>' +
       '<div class="sr-mrow"><span>' + t("setHud") + ' <b id="sr-mhud-v"></b></span><input type="range" id="sr-mhud" min="1" max="1.5" step="0.05"></div>' +
+      '<div class="sr-mrow"><span>' + t("setSfx") + ' <b id="sr-msfx-v"></b></span><input type="range" id="sr-msfx" min="0" max="1" step="0.05"></div>' +
       tg("auto") + tg("air") + tg("tips") +
       '<button type="button" class="sr-mbtn sr-mback" data-menu="back"><b>← ' + t("mBack") + '</b></button></div>' +
       "</div></div>";
@@ -4549,9 +4605,11 @@
     if (!V) return; var el = V.root.querySelector(".sr-menu"); if (!el) return;
     el.querySelectorAll("[data-set]").forEach(function (b) { b.setAttribute("aria-pressed", String(SET[b.getAttribute("data-set")] === (b.getAttribute("data-v") === "1"))); });
     var hs = el.querySelector("#sr-mhud"); if (hs) { hs.value = V.uis || 1; set("sr-mhud-v", Math.round((V.uis || 1) * 100) + " %"); }
+    var fx = el.querySelector("#sr-msfx"); if (fx) { fx.value = SET.sfx; set("sr-msfx-v", Math.round(SET.sfx * 100) + " %"); }
     var ab = V.root.querySelector('[data-act="auto"]'); if (ab) ab.setAttribute("aria-pressed", String(SET.auto));
   }
   function menuClick(e) {
+    sndLoad();   // erster Klick: Sounds laden (Browser erlauben Ton erst nach einer Eingabe)
     var m = e.target.closest("[data-menu]"), st = e.target.closest("[data-set]"); if (!m && !st) return false;
     var el = V.root.querySelector(".sr-menu");
     if (st) { SET[st.getAttribute("data-set")] = st.getAttribute("data-v") === "1"; setSave(); menuSync(); return true; }
@@ -4563,6 +4621,7 @@
     return true;
   }
   function menuInput(e) {
+    if (e.target.id === "sr-msfx") { sndLoad(); sndVol(+e.target.value); setSave(); menuSync(); snd("pShot"); return true; }   // Probeschuss zum Einstellen
     if (e.target.id !== "sr-mhud") return false;
     hudScale(+e.target.value); try { localStorage.setItem("spacerogue-ui", String(V.uis)); } catch (er) {} menuSync(); return true;
   }
@@ -4619,5 +4678,5 @@
     document.body.style.overflow = V.ovOld || "";
     FL = null; if (S) S.mode = "edit"; V = null;
   }
-  window.SpaceRogue = { mount: mount, unmount: unmount, _debug: function () { return { S: S, V: V, FL: FL, T: T, edRot: edRot, tryPlace: tryPlace, ghostAt: ghostAt, antRange: antRange, SET: SET, stats: stats, rooms: rooms, components: components, starter: starter, startTest: startTest, damage: damage, dockFace: dockFace, wx: WX_TEX, spawnEnemy: spawnEnemy, NPC: NPC, bd: { ids: BD_IDS, sprite: bdSprite, glow: bdSunGlow, env: ENV, code: sceneCode, parse: parseEnv } }; } };
+  window.SpaceRogue = { mount: mount, unmount: unmount, _debug: function () { return { S: S, V: V, FL: FL, T: T, edRot: edRot, SND: SND, tryPlace: tryPlace, ghostAt: ghostAt, antRange: antRange, SET: SET, stats: stats, rooms: rooms, components: components, starter: starter, startTest: startTest, damage: damage, dockFace: dockFace, wx: WX_TEX, spawnEnemy: spawnEnemy, NPC: NPC, bd: { ids: BD_IDS, sprite: bdSprite, glow: bdSunGlow, env: ENV, code: sceneCode, parse: parseEnv } }; } };
 })();

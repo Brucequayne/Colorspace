@@ -294,6 +294,7 @@
     var rootEl = V.root.querySelector(".sr-root"), ft = !FL.seated; if (rootEl.classList.contains("foot") !== ft) { rootEl.classList.toggle("foot", ft); syncHot(); }
     // Standardansicht: im Cockpit außen, zu Fuß innen (mit V weiterhin umschaltbar)
     if (FL.seatWas !== FL.seated) { FL.seatWas = FL.seated; S.view = FL.seated ? "out" : "in"; syncUI(); }
+    sndHeld();
     if (!!FL.outWas !== !!FL.out) { FL.outWas = !!FL.out; if (!FL.seated) { S.view = FL.out ? "out" : "in"; syncUI(); } }   // v0.57.5: ins All → Außenansicht, wieder drin → Innenansicht
     var snb = V.root.querySelector(".sr-shipn"); if (snb && !snb.classList.contains("edit")) { var nm = FL.me.name || t("shipDef"); if (snb.textContent !== nm) snb.textContent = nm; }
     var me = FL.me, sp = Math.hypot(me.vx, me.vy), g = FL.groups[FL.wsel];

@@ -8,7 +8,7 @@
     V.cv.focus && V.cv.focus();
     var m = worldMouse(e); V.mouse = m;
     if (S.mode === "fly") {
-      audioInit();
+      audioInit(); sndLoad();
       if (e.button === 0) { FL.fire = true; if (!FL.seated && held() === "pistol") firePistol(); }
       if (e.button === 2) { var ppm = PX * V.zoom / CELL_M, wx = FL.cam.x + (m.sx - V.W / 2) / ppm, wy = FL.cam.y + (m.sy - V.H / 2) / ppm, h = hitAt(wx, wy, null); if (h) { damage(h.bd, h.b, T[h.b.t].hp * 0.26, wx, wy); spark(wx, wy, 6); } }
       return;

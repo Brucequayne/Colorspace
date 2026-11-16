@@ -5,7 +5,7 @@
   //  − Seiten ohne Anschluss, die gegen einen Block stoßen (Düse gegen die Hülle)
   //  Triebwerke: Düse lieber vom Schiff weg; Waffen und Laser: Mündung lieber nach vorn (Flugrichtung).
   // Gleichstand: die zuletzt gewählte Drehung (S.r). Spiegeln (S.f) bleibt, wie man es eingestellt hat.
-  var SET = { auto: true, air: true, tips: true };   // Einstellungen (74-menue.js lädt und speichert sie)
+  var SET = { auto: true, air: true, tips: true, sfx: 1 };   // Einstellungen (74-menue.js lädt und speichert sie)
   var AR_C = { ref: null, n: -1, M: null, cx: 0, cy: 0 };
   function arMap() {   // Karte der Blöcke, nur neu bei Änderungen (neue Liste oder andere Länge)
     if (AR_C.ref !== S.blocks || AR_C.n !== S.blocks.length) { var bb = S.blocks.length ? bounds(S.blocks) : null; AR_C = { ref: S.blocks, n: S.blocks.length, M: buildMap(S.blocks), cx: bb ? (bb.x0 + bb.x1) / 2 : 0, cy: bb ? (bb.y0 + bb.y1) / 2 : 0 }; }

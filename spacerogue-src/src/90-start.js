@@ -51,5 +51,5 @@
     document.body.style.overflow = V.ovOld || "";
     FL = null; if (S) S.mode = "edit"; V = null;
   }
-  window.SpaceRogue = { mount: mount, unmount: unmount, _debug: function () { return { S: S, V: V, FL: FL, T: T, edRot: edRot, tryPlace: tryPlace, ghostAt: ghostAt, antRange: antRange, SET: SET, stats: stats, rooms: rooms, components: components, starter: starter, startTest: startTest, damage: damage, dockFace: dockFace, wx: WX_TEX, spawnEnemy: spawnEnemy, NPC: NPC, bd: { ids: BD_IDS, sprite: bdSprite, glow: bdSunGlow, env: ENV, code: sceneCode, parse: parseEnv } }; } };
+  window.SpaceRogue = { mount: mount, unmount: unmount, _debug: function () { return { S: S, V: V, FL: FL, T: T, edRot: edRot, SND: SND, tryPlace: tryPlace, ghostAt: ghostAt, antRange: antRange, SET: SET, stats: stats, rooms: rooms, components: components, starter: starter, startTest: startTest, damage: damage, dockFace: dockFace, wx: WX_TEX, spawnEnemy: spawnEnemy, NPC: NPC, bd: { ids: BD_IDS, sprite: bdSprite, glow: bdSunGlow, env: ENV, code: sceneCode, parse: parseEnv } }; } };
 })();
