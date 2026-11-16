@@ -11,6 +11,7 @@
     "world.js",       // Map-Daten, Zeichnen mit Tiefe, Schatten, Tageszeit, Licht, Leben (Crowd, Dampf, Laternen)
     "editor.js",      // Map-Editor (Code 282828)
     "battle.js",      // Battle-Modus: Beat, Mikro, Parts, Pass the mic, Crowd-Hype, Zeitleiste
+    "record.js",      // Aufnahme als MP4 (Bild + Anzeige + Beat + Mikro), ansehen und speichern
     "main.js"         // Hülle: Canvas, Skalierung, Menü, Schleife
   ];
   var stamp = "";

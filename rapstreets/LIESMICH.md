@@ -12,6 +12,7 @@ Die Startseite lädt nur `rapstreets.js` (Lader). Der lädt beim Öffnen die Dat
 | `world.js` | Map-Modell, Tiefensortierung, Schatten, Tageszeit/Licht, Crowd-Animation, Dampf (`RS.World`) |
 | `editor.js` | Level-Editor (Code 282828), Werkzeug „Bühne“ setzt `stage` |
 | `battle.js` | Battle: Audio (WebAudio, Mikro-Pegel), Ablauf `RS.plan` (Viertel + 2 Takte Pass the mic), Crowd-Hype, Rapper-Wege, HUD/Zeitleiste |
+| `record.js` | Aufnahme als MP4 live während des Battles (WebCodecs + `mp4-muxer.js`): Spielbild 3× + gezeichnete Anzeige, Beat (um Latenz verzögert, −3 dB, Begrenzer) + Mikro |
 | `main.js` | Hülle, Skalierung, Menü, Schleife |
 
 Map-Format (.json): `{ name, time, tiles: 36·36 Zeichen, obj: [{t, v, r, x, y}], ppl: [{v, x, y, f}], stage: {x, y} }`.

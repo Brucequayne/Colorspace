@@ -32,7 +32,7 @@
   // z. B. Bluetooth-Kopfhörer, die beim Öffnen des Mikros auf Headset-Betrieb umschalten
   A.reset = function () {
     A.stop(); var old = A.ctx; A.ctx = null; A.an = null; if (old) try { old.close(); } catch (e) {}
-    var ctx = A.context(); if (A.mic && ctx) { var src = ctx.createMediaStreamSource(A.mic); A.an = ctx.createAnalyser(); A.an.fftSize = 1024; src.connect(A.an); A.data = new Float32Array(A.an.fftSize); }
+    var ctx = A.context(); if (A.mic && ctx) { var src = A.micSrc = ctx.createMediaStreamSource(A.mic); A.an = ctx.createAnalyser(); A.an.fftSize = 1024; src.connect(A.an); A.data = new Float32Array(A.an.fftSize); }
     return ctx;
   };
   A.micOpen = function () {
@@ -40,10 +40,10 @@
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return Promise.resolve(false);
     var ctx = A.context(); if (!ctx) return Promise.resolve(false);
     return navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: false } }).then(function (st) {
-      A.mic = st; var src = ctx.createMediaStreamSource(st); A.an = ctx.createAnalyser(); A.an.fftSize = 1024; src.connect(A.an); A.data = new Float32Array(A.an.fftSize); return true;
+      A.mic = st; var src = A.micSrc = ctx.createMediaStreamSource(st); A.an = ctx.createAnalyser(); A.an.fftSize = 1024; src.connect(A.an); A.data = new Float32Array(A.an.fftSize); return true;
     }).catch(function () { return false; });
   };
-  A.micClose = function () { if (A.mic) A.mic.getTracks().forEach(function (t) { t.stop(); }); A.mic = null; A.an = null; };
+  A.micClose = function () { if (A.mic) A.mic.getTracks().forEach(function (t) { t.stop(); }); A.mic = null; A.an = null; A.micSrc = null; };
   A.micDb = function () {   // Pegel in dB (RMS)
     if (!A.an) return -100; A.an.getFloatTimeDomainData(A.data); var s = 0; for (var i = 0; i < A.data.length; i++) s += A.data[i] * A.data[i];
     return 10 * Math.log10(s / A.data.length + 1e-12);
@@ -136,16 +136,33 @@
     e.innerHTML = '<div class="rs-end-box"><h2>' + (w < 0 ? L2("Unentschieden", "Draw") : '<span class="rs-c' + w + '">' + esc(B.names[w]) + '</span> ' + L2("gewinnt", "wins")) + '</h2>' +
       '<p>' + L2("Die Crowd hat entschieden.", "The crowd has decided.") + '</p>' +
       '<table>' + [0, 1].map(function (i) { return '<tr><th class="rs-c' + i + '">' + esc(B.names[i]) + '</th><td>' + L2("Crowd-Hype", "Crowd hype") + ' <b>' + Math.round(sc[i].hype * 100) + ' %</b></td><td>' + L2("am Mikro", "on the mic") + ' <b>' + Math.round(sc[i].rap * 100) + ' %</b></td></tr>'; }).join("") + '</table>' +
+      '<div class="rs-vid"></div>' +
       '<div class="rs-end-btns"><button type="button" data-a="again">' + L2("Revanche", "Rematch") + '</button><button type="button" data-a="new">' + L2("Neue Map", "New map") + '</button><button type="button" data-a="menu">' + L2("Menü", "Menu") + '</button></div></div>';
-    e.hidden = false;
-    e.querySelector(".rs-end-btns").addEventListener("click", function (ev) {
+    e.hidden = false; vidState();
+    e.addEventListener("click", function (ev) {
       var b = ev.target.closest("button"); if (!b) return;
+      if (b.dataset.a === "watch") { watch(); return; }
+      if (b.dataset.a === "save") { RS.rec.download(); return; }
+      if (b.dataset.a === "close") { var pl = RS.main.stage.querySelector(".rs-play"); if (pl) { pl.querySelector("video").pause(); pl.remove(); } return; }
       if (b.dataset.a === "again") RS.main.go("battle", { names: B.names, beat: RS.pickBeat() });
       else if (b.dataset.a === "new") { RS.main.newMap(); RS.main.go("menu"); }
       else RS.main.go("menu");
     });
   }
 
+  // Aufnahme-Knöpfe im Endbild
+  function vidState() {
+    var v = B && B.el.end.querySelector(".rs-vid"); if (!v) return;
+    if (B.video) v.innerHTML = '<button type="button" data-a="watch">▶ ' + L2("Ansehen", "Watch") + '</button><button type="button" data-a="save">' + L2("MP4 speichern", "Save MP4") + '</button><span>' + (B.video.size / 1048576).toFixed(0) + ' MB</span>';
+    else if (B.recBusy) v.innerHTML = '<span>' + L2("Video wird fertig …", "Finishing video …") + '</span>';
+    else v.innerHTML = '<span>' + (RS.rec.note || L2("Keine Aufnahme", "No recording")) + '</span>';
+  }
+  function watch() {
+    if (!B.video) return; var st = RS.main.stage;
+    var d = document.createElement("div"); d.className = "rs-play";
+    d.innerHTML = '<div><video controls autoplay playsinline src="' + B.video.url + '"></video><div class="rs-end-btns"><button type="button" data-a="save">' + L2("MP4 speichern", "Save MP4") + '</button><button type="button" data-a="close">' + L2("Schließen", "Close") + '</button></div></div>';
+    st.querySelector(".rs-end").appendChild(d);
+  }
   RS.pickBeat = function (not) {
     var L = RS.BEATS, last = RS.lastBeat, c = L.filter(function (b) { return b !== last; }); if (!c.length) c = L;
     var b = c[Math.floor(Math.random() * c.length)]; RS.lastBeat = b; return b;
@@ -165,14 +182,14 @@
       rapperUpdate(0, 0, B.plan.segs[0]);
       var my = B;
       RS.audio.load(opt.beat).then(function (buf) {
-        if (B !== my) return; B.buf = buf; B.t0 = RS.audio.play(buf, 0.15); B.state = "run"; B.chk = { t: 0, ct: RS.audio.ctx.currentTime };
+        if (B !== my) return; B.buf = buf; B.t0 = RS.audio.play(buf, 0.15); B.state = "run"; B.chk = { t: 0, ct: RS.audio.ctx.currentTime }; RS.rec.start(B);
         B.srcEnded = false; RS.audio.src.onended = function () { if (B === my) B.srcEnded = true; };
       }).catch(function (er) { if (B === my) setStatus(L2("Beat konnte nicht geladen werden", "Could not load the beat") + " (" + opt.beat.file + (er && er.message ? ", " + er.message : "") + ")", L2("Esc = zurück", "Esc = back"), ""); });
       B.keys = function (e) { if (e.key === "Escape") { e.preventDefault(); RS.main.go("menu"); } };
       window.addEventListener("keydown", B.keys);
     },
     exit: function () {
-      if (!B) return; RS.audio.stop(); window.removeEventListener("keydown", B.keys);
+      if (!B) return; RS.audio.stop(); if (!B.recDone) RS.rec.abort(); window.removeEventListener("keydown", B.keys);
       B.world.actors = []; B.world.hype = 0; B.world.beat = null; B.world.dirty();
       RS.main.stage.innerHTML = ""; B = null;
     },
@@ -191,7 +208,7 @@
             var c2 = B.tries > 1 ? RS.audio.reset() : ac;
             u.textContent = L2("Starte Ton …", "Starting sound …");
             Promise.race([c2.resume(), new Promise(function (ok) { setTimeout(ok, 600); })]).then(function () {
-              if (!B) return; B.t0 = RS.audio.play(B.buf, 0.1); B.chk = { t: 0, ct: c2.currentTime }; B.noMic = !RS.audio.an;
+              if (!B) return; B.t0 = RS.audio.play(B.buf, 0.1); B.chk = { t: 0, ct: c2.currentTime }; B.noMic = !RS.audio.an; RS.rec.start(B);
               u.textContent = L2("Immer noch kein Ton? Nochmal klicken", "Still no sound? Click again");
             });
           });
@@ -200,7 +217,7 @@
         if (B.el.unl) return;
       }
       var ctx = RS.audio.ctx, t = B.state === "run" ? Math.max(0, ctx.currentTime - B.t0) : B.plan.end, P = B.plan, s = B.state === "run" ? seg(t) : null;
-      W.beat = (t - B.beatInfo.down) / P.beat;
+      W.beat = (t - B.beatInfo.down) / P.beat; B.curT = t;
       // Mikro-Pegel → Aktivität (über dem gemessenen Grundpegel)
       var db = RS.audio.micDb(), rapping = s && s.k === "part";
       if (!rapping) B.floor += (db - B.floor) * Math.min(1, dt * (db < B.floor ? 3 : 0.6));
@@ -218,6 +235,10 @@
       W.hype += (target - W.hype) * Math.min(1, dt * 3);
       if (B.state === "run" && (t >= P.end - 0.02 || B.srcEnded)) { finish(); s = null; }
       if (B.state === "end" && !B.shown && B.t - B.endT > 2.5) { B.shown = true; showEnd(); }
+      if (B.state === "end" && !B.recDone && B.t - B.endT > 3.5) {   // Aufnahme läuft noch kurz mit Jubel und Ergebnis, dann fertig machen
+        B.recDone = true; B.recBusy = true; vidState(); var my = B;
+        RS.rec.stop(B, function (res) { if (B !== my) return; B.recBusy = false; B.video = res; vidState(); });
+      }
       rapperUpdate(dt, t, s);
       // HUD
       var e = B.el;
@@ -230,7 +251,7 @@
       else if (s.k === "pass") setStatus(L2("Weiter an", "Over to") + " " + B.names[s.pl], "PASS THE MIC", "rs-pass rs-c" + s.pl);
       else setStatus(L2("Am Mikro", "On the mic") + " · Part " + (s.n + 1) + "/4 · " + fmt(s.b - t), B.names[s.pl], "rs-c" + s.pl);
     },
-    render: function (c) { B.world.render(c); }
+    render: function (c) { B.world.render(c); RS.rec.frame(c.canvas, B, B.curT || 0); }
   };
 
   RS.BATTLE_CSS =
@@ -255,6 +276,10 @@
     ".rs-tl span{font:600 1em/1 var(--f-body,system-ui);font-variant-numeric:tabular-nums;min-width:6.5em}" +
     ".rs-esc{position:absolute;left:1.6em;bottom:4.2em;font:500 .9em/1 var(--f-body,system-ui);color:#A8A296}" +
     ".rs-unl{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);pointer-events:auto;font:700 1.4em/1 var(--f-body,system-ui);letter-spacing:.08em;padding:1em 1.4em;border:0;border-radius:0;background:#F2C230;color:#141414;cursor:pointer;box-shadow:.3em .3em 0 #111}" +
+    ".rs-vid{display:flex;gap:.8em;justify-content:center;align-items:center;margin:0 0 1em;min-height:2.6em}.rs-vid span{color:#A8A296;font-size:1em}" +
+    ".rs-vid button{font:700 1.1em/1 var(--f-body,system-ui);letter-spacing:.08em;padding:.8em 1.2em;border:1px solid #F2C230;border-radius:0;background:none;color:#F2C230;cursor:pointer}.rs-vid button:hover{background:#F2C230;color:#141414}" +
+    ".rs-play{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.92)}.rs-play>div{width:90%;text-align:center}" +
+    ".rs-play video{display:block;width:100%;max-height:80vh;background:#000;margin-bottom:1em}" +
     ".rs-end{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.55);pointer-events:auto;animation:rsIn .5s ease both}.rs-end[hidden]{display:none}" +
     ".rs-end-box{background:#161616;border:1px solid #3A3A3A;padding:2em 2.4em;text-align:center;text-shadow:none;min-width:30em}" +
     ".rs-end-box h2{margin:0;font:900 3.2em/1.1 Impact,'Arial Black',sans-serif;text-transform:uppercase;letter-spacing:.03em}.rs-end-box p{margin:.4em 0 1.4em;color:#A8A296;font-size:1.1em}" +

@@ -131,7 +131,7 @@
       root.addEventListener("click", function (e) {
         var b = e.target.closest("[data-a]"); if (!b) return; var a = b.dataset.a;
         if (a === "battle") {
-          setup.hidden = false; setupOpen = true; floorMin = 0; RS.audio.context();
+          setup.hidden = false; setupOpen = true; floorMin = 0; RS.audio.context(); RS.rec.preload();
           root.querySelector(".rs-mic span").textContent = L2("Zugriff wird angefragt …", "Requesting access …");
           RS.audio.micOpen().then(function () { if (setupOpen) micState(); });
         } else if (a === "back") { setup.hidden = true; setupOpen = false; }

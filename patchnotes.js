@@ -111,6 +111,9 @@ window.PATCHNOTES = {
 
   // ================= Spiele =================
   rapstreets: [
+    { v: "0.3", t: "2026-11-16T22:50:00+01:00",
+      de: ["Jedes Battle wird jetzt als Video aufgenommen: Spielbild mit Anzeige, Instrumental und Mikro", "Nach dem Battle: „Ansehen“ spielt die Aufnahme direkt ab, „MP4 speichern“ lädt sie herunter (1440 × 816, 30 Bilder pro Sekunde)", "Die Stimme wird um die Verzögerung von Boxen und Mikro zurückgeschoben, damit sie auf dem Beat sitzt", "In der Aufnahme liegt der Beat etwas leiser unter der Stimme und ein Begrenzer verhindert Übersteuern – beim Spielen bleibt der Beat in Originallautstärke", "Die Aufnahme bleibt im Browser und wird nirgends hochgeladen"],
+      en: ["Every battle is now recorded as a video: game picture with the overlay, instrumental and mic", "After the battle: “Watch” plays the recording right away, “Save MP4” downloads it (1440 × 816, 30 frames per second)", "The voice is shifted back by the delay of speakers and mic so it sits on the beat", "In the recording the beat sits slightly lower under the voice and a limiter prevents clipping – while playing, the beat stays at its original level", "The recording stays in your browser and is never uploaded"] },
     { v: "0.2.2", t: "2026-11-16T22:40:00+01:00",
       de: ["Bleibt der Ton auch nach dem Klick blockiert, setzt ein zweiter Klick das Audio komplett neu auf (hilft z. B. bei Bluetooth-Kopfhörern, die beim Einschalten des Mikros umschalten)"],
       en: ["If the sound stays blocked after the click, a second click restarts the audio completely (helps e.g. with Bluetooth headphones that switch modes when the mic turns on)"] },
