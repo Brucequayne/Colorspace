@@ -44,7 +44,7 @@
   }
   function releaseKeys() { if (V) V.keys = {}; if (FL) { FL.keys = {}; FL.fire = false; } }
   function unmount() {
-    if (raf) cancelAnimationFrame(raf); raf = 0;
+    if (raf) cancelAnimationFrame(raf); raf = 0; sndStopAll();
     if (!V) return;
     window.removeEventListener("pointermove", onMove); window.removeEventListener("pointerup", onUp); window.removeEventListener("pointercancel", onUp);
     window.removeEventListener("keydown", onKey); window.removeEventListener("keyup", onKeyUp); window.removeEventListener("resize", layout); window.removeEventListener("blur", releaseKeys);

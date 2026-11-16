@@ -54,6 +54,8 @@
         var d = turDir(bd, b), tip = turTip(bd, b);
         FL.shots.push({ x: tip.x, y: tip.y, vx: bd.vx + d.x * MG.speed + (Math.random() - 0.5) * 6, vy: bd.vy + d.y * MG.speed + (Math.random() - 0.5) * 6, life: 0, own: bd });
         FL.parts.push({ x: tip.x, y: tip.y, vx: bd.vx, vy: bd.vy, life: 0, max: 0.06, k: "flash", sz: 1.6 });
+        if (b.sndOn == null) sndGatPick(bd.blocks.filter(function (q) { return T[q.t].kind === "tur" && T[q.t].tw === "mg"; }));
+        sndGat(bd, b, tip.x, tip.y);
         var cn = (bd.cool && bd.cool.get(b)) || 0;
         b.heat = (b.heat || 0) + MG.heat / (1 + 0.35 * cn) * (pl && FL.oc ? 0.75 : 1);
         if (b.heat >= 1) { b.heat = 1; b.oh = b.ohMax = MG.lock / (1 + 0.3 * cn); }   // kommt durch die Disziplin praktisch nicht vor
@@ -71,6 +73,7 @@
         if (!aligned && !(b.chg > 0 && best)) return;
         b.holding = true;
         if (bd.energy < RG.e * TUR.eK && !b.chg) return;
+        if (!b.chg) { var tpr = turTip(bd, b); sndRailCharge(b, tpr.x, tpr.y); }
         b.chg = (b.chg || 0) + dt;
         if (b.chg >= RG.charge) { b.chg = 0; b.cd = RG.cd; bd.energy = Math.max(0, bd.energy - RG.e * TUR.eK); b.tn = (b.tn || 0) + 1; fireRailFrom(bd, turTip(bd, b), turDir(bd, b)); }
       }

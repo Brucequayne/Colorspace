@@ -47,6 +47,7 @@
     if (firing && g === "mg" && !bd.mgWas) {
       var mgs = bd.blocks.filter(function (b) { return T[b.t].kind === "mg"; }), per = 1 / (MG.rate * (bd.player ? 1 + PM.mgRate : 1));
       mgs.forEach(function (b, i) { b.cool2 = Math.max(b.cool2 || 0, (i / mgs.length) * per + Math.random() * per * 0.15); });
+      sndGatPick(mgs);   // nur die ersten zwei Rohre sind hörbar
     }
     if (g === "mg" || !firing) bd.mgWas = firing && g === "mg";
     if (firing && g === "mg") bd.blocks.forEach(function (b) {
@@ -57,7 +58,7 @@
       b.cool2 = 1 / (MG.rate * (bd.player ? 1 + PM.mgRate : 1)); bd.energy -= MG.e;
       var d = gunDir(bd, b), f = fp(b), tip = gunTip(bd, b);
       FL.shots.push({ x: tip.x, y: tip.y, vx: bd.vx + d.x * MG.speed + (Math.random() - 0.5) * 6, vy: bd.vy + d.y * MG.speed + (Math.random() - 0.5) * 6, life: 0, own: bd });
-      FL.parts.push({ x: tip.x, y: tip.y, vx: bd.vx, vy: bd.vy, life: 0, max: 0.06, k: "flash", sz: 1.4 });
+      FL.parts.push({ x: tip.x, y: tip.y, vx: bd.vx, vy: bd.vy, life: 0, max: 0.06, k: "flash", sz: 1.4 }); sndGat(bd, b, tip.x, tip.y);
       var cn2 = (bd.cool && bd.cool.get(b)) || 0;
       b.heat = (b.heat || 0) + MG.heat / (1 + 0.35 * cn2) * (bd === FL.me && FL.oc ? 0.75 : 1);   // Overcharge: 25 % langsamer heiß
       if (b.heat >= 1) { b.heat = 1; b.oh = b.ohMax = MG.lock / (1 + 0.3 * cn2); for (var i = 0; i < 10; i++) FL.parts.push({ x: tip.x, y: tip.y, vx: bd.vx + (Math.random() - 0.5) * 6, vy: bd.vy + (Math.random() - 0.5) * 6, life: 0, max: 1 + Math.random(), k: "smoke", sz: 1 + Math.random() }); }
@@ -73,7 +74,7 @@
           var lb = ls[(q.turn = q.turn + 1) % ls.length];
           lb.ammo--; bd.energy -= ec; q.cd = MS.gap;
           var d = dirWorld(bd, dirOut(lb, 0)), tip = muzzle(bd, lb), side = lty.rk === 1 ? 0 : lb.ammo === 1 ? 0.22 : -0.22, nx = -d.y * side * CELL_M, ny = d.x * side * CELL_M;
-          FL.missiles.push({ x: tip.x + nx, y: tip.y + ny, vx: bd.vx + d.x * MS.v0, vy: bd.vy + d.y * MS.v0, h: Math.atan2(d.y, d.x), life: 0, own: bd, aim: aim || null, k: lty.mk || 1 });
+          FL.missiles.push({ x: tip.x + nx, y: tip.y + ny, vx: bd.vx + d.x * MS.v0, vy: bd.vy + d.y * MS.v0, h: Math.atan2(d.y, d.x), life: 0, own: bd, aim: aim || null, k: lty.mk || 1 }); sndMissile(tip.x, tip.y);
           var left = bd.blocks.reduce(function (a, b) { return a + (b.t === g ? b.ammo : 0); }, 0);
           if (!left) q.rl = q.rlMax = MS.reload * bd.blocks.filter(function (b) { return b.t === g; }).length / (bd.player ? 1 + PM.msRl : 1);
         }
@@ -104,6 +105,7 @@
       if (T[b.t].kind !== "rg" || b.cd > 0) return;
       b.holding = true;
       if (bd.energy < RG.e && !b.chg) return;
+      if (!b.chg) { var tpr = gunTip(bd, b); sndRailCharge(b, tpr.x, tpr.y); }
       b.chg = (b.chg || 0) + dt;
       if (b.chg >= RG.charge) { b.chg = 0; b.cd = RG.cd; bd.energy = Math.max(0, bd.energy - RG.e); fireRail(bd, b); }
     });
@@ -154,7 +156,7 @@
       if (FL.envG && FL.envG.length && envHit(x, y)) { end = { x: x, y: y }; spark(x, y, 10); break; }   // Railgun endet am Asteroiden
       if (h && h.b !== lastB) { lastB = h.b; if (bd === FL.me) hitMark(x, y, h.bd); damage(h.bd, h.b, left, x, y); spark(x, y, 10); left *= 0.55; hits++; if (hits >= 3) { end = { x: x, y: y }; break; } }
     }
-    FL.beams.push({ x0: p.x, y0: p.y, x1: end.x, y1: end.y, life: 0 });
+    FL.beams.push({ x0: p.x, y0: p.y, x1: end.x, y1: end.y, life: 0 }); sndRail(p.x, p.y);
   }
   function mouseWorld() {
     if (!V.mouse) return null; var ppm = PX * V.zoom / CELL_M;

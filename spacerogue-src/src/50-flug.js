@@ -67,7 +67,7 @@
     S.mode = "fly"; V.zoomEd = V.zoom; V.zoom = Math.min(1.1, Math.max(0.6, V.zoom));
     syncUI();
   }
-  function stopTest() { FL = null; S.mode = "edit"; if (V.zoomEd) V.zoom = V.zoomEd; if (S.viewEd) S.view = S.viewEd; syncUI(); }
+  function stopTest() { sndStopAll(); FL = null; S.mode = "edit"; if (V.zoomEd) V.zoom = V.zoomEd; if (S.viewEd) S.view = S.viewEd; syncUI(); }
   // Zielschiffe: Panzerung mit ein paar Maschinenteilen, damit Rauch und Feuer sichtbar werden
   function targetShip() {
     var B = [];
@@ -102,7 +102,7 @@
     // Luken aller eigenen Körper schließen nach dem Durchgehen wieder (auch die der Station, wenn man nicht dort ist)
     FL.bodies.forEach(function (b) { if (b === (FL.pb || me) || (b !== me && !b.station)) return; b.blocks.forEach(function (hb) { if (T[hb.t].kind !== "hatch") return; if (hb.openT > 0) hb.openT -= dt; var o = hb.openT > 0; if (o !== !!hb.open) { hb.open = o; b.roomsDirty = true; } }); });
     if (FL.out) evaTick(evaBody(), dt);
-    itemsTick(dt);
+    itemsTick(dt); sndTick(dt);
     FL.bodies.slice().forEach(function (bd) {
       // Raketen: jede Werfer-Art (leicht/schwer) lädt für sich nach
       if (bd.mst) Object.keys(bd.mst).forEach(function (g) { var q = bd.mst[g]; q.cd = Math.max(0, q.cd - dt); if (q.rl > 0) { q.rl -= dt; if (q.rl <= 0) { q.rl = 0; bd.blocks.forEach(function (b) { if (b.t === g) b.ammo = msMax(b); }); } } });
@@ -131,7 +131,7 @@
         var ty = T[b.t];
         if (ty.kind === "mg" || (ty.kind === "tur" && ty.tw === "mg")) { var cn = (bd.cool && bd.cool.get(b)) || 0; if (b.oh > 0) { b.oh -= dt; if (b.oh <= 0) { b.oh = 0; b.heat = 0; } } else if (!b.firing) b.heat = Math.max(0, (b.heat || 0) - MG.cool * (1 + 0.6 * cn) * dt); b.firing = false; }
         if (ty.kind === "ms" && b.ammo === undefined) b.ammo = msMax(b);
-        if (ty.kind === "rg" || (ty.kind === "tur" && ty.tw === "rg")) { if (b.cd > 0) b.cd -= dt; if (!b.holding) b.chg = 0; b.holding = false; }
+        if (ty.kind === "rg" || (ty.kind === "tur" && ty.tw === "rg")) { if (b.cd > 0) b.cd -= dt; if (!b.holding) { if (b.chg > 0) sndRailAbort(b); b.chg = 0; } b.holding = false; }
         if ((ty.kind === "gun" || ty.kind === "tur") && b.gcd > 0) b.gcd -= dt;
         var hk = b.hp / hpMax(bd, b);
         if (MECH[ty.kind] && hk < 0.5 && Math.random() < dt * (hk < 0.25 ? 5 : 2.5)) { var p = blockCenter(bd, b); FL.parts.push({ x: p.x + (Math.random() - 0.5) * 2, y: p.y + (Math.random() - 0.5) * 2, vx: bd.vx + (Math.random() - 0.5) * 3, vy: bd.vy - 1.5 - Math.random() * 2, life: 0, max: 1.4 + Math.random() * 0.8, k: "smoke", sz: 0.5 + Math.random() * 0.5 }); }
@@ -154,7 +154,7 @@
       for (var i = 0; i < steps; i++) {
         p.x += p.vx * dt / steps; p.y += p.vy * dt / steps;
         if (FL.envG.length && envHit(p.x, p.y)) { spark(p.x, p.y, 4); return false; }   // Environment ist unzerstörbar
-        var hit = p.pl ? hitAt(p.x, p.y, null, true) : hitAt(p.x, p.y, p.own); if (hit) { var crit = p.own && p.own.player && Math.random() < PM.crit; if (p.own === FL.me || p.pl) hitMark(p.x, p.y, hit.bd, crit); damage(hit.bd, hit.b, (p.dmg || MG.dmg) * (crit ? 2 : 1), p.x, p.y); spark(p.x, p.y, crit ? 10 : p.k ? 9 : 5); if (p.splash) blast(p.x, p.y, p.splash, p.sdmg, null); return false; }
+        var hit = p.pl ? hitAt(p.x, p.y, null, true) : hitAt(p.x, p.y, p.own); if (hit) { var crit = p.own && p.own.player && Math.random() < PM.crit, shd = hit.bd.shE > 0 && hit.bd.shGen; if (!p.k && !shd) sndHitMetal(p.x, p.y); if (p.own === FL.me || p.pl) hitMark(p.x, p.y, hit.bd, crit, !p.k); damage(hit.bd, hit.b, (p.dmg || MG.dmg) * (crit ? 2 : 1), p.x, p.y); spark(p.x, p.y, crit ? 10 : p.k ? 9 : 5); if (p.splash) blast(p.x, p.y, p.splash, p.sdmg, null); return false; }
       }
       return true;
     });

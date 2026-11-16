@@ -41,7 +41,7 @@ Diese Datei wird **gebaut** – aus den Teilen in `spacerogue-src/src/`.
 | `32-autodrehen.js` | Auto-Drehen beim Bauen (seit v0.57.5): `edRot(cx, cy)` bewertet alle vier Drehungen (Anschlüsse, freie Düse/Mündung, Triebwerk vom Schiff weg, Waffen nach vorn); `SET` = Einstellungen |
 | `58-scanner.js` | Scanner (seit v0.57.5): `scanTargets`, `scanEdges` (Asteroiden, Stationen, Wracks in Antennenreichweite am Bildrand), `hudDodge` |
 | `74-menue.js` | Spielmenü und Einstellungen (seit v0.57.5): `menuOpen`/`menuClose`, `menuClick`, Speicherschlüssel `spacerogue-settings-v1` |
-| `59-sound.js` | Sounds aus Dateien (seit v0.58): `SND` (Ordner `spacerogue-sounds/`, Dateinamen), `sndLoad` beim ersten Klick, `snd(name, {pitch, gain, delay})` mit Stimmen-Begrenzung `SND_MAX`, Stille am Anfang wird übersprungen; Handwaffen `sndHeld`, `sndShot` |
+| `59-sound.js` | Sounds aus Dateien (seit v0.58, Raumklang seit v0.58.1: `sndEar`, `sndAt`, `SPAT`; Schleifen `sndLoop`; eigener Zufall `sndR`):  `SND` (Ordner `spacerogue-sounds/`, Dateinamen), `sndLoad` beim ersten Klick, `snd(name, {pitch, gain, delay})` mit Stimmen-Begrenzung `SND_MAX`, Stille am Anfang wird übersprungen; Handwaffen `sndHeld`, `sndShot` |
 | `57-gegenstaende.js` | Gegenstände (seit v0.57): `ITEMS`, Schnellleiste `FL.hot` und Inventar `FL.inv`, aufheben (E) und ablegen (Q), Ziehen im Inventar, liegende (`bd.items`) und treibende (`FL.loose`) Gegenstände, Bankautomat, Kontostand (`spacerogue-konto-v1`) |
 | `56-turrets.js` | Turrets: KI-Zielwahl, Schwenken mit Vorhalt, Feuern, Hitze-Disziplin (`turretsAuto`) |
 | `60-zeichnen-flug.js` | Flugansicht, Effekte, Radar, HUD |
@@ -131,3 +131,6 @@ Folgen für Änderungen:
 - v0.58: Sounds von Noah unter `spacerogue-sounds/handwaffen/` (pistole_rausholen, pistole_schuss, mp_rausholen, mp_schuss,
   mp_huelse .mp3). Lautstärke aus den Dateien, Regler `SET.sfx` in den Einstellungen. Neue Sounds: Datei in den Ordner, Eintrag in
   `SND.files`, an der passenden Stelle `snd("name")` aufrufen. Volltest unverändert.
+- v0.58.1: Raumklang und viele neue Sounds. Synthetisierte Platzhalter liegen unter `spacerogue-sounds/synth/` (Erzeugung:
+  `werkzeuge/sounds_synth.py <zielordner>`, braucht numpy/scipy/ffmpeg). Jede Datei kann Noah durch eine eigene mit gleichem
+  Namen ersetzen; `.wav` = nahtlose Schleife. Sounds nutzen eigenen Zufall `sndR`, nie `Math.random` (sonst ändert sich der Volltest).

@@ -29,7 +29,7 @@
     var left = dmg - bd.shE / bd.shEff; bd.shE = 0; shieldHit(bd, p.x, p.y); return left;
   }
   function shieldHit(bd, x, y) {
-    var l = toLocal(bd, x, y); FL.shHits.push({ bd: bd, lx: l.x, ly: l.y, x: x, y: y, t: FL.t });
+    var l = toLocal(bd, x, y); FL.shHits.push({ bd: bd, lx: l.x, ly: l.y, x: x, y: y, t: FL.t }); sndShield(x, y);
     if (FL.shHits.length > 50) FL.shHits.shift();
   }
   function damage(bd, b, dmg, x, y, ns) {
@@ -70,11 +70,11 @@
   // Treffer an fremden Schiffen: kleines x an der Stelle und ein leiser, weicher Klick
   var AC = null, lastHitS = 0;
   function audioInit() { try { if (!AC) AC = new (window.AudioContext || window.webkitAudioContext)(); if (AC.state === "suspended") AC.resume(); } catch (e) {} }
-  function hitMark(x, y, bd, crit) {
+  function hitMark(x, y, bd, crit, quiet) {
     if (bd === FL.me) return;
     if (bd.ai) { bd.ai.hurt = true; bd.ai.hitN = (bd.ai.hitN || 0) + 1; }
     FL.hits.push({ x: x, y: y, life: 0, crit: !!crit }); if (FL.hits.length > 40) FL.hits.shift();
-    if (!AC || AC.state !== "running") return;
+    if (quiet || !AC || AC.state !== "running") return;
     var t0 = AC.currentTime; if (t0 - lastHitS < 0.07) return; lastHitS = t0;
     try {
       var o = AC.createOscillator(), g = AC.createGain(), f = AC.createBiquadFilter();
