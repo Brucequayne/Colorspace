@@ -20,8 +20,21 @@
       }),
       ppl: (Array.isArray(d.ppl) ? d.ppl : []).filter(function (p) { return p; }).slice(0, 800).map(function (p) {
         return { v: (p.v | 0) % RS.PEOPLE_N, x: +p.x || 0, y: +p.y || 0, f: p.f ? 1 : 0 };
-      })
+      }),
+      stage: d.stage && isFinite(+d.stage.x) && isFinite(+d.stage.y) ? { x: m.clamp(+d.stage.x, 1, G - 1), y: m.clamp(+d.stage.y, 1, G - 1) } : null
     };
+  };
+  // Bühne: hier stehen die Rapper. Ohne Angabe: vor dem ersten Ghettoblaster, sonst unten in der Bildmitte
+  // Plätze auf der Bühne: c Mitte, u = Richtung nach rechts im Bild, f = Richtung zum Betrachter
+  RS.stageSpots = function (map) {
+    var S = RS.stageOf(map), k = Math.SQRT1_2, u = { x: k, y: -k }, f = { x: k, y: k };
+    var at = function (su, sf) { return { x: S.x + u.x * su + f.x * sf, y: S.y + u.y * su + f.y * sf }; };
+    return { c: S, u: u, f: f, at: at, wait: [at(-1.6, -0.2), at(1.6, -0.2)] };
+  };
+  RS.stageOf = function (map) {
+    if (map.stage) return map.stage;
+    var bb = map.obj.filter(function (o) { return o.t === "boombox"; })[0];
+    return bb ? { x: bb.x + 0.9, y: bb.y + 0.9 } : { x: 21.5, y: 21.5 };
   };
 
   // ---------- Welt ----------
@@ -30,7 +43,7 @@
     this.time = this.map.time; this.cheer = false; this.t = 0;
     this.ground = RS.canvas(W, H); this.gimg = this.ground.ctx.createImageData(W, H);
     this.shadow = RS.canvas(W, H); this.light = RS.canvas(W, H); this.fx = RS.canvas(W, H);
-    this.steam = []; this.order = null; this.groundAll();
+    this.steam = []; this.order = null; this.actors = []; this.hype = 0; this.beat = null; this.groundAll();
   }
   RS.World = World;
   World.prototype.tile = function (x, y) { if (x < 0 || y < 0 || x >= G || y >= G) return "s"; return this.map.tiles[y * G + x]; };
@@ -63,6 +76,7 @@
     var L = [];
     w.map.obj.forEach(function (o, i) { var s = RS.sprite(o.t, o.v, o.r); L.push({ k: "o", o: o, s: s, i: i, x0: o.x, y0: o.y, x1: o.x + s.w, y1: o.y + s.d, flat: s.def.flat }); });
     w.map.ppl.forEach(function (p, i) { L.push({ k: "p", p: p, i: i, x0: p.x - 0.15, y0: p.y - 0.15, x1: p.x + 0.15, y1: p.y + 0.15 }); });
+    w.actors.forEach(function (a, i) { L.push({ k: "a", a: a, i: i, x0: a.x - 0.15, y0: a.y - 0.15, x1: a.x + 0.15, y1: a.y + 0.15 }); });
     L.forEach(function (q) {
       q.key = q.x0 + q.x1 + q.y0 + q.y1;
       // Bildschirm-Spanne grob (für schnelle Überlappungsprüfung)
@@ -136,14 +150,23 @@
     this.steam = this.steam.filter(function (p) { p.life += dt; p.z += dt * 9; p.dx += dt * 1.5; p.r += dt * 2.2; return p.life < p.max; });
     if (this.steam.length > 160) this.steam.splice(0, this.steam.length - 160);
   };
+  // Figur (Zuschauer oder Rapper) mit Bildposition
+  World.prototype.figure = function (q) {
+    var f = q.p || q.a, sp = q.p ? RS.person(q.p.v, this.personFrame(q.p, q.i), q.p.f) : q.a.sp;
+    return { sp: sp, x: Math.round(RS.sx(f.x, f.y) - sp.ax), y: Math.round(RS.sy(f.x, f.y) - sp.ay - (q.a && q.a.z || 0)) };
+  };
   World.prototype.personFrame = function (p, i) {
-    var ph = RS.hash2(i, p.v, 3), t = this.t;
-    if (this.cheer) return 2 + (Math.floor(t * 4.2 + ph * 4) % 2);
+    var ph = RS.hash2(i, p.v, 3), t = this.t, b = this.beat;
+    // Jubeln: im Editor alle (Vorschau), im Battle je nach Hype – wer eine niedrige Schwelle hat, jubelt zuerst
+    var on = this.cheer || (this.hype > 0.02 && RS.hash2(i, p.v, 7) * 0.92 + 0.04 < this.hype);
+    var md = function (n) { return ((n % 2) + 2) % 2; };
+    if (on) return 2 + (b != null ? md(Math.floor(b * 2 + (ph < 0.5 ? 0 : 0.5))) : Math.floor(t * 4.2 + ph * 4) % 2);
+    if (b != null) return md(Math.floor(b + (ph < 0.25 ? 0.5 : 0)));   // Wippen im Takt (ein paar auf der Offbeat)
     return Math.floor(t * (1.6 + ph * 0.8) + ph * 2) % 2;
   };
   World.prototype.render = function (c, opt) {
     opt = opt || {};
-    if (!this.order) this.sort();
+    if (!this.order || this.actors.length) this.sort();
     var L = RS.lightAt(this.time), sun = RS.sunAt(this.time), self = this;
     c.drawImage(this.ground, 0, 0);
     // Schatten: erst deckend in eigene Ebene, dann einmal halbtransparent drüber (keine doppelten Abdunklungen)
@@ -151,27 +174,30 @@
       var sc = this.shadow.ctx; sc.clearRect(0, 0, W, H); sc.fillStyle = "#000";
       this.order.forEach(function (q) {
         if (q.k === "o") { if (q.flat) return; q.s.boxes.forEach(function (b) { if (b.h > 0) shadowPoly(sc, { x: b.x + q.o.x, y: b.y + q.o.y, w: b.w, d: b.d, z: b.z, h: b.h }, RS.OX, RS.OY, sun); }); }
-        else { var px = RS.sx(q.p.x, q.p.y), py = RS.sy(q.p.x, q.p.y); var ex = RS.sx(q.p.x + sun.x * 22, q.p.y + sun.y * 22) - px, ey = RS.sy(q.p.x + sun.x * 22, q.p.y + sun.y * 22) - py; sc.beginPath(); sc.moveTo(px - 3, py); sc.lineTo(px + 3, py); sc.lineTo(px + ex + 2, py + ey); sc.lineTo(px + ex - 2, py + ey); sc.closePath(); sc.fill(); }
+        else { var f = q.p || q.a, px = RS.sx(f.x, f.y), py = RS.sy(f.x, f.y); var ex = RS.sx(f.x + sun.x * 22, f.y + sun.y * 22) - px, ey = RS.sy(f.x + sun.x * 22, f.y + sun.y * 22) - py; sc.beginPath(); sc.moveTo(px - 3, py); sc.lineTo(px + 3, py); sc.lineTo(px + ex + 2, py + ey); sc.lineTo(px + ex - 2, py + ey); sc.closePath(); sc.fill(); }
       });
       c.globalAlpha = sun.a; c.drawImage(this.shadow, 0, 0); c.globalAlpha = 1;
     }
     // Weicher Kontaktschatten unter Figuren (auch nachts)
     c.fillStyle = "rgba(0,0,0,.28)";
-    this.map.ppl.forEach(function (p) { var px = Math.round(RS.sx(p.x, p.y)), py = Math.round(RS.sy(p.x, p.y)); c.fillRect(px - 3, py - 1, 7, 2); c.fillRect(px - 2, py - 2, 5, 1); });
+    this.map.ppl.concat(this.actors).forEach(function (p) { var px = Math.round(RS.sx(p.x, p.y)), py = Math.round(RS.sy(p.x, p.y)); c.fillRect(px - 3, py - 1, 7, 2); c.fillRect(px - 2, py - 2, 5, 1); });
+    // Farbiger Ring unter den Rappern (wer wer ist); heller, wenn er das Mikro hat
+    this.actors.forEach(function (p) {
+      if (!p.ring) return; var px = RS.sx(p.x, p.y), py = RS.sy(p.x, p.y);
+      c.save(); c.translate(px, py); c.scale(1, 0.5); c.beginPath(); c.arc(0, 0, 8, 0, Math.PI * 2); c.restore();
+      c.strokeStyle = "rgba(" + p.ring.join(",") + "," + (p.on ? 0.95 : 0.5) + ")"; c.lineWidth = 1.5; c.stroke();
+    });
     // Objekte und Figuren in Tiefenreihenfolge
     this.order.forEach(function (q) {
       if (q.k === "o") {
         var s = q.s, x = Math.round(RS.sx(q.o.x, q.o.y) - s.ax), y = Math.round(RS.sy(q.o.x, q.o.y) - s.ay);
         c.drawImage(s.cv, x, y); if (opt.sel === q.o) { c.globalAlpha = 0.35 + 0.2 * Math.sin(self.t * 8); c.globalCompositeOperation = "lighter"; c.drawImage(s.cv, x, y); c.globalCompositeOperation = "source-over"; c.globalAlpha = 1; }
-      } else {
-        var sp = RS.person(q.p.v, self.personFrame(q.p, q.i), q.p.f);
-        c.drawImage(sp.cv, Math.round(RS.sx(q.p.x, q.p.y) - sp.ax), Math.round(RS.sy(q.p.x, q.p.y) - sp.ay));
-      }
+      } else { var fg = self.figure(q); c.drawImage(fg.sp.cv, fg.x, fg.y); }
     });
     // Dampf
     this.steam.forEach(function (p) {
       var k = p.life / p.max, a = Math.sin(Math.PI * k) * 0.32, px = RS.sx(p.x, p.y) + p.dx, py = RS.sy(p.x, p.y) - p.z;
-      c.fillStyle = "rgba(220,220,224," + a.toFixed(3) + ")"; var r = Math.round(p.r); c.fillRect(Math.round(px - r), Math.round(py - r), r * 2, r * 2);
+      c.fillStyle = "rgba(220,220,224," + (a * 0.7).toFixed(3) + ")"; c.beginPath(); c.arc(px, py, p.r, 0, Math.PI * 2); c.fill();
     });
     // Umgebungslicht
     var a = L.amb.map(Math.round);
@@ -194,7 +220,7 @@
           var x = Math.round(RS.sx(q.o.x, q.o.y) - q.s.ax), y = Math.round(RS.sy(q.o.x, q.o.y) - q.s.ay);
           fc.globalCompositeOperation = "destination-out"; fc.drawImage(q.s.cv, x, y);
           if (q.s.em) { fc.globalCompositeOperation = "source-over"; fc.drawImage(q.s.em, x, y); }
-        } else { var sp = RS.person(q.p.v, self.personFrame(q.p, q.i), q.p.f); fc.globalCompositeOperation = "destination-out"; fc.drawImage(sp.cv, Math.round(RS.sx(q.p.x, q.p.y) - sp.ax), Math.round(RS.sy(q.p.x, q.p.y) - sp.ay)); }
+        } else { var fg = self.figure(q); fc.globalCompositeOperation = "destination-out"; fc.drawImage(fg.sp.cv, fg.x, fg.y); }
       });
       fc.globalCompositeOperation = "source-over";
       c.globalAlpha = L.night; c.globalCompositeOperation = "lighter"; c.drawImage(this.light, 0, 0); c.drawImage(this.fx, 0, 0);
@@ -211,7 +237,7 @@
         if (x < 0 || y < 0 || x >= s.cv.width || y >= s.cv.height) continue;
         if (!s.alpha) s.alpha = s.cv.ctx.getImageData(0, 0, s.cv.width, s.cv.height).data;
         if (s.alpha[(y * s.cv.width + x) * 4 + 3] > 20) return q;
-      } else {
+      } else if (q.p) {
         var sx = RS.sx(q.p.x, q.p.y), sy = RS.sy(q.p.x, q.p.y);
         if (px > sx - 5 && px < sx + 5 && py > sy - 26 && py < sy + 1) return q;
       }
@@ -220,6 +246,6 @@
   };
   World.prototype.serialize = function () {
     var r = function (v) { return Math.round(v * 100) / 100; }, mp = this.map;
-    return { name: mp.name, time: r(this.time), tiles: mp.tiles, obj: mp.obj.map(function (o) { return { t: o.t, v: o.v, r: o.r, x: r(o.x), y: r(o.y) }; }), ppl: mp.ppl.map(function (p) { return { v: p.v, x: r(p.x), y: r(p.y), f: p.f }; }) };
+    return { name: mp.name, time: r(this.time), tiles: mp.tiles, obj: mp.obj.map(function (o) { return { t: o.t, v: o.v, r: o.r, x: r(o.x), y: r(o.y) }; }), ppl: mp.ppl.map(function (p) { return { v: p.v, x: r(p.x), y: r(p.y), f: p.f }; }), stage: mp.stage ? { x: r(mp.stage.x), y: r(mp.stage.y) } : null };
   };
 })();

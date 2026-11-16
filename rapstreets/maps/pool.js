@@ -34,24 +34,24 @@
     O("sedan", 13.3, 22, 3, 1); O("taxi", 16.6, 4.5, 0, 1);
     O("manhole", 14.7, 14.6); O("manhole", 25, 14.7);
     // Gehwege
-    O("lamp", 11.3, 11.3); O("lamp", 19.4, 11.3); O("lamp", 11.3, 19.4); O("lamp", 19.6, 19.6); O("lamp", 4, 11.4); O("lamp", 27, 11.4);
+    O("lamp", 11.3, 11.3); O("lamp", 19.4, 11.3); O("lamp", 11.3, 19.4); O("lamp", 19.5, 18.4); O("lamp", 4, 11.4); O("lamp", 27, 11.4);
     O("hydrant", 10.6, 12.4); O("trash", 12, 10.2, 0); O("crates", 11.2, 9.4, 2); O("crates", 11.25, 8.7, 0);
     O("pot", 4.1, 11.1, 0); O("pot", 6.3, 11.1, 1); O("pot", 21.1, 11.1, 2); O("pot", 23.3, 11.1, 0);
-    O("bench", 24.8, 11.9, 0); O("trash", 30, 11.9, 1); O("dumpster", 11.3, 25.2, 0, 1); O("hydrant", 18.3, 18.4);
+    O("bench", 24.8, 11.9, 0); O("trash", 30, 11.9, 1); O("dumpster", 11.3, 25.2, 0, 1); O("hydrant", 18.4, 19.5);
     // Parkplatz
     O("sedan", 27.5, 20.1, 2, 1); O("van", 29.45, 20, 1, 1); O("sedan", 31.5, 20.1, 0, 1);
     O("sedan", 20.1, 27.5, 1); O("taxi", 20.1, 29.5, 0);
     O("fence", 33.4, 20, 0, 1); O("fence", 33.4, 22, 0, 1); O("fence", 33.4, 24, 0, 1);
     O("crates", 32.6, 25.6, 1); O("trash", 32.4, 26.4, 0); O("bench", 25.6, 19.2, 1);
-    O("boombox", 22.25, 22.35, 0);
+    O("boombox", 20.9, 20.95, 0);
     // Crowd: Bogen um den Platz vor dem Ghettoblaster, nach vorn offen
-    var ppl = [], r = RS.rng(1990), cx = 22.9, cy = 22.9, N = 44;
+    var ppl = [], r = RS.rng(1990), cx = 21.7, cy = 21.7, N = 42;
     for (var i = 0; i < N; i++) {
-      var a = Math.PI * 0.25 + Math.PI * 0.32 + (i / (N - 1)) * Math.PI * 1.36 + (r() - 0.5) * 0.1, d = 2.3 + r() * 1.3;
+      var a = Math.PI * 0.25 + Math.PI * 0.32 + (i / (N - 1)) * Math.PI * 1.36 + (r() - 0.5) * 0.1, d = 2.5 + r() * 1.2;
       ppl.push({ v: Math.floor(r() * RS.PEOPLE_N), x: Math.round((cx + Math.cos(a) * d) * 100) / 100, y: Math.round((cy + Math.sin(a) * d) * 100) / 100, f: r() < 0.5 ? 1 : 0 });
     }
     [[12, 10.6], [12.4, 10.9], [21.6, 12], [5.3, 12.1], [30.5, 19.2]].forEach(function (q, k) { ppl.push({ v: (k * 11 + 5) % RS.PEOPLE_N, x: q[0], y: q[1], f: k % 2 }); });
-    return { name: "Brooklyn Corner", time: 18.4, tiles: t.join(""), obj: obj, ppl: ppl };
+    return { name: "Brooklyn Corner", time: 18.4, tiles: t.join(""), obj: obj, ppl: ppl, stage: { x: 22.1, y: 22.1 } };
   }
   RS.POOL = [{ id: "corner", name: "Brooklyn Corner", make: corner }];
 })();

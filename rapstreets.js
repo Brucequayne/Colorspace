@@ -5,9 +5,12 @@
   var FILES = [
     "core.js",        // Namensraum RS, Maße, Projektion (Boden um 45° gedreht), Mathe, Zufall, Eingabe, L2
     "art.js",         // Boden, Häuser, Autos, Deko, Crowd – alles prozedural als Pixel-Sprites
+    "art-rapper.js",  // Die Rapper (Posen nach Mikro-Pegel und Takt)
+    "beats/beats.js", // Instrumentals mit Tempo und erstem Downbeat
     "maps/pool.js",   // Map-Pool
     "world.js",       // Map-Daten, Zeichnen mit Tiefe, Schatten, Tageszeit, Licht, Leben (Crowd, Dampf, Laternen)
     "editor.js",      // Map-Editor (Code 282828)
+    "battle.js",      // Battle-Modus: Beat, Mikro, Parts, Pass the mic, Crowd-Hype, Zeitleiste
     "main.js"         // Hülle: Canvas, Skalierung, Menü, Schleife
   ];
   var stamp = "";

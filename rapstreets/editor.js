@@ -26,8 +26,8 @@
     ".rs-ed-status{margin-top:8px;min-height:1.4em;color:#B9F0CF;font-size:.78rem}" +
     ".rs-ed-pos{position:absolute;right:10px;top:8px;font:12px monospace;color:#D2CDC4;background:rgba(0,0,0,.6);padding:3px 7px;pointer-events:none}";
 
-  var TOOLS = ["tile", "obj", "crowd", "move", "erase"];
-  function toolName(t) { return { tile: L2("Boden", "Ground"), obj: L2("Objekte", "Objects"), crowd: L2("Crowd", "Crowd"), move: L2("Verschieben", "Move"), erase: L2("Radierer", "Eraser") }[t]; }
+  var TOOLS = ["tile", "obj", "crowd", "move", "erase", "stage"];
+  function toolName(t) { return { tile: L2("Boden", "Ground"), obj: L2("Objekte", "Objects"), crowd: L2("Crowd", "Crowd"), move: L2("Verschieben", "Move"), erase: L2("Radierer", "Eraser"), stage: L2("Bühne", "Stage") }[t]; }
   var GROUPS = [["house", function () { return L2("Häuser", "Buildings"); }], ["car", function () { return L2("Autos", "Cars"); }], ["deco", function () { return L2("Straße & Deko", "Street & props"); }]];
   var TILE_ORDER = ["a", "r", "x", "y", "c", "e", "l", "k", "w", "s", "b", "d", "g"];
 
@@ -113,8 +113,8 @@
       '<input type="file" accept=".json,application/json" hidden></div>' +
       '<div class="rs-ed-status"></div>' +
       '<div class="rs-ed-info">' + L2(
-        "Linke Maustaste setzt, rechte löscht, was unter dem Zeiger liegt. Boden: Shift + Ziehen füllt ein Rechteck. Objekte: Mausrad wechselt die Variante, R dreht. Crowd: gedrückt halten und über die Fläche ziehen. Verschieben: ziehen, Entf löscht, R dreht. Strg + Z macht rückgängig. Gespeicherte Maps bleiben nur in diesem Browser – für Noah als .json exportieren.",
-        "Left mouse places, right deletes what is under the pointer. Ground: Shift + drag fills a rectangle. Objects: wheel changes the variant, R rotates. Crowd: hold and drag across the area. Move: drag, Del deletes, R rotates. Ctrl + Z undoes. Saved maps stay in this browser only – export as .json to share.") + '</div>';
+        "Linke Maustaste setzt, rechte löscht, was unter dem Zeiger liegt. Bühne: Klick setzt den Platz der Rapper (gelb), rot/blau sind ihre Warteplätze. Boden: Shift + Ziehen füllt ein Rechteck. Objekte: Mausrad wechselt die Variante, R dreht. Crowd: gedrückt halten und über die Fläche ziehen. Verschieben: ziehen, Entf löscht, R dreht. Strg + Z macht rückgängig. Gespeicherte Maps bleiben nur in diesem Browser – für Noah als .json exportieren.",
+        "Left mouse places, right deletes what is under the pointer. Stage: a click sets where the rappers stand (yellow), red/blue are their waiting spots. Ground: Shift + drag fills a rectangle. Objects: wheel changes the variant, R rotates. Crowd: hold and drag across the area. Move: drag, Del deletes, R rotates. Ctrl + Z undoes. Saved maps stay in this browser only – export as .json to share.") + '</div>';
     E.ui.innerHTML = h;
     E.ui.addEventListener("click", onClick);
     E.ui.addEventListener("input", onInput);
@@ -280,6 +280,8 @@
         if (I.lmbHit) { snapshot(); E.drag = {}; }
         if (E.drag && I.lmb) removeItem(w.pick(I.mx, I.my));
         if (E.drag && !I.lmb) E.drag = null;
+      } else if (E.tool === "stage") {
+        if (I.lmbHit) { snapshot(); w.map.stage = { x: Math.round(g.x * 10) / 10, y: Math.round(g.y * 10) / 10 }; status(L2("Bühne gesetzt: hier stehen die Rapper.", "Stage set: the rappers stand here.")); }
       } else if (E.tool === "move") {
         if (I.lmbHit) {
           var hit = w.pick(I.mx, I.my); E.sel = hit;
@@ -297,6 +299,11 @@
         c.strokeStyle = "rgba(255,255,255,.13)"; c.lineWidth = 1; c.beginPath();
         for (var i = 0; i <= G; i++) { c.moveTo(RS.sx(i, 0), RS.sy(i, 0)); c.lineTo(RS.sx(i, G), RS.sy(i, G)); c.moveTo(RS.sx(0, i), RS.sy(0, i)); c.lineTo(RS.sx(G, i), RS.sy(G, i)); }
         c.stroke();
+      }
+      // Bühne: Mitte (gelb) und Warteplätze der Rapper (rot/blau)
+      if (E.tool === "stage" || E.grid) {
+        var sp = RS.stageSpots(w.map), mk = function (p, col) { var x = Math.round(RS.sx(p.x, p.y)), y = Math.round(RS.sy(p.x, p.y)); c.fillStyle = col; c.beginPath(); c.moveTo(x, y - 3); c.lineTo(x + 6, y); c.lineTo(x, y + 3); c.lineTo(x - 6, y); c.closePath(); c.fill(); };
+        mk(sp.c, "rgba(242,194,48,.9)"); mk(sp.wait[0], "rgba(216,55,44,.9)"); mk(sp.wait[1], "rgba(58,120,224,.9)");
       }
       if (!I.inside) return;
       var dia = function (x0, y0, x1, y1, col, fill) {

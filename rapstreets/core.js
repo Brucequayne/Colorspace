@@ -5,7 +5,7 @@
    Weltkoordinaten: x, y in Feldern (0…G), z in Pixeln nach oben. */
 (function () {
   var RS = window.RS = window.RS || {};
-  RS.VERSION = "0.1";
+  RS.VERSION = "0.2";
   RS.W = 480; RS.H = 272;
   RS.G = 36;            // Felder je Seite (die Raute deckt den ganzen Bildschirm ab)
   RS.HW = 11;           // halbe Rautenbreite in Pixeln (Feld = 22 × 22 Pixel)
