@@ -158,9 +158,9 @@
       rapperUpdate(0, 0, B.plan.segs[0]);
       var my = B;
       RS.audio.load(opt.beat).then(function (buf) {
-        if (B !== my) return; B.t0 = RS.audio.play(buf, 0.15); B.state = "run";
+        if (B !== my) return; B.buf = buf; B.t0 = RS.audio.play(buf, 0.15); B.state = "run"; B.chk = { t: 0, ct: RS.audio.ctx.currentTime };
         B.srcEnded = false; RS.audio.src.onended = function () { if (B === my) B.srcEnded = true; };
-      }).catch(function () { if (B === my) setStatus(L2("Beat konnte nicht geladen werden.", "Could not load the beat."), opt.beat.file, ""); });
+      }).catch(function (er) { if (B === my) setStatus(L2("Beat konnte nicht geladen werden", "Could not load the beat") + " (" + opt.beat.file + (er && er.message ? ", " + er.message : "") + ")", L2("Esc = zurück", "Esc = back"), ""); });
       B.keys = function (e) { if (e.key === "Escape") { e.preventDefault(); RS.main.go("menu"); } };
       window.addEventListener("keydown", B.keys);
     },
@@ -172,6 +172,17 @@
     update: function (dt) {
       var W = B.world; B.t += dt; W.update(dt);
       if (B.state === "load") { rapperUpdate(dt, 0, B.plan.segs[0]); return; }
+      // Wächter: läuft die Audio-Uhr nicht (Browser hat den Ton blockiert), Knopf zum Starten zeigen
+      if (B.state === "run") {
+        var ac = RS.audio.ctx; B.chk.t += dt;
+        if (ac.currentTime > B.chk.ct + 0.05) { B.chk.t = 0; B.chk.ct = ac.currentTime; if (B.el.unl) { B.el.unl.remove(); B.el.unl = null; } }
+        else if (B.chk.t > 0.8 && !B.el.unl) {
+          var u = document.createElement("button"); u.type = "button"; u.className = "rs-unl"; u.textContent = L2("Ton ist blockiert – hier klicken zum Starten", "Sound is blocked – click here to start");
+          u.addEventListener("click", function () { ac.resume().then(function () { if (!B) return; B.t0 = RS.audio.play(B.buf, 0.1); B.chk = { t: 0, ct: ac.currentTime }; }); });
+          RS.main.stage.querySelector(".rs-hud").appendChild(u); B.el.unl = u;
+        }
+        if (B.el.unl) return;
+      }
       var ctx = RS.audio.ctx, t = B.state === "run" ? Math.max(0, ctx.currentTime - B.t0) : B.plan.end, P = B.plan, s = B.state === "run" ? seg(t) : null;
       W.beat = (t - B.beatInfo.down) / P.beat;
       // Mikro-Pegel → Aktivität (über dem gemessenen Grundpegel)
@@ -227,6 +238,7 @@
     ".rs-tl-bar s{position:absolute;top:-.4em;bottom:-.4em;width:.3em;margin-left:-.15em;background:#FFF;box-shadow:0 0 0 .1em #000;text-decoration:none}" +
     ".rs-tl span{font:600 1em/1 var(--f-body,system-ui);font-variant-numeric:tabular-nums;min-width:6.5em}" +
     ".rs-esc{position:absolute;left:1.6em;bottom:4.2em;font:500 .9em/1 var(--f-body,system-ui);color:#A8A296}" +
+    ".rs-unl{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);pointer-events:auto;font:700 1.4em/1 var(--f-body,system-ui);letter-spacing:.08em;padding:1em 1.4em;border:0;border-radius:0;background:#F2C230;color:#141414;cursor:pointer;box-shadow:.3em .3em 0 #111}" +
     ".rs-end{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.55);pointer-events:auto;animation:rsIn .5s ease both}.rs-end[hidden]{display:none}" +
     ".rs-end-box{background:#161616;border:1px solid #3A3A3A;padding:2em 2.4em;text-align:center;text-shadow:none;min-width:30em}" +
     ".rs-end-box h2{margin:0;font:900 3.2em/1.1 Impact,'Arial Black',sans-serif;text-transform:uppercase;letter-spacing:.03em}.rs-end-box p{margin:.4em 0 1.4em;color:#A8A296;font-size:1.1em}" +

@@ -136,6 +136,7 @@
           RS.audio.micOpen().then(function () { if (setupOpen) micState(); });
         } else if (a === "back") { setup.hidden = true; setupOpen = false; }
         else if (a === "start") {
+          RS.audio.context();   // im Klick: Audio sicher freischalten
           var n = [0, 1].map(function (i) { var v = root.querySelector('[data-n="' + i + '"]').value.trim(); return v || names()[i]; });
           RS.store.set(NAMES, JSON.stringify(n));
           var bi = root.querySelector("[data-k=beat]").value, beat = bi === "" ? RS.pickBeat() : RS.BEATS[+bi]; RS.lastBeat = beat;
