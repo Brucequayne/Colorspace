@@ -50,7 +50,8 @@
         kunai: { d: L2("Mehr Schaden und Reichweite als Shuriken, 1 Wurf pro Sekunde.", "More damage and range than shuriken, 1 throw per second."), r: 0.82, s: 0.8, k: 0.3 }
       };
       var ELEM = {
-        water: { n: L2("Wasser", "Water"), d: L2("Slot 3: Wasserfäuste (Klick), Wassergeschosse (Shift + Klick), Wasserstrahl (halten, loslassen), verbraucht Mana. Q zwischen den Wellen: eine Kachel fluten (100) oder Wasser absorbieren (200, +7 % Leben). X: Wasserfessel, einmal pro Welle (neu kaufen: 150). Im Wasser kein Tempoverlust.", "Slot 3: water fists (click), water bolts (Shift + click), water beam (hold, release), uses mana. Q between waves: flood one tile (100) or absorb water (200, +7 % health). X: water bind, once per wave (buy again: 150). No slowdown in water.") },
+        water: { n: L2("Wasser", "Water"), d: L2("Slot 3: Wasserfäuste (Klick), Wassergeschosse (Shift + Klick), Wasserstrahl (halten, loslassen), verbraucht Mana. Q zwischen den Wellen: Kacheln fluten (je 100) oder Wasser absorbieren (200, +7 % Leben). X: Wasserfessel, einmal pro Welle. Im Wasser kein Tempoverlust.", "Slot 3: water fists (click), water bolts (Shift + click), water beam (hold, release), uses mana. Q between waves: flood tiles (100 each) or absorb water (200, +7 % health). X: water bind, once per wave. No slowdown in water.") },
+        air: { n: L2("Luft", "Air"), d: L2("Slot 3: Windhieb (Klick), Windrose (Shift + Klick), Luftkugel (1 s halten: durch Gegner laufen, Rammstoß im Dash), verbraucht Mana. X: Sturmklinge, einmal pro Welle – 5 s lang schickt jeder Nahkampfangriff einen Windstoß hinterher. Passiv: Dash bei voller Energie kostenlos, Fernkampf 30 % schneller, Pfeile 40 % schneller.", "Slot 3: wind slash (click), wind rose (Shift + click), air sphere (hold 1 s: walk through enemies, ram them with a dash), uses mana. X: storm blade, once per wave – for 5 s every melee attack sends a gust after it. Passive: free dash on full energy, ranged attacks 30 % faster, arrows 40 % faster.") },
         none: { n: L2("Kein Element", "No element"), d: L2("Ohne Element-Fähigkeit.", "No element ability.") }
       };
       function iconURL(id) { var c = SZ.canvas(13, 13); SZ.weaponIcon(c.ctx, 1, 1, id); return c.toDataURL(); }
@@ -58,7 +59,7 @@
       function renderLo() {
         var el = SZ.loadout.element();
         lo.querySelector(".sz-lo-elem").innerHTML = Object.keys(ELEM).map(function (k) {
-          return '<button type="button" data-el="' + k + '" class="' + (k === el ? "on" : "") + '">' + (k === "water" ? '<span class="sz-wv">' + SZ.WAVE_SVG + '</span>' : '<span class="sz-wv">·</span>') + '<b>' + ELEM[k].n + '</b><small>' + ELEM[k].d + '</small></button>';
+          return '<button type="button" data-el="' + k + '" class="' + (k === el ? "on" : "") + '">' + (k === "water" ? '<span class="sz-wv">' + SZ.WAVE_SVG + '</span>' : k === "air" ? '<span class="sz-wv">' + SZ.WIND_SVG + '</span>' : '<span class="sz-wv">·</span>') + '<b>' + ELEM[k].n + '</b><small>' + ELEM[k].d + '</small></button>';
         }).join("");
         lo.querySelector(".sz-lo-slots").innerHTML = slots.map(function (id, i) {
           return '<button type="button" data-slot="' + i + '" aria-pressed="' + (i === active) + '"><kbd>' + (i + 1) + '</kbd><img alt="" src="' + iconURL(id) + '"><b>' + SZ.WEAPONS[id].name() + '</b></button>';

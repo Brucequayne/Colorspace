@@ -58,12 +58,18 @@
   Wd.growthDone = function () { return !this.growth; };
 
   // ---------- Wind- und Druckwellen ----------
-  Wd.push = function (x, y, r, str, life) { this.pushes.push({ x: x, y: y, r: r, s: str, life: life || 0.6, age: 0 }); if (this.pushes.length > 120) this.pushes.shift(); };
+  // Druck auf Pflanzen. mode: { dir: Winkel } = Wind in eine Richtung, { spin: ±1 } = Wirbel; ohne = vom Punkt weg
+  Wd.push = function (x, y, r, str, life, mode) { this.pushes.push({ x: x, y: y, r: r, s: str, life: life || 0.6, age: 0, dir: mode && mode.dir, spin: mode && mode.spin }); if (this.pushes.length > 160) this.pushes.shift(); };
   Wd.bendAt = function (x, y) {
     var dx = 0;
     for (var i = 0; i < this.pushes.length; i++) {
       var p = this.pushes[i], d = Math.abs(x - p.x) + Math.abs(y - p.y) * 1.3;
-      if (d < p.r) { var k = (1 - d / p.r) * p.s * (1 - p.age / p.life); dx += (x >= p.x ? 1 : -1) * k; }
+      if (d < p.r) {
+        var k = (1 - d / p.r) * p.s * (1 - p.age / p.life);
+        if (p.dir != null) dx += Math.cos(p.dir) * k * 1.3 * (1 + 0.35 * Math.sin(p.age * 30 + x * 0.4));          // Windstoß
+        else if (p.spin) dx += Math.cos(Math.atan2(y - p.y, x - p.x) + p.spin * Math.PI / 2) * k * 1.4 * (1 + 0.4 * Math.sin(p.age * 26 + y * 0.5));   // Wirbel
+        else dx += (x >= p.x ? 1 : -1) * k;
+      }
     }
     return m.clamp(dx, -3, 3);
   };
@@ -311,7 +317,9 @@
   // hochskalieren: so passen sie zum Pixel-Look von Boden und Figuren. Halbtransparenz wird gerastert.
   var BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
   Wd.drawFx = function (ctx, low) {
-    var list = this.fx.filter(function (f) { return (low ? f.drawLow : f.draw) && !(f.idle && f.idle()); });
+    var all = this.fx.filter(function (f) { return (low ? f.drawLow : f.draw) && !(f.idle && f.idle()); });
+    var list = all.filter(function (f) { return !f.raw; });
+    all.forEach(function (f) { if (f.raw) { if (low) f.drawLow(ctx); else f.draw(ctx); } });   // eigener Pixel-Look (Luft)
     if (!list.length) return;
     var W2 = SZ.W >> 1, H2 = SZ.H >> 1, L = this._fxc || (this._fxc = SZ.canvas(W2, H2)), c = L.ctx;
     c.setTransform(1, 0, 0, 1, 0, 0); c.clearRect(0, 0, W2, H2); c.setTransform(0.5, 0, 0, 0.5, 0, 0);
@@ -329,6 +337,12 @@
     var sm = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = false;
     ctx.drawImage(L, 0, 0, SZ.W, SZ.H);
     ctx.imageSmoothingEnabled = sm;
+  };
+  Wd.drawFaller = function (ctx, e) {
+    var f = e.falling, s = e.sprite(), dy = 260 * f.t * f.t, a = Math.max(0, 1 - f.t / 1.4);
+    if (a <= 0) return;
+    ctx.save(); ctx.globalAlpha = a; ctx.translate(Math.round(e.x), Math.round(e.y + dy)); ctx.rotate(f.spin * f.t * 0.5);
+    ctx.drawImage(s.cv, -s.ax, -s.ay); ctx.restore();
   };
   Wd.convertTile = function (tx, ty, to) {
     var a = this.arena, T = SZ.TILE, x0 = tx * T, y0 = ty * T, x1 = x0 + T, y1 = y0 + T, p = this.parts;
@@ -407,6 +421,8 @@
     // Tiefe, Wasserfälle, Insel
     SZ.ground.drawAbyss(ctx, t);
     SZ.ground.drawFalls(ctx, g, t);
+    // Wer über die Kante stürzt, fällt hinter der Insel in die Tiefe
+    (opts.ents || []).concat(this.enemies).forEach(function (e) { if (e.falling) self.drawFaller(ctx, e); });
     ctx.drawImage(g.base, 0, 0);
     SZ.ground.drawWater(ctx, g, t);
     if (this.growth && this.mossBirth) {
@@ -422,7 +438,7 @@
     } else ctx.drawImage(g.moss, 0, 0);
     if (opts.afterGround) opts.afterGround(ctx);
 
-    var ents = (opts.ents || []).concat(this.enemies);
+    var ents = (opts.ents || []).concat(this.enemies).filter(function (e) { return !e.falling; });
     // Vegetation: wird nur jedes 3. Bild (im Wachstum jedes 2.) in eine Zwischenebene gezeichnet.
     // Hohe Halme nahe Figuren oder vor Objekten bleiben live und werden mit ihnen nach Tiefe sortiert.
     this._vegN = (this._vegN || 0) + 1;

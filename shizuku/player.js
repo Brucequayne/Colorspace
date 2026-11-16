@@ -26,6 +26,7 @@
     this.inv = 0; this.hitstop = 0; this.flash = 0;
     this.hp = this.hpMax = C.hp; this.en = this.enMax = C.energy; this.enT = 99;
     this.mana = this.manaMax = C.mana; this.manaT = 99; this.manaFlash = 0;
+    this.sphere = null; this.airBuff = 0; this.falling = null; this.safe = [x, y];
     this.dead = false; this.deadT = 0;
     this.hair = new SZ.samurai.Hair(8, 2.1);
     this.sword = null;
@@ -41,10 +42,12 @@
     var n = this.slots.length; i = ((i % n) + n) % n;
     if (i === this.wi) { this.wantW = null; return; }
     if (this.act && (this.act.type === "atk" || this.act.type === "draw" || this.act.type === "loose" || this.act.type === "punch")) { this.wantW = i; return; }
-    if (this.act && (this.act.type === "beam" || this.act.type === "wcharge")) this.act = null;   // Strahl/Laden endet beim Wechsel
+    if (this.act && (this.act.type === "beam" || this.act.type === "wcharge" || this.act.type === "acharge")) this.act = null;   // Strahl/Laden endet beim Wechsel
+    if (this.sphere) SZ.airArts(this.world).endSphere(this);
     this.wantW = null; this.wi = i; this.weapon = SZ.WEAPONS[this.slots[i]]; this.press = null;
   };
   P.spend = function () { this.enT = 0; };
+  P.air = function () { return this.element === "air"; };
   // Mana verbrauchen (Element-Angriffe). false, wenn nicht genug da ist
   P.useMana = function (c) { if (this.mana < c) return false; this.mana -= c; this.manaT = 0; return true; };
 
@@ -60,6 +63,7 @@
     this.trail = [];
     this.spend();
     if (kind !== "kaeshi") SZ.audio.play(kind === "tsuki" ? "thrust" : kind === "kaiten" ? "swing_e" : "swing", { x: this.x });
+    if (this.airBuff > 0) SZ.airArts(this.world).gust(this, this.face);   // Sturmklinge: Windstoß hinterher
   };
   P.startParry = function () { this.act = { type: "parry", t: 0, B: SZ.BLOCKS.ukenagashi, ang: this.face }; };
   P.startDodge = function (ix, iy) {
@@ -69,10 +73,12 @@
   };
   P.startDash = function (ix, iy) {
     var C = SZ.PLAYER;
-    if (this.en < C.dashCost - 0.01) return;
-    this.en -= C.dashCost; this.spend();
+    // Luft-Element: bei voller Energie ist der Dash luftig – kostet nichts und trägt etwas weiter
+    var airy = this.air() && this.en >= this.enMax - 0.5;
+    if (!airy && this.en < C.dashCost - 0.01) return;
+    if (!airy) { this.en -= C.dashCost; this.spend(); }
     var a = ix || iy ? Math.atan2(iy, ix) : this.face;
-    this.act = { type: "dash", t: 0, ang: a, dur: C.dashTime };
+    this.act = { type: "dash", t: 0, ang: a, dur: C.dashTime * (airy ? 1.2 : 1), airy: airy };
     this.inv = C.dashTime + 0.06;
     var w = this.world;
     w.parts.swirl(this.x, this.y, 7, 1, 0.6); w.parts.swirl(this.x, this.y, 4, -1, 0.5);
@@ -99,7 +105,7 @@
     var W = this.weapon, a = this.face, w = this.world;
     w.addArrow({ kind: W.proj, x: this.x + Math.cos(a) * 6, y: this.y + Math.sin(a) * 4, z: 13, vx: Math.cos(a) * W.speed, vy: Math.sin(a) * W.speed, ang: a,
       dmg: W.dmg, power: 0.2, knock: W.knock, drop: 0, range: W.range, dist: 0, lastFx: 0, hit: [], trail: [], spin: Math.random() * 6 });
-    this.throwCd = 1 / W.rate;
+    this.throwCd = 1 / W.rate / (this.air() ? SZ.AIR_ART.passive.rate : 1);   // Luft: 30 % schnellere Feuerrate
     this.act = { type: "throw", t: 0, dur: Math.min(0.16, 0.8 / W.rate) };
     this.spend();
     SZ.audio.play("swing", { x: this.x, rate: W.proj === "star" ? 1.45 : 1.2, vol: 0.55 });
@@ -108,7 +114,7 @@
   // Bogen: Pfeil lösen
   P.loose = function (charge) {
     var W = this.weapon, c = m.clamp(charge, 0, 1), w = this.world;
-    var spd = m.lerp(W.speed[0], W.speed[1], c * c), dmg = m.lerp(W.dmg[0], W.dmg[1], c * c);
+    var spd = m.lerp(W.speed[0], W.speed[1], c * c) * (this.air() ? SZ.AIR_ART.passive.arrow : 1), dmg = m.lerp(W.dmg[0], W.dmg[1], c * c);   // Luft: Pfeile 40 % schneller
     var a = this.face, sx = this.x + Math.cos(a) * 7, sy = this.y + Math.sin(a) * 5;
     w.addArrow({ x: sx, y: sy, z: 15, vx: Math.cos(a) * spd, vy: Math.sin(a) * spd, ang: a, dmg: dmg, power: c, drop: c > 0.6 ? 0 : 14 * (1 - c), dist: 0, lastFx: 0, hit: [], trail: [] });
     this.act = { type: "loose", t: 0, dur: 0.24, c: c };
@@ -131,6 +137,7 @@
     var w = this.world, a = w.arena, C = SZ.PLAYER;
     if (this.throwCd > 0) this.throwCd -= dt;
     if (this.dead) { this.deadT += dt; this.hair.update(dt, this.hair.anchor(this.bodyAng, this.x, this.y, 0), w.wind, w.clock); return; }
+    if (this.falling) { this.updateFall(dt); return; }
     if (this.inv > 0) this.inv -= dt;
     if (this.flash > 0) this.flash -= dt * 4;
     this.enT += dt;
@@ -148,13 +155,14 @@
       if (I.hit("1")) this.setWeapon(0);
       if (I.hit("2")) this.setWeapon(1);
       if (I.hit("3") && this.slots.length > 2) this.setWeapon(2);
+      if (this.sphere && this.weapon.type !== "element") SZ.airArts(w).endSphere(this);
       if (I.wheel && !ac) this.setWeapon(this.wi + (I.wheel > 0 ? 1 : -1));
       if (this.wantW != null) this.setWeapon(this.wantW);
       Wp = this.weapon;
       if (Wp.type === "bow" || Wp.type === "throw") this.press = null;
-      var lock = ac && (ac.type === "cast" || ac.type === "beam" || ac.type === "punch" || ac.type === "atk" || ac.type === "unsheathe" || ac.type === "dash" || ac.type === "hurt" || ac.type === "dodge");
+      var lock = ac && (ac.type === "cast" || ac.type === "beam" || ac.type === "punch" || ac.type === "aslash" || ac.type === "awhirl" || ac.type === "atk" || ac.type === "unsheathe" || ac.type === "dash" || ac.type === "hurt" || ac.type === "dodge");
       if (!lock) this.face = Math.atan2(I.my - (this.y - 12), I.mx - this.x);
-      if ((I.hit(" ")) && !(ac && ac.type === "cast") && (!ac || ac.type === "loose" || ac.type === "charge" || ac.type === "punch" || ac.type === "wbolt" || ac.type === "wcharge" || ac.type === "beam" || (ac.type === "atk" && ac.t > ac.wind + ac.swing))) { this.startDash(ix, iy); ac = this.act; }
+      if ((I.hit(" ")) && !(ac && ac.type === "cast") && (!ac || ac.type === "loose" || ac.type === "charge" || ac.type === "punch" || ac.type === "wbolt" || ac.type === "wcharge" || ac.type === "beam" || ac.type === "aslash" || ac.type === "acharge" || (ac.type === "atk" && ac.t > ac.wind + ac.swing))) { this.startDash(ix, iy); ac = this.act; }
       var mi = this.modeIndex(I);
       if (this.inputLock || (ac && ac.type === "cast")) {
         // Element-Modus bzw. Beschwörung: keine Angriffe oder Blocks
@@ -162,6 +170,7 @@
         // Element-Slot: Faust, Geschosse, Strahl (element-water.js)
         this.guard = null; this.press = null;
         if (Wp.el === "water") SZ.waterArts(w).input(this, dt, I);
+        if (Wp.el === "air") SZ.airArts(w).input(this, dt, I);
         ac = this.act;
       } else if (Wp.type === "throw") {
         // Wurfwaffe: gehalten = Dauerfeuer mit der Feuerrate
@@ -236,6 +245,7 @@
       } else if (ac.type === "dash") {
         var ds = ac.t < ac.dur ? C.dashSpeed * (1 - ac.t / ac.dur * 0.45) : 0;
         tx = Math.cos(ac.ang) * ds; ty = Math.sin(ac.ang) * ds; snap = 40;
+        if (ac.airy && ac.t < ac.dur && Math.floor(ac.t / 0.03) !== Math.floor((ac.t - dt) / 0.03)) SZ.airArts(w).dashTrail(this, ac.ang);
         if (ac.t < ac.dur) {
           if (Math.floor(ac.t / 0.03) !== Math.floor((ac.t - dt) / 0.03)) {
             w.parts.ghost(this.sprite(), this.x, this.y);
@@ -246,6 +256,7 @@
         } else if (ac.t > ac.dur + 0.08) { this.act = null; w.parts.swirl(this.x, this.y, 5, -1, 0.45); }
       } else if (ac.type === "draw") {
         tx *= Wp.drawMove; ty *= Wp.drawMove;
+        if (this.air()) ac.t += dt * (SZ.AIR_ART.passive.draw - 1);   // Luft: Bogen 30 % schneller gespannt
         if (!ac.full && ac.t >= Wp.full) { ac.full = true; w.parts.swirl(this.x, this.y, 6, 1, 0.5); }
       } else if (ac.type === "loose") {
         tx *= 0.5; ty *= 0.5;
@@ -272,6 +283,14 @@
       } else if (ac.type === "punch") {
         tx *= 0.7; ty *= 0.7;
         if (ac.t >= ac.dur) { this.act = null; if (ac.queued) { this.face = Math.atan2(I.my - (this.y - 12), I.mx - this.x); SZ.waterArts(w).punch(this); } }
+      } else if (ac.type === "aslash") {
+        tx *= 0.75; ty *= 0.75;
+        if (ac.t >= ac.dur) { this.act = null; if (ac.queued) { this.face = Math.atan2(I.my - (this.y - 12), I.mx - this.x); SZ.airArts(w).slash(this); } }
+      } else if (ac.type === "awhirl") {
+        tx *= 0.5; ty *= 0.5;
+        if (ac.t >= ac.dur) this.act = null;
+      } else if (ac.type === "acharge") {
+        tx *= 0.7; ty *= 0.7;
       } else if (ac.type === "wbolt") {
         tx *= 0.8; ty *= 0.8;
         if (ac.t > ac.dur) this.act = null;
@@ -290,9 +309,13 @@
 
     var k = Math.min(1, dt * snap);
     this.vx += (tx - this.vx) * k; this.vy += (ty - this.vy) * k;
-    var np = a.move(this.x, this.y, this.vx * dt, this.vy * dt, R, w.solids);
+    // Dash, Ausweichschritt und Rückstoß sind erzwungene Bewegung: dabei kann man über die Kante stürzen
+    var forced = ac && (ac.type === "dash" || ac.type === "dodge" || ac.type === "hurt");
+    var np = a.move(this.x, this.y, this.vx * dt, this.vy * dt, R, w.solids, forced);
     var moved = m.dist(this.x, this.y, np.x, np.y);
     this.x = np.x; this.y = np.y;
+    if (a.tilePx(this.x, this.y) === "v") { this.startFall(); return; }
+    if (!forced && a.walkable(this.x, this.y, 8)) { this.safe[0] = this.x; this.safe[1] = this.y; }
 
     if (moved > 0.2 && !(ac && (ac.type === "dodge" || ac.type === "dash"))) {
       this.walkPh += moved / 22;
@@ -312,6 +335,7 @@
     // Körper dreht beim Schwung mit dem Schwert mit
     var sp = this.swordPose();
     if (this.act && this.act.type === "cast") this.bodyAng = this.act.fx.pose().ang;
+    else if (this.act && this.act.type === "awhirl") this.bodyAng = this.face + this.act.t * 22;
     else if (this.act && this.act.type === "atk" && sp.cur != null) this.bodyAng = this.act.kind === "kaiten" ? sp.cur : this.face + m.angDiff(this.face, sp.cur) * 0.65;
     else this.bodyAng = this.face;
     this.dir = m.dir8(this.bodyAng);
@@ -354,6 +378,23 @@
     SZ.audio.play("hurt", { x: this.x });
     this.checkDeath();
     return "hit";
+  };
+  // ---------- Absturz ----------
+  // Man fällt hinter der Insel in die Tiefe und kommt am letzten sicheren Punkt zurück (kostet 25 % Leben)
+  P.startFall = function () {
+    this.falling = { t: 0, vx: this.vx * 0.6, vy: this.vy * 0.6, spin: (Math.random() - 0.5) * 4 };
+    this.act = null; this.guard = null; this.press = null;
+    if (this.sphere) SZ.airArts(this.world).endSphere(this);
+    SZ.audio.play("hurt", { x: this.x, rate: 0.9 });
+  };
+  P.updateFall = function (dt) {
+    var f = this.falling; f.t += dt;
+    this.x += f.vx * dt; this.y += f.vy * dt; f.vx *= 0.98; f.vy *= 0.98;
+    if (f.t < 1.2) return;
+    this.falling = null; this.x = this.safe[0]; this.y = this.safe[1]; this.vx = this.vy = 0;
+    this.hp -= this.hpMax * 0.25; this.flash = 1;
+    var w = this.world; w.parts.swirl(this.x, this.y, 8, 1, 0.6); w.parts.dust(this.x, this.y, 6);
+    if (this.hp <= 0) this.checkDeath(); else this.inv = 1.5;
   };
   P.checkDeath = function () {
     if (this.hp > 0) return;
@@ -411,7 +452,9 @@
       if (ac.type === "draw" || ac.type === "loose") return this.moving ? "bowwalk" : "bow";
       if (ac.type === "hurt") return "stagger";
       if (ac.type === "cast") return ac.fx.pose().anim;
-      if (ac.type === "punch" || ac.type === "wbolt") return ac.side > 0 ? "punch_r" : "punch_l";
+      if (ac.type === "punch" || ac.type === "wbolt" || ac.type === "aslash") return ac.side > 0 ? "punch_r" : "punch_l";
+      if (ac.type === "awhirl") return Math.floor(ac.t / 0.08) % 2 ? "cast_flow" : "cast_flow2";
+      if (ac.type === "acharge") return "cast_low";
       if (ac.type === "wcharge") return ac.t < 0.2 ? "cast_low" : "cast_push";
       if (ac.type === "beam") return "cast_push";
       if (ac.type === "charge" || ac.type === "throw") return "atk";

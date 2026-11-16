@@ -61,14 +61,17 @@
     var out = [];
     this.obj.forEach(function (o) {
       var sol = SZ.objSolid(o); if (!sol) return;
-      sol.forEach(function (s) { out.push([o.x + s[0], o.y + s[1], s[2], o]); });
+      var k = o.t === "rock" ? 0.75 : 1;   // Steine: Hitbox 25 % kleiner, damit man seltener hängen bleibt
+      sol.forEach(function (s) { out.push([o.x + s[0] * k, o.y + s[1] * k, s[2] * k, o]); });
     });
     return out;
   };
   // Kreis (Füße) bewegen, mit Abgrund, Mauern und Objekten kollidieren
-  A.move = function (x, y, dx, dy, r, solids) {
+  // canFall: erzwungene Bewegung (Rückstoß, Dash) – dann hält der Abgrund nicht auf, man kann hinunterstürzen
+  A.move = function (x, y, dx, dy, r, solids, canFall) {
     var self = this;
     function blocked(px, py) {
+      if (canFall) return self.solidTile(Math.floor(px / T), Math.floor(py / T)) && self.tilePx(px, py) !== "v";
       var x0 = Math.floor((px - r) / T), x1 = Math.floor((px + r) / T), y0 = Math.floor((py - r) / T), y1 = Math.floor((py + r) / T);
       for (var ty = y0; ty <= y1; ty++) for (var tx = x0; tx <= x1; tx++) if (self.solidTile(tx, ty)) return true;
       return false;

@@ -58,6 +58,10 @@
     name: function () { return L2("Wasser (Element)", "Water (element)"); },
     type: "element", el: "water", weight: 1, blocks: [null, null, null], attacks: [], style: SZ.WEAPONS.katana.style, blade: 14
   };
+  SZ.WEAPONS.el_air = {
+    name: function () { return L2("Luft (Element)", "Air (element)"); },
+    type: "element", el: "air", weight: 1, blocks: [null, null, null], attacks: [], style: SZ.WEAPONS.katana.style, blade: 14
+  };
   // Loadout: zwei Waffen-Slots (Tasten 1 / 2), im Menü wählbar, im Browser gespeichert
   var LKEY = "shizuku.loadout";
   SZ.loadout = {
@@ -67,14 +71,17 @@
       return ["katana", "yumi"];
     },
     set: function (a) { try { localStorage.setItem(LKEY, JSON.stringify(a)); } catch (e) {} },
-    // Element des Laufs: "water" oder "none" (weitere folgen)
-    element: function () { try { var e = localStorage.getItem("shizuku.element"); if (e === "water" || e === "none") return e; } catch (er) {} return "water"; },
+    // Element des Laufs: "water", "air" oder "none" (weitere folgen)
+    element: function () { try { var e = localStorage.getItem("shizuku.element"); if (e === "water" || e === "air" || e === "none") return e; } catch (er) {} return "water"; },
     setElement: function (e) { try { localStorage.setItem("shizuku.element", e); } catch (er) {} },
     // Alle drei Slots für den Lauf: zwei Waffen + Element-Slot (fehlt ohne Element)
     slots: function () { var a = this.get().slice(), e = this.element(); if (SZ.WEAPONS["el_" + e]) a.push("el_" + e); return a; }
   };
   // Wellensymbol (SVG) für das Wasser-Element
   SZ.WAVE_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square"><path d="M2 8c3-3 5 3 8 0s5 3 8 0 4 1 4 1"/><path d="M2 13c3-3 5 3 8 0s5 3 8 0 4 1 4 1"/><path d="M2 18c3-3 5 3 8 0s5 3 8 0 4 1 4 1"/></g></svg>';
+
+  // Windsymbol (SVG) für das Luft-Element
+  SZ.WIND_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square"><path d="M2 8h12a3 3 0 1 0-3-3"/><path d="M2 13h17a3 3 0 1 1-3 3"/><path d="M2 18h8"/></g></svg>';
 
   // Werte des Samurai
   SZ.PLAYER = {

@@ -59,7 +59,13 @@
     this.st += dt; this.idleT += dt;
     if (this.flash > 0) this.flash -= dt * 5;
     if (this.hpT > 0) this.hpT -= dt;
-    if (this.dead) { this.deadT += dt; if (this.deadT > 1.8) this.gone = true; this.vx *= 0.9; this.vy *= 0.9; var np0 = a.move(this.x, this.y, this.vx * dt, this.vy * dt, D.radius, w.solids); this.x = np0.x; this.y = np0.y; return; }
+    if (this.falling) { this.updateFall(dt); return; }
+    if (this.dead) {
+      this.deadT += dt; if (this.deadT > 1.8) this.gone = true; this.vx *= 0.9; this.vy *= 0.9;
+      var np0 = a.move(this.x, this.y, this.vx * dt, this.vy * dt, D.radius, w.solids, Math.hypot(this.vx, this.vy) > 30); this.x = np0.x; this.y = np0.y;
+      if (a.tilePx(this.x, this.y) === "v") this.startFall();
+      return;
+    }
     if (this.state === "spawn") { if (this.st > 0.65) this.go("approach"); return; }
     // Von Wasser gefesselt: kann sich nicht bewegen und nicht angreifen
     if (this.held > 0) {
@@ -150,15 +156,19 @@
       var minD = 10 + D.radius + o.D.radius;
       if (ed < minD && ed > 0.01) { tx += ex / ed * 40; ty += ey / ed * 40; }
     });
-    if (!pl.dead && dist < 7 + D.radius && dist > 0.01) { tx -= dx / dist * 70; ty -= dy / dist * 70; }
+    if (!pl.dead && !pl.sphere && dist < 7 + D.radius && dist > 0.01) { tx -= dx / dist * 70; ty -= dy / dist * 70; }   // Luftkugel: der Samurai läuft durch
     var snap = this.state === "stagger" ? 5 : this.state === "swing" ? 40 : 12;
     var spd = a.speedAt(this.x, this.y), tileC = a.tilePx(this.x, this.y);
     if (D.slowOn && D.slowOn[tileC]) spd = D.slowOn[tileC];
     if (this.slowT > 0) { this.slowT -= dt; tx *= SZ.WATER_ART.beam.slow; ty *= SZ.WATER_ART.beam.slow; }   // vom Wasserstrahl gebremst
     this.vx += (tx * spd - this.vx) * Math.min(1, dt * snap); this.vy += (ty * spd - this.vy) * Math.min(1, dt * snap);
-    var np = a.move(this.x, this.y, this.vx * dt, this.vy * dt, D.radius, w.solids);
+    // Rückstoß ist erzwungene Bewegung: wer weit genug geschleudert wird, kann über die Kante stürzen
+    var forced = (this.state === "stagger" || this.knockT > 0) && Math.hypot(this.vx, this.vy) > 45;
+    if (this.knockT > 0) this.knockT -= dt;
+    var np = a.move(this.x, this.y, this.vx * dt, this.vy * dt, D.radius, w.solids, forced);
     var moved = m.dist(this.x, this.y, np.x, np.y);
     this.x = np.x; this.y = np.y;
+    if (a.tilePx(this.x, this.y) === "v") { this.startFall(); return; }
     this.moving = moved > 0.25 && (this.state === "approach" || this.state === "strafe" || this.state === "hold" || this.state === "position" || this.state === "flee");
     // Festgefahren? Dann eine Weile strikt der Wegkarte folgen
     if (this.forceFlow > 0) this.forceFlow -= dt;
@@ -168,6 +178,20 @@
     if (this.moving) this.walkPh += moved / 22;
   };
 
+  // ---------- Absturz vom Inselrand ----------
+  // Der Gegner fällt in die Tiefe (wird hinter der Insel gezeichnet, siehe world.js) und gilt als besiegt.
+  E.startFall = function () {
+    if (this.falling) return;
+    this.falling = { t: 0, vx: this.vx * 0.6, vy: this.vy * 0.6, spin: (Math.random() - 0.5) * 6 };
+    if (!this.dead) { this.hp = 0; this.dead = true; this.deadT = 0; this.fell = true; }
+    this.held = 0; this.go("stagger");
+    SZ.audio.play("hurt", { x: this.x, rate: 0.85, vol: 0.7 });
+  };
+  E.updateFall = function (dt) {
+    var f = this.falling; f.t += dt;
+    this.x += f.vx * dt; this.y += f.vy * dt; f.vx *= 0.98; f.vy *= 0.98;
+    if (f.t > 1.6) { this.gone = true; this.deadT = 99; }
+  };
   // ---------- Bogenschützen-KI ----------
   // position: Platz in der zweiten Reihe suchen (hinter den Verbündeten, vom Spieler aus gesehen)
   // aim: stehen, spannen (Pfeilspitze blitzt kurz vor dem Schuss), schießen; flee: als Letzter vor dem Spieler weglaufen
