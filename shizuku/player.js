@@ -27,6 +27,7 @@
     this.hp = this.hpMax = C.hp; this.en = this.enMax = C.energy; this.enT = 99;
     this.mana = this.manaMax = C.mana; this.manaT = 99; this.manaFlash = 0;
     this.sphere = null; this.airBuff = 0; this.falling = null; this.safe = [x, y];
+    this.perks = {}; this.duty = 0; this.rageT = 0; this.hitWave = false; this.honor = 0;   // Perks (perks.js)
     this.dead = false; this.deadT = 0;
     this.hair = new SZ.samurai.Hair(8, 2.1);
     this.sword = null;
@@ -49,10 +50,10 @@
   P.spend = function () { this.enT = 0; };
   P.air = function () { return this.element === "air"; };
   // Mana verbrauchen (Element-Angriffe). false, wenn nicht genug da ist
-  P.useMana = function (c) { if (this.mana < c) return false; this.mana -= c; this.manaT = 0; return true; };
+  P.useMana = function (c) { c *= SZ.perk.mana(this); if (this.mana < c) return false; this.mana -= c; this.manaT = 0; return true; };
 
   P.startAttack = function (kind, charge) {
-    var A = SZ.ATTACKS[kind], w = this.weapon, sp = w.speed || 1;
+    var A = SZ.ATTACKS[kind], w = this.weapon, sp = (w.speed || 1) * SZ.perk.atkSpeed(this);
     charge = charge || 0;
     if (kind === "kesa") { if (this.combo >= (A.combo || 1)) this.combo = 0; this.comboSide = this.combo % 2 === 0 ? 1 : -1; this.combo++; }
     else this.combo = 0;
@@ -75,8 +76,9 @@
     var C = SZ.PLAYER;
     // Luft-Element: bei voller Energie ist der Dash luftig – kostet nichts und trägt etwas weiter
     var airy = this.air() && this.en >= this.enMax - 0.5;
-    if (!airy && this.en < C.dashCost - 0.01) return;
-    if (!airy) { this.en -= C.dashCost; this.spend(); }
+    var cost = SZ.perk.dashCost(this);
+    if (!airy && this.en < cost - 0.01) return;
+    if (!airy) { this.en -= cost; this.spend(); }
     var a = ix || iy ? Math.atan2(iy, ix) : this.face;
     this.act = { type: "dash", t: 0, ang: a, dur: C.dashTime * (airy ? 1.2 : 1), airy: airy };
     this.inv = C.dashTime + 0.06;
@@ -116,7 +118,8 @@
     var W = this.weapon, c = m.clamp(charge, 0, 1), w = this.world;
     var spd = m.lerp(W.speed[0], W.speed[1], c * c) * (this.air() ? SZ.AIR_ART.passive.arrow : 1), dmg = m.lerp(W.dmg[0], W.dmg[1], c * c);   // Luft: Pfeile 40 % schneller
     var a = this.face, sx = this.x + Math.cos(a) * 7, sy = this.y + Math.sin(a) * 5;
-    w.addArrow({ x: sx, y: sy, z: 15, vx: Math.cos(a) * spd, vy: Math.sin(a) * spd, ang: a, dmg: dmg, power: c, drop: c > 0.6 ? 0 : 14 * (1 - c), dist: 0, lastFx: 0, hit: [], trail: [] });
+    w.addArrow({ x: sx, y: sy, z: 15, vx: Math.cos(a) * spd, vy: Math.sin(a) * spd, ang: a, dmg: dmg, power: c, drop: c > 0.6 ? 0 : 14 * (1 - c), dist: 0, lastFx: 0, hit: [], trail: [],
+                 homing: c >= 0.95 && SZ.perk.n(this, "praezision") > 0 });   // Präzision: voll gespannt lenkt leicht nach
     this.act = { type: "loose", t: 0, dur: 0.24, c: c };
     this.spend();
     this.vx -= Math.cos(a) * 30 * c; this.vy -= Math.sin(a) * 30 * c;
@@ -141,9 +144,10 @@
     if (this.inv > 0) this.inv -= dt;
     if (this.flash > 0) this.flash -= dt * 4;
     this.enT += dt;
-    if (this.enT > C.regenDelay) this.en = Math.min(this.enMax, this.en + C.regenRate * dt);
+    if (this.enT > C.regenDelay) this.en = Math.min(this.enMax, this.en + C.regenRate * SZ.perk.enRegen(this) * dt);
+    if (this.rageT > 0) this.rageT -= dt;
     this.manaT += dt; if (this.manaFlash > 0) this.manaFlash -= dt;
-    if (this.manaT > C.manaDelay) this.mana = Math.min(this.manaMax, this.mana + C.manaRegen * dt);
+    if (this.manaT > C.manaDelay) this.mana = Math.min(this.manaMax, this.mana + C.manaRegen * SZ.perk.manaRegen(this) * dt);
 
     var ix = 0, iy = 0, Wp = this.weapon, ac = this.act;
     if (this.control) {
@@ -218,7 +222,7 @@
     // Erschöpft: Energie ganz leer → 25 % langsamer, bis sie wieder lädt
     this.exhausted = this.en < 1 && this.enT < C.regenDelay;
     var tileSpd = (this.element === "water" && a.tilePx(this.x, this.y) === "w") ? 1 : a.speedAt(this.x, this.y);   // Wasser-Element: kein Tempoverlust im Wasser
-    var spd = C.walk * (this.exhausted ? C.exhaustMul : 1) * tileSpd, tx = ix * spd, ty = iy * spd;
+    var spd = C.walk * (this.exhausted ? C.exhaustMul : 1) * tileSpd * SZ.perk.move(this), tx = ix * spd, ty = iy * spd;
     if (this.guard) { tx *= SZ.BLOCKS.kamae.moveMul; ty *= SZ.BLOCKS.kamae.moveMul; }
     ac = this.act;
     var snap = 14;
@@ -346,6 +350,7 @@
   // Treffer einstecken. Rückgabe: "parry", "block", "break", "hit" oder "miss"
   P.hurt = function (dmg, fx, fy, src) {
     if (this.dead || this.inv > 0) return "miss";
+    dmg *= SZ.perk.taken(this);   // Beharrlichkeit
     var w = this.world, a = Math.atan2(fy - this.y, fx - this.x), front = Math.abs(m.angDiff(this.face, a)) < 1.3;
     var mx = (this.x + fx) / 2, my = (this.y + fy) / 2 - 12;
     if (src === "arrow" && this.weapon.type) front = false;   // Pfeile lassen sich nur mit Nahkampfwaffen abwehren
@@ -358,7 +363,7 @@
       return "parry";
     }
     if (this.guard && front) {
-      this.en -= dmg * SZ.PLAYER.blockCost; this.spend();
+      this.en -= dmg * SZ.PLAYER.blockCost * SZ.perk.block(this); this.spend();   // Demut
       w.parts.spark(mx, my + 12, 12, 8);
       if (this.en < 0) {
         this.en = 0; this.hp -= dmg * 0.5; this.guard = null;
@@ -370,7 +375,8 @@
       SZ.audio.play("block", { x: this.x });
       return "block";
     }
-    this.hp -= dmg; this.flash = 1;
+    this.hp -= dmg; this.flash = 1; this.hitWave = true;
+    if (SZ.perk.n(this, "opfer")) this.rageT = 5;   // Opferbereitschaft: 5 s mehr Schaden
     this.act = { type: "hurt", t: 0, dur: 0.28 }; this.guard = null;
     this.vx = -Math.cos(a) * 150; this.vy = -Math.sin(a) * 150;
     w.shake = 3; this.hitstop = 0.06;

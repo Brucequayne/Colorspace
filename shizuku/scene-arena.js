@@ -209,6 +209,8 @@
     var pts = String(S.points), wv = S.wave ? L2("Welle ", "Wave ") + S.wave + (S.between ? "" : " · " + alive + L2(" übrig", " left")) : "";
     if (top.dataset.p !== pts) { top.querySelector("b").textContent = pts; top.dataset.p = pts; }
     if (top.dataset.w !== wv) { top.querySelector("span").textContent = wv; top.dataset.w = wv; }
+    var pl = SZ.perk.list(S.player).join(" · ");
+    if (top.dataset.pl !== pl) { top.querySelector(".sz-pl").textContent = pl; top.dataset.pl = pl; }
     var nx = ui.querySelector(".sz-next"), show = S.between && !S.player.dead && !S.out && !S.waterMode;
     if (nx.hidden === show) nx.hidden = !show;
     var el = S.player.element, water = el === "water", C = SZ.ELEMENT_COST, free = S.points - reserved();
@@ -235,6 +237,27 @@
       ex.className = "sz-elx " + st;
     }
   }
+  // ---------- Perk-Auswahl ----------
+  function showOffer(ids) {
+    S.offer = ids;
+    var p = S.player, box = SZ.main.ui.querySelector(".sz-perk");
+    box.innerHTML = '<h2>' + L2("Wähle einen Perk", "Choose a perk") + '</h2><small>' + L2("Der andere verfällt. Perks gelten für den ganzen Lauf und stapeln sich.", "The other one is lost. Perks last the whole run and stack.") + '</small><div>' +
+      ids.map(function (id) {
+        var have = SZ.perk.n(p, id), once = SZ.perk.def(id).once;
+        return '<button type="button" data-perk="' + id + '"><b>' + SZ.perk.name(id) + '</b><span>' + SZ.perk.desc(id) + '</span>' +
+          (have ? '<i>' + L2("Schon ×", "Owned ×") + have + '</i>' : once ? '<i>' + L2("Einmalig", "Once per run") + '</i>' : '') + '</button>';
+      }).join("") + '</div>';
+    box.hidden = false;
+    SZ.audio.play("unsheathe", { rate: 0.8, vol: 0.6 });
+  }
+  function takeOffer(id) {
+    if (!S.offer || S.offer.indexOf(id) < 0) return;
+    SZ.perk.take(S.player, id);
+    S.offer = null; SZ.main.ui.querySelector(".sz-perk").hidden = true;
+    var p = S.player; S.world.parts.swirl(p.x, p.y, 10, 1, 0.7); S.world.parts.spark(p.x, p.y - 12, 14, 10, "#FFE6A0");
+    SZ.audio.play("parry_hit", { x: p.x, rate: 0.8, vol: 0.6 });
+    toast(SZ.perk.name(id) + " – " + SZ.perk.desc(id));
+  }
   function pop(amount) {
     var top = SZ.main.ui.querySelector(".sz-top"), e = document.createElement("em");
     e.textContent = typeof amount === "string" ? amount : "+" + amount; top.appendChild(e);
@@ -250,18 +273,20 @@
       }
       pl.control = true; pl.appear = 1;
       S = { world: world, player: pl, out: 0, back: opt && opt.back, wave: 0, between: true, points: 0, reinf: null, waveClock: 0,
-            waterMode: false, jobs: [], castN: 0, specialReady: true };
+            waterMode: false, jobs: [], castN: 0, specialReady: true, offer: null, offerLock: 0 };
       SZ.hud.reset();
       if (!opt || !opt.world) SZ.audio.musicStart();
       SZ.main.root.classList.add("sz-play");
-      SZ.main.ui.innerHTML = '<div class="sz-top" title="' + L2("Gleichgewicht", "Balance") + '"><div><small>' + L2("Gleichgewicht", "Balance") + '</small><i></i><b>0</b></div><span></span></div>' +
+      SZ.main.ui.innerHTML = '<div class="sz-top" title="' + L2("Gleichgewicht", "Balance") + '"><div><small>' + L2("Gleichgewicht", "Balance") + '</small><i></i><b>0</b></div><span></span><p class="sz-pl"></p></div>' +
         '<div class="sz-next"><kbd>E</kbd>' + L2("nächste Welle", "next wave") + '</div>' +
+        '<div class="sz-perk" hidden></div>' +
         '<div class="sz-elq" hidden><span class="sz-wv">' + SZ.WAVE_SVG + '</span><kbd>Q</kbd><b></b></div>' +
         '<div class="sz-elx" hidden><span class="sz-wv">' + SZ.WAVE_SVG + '</span><kbd>X</kbd><b></b></div>' +
         '<div class="sz-etoast" hidden></div>' +
         '<div class="sz-hint">' +
-        L2("WASD laufen · Maus zielen · Leertaste Dash · Linksklick Katana ziehen, dann Hieb · Linksklick halten: Stich · Shift + Linksklick: Drehhieb · Rechtsklick Block · Block halten + Linksklick: Konter · Q / E + Rechtsklick: Parade / Ausweichen · Wurfwaffen: Linksklick halten · 1 / 2 / 3: Waffe wechseln (3 = Element: Klick Faust, Shift + Klick Geschosse, halten und loslassen Strahl) · X Spezialangriff (einmal pro Welle) · Wasser zwischen den Wellen: Q · E nächste Welle · M Ton · Esc Menü",
-           "WASD move · mouse aim · space dash · left click draw katana, then slash · hold left click: thrust · shift + left click: spin · right click block · hold block + left click: counter · Q / E + right click: parry / dodge · throwing weapons: hold left click · 1 / 2 / 3: switch weapon (3 = element: click fist, Shift + click bolts, hold and release beam) · X special (once per wave) · water between waves: Q · E next wave · M sound · Esc menu") + '</div>';
+        L2("WASD laufen · Maus zielen · Leertaste Dash · Linksklick Katana ziehen, dann Hieb · Linksklick halten: Stich · Shift + Linksklick: Drehhieb · Rechtsklick Block · Block halten + Linksklick: Konter · Q / E + Rechtsklick: Parade / Ausweichen · Wurfwaffen: Linksklick halten · 1 / 2 / 3: Waffe wechseln (3 = Element) · X Spezialangriff (einmal pro Welle) · Wasser zwischen den Wellen: Q · E nächste Welle · M Ton · Esc Menü",
+           "WASD move · mouse aim · space dash · left click draw katana, then slash · hold left click: thrust · shift + left click: spin · right click block · hold block + left click: counter · Q / E + right click: parry / dodge · throwing weapons: hold left click · 1 / 2 / 3: switch weapon (3 = element) · X special (once per wave) · water between waves: Q · E next wave · M sound · Esc menu") + '</div>';
+      SZ.main.ui.querySelector(".sz-perk").addEventListener("click", function (e) { var b = e.target.closest("[data-perk]"); if (b) takeOffer(b.dataset.perk); });
     },
     exit: function () { SZ.main.root.classList.remove("sz-play"); },
     state: function () { return S; },   // für Tests
@@ -281,7 +306,8 @@
       // Gleichgewicht für besiegte Gegner
       w.enemies.forEach(function (e) {
         if (e.dead && !e.counted) {
-          e.counted = true; S.points += e.hpMax; pop(e.hpMax);
+          var gain = Math.round(e.hpMax * SZ.perk.onKill(p));   // Dankbarkeit, Gastfreundschaft, Ehre
+          e.counted = true; S.points += gain; pop(gain);
           for (var o = 0; o < Math.min(14, 4 + e.hpMax / 15); o++) w.parts.orb(e.x, e.y - 10 * e.sc, SZ.W - 18, 10);
         }
       });
@@ -289,10 +315,16 @@
       var alive = w.enemies.filter(function (e) { return !e.dead; }).length;
       S.waveClock += dt;
       if (S.reinf && (alive <= 1 || S.waveClock > 8)) { var R = S.reinf; S.reinf = null; spawnGroup(w, p, R.g, R.hpMul, "ring"); alive = 1; }
-      if (!S.between && alive === 0 && !S.reinf) S.between = true;
+      if (!S.between && alive === 0 && !S.reinf) {
+        S.between = true; SZ.perk.onWaveEnd(p);
+        if (S.wave % 3 === 0 && !p.dead) showOffer(SZ.perk.offer(p));   // nach jeder 3. Welle: Perk wählen
+      }
+      if (S.offer) S.offerLock = 0.25; else if (S.offerLock > 0) S.offerLock -= dt;
       elementUpdate(I, p);
+      if (S.offer || S.offerLock > 0) { p.inputLock = true; S.waterMode = false; }
       if (S.between && !p.dead && I.hit("e")) {
-        if (S.jobs.length) toast(L2("Erst die Wasser-Beschwörungen abwarten.", "Wait for the water casts to finish."));
+        if (S.offer) toast(L2("Erst einen Perk wählen.", "Pick a perk first."));
+        else if (S.jobs.length) toast(L2("Erst die Wasser-Beschwörungen abwarten.", "Wait for the water casts to finish."));
         else { S.waterMode = false; p.inputLock = false; startWave(); }
       }
     },

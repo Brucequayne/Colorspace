@@ -765,7 +765,7 @@
         var want2 = Math.atan2(I.my - (p.y - 12), I.mx - p.x);
         bm.a += m.clamp(m.angDiff(bm.a, want2), -BM.turn * dt, BM.turn * dt);
         p.face = bm.a;
-        p.mana = Math.max(0, p.mana - BM.mana * dt); p.manaT = 0;
+        p.mana = Math.max(0, p.mana - BM.mana * SZ.perk.mana(p) * dt); p.manaT = 0;
         if (bm.snd) bm.snd.pan(p.x);
         // Länge: bis zu einem hohen Hindernis
         var o = hand(p, 0, 8, 15), L = 0, ca = Math.cos(bm.a), sa = Math.sin(bm.a);

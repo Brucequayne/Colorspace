@@ -121,6 +121,19 @@
     for (var i = this.arrows.length - 1; i >= 0; i--) {
       var r = this.arrows[i];
       if (r.stuck) { r.age += dt; if (r.age > 7) this.arrows.splice(i, 1); continue; }
+      // Präzision (Perk): voll gespannte Pfeile lenken leicht zum nächsten Gegner vor ihnen
+      if (r.homing && !r.hostile) {
+        var best = null, bd = 1e9;
+        self.enemies.forEach(function (e) {
+          if (e.dead || e.falling || r.hit.indexOf(e) >= 0) return;
+          var ea = Math.atan2(e.y - r.y, e.x - r.x), d = m.dist(e.x, e.y, r.x, r.y);
+          if (d < 220 && Math.abs(m.angDiff(r.ang, ea)) < 0.6 && d < bd) { bd = d; best = ea; }
+        });
+        if (best != null) {
+          var sp0 = Math.hypot(r.vx, r.vy); r.ang += m.clamp(m.angDiff(r.ang, best), -1.6 * dt, 1.6 * dt);
+          r.vx = Math.cos(r.ang) * sp0; r.vy = Math.sin(r.ang) * sp0;
+        }
+      }
       var steps = Math.max(1, Math.ceil(Math.hypot(r.vx, r.vy) * dt / 3));
       for (var s = 0; s < steps && !r.stuck && !r.dead; s++) {
         var h = dt / steps;
@@ -144,6 +157,16 @@
             self.push(r.x, r.y, 10 + r.power * 14, 3 * r.power, 0.8);
           }
           if (Math.random() < 0.5) self.parts.wind(r.x, r.y - r.z, r.ang, 8 + r.power * 12, 0.3, 0.45 * r.power);
+        }
+        // Feindlicher Pfeil trifft auch Verbündete (Teamschaden), nur nicht den eigenen Schützen
+        if (r.hostile) {
+          var ally = null;
+          for (var ai = 0; ai < self.enemies.length; ai++) {
+            var ae = self.enemies[ai];
+            if (ae === r.from || ae.dead || ae.falling || ae.state === "spawn" || r.hit.indexOf(ae) >= 0) continue;
+            if (Math.abs(ae.x - r.x) < ae.D.radius + 2 && r.y > ae.y - 9 * ae.sc && r.y < ae.y + 4) { ally = ae; break; }
+          }
+          if (ally) { r.hit.push(ally); ally.hurt(r.dmg, r.ang, 0.4, "ally"); SZ.audio.play("arrow_hit", { x: r.x, vol: 0.8 }); r.dead = true; break; }
         }
         // Feindlicher Pfeil: trifft den Spieler (Block: zerbricht, Parade: fliegt zurück, Ausweichen: fliegt durch)
         var pl = self.player;

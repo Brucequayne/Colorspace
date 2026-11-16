@@ -128,7 +128,11 @@
           if (hd <= D.reach + 5 && Math.abs(m.angDiff(this.atkAng, ha)) < D.arc * Math.PI / 360) {
             this.hitDone = true;
             var res = pl.hurt(D.dmg, this.x, this.y, this);
-            if (res === "parry") { this.stagger(D.parryStagger, ha + Math.PI, 1.4); break; }
+            if (res === "parry") {
+              if (SZ.perk.n(pl, "hoeflichkeit") && this.type === "ronin") { this.hurt(9999, ha, 1.2, "sword"); break; }   // Höflichkeit: Parade tötet Ronin
+              this.stagger(D.parryStagger, ha + Math.PI, 1.4); break;
+            }
+            if (res === "block" && SZ.perk.n(pl, "standhaftigkeit")) this.hurt(D.dmg * 0.3 * SZ.perk.n(pl, "standhaftigkeit"), ha, 0.4, "thorns");   // Standhaftigkeit
           }
         }
         if (this.st >= D.swing) this.go("recover");
@@ -198,8 +202,14 @@
   // Gibt [tx, ty, turn] zurück.
   // Freie Schusslinie: nur Mauern und Objekte, die höher als die Flugbahn sind, halten einen Pfeil auf
   // (über Wasser und Abgrund fliegt er hinweg)
-  function clearShot(w, x0, y0, x1, y1) {
+  function clearShot(w, x0, y0, x1, y1, self) {
     var d = m.dist(x0, y0, x1, y1), n = Math.ceil(d / 4);
+    // Verbündete in der Schusslinie (Pfeile machen Teamschaden)
+    if (self) for (var q = 0; q < w.enemies.length; q++) {
+      var o = w.enemies[q]; if (o === self || o.dead || o.falling) continue;
+      var ux = x1 - x0, uy = y1 - y0, tt = ((o.x - x0) * ux + (o.y - y0) * uy) / (d * d);
+      if (tt > 0.05 && tt < 0.95 && m.dist(o.x, o.y, x0 + ux * tt, y0 + uy * tt) < o.D.radius + 5) return false;
+    }
     for (var i = 1; i < n; i++) {
       var t = i / n, x = x0 + (x1 - x0) * t, y = y0 + (y1 - y0) * t;
       if (w.arena.tilePx(x, y) === "#") return false;
@@ -213,7 +223,7 @@
   function gd0(e) { return e.goal ? m.dist(e.x, e.y, e.goal[0], e.goal[1]) : 99; }
   E.archer = function (dt, pl, dist, ang, others) {
     var D = this.D, w = this.world, self = this, tx = 0, ty = 0, turn = 6, last = others === 0;
-    var los = !pl.dead && clearShot(w, this.x, this.y, pl.x, pl.y);
+    var los = !pl.dead && clearShot(w, this.x, this.y, pl.x, pl.y, this);
     this.goalT = (this.goalT || 0) - dt;
     if (pl.dead) { if (this.state !== "idle") this.go("idle"); return [0, 0, 4]; }
     if (this.state === "approach" || this.state === "idle") this.go(last ? "flee" : "position");
@@ -287,7 +297,7 @@
         sc -= Math.abs(dp - ideal) * 1.1 + dm * 0.25;
       }
       mates.forEach(function (g) { var md = m.dist(x, y, g[0], g[1]); if (md < 45) sc -= (45 - md) * 3; });   // Schützen verteilen sich
-      if (clearShot(w, x, y, pl.x, pl.y)) sc += last ? 30 : 140;   // freie Schusslinie ist das Wichtigste
+      if (clearShot(w, x, y, pl.x, pl.y, this)) sc += last ? 30 : 140;   // freie Schusslinie ist das Wichtigste
       if (sc > bs) { bs = sc; best = [x, y]; }
     }
     return best;
@@ -311,8 +321,11 @@
   // Schaden nehmen (Richtung = von wo der Treffer kommt, nach außen)
   E.hurt = function (dmg, ang, power, src) {
     if (this.dead || this.state === "spawn") return;
-    var w = this.world;
+    var w = this.world, crit = false;
+    // Perks des Samurai (nicht bei Teamschaden durch Bogenschützen oder Rückschaden)
+    if (src !== "ally" && src !== "thorns" && w.player) { var o = SZ.perk.outgoing(w.player, dmg, src); dmg = o.dmg; crit = o.crit; }
     this.hp -= dmg; this.flash = 1; this.hpT = 3;
+    if (crit) { w.parts.spark(this.x, this.y - 14 * this.sc, 14, 14, "#FFD84A"); w.parts.ring(this.x, this.y - 2, 14, 0.35, "rgba(255,220,120,"); w.shake = Math.max(w.shake, 1.5); }
     w.parts.spark(this.x, this.y - 12 * this.sc, 12, this.D.armored ? 12 : 8);
     if (src !== "water" && src !== "beam") w.parts.blood(this.x + Math.cos(ang) * 2, this.y, 11 * this.sc, Math.min(16, 5 + Math.round(dmg * 0.5)), ang, 0.7 + (power || 0) * 0.4);
     if (src !== "beam") SZ.audio.play(src === "arrow" ? "arrow_hit" : "hit_flesh", { x: this.x, vol: src === "water" ? 0.5 : 1 });

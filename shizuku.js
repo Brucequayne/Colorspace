@@ -19,6 +19,7 @@
     "player.js",        // Samurai: Bewegung, Dash, Angriffe, Blocks, Bogen, Leben, Energie
     "element-water.js", // Wasser-Element: Beschwörung, Kachel → Wasser
     "element-air.js",   // Luft-Element: Windhieb, Windrose, Luftkugel, Sturmklinge
+    "perks.js",         // Perks (Tugenden): Auswahl nach jeder 3. Welle, stapelbar
     "enemies.js",       // Gegner und ihre KI (Ronin)
     "hud.js",           // Lebens- und Energiebalken
     "scene-menu.js",    // Menü
