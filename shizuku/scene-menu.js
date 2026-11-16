@@ -31,7 +31,7 @@
         '<div class="sz-lo" hidden><div class="sz-lo-box" role="dialog" aria-label="Loadout"><h2>Loadout</h2>' +
         '<div class="sz-lo-slots"></div><div class="sz-lo-list"></div>' +
         '<h2 class="sz-lo-h2">' + L2("Element", "Element") + '</h2><div class="sz-lo-elem"></div>' +
-        '<p class="sz-lo-hint">' + L2("Slot wählen, dann Waffe. Im Kampf wechseln die Tasten 1 und 2.", "Pick a slot, then a weapon. In combat, keys 1 and 2 switch.") + '</p>' +
+        '<p class="sz-lo-hint">' + L2("Slot wählen, dann Waffe. Slot 3 gehört dem Element. Im Kampf wechseln die Tasten 1, 2 und 3.", "Pick a slot, then a weapon. Slot 3 belongs to the element. In combat, keys 1, 2 and 3 switch.") + '</p>' +
         '<button type="button" class="sz-lo-close">' + L2("Fertig", "Done") + '</button></div></div></div>';
       var root = ui.firstChild, kanji = root.querySelector(".sz-kanji");
       kanji.addEventListener("click", function () {
@@ -50,7 +50,7 @@
         kunai: { d: L2("Mehr Schaden und Reichweite als Shuriken, 1 Wurf pro Sekunde.", "More damage and range than shuriken, 1 throw per second."), r: 0.82, s: 0.8, k: 0.3 }
       };
       var ELEM = {
-        water: { n: L2("Wasser", "Water"), d: L2("Q zwischen den Wellen: eine Kachel fluten (100) oder Wasser absorbieren (200, +7 % Leben). X: Wasserfessel, einmal pro Welle (neu kaufen: 150). Im Wasser kein Tempoverlust.", "Q between waves: flood one tile (100) or absorb water (200, +7 % health). X: water bind, once per wave (buy again: 150). No slowdown in water.") },
+        water: { n: L2("Wasser", "Water"), d: L2("Slot 3: Wasserfäuste (Klick), Wassergeschosse (Shift + Klick), Wasserstrahl (halten, loslassen), verbraucht Mana. Q zwischen den Wellen: eine Kachel fluten (100) oder Wasser absorbieren (200, +7 % Leben). X: Wasserfessel, einmal pro Welle (neu kaufen: 150). Im Wasser kein Tempoverlust.", "Slot 3: water fists (click), water bolts (Shift + click), water beam (hold, release), uses mana. Q between waves: flood one tile (100) or absorb water (200, +7 % health). X: water bind, once per wave (buy again: 150). No slowdown in water.") },
         none: { n: L2("Kein Element", "No element"), d: L2("Ohne Element-Fähigkeit.", "No element ability.") }
       };
       function iconURL(id) { var c = SZ.canvas(13, 13); SZ.weaponIcon(c.ctx, 1, 1, id); return c.toDataURL(); }
@@ -62,7 +62,9 @@
         }).join("");
         lo.querySelector(".sz-lo-slots").innerHTML = slots.map(function (id, i) {
           return '<button type="button" data-slot="' + i + '" aria-pressed="' + (i === active) + '"><kbd>' + (i + 1) + '</kbd><img alt="" src="' + iconURL(id) + '"><b>' + SZ.WEAPONS[id].name() + '</b></button>';
-        }).join("");
+        }).join("") + (SZ.WEAPONS["el_" + el]
+          ? '<button type="button" class="sz-lo-fixed" disabled><kbd>3</kbd><img alt="" src="' + iconURL("el_" + el) + '"><b>' + SZ.WEAPONS["el_" + el].name() + '</b></button>'
+          : '<button type="button" class="sz-lo-fixed" disabled><kbd>3</kbd><b>' + L2("Kein Element", "No element") + '</b></button>');
         lo.querySelector(".sz-lo-list").innerHTML = SZ.loadout.all.map(function (id) {
           var I = INFO[id] || { d: "", r: 0.5, s: 0.5, k: 0.5 }, inSlot = slots.indexOf(id);
           return '<button type="button" data-w="' + id + '" class="' + (inSlot >= 0 ? "on" : "") + '"><img alt="" src="' + iconURL(id) + '"><b>' + SZ.WEAPONS[id].name() + (inSlot >= 0 ? " <kbd>" + (inSlot + 1) + "</kbd>" : "") + '</b>' +

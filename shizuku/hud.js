@@ -27,6 +27,9 @@
       var pts = [[3, 1], [4, 2], [5, 4], [5, 6], [5, 8], [4, 9], [3, 10]];
       pts.forEach(function (q) { p.px(x + q[0] + 1, y + q[1], "#C9A06A"); });
       p.line(x + 4, y + 1, x + 4, y + 10, "#E8E0CC"); p.line(x + 3, y + 5, x + 9, y + 5, "#9A8060"); p.px(x + 9, y + 5, "#DCE3E8");
+    } else if (kind === "water") {
+      [[1, 3], [2, 2], [3, 3], [4, 4], [5, 3], [6, 2], [7, 3], [8, 4], [9, 3]].forEach(function (q) { p.px(x + q[0], y + q[1], "#96C4BE"); p.px(x + q[0], y + q[1] + 3, "#6E9C96"); p.px(x + q[0], y + q[1] + 6, "#3E6862"); });
+      p.px(x + 2, y + 2, "#EBF5F0"); p.px(x + 6, y + 5, "#EBF5F0");
     } else {
       p.line(x + 2, y + 9, x + 9, y + 2, "#DCE3E8"); p.px(x + 9, y + 1, "#FFFFFF"); p.px(x + 3, y + 7, "#C9A445"); p.px(x + 4, y + 8, "#C9A445");
       p.line(x + 1, y + 10, x + 2, y + 9, "#5B4A3A");
@@ -34,7 +37,7 @@
   }
 
   SZ.weaponIcon = function (ctx, x, y, id) { var W = SZ.WEAPONS[id]; icon(ctx, x, y, kindOf(W)); };
-  function kindOf(W) { return W.type === "bow" ? "bow" : W.type === "throw" ? W.proj : W.spear ? "spear" : "katana"; }
+  function kindOf(W) { return W.type === "element" ? W.el : W.type === "bow" ? "bow" : W.type === "throw" ? W.proj : W.spear ? "spear" : "katana"; }
   SZ.hud = {
     reset: function () { chip = 1; chipT = 0; lastHp = 1; },
     draw: function (ctx, pl, dt) {
@@ -51,7 +54,12 @@
       var back = pl.exhausted ? (Math.floor(Date.now() / 250) % 2 ? "#5A1C16" : "#3A1410") : "#24201A";
       bar(ctx, x, y + 7, 74, 3, e, low ? "#8A7A5A" : "#E2D29A", low ? null : "#FFF4C8", back);
       ctx.fillStyle = "#0A0808"; ctx.fillRect(x + Math.round(74 / 3), y + 7, 1, 3); ctx.fillRect(x + Math.round(74 * 2 / 3), y + 7, 1, 3);
-      // Zwei Slots: aktive Waffe hell, die andere gedimmt
+      // Mana (für den Element-Slot): lädt langsamer als die Energie, blinkt, wenn es nicht reicht
+      if (pl.slots && pl.slots.length > 2) {
+        var mf = pl.mana / pl.manaMax, fl = pl.manaFlash > 0 && Math.floor(pl.manaFlash * 12) % 2;
+        bar(ctx, x, y + 13, 74, 2, mf, fl ? "#D88A7A" : "#6E9C96", fl ? null : "#96C4BE", "#16242A");
+      }
+      // Slots: aktive Waffe hell, die anderen gedimmt
       (pl.slots || []).forEach(function (id, i) {
         var W = SZ.WEAPONS[id], k = kindOf(W);
         ctx.globalAlpha = i === pl.wi ? 1 : 0.4;

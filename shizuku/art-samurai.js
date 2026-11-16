@@ -102,6 +102,9 @@
     if (anim === "cast_flow") { P.spread = 3.2; P.lf = 1.6; P.rf = -1.2; P.lean = 0.4; P.hl = [-6.2, 1.8, 19.5]; P.hr = [5.6, 3, 14.2]; }
     if (anim === "cast_flow2") { P.spread = 3.2; P.lf = -1.2; P.rf = 1.6; P.lean = 0.4; P.hl = [-5.6, 3, 14.2]; P.hr = [6.2, 1.8, 19.5]; }
     if (anim === "cast_push") { P.spread = 3.4; P.crouch = 0.8; P.lf = 2; P.rf = -1.8; P.lean = 1; P.hl = [-1.6, 6.4, 16.5]; P.hr = [1.6, 6.4, 16.5]; }
+    // Wasserfaust: ein Arm schlägt auf Schulterhöhe nach vorn, die andere Hand deckt die Brust
+    if (anim === "punch_r") { P.spread = 3.2; P.lf = 1.8; P.rf = -1.2; P.lean = 0.9; P.hr = [1.6, 8.2, 17.2]; P.hl = [-3.0, 2.6, 15.2]; }
+    if (anim === "punch_l") { P.spread = 3.2; P.lf = -1.2; P.rf = 1.8; P.lean = 0.9; P.hl = [-1.6, 8.2, 17.2]; P.hr = [3.0, 2.6, 15.2]; }
     if (anim === "cast_low") { P.spread = 3.6; P.crouch = 2.2; P.lean = 1.6; P.lf = 1.4; P.rf = -1.4; P.hl = [-2.6, 4.6, 9.5]; P.hr = [2.6, 4.6, 9.5]; }
     if (anim === "windup") { P.spread = 3; P.crouch = 0.3; P.lean = -0.6; P.lf = 1.2; P.rf = -2; P.hl = [-0.8, 1.6, 21.5]; P.hr = [1.2, 2, 22.5]; }
     if (anim === "stagger") { P.spread = 2.6; P.crouch = 0.6; P.lean = -1.6; P.lf = -1; P.rf = 1.4; P.hl = [-5.4, -0.5, 14]; P.hr = [5.4, -0.5, 14]; }
@@ -224,8 +227,8 @@
     return { cv: cv, sil: SZ.silhouette(cv), ax: ax, ay: ay };
   }
 
-  var FRAMES = { idle: 2, walk: 6, block: 1, parry: 1, atk: 1, dash: 1, bow: 1, windup: 1, stagger: 1, blockwalk: 6, bowwalk: 6, cast_up: 1, cast_flow: 1, cast_flow2: 1, cast_push: 1, cast_low: 1 };
-  var USE = { samurai: ["idle", "walk", "block", "parry", "atk", "dash", "bow", "stagger", "blockwalk", "bowwalk", "cast_up", "cast_flow", "cast_flow2", "cast_push", "cast_low"], ronin: ["idle", "walk", "atk", "windup", "stagger", "block"], heavy: ["idle", "walk", "atk", "windup", "stagger"], yumi: ["idle", "walk", "bow", "stagger"] };
+  var FRAMES = { idle: 2, walk: 6, block: 1, parry: 1, atk: 1, dash: 1, bow: 1, windup: 1, stagger: 1, blockwalk: 6, bowwalk: 6, cast_up: 1, cast_flow: 1, cast_flow2: 1, cast_push: 1, cast_low: 1, punch_l: 1, punch_r: 1 };
+  var USE = { samurai: ["idle", "walk", "block", "parry", "atk", "dash", "bow", "stagger", "blockwalk", "bowwalk", "cast_up", "cast_flow", "cast_flow2", "cast_push", "cast_low", "punch_l", "punch_r"], ronin: ["idle", "walk", "atk", "windup", "stagger", "block"], heavy: ["idle", "walk", "atk", "windup", "stagger"], yumi: ["idle", "walk", "bow", "stagger"] };
   var cache = {}, queue = [];
   function frame(dir, anim, k, look) {
     look = look || "samurai";

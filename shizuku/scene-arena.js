@@ -264,8 +264,8 @@
         '<div class="sz-elx" hidden><span class="sz-wv">' + SZ.WAVE_SVG + '</span><kbd>X</kbd><b></b></div>' +
         '<div class="sz-etoast" hidden></div>' +
         '<div class="sz-hint">' +
-        L2("WASD laufen · Maus zielen · Leertaste Dash · Linksklick Katana ziehen, dann Hieb · Linksklick halten: Stich · Shift + Linksklick: Drehhieb · Rechtsklick Block · Block halten + Linksklick: Konter · Q / E + Rechtsklick: Parade / Ausweichen · Wurfwaffen: Linksklick halten · 1 / 2: Waffe wechseln · X Wasserfessel · zwischen den Wellen: Q Wasser, E nächste Welle · M Ton · Esc Menü",
-           "WASD move · mouse aim · space dash · left click draw katana, then slash · hold left click: thrust · shift + left click: spin · right click block · hold block + left click: counter · Q / E + right click: parry / dodge · throwing weapons: hold left click · 1 / 2: switch weapon · X water bind · between waves: Q water, E next wave · M sound · Esc menu") + '</div>';
+        L2("WASD laufen · Maus zielen · Leertaste Dash · Linksklick Katana ziehen, dann Hieb · Linksklick halten: Stich · Shift + Linksklick: Drehhieb · Rechtsklick Block · Block halten + Linksklick: Konter · Q / E + Rechtsklick: Parade / Ausweichen · Wurfwaffen: Linksklick halten · 1 / 2 / 3: Waffe wechseln (3 = Element: Klick Faust, Shift + Klick Geschosse, halten und loslassen Strahl) · X Wasserfessel · zwischen den Wellen: Q Wasser, E nächste Welle · M Ton · Esc Menü",
+           "WASD move · mouse aim · space dash · left click draw katana, then slash · hold left click: thrust · shift + left click: spin · right click block · hold block + left click: counter · Q / E + right click: parry / dodge · throwing weapons: hold left click · 1 / 2 / 3: switch weapon (3 = element: click fist, Shift + click bolts, hold and release beam) · X water bind · between waves: Q water, E next wave · M sound · Esc menu") + '</div>';
     },
     exit: function () { SZ.main.root.classList.remove("sz-play"); },
     state: function () { return S; },   // für Tests

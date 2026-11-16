@@ -154,6 +154,7 @@
     var snap = this.state === "stagger" ? 5 : this.state === "swing" ? 40 : 12;
     var spd = a.speedAt(this.x, this.y), tileC = a.tilePx(this.x, this.y);
     if (D.slowOn && D.slowOn[tileC]) spd = D.slowOn[tileC];
+    if (this.slowT > 0) { this.slowT -= dt; tx *= SZ.WATER_ART.beam.slow; ty *= SZ.WATER_ART.beam.slow; }   // vom Wasserstrahl gebremst
     this.vx += (tx * spd - this.vx) * Math.min(1, dt * snap); this.vy += (ty * spd - this.vy) * Math.min(1, dt * snap);
     var np = a.move(this.x, this.y, this.vx * dt, this.vy * dt, D.radius, w.solids);
     var moved = m.dist(this.x, this.y, np.x, np.y);
@@ -289,8 +290,8 @@
     var w = this.world;
     this.hp -= dmg; this.flash = 1; this.hpT = 3;
     w.parts.spark(this.x, this.y - 12 * this.sc, 12, this.D.armored ? 12 : 8);
-    if (src !== "water") w.parts.blood(this.x + Math.cos(ang) * 2, this.y, 11 * this.sc, Math.min(16, 5 + Math.round(dmg * 0.5)), ang, 0.7 + (power || 0) * 0.4);
-    SZ.audio.play(src === "arrow" ? "arrow_hit" : "hit_flesh", { x: this.x, vol: src === "water" ? 0.6 : 1 });
+    if (src !== "water" && src !== "beam") w.parts.blood(this.x + Math.cos(ang) * 2, this.y, 11 * this.sc, Math.min(16, 5 + Math.round(dmg * 0.5)), ang, 0.7 + (power || 0) * 0.4);
+    if (src !== "beam") SZ.audio.play(src === "arrow" ? "arrow_hit" : "hit_flesh", { x: this.x, vol: src === "water" ? 0.5 : 1 });
     if (this.hp <= 0) {
       this.hp = 0; this.dead = true; this.deadT = 0; this.fallDir = Math.cos(ang) >= 0 ? 1 : -1;
       var kb = this.D.armored ? 30 : 120;

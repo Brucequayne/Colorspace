@@ -11,6 +11,8 @@
   // Flache Anime-Palette: keine Kontur, keine Glanzpunkte, nur Farbflächen in Ebenen
   // Gleiche Farben wie das Wasser auf dem Boden (art-tiles.js: Tiefe 22,46,54 · Mitte 62,104,98 · Lichtlinien 110,156,150 / 150,196,190 · Glitzer 235,245,240)
   var COL = { back: "#1A3840", deep: "#2B5052", body: "#3E6862", mid: "#6E9C96", hi: "#96C4BE", foam: "#EBF5F0" };
+  // Palette für die Pixel-Ebene der Effekte (world.drawFx): Wasserfarben plus Schatten und Schaum
+  SZ.WATER_PAL = [26, 56, 64, 43, 80, 82, 62, 104, 98, 110, 156, 150, 150, 196, 190, 200, 228, 222, 235, 245, 240, 16, 34, 40];
   var COST = SZ.ELEMENT_COST = { flood: 100, drain: 200, bind: 150 };
   SZ.WATER = { healPct: 0.07, bindRange: 4, bindHold: 1.5, whipDmg: 4, whips: 3 };
 
@@ -428,13 +430,13 @@
     if (t >= 2.6 && !sp.list.length) { this.done = true; return false; }
     if (t >= 4) { this.done = true; return false; }
   };
-  D.drawLow = function (ctx) {
+  D.drawLow = function (ctx, main) {
     var t = this.t, x0 = this.tx * T, y0 = this.ty * T;
     // vor dem Umwandeln das Wasserbild der Kachel festhalten, danach schrumpft es weg
     if (!this.snap && t >= 0.5 && !this.converted) {
       try {
-        var tr = ctx.getTransform ? ctx.getTransform() : null, sx = tr ? tr.e : 0, sy = tr ? tr.f : 0, sc = tr ? tr.a : 1;
-        var img = ctx.getImageData(Math.round(x0 * sc + sx), Math.round(y0 * sc + sy), Math.round(T * sc), Math.round(T * sc));
+        var src = main || ctx, tr = src.getTransform ? src.getTransform() : null, sx = tr ? tr.e : 0, sy = tr ? tr.f : 0, sc = tr ? tr.a : 1;
+        var img = src.getImageData(Math.round(x0 * sc + sx), Math.round(y0 * sc + sy), Math.round(T * sc), Math.round(T * sc));
         this.snap = SZ.canvas(img.width, img.height); this.snap.ctx.putImageData(img, 0, 0);
       } catch (e) { this.snap = false; }
     }
@@ -445,8 +447,6 @@
         if (this.snap) ctx.drawImage(this.snap, x0, y0, T, T); else { ctx.fillStyle = COL.deep; ctx.fillRect(x0, y0, T, T); }
         ctx.restore();
         ctx.strokeStyle = "rgba(200,228,222,0.85)"; ctx.lineWidth = 1; ctx.beginPath(); ctx.ellipse(this.cx, this.cy, r, r * 0.8, 0, 0, TAU); ctx.stroke();
-        // nasser Rand auf dem Sand
-        ctx.fillStyle = "rgba(60,50,40,0.18)"; ctx.beginPath(); ctx.ellipse(this.cx, this.cy, Math.min(T * 0.6, r + 3), Math.min(T * 0.5, (r + 3) * 0.8), 0, 0, TAU); ctx.fill();
       }
     }
     if (t > 0.3 && t < 0.7) foamPool(ctx, this.cx, this.cy, 4 + (t - 0.3) * 10, t, 0.9);
@@ -589,6 +589,261 @@
     });
     drawSplashes(ctx, this.splashes, t);
     this.spray.draw(ctx);
+  };
+
+  // =====================================================================
+  // Wasser-Kampfkünste (3. Slot): Fäuste, Geschosse, Strahl
+  //   Linksklick tippen          → Wasserfaust, abwechselnd links und rechts (Reichweite 2 × Katana)
+  //   Shift + Linksklick halten  → schnelle Wassergeschosse in wechselnden Kurven auf den Gegner zu
+  //   Linksklick halten, loslassen → Wasserstrahl: lenkbar, 8 Treffer pro Sekunde, schiebt leichte Gegner zurück,
+  //                                bremst schwere; läuft, bis das Mana leer ist oder man erneut klickt
+  // =====================================================================
+  var ART = SZ.WATER_ART = {
+    punch: { dmg: 6, reach: 42, arc: 0.5, dur: 0.24, hitFrom: 0.06, hitTo: 0.13, mana: 4, knock: 0.5 },
+    bolt: { dmg: 5, speed: 250, range: 175, cd: 0.2, mana: 6, turn: 6.5, knock: 0.3 },
+    beam: { dmg: 2.5, tick: 1 / 8, mana: 33, min: 12, len: 210, turn: 4.2, charge: 0.55, slow: 0.35, push: 0.8 }
+  };
+  function hand(p, side, fwd, z) {
+    var f = p.face;
+    return { x: p.x + Math.cos(f) * fwd - Math.sin(f) * side, y: p.y + Math.sin(f) * fwd + Math.cos(f) * side * 0.7, z: z };
+  }
+  // Höhe von Objekten, an denen Wasser hängen bleibt (Bäume, Laternen, Felsen ab Hüfthöhe)
+  function blocks(w, x, y, z) {
+    if (x < 0 || y < 0 || x >= SZ.W || y >= SZ.H) return true;
+    if (w.arena.tilePx(x, y) === "#") return true;
+    for (var k = 0; k < w.solids.length; k++) {
+      var c = w.solids[k], d = SZ.OBJECTS[c[3].t];
+      if (d.h * 0.9 > z && Math.abs(x - c[0]) < c[2] && Math.abs(y - c[1]) < c[2] * 0.8 + 1) return true;
+    }
+    return false;
+  }
+  function Arts(world) {
+    this.w = world; this.spray = new Spray(world); this.splashes = []; this.t = 0;
+    this.bolts = []; this.boltCd = 0; this.boltSide = 1; this.press = null; this.beam = null; this.fist = null;
+  }
+  var R = Arts.prototype;
+  R.idle = function () { return !this.bolts.length && !this.beam && !this.fist && !this.spray.list.length && !this.splashes.length && !this.charging; };
+  // ---------- Eingabe (vom Spieler aufgerufen, wenn der Element-Slot aktiv ist) ----------
+  R.input = function (p, dt, I) {
+    var ac = p.act;
+    if (ac && ac.type === "beam") { if (I.lmbHit || p.mana <= 0.01) this.endBeam(p); return; }
+    if (I.down("Shift") && I.lmb) {
+      this.press = null;
+      if ((!ac || ac.type === "wbolt") && this.boltCd <= 0) { if (p.useMana(ART.bolt.mana)) this.fireBolt(p, I); else this.empty(p); }
+      return;
+    }
+    if (I.lmbHit) {
+      if (!ac) this.press = { t: 0, charging: false };
+      else if (ac.type === "punch" && ac.t > ac.dur * 0.35) ac.queued = true;
+    }
+    var pr = this.press;
+    if (pr) {
+      pr.t += dt;
+      if (!I.lmb) {
+        if (pr.charging && p.act && p.act.type === "wcharge") {
+          if (p.act.t >= ART.beam.charge * 0.8 && p.mana >= ART.beam.min) this.startBeam(p);
+          else { p.act = null; this.punch(p); }
+        } else if (!pr.charging && !p.act) this.punch(p);
+        this.press = null;
+      } else if (!pr.charging && pr.t >= 0.16 && !p.act) { pr.charging = true; p.act = { type: "wcharge", t: 0, full: false }; }
+      else if (pr.charging && (!p.act || p.act.type !== "wcharge")) this.press = null;
+    }
+  };
+  R.empty = function (p) { if (!this.emptyT || this.t - this.emptyT > 0.4) { this.emptyT = this.t; p.manaFlash = 0.5; SZ.audio.play("block", { vol: 0.2, rate: 1.7 }); } };
+  // Faust
+  R.punch = function (p, side) {
+    if (!p.useMana(ART.punch.mana)) { this.empty(p); return; }
+    this.fistSide = side || -(this.fistSide || 1);
+    p.act = { type: "punch", t: 0, dur: ART.punch.dur, side: this.fistSide, hits: [], ang: p.face };
+    SZ.audio.play("step_water", { x: p.x, vol: 0.7, rate: 1.45 });
+  };
+  // Geschoss
+  R.fireBolt = function (p, I) {
+    var w = this.w, B = ART.bolt, best = null, bd = 1e9;
+    // Ziel: Gegner nahe am Mauszeiger, sonst Gegner in Blickrichtung, sonst der Mauspunkt
+    w.enemies.forEach(function (e) {
+      if (e.dead || e.state === "spawn") return;
+      var dm = m.dist(e.x, e.y - 6, I.mx, I.my), dp = m.dist(e.x, e.y, p.x, p.y);
+      if (dp > B.range + 30) return;
+      var sc = dm < 45 ? dm : Math.abs(m.angDiff(p.face, Math.atan2(e.y - p.y, e.x - p.x))) < 0.45 ? 60 + dp * 0.3 : 1e9;
+      if (sc < bd) { bd = sc; best = e; }
+    });
+    var tx = I.mx, ty = I.my, dm2 = m.dist(p.x, p.y, tx, ty);
+    if (dm2 > B.range) { tx = p.x + (tx - p.x) / dm2 * B.range; ty = p.y + (ty - p.y) / dm2 * B.range; }
+    this.boltSide = -this.boltSide;
+    var a0 = Math.atan2((best ? best.y : ty) - p.y, (best ? best.x : tx) - p.x) + this.boltSide * rnd(0.45, 1.0), h = hand(p, this.boltSide * 3, 6, 14);
+    this.bolts.push({ x: h.x, y: h.y, z: h.z, a: a0, tgt: best, tx: tx, ty: ty, dist: 0, trail: [], hit: false, fall: false });
+    this.boltCd = B.cd;
+    p.act = { type: "wbolt", t: 0, dur: 0.14, side: this.boltSide };
+    SZ.audio.play("step_water", { x: p.x, vol: 0.6, rate: 1.7 });
+  };
+  // Strahl
+  R.startBeam = function (p) {
+    p.act = { type: "beam", t: 0 };
+    this.beam = { act: p.act, a: p.face, tick: 0, len: 0, t: 0 };
+    this.beam.snd = SZ.audio.play("water_beam", { x: p.x, loop: true });
+    this.spray.burst(p.x + Math.cos(p.face) * 8, p.y + Math.sin(p.face) * 8, 14, 14, 50, 60, 1.3);
+    this.w.shake = Math.max(this.w.shake, 1);
+  };
+  R.endBeam = function (p) {
+    var b = this.beam; if (!b) return;
+    if (b.snd) b.snd.stop(0.18);
+    if (b.end) { this.spray.burst(b.end.x, b.end.y, b.end.z, 18, 60, 70, 1.4); splashList(this.splashes, b.end.x, b.end.y, 5, 10, 8, this.t); }
+    this.beam = null;
+    if (p && p.act === b.act) p.act = null;
+  };
+  // Punkt auf der Faust-Bahn (s 0 … 1)
+  R.fistPts = function (p, ac) {
+    var P = ART.punch, u = ac.t / ac.dur, ext = u < 0.38 ? m.easeOutCubic(u / 0.38) : 1 - m.easeInCubic((u - 0.38) / 0.62);
+    if (ext <= 0.02) return null;
+    var f = ac.ang, h = hand(p, ac.side * 2.6, 3, 14), L = 6 + P.reach * ext, pts = [];
+    for (var i = 0; i <= 14; i++) {
+      var s = i / 14, lat = ac.side * Math.sin(s * Math.PI) * 5 * ext;
+      pts.push({ x: h.x + Math.cos(f) * L * s - Math.sin(f) * lat, y: h.y + Math.sin(f) * L * s + Math.cos(f) * lat * 0.7, z: 14 - s * 2, r: (2 + s * 1.6) * wob(s, this.t, 0.15) });
+    }
+    var tip = pts[pts.length - 1];
+    for (var k = 0; k < 5; k++) { var aa = k / 5 * TAU + this.t * 12; pts.push({ x: tip.x + Math.cos(aa) * 1.2, y: tip.y, z: tip.z + Math.sin(aa) * 1.2, r: 4.4 * wob(k / 5, this.t, 0.2) }); }
+    return { pts: pts, tip: tip, ext: ext };
+  };
+  R.update = function (dt) {
+    this.t += dt;
+    var w = this.w, p = w.player, sp = this.spray, self = this;
+    sp.update(dt);
+    if (this.boltCd > 0) this.boltCd -= dt;
+    var ac = p && p.act;
+    // ---- Faust: Treffer im Schlagfenster
+    this.fist = ac && ac.type === "punch" ? ac : null;
+    if (this.fist && ac.t >= ART.punch.hitFrom && ac.t - dt < ART.punch.hitTo) {
+      var P = ART.punch;
+      w.enemies.forEach(function (e) {
+        if (e.dead || e.state === "spawn" || ac.hits.indexOf(e) >= 0) return;
+        var d = m.dist(p.x, p.y, e.x, e.y), a = Math.atan2(e.y - p.y, e.x - p.x);
+        if (d < P.reach + 6 + e.D.radius && Math.abs(m.angDiff(ac.ang, a)) < P.arc + 6 / Math.max(8, d)) {
+          ac.hits.push(e); e.hurt(P.dmg, a, P.knock, "water");
+          sp.burst(e.x, e.y, 12 * e.sc, 12, 55, 50, 1.3); splashList(self.splashes, e.x, e.y + 1, 4 * e.sc, 8, 7, self.t);
+          SZ.audio.play("water_place_" + (1 + (Math.random() * 2 | 0)), { x: e.x, vol: 0.45, rate: 1.35, offset: 0.25 });
+        }
+      });
+    }
+    if (this.fist) { var fp = this.fistPts(p, ac); if (fp && Math.random() < dt * 40) sp.add(fp.tip.x, fp.tip.y, fp.tip.z, Math.cos(ac.ang) * rnd(10, 40) + rnd(-15, 15), Math.sin(ac.ang) * rnd(5, 20), rnd(10, 50), rnd(0.6, 1.3)); }
+    // ---- Laden: Wasser sammelt sich an den Händen
+    this.charging = ac && ac.type === "wcharge" ? ac : null;
+    if (this.charging) {
+      var hc = hand(p, 0, 6, 15);
+      if (Math.random() < dt * 30) { var ra = Math.random() * TAU; sp.add(hc.x + Math.cos(ra) * 12, hc.y + Math.sin(ra) * 7, hc.z + rnd(-3, 6), -Math.cos(ra) * 40, -Math.sin(ra) * 25, rnd(10, 30), rnd(0.6, 1.2)); }
+      if (!ac.full && ac.t >= ART.beam.charge) { ac.full = true; sp.burst(hc.x, hc.y, hc.z, 10, 30, 40, 1.1); SZ.audio.play("step_water", { x: p.x, vol: 0.8, rate: 0.75 }); }
+    }
+    // ---- Geschosse
+    for (var i = this.bolts.length - 1; i >= 0; i--) {
+      var b = this.bolts[i], B = ART.bolt;
+      b.trail.unshift({ x: b.x, y: b.y, z: b.z }); if (b.trail.length > 8) b.trail.pop();
+      if (b.fall) { b.z -= 140 * dt; b.x += Math.cos(b.a) * 80 * dt; b.y += Math.sin(b.a) * 80 * dt; if (b.z <= 0) { self.splat(b.x, b.y, 0, w.arena.tilePx(b.x, b.y) === "w"); this.bolts.splice(i, 1); } continue; }
+      var gx = b.tgt && !b.tgt.dead ? b.tgt.x : b.tx, gy = b.tgt && !b.tgt.dead ? b.tgt.y : b.ty;
+      var want = Math.atan2(gy - b.y, gx - b.x), turn = B.turn * (0.6 + Math.min(1, b.dist / 60) * 0.8);
+      b.a += m.clamp(m.angDiff(b.a, want), -turn * dt, turn * dt);
+      var st = B.speed * dt; b.x += Math.cos(b.a) * st; b.y += Math.sin(b.a) * st; b.dist += st;
+      b.z = 14 + Math.sin(Math.min(1, b.dist / B.range) * Math.PI) * 10;
+      if (Math.random() < dt * 25) sp.add(b.x, b.y, b.z, rnd(-10, 10), rnd(-6, 6), rnd(0, 25), rnd(0.5, 1));
+      var hitE = null;
+      for (var k = 0; k < w.enemies.length; k++) { var e = w.enemies[k]; if (!e.dead && e.state !== "spawn" && Math.abs(e.x - b.x) < e.D.radius + 4 && b.y > e.y - 9 && b.y < e.y + 5) { hitE = e; break; } }
+      if (hitE) {
+        hitE.hurt(B.dmg, b.a, B.knock, "water");
+        self.splat(b.x, b.y, b.z * 0.6, false, hitE);
+        SZ.audio.play("water_place_" + (1 + (Math.random() * 2 | 0)), { x: b.x, vol: 0.35, rate: 1.6, offset: 0.25 });
+        this.bolts.splice(i, 1); continue;
+      }
+      if (blocks(w, b.x, b.y, b.z)) { self.splat(b.x, b.y, b.z, false); this.bolts.splice(i, 1); continue; }
+      if (b.dist > B.range + 20) b.fall = true;
+    }
+    // ---- Strahl
+    var bm = this.beam;
+    if (bm) {
+      if (!p || p.dead || p.act !== bm.act) this.endBeam(null);
+      else {
+        var BM = ART.beam, I = SZ.input;
+        bm.t += dt;
+        var want2 = Math.atan2(I.my - (p.y - 12), I.mx - p.x);
+        bm.a += m.clamp(m.angDiff(bm.a, want2), -BM.turn * dt, BM.turn * dt);
+        p.face = bm.a;
+        p.mana = Math.max(0, p.mana - BM.mana * dt); p.manaT = 0;
+        if (bm.snd) bm.snd.pan(p.x);
+        // Länge: bis zu einem hohen Hindernis
+        var o = hand(p, 0, 8, 15), L = 0, ca = Math.cos(bm.a), sa = Math.sin(bm.a);
+        while (L < BM.len && !blocks(w, o.x + ca * L, o.y + sa * L, 15)) L += 3;
+        bm.len = Math.min(L, bm.len + 900 * dt);   // schießt in einem Bruchteil einer Sekunde nach vorn
+        bm.o = o; bm.end = { x: o.x + ca * bm.len, y: o.y + sa * bm.len, z: 13 };
+        // Treffer: 8 pro Sekunde
+        bm.tick -= dt;
+        if (bm.tick <= 0) {
+          bm.tick += BM.tick; var any = false;
+          w.enemies.forEach(function (e) {
+            if (e.dead || e.state === "spawn") return;
+            var rx = e.x - o.x, ry = e.y - o.y, along = rx * ca + ry * sa, across = Math.abs(-rx * sa + ry * ca);
+            if (along < 0 || along > bm.len + e.D.radius || across > e.D.radius + 6) return;
+            any = true;
+            e.hurt(BM.dmg, bm.a, e.D.armored ? 0 : BM.push, "beam");
+            if (e.D.armored) e.slowT = 0.3;   // Schwere: deutlich langsamer statt zurückgeschoben
+            sp.burst(e.x, e.y, 10 * e.sc, 4, 45, 35, 1.1);
+            if (Math.random() < 0.5) splashList(self.splashes, e.x - ca * 4, e.y - sa * 4, 3.5 * e.sc, 7, 6, self.t);
+          });
+          if (any) SZ.audio.play("step_water", { x: bm.end.x, vol: 0.35, rate: 1.25 + Math.random() * 0.3 });
+        }
+        // Gischt am Ende und an der Quelle
+        for (var j = 0; j < 3; j++) if (Math.random() < dt * 40) { var ra2 = bm.a + Math.PI + rnd(-1.3, 1.3); sp.add(bm.end.x, bm.end.y, bm.end.z, Math.cos(ra2) * rnd(30, 80), Math.sin(ra2) * rnd(15, 40), rnd(20, 70), rnd(0.7, 1.6)); }
+        if (Math.random() < dt * 12) { var na = bm.a + (Math.random() < 0.5 ? 1 : -1) * Math.PI / 2, s2 = rnd(0.1, 0.95); sp.add(o.x + ca * bm.len * s2, o.y + sa * bm.len * s2, 15, Math.cos(na) * rnd(10, 30), Math.sin(na) * rnd(5, 15), rnd(0, 30), rnd(0.6, 1.1)); }
+        if (Math.random() < dt * 6) w.parts.ring(bm.end.x, bm.end.y, 10, 0.4);
+        if (p.mana <= 0.01) this.endBeam(p);
+      }
+    }
+    return true;
+  };
+  R.splat = function (x, y, z, wet, e) {
+    this.spray.burst(x, y, z, wet ? 6 : 12, 45, 50, 1.2);
+    splashList(this.splashes, x, y, e ? 4 * e.sc : 3.5, e ? 8 : 6, 7, this.t);
+    if (wet) this.w.parts.ring(x, y, 8, 0.5);
+  };
+  R.drawLow = function () {};
+  R.draw = function (ctx) {
+    var t = this.t, p = this.w.player, self = this;
+    // Geschosse: Kopf mit Schweif
+    this.bolts.forEach(function (b) {
+      if (b.trail.length < 2) return;
+      var pts = [];
+      for (var i = b.trail.length - 1; i >= 0; i--) { var q = b.trail[i], s = 1 - i / (b.trail.length - 1); pts.push({ x: q.x, y: q.y, z: q.z, r: 0.8 + s * 2.2 }); }
+      pts.push({ x: b.x, y: b.y, z: b.z, r: 3.2 * wob(0.3, t, 0.2) });
+      body(ctx, pts, t, 1);
+    });
+    if (p) {
+      var ac = p.act;
+      if (ac && ac.type === "punch") { var fp = this.fistPts(p, ac); if (fp) body(ctx, fp.pts, t, 1); }
+      if (ac && ac.type === "wcharge") {   // Wasserkugel wächst zwischen den Händen
+        var hc = hand(p, 0, 6, 15), r = Math.min(1, ac.t / ART.beam.charge) * 4 + 0.6, pts2 = [];
+        for (var k = 0; k < 7; k++) { var a = k / 7 * TAU + t * 7; pts2.push({ x: hc.x + Math.cos(a) * r * 0.5, y: hc.y + Math.sin(a) * r * 0.3, z: hc.z + Math.sin(a * 2) * r * 0.3, r: r * wob(k / 7, t, 0.25) }); }
+        body(ctx, pts2, t, 1);
+        for (var k2 = 0; k2 < 3; k2++) {   // drei Ströme, die sich hineindrehen
+          var aa = t * 5 + k2 * TAU / 3, rr = 12 - (ac.t * 14 % 8), pts3 = [];
+          for (var j = 0; j <= 6; j++) { var s = j / 6, a2 = aa + s * 1.4; pts3.push({ x: hc.x + Math.cos(a2) * rr * (1 - s * 0.7), y: hc.y + Math.sin(a2) * rr * 0.6 * (1 - s * 0.7), z: hc.z + (1 - s) * 2, r: 0.9 + s * 0.6 }); }
+          body(ctx, pts3, t, 1);
+        }
+      }
+    }
+    var bm = this.beam;
+    if (bm && bm.o && bm.len > 2) {
+      var o = bm.o, ca = Math.cos(bm.a), sa = Math.sin(bm.a), n = Math.max(2, Math.ceil(bm.len / 2)), pts4 = [];
+      for (var i2 = 0; i2 <= n; i2++) {
+        var s3 = i2 / n, d = bm.len * s3, lat = Math.sin(d * 0.12 - t * 22) * 1.1 * Math.min(1, s3 * 4);
+        pts4.push({ x: o.x + ca * d - sa * lat, y: o.y + sa * d + ca * lat * 0.7, z: 15 - s3 * 2, r: (4.2 + s3 * 1.8 + Math.min(1, bm.t * 3) * 0.9) * wob(d / 90, t, 0.14) });
+      }
+      body(ctx, pts4, t, 1);
+      crown(ctx, bm.end.x, bm.end.y + 2, 5, 9, t, 9);
+    }
+    drawSplashes(ctx, this.splashes, t);
+    this.spray.draw(ctx);
+  };
+  SZ.waterArts = function (world) {
+    if (!world.arts) world.arts = new Arts(world);
+    if (world.fx.indexOf(world.arts) < 0) world.fx.push(world.arts);
+    return world.arts;
   };
 
   SZ.WaterCast = WaterCast; SZ.WaterDrain = WaterDrain; SZ.WaterBind = WaterBind;

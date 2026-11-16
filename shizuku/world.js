@@ -307,6 +307,29 @@
 
   // ---------- Kachel in Wasser verwandeln (Wasser-Element) ----------
   // Entfernt alles, was auf der Kachel steht oder wächst, und zeichnet nur die Umgebung neu.
+  // Effekte (Wasser) in halber Auflösung zeichnen, auf die Wasserpalette reduzieren und mit harten Pixeln
+  // hochskalieren: so passen sie zum Pixel-Look von Boden und Figuren. Halbtransparenz wird gerastert.
+  var BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
+  Wd.drawFx = function (ctx, low) {
+    var list = this.fx.filter(function (f) { return (low ? f.drawLow : f.draw) && !(f.idle && f.idle()); });
+    if (!list.length) return;
+    var W2 = SZ.W >> 1, H2 = SZ.H >> 1, L = this._fxc || (this._fxc = SZ.canvas(W2, H2)), c = L.ctx;
+    c.setTransform(1, 0, 0, 1, 0, 0); c.clearRect(0, 0, W2, H2); c.setTransform(0.5, 0, 0, 0.5, 0, 0);
+    list.forEach(function (f) { if (low) f.drawLow(c, ctx); else f.draw(c, ctx); });
+    c.setTransform(1, 0, 0, 1, 0, 0);
+    var img = c.getImageData(0, 0, W2, H2), d = img.data, P = SZ.WATER_PAL, np = P.length;
+    for (var y = 0, i = 0; y < H2; y++) for (var x = 0; x < W2; x++, i += 4) {
+      var a = d[i + 3]; if (!a) continue;
+      if (a < 250 && a < (BAYER[(y & 3) * 4 + (x & 3)] + 0.5) * 16) { d[i + 3] = 0; continue; }   // gerasterte Transparenz
+      var r = d[i] * 255 / a, g = d[i + 1] * 255 / a, b = d[i + 2] * 255 / a, best = 0, bd = 1e9;
+      for (var k = 0; k < np; k += 3) { var dr = r - P[k], dg = g - P[k + 1], db = b - P[k + 2], dd = dr * dr * 0.3 + dg * dg * 0.59 + db * db * 0.11; if (dd < bd) { bd = dd; best = k; } }
+      d[i] = P[best]; d[i + 1] = P[best + 1]; d[i + 2] = P[best + 2]; d[i + 3] = 255;
+    }
+    c.putImageData(img, 0, 0);
+    var sm = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(L, 0, 0, SZ.W, SZ.H);
+    ctx.imageSmoothingEnabled = sm;
+  };
   Wd.convertTile = function (tx, ty, to) {
     var a = this.arena, T = SZ.TILE, x0 = tx * T, y0 = ty * T, x1 = x0 + T, y1 = y0 + T, p = this.parts;
     function inside(x, y) { return x >= x0 && x < x1 && y >= y0 && y < y1; }
@@ -433,7 +456,7 @@
     ctx.drawImage(this._vegHigh, 0, 0);
     var tall = this._liveTall || [];
     this.parts.drawLow(ctx);
-    this.fx.forEach(function (f) { if (f.drawLow) f.drawLow(ctx); });   // Effekte unter den Figuren
+    this.drawFx(ctx, true);    // Effekte unter den Figuren
 
     // Alles Stehende nach Fußpunkt sortiert
     var items = [];
@@ -478,7 +501,7 @@
       ctx.globalAlpha = 1;
     });
     this.drawArrows(ctx);
-    this.fx.forEach(function (f) { f.draw(ctx); });
+    this.drawFx(ctx, false);
     this.parts.drawHigh(ctx);
     if (opts.beforeLight) opts.beforeLight(ctx);
     SZ.light.apply(ctx, S, this.lights(S), t);

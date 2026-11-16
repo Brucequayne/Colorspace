@@ -20,7 +20,7 @@ Kein Build-Schritt nötig: jede Datei hier ist direkt die Datei, die im Browser 
 | `particles.js` | Blätter, Staub, Spritzer, Blut (bleibt als Flecken liegen), Ringe, Stroh, Funken, Nachbilder |
 | `world.js` | Spielwelt: zeichnet alles in der richtigen Reihenfolge, Wachstum |
 | `player.js` | Samurai: Bewegung, Dash, Angriffe, Konter, Blocks, Bogen, Wurfwaffen, Wasser beschwören, Leben, Energie |
-| `element-water.js` | Wasser-Element: Fluten (3 Varianten), Absorbieren (heilt, Kachel wird Sand), Wasserfessel (X). Kosten in `SZ.ELEMENT_COST`, Werte in `SZ.WATER` |
+| `element-water.js` | Wasser-Element: Fluten (3 Varianten), Absorbieren (heilt, Kachel wird Sand), Wasserfessel (X), Wasser-Kampfkünste für den 3. Slot (Fäuste, Geschosse, Strahl; Werte in `SZ.WATER_ART`). Kosten in `SZ.ELEMENT_COST`, Werte in `SZ.WATER` |
 | `enemies.js` | Gegner und KI (Ronin, Heavy Ronin, Yumi-heishi = Bogenschütze mit eigener KI: zweite Reihe, Flucht als Letzter) |
 | `hud.js` | Lebens- und Energiebalken, Waffensymbol |
 | `scene-menu.js` | Menü (雫, Gliederpuppe, versteckter Dev-Zugang) |

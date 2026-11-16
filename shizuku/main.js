@@ -37,7 +37,7 @@
     ".sz-lo-box button{font:inherit;color:inherit;background:#1E1E1E;border:1px solid #3A3A3A;border-radius:0;cursor:pointer;text-align:left}" +
     ".sz-lo-box button:hover{border-color:#8A857C}.sz-lo-box img{image-rendering:pixelated;width:39px;height:39px;display:block}" +
     ".sz-lo-box kbd{font:600 .7rem/1 var(--f-body,system-ui);border:1px solid #6A665E;padding:2px 5px;color:#CFCAC0}" +
-    ".sz-lo-slots{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px}" +
+    ".sz-lo-slots{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px}.sz-lo-slots .sz-lo-fixed{opacity:.75;cursor:default;border-style:dashed}" +
     ".sz-lo-slots button{display:flex;align-items:center;gap:10px;padding:8px 10px}.sz-lo-slots button[aria-pressed=true]{border-color:#E8A04A;background:#231C14}" +
     ".sz-lo-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:8px}" +
     ".sz-lo-h2{margin-top:16px!important}.sz-lo-elem{display:grid;grid-template-columns:1fr 1fr;gap:8px}" +

@@ -52,6 +52,12 @@
     blocks: ["kamae", "ukenagashi", "ashisabaki"], attacks: [], style: SZ.WEAPONS.katana.style, blade: 14
   };
 
+  // Element-Waffe für den 3. Slot (Taste 3): wird automatisch mit dem gewählten Element belegt.
+  // Angriffe stehen in element-water.js (SZ.WATER_ART); verbraucht Mana statt Energie, kann nicht blocken.
+  SZ.WEAPONS.el_water = {
+    name: function () { return L2("Wasser (Element)", "Water (element)"); },
+    type: "element", el: "water", weight: 1, blocks: [null, null, null], attacks: [], style: SZ.WEAPONS.katana.style, blade: 14
+  };
   // Loadout: zwei Waffen-Slots (Tasten 1 / 2), im Menü wählbar, im Browser gespeichert
   var LKEY = "shizuku.loadout";
   SZ.loadout = {
@@ -63,7 +69,9 @@
     set: function (a) { try { localStorage.setItem(LKEY, JSON.stringify(a)); } catch (e) {} },
     // Element des Laufs: "water" oder "none" (weitere folgen)
     element: function () { try { var e = localStorage.getItem("shizuku.element"); if (e === "water" || e === "none") return e; } catch (er) {} return "water"; },
-    setElement: function (e) { try { localStorage.setItem("shizuku.element", e); } catch (er) {} }
+    setElement: function (e) { try { localStorage.setItem("shizuku.element", e); } catch (er) {} },
+    // Alle drei Slots für den Lauf: zwei Waffen + Element-Slot (fehlt ohne Element)
+    slots: function () { var a = this.get().slice(), e = this.element(); if (SZ.WEAPONS["el_" + e]) a.push("el_" + e); return a; }
   };
   // Wellensymbol (SVG) für das Wasser-Element
   SZ.WAVE_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square"><path d="M2 8c3-3 5 3 8 0s5 3 8 0 4 1 4 1"/><path d="M2 13c3-3 5 3 8 0s5 3 8 0 4 1 4 1"/><path d="M2 18c3-3 5 3 8 0s5 3 8 0 4 1 4 1"/></g></svg>';
@@ -74,7 +82,8 @@
     walk: 66, exhaustMul: 0.75,         // Grundtempo (Pixel/s); bei leerer Energie 25 % langsamer
     dashCost: 100 / 3, dashSpeed: 330, dashTime: 0.16,
     regenDelay: 2, regenRate: 45,       // Energie lädt nach 2 s ohne Angriff/Dash, 45 pro Sekunde
-    blockCost: 1.4                      // Energieverlust je Schadenspunkt beim Blocken
+    blockCost: 1.4,                     // Energieverlust je Schadenspunkt beim Blocken
+    mana: 100, manaDelay: 0.8, manaRegen: 16   // Mana: lädt 0,8 s nach dem letzten Verbrauch, 16 pro Sekunde (langsamer als Energie)
   };
 
   // Angriffsarten (zeitlicher Ablauf in Sekunden)

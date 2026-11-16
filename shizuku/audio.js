@@ -40,7 +40,8 @@
     // Wasser-Element: zwei Platzier-Sounds; hit = wann der Platsch nach Start kommt (s), damit er auf den Aufprall fällt
     water_place_1: { f: ["Watersplash_placement_1.mp3"], vol: 0.9, hit: 0.36 },
     water_place_2: { f: ["Watersplash_placement_2.mp3"], vol: 0.9, hit: 0.19 },
-    water_absorb: { f: ["Watersplash_absorb.mp3"], vol: 0.9 }
+    water_absorb: { f: ["Watersplash_absorb.mp3"], vol: 0.9 },
+    water_beam: { f: ["Wasser_Strahl.mp3"], vol: 0.8 }   // Wasserstrahl (3. Slot), läuft als Schleife
   };
   SZ.SOUND_HIT = function (name) { return (SOUNDS[name] && SOUNDS[name].hit) || 0; };
   var LOOPS = { wind: "Wind.mp3", waterfall: "Flowingwaterfall.mp3" };
@@ -120,8 +121,15 @@
         g.connect(p); out = p;
       }
       out.connect(sfxBus);
+      // opt.loop: als Schleife spielen (Strahl o. Ä.), mit weichem Einblenden; über stop() beenden
+      var pn = out !== g ? out : null;
+      if (opt.loop) {
+        src.loop = true; src.loopStart = Math.min(0.4, buf.duration * 0.2); src.loopEnd = Math.max(src.loopStart + 0.2, buf.duration - 0.25);
+        g.gain.setValueAtTime(0, ctx.currentTime); g.gain.linearRampToValueAtTime(gv, ctx.currentTime + 0.08);
+      }
       src.start(0, Math.min(off, buf.duration - 0.05));
-      return { stop: function (fade) { try { var t = ctx.currentTime; g.gain.setTargetAtTime(0, t, (fade || 0.05) / 3); src.stop(t + (fade || 0.05) + 0.05); } catch (e) {} } };
+      return { pan: function (x) { if (pn) pn.pan.value = Math.max(-0.8, Math.min(0.8, (x / SZ.W - 0.5) * 1.4)); },
+               stop: function (fade) { try { var t = ctx.currentTime; g.gain.setTargetAtTime(0, t, (fade || 0.05) / 3); src.stop(t + (fade || 0.05) + 0.05); } catch (e) {} } };
     },
     // Ambiente-Lautstärken setzen: { wind: 0..1, waterfall: 0..1, waterPan: -1..1 }. null = alles ausblenden
     ambience: function (lv) {

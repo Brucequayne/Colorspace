@@ -17,7 +17,7 @@
     this.x = x; this.y = y; this.vx = 0; this.vy = 0;
     world.player = this;
     this.face = Math.PI / 2; this.dir = 2; this.bodyAng = this.face;
-    this.slots = SZ.loadout.get(); this.wi = 0; this.weapon = SZ.WEAPONS[this.slots[0]];
+    this.slots = SZ.loadout.slots(); this.wi = 0; this.weapon = SZ.WEAPONS[this.slots[0]];
     this.act = null; this.guard = null;
     this.combo = 0; this.comboSide = 1; this.queued = false; this.comboT = 0;
     this.walkPh = 0; this.stepT = 0; this.idleT = 0;
@@ -25,6 +25,7 @@
     this.appear = 1; this.control = true;
     this.inv = 0; this.hitstop = 0; this.flash = 0;
     this.hp = this.hpMax = C.hp; this.en = this.enMax = C.energy; this.enT = 99;
+    this.mana = this.manaMax = C.mana; this.manaT = 99; this.manaFlash = 0;
     this.dead = false; this.deadT = 0;
     this.hair = new SZ.samurai.Hair(8, 2.1);
     this.sword = null;
@@ -39,10 +40,13 @@
   P.setWeapon = function (i) {
     var n = this.slots.length; i = ((i % n) + n) % n;
     if (i === this.wi) { this.wantW = null; return; }
-    if (this.act && (this.act.type === "atk" || this.act.type === "draw" || this.act.type === "loose")) { this.wantW = i; return; }
+    if (this.act && (this.act.type === "atk" || this.act.type === "draw" || this.act.type === "loose" || this.act.type === "punch")) { this.wantW = i; return; }
+    if (this.act && (this.act.type === "beam" || this.act.type === "wcharge")) this.act = null;   // Strahl/Laden endet beim Wechsel
     this.wantW = null; this.wi = i; this.weapon = SZ.WEAPONS[this.slots[i]]; this.press = null;
   };
   P.spend = function () { this.enT = 0; };
+  // Mana verbrauchen (Element-Angriffe). false, wenn nicht genug da ist
+  P.useMana = function (c) { if (this.mana < c) return false; this.mana -= c; this.manaT = 0; return true; };
 
   P.startAttack = function (kind, charge) {
     var A = SZ.ATTACKS[kind], w = this.weapon, sp = w.speed || 1;
@@ -131,6 +135,8 @@
     if (this.flash > 0) this.flash -= dt * 4;
     this.enT += dt;
     if (this.enT > C.regenDelay) this.en = Math.min(this.enMax, this.en + C.regenRate * dt);
+    this.manaT += dt; if (this.manaFlash > 0) this.manaFlash -= dt;
+    if (this.manaT > C.manaDelay) this.mana = Math.min(this.manaMax, this.mana + C.manaRegen * dt);
 
     var ix = 0, iy = 0, Wp = this.weapon, ac = this.act;
     if (this.control) {
@@ -141,16 +147,22 @@
       var il = Math.sqrt(ix * ix + iy * iy); if (il) { ix /= il; iy /= il; }
       if (I.hit("1")) this.setWeapon(0);
       if (I.hit("2")) this.setWeapon(1);
+      if (I.hit("3") && this.slots.length > 2) this.setWeapon(2);
       if (I.wheel && !ac) this.setWeapon(this.wi + (I.wheel > 0 ? 1 : -1));
       if (this.wantW != null) this.setWeapon(this.wantW);
       Wp = this.weapon;
       if (Wp.type === "bow" || Wp.type === "throw") this.press = null;
-      var lock = ac && (ac.type === "cast" || ac.type === "atk" || ac.type === "unsheathe" || ac.type === "dash" || ac.type === "hurt" || ac.type === "dodge");
+      var lock = ac && (ac.type === "cast" || ac.type === "beam" || ac.type === "punch" || ac.type === "atk" || ac.type === "unsheathe" || ac.type === "dash" || ac.type === "hurt" || ac.type === "dodge");
       if (!lock) this.face = Math.atan2(I.my - (this.y - 12), I.mx - this.x);
-      if ((I.hit(" ")) && !(ac && ac.type === "cast") && (!ac || ac.type === "loose" || ac.type === "charge" || (ac.type === "atk" && ac.t > ac.wind + ac.swing))) { this.startDash(ix, iy); ac = this.act; }
+      if ((I.hit(" ")) && !(ac && ac.type === "cast") && (!ac || ac.type === "loose" || ac.type === "charge" || ac.type === "punch" || ac.type === "wbolt" || ac.type === "wcharge" || ac.type === "beam" || (ac.type === "atk" && ac.t > ac.wind + ac.swing))) { this.startDash(ix, iy); ac = this.act; }
       var mi = this.modeIndex(I);
       if (this.inputLock || (ac && ac.type === "cast")) {
         // Element-Modus bzw. Beschwörung: keine Angriffe oder Blocks
+      } else if (Wp.type === "element") {
+        // Element-Slot: Faust, Geschosse, Strahl (element-water.js)
+        this.guard = null; this.press = null;
+        if (Wp.el === "water") SZ.waterArts(w).input(this, dt, I);
+        ac = this.act;
       } else if (Wp.type === "throw") {
         // Wurfwaffe: gehalten = Dauerfeuer mit der Feuerrate
         if (I.lmb && this.throwCd <= 0 && (!ac || ac.type === "throw")) { this.throwItem(); ac = this.act; }
@@ -185,7 +197,7 @@
         }
       }
       this.guard = null;
-      if (!ac && I.rmb && !this.inputLock && Wp.type !== "throw" && !(this.sheathed && Wp.sheath)) {   // Wurfwaffen können nicht blocken
+      if (!ac && I.rmb && !this.inputLock && Wp.type !== "throw" && Wp.type !== "element" && !(this.sheathed && Wp.sheath)) {   // Wurfwaffen können nicht blocken
         var bk = Wp.blocks[mi];
         if (bk === "kamae") this.guard = "kamae";
         else if (I.rmbHit && bk === "ukenagashi") this.startParry();
@@ -257,6 +269,16 @@
       } else if (ac.type === "cast") {
         tx = ty = 0;
         if (ac.fx.done || (ac.dur && ac.t >= ac.dur)) this.act = null;
+      } else if (ac.type === "punch") {
+        tx *= 0.7; ty *= 0.7;
+        if (ac.t >= ac.dur) { this.act = null; if (ac.queued) { this.face = Math.atan2(I.my - (this.y - 12), I.mx - this.x); SZ.waterArts(w).punch(this); } }
+      } else if (ac.type === "wbolt") {
+        tx *= 0.8; ty *= 0.8;
+        if (ac.t > ac.dur) this.act = null;
+      } else if (ac.type === "wcharge") {
+        tx *= 0.5; ty *= 0.5;
+      } else if (ac.type === "beam") {
+        tx *= 0.35; ty *= 0.35;                   // beim Strahl langsam, aber lenkbar
       } else if (ac.type === "throw") {
         tx *= 0.75; ty *= 0.75;
         if (ac.t > ac.dur) this.act = null;
@@ -389,6 +411,9 @@
       if (ac.type === "draw" || ac.type === "loose") return this.moving ? "bowwalk" : "bow";
       if (ac.type === "hurt") return "stagger";
       if (ac.type === "cast") return ac.fx.pose().anim;
+      if (ac.type === "punch" || ac.type === "wbolt") return ac.side > 0 ? "punch_r" : "punch_l";
+      if (ac.type === "wcharge") return ac.t < 0.2 ? "cast_low" : "cast_push";
+      if (ac.type === "beam") return "cast_push";
       if (ac.type === "charge" || ac.type === "throw") return "atk";
       if (ac.type === "unsheathe") return ac.t > 0.08 && ac.t < 0.45 ? "atk" : this.moving ? "walk" : "idle";
       return "dash";
@@ -460,7 +485,7 @@
     ctx.globalAlpha = this.appear;
     if (hairBehind) this.hair.draw(ctx, this.appear);
 
-    if (w.type === "throw" || (ac && ac.type === "cast")) {
+    if (w.type === "throw" || w.type === "element" || (ac && ac.type === "cast")) {
       // Wurfwaffe (Stern/Messer klein in der Hand) oder Beschwörung (Hände frei)
       ctx.drawImage(s.cv, x - A.AX, y - A.AY);
       if (w.type === "throw" && !(ac && ac.type === "cast")) {
