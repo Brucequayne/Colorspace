@@ -74,11 +74,10 @@
   };
   P.startDash = function (ix, iy) {
     var C = SZ.PLAYER;
-    // Luft-Element: bei voller Energie ist der Dash luftig – kostet nichts und trägt etwas weiter
-    var airy = this.air() && this.en >= this.enMax - 0.5;
-    var cost = SZ.perk.dashCost(this);
-    if (!airy && this.en < cost - 0.01) return;
-    if (!airy) { this.en -= cost; this.spend(); }
+    // Luft-Element: luftiger Dash – kostet 25 % weniger Energie (bei voller Energie ein Dash mehr) und trägt etwas weiter
+    var airy = this.air(), cost = SZ.perk.dashCost(this) * (airy ? SZ.AIR_ART.passive.dash : 1);
+    if (this.en < cost - 0.01) return;
+    this.en -= cost; this.spend();
     var a = ix || iy ? Math.atan2(iy, ix) : this.face;
     this.act = { type: "dash", t: 0, ang: a, dur: C.dashTime * (airy ? 1.2 : 1), airy: airy };
     this.inv = C.dashTime + 0.06;

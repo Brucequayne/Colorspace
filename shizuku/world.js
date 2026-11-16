@@ -339,22 +339,39 @@
   // Effekte (Wasser) in halber Auflösung zeichnen, auf die Wasserpalette reduzieren und mit harten Pixeln
   // hochskalieren: so passen sie zum Pixel-Look von Boden und Figuren. Halbtransparenz wird gerastert.
   var BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
+  // Paletten der Pixel-Ebenen: Wasser (deckend, gerasterte Ränder) und Wind (halbtransparent in Stufen)
   Wd.drawFx = function (ctx, low) {
-    var all = this.fx.filter(function (f) { return (low ? f.drawLow : f.draw) && !(f.idle && f.idle()); });
-    var list = all.filter(function (f) { return !f.raw; });
-    all.forEach(function (f) { if (f.raw) { if (low) f.drawLow(ctx); else f.draw(ctx); } });   // eigener Pixel-Look (Luft)
-    if (!list.length) return;
-    var W2 = SZ.W >> 1, H2 = SZ.H >> 1, L = this._fxc || (this._fxc = SZ.canvas(W2, H2)), c = L.ctx;
+    var self = this, groups = {}, tops = [];
+    this.fx.forEach(function (f) {
+      if (f.idle && f.idle()) return;
+      var fn = low ? f.drawLow : f.draw;
+      if (fn) { if (f.raw) fn.call(f, ctx); else (groups[f.pal || "water"] = groups[f.pal || "water"] || []).push(f); }
+      if (low ? f.drawTopLow : f.drawTop) tops.push(f);
+    });
+    Object.keys(groups).forEach(function (k) { self.fxLayer(ctx, low, groups[k], k); });
+    tops.forEach(function (f) { if (low) f.drawTopLow(ctx); else f.drawTop(ctx); });   // z. B. Laub im Tornado in Originalfarben
+  };
+  Wd.fxLayer = function (ctx, low, list, pal) {
+    var W2 = SZ.W >> 1, H2 = SZ.H >> 1, cs = this._fxc || (this._fxc = {}), L = cs[pal] || (cs[pal] = SZ.canvas(W2, H2)), c = L.ctx;
     c.setTransform(1, 0, 0, 1, 0, 0); c.clearRect(0, 0, W2, H2); c.setTransform(0.5, 0, 0, 0.5, 0, 0);
     list.forEach(function (f) { if (low) f.drawLow(c, ctx); else f.draw(c, ctx); });
     c.setTransform(1, 0, 0, 1, 0, 0);
-    var img = c.getImageData(0, 0, W2, H2), d = img.data, P = SZ.WATER_PAL, np = P.length;
+    var img = c.getImageData(0, 0, W2, H2), d = img.data, wind = pal === "wind", P = wind ? SZ.WIND_PAL : SZ.WATER_PAL, np = P.length;
     for (var y = 0, i = 0; y < H2; y++) for (var x = 0; x < W2; x++, i += 4) {
       var a = d[i + 3]; if (!a) continue;
-      if (a < 250 && a < (BAYER[(y & 3) * 4 + (x & 3)] + 0.5) * 16) { d[i + 3] = 0; continue; }   // gerasterte Transparenz
-      var r = d[i] * 255 / a, g = d[i + 1] * 255 / a, b = d[i + 2] * 255 / a, best = 0, bd = 1e9;
+      var bay = (BAYER[(y & 3) * 4 + (x & 3)] + 0.5) * 16, r, g, b;
+      if (wind) {
+        // Wind: drei Deckkraft-Stufen, dazwischen gerastert → dichte, aber luftige Böen
+        if (a < bay * 0.55) { d[i + 3] = 0; continue; }
+        r = d[i]; g = d[i + 1]; b = d[i + 2];
+        d[i + 3] = a > 200 ? 235 : a > 120 ? 190 : 140;
+      } else {
+        if (a < 250 && a < bay) { d[i + 3] = 0; continue; }   // gerasterte Transparenz
+        r = d[i] * 255 / a; g = d[i + 1] * 255 / a; b = d[i + 2] * 255 / a; d[i + 3] = 255;
+      }
+      var best = 0, bd = 1e9;
       for (var k = 0; k < np; k += 3) { var dr = r - P[k], dg = g - P[k + 1], db = b - P[k + 2], dd = dr * dr * 0.3 + dg * dg * 0.59 + db * db * 0.11; if (dd < bd) { bd = dd; best = k; } }
-      d[i] = P[best]; d[i + 1] = P[best + 1]; d[i + 2] = P[best + 2]; d[i + 3] = 255;
+      d[i] = P[best]; d[i + 1] = P[best + 1]; d[i + 2] = P[best + 2];
     }
     c.putImageData(img, 0, 0);
     var sm = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = false;

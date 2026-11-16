@@ -5,7 +5,7 @@
      Linksklick tippen            → Windhieb, abwechselnd links und rechts (ähnlich den Wasserfäusten)
      Shift + Linksklick           → Windrose: Tornado um den Samurai (Laub wirbelt mit), trifft alle Gegner im Umkreis, Rückstoß
      Linksklick halten (0,5 s)    → Luftkugel, solange gehalten: durch Gegner laufen, Kontaktschaden, Dash-Rammstoß
-   Passiv: bei voller Energie ist der Dash luftig und kostet nichts; Fernkampf 30 % schneller (Feuerrate, Spannen),
+   Passiv: Dash kostet 25 % weniger Energie; Fernkampf 30 % schneller (Feuerrate, Spannen),
            Pfeile 40 % schneller (siehe player.js)
    X (einmal pro Welle): Sturmklinge – 5 s lang schickt jeder Nahkampfangriff einen Windstoß hinterher */
 (function () {
@@ -15,35 +15,9 @@
     whirl: { dmg: 8, r: 46, dur: 0.8, hitAt: 0.16, mana: 18, knock: 1.7 },
     sphere: { charge: 0.5, mana: 20, min: 10, r: 13, touch: 4, touchCd: 0.2, knock: 1.2, dashDmg: 12, dashKnock: 2.4 },
     gust: { dur: 5, dmg: 4, knock: 1.5, reach: 56, arc: 1.1 },
-    passive: { rate: 1.3, draw: 1.3, arrow: 1.4 }
+    passive: { rate: 1.3, draw: 1.3, arrow: 1.4, dash: 0.75 }
   };
-  var COL = ["#FFFFFF", "#E8F0EE", "#C8D8D6", "#A8BCBC"];
-  var BAY = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
   function rnd(a, b) { return a + Math.random() * (b - a); }
-  // ein Pixel mit gerasterter Deckkraft (a 0…1) – kein weicher Rand, passend zum Pixel-Look
-  function px(ctx, x, y, col, a) {
-    x = Math.round(x); y = Math.round(y);
-    if (a < 1 && a * 16 <= BAY[(y & 3) * 4 + (x & 3)]) return;
-    ctx.fillStyle = col; ctx.fillRect(x, y, 1, 1);
-  }
-  // Bogen aus Pixeln: Mittelpunkt, Radien, Winkel a0…a1, Deckkraft läuft zu den Enden hin aus
-  function arcPx(ctx, cx, cy, r, ry, a0, a1, col, a) {
-    var n = Math.max(4, Math.ceil(Math.abs(a1 - a0) * r * 1.2));
-    for (var i = 0; i <= n; i++) {
-      var s = i / n, an = a0 + (a1 - a0) * s, edge = Math.min(1, Math.sin(s * Math.PI) * 2.2);
-      px(ctx, cx + Math.cos(an) * r, cy + Math.sin(an) * ry, col, a * edge);
-    }
-  }
-
-  // wie arcPx, aber nur die vordere (front) oder hintere Hälfte – für räumliche Ringe um eine Figur
-  function arcPxF(ctx, cx, cy, r, ry, a0, a1, col, a, front) {
-    var n = Math.max(4, Math.ceil(Math.abs(a1 - a0) * r * 1.2));
-    for (var i = 0; i <= n; i++) {
-      var s = i / n, an = a0 + (a1 - a0) * s;
-      if ((Math.sin(an) >= 0) !== front) continue;
-      px(ctx, cx + Math.cos(an) * r, cy + Math.sin(an) * ry, col, a * Math.min(1, Math.sin(s * Math.PI) * 2.2));
-    }
-  }
   var LEAF = ["#6E8C3A", "#8AA850", "#A4BC62", "#C8A048", "#8A6A44", "#5E8040", "#B89058"], DUST = ["#B8AE9A", "#9A9080", "#D0C6B2"];
   // ---------- Vegetation: biegen und lose Halme losreißen ----------
   var VEGCOL = { grass: ["#6E8C3A", "#8AA850", "#A4BC62"], tallgrass: ["#7A9440", "#9AB058", "#B8C878"], wheat: ["#D8B860", "#C8A048", "#E8CC78"],
@@ -60,7 +34,7 @@
   SZ.windTear = tear;
 
   function Arts(world) {
-    this.w = world; this.t = 0; this.raw = true;   // raw: nicht durch die Wasser-Pixelebene (eigener Pixel-Look)
+    this.w = world; this.t = 0;   // gezeichnet in die Wind-Pixelebene (pal = "wind")
     this.slashes = []; this.gusts = []; this.whirls = []; this.press = null; this.charging = null;
   }
   var R = Arts.prototype;
@@ -168,7 +142,7 @@
           if (d < S.reach + e.D.radius && Math.abs(m.angDiff(s.a, a)) < S.arc * 0.5 + 6 / Math.max(8, d)) { ac.hits.push(e); hitEnemy(w, e, S.dmg, a, S.knock); SZ.audio.play("hit_flesh", { x: e.x, vol: 0.45, rate: 1.2 }); }
         });
       }
-      if (s.t > 0.32) this.slashes.splice(i, 1);
+      if (s.t > 0.36) this.slashes.splice(i, 1);
     }
     // Windrose
     for (var j = this.whirls.length - 1; j >= 0; j--) {
@@ -252,86 +226,141 @@
     return true;
   };
 
-  // ---------- Zeichnen (direkt in Pixeln) ----------
+  // ---------- Zeichnen: dicke Windböen ----------
+  // Böen sind Sichel-Bänder (in der Mitte dick, an den Enden spitz) mit hellen Strähnen und dunklerem Außenrand.
+  // Gezeichnet in die Wind-Pixelebene (world.fxLayer, Palette SZ.WIND_PAL): grob, halbtransparent, wie dichte Luft.
+  SZ.WIND_PAL = [244, 248, 246, 222, 232, 232, 196, 210, 212, 166, 184, 188, 136, 154, 160, 206, 196, 176];
+  var C_BODY = "rgba(196,210,212,0.62)", C_EDGE = "rgba(150,168,172,0.8)", C_HI = "rgba(240,246,244,0.9)", C_MID = "rgba(222,232,232,0.75)", C_DUST = "rgba(206,196,176,0.65)";
+  // Winkelbereich a0…a1 (beliebige Richtung) in Teilstücke vorne/hinten zerlegen (front: true/false, undefined = alles)
+  function parts(a0, a1, front) {
+    if (front === undefined) return [[a0, a1, 0, 1]];
+    var out = [], n = Math.max(8, Math.ceil(Math.abs(a1 - a0) * 12)), cur = null;
+    for (var i = 0; i <= n; i++) {
+      var s = i / n, an = a0 + (a1 - a0) * s, ok = (Math.sin(an) >= 0) === front;
+      if (ok && !cur) cur = [an, an, s, s];
+      if (ok) { cur[1] = an; cur[3] = s; }
+      if (!ok && cur) { out.push(cur); cur = null; }
+    }
+    if (cur) out.push(cur);
+    return out;
+  }
+  // Sichel-Band: äußerer Radius r, Dicke w (Mitte), Ellipse ry/r
+  function band(ctx, cx, cy, r, k, a0, a1, w, col, front) {
+    parts(a0, a1, front).forEach(function (pt) {
+      var b0 = pt[0], b1 = pt[1], s0 = pt[2], s1 = pt[3], n = Math.max(4, Math.ceil(Math.abs(b1 - b0) * r / 2.5));
+      ctx.fillStyle = col; ctx.beginPath();
+      for (var i = 0; i <= n; i++) { var q = i / n, an = b0 + (b1 - b0) * q; i ? ctx.lineTo(cx + Math.cos(an) * r, cy + Math.sin(an) * r * k) : ctx.moveTo(cx + Math.cos(an) * r, cy + Math.sin(an) * r * k); }
+      for (var j = n; j >= 0; j--) {
+        var q2 = j / n, an2 = b0 + (b1 - b0) * q2, gs = s0 + (s1 - s0) * q2, tp = Math.pow(Math.max(0, Math.sin(gs * Math.PI)), 0.7), ri = Math.max(0, r - w * tp);
+        ctx.lineTo(cx + Math.cos(an2) * ri, cy + Math.sin(an2) * ri * k);
+      }
+      ctx.closePath(); ctx.fill();
+    });
+  }
+  // Strähne: Linie entlang einer Ellipse
+  function streak(ctx, cx, cy, r, k, a0, a1, lw, col, front) {
+    parts(a0, a1, front).forEach(function (pt) {
+      var b0 = pt[0], b1 = pt[1], n = Math.max(3, Math.ceil(Math.abs(b1 - b0) * r / 3));
+      ctx.strokeStyle = col; ctx.lineWidth = lw; ctx.lineCap = "round"; ctx.beginPath();
+      for (var i = 0; i <= n; i++) { var an = b0 + (b1 - b0) * i / n; i ? ctx.lineTo(cx + Math.cos(an) * r, cy + Math.sin(an) * r * k) : ctx.moveTo(cx + Math.cos(an) * r, cy + Math.sin(an) * r * k); }
+      ctx.stroke();
+    });
+  }
+  // Eine volle Böe: Band + dunkler Rand + helle Strähnen innen
+  function gustBand(ctx, cx, cy, r, k, a0, a1, w, alpha, front, dusty) {
+    ctx.globalAlpha = alpha;
+    band(ctx, cx, cy, r + 1, k, a0, a1, w * 0.45, C_EDGE, front);
+    band(ctx, cx, cy, r, k, a0, a1, w, dusty ? C_DUST : C_BODY, front);
+    var span = a1 - a0;
+    streak(ctx, cx, cy, r - w * 0.3, k, a0 + span * 0.12, a1 - span * 0.18, Math.max(1.2, w * 0.22), C_HI, front);
+    streak(ctx, cx, cy, r - w * 0.62, k, a0 + span * 0.3, a1 - span * 0.1, Math.max(1, w * 0.16), C_MID, front);
+    ctx.globalAlpha = 1;
+  }
+
+  R.pal = "wind";
   R.drawLow = function (ctx) {
     var p = this.w.player, t = this.t;
-    // Schatten der Luftkugel und Wirbel am Boden: helle, gerasterte Ringe
-    if (p && p.sphere) { var r = AIR.sphere.r + 2 + Math.sin(t * 9); arcPx(ctx, p.x, p.y, r, r * 0.45, 0, TAU, COL[2], 0.45); }
+    if (p && p.sphere) drawSphere(ctx, p, t, false);
     this.whirls.forEach(function (h) { drawTornado(ctx, h, t, false); });
+    if (p && p.airBuff > 0) drawAura(ctx, p, t, false);
   };
   R.draw = function (ctx) {
-    var p = this.w.player, t = this.t, self = this;
-    // Windhiebe: Sichel aus drei Bögen, öffnet sich nach vorn
+    var p = this.w.player, t = this.t;
+    // Windhieb: dicke Sichel, die nach vorn ausholt, zwei kleinere Böen folgen
     this.slashes.forEach(function (s) {
-      var u = s.t / 0.32, ext = m.easeOutCubic(Math.min(1, s.t / 0.12)), fade = 1 - Math.max(0, (u - 0.35) / 0.65);
-      var R2 = 12 + AIR.slash.reach * 0.75 * ext, half = AIR.slash.arc * 0.5, a0 = s.a - half * s.side, a1 = s.a + half * s.side;
-      var cx = p.x, cy = p.y - 10;
-      for (var k = 0; k < 3; k++) arcPx(ctx, cx, cy, R2 - k * 4, (R2 - k * 4) * 0.62, a0 + s.side * k * 0.12, a1, COL[k], fade * (1 - k * 0.2));
+      var u = s.t / 0.36, ext = m.easeOutCubic(Math.min(1, s.t / 0.1)), fade = 1 - Math.max(0, (u - 0.5) / 0.5);
+      var R2 = 18 + AIR.slash.reach * 0.8 * ext, half = AIR.slash.arc * 0.72, sweep = Math.min(1, s.t / 0.07);
+      var a0 = s.a - half * s.side, a1 = a0 + 2 * half * s.side * sweep, cy = p.y - 10;
+      if (s.side < 0) { var tmp = a0; a0 = a1; a1 = tmp; }
+      gustBand(ctx, p.x, cy, R2, 0.7, a0, a1, 14 * (0.6 + ext * 0.4), fade, undefined);
+      gustBand(ctx, p.x, cy, R2 - 11, 0.7, a0 + 0.15, a1 - 0.1, 7, fade * 0.85, undefined);
+      if (ext > 0.5) gustBand(ctx, p.x, cy, R2 + 8, 0.7, a0 + 0.3, a1 - 0.3, 5, fade * 0.7, undefined);
     });
-    // Windrose: Tornado (vordere Hälfte, hinter der Figur liegt die andere – siehe drawLow)
     this.whirls.forEach(function (h) { drawTornado(ctx, h, t, true); });
-    // Luftkugel: rotierende Streifen und ein heller Rand
-    if (p && p.sphere) {
-      var Q = AIR.sphere, cx2 = p.x, cy2 = p.y - 11, r = Q.r + Math.sin(t * 7) * 0.8, grow = Math.min(1, p.sphere.t / 0.2);
-      arcPx(ctx, cx2, cy2, r * grow, r * grow * 0.95, 0, TAU, COL[1], 0.35);
-      for (var k2 = 0; k2 < 4; k2++) {
-        var a0 = t * (k2 % 2 ? 6 : -5) + k2 * 1.6, tilt = 0.35 + k2 * 0.18;
-        arcPx(ctx, cx2, cy2, r * grow, r * grow * tilt, a0, a0 + 1.9, COL[k2 % 2], 0.85);
-      }
-    }
-    // Laden: Spirale zieht sich zusammen
+    if (p && p.sphere) drawSphere(ctx, p, t, true);
+    // Laden: Böen ziehen sich spiralförmig zusammen
     if (this.charging) {
-      var c = this.charging, q = Math.min(1, c.t / AIR.sphere.charge);
-      for (var k3 = 0; k3 < 3; k3++) {
-        var aa = t * 8 + k3 * TAU / 3;
-        for (var i2 = 0; i2 <= 10; i2++) { var s2 = i2 / 10, rr2 = (20 - q * 8) * (1 - s2 * 0.6); px(ctx, p.x + Math.cos(aa + s2 * 2) * rr2, p.y - 11 + Math.sin(aa + s2 * 2) * rr2 * 0.6, COL[i2 % 2], 0.4 + q * 0.5); }
-      }
+      var q = Math.min(1, this.charging.t / AIR.sphere.charge);
+      for (var k = 0; k < 3; k++) { var aa = t * 9 + k * TAU / 3, rr = 24 - q * 9; gustBand(ctx, p.x, p.y - 10, rr, 0.6, aa, aa + 1.3, 4 + q * 3, 0.6 + q * 0.4, undefined); }
     }
-    // Sturmklinge: Windstoß als große Sichel
+    // Sturmklinge: Windstoß als große, dicke Welle
     this.gusts.forEach(function (g) {
-      var G = AIR.gust, reach = G.reach * m.easeOutCubic(Math.min(1, g.t / 0.18)), fade = 1 - Math.max(0, (g.t - 0.15) / 0.15);
-      for (var k = 0; k < 2; k++) arcPx(ctx, g.x, g.y - 10, reach - k * 5, (reach - k * 5) * 0.6, g.a - G.arc * 0.5, g.a + G.arc * 0.5, COL[k], fade);
+      var G = AIR.gust, reach = 10 + G.reach * m.easeOutCubic(Math.min(1, g.t / 0.18)), fade = 1 - Math.max(0, (g.t - 0.14) / 0.16);
+      gustBand(ctx, g.x, g.y - 10, reach, 0.6, g.a - G.arc * 0.55, g.a + G.arc * 0.55, 14, fade, undefined);
+      gustBand(ctx, g.x, g.y - 10, reach - 12, 0.6, g.a - G.arc * 0.4, g.a + G.arc * 0.4, 7, fade * 0.8, undefined);
     });
-    // Sturmklinge aktiv: Windbänder um den Samurai
-    if (p && p.airBuff > 0) {
-      for (var k4 = 0; k4 < 2; k4++) { var b0 = t * (k4 ? 7 : -6) + k4 * 2; arcPx(ctx, p.x, p.y - 10, 11, 5, b0, b0 + 1.6, COL[k4], 0.75); }
-    }
+    if (p && p.airBuff > 0) drawAura(ctx, p, t, true);
   };
-
-  // Tornado um den Samurai: übereinander liegende Windringe, die sich nach oben weiten und unterschiedlich schnell drehen,
-  // dazu kreisendes Laub und Staub. front: vordere Hälfte (nach den Figuren gezeichnet), sonst die hintere.
+  // Luftkugel: dicke Böen kreisen in mehreren Neigungen um den Samurai (vorne/hinten getrennt)
+  function drawSphere(ctx, p, t, front) {
+    var Q = AIR.sphere, grow = m.easeOutCubic(Math.min(1, p.sphere.t / 0.2)), r = (Q.r + 4) * grow, cy = p.y - 11;
+    var tilt = [0.32, 0.55, 0.8, 0.45], sp = [7, -6, 8.5, -7.5];
+    for (var k = 0; k < 4; k++) {
+      var a0 = t * sp[k] + k * 1.7;
+      gustBand(ctx, p.x, cy, r + (k % 2) * 2, tilt[k], a0, a0 + 2.3, 6, 0.95, front);
+    }
+    if (!front) { ctx.globalAlpha = 0.5; band(ctx, p.x, p.y, r * 0.9, 0.42, 0, TAU, 4, C_BODY); ctx.globalAlpha = 1; }   // Luftdruck am Boden
+  }
+  // Sturmklinge aktiv: zwei Böen kreisen um den Samurai
+  function drawAura(ctx, p, t, front) {
+    for (var k = 0; k < 2; k++) { var b0 = t * (k ? 7 : -6) + k * 2; gustBand(ctx, p.x, p.y - 10 + k * 4, 13, 0.42, b0, b0 + 1.8, 4, 0.8, front); }
+  }
+  // Tornado: übereinander liegende, dicke Böen, die sich nach oben weiten und unterschiedlich schnell drehen
   function drawTornado(ctx, h, t, front) {
     var W = AIR.whirl, u = h.t / W.dur, grow = m.easeOutCubic(Math.min(1, h.t / 0.16)), fade = 1 - Math.max(0, (u - 0.75) / 0.3);
     if (fade <= 0) return;
-    var spread = 1 + Math.max(0, u - 0.75) * 1.6;   // am Ende reißt der Trichter nach außen auf
-    for (var k = 0; k < 8; k++) {
-      var z = k * 5.5, r = (9 + k * 3.6) * grow * spread, ry = r * 0.42, cy = h.y - z, sp = (15 - k * 0.9) * h.spin;
-      var col = k < 2 ? "#D8CCB4" : k < 4 ? COL[2] : k < 6 ? COL[1] : COL[0];
-      for (var j = 0; j < 4; j++) {
-        var a0 = t * sp + k * 0.9 + j * 1.57, len = 1.0 + (k % 2) * 0.35, al = fade * (j % 2 ? 0.8 : 1);
-        arcPxF(ctx, h.x, cy, r, ry, a0, a0 + len, col, al, front);
-        arcPxF(ctx, h.x, cy + 1, r - 1.5, ry - 0.6, a0 + 0.1, a0 + len - 0.1, COL[Math.min(3, (k >> 1) + 1)], al * 0.85, front);   // zweite Linie: Band statt Strich
+    var spread = 1 + Math.max(0, u - 0.75) * 1.6;
+    for (var k = 0; k < 6; k++) {
+      var z = k * 7, r = (11 + k * 4.6) * grow * spread, cy = h.y - z, sp = (13 - k * 1.1) * h.spin, w = 6 + k * 1.1;
+      for (var j = 0; j < 2; j++) {
+        var a0 = t * sp + k * 1.1 + j * Math.PI, len = 1.9 + (k % 2) * 0.5;
+        var lo = Math.min(a0, a0 + len * h.spin), hi = Math.max(a0, a0 + len * h.spin);
+        gustBand(ctx, h.x, cy, r, 0.42, lo, hi, w, fade * (j ? 0.8 : 1), front, k < 2);
       }
-      if (k % 2 === 0) arcPxF(ctx, h.x, cy, r + 1, ry + 0.5, t * sp * 0.7 + k, t * sp * 0.7 + k + 0.7, COL[3], fade * 0.6, front);
     }
-    // Laub und Staub
+    // Druckwelle im Trefferzeitpunkt: dicker Ring nach außen
+    if (front && h.t > W.hitAt && h.t < W.hitAt + 0.25) {
+      var q = (h.t - W.hitAt) / 0.25, rr = 14 + (W.r + 12) * m.easeOutCubic(q);
+      gustBand(ctx, h.x, h.y, rr, 0.45, 0, TAU, 7 * (1 - q) + 2, 1 - q, undefined);
+    }
+    if (!front) { ctx.globalAlpha = fade * 0.6; band(ctx, h.x, h.y, 22 * grow, 0.45, 0, TAU, 6, C_DUST); ctx.globalAlpha = 1; }   // Staub am Boden
+  }
+  // Laub und Staub im Tornado in Originalfarben (nicht durch die Wind-Palette)
+  function drawDebris(ctx, h, t, front) {
+    var W = AIR.whirl, u = h.t / W.dur, fade = 1 - Math.max(0, (u - 0.75) / 0.3), spread = 1 + Math.max(0, u - 0.75) * 1.6;
+    if (fade <= 0) return;
     h.debris.forEach(function (d) {
       var sn = Math.sin(d.ang); if ((sn >= 0) !== front) return;
       var x = Math.round(h.x + Math.cos(d.ang) * d.r * spread), y = Math.round(h.y + sn * d.r * 0.42 * spread - d.z);
       ctx.globalAlpha = fade; ctx.fillStyle = d.col;
       ctx.fillRect(x, y, d.big ? 2 : 1, d.leaf && d.big ? 1 : d.big ? 2 : 1);
-      if (d.leaf && d.big && (Math.floor(t * 20 + d.r) % 2)) ctx.fillRect(x, y + 1, 1, 1);   // flatterndes Blatt
+      if (d.leaf && d.big && (Math.floor(t * 20 + d.r) % 2)) ctx.fillRect(x, y + 1, 1, 1);
       ctx.globalAlpha = 1;
     });
-    // Druckwelle im Trefferzeitpunkt
-    if (front && h.t > W.hitAt && h.t < W.hitAt + 0.25) {
-      var q = (h.t - W.hitAt) / 0.25, rr = 12 + (W.r + 10) * m.easeOutCubic(q);
-      arcPx(ctx, h.x, h.y, rr, rr * 0.45, 0, TAU, COL[0], 1 - q);
-      arcPx(ctx, h.x, h.y, rr - 4, (rr - 4) * 0.45, 0, TAU, COL[2], (1 - q) * 0.7);
-    }
-    // Staubring am Boden
-    if (!front) arcPx(ctx, h.x, h.y, 16 * grow, 7 * grow, t * 6 * h.spin, t * 6 * h.spin + 4.5, "#C8BEA8", fade * 0.6);
   }
+  R.drawTopLow = function (ctx) { var t = this.t; this.whirls.forEach(function (h) { drawDebris(ctx, h, t, false); }); };
+  R.drawTop = function (ctx) { var t = this.t; this.whirls.forEach(function (h) { drawDebris(ctx, h, t, true); }); };
+
   SZ.airArts = function (world) {
     if (!world.airArts) world.airArts = new Arts(world);
     if (world.fx.indexOf(world.airArts) < 0) world.fx.push(world.airArts);

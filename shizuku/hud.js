@@ -54,7 +54,7 @@
       bar(ctx, x, y, 74, 4, chip, "#F2E6D0", null, "#2A2220");
       ctx.fillStyle = "#C83C2A"; ctx.fillRect(x, y, Math.round(74 * Math.max(0, f)), 4);
       ctx.fillStyle = "#E8664A"; ctx.fillRect(x, y, Math.round(74 * Math.max(0, f)), 1);
-      var low = pl.en < SZ.perk.dashCost(pl) - 0.01;
+      var low = pl.en < SZ.perk.dashCost(pl) * (pl.air && pl.air() ? SZ.AIR_ART.passive.dash : 1) - 0.01;
       var back = pl.exhausted ? (Math.floor(Date.now() / 250) % 2 ? "#5A1C16" : "#3A1410") : "#24201A";
       bar(ctx, x, y + 7, 74, 3, e, low ? "#8A7A5A" : "#E2D29A", low ? null : "#FFF4C8", back);
       ctx.fillStyle = "#0A0808"; ctx.fillRect(x + Math.round(74 / 3), y + 7, 1, 3); ctx.fillRect(x + Math.round(74 * 2 / 3), y + 7, 1, 3);
