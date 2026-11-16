@@ -10,9 +10,9 @@
       pDraw: "handwaffen/pistole_rausholen.mp3", pShot: "handwaffen/pistole_schuss.mp3", mDraw: "handwaffen/mp_rausholen.mp3", mShot: "handwaffen/mp_schuss.mp3", mCase: "handwaffen/mp_huelse.mp3",
       rgCh: "synth/railgun_laden.mp3", rgShot: "synth/railgun_schuss.mp3", lz: "synth/laser_strahl.wav", msStart: "synth/rakete_start.mp3", msLoop: "synth/rakete_zischen.wav",
       hit1: "synth/treffer_metall_1.mp3", hit2: "synth/treffer_metall_2.mp3", hit3: "synth/treffer_metall_3.mp3", shHit: "synth/schild_treffer.mp3", shLoad: "synth/schild_laden.wav",
-      reac: "synth/reaktor_summen.wav", ping: "synth/scanner_ping.mp3", st1: "synth/schritt_1.mp3", st2: "synth/schritt_2.mp3", st3: "synth/schritt_3.mp3", st4: "synth/schritt_4.mp3", breath: "synth/atmen_helm.wav"
+      reac: "synth/reaktor_summen.wav", ping: "synth/scanner_ping.mp3", st1: "synth/schritt_1.mp3", st2: "synth/schritt_2.mp3", st3: "synth/schritt_3.mp3", st4: "synth/schritt_4.mp3"
     },
-    loop: { lz: 1, msLoop: 1, shLoad: 1, reac: 1, breath: 1 },
+    loop: { lz: 1, msLoop: 1, shLoad: 1, reac: 1 },
     buf: {}, off: {}, busy: false, out: null, dull: null, voices: {}, loops: {}, last: {}, ids: 0
   };
   // Stimmen je Sound: wie viele gleichzeitig klingen dürfen; die älteste wird kurz ausgeblendet (Dauerfeuer bleibt klar)
@@ -157,9 +157,5 @@
       }
       SND.stp = { bd: pb, x: P.x, y: P.y };
     } else SND.stp = null;
-    // Atmen im Helm, sobald man auf Anzugluft angewiesen ist
-    if (FL.breath && FL.breath !== "room") sndLoop("br", "breath", 0.85, 0);
-    // Scanner: Sonar-Ping alle 5 s, solange er mit Antenne arbeitet
-    if (FL.me.nScan && antRange(FL.me) && FL.bodies.indexOf(FL.me) >= 0) { SND.pingT = (SND.pingT || 0) - dt; if (SND.pingT <= 0) { SND.pingT = 5; snd("ping", { x: FL.me.x, y: FL.me.y, gain: 0.7 }); } }
     sndLoopsEnd();
   }

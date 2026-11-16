@@ -25,7 +25,8 @@
     if (bd.roomsDirty || !bd.rooms) airRooms(bd);
     bd.rooms.forEach(function (r) { r.air = Math.max(0, Math.min(1, r.air + (r.ok ? AIR.fill : -AIR.vent) * dt)); });
     // Atmen: Raumluft, sobald genug da ist, sonst zieht der Anzug
-    var r = pilotRoom(bd); FL.breath = r && r.air > SUIT.breathe ? "room" : FL.out ? "jet" : "suit";
+    var r = pilotRoom(bd), bw = FL.breath; FL.breath = r && r.air > SUIT.breathe ? "room" : FL.out ? "jet" : "suit";
+    if (FL.breath === "suit" && bw !== "suit" && bw !== "jet") { note(t("airLost")); floatTxt(t("airLost"), "255,120,90"); }   // v0.58.2: Schiffsluft weg → Anzugversorgung
     if (FL.breath === "room") FL.suit = Math.min(SUIT.max, FL.suit + SUIT.refill * dt);
     else FL.suit = Math.max(0, FL.suit - dt * (1 + (FL.out && FL.eva && FL.eva.thr ? SUIT.jet : 0)));
     if (FL.suit <= 0) {

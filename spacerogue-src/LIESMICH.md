@@ -134,3 +134,5 @@ Folgen für Änderungen:
 - v0.58.1: Raumklang und viele neue Sounds. Synthetisierte Platzhalter liegen unter `spacerogue-sounds/synth/` (Erzeugung:
   `werkzeuge/sounds_synth.py <zielordner>`, braucht numpy/scipy/ffmpeg). Jede Datei kann Noah durch eine eigene mit gleichem
   Namen ersetzen; `.wav` = nahtlose Schleife. Sounds nutzen eigenen Zufall `sndR`, nie `Math.random` (sonst ändert sich der Volltest).
+- v0.58.2: Atmen-Schleife entfernt (Datei `synth/atmen_helm.wav` wird nicht mehr geladen), Warnung `airLost` beim Wechsel Schiffsluft →
+  Anzug (54-figur). Scanner auf Taste G: `scanPulse` in 58-scanner, Marker nur `SCAN.hold` s nach dem Scan.

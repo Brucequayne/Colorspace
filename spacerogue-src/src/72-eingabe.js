@@ -80,6 +80,7 @@
       if (k === "z") FL.damp = !FL.damp;
       if (k === "p") { if (!FL.out) dockKey(); return; }
       if (k === "c") { FL.cruise = !FL.cruise; floatTxt(t(FL.cruise ? "crFloatOn" : "crFloatOff")); }
+      if (k === "g") { scanPulse(); return; }   // v0.58.2: Scanner auslösen
       if (k === "x") { if (FL.oc) { FL.oc = false; floatTxt(t("ocOff"), "201,160,245"); } else if (FL.ocT > 0.3) { FL.oc = true; floatTxt(t("ocOn"), "201,160,245"); } }
       if (k === "r" && FL.groups.length) FL.wsel = (FL.wsel + 1) % FL.groups.length;
       if (k === "f") toggleSeat();

@@ -5,7 +5,7 @@
 (function () {
   "use strict";
 
-  var VERSION = "0.58.1";
+  var VERSION = "0.58.2";
   var CELL_M = 2.5, PX = 24;              // Meter je Zelle, Pixel je Zelle bei Zoom 1
   var lang = "de";
   function L2(de, en) { return { de: de, en: en }; }
@@ -31,7 +31,9 @@
     mStoryT: L2("Die Story mit Missionen ist in Entwicklung.", "The story with missions is in development."), mMenu: L2("Menü", "Menu"), mBack: L2("Zurück", "Back"),
     mEdT: L2("Schiffe und Stationen bauen und im Testflug ausprobieren", "Build ships and stations and try them in a test flight"),
     setHud: L2("HUD-Größe", "HUD size"), setAuto: L2("Auto-Drehen beim Bauen", "Auto-rotate when building"), setAir: L2("Luftströmung an Öffnungen", "Air streaks at openings"), setTips: L2("Tipps im Testflug", "Tips during test flights"),
-    on: L2("An", "On"), off: L2("Aus", "Off"), setSfx: L2("Lautstärke Effekte", "Effects volume"),
+    on: L2("An", "On"), off: L2("Aus", "Off"),
+    airLost: L2("Luftversorgung des Schiffs nicht intakt · zu Anzugversorgung gewechselt", "Ship air supply not intact · switched to suit supply"),
+    scNow: L2("Scan", "Scan"), noScan: L2("Kein Scanner an Bord", "No scanner on board"), scHint: L2("G · Scan", "G · scan"), setSfx: L2("Lautstärke Effekte", "Effects volume"),
     spOff: L2("Leertaste · vom Boden lösen", "Space · push off the floor"), spLand: L2("Leertaste · landen", "Space · land"), spNone: L2("Hier ist kein offener Rand", "No open edge here"),
     atmLbl: L2("Geld einzahlen", "Deposit money"), itLbl: L2("Aufheben", "Pick up"),
     tBuild: L2("Bauen", "Build"), tabBlk: L2("Blocks", "Blocks"), tabEnv: L2("Environmental", "Environmental"), envLayer: L2("Ebene", "Layer"), envBack: L2("Hinten", "Back"), envGame: L2("Spielebene", "Game"), envFront: L2("Vorne", "Front"), envScale: L2("Größe", "Size"), envRot: L2("Drehung", "Rotation"), envRnd: L2("Zufall", "Random"), envOn: L2("an", "on"), envOff: L2("aus", "off"), envHelp: L2("Klick setzt · Ziehen streut ein Feld · Rechtsklick entfernt (nur aktive Ebene) · R dreht · + / − Größe", "Click places · drag scatters a field · right click removes (active layer only) · R rotates · + / − size"), envCount: L2("Environment", "Environment"), envAst: L2("Asteroiden", "Asteroids"), envBd: L2("Backdrops", "Backdrops"), envBdH: L2("Planeten und Sonnen ganz hinten in der Skybox, unabhängig von der Ebene. Planeten werden von der nächsten Sonne beleuchtet.", "Planets and suns at the very back of the skybox, regardless of layer. Planets are lit by the nearest sun."), expScene: L2("Ganze Szene", "Whole scene"), expStruct: L2("Nur Struktur", "Structure only"), sceneLoaded: L2("Szene geladen", "Scene loaded"), tErase: L2("Abreißen", "Remove"), tPaint: L2("Malen", "Paint"),
@@ -2994,7 +2996,8 @@
     if (bd.roomsDirty || !bd.rooms) airRooms(bd);
     bd.rooms.forEach(function (r) { r.air = Math.max(0, Math.min(1, r.air + (r.ok ? AIR.fill : -AIR.vent) * dt)); });
     // Atmen: Raumluft, sobald genug da ist, sonst zieht der Anzug
-    var r = pilotRoom(bd); FL.breath = r && r.air > SUIT.breathe ? "room" : FL.out ? "jet" : "suit";
+    var r = pilotRoom(bd), bw = FL.breath; FL.breath = r && r.air > SUIT.breathe ? "room" : FL.out ? "jet" : "suit";
+    if (FL.breath === "suit" && bw !== "suit" && bw !== "jet") { note(t("airLost")); floatTxt(t("airLost"), "255,120,90"); }   // v0.58.2: Schiffsluft weg → Anzugversorgung
     if (FL.breath === "room") FL.suit = Math.min(SUIT.max, FL.suit + SUIT.refill * dt);
     else FL.suit = Math.max(0, FL.suit - dt * (1 + (FL.out && FL.eva && FL.eva.thr ? SUIT.jet : 0)));
     if (FL.suit <= 0) {
@@ -3604,7 +3607,14 @@
   // ===== 58-scanner.js · Scanner (v0.57.5) =====
   // Ein Scanner-Block nutzt die Reichweite der Antennen (antRange) und zeigt Strukturen in der Umgebung am Bildrand:
   // Asteroiden (Spielebene), Raumstationen und Wracks (zerstörte Schiffe, abgerissene Trümmer). Ohne Antenne zeigt er nichts.
-  var SCAN = { ast: 8, col: { ast: "#A7B0BA", st: "#7FB2E0", wr: "#E3B83F" } };
+  // v0.58.2: Scan nur auf Tastendruck G: Ping, Ring breitet sich bis zur Reichweite aus, Marker bleiben hold Sekunden und blenden aus
+  var SCAN = { ast: 8, hold: 10, fade: 2, ring: 1.4, cd: 1.5, col: { ast: "#A7B0BA", st: "#7FB2E0", wr: "#E3B83F" } };
+  function scanPulse() {
+    var me = FL.me; if (!me.nScan || FL.bodies.indexOf(me) < 0) { note(t("noScan")); return; }
+    if (!antRange(me)) { note(t("scNoAnt")); return; }
+    if (FL.scanT != null && FL.t - FL.scanT < SCAN.cd) return;
+    FL.scanT = FL.t; snd("ping", { x: me.x, y: me.y, gain: 0.8 });
+  }
   function scanTargets(me, rg) {
     var L = [], A = [];
     (FL.envG || []).forEach(function (e) { var d = Math.hypot(e.x - me.x, e.y - me.y) - e.R; if (d < rg) A.push({ x: e.x, y: e.y, d: Math.max(0, d), k: "ast" }); });
@@ -3624,19 +3634,24 @@
   }
   function scanEdges(c, W, H, ppm) {
     var me = FL.me; if (!me.nScan || FL.bodies.indexOf(me) < 0) return;
-    var rg = antRange(me); if (!rg) return;
+    var rg = antRange(me); if (!rg || FL.scanT == null) return;
+    var age = FL.t - FL.scanT, vis = age < SCAN.hold - SCAN.fade ? 1 : Math.max(0, (SCAN.hold - age) / SCAN.fade); if (vis <= 0) return;
+    if (age < SCAN.ring) {   // Ring: läuft vom Schiff bis zur Reichweite
+      var cx = W / 2 + (me.x - FL.cam.x) * ppm, cy = H / 2 + (me.y - FL.cam.y) * ppm, rr = rg * ppm * (age / SCAN.ring);
+      c.save(); c.strokeStyle = "rgba(87,209,138," + (0.45 * (1 - age / SCAN.ring)).toFixed(3) + ")"; c.lineWidth = 2; c.beginPath(); c.arc(cx, cy, rr, 0, 6.283); c.stroke(); c.restore();
+    }
     scanTargets(me, rg).forEach(function (q) {
       var sx = W / 2 + (q.x - FL.cam.x) * ppm, sy = H / 2 + (q.y - FL.cam.y) * ppm, m = 30;
       if (sx > -10 && sx < W + 10 && sy > -10 && sy < H + 10) return;   // im Bild: sieht man ohnehin
       var vx = sx - W / 2, vy = sy - H / 2, L = m, R = W - m, Tp = 90, Bt = H - m;
       var k = Math.min(vx > 0 ? (R - W / 2) / vx : vx < 0 ? (L - W / 2) / vx : 1e9, vy > 0 ? (Bt - H / 2) / vy : vy < 0 ? (Tp - H / 2) / vy : 1e9), ex = W / 2 + vx * k, ey = H / 2 + vy * k, an = Math.atan2(vy, vx), ex0 = ex; ex = hudDodge(ex, ey);
       var col = SCAN.col[q.k];
-      c.save(); c.translate(ex, ey); c.globalAlpha = 0.5 + 0.4 * (1 - q.d / rg); c.strokeStyle = col; c.fillStyle = col; c.lineWidth = 1.5;
+      c.save(); c.translate(ex, ey); c.globalAlpha = (0.5 + 0.4 * (1 - q.d / rg)) * vis; c.strokeStyle = col; c.fillStyle = col; c.lineWidth = 1.5;
       if (q.k === "ast") { c.rotate(Math.PI / 4); c.strokeRect(-4.5, -4.5, 9, 9); }
       else if (q.k === "st") { c.fillRect(-5, -5, 10, 10); c.strokeStyle = "#0E121A"; c.strokeRect(-2.5, -2.5, 5, 5); }
       else { c.beginPath(); c.moveTo(0, -6); c.lineTo(6, 5); c.lineTo(-6, 5); c.closePath(); c.stroke(); c.fillRect(-0.8, -2, 1.6, 4); }
       c.restore();
-      c.save(); c.globalAlpha = 0.75; c.fillStyle = col; c.font = "600 10px " + FONTS(); c.textAlign = "center"; c.textBaseline = "middle";
+      c.save(); c.globalAlpha = 0.75 * vis; c.fillStyle = col; c.font = "600 10px " + FONTS(); c.textAlign = "center"; c.textBaseline = "middle";
       var lbl = t(q.k === "ast" ? "scAst" : q.k === "st" ? "scSt" : "scWr") + " · " + (q.d >= 1000 ? nf(q.d / 1000, 1) + " km" : nf(q.d) + " m");
       if (ex !== ex0) { c.textAlign = "left"; c.fillText(lbl, ex + 11, ey); } else c.fillText(lbl, ex - Math.cos(an) * 34, ey - Math.sin(an) * 22);
       c.restore();
@@ -3654,9 +3669,9 @@
       pDraw: "handwaffen/pistole_rausholen.mp3", pShot: "handwaffen/pistole_schuss.mp3", mDraw: "handwaffen/mp_rausholen.mp3", mShot: "handwaffen/mp_schuss.mp3", mCase: "handwaffen/mp_huelse.mp3",
       rgCh: "synth/railgun_laden.mp3", rgShot: "synth/railgun_schuss.mp3", lz: "synth/laser_strahl.wav", msStart: "synth/rakete_start.mp3", msLoop: "synth/rakete_zischen.wav",
       hit1: "synth/treffer_metall_1.mp3", hit2: "synth/treffer_metall_2.mp3", hit3: "synth/treffer_metall_3.mp3", shHit: "synth/schild_treffer.mp3", shLoad: "synth/schild_laden.wav",
-      reac: "synth/reaktor_summen.wav", ping: "synth/scanner_ping.mp3", st1: "synth/schritt_1.mp3", st2: "synth/schritt_2.mp3", st3: "synth/schritt_3.mp3", st4: "synth/schritt_4.mp3", breath: "synth/atmen_helm.wav"
+      reac: "synth/reaktor_summen.wav", ping: "synth/scanner_ping.mp3", st1: "synth/schritt_1.mp3", st2: "synth/schritt_2.mp3", st3: "synth/schritt_3.mp3", st4: "synth/schritt_4.mp3"
     },
-    loop: { lz: 1, msLoop: 1, shLoad: 1, reac: 1, breath: 1 },
+    loop: { lz: 1, msLoop: 1, shLoad: 1, reac: 1 },
     buf: {}, off: {}, busy: false, out: null, dull: null, voices: {}, loops: {}, last: {}, ids: 0
   };
   // Stimmen je Sound: wie viele gleichzeitig klingen dürfen; die älteste wird kurz ausgeblendet (Dauerfeuer bleibt klar)
@@ -3801,10 +3816,6 @@
       }
       SND.stp = { bd: pb, x: P.x, y: P.y };
     } else SND.stp = null;
-    // Atmen im Helm, sobald man auf Anzugluft angewiesen ist
-    if (FL.breath && FL.breath !== "room") sndLoop("br", "breath", 0.85, 0);
-    // Scanner: Sonar-Ping alle 5 s, solange er mit Antenne arbeitet
-    if (FL.me.nScan && antRange(FL.me) && FL.bodies.indexOf(FL.me) >= 0) { SND.pingT = (SND.pingT || 0) - dt; if (SND.pingT <= 0) { SND.pingT = 5; snd("ping", { x: FL.me.x, y: FL.me.y, gain: 0.7 }); } }
     sndLoopsEnd();
   }
   // ===== 60-zeichnen-flug.js · Zeichnen: Flugansicht (Schweife, Staub, Effekte, Schiffe, Radar, HUD) =====
@@ -4157,7 +4168,7 @@
   // Kompakte Steuerungsliste (Taste · Aktion) für das Infofeld
   function ctlHtml() {
     var de = lang === "de", G = [
-      [de ? "Im Sitz" : "Seated", [["WASD", de ? "Fliegen" : "Fly"], ["Q / E", de ? "Drehen" : "Rotate"], [de ? "Linksklick" : "Left click", de ? "Feuern" : "Fire"], ["R", de ? "Waffe wechseln" : "Switch weapon"], ["Z", de ? "Trägheitsdämpfer" : "Inertia dampers"], ["C", "Cruise Control"], ["X", "Overcharge"], [de ? "Umschalt" : "Shift", de ? "Hochgeschw. freigeben" : "Unlock high speed"], ["F", de ? "Aufstehen / Hinsetzen" : "Get up / sit down"], ["V", de ? "Innen / Außen" : "Inside / outside"], ["I", de ? "Inventar" : "Inventory"], ["P", de ? "Andocken / Abdocken" : "Dock / undock"]]],
+      [de ? "Im Sitz" : "Seated", [["WASD", de ? "Fliegen" : "Fly"], ["Q / E", de ? "Drehen" : "Rotate"], [de ? "Linksklick" : "Left click", de ? "Feuern" : "Fire"], ["R", de ? "Waffe wechseln" : "Switch weapon"], ["Z", de ? "Trägheitsdämpfer" : "Inertia dampers"], ["C", "Cruise Control"], ["X", "Overcharge"], ["G", de ? "Scanner auslösen" : "Trigger scanner"], [de ? "Umschalt" : "Shift", de ? "Hochgeschw. freigeben" : "Unlock high speed"], ["F", de ? "Aufstehen / Hinsetzen" : "Get up / sit down"], ["V", de ? "Innen / Außen" : "Inside / outside"], ["I", de ? "Inventar" : "Inventory"], ["P", de ? "Andocken / Abdocken" : "Dock / undock"]]],
       [de ? "Zu Fuß" : "On foot", [["WASD", de ? "Laufen" : "Walk"], [de ? "Umschalt" : "Shift", de ? "Sprinten" : "Sprint"], ["1–9", de ? "Werkzeug wählen" : "Select tool"], [de ? "Linksklick" : "Left click", de ? "Benutzen (Schweißen, Schießen, MP halten)" : "Use (weld, shoot, hold SMG)"], ["E", de ? "Aufheben · Bankautomat" : "Pick up · ATM"], ["Q", de ? "Gegenstand ablegen" : "Drop item"], ["I", de ? "Inventar" : "Inventory"], [de ? "F auf Luke" : "F on hatch", de ? "Aussteigen (auch durch die Decke)" : "Exit (also through the ceiling)"], [de ? "Leertaste am offenen Rand" : "Space at an open edge", de ? "Vom Boden lösen" : "Push off the floor"]]],
       [de ? "Draußen" : "Outside", [["WASD", "Jetpack"], [de ? "Umschalt" : "Shift", de ? "Tempo ans Schiff" : "Match ship speed"], ["E / Q", de ? "Aufheben / Ablegen" : "Pick up / Drop"], [de ? "F über Luke" : "F above hatch", de ? "Einsteigen" : "Get in"], [de ? "Leertaste am Rand" : "Space near an edge", de ? "Landen" : "Land"]]],
       ["Test", [[de ? "Rechtsklick" : "Right click", de ? "Block beschädigen" : "Damage block"], [de ? "Mausrad" : "Wheel", "Zoom"], ["Esc", de ? "Zurück zum Editor" : "Back to editor"]]]
@@ -4533,6 +4544,7 @@
       if (k === "z") FL.damp = !FL.damp;
       if (k === "p") { if (!FL.out) dockKey(); return; }
       if (k === "c") { FL.cruise = !FL.cruise; floatTxt(t(FL.cruise ? "crFloatOn" : "crFloatOff")); }
+      if (k === "g") { scanPulse(); return; }   // v0.58.2: Scanner auslösen
       if (k === "x") { if (FL.oc) { FL.oc = false; floatTxt(t("ocOff"), "201,160,245"); } else if (FL.ocT > 0.3) { FL.oc = true; floatTxt(t("ocOn"), "201,160,245"); } }
       if (k === "r" && FL.groups.length) FL.wsel = (FL.wsel + 1) % FL.groups.length;
       if (k === "f") toggleSeat();
