@@ -44,7 +44,7 @@
     if (i === this.wi) { this.wantW = null; return; }
     if (this.act && (this.act.type === "atk" || this.act.type === "draw" || this.act.type === "loose" || this.act.type === "punch")) { this.wantW = i; return; }
     if (this.act && (this.act.type === "beam" || this.act.type === "wcharge" || this.act.type === "acharge")) this.act = null;   // Strahl/Laden endet beim Wechsel
-    if (this.sphere) SZ.airArts(this.world).endSphere(this);
+    if (this.world.airArts) this.world.airArts.endStorm(this);
     this.wantW = null; this.wi = i; this.weapon = SZ.WEAPONS[this.slots[i]]; this.press = null;
   };
   P.spend = function () { this.enT = 0; };
@@ -158,14 +158,14 @@
       if (I.hit("1")) this.setWeapon(0);
       if (I.hit("2")) this.setWeapon(1);
       if (I.hit("3") && this.slots.length > 2) this.setWeapon(2);
-      if (this.sphere && this.weapon.type !== "element") SZ.airArts(w).endSphere(this);
+      if (w.airArts && w.airArts.storm && this.weapon.type !== "element") w.airArts.endStorm(this);
       if (I.wheel && !ac) this.setWeapon(this.wi + (I.wheel > 0 ? 1 : -1));
       if (this.wantW != null) this.setWeapon(this.wantW);
       Wp = this.weapon;
       if (Wp.type === "bow" || Wp.type === "throw") this.press = null;
-      var lock = ac && (ac.type === "cast" || ac.type === "beam" || ac.type === "punch" || ac.type === "aslash" || ac.type === "awhirl" || ac.type === "atk" || ac.type === "unsheathe" || ac.type === "dash" || ac.type === "hurt" || ac.type === "dodge");
+      var lock = ac && (ac.type === "cast" || ac.type === "asummon" || ac.type === "beam" || ac.type === "punch" || ac.type === "aslash" || ac.type === "awhirl" || ac.type === "atk" || ac.type === "unsheathe" || ac.type === "dash" || ac.type === "hurt" || ac.type === "dodge");
       if (!lock) this.face = Math.atan2(I.my - (this.y - 12), I.mx - this.x);
-      if ((I.hit(" ")) && !(ac && ac.type === "cast") && (!ac || ac.type === "loose" || ac.type === "charge" || ac.type === "punch" || ac.type === "wbolt" || ac.type === "wcharge" || ac.type === "beam" || ac.type === "aslash" || ac.type === "acharge" || (ac.type === "atk" && ac.t > ac.wind + ac.swing))) { this.startDash(ix, iy); ac = this.act; }
+      if ((I.hit(" ")) && !(ac && ac.type === "cast") && (!ac || ac.type === "loose" || ac.type === "charge" || ac.type === "punch" || ac.type === "wbolt" || ac.type === "wcharge" || ac.type === "beam" || ac.type === "aslash" || ac.type === "acharge" || ac.type === "asummon" || (ac.type === "atk" && ac.t > ac.wind + ac.swing))) { this.startDash(ix, iy); ac = this.act; }
       var mi = this.modeIndex(I);
       if (this.inputLock || (ac && ac.type === "cast")) {
         // Element-Modus bzw. Beschwörung: keine Angriffe oder Blocks
@@ -294,6 +294,8 @@
         if (ac.t >= ac.dur) this.act = null;
       } else if (ac.type === "acharge") {
         tx *= 0.7; ty *= 0.7;
+      } else if (ac.type === "asummon") {
+        tx *= 0.35; ty *= 0.35;                   // Sturm lenken: langsam, Blick zum Tornado
       } else if (ac.type === "wbolt") {
         tx *= 0.8; ty *= 0.8;
         if (ac.t > ac.dur) this.act = null;
@@ -389,7 +391,7 @@
   P.startFall = function () {
     this.falling = { t: 0, vx: this.vx * 0.6, vy: this.vy * 0.6, spin: (Math.random() - 0.5) * 4 };
     this.act = null; this.guard = null; this.press = null;
-    if (this.sphere) SZ.airArts(this.world).endSphere(this);
+    if (this.world.airArts) this.world.airArts.endStorm(this);
     SZ.audio.play("hurt", { x: this.x, rate: 0.9 });
   };
   P.updateFall = function (dt) {
@@ -459,7 +461,8 @@
       if (ac.type === "cast") return ac.fx.pose().anim;
       if (ac.type === "punch" || ac.type === "wbolt" || ac.type === "aslash") return ac.side > 0 ? "punch_r" : "punch_l";
       if (ac.type === "awhirl") return Math.floor(ac.t / 0.08) % 2 ? "cast_flow" : "cast_flow2";
-      if (ac.type === "acharge") return "cast_low";
+      if (ac.type === "acharge") return Math.floor(ac.t / 0.12) % 2 ? "cast_low" : "cast_push";
+      if (ac.type === "asummon") return ["cast_up", "cast_flow", "cast_up", "cast_flow2"][Math.floor(ac.t / 0.22) % 4];   // Beschwörungstanz
       if (ac.type === "wcharge") return ac.t < 0.2 ? "cast_low" : "cast_push";
       if (ac.type === "beam") return "cast_push";
       if (ac.type === "charge" || ac.type === "throw") return "atk";

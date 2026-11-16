@@ -111,6 +111,9 @@ window.PATCHNOTES = {
 
   // ================= Spiele =================
   shizuku: [
+    { v: "0.27", t: "2026-11-16T17:26:00+01:00",
+      de: ["Luft: die Auflade-Attacke ist jetzt ein Sturm. Nach 0,5 s Halten entsteht ein wilder Tornado direkt am Fadenkreuz", "Solange man hält, folgt der Tornado dem Fadenkreuz und schlingert dabei wild hin und her", "Der Tornado saugt Gegner an, wirbelt sie im Kreis herum (5 Treffer pro Sekunde) und schleudert sie beim Loslassen hinaus, auch über den Inselrand. Schwere Gegner werden stark gebremst", "Der Samurai beschwört den Sturm mit einem Beschwörungstanz und dreht sich dabei zum Tornado. Die Luftkugel fällt dafür weg"],
+      en: ["Air: the charged attack is now a storm. After holding for 0.5 s a wild tornado appears right at the crosshair", "As long as you hold, the tornado follows the crosshair and lurches wildly from side to side", "The tornado sucks enemies in, spins them around (5 hits per second) and flings them out on release, even off the island. Heavy enemies are slowed a lot", "The samurai summons the storm with a summoning dance and turns toward the tornado. The air sphere is gone in exchange"] },
     { v: "0.26", t: "2026-11-16T04:45:00+01:00",
       de: ["Neue Map Heiliger Schrein, jetzt sind 4 Maps im Pool"],
       en: ["New map Heiliger Schrein (Sacred Shrine), there are now 4 maps in the pool"] },
