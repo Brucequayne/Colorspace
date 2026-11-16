@@ -111,6 +111,9 @@ window.PATCHNOTES = {
 
   // ================= Spiele =================
   shizuku: [
+    { v: "0.26", t: "2026-11-16T04:45:00+01:00",
+      de: ["Neue Map Heiliger Schrein, jetzt sind 4 Maps im Pool"],
+      en: ["New map Heiliger Schrein (Sacred Shrine), there are now 4 maps in the pool"] },
     { v: "0.25", t: "2026-11-16T04:30:00+01:00",
       de: ["Luft-Effekte neu: statt feiner Linien jetzt dicke, dichte Windböen – sichelförmig, mit hellen Strähnen, dunklerem Rand und halbtransparent im Pixel-Look", "Windhieb, Tornado (Windrose), Luftkugel und der Windstoß der Sturmklinge (X) nutzen alle den neuen Böen-Look", "Der Tornado besteht aus dicken Böen, die sich um den Samurai drehen und nach oben weiten; Laub fliegt weiter in Originalfarben mit", "Fix: Mit Luft kostete der Dash keine Energie. Jetzt kostet er 25 % weniger – aus voller Energie also ein Dash mehr"],
       en: ["Air effects rebuilt: instead of thin lines, thick dense gusts – crescent-shaped, with bright streaks, a darker edge, semi-transparent in pixel style", "Wind slash, tornado (wind rose), air sphere and the storm blade gust (X) all use the new gust look", "The tornado is made of thick gusts that spin around the samurai and widen upward; leaves still fly along in their original colors", "Fix: with air, dashing cost no energy. Now it costs 25 % less – one extra dash from full energy"] },
