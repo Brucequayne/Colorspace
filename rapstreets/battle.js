@@ -28,6 +28,13 @@
   };
   A.stop = function () { if (A.src) { try { A.src.stop(); } catch (e) {} A.src.disconnect(); A.src = null; } };
   // Mikro: nur Pegel messen, nie zu den Lautsprechern durchschleifen (sonst Rückkopplung)
+  // Audio komplett neu aufsetzen (neuer Context, Mikro neu verbinden) – hilft, wenn das Ausgabegerät hängt,
+  // z. B. Bluetooth-Kopfhörer, die beim Öffnen des Mikros auf Headset-Betrieb umschalten
+  A.reset = function () {
+    A.stop(); var old = A.ctx; A.ctx = null; A.an = null; if (old) try { old.close(); } catch (e) {}
+    var ctx = A.context(); if (A.mic && ctx) { var src = ctx.createMediaStreamSource(A.mic); A.an = ctx.createAnalyser(); A.an.fftSize = 1024; src.connect(A.an); A.data = new Float32Array(A.an.fftSize); }
+    return ctx;
+  };
   A.micOpen = function () {
     if (A.mic) return Promise.resolve(true);
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return Promise.resolve(false);
@@ -174,11 +181,20 @@
       if (B.state === "load") { rapperUpdate(dt, 0, B.plan.segs[0]); return; }
       // Wächter: läuft die Audio-Uhr nicht (Browser hat den Ton blockiert), Knopf zum Starten zeigen
       if (B.state === "run") {
-        var ac = RS.audio.ctx; B.chk.t += dt;
+        var ac = RS.audio.ctx; B.chk.t += dt; B.dbg = ac.state;
         if (ac.currentTime > B.chk.ct + 0.05) { B.chk.t = 0; B.chk.ct = ac.currentTime; if (B.el.unl) { B.el.unl.remove(); B.el.unl = null; } }
         else if (B.chk.t > 0.8 && !B.el.unl) {
           var u = document.createElement("button"); u.type = "button"; u.className = "rs-unl"; u.textContent = L2("Ton ist blockiert – hier klicken zum Starten", "Sound is blocked – click here to start");
-          u.addEventListener("click", function () { ac.resume().then(function () { if (!B) return; B.t0 = RS.audio.play(B.buf, 0.1); B.chk = { t: 0, ct: ac.currentTime }; }); });
+          u.addEventListener("click", function () {
+            B.tries = (B.tries || 0) + 1;
+            // 1. Versuch: fortsetzen; ab dem 2. Klick: Audio ganz neu aufsetzen
+            var c2 = B.tries > 1 ? RS.audio.reset() : ac;
+            u.textContent = L2("Starte Ton …", "Starting sound …");
+            Promise.race([c2.resume(), new Promise(function (ok) { setTimeout(ok, 600); })]).then(function () {
+              if (!B) return; B.t0 = RS.audio.play(B.buf, 0.1); B.chk = { t: 0, ct: c2.currentTime }; B.noMic = !RS.audio.an;
+              u.textContent = L2("Immer noch kein Ton? Nochmal klicken", "Still no sound? Click again");
+            });
+          });
           RS.main.stage.querySelector(".rs-hud").appendChild(u); B.el.unl = u;
         }
         if (B.el.unl) return;

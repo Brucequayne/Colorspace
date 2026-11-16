@@ -111,6 +111,9 @@ window.PATCHNOTES = {
 
   // ================= Spiele =================
   rapstreets: [
+    { v: "0.2.2", t: "2026-11-16T22:40:00+01:00",
+      de: ["Bleibt der Ton auch nach dem Klick blockiert, setzt ein zweiter Klick das Audio komplett neu auf (hilft z. B. bei Bluetooth-Kopfhörern, die beim Einschalten des Mikros umschalten)"],
+      en: ["If the sound stays blocked after the click, a second click restarts the audio completely (helps e.g. with Bluetooth headphones that switch modes when the mic turns on)"] },
     { v: "0.2.1", t: "2026-11-16T22:25:00+01:00",
       de: ["Hält der Browser den Ton zurück, erscheint ein Knopf zum Starten, statt dass das Battle im Intro hängen bleibt", "Fehlt ein Beat auf dem Server, steht jetzt genau da, welche Datei und warum"],
       en: ["If the browser holds back the sound, a start button appears instead of the battle hanging in the intro", "If a beat is missing on the server, it now says exactly which file and why"] },
