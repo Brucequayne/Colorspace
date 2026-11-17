@@ -5,7 +5,7 @@
 (function () {
   "use strict";
 
-  var VERSION = "0.25", T = 500, NT = 200, WORLD = T * NT, ZMIN = 0.01, ZMAX = 16;
+  var VERSION = "0.3", T = 500, NT = 200, WORLD = T * NT, ZMIN = 0.01, ZMAX = 16;
   var lang = "de";
   function L2(de, en) { return { de: de, en: en }; }
   var TX = {
@@ -34,8 +34,19 @@
     cropMax: L2("Zu groß für den Export: höchstens 16.384 px pro Seite und 120 Megapixel.", "Too large to export: at most 16,384 px per side and 120 megapixels."),
     cropEmpty: L2("Noch nichts gemalt.", "Nothing painted yet."), saving: L2("JPEG wird erstellt …", "Creating JPEG …"),
     saved: L2("Gespeichert: {f}", "Saved: {f}"),
-    helpTxt: L2("Mausrad zoomt, Leertaste halten oder mittlere bzw. rechte Maustaste zum Verschieben. Tasten: B Pinsel · 1–4 Pinselart · L Lineal · K Kurve · H Verschieben · [ ] Dicke · Strg+Z / Strg+Y · 0 zur Mitte · + / − Zoom · Esc bricht ab. Die Fläche ist 100.000 × 100.000 Pixel groß, die kleine Karte unten links zeigt, wo du bist. Deine Zeichnung bleibt erhalten, solange die Seite offen ist.",
-                 "The mouse wheel zooms, hold Space or use the middle or right mouse button to pan. Keys: B brush · 1–4 brush type · L ruler · K curve · H pan · [ ] size · Ctrl+Z / Ctrl+Y · 0 centre · + / − zoom · Esc cancels. The area is 100,000 × 100,000 pixels, the small map at the bottom left shows where you are. Your drawing is kept as long as the page is open.")
+    stamp: L2("Stempel", "Stamp"), stampNew: L2("Neuer Stempel aus Bereich", "New stamp from area"),
+    stampH: L2("Stempel aufnehmen", "Capture stamp"), stampHint: L2("Zieh einen Rahmen um das, was zum Stempel werden soll. Das Weiß des Blatts wird nicht mitgenommen.", "Drag a frame around what should become the stamp. The white of the paper is not included."),
+    stampGo: L2("Als Stempel speichern", "Save as stamp"), stampMax: L2("Zu groß für einen Stempel: höchstens 4.096 px pro Seite.", "Too large for a stamp: at most 4,096 px per side."),
+    stampEmpty: L2("Im Rahmen ist nichts gemalt.", "Nothing is painted inside the frame."), stampSaved: L2("Stempel gespeichert: {w} × {h} px", "Stamp saved: {w} × {h} px"),
+    stampNone: L2("Noch kein Stempel. Erst einen Bereich als Stempel aufnehmen.", "No stamp yet. First capture an area as a stamp."),
+    stampList: L2("Deine Stempel", "Your stamps"), stampDel: L2("Stempel löschen", "Delete stamp"),
+    scale: L2("Größe", "Size"), rot: L2("Drehung", "Rotation"), gap: L2("Abstand beim Ziehen", "Spacing when dragging"),
+    stampNote: L2("Klick setzt den Stempel, Ziehen setzt ihn mehrfach im eingestellten Abstand. Bei 100 % Größe und 0° Drehung ist er pixelgenau. Die Stempel bleiben, solange die Seite offen ist.", "Click places the stamp, dragging places it repeatedly at the set spacing. At 100% size and 0° rotation it is pixel-exact. Stamps are kept as long as the page is open."),
+    img: L2("Bild einfügen", "Insert image"), imgDrop: L2("Bild loslassen: wird pixelgenau eingefügt", "Drop the image: it is inserted pixel-exact"),
+    imgBusy: L2("Bild wird eingefügt …", "Inserting image …"), imgDone: L2("Eingefügt: {f} · {w} × {h} px, pixelgenau", "Inserted: {f} · {w} × {h} px, pixel-exact"),
+    imgBad: L2("Das Bild konnte nicht gelesen werden.", "The image could not be read."), imgBig: L2("Zu groß: höchstens 16.384 px pro Seite und 100 Megapixel.", "Too large: at most 16,384 px per side and 100 megapixels."),
+    helpTxt: L2("Mausrad zoomt, Leertaste halten oder mittlere bzw. rechte Maustaste zum Verschieben. Tasten: B Pinsel · 1–4 Pinselart · L Lineal · K Kurve · S Stempel · H Verschieben · [ ] Dicke · Strg+Z / Strg+Y · 0 zur Mitte · + / − Zoom · Esc bricht ab. Die Fläche ist 100.000 × 100.000 Pixel groß, die kleine Karte unten links zeigt, wo du bist. Deine Zeichnung bleibt erhalten, solange die Seite offen ist. Fotos (JPEG, PNG) einfach auf die Fläche ziehen oder mit Strg+V einfügen: 1 Bildpixel = 1 Pixel der Fläche.",
+                 "The mouse wheel zooms, hold Space or use the middle or right mouse button to pan. Keys: B brush · 1–4 brush type · L ruler · K curve · S stamp · H pan · [ ] size · Ctrl+Z / Ctrl+Y · 0 centre · + / − zoom · Esc cancels. The area is 100,000 × 100,000 pixels, the small map at the bottom left shows where you are. Your drawing is kept as long as the page is open. Drag photos (JPEG, PNG) onto the area or paste them with Ctrl+V: 1 image pixel = 1 pixel of the area.")
   };
   function t(k) { return TX[k][lang]; }
   function fmt(s, o) { return s.replace(/\{(\w+)\}/g, function (_, k) { return o[k]; }); }
@@ -79,6 +90,11 @@
     exp: '<svg viewBox="0 0 32 32" aria-hidden="true"><rect x="3" y="3" width="26" height="26" rx="4" fill="url(#dsAqua)" stroke="#0E5EA3" stroke-width=".7"/>' + GLOSS(16, 9, 11, 5) +
       '<path d="M8 12V8h4M24 12V8h-4M8 20v4h4M24 20v4h-4" stroke="#fff" stroke-width="2" fill="none" stroke-linecap="square"/><path d="M16 10.5v8M12.5 15.5l3.5 3.5 3.5-3.5" stroke="#1F6B1E" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M16 10.5v8M12.5 15.5l3.5 3.5 3.5-3.5" stroke="#9BE36F" stroke-width="1.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>',
     help: '<svg viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="13.5" fill="url(#dsOrb)" stroke="#0E5EA3" stroke-width=".7"/>' + GLOSS(16, 10, 9, 5.5) + '<path d="M12.2 12.5 C12.2 9.8 14 8.3 16.2 8.3 C18.6 8.3 20.2 9.9 20.2 12 C20.2 15 16.6 15.2 16.6 18.5" stroke="#fff" stroke-width="2.6" fill="none" stroke-linecap="round"/><circle cx="16.6" cy="23" r="1.8" fill="#fff"/></svg>',
+    stamp: '<svg viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="7" r="5" fill="url(#dsOrb)" stroke="#0E5EA3" stroke-width=".7"/>' + GLOSS(16, 5, 3.2, 1.8) +
+      '<rect x="14" y="11" width="4" height="7" fill="url(#dsSilver)" stroke="#6B7987" stroke-width=".5"/><rect x="6" y="18" width="20" height="6" rx="1.5" fill="url(#dsAqua)" stroke="#0E5EA3" stroke-width=".7"/><rect x="7.5" y="19" width="17" height="1.6" rx=".8" fill="#fff" opacity=".7"/>' +
+      '<rect x="7" y="24" width="18" height="3" fill="var(--dscol,#E2621B)" stroke="rgba(0,0,0,.35)" stroke-width=".5"/><rect x="4" y="28.6" width="24" height="1.6" fill="var(--dscol,#E2621B)" opacity=".55"/></svg>',
+    img: '<svg viewBox="0 0 32 32" aria-hidden="true"><rect x="3" y="5" width="26" height="22" rx="2.5" fill="url(#dsSilver)" stroke="#6B7987" stroke-width=".7"/><rect x="6" y="8" width="20" height="16" fill="url(#dsAqua)" stroke="#0E5EA3" stroke-width=".5"/>' +
+      '<circle cx="21" cy="12.5" r="2.4" fill="#FFE27A" stroke="#C99A1A" stroke-width=".5"/><path d="M6 24 L12.5 15 L17 20.5 L20 17.5 L26 24 Z" fill="url(#dsGreen)" stroke="#1F6B1E" stroke-width=".6" stroke-linejoin="round"/>' + GLOSS(16, 10, 9, 2.5) + '</svg>',
     close: '<svg viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="12" fill="url(#dsOrb)" stroke="#0E5EA3" stroke-width=".7"/>' + GLOSS(16, 11, 8, 4.5) + '<path d="M11.5 11.5l9 9M20.5 11.5l-9 9" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/></svg>'
   };
 
@@ -190,12 +206,12 @@
       } }
   };
   var STAMPS = {};   // Platz für Stempel: { id: { name, icon, place(E, p) } }
-  var RANGES = { wind: [0, 100, " %"], windDir: [0, 359, "°"], turb: [0, 100, " %"], size: [1, 400, "px"], opacity: [1, 100, " %"], smooth: [0, 100, " %"], pressure: [0, 100, " %"], spread: [0, 100, " %"], flow: [1, 100, " %"] };
+  var RANGES = { wind: [0, 100, " %"], windDir: [0, 359, "°"], turb: [0, 100, " %"], size: [1, 400, "px"], opacity: [1, 100, " %"], smooth: [0, 100, " %"], pressure: [0, 100, " %"], spread: [0, 100, " %"], flow: [1, 100, " %"], scale: [10, 400, " %"], rot: [0, 359, "°"], gap: [10, 300, " %"] };
   function rng(seed) { return function () { seed |= 0; seed = seed + 0x6D2B79F5 | 0; var q = Math.imul(seed ^ seed >>> 15, 1 | seed); q = q + Math.imul(q ^ q >>> 7, 61 | q) ^ q; return ((q ^ q >>> 14) >>> 0) / 4294967296; }; }
 
   // ---------- Dokument: Kacheln (bleiben erhalten, solange die Seite offen ist) ----------
   var DOC = new Map(), MIPS = new Map(), STROKE = new Map(), MIP = 50;
-  var S = { tool: "brush", brush: "round", lineTool: "ruler", bs: {}, h: 212, s: 0.87, v: 0.82, r: 28, g: 110, b: 210, recent: [], view: null, last: null };
+  var S = { tool: "brush", brush: "round", lineTool: "ruler", stamps: [], stampSel: -1, st: { scale: 100, opacity: 100, rot: 0, gap: 100 }, bs: {}, h: 212, s: 0.87, v: 0.82, r: 28, g: 110, b: 210, recent: [], view: null, last: null };
   Object.keys(BRUSHES).forEach(function (k) { S.bs[k] = Object.assign({}, BRUSHES[k].def); });
   function cur() { return S.bs[S.brush]; }
   function hsv2rgb(h, s2, v) { var c = v * s2, x = c * (1 - Math.abs((h / 60) % 2 - 1)), m = v - c, r = 0, g = 0, b = 0; if (h < 60) { r = c; g = x; } else if (h < 120) { r = x; g = c; } else if (h < 180) { g = c; b = x; } else if (h < 240) { g = x; b = c; } else if (h < 300) { r = x; b = c; } else { r = c; b = x; } return [Math.round((r + m) * 255), Math.round((g + m) * 255), Math.round((b + m) * 255)]; }
@@ -293,7 +309,12 @@
     }
     if (V.crop) drawCrop(x);
     // Pinselzeiger
-    if (V.hover && !V.crop && !V.panning && S.tool !== "hand" && !V.space) {
+    var gst = S.tool === "stamp" && S.stamps[S.stampSel];
+    if (gst && V.hover && !V.crop && !V.panning && !V.space) {   // Stempel-Vorschau
+      var gp = w2s(V.hover.x, V.hover.y), gk = S.st.scale / 100 * z;
+      x.save(); x.globalAlpha = V.down ? 0 : 0.55; x.imageSmoothingEnabled = gk < 1; x.translate(gp.x, gp.y); x.rotate(S.st.rot * Math.PI / 180); x.scale(gk, gk);
+      x.drawImage(gst.cv, -gst.w / 2, -gst.h / 2); x.globalAlpha = 1; x.lineWidth = 1 / gk; x.setLineDash([4 / gk, 4 / gk]); x.strokeStyle = "rgba(14,94,163,.8)"; x.strokeRect(-gst.w / 2, -gst.h / 2, gst.w, gst.h); x.restore();
+    } else if (V.hover && !V.crop && !V.panning && S.tool !== "hand" && !V.space) {
       var hs = w2s(V.hover.x, V.hover.y), rr = Math.max(1.5, cur().size / 2 * z);
       x.lineWidth = 1; x.strokeStyle = "rgba(0,0,0,.55)"; x.beginPath(); x.arc(hs.x, hs.y, rr + 1, 0, Math.PI * 2); x.stroke();
       x.strokeStyle = "rgba(255,255,255,.95)"; x.beginPath(); x.arc(hs.x, hs.y, rr, 0, Math.PI * 2); x.stroke();
@@ -393,15 +414,73 @@
         if (c.dragging) curveCommit();
       }
     },
+    // Stempel: Klick setzt ihn, Ziehen setzt ihn im eingestellten Abstand mehrfach (alles zusammen ist ein Schritt fürs Rückgängigmachen)
+    stamp: { key: "s", icon: "stamp",
+      down: function (p) {
+        var st = S.stamps[S.stampSel]; if (!st) { note(t("stampNone")); return false; }
+        STROKE.clear(); V.strokeOp = S.st.opacity / 100; stampAt(st, p); V.stLast = p; return true;
+      },
+      move: function (evs) {
+        var st = S.stamps[S.stampSel]; if (!st) return;
+        var k = S.st.scale / 100, gap = Math.max(2, Math.max(st.w, st.h) * k * S.st.gap / 100);
+        evs.forEach(function (p) {
+          var dx = p.x - V.stLast.x, dy = p.y - V.stLast.y, d = Math.hypot(dx, dy);
+          while (d >= gap) { var q = { x: V.stLast.x + dx / d * gap, y: V.stLast.y + dy / d * gap }; stampAt(st, q); V.stLast = q; dx = p.x - q.x; dy = p.y - q.y; d = Math.hypot(dx, dy); }
+        });
+      },
+      up: function () { commitStroke(); V.stLast = null; }
+    },
     hand: { key: "h", icon: "hand", pan: true }
   };
+  // Stempel an Weltpunkt p (Mitte) in die Strichebene drücken
+  function stampAt(st, p) {
+    var k = S.st.scale / 100, a = S.st.rot * Math.PI / 180, w = st.w * k, h = st.h * k;
+    var ex = (Math.abs(Math.cos(a)) * w + Math.abs(Math.sin(a)) * h) / 2, ey = (Math.abs(Math.sin(a)) * w + Math.abs(Math.cos(a)) * h) / 2;
+    var exact = k === 1 && !S.st.rot, x0 = Math.round(p.x - st.w / 2), y0 = Math.round(p.y - st.h / 2);
+    paintRect(STROKE, p.x - ex - 2, p.y - ey - 2, p.x + ex + 2, p.y + ey + 2, function (x) {
+      if (exact) { x.imageSmoothingEnabled = false; x.drawImage(st.cv, x0, y0); return; }
+      x.imageSmoothingEnabled = k < 1 || !!S.st.rot; x.imageSmoothingQuality = "high";
+      x.translate(p.x, p.y); x.rotate(a); x.scale(k, k); x.drawImage(st.cv, -st.w / 2, -st.h / 2);
+    });
+    need();
+  }
+  // Bereich als Stempel speichern: nur die Kacheln (durchsichtig), das Weiß des Blatts ist nicht Teil davon. Leere Ränder werden abgeschnitten.
+  function saveStamp() {
+    var r = cropRect(); if (!cropOK(r)) return;
+    var c = canvas(r.w, r.h), x = c.getContext("2d", { willReadFrequently: true });
+    var tx0 = Math.max(0, Math.floor(r.x / T)), tx1 = Math.min(NT - 1, Math.floor((r.x + r.w - 1) / T)), ty0 = Math.max(0, Math.floor(r.y / T)), ty1 = Math.min(NT - 1, Math.floor((r.y + r.h - 1) / T));
+    for (var ty = ty0; ty <= ty1; ty++) for (var tx = tx0; tx <= tx1; tx++) { var tc = DOC.get(ty * NT + tx); if (tc) x.drawImage(tc, tx * T - r.x, ty * T - r.y); }
+    var d = x.getImageData(0, 0, r.w, r.h).data, bx0 = r.w, by0 = r.h, bx1 = -1, by1 = -1;
+    for (var yy = 0; yy < r.h; yy++) for (var xx = 0; xx < r.w; xx++) if (d[(yy * r.w + xx) * 4 + 3]) { if (xx < bx0) bx0 = xx; if (xx > bx1) bx1 = xx; if (yy < by0) by0 = yy; if (yy > by1) by1 = yy; }
+    if (bx1 < 0) { note(t("stampEmpty")); return; }
+    var w = bx1 - bx0 + 1, h = by1 - by0 + 1, sc = canvas(w, h); sc.getContext("2d").drawImage(c, bx0, by0, w, h, 0, 0, w, h);
+    var th = canvas(64, 64), tk = Math.min(60 / w, 60 / h, 4), tx2 = th.getContext("2d"); tx2.imageSmoothingEnabled = tk < 1; tx2.drawImage(sc, (64 - w * tk) / 2, (64 - h * tk) / 2, w * tk, h * tk);
+    S.stamps.push({ cv: sc, w: w, h: h, thumb: th.toDataURL() }); S.stampSel = S.stamps.length - 1;
+    endCrop(); setTool("stamp"); note(fmt(t("stampSaved"), { w: num(w), h: num(h) }));
+  }
+  // Bild (JPEG, PNG …) pixelgenau einfügen: 1 Bildpixel = 1 Pixel der Fläche, Mitte am Punkt (wx, wy)
+  async function insertImage(file, wx, wy) {
+    if (!file || !/^image\//.test(file.type) || !V || V.down) return;
+    note(t("imgBusy"));
+    var bmp;
+    try { bmp = await createImageBitmap(file); } catch (e) { note(t("imgBad")); return; }
+    if (!V) return;
+    var w = bmp.width, h = bmp.height;
+    if (w > 16384 || h > 16384 || w * h > 100e6) { note(t("imgBig")); bmp.close && bmp.close(); return; }
+    var x0 = clamp(Math.round(wx - w / 2), 0, Math.max(0, WORLD - w)), y0 = clamp(Math.round(wy - h / 2), 0, Math.max(0, WORLD - h));
+    if (V.curve) curveCommit();
+    STROKE.clear(); V.strokeOp = 1;
+    paintRect(STROKE, x0, y0, x0 + w - 1, y0 + h - 1, function (x) { x.imageSmoothingEnabled = false; x.drawImage(bmp, x0, y0); });
+    commitStroke(); bmp.close && bmp.close();
+    note(fmt(t("imgDone"), { f: file.name || "Bild", w: num(w), h: num(h) })); need();
+  }
   function toolIcon(id) { var ic = TOOLS[id].icon; return ICONS[typeof ic === "function" ? ic() : ic]; }
 
   // ---------- Export-Rahmen ----------
   function cropRect() { var c = V.crop; return { x: Math.round(Math.min(c.x0, c.x1)), y: Math.round(Math.min(c.y0, c.y1)), w: Math.round(Math.abs(c.x1 - c.x0)), h: Math.round(Math.abs(c.y1 - c.y0)) }; }
-  function cropOK(r) { return r.w >= 1 && r.h >= 1 && r.w <= 16384 && r.h <= 16384 && r.w * r.h <= 120e6; }
+  function cropOK(r) { if (V.crop && V.crop.mode === "stamp") return r.w >= 1 && r.h >= 1 && r.w <= 4096 && r.h <= 4096; return r.w >= 1 && r.h >= 1 && r.w <= 16384 && r.h <= 16384 && r.w * r.h <= 120e6; }
   function drawCrop(x) {
-    var c = V.crop; if (c.x0 == null) { label(x, t("cropHint"), 16, V.h - 60); return; }
+    var c = V.crop; if (c.x0 == null) { label(x, t(c.mode === "stamp" ? "stampHint" : "cropHint"), 16, V.h - 60); return; }
     var r = cropRect(), a = w2s(r.x, r.y), b = w2s(r.x + r.w, r.y + r.h);
     x.fillStyle = "rgba(10,40,70,.35)";
     x.fillRect(0, 0, V.w, a.y); x.fillRect(0, b.y, V.w, V.h - b.y); x.fillRect(0, a.y, a.x, b.y - a.y); x.fillRect(b.x, a.y, V.w - b.x, b.y - a.y);
@@ -424,8 +503,14 @@
     if (sx > a.x && sx < b.x && sy > a.y && sy < b.y) return "move";
     return null;
   }
-  function startCrop() { if (V.down) return; V.crop = { x0: null }; V.root.querySelector("#ds-crop").hidden = false; V.root.querySelector("#ds-cdim").textContent = "–"; need(); }
-  function endCrop() { V.crop = null; V.cdrag = null; V.root.querySelector("#ds-crop").hidden = true; need(); }
+  function startCrop(mode) {
+    if (V.down) return; if (V.curve) curveCommit(); V.crop = { x0: null, mode: mode || "exp" };
+    var box = V.root.querySelector("#ds-crop"), st = mode === "stamp"; box.hidden = false; V.root.querySelector("#ds-cdim").textContent = "–";
+    box.querySelector("b").textContent = t(st ? "stampH" : "cropH"); box.querySelector(".ds-desc").textContent = t(st ? "stampHint" : "cropHint");
+    box.querySelector('[data-ds="cropGo"]').textContent = t(st ? "stampGo" : "cropGo"); box.querySelector("#ds-cwarn").textContent = t(st ? "stampMax" : "cropMax");
+    setCursor(); need();
+  }
+  function endCrop() { V.crop = null; V.cdrag = null; V.root.querySelector("#ds-crop").hidden = true; setCursor(); need(); }
   function contentBox() {   // genaue Grenzen alles Gemalten (Randkacheln werden pixelgenau geprüft)
     if (!DOC.size) return null;
     var x0 = 1e9, y0 = 1e9, x1 = -1, y1 = -1;
@@ -539,7 +624,7 @@
     }
     var k = e.key.toLowerCase();
     if (k === "escape") { if (V.curve) curveCancel(); else if (closeFly()) {} else if (V.crop) endCrop(); else if (!V.root.querySelector("#ds-help").hidden) V.root.querySelector("#ds-help").hidden = true; return; }
-    if (k === "enter" && V.crop) { exportCrop(); return; }
+    if (k === "enter" && V.crop) { if (V.crop.mode === "stamp") saveStamp(); else exportCrop(); return; }
     if (k === "enter" && V.curve && V.curve.stage === "bend") { curveCommit(); return; }
     if (V.crop) return;
     for (var id in TOOLS) if (TOOLS[id].key === k) { setTool(id); return; }
@@ -548,6 +633,21 @@
     if (k === "0") { center(WORLD / 2, WORLD / 2, 1); V.viewMoved = true; need(); updateZoom(); return; }
     if (k === "+" || k === "=") { zoomAt(V.w / 2, V.h / 2, 1.25); return; }
     if (k === "-") { zoomAt(V.w / 2, V.h / 2, 0.8); return; }
+  }
+  // Bilder ablegen / einfügen
+  function hasFiles(e) { var ty = e.dataTransfer && e.dataTransfer.types; return !!ty && Array.prototype.indexOf.call(ty, "Files") >= 0; }
+  function onDragIn(e) { if (!hasFiles(e)) return; e.preventDefault(); V.dragN++; V.root.querySelector("#ds-drop").hidden = false; }
+  function onDragOver(e) { if (!hasFiles(e)) return; e.preventDefault(); e.dataTransfer.dropEffect = "copy"; }
+  function onDragOut(e) { if (!hasFiles(e)) return; V.dragN = Math.max(0, V.dragN - 1); if (!V.dragN) V.root.querySelector("#ds-drop").hidden = true; }
+  function onDrop(e) {
+    if (!hasFiles(e)) return; e.preventDefault(); V.dragN = 0; V.root.querySelector("#ds-drop").hidden = true;
+    var f = Array.prototype.filter.call(e.dataTransfer.files, function (q) { return /^image\//.test(q.type); })[0]; if (!f) { note(t("imgBad")); return; }
+    var r = V.cv.getBoundingClientRect(), w = s2w(e.clientX - r.left, e.clientY - r.top); insertImage(f, w.x, w.y);
+  }
+  function onPaste(e) {
+    if (!V) return; var tg = e.target; if (tg && (tg.tagName === "INPUT" || tg.tagName === "TEXTAREA")) return;
+    var it = e.clipboardData && Array.prototype.filter.call(e.clipboardData.items || [], function (q) { return q.kind === "file" && /^image\//.test(q.type); })[0]; if (!it) return;
+    e.preventDefault(); var f = it.getAsFile(), p = V.hover || { x: V.vx + V.w / 2 / V.z, y: V.vy + V.h / 2 / V.z }; insertImage(f, p.x, p.y);
   }
   function onKeyUp(e) { if (V && e.key === " ") { V.space = false; setCursor(); } }
   function onBlur() { if (V) { V.space = false; setCursor(); } }
@@ -563,7 +663,7 @@
     var g1 = V.root.querySelector('[data-grp="brush"] > .ds-ib'), g2 = V.root.querySelector('[data-grp="line"] > .ds-ib');
     if (g1) { g1.innerHTML = ICONS[BRUSHES[S.brush].icon] + '<i class="ds-car"></i>'; g1.setAttribute("aria-pressed", String(S.tool === "brush")); g1.title = BRUSHES[S.brush].name[lang] + " (B)"; }
     if (g2) { g2.innerHTML = ICONS[TOOLS[S.lineTool].icon] + '<i class="ds-car"></i>'; g2.dataset.tool = S.lineTool; g2.setAttribute("aria-pressed", String(!!TOOLS[S.tool].line)); g2.title = t(S.lineTool) + " (" + TOOLS[S.lineTool].key.toUpperCase() + ")"; }
-    var hb = V.root.querySelector('.ds-tools > [data-tool="hand"]'); if (hb) hb.setAttribute("aria-pressed", String(S.tool === "hand"));
+    ["hand", "stamp"].forEach(function (id) { var hb = V.root.querySelector('.ds-tools > [data-tool="' + id + '"]'); if (hb) hb.setAttribute("aria-pressed", String(S.tool === id)); });
     Array.prototype.forEach.call(V.root.querySelectorAll("[data-brush]"), function (b) { b.setAttribute("aria-pressed", String(b.dataset.brush === S.brush)); });
     Array.prototype.forEach.call(V.root.querySelectorAll(".ds-fly [data-tool]"), function (b) { b.setAttribute("aria-pressed", String(b.dataset.tool === S.tool)); });
   }
@@ -575,8 +675,10 @@
   function onMiniMove(e) { if (V && V.miniDrag && e.buttons) V.miniDrag(e); }
   function onMiniUp() { if (V) V.miniDrag = null; }
   function onClick(e) {
-    var b = e.target.closest("[data-ds],[data-tool],[data-col],[data-brush]"); if (!b) { if (!e.target.closest(".ds-fly")) closeFly(); return; }
+    var b = e.target.closest("[data-ds],[data-tool],[data-col],[data-brush],[data-stamp],[data-sdel]"); if (!b) { if (!e.target.closest(".ds-fly")) closeFly(); return; }
     if (b.dataset.brush) { setBrush(b.dataset.brush); return; }
+    if (b.dataset.sdel != null) { var di = +b.dataset.sdel; S.stamps.splice(di, 1); if (S.stampSel >= S.stamps.length) S.stampSel = S.stamps.length - 1; else if (S.stampSel > di) S.stampSel--; updatePanel(); need(); return; }
+    if (b.dataset.stamp != null) { S.stampSel = +b.dataset.stamp; updatePanel(); need(); return; }
     if (b.dataset.tool) {
       var grp = b.parentNode && b.parentNode.classList.contains("ds-grp") ? b.parentNode : null;
       if (grp) {   // Gruppenknopf: Werkzeug wählen und Auswahl aufklappen
@@ -590,10 +692,12 @@
     if (a === "undo") undo(); else if (a === "redo") redo();
     else if (a === "zin") zoomAt(V.w / 2, V.h / 2, 1.4); else if (a === "zout") zoomAt(V.w / 2, V.h / 2, 1 / 1.4);
     else if (a === "home") { center(WORLD / 2, WORLD / 2, 1); V.viewMoved = true; need(); updateZoom(); }
-    else if (a === "exp") { if (V.crop) endCrop(); else startCrop(); }
+    else if (a === "exp") { if (V.crop) endCrop(); else startCrop("exp"); }
     else if (a === "help") { var hp = V.root.querySelector("#ds-help"); hp.hidden = !hp.hidden; }
     else if (a === "helpX") V.root.querySelector("#ds-help").hidden = true;
-    else if (a === "cropGo") exportCrop();
+    else if (a === "cropGo") { if (V.crop && V.crop.mode === "stamp") saveStamp(); else exportCrop(); }
+    else if (a === "stampNew") startCrop("stamp");
+    else if (a === "img") V.root.querySelector("#ds-file").click();
     else if (a === "cropNo") endCrop();
     else if (a === "cropFit") {
       var bx = contentBox(); if (!bx) { note(t("cropEmpty")); return; }
@@ -604,6 +708,7 @@
   }
   function onInput(e) {
     var el = e.target;
+    if (el.dataset.sset) { var k2 = el.dataset.sset; S.st[k2] = +el.value; V.root.querySelector("#ds-v-" + k2).textContent = el.value + RANGES[k2][2]; need(); return; }
     if (el.dataset.set) { cur()[el.dataset.set] = +el.value; var r = RANGES[el.dataset.set]; V.root.querySelector("#ds-v-" + el.dataset.set).textContent = el.value + r[2];
       if (el.dataset.set === "windDir") { var wa = V.root.querySelector("#ds-warr"); if (wa) wa.style.transform = "rotate(" + el.value + "deg)"; } if (V.curve) curveDraw(); need(); return; }
     if (el.id === "ds-bri") { setHSV(S.h, S.s, +el.value / 100); updateColorUI(); return; }
@@ -614,7 +719,7 @@
   function note(s) { var n = V && V.root.querySelector("#ds-note"); if (!n) return; n.textContent = s; n.hidden = !s; clearTimeout(V.noteT); V.noteT = setTimeout(function () { if (V) n.hidden = true; }, 4000); }
   function updateBtns() { if (!V) return; var u = V.root.querySelector('[data-ds="undo"]'), r = V.root.querySelector('[data-ds="redo"]'); if (u) u.disabled = !UNDO.length; if (r) r.disabled = !REDO.length; }
   function updateZoom() { var z = V && V.root.querySelector("#ds-zoom"); if (z) z.textContent = (V.z >= 0.1 ? Math.round(V.z * 100) : (V.z * 100).toFixed(1).replace(".", lang === "de" ? "," : ".")) + " %"; }
-  function sl(k, lab) { var r = RANGES[k], o = cur(); return '<div class="ds-row"><label for="ds-s-' + k + '">' + lab + (k === "windDir" ? '<i class="ds-warr" id="ds-warr" style="transform:rotate(' + o[k] + 'deg)"></i>' : "") + '<span id="ds-v-' + k + '">' + o[k] + r[2] + '</span></label><input type="range" id="ds-s-' + k + '" data-set="' + k + '" min="' + r[0] + '" max="' + r[1] + '" step="1" value="' + o[k] + '"></div>'; }
+  function sl(k, lab, so) { var r = RANGES[k], o = so || cur(); return '<div class="ds-row"><label for="ds-s-' + k + '">' + lab + (k === "windDir" ? '<i class="ds-warr" id="ds-warr" style="transform:rotate(' + o[k] + 'deg)"></i>' : "") + '<span id="ds-v-' + k + '">' + o[k] + r[2] + '</span></label><input type="range" id="ds-s-' + k + '" ' + (so ? 'data-sset' : 'data-set') + '="' + k + '" min="' + r[0] + '" max="' + r[1] + '" step="1" value="' + o[k] + '"></div>'; }
   function updatePanel(recentOnly, fromHex) {
     if (!V) return;
     V.root.style.setProperty("--dscol", color());
@@ -623,6 +728,16 @@
     var tool = S.tool;
     if (tool === "hand") { p.hidden = true; return; }
     p.hidden = false;
+    if (tool === "stamp") {
+      p.innerHTML = "<h3>" + ICONS.stamp + t("stamp") + "</h3>" +
+        '<button type="button" class="ds-btn ds-pri" data-ds="stampNew">' + t("stampNew") + "</button>" +
+        (S.stamps.length ? '<div class="ds-desc">' + t("stampList") + '</div><div class="ds-stl">' + S.stamps.map(function (st, i) {
+          return '<div class="ds-st"><button type="button" class="ds-sti" data-stamp="' + i + '" aria-pressed="' + (i === S.stampSel) + '" title="' + st.w + " × " + st.h + ' px"><img alt="" src="' + st.thumb + '"></button><button type="button" class="ds-sdel" data-sdel="' + i + '" title="' + t("stampDel") + '" aria-label="' + t("stampDel") + '">×</button></div>';
+        }).join("") + "</div>" : '<p class="ds-desc">' + t("stampNone") + "</p>") +
+        sl("scale", t("scale"), S.st) + sl("opacity", t("opacity"), S.st) + sl("rot", t("rot"), S.st) + sl("gap", t("gap"), S.st) +
+        '<p class="ds-desc">' + t("stampNote") + "</p>";
+      return;
+    }
     var B = BRUSHES[S.brush], head = TOOLS[tool].line ? toolIcon(tool) + t(tool) + '<small> · ' + B.name[lang] + "</small>" : ICONS[B.icon] + B.name[lang];
     p.innerHTML = "<h3>" + head + "</h3>" + B.settings.map(function (k) { return sl(k, t(k)); }).join("") +
       '<p class="ds-desc">' + t(B.note) + "</p>" + (S.brush === "spray" ? '<p class="ds-desc">' + t("windNote") + "</p>" : "") + (TOOLS[tool].line ? '<p class="ds-desc">' + t(tool === "ruler" ? "rulerNote" : "curveNote") + "</p>" : '<p class="ds-desc">' + t("smoothNote") + "</p>") +
@@ -679,15 +794,17 @@
           Object.keys(BRUSHES).map(function (id, i) { return '<button type="button" class="ds-fi" data-brush="' + id + '">' + ICONS[BRUSHES[id].icon] + "<span>" + BRUSHES[id].name[lang] + "</span><kbd>" + (i + 1) + "</kbd></button>"; }).join("") + "</div></div>" +
         '<div class="ds-grp" data-grp="line"><button type="button" class="ds-ib" data-tool="ruler" aria-label="' + t("lines") + '"></button><div class="ds-fly ds-glass" hidden><b>' + t("lines") + "</b>" +
           ["ruler", "curve"].map(function (id) { return '<button type="button" class="ds-fi" data-tool="' + id + '">' + ICONS[TOOLS[id].icon] + "<span>" + t(id) + "</span><kbd>" + TOOLS[id].key.toUpperCase() + "</kbd></button>"; }).join("") + "</div></div>" +
+        '<button type="button" class="ds-ib" data-tool="stamp" title="' + t("stamp") + ' (S)" aria-label="' + t("stamp") + '">' + ICONS.stamp + "</button>" +
         '<button type="button" class="ds-ib" data-tool="hand" title="' + t("hand") + ' (H)" aria-label="' + t("hand") + '">' + ICONS.hand + "</button></div>" +
       '<span class="ds-sep"></span>' + btn("undo", "undo") + btn("redo", "redo") +
       '<span class="ds-grow"></span>' + btn("zout", "zout") + '<span class="ds-zoom" id="ds-zoom"></span>' + btn("zin", "zin") + btn("home", "home") +
-      '<span class="ds-sep"></span>' + btn("exp", "exp") + btn("help", "help") + "</header>" +
+      '<span class="ds-sep"></span>' + btn("img", "img") + btn("exp", "exp") + btn("help", "help") + '<input type="file" id="ds-file" accept="image/*" hidden></header>' +
       '<aside class="ds-panel ds-glass" id="ds-panel"></aside>' +
       '<div class="ds-bl"><canvas class="ds-mini ds-glass" id="ds-mini" title="100.000 × 100.000"></canvas><span class="ds-pos ds-glass" id="ds-pos">–</span></div>' +
       '<div class="ds-crop ds-glass" id="ds-crop" hidden><b>' + t("cropH") + '</b><span class="ds-cdim" id="ds-cdim">–</span><span class="ds-desc">' + t("cropHint") + '</span><span class="ds-cwarn" id="ds-cwarn" hidden>' + t("cropMax") + "</span>" +
         '<div class="ds-cb"><button type="button" class="ds-btn" data-ds="cropFit">' + t("cropFit") + '</button><button type="button" class="ds-btn ds-pri" data-ds="cropGo" disabled>' + t("cropGo") + '</button><button type="button" class="ds-btn" data-ds="cropNo">' + t("cancel") + " (Esc)</button></div></div>" +
       '<div class="ds-help ds-glass" id="ds-help" hidden><button type="button" class="ds-ib ds-x" data-ds="helpX" aria-label="×">' + ICONS.close + "</button><b>" + t("title") + "</b><p>" + t("helpTxt") + "</p></div>" +
+      '<div class="ds-drop" id="ds-drop" hidden><span class="ds-glass">' + t("imgDrop") + '</span></div>' +
       '<div class="ds-note ds-glass" id="ds-note" hidden></div></div>';
   }
   var CSS = ".ds{color-scheme:light;-webkit-user-select:none;user-select:none;position:fixed;inset:0;z-index:75;background:#BFCCD8;overflow:hidden;font-family:var(--f-body);color:#12324F;--dsink:#12324F}" +
@@ -736,6 +853,11 @@
     ".ds-btn:hover{border-color:#1C8FD6}.ds-btn[disabled]{opacity:.45;cursor:default}" +
     ".ds-pri{background:linear-gradient(180deg,#E9FAFF 0%,#62CBF3 48%,#1C8FD6 52%,#1373C4 100%);color:#fff;border-color:#0E5EA3;text-shadow:0 1px 1px rgba(0,40,80,.5)}" +
     ".ds-help{position:absolute;right:max(12px,env(safe-area-inset-right,0px));top:66px;width:min(360px,calc(100% - 24px));padding:12px 16px;font-size:.88rem;line-height:1.5}.ds-help p{margin:6px 0 0}.ds-x{position:absolute;right:6px;top:6px;width:32px;height:32px}.ds-x svg{width:24px;height:24px}" +
+    ".ds-stl{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}.ds-st{position:relative}" +
+    ".ds-sti{width:100%;aspect-ratio:1;display:grid;place-items:center;padding:4px;cursor:pointer;border:1px solid rgba(14,94,163,.35);background:repeating-conic-gradient(#fff 0 25%,#E3EEF7 0 50%) 0 0/12px 12px}" +
+    ".ds-sti img{max-width:100%;max-height:100%;image-rendering:auto}.ds-sti[aria-pressed=true]{border-color:#1C8FD6;box-shadow:0 0 0 2px rgba(98,203,243,.7)}" +
+    ".ds-sdel{position:absolute;right:-5px;top:-5px;width:18px;height:18px;padding:0;border-radius:50%;border:1px solid #0E5EA3;background:#fff;color:#0E5EA3;font:700 12px/1 var(--f-body);cursor:pointer}.ds-sdel:hover{background:#E2621B;color:#fff;border-color:#E2621B}" +
+    ".ds-drop{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(19,115,196,.18);outline:3px dashed #1373C4;outline-offset:-14px;pointer-events:none}.ds-drop[hidden]{display:none}.ds-drop span{padding:12px 18px;font:600 1rem var(--f-body)}" +
     ".ds-note{position:absolute;left:50%;transform:translateX(-50%);bottom:max(16px,env(safe-area-inset-bottom,0px));padding:8px 14px;font:600 .88rem var(--f-body)}" +
     "@media (max-width:760px){.ds-bl{bottom:70px}.ds-panel{top:auto;bottom:250px;width:min(250px,calc(100% - 24px));max-height:40%}.ds-title,.ds-ver{display:none}.ds-sep{margin:0 2px}.ds-ib{width:36px;height:36px}.ds-ib svg{width:26px;height:26px}.ds-mini{width:110px;height:110px}}";
 
@@ -770,6 +892,10 @@
     V.cv.addEventListener("pointerleave", function () { if (V && !V.down) { V.hover = null; need(); } });
     V.mini.addEventListener("pointerdown", onMiniDown); window.addEventListener("pointermove", onMiniMove); window.addEventListener("pointerup", onMiniUp);
     el.addEventListener("click", onClick); el.addEventListener("input", onInput);
+    el.querySelector("#ds-file").addEventListener("change", function (e) { var f = e.target.files && e.target.files[0]; e.target.value = ""; if (f) insertImage(f, V.vx + V.w / 2 / V.z, V.vy + V.h / 2 / V.z); });
+    V.dragN = 0;
+    el.addEventListener("dragenter", onDragIn); el.addEventListener("dragover", onDragOver); el.addEventListener("dragleave", onDragOut); el.addEventListener("drop", onDrop);
+    window.addEventListener("paste", onPaste);
     window.addEventListener("keydown", onKey); window.addEventListener("keyup", onKeyUp); window.addEventListener("blur", onBlur); window.addEventListener("resize", layout);
     syncTools(); updatePanel(); updateBtns(); updateZoom(); setCursor();
     raf = requestAnimationFrame(loop);
@@ -782,10 +908,11 @@
     S.view = { x: V.vx + V.w / 2 / V.z, y: V.vy + V.h / 2 / V.z, z: V.z };
     window.removeEventListener("pointermove", onMove); window.removeEventListener("pointerup", onUp); window.removeEventListener("pointercancel", onUp);
     window.removeEventListener("pointermove", onMiniMove); window.removeEventListener("pointerup", onMiniUp);
+    window.removeEventListener("paste", onPaste);
     window.removeEventListener("keydown", onKey); window.removeEventListener("keyup", onKeyUp); window.removeEventListener("blur", onBlur); window.removeEventListener("resize", layout);
     document.body.style.overflow = V.ov || "";
     PTR.clear(); V = null;
   }
   window.DrawSpace = { mount: mount, unmount: unmount, BRUSHES: BRUSHES, TOOLS: TOOLS, STAMPS: STAMPS,
-    _debug: function () { return { DOC: DOC, V: V, S: S, UNDO: UNDO, exportCrop: exportCrop, contentBox: contentBox }; } };
+    _debug: function () { return { DOC: DOC, V: V, S: S, UNDO: UNDO, exportCrop: exportCrop, contentBox: contentBox, insertImage: insertImage, saveStamp: saveStamp }; } };
 })();

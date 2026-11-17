@@ -44,6 +44,9 @@ window.PATCHNOTES = {
   ],
 
   drawspace: [
+    { v: "0.3", t: "2026-11-17T01:30:00+01:00",
+      de: ["Neues Werkzeug Stempel (Taste S): wie beim Export einen Rahmen ziehen und den Bereich als Stempel speichern", "Das Weiß des Blatts kommt nicht mit in den Stempel, leere Ränder werden abgeschnitten", "Klick setzt den Stempel, Ziehen setzt ihn mehrfach; Größe, Deckkraft, Drehung und Abstand einstellbar, bei 100 % und 0° pixelgenau", "Fotos (JPEG, PNG) einfach auf die Fläche ziehen, mit Strg+V einfügen oder über den Bild-Knopf laden: 1 Bildpixel = 1 Pixel der Fläche", "Einfügen und Stempeln lassen sich rückgängig machen"],
+      en: ["New stamp tool (key S): drag a frame like for the export and save the area as a stamp", "The white of the paper is not included in the stamp, empty margins are trimmed", "Click places the stamp, dragging places it repeatedly; size, opacity, rotation and spacing are adjustable, pixel-exact at 100% and 0°", "Just drag photos (JPEG, PNG) onto the area, paste them with Ctrl+V or load them with the image button: 1 image pixel = 1 pixel of the area", "Inserting and stamping can be undone"] },
     { v: "0.25", t: "2026-11-09T02:29:00+01:00",
       de: ["Spraydose mit Wind: Stärke, Richtung und Turbulenz", "Farbe wird realistisch in Windrichtung verweht"],
       en: ["Spray can with wind: strength, direction and turbulence", "Paint drifts realistically with the wind"] },
