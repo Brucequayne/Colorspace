@@ -82,8 +82,8 @@
     var hz = Math.min(18, d.h * 0.35);
     if (fx.straw) { p.straw(o.x, o.y - 12, 10); p.spark(o.x, o.y - 12, 12, 6); }
     if (fx.chips) p.chips(hx, hy, hz, Math.round(6 + power * 6), fx.chips);
-    // Klang: Pfeil schlägt ein bzw. Klinge trifft Holz/Stroh (für Stein gibt es noch keinen Sound)
-    if (fx.straw || (fx.chips && !fx.sparks)) SZ.audio.play(src === "arrow" ? "arrow_wood" : fx.straw ? "hit_straw" : "hit_wood", { x: o.x });
+    // Klang: Pfeil schlägt ein bzw. Klinge trifft Holz/Stroh/Stein (Stein klingt wie Holz)
+    if (fx.straw || fx.chips) SZ.audio.play(src === "arrow" ? "arrow_wood" : fx.straw ? "hit_straw" : "hit_wood", { x: o.x });
     if (fx.sparks) p.spark(hx, hy, hz, Math.round(4 + power * 5));
     var cols = CANOPY_COLS[o.t];
     if ((fx.leaves || fx.petals) && cols) p.leafBurst(o.x, o.y - 2, Math.round(4 + power * 6), cols, d.h * 0.45, d.h * 0.8, d.w * 0.6);
@@ -188,7 +188,7 @@
           if (en.dead || r.hit.indexOf(en) >= 0) continue;
           if (Math.abs(en.x - r.x) < 6 * en.sc && r.y > en.y - 9 * en.sc && r.y < en.y + 5) {
             r.hit.push(en);
-            en.hurt(r.dmg, r.ang, r.knock != null ? r.knock : 0.6 + r.power, "arrow");
+            en.hurt(r.dmg, r.ang, r.knock != null ? r.knock : 0.6 + r.power, "arrow", { k: "arrow_" + (r.kind || "bow"), i: r });
             if (r.power < 0.85 || r.hit.length > 2) { r.dead = true; break; }
           }
         }
@@ -544,7 +544,8 @@
     items.forEach(function (it) {
       if (it.v) { self.drawVeg(ctx, it.v, ents); return; }
       if (it.e) { it.e.draw(ctx); return; }
-      var o = it.o, s = SZ.sprite("obj", o.t, o.v), d = s.def, rt = o._rt || {};
+      var o = it.o, d0 = SZ.OBJECTS[o.t], fr = d0.frames ? Math.floor(t * (d0.fps || 6) + o.x * 0.37 + o.y * 0.11) % d0.frames : 0;   // Banner flattern
+      var s = SZ.sprite("obj", o.t, o.v, fr), d = s.def, rt = o._rt || {};
       var gr = d.grows ? self.grown(o.x, o.y, 1.2) : 1;
       if (gr <= 0) return;
       if (gr < 1) { drawGrow(ctx, s.cv, o.x, o.y, d.ax, d.ay, gr); return; }

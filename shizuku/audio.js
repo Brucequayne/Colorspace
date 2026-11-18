@@ -41,7 +41,11 @@
     water_place_1: { f: ["Watersplash_placement_1.mp3"], vol: 0.9, hit: 0.36 },
     water_place_2: { f: ["Watersplash_placement_2.mp3"], vol: 0.9, hit: 0.19 },
     water_absorb: { f: ["Watersplash_absorb.mp3"], vol: 0.9 },
-    water_beam: { f: ["Wasser_Strahl.mp3"], vol: 0.8 }   // Wasserstrahl (3. Slot), läuft als Schleife
+    water_beam: { f: ["Wasser_Strahl.mp3"], vol: 0.8 },   // Wasserstrahl (3. Slot), läuft als Schleife
+    // Monkey Lord (Boss): Rufe und eigener Treffersound
+    monkey_cry: { f: seq("Monkeylord", 3), vol: 0.95, rate: [0.97, 1.03] },
+    monkey_roar: { f: ["Monkeylord_2.mp3"], vol: 1.0 },
+    monkey_hit: { f: seq("Monkeylord_hit", 3), vol: 0.8, rate: [0.95, 1.05] }
   };
   SZ.SOUND_HIT = function (name) { return (SOUNDS[name] && SOUNDS[name].hit) || 0; };
   var LOOPS = { wind: "Wind.mp3", waterfall: "Flowingwaterfall.mp3" };

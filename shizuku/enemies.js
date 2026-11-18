@@ -32,6 +32,20 @@
       look: "yumi", hp: 40, speed: 52, dmg: 12, ranged: true,
       draw: 0.95, quick: 0.55, arrowSpeed: 265, keep: [100, 165], cooldown: [1.3, 2.3],
       stagger: 0.3, parryStagger: 0.6, radius: 4
+    },
+    // Monkey Lord (Boss, Welle 10): 40 % größer, kämpft mit einem Stab, doppelt so viel Leben wie ein Heavy Ronin.
+    // Drei Angriffsmuster: Schlagkombo (3–4 Hiebe), Sprung mit Stab-Einschlag (Druckwelle), Wirbel (Stab kreist um ihn).
+    // Kann dashen (Lücke schließen, ausweichen). Blockt jeden Angriff, der genauso ist wie der vorige.
+    // Wie der Heavy kein Rückstoß und nicht zu betäuben, nur eine Parade bringt ihn ins Taumeln.
+    monkey: {
+      name: function () { return L2("Monkey Lord", "Monkey Lord"); },
+      look: "monkey", scale: 1.4, hp: 320, speed: 62, dmg: 13, reach: 25, arc: 150, radius: 7, armored: true, boss: true,
+      stagger: 0, parryStagger: 1.05, cooldown: [0.9, 1.7],
+      combo: { first: 0.46, next: 0.17, swing: 0.14, lunge: 165, rec: 0.7 },
+      slam: { crouch: 0.45, air: 0.6, r: 36, dmg: 20, rec: 0.95, height: 30 },
+      sweep: { windup: 0.55, spin: 0.5, reach: 31, dmg: 16, rec: 0.65 },
+      dash: { time: 0.22, speed: 280, cd: 1.6 },
+      staff: { wood: "#6B4424", hi: "#9A6A3A", dark: "#3A2414", cap: "#C9A445", capHi: "#EBD07C" }
     }
   };
 
@@ -47,8 +61,12 @@
     this.dead = false; this.deadT = 0; this.gone = false;
     this.trail = []; this.atkAng = 0; this.hitDone = false;
     this.sc = D.scale || 1;
-    world.parts.ink(x, y - 8 * this.sc, D.armored ? 30 : 18); world.parts.swirl(x, y, 8 * this.sc, 1, 0.7);
-    SZ.audio.play(D.armored ? "spawn_heavy" : "spawn", { x: x });
+    world.parts.ink(x, y - 8 * this.sc, D.boss ? 60 : D.armored ? 30 : 18); world.parts.swirl(x, y, 8 * this.sc, 1, 0.7);
+    if (D.boss) {
+      this.z = 0; this.gKey = null; this.gInst = null; this.cryCd = 0; this.dashCd = 1; this.lastPat = null; this.phase2 = false;
+      world.parts.swirl(x, y, 16, -1, 1); world.parts.ring(x, y, 30, 0.8, "rgba(230,160,120,"); world.shake = Math.max(world.shake, 3);
+      SZ.audio.play("monkey_roar", { x: x });
+    } else SZ.audio.play(D.armored ? "spawn_heavy" : "spawn", { x: x });
   }
   var E = Enemy.prototype;
 
@@ -66,7 +84,7 @@
       if (a.tilePx(this.x, this.y) === "v") this.startFall();
       return;
     }
-    if (this.state === "spawn") { if (this.st > 0.65) this.go("approach"); return; }
+    if (this.state === "spawn") { if (this.st > (D.boss ? 1.2 : 0.65)) this.go("approach"); return; }
     // Von Wasser gefesselt: kann sich nicht bewegen und nicht angreifen
     if (this.held > 0) {
       this.held -= dt;
@@ -84,6 +102,7 @@
     this.cd -= dt * (aggro ? 1.8 : 1);
     var tx = 0, ty = 0, turn = 8, spdMul = aggro ? 1.3 : 1;
     if (D.ranged) { var ar = this.archer(dt, pl, dist, ang, others); tx = ar[0]; ty = ar[1]; turn = ar[2]; }
+    else if (D.boss) { var br = this.monkey(dt, pl, dist, ang); if (br === null) return; tx = br[0]; ty = br[1]; turn = br[2]; }
     else switch (this.state) {
       case "approach":
         if (!plAlive) { this.go("idle"); break; }
@@ -161,7 +180,7 @@
       if (ed < minD && ed > 0.01) { tx += ex / ed * 40; ty += ey / ed * 40; }
     });
     if (!pl.dead && !pl.sphere && dist < 7 + D.radius && dist > 0.01) { tx -= dx / dist * 70; ty -= dy / dist * 70; }   // Luftkugel: der Samurai läuft durch
-    var snap = this.state === "stagger" ? 5 : this.state === "swing" ? 40 : 12;
+    var snap = this.state === "stagger" ? 5 : (this.state === "swing" || this.state === "dash") ? 40 : this.state === "spin" ? 20 : 12;
     var spd = a.speedAt(this.x, this.y), tileC = a.tilePx(this.x, this.y);
     if (D.slowOn && D.slowOn[tileC]) spd = D.slowOn[tileC];
     if (this.slowT > 0) { this.slowT -= dt; tx *= SZ.WATER_ART.beam.slow; ty *= SZ.WATER_ART.beam.slow; }   // vom Wasserstrahl gebremst
@@ -172,8 +191,9 @@
     var np = a.move(this.x, this.y, this.vx * dt, this.vy * dt, D.radius, w.solids, forced);
     var moved = m.dist(this.x, this.y, np.x, np.y);
     this.x = np.x; this.y = np.y;
-    if (a.tilePx(this.x, this.y) === "v") { this.startFall(); return; }
+    if (!this.z && a.tilePx(this.x, this.y) === "v") { this.startFall(); return; }
     this.moving = moved > 0.25 && (this.state === "approach" || this.state === "strafe" || this.state === "hold" || this.state === "position" || this.state === "flee");
+    if (D.boss && this.state === "dash" && Math.floor(this.st / 0.045) !== Math.floor((this.st - dt) / 0.045)) w.parts.ghost(this.sprite(), this.x, this.y);
     // Festgefahren? Dann eine Weile strikt der Wegkarte folgen
     if (this.forceFlow > 0) this.forceFlow -= dt;
     var want = Math.sqrt(tx * tx + ty * ty) * dt;
@@ -313,28 +333,240 @@
     SZ.audio.play("bow", { x: this.x, vol: 0.8, rate: 1.06 });
   };
 
+
+  // ---------- Monkey Lord ----------
+  // Zustände: approach, strafe, windup → swing (Kombo), sweepup → spin (Wirbel), crouch → leap → recover (Sprung),
+  // dash, block, recover, stagger. Gibt [tx, ty, turn] zurück, null = Bewegung schon erledigt (Sprung).
+  function rr(a, b) { return a + Math.random() * (b - a); }
+  E.cry = function (force, rate) {
+    if (!force && this.cryCd > 0) return;
+    this.cryCd = 2.6; SZ.audio.play("monkey_cry", { x: this.x, rate: rate || 1 });
+  };
+  E.startDash = function (a, then) {
+    this.dashAng = a; this.after = then || null; this.dashCd = this.D.dash.cd * (this.phase2 ? 0.7 : 1); this.go("dash");
+    SZ.audio.play("dash", { x: this.x, rate: 0.8 });
+    this.world.parts.dust(this.x, this.y, 4, "#8A7A5A");
+  };
+  // Muster wählen: nie zweimal dasselbe hintereinander
+  E.pickPattern = function (dist) {
+    var opts = [];
+    if (dist < 75) opts.push(["combo", 3]);
+    if (dist < 55) opts.push(["sweep", 2]);
+    if (dist > 38 && dist < 150) opts.push(["slam", 2]);
+    var self = this, f = opts.filter(function (o) { return o[0] !== self.lastPat; });
+    if (f.length) opts = f;
+    if (!opts.length) return null;
+    var sum = 0, i; for (i = 0; i < opts.length; i++) sum += opts[i][1];
+    var r = Math.random() * sum; for (i = 0; i < opts.length; i++) { r -= opts[i][1]; if (r <= 0) return opts[i][0]; }
+    return opts[0][0];
+  };
+  E.beginPattern = function (pat, pl) {
+    var D = this.D, k = this.phase2 ? 0.85 : 1;
+    this.pat = pat; this.lastPat = pat;
+    if (pat === "combo") { this.hitN = 0; this.hitMax = Math.random() < 0.5 ? 3 : 4; this.side = 1; this.wu = D.combo.first * k; this.go("windup"); if (Math.random() < 0.5) this.cry(); }
+    else if (pat === "sweep") { this.wu = D.sweep.windup * k; this.spinDir = Math.random() < 0.5 ? 1 : -1; this.go("sweepup"); }
+    else { this.wu = D.slam.crouch * k; this.go("crouch"); this.cry(true); }
+  };
+  E.monkey = function (dt, pl, dist, ang) {
+    var D = this.D, w = this.world, a = w.arena, tx = 0, ty = 0, turn = 8, plAlive = !pl.dead, self = this;
+    if (this.cryCd > 0) this.cryCd -= dt;
+    if (this.dashCd > 0) this.dashCd -= dt;
+    if (!this.phase2 && this.hp < this.hpMax * 0.5) {   // zweite Phase: schneller und wütender
+      this.phase2 = true; this.cry(true, 0.9); w.shake = Math.max(w.shake, 3); w.parts.ring(this.x, this.y, 28, 0.6, "rgba(230,120,90,");
+    }
+    var spd = D.speed * (this.phase2 ? 1.15 : 1);
+    switch (this.state) {
+      case "approach": case "idle":
+        if (!plAlive) { this.state = "idle"; break; }
+        if (this.state === "idle") this.go("approach");
+        var mv = w.steer(this.x, this.y, pl.x, pl.y, this.forceFlow > 0);
+        tx = Math.cos(mv) * spd; ty = Math.sin(mv) * spd;
+        if (this.cd <= 0 && dist > 80 && dist < 170 && this.dashCd <= 0 && w.los(this.x, this.y, pl.x, pl.y) && Math.random() < 0.5) { this.startDash(ang, "combo"); break; }   // Dash und direkt Kombo
+        if (this.cd <= 0) {
+          var pat = this.pickPattern(dist);
+          if (pat === "slam" || (pat && dist < (pat === "sweep" ? D.sweep.reach + 4 : D.reach + 14))) { this.beginPattern(pat, pl); break; }
+        }
+        // Lücke schließen: Dash zum Spieler, danach direkt angreifen
+        if (dist > 80 && dist < 170 && this.dashCd <= 0 && this.cd <= 0.4 && w.los(this.x, this.y, pl.x, pl.y) && Math.random() < dt * 2.5) { this.startDash(ang, "combo"); break; }
+        if (this.cd > 0 && dist < 48) this.go("strafe");
+        break;
+      case "strafe":
+        if (!plAlive) { this.go("idle"); break; }
+        var px = -Math.sin(ang) * this.strafe, py = Math.cos(ang) * this.strafe;
+        if (w.blockedAt(this.x + px * 12, this.y + py * 12)) { this.strafe *= -1; px = -px; py = -py; }
+        var keep = (dist - 40) * 2.2;
+        tx = Math.cos(ang) * keep + px * spd * 0.7; ty = Math.sin(ang) * keep + py * spd * 0.7;
+        if (Math.random() < dt * 0.5) this.strafe *= -1;
+        if (this.cd <= 0 || dist > 70) this.go("approach");
+        break;
+      case "dash": {
+        turn = 0;
+        var Dd = D.dash, k = 1 - this.st / Dd.time;
+        tx = Math.cos(this.dashAng) * Dd.speed * (0.4 + k * 0.6); ty = Math.sin(this.dashAng) * Dd.speed * (0.4 + k * 0.6);
+        if (this.st >= Dd.time) {
+          var then = this.after; this.after = null;
+          if (then && plAlive && dist < 70) this.beginPattern(then, pl);
+          else this.go("approach");
+        }
+        break;
+      }
+      // Schlagkombo
+      case "windup":
+        turn = 4;
+        var close = dist > D.reach - 2 ? 40 : -6;
+        tx = Math.cos(ang) * close; ty = Math.sin(ang) * close;
+        if (this.wu > 0.25 && this.st > this.wu - 0.14 && this.st - dt <= this.wu - 0.14) w.parts.spark(this.x + Math.cos(this.face) * 4, this.y - 30, 0, 5, "#FFFFFF");
+        if (this.st >= this.wu) { this.atkAng = this.face; this.hitDone = false; this.trail = []; this.go("swing"); SZ.audio.play("swing", { rate: 0.78, x: this.x }); }
+        break;
+      case "swing": {
+        turn = 0;
+        var C = D.combo, q = this.st / C.swing, lunge = C.lunge * Math.max(0, 1 - q);
+        tx = Math.cos(this.atkAng) * lunge; ty = Math.sin(this.atkAng) * lunge;
+        if (!this.hitDone && q >= 0.25) {
+          var hd = m.dist(this.x, this.y, pl.x, pl.y), ha = Math.atan2(pl.y - this.y, pl.x - this.x);
+          if (hd <= D.reach + 5 && Math.abs(m.angDiff(this.atkAng, ha)) < D.arc * Math.PI / 360) {
+            this.hitDone = true;
+            var res = pl.hurt(D.dmg * (this.hitN === this.hitMax - 1 ? 1.4 : 1), this.x, this.y, this);   // letzter Hieb schlägt härter
+            if (res === "parry") { this.stagger(D.parryStagger, ha + Math.PI, 0.9); break; }
+            if (res === "block" && SZ.perk.n(pl, "standhaftigkeit")) this.hurt(D.dmg * 0.3 * SZ.perk.n(pl, "standhaftigkeit"), ha, 0.4, "thorns");
+          }
+        }
+        if (this.st >= C.swing) {
+          this.hitN++; this.side = -this.side;
+          if (this.hitN < this.hitMax && plAlive) { this.wu = C.next * (this.phase2 ? 0.85 : 1); this.go("windup"); }
+          else { this.recT = C.rec; this.go("recover"); }
+        }
+        break;
+      }
+      // Wirbel: Stab kreist anderthalb Mal um ihn herum
+      case "sweepup":
+        turn = 5;
+        if (this.st > this.wu - 0.16 && this.st - dt <= this.wu - 0.16) w.parts.spark(this.x - Math.cos(this.face) * 8, this.y - 16, 0, 5, "#FFFFFF");
+        if (this.st >= this.wu) { this.atkAng = this.face; this.hitDone = false; this.trail = []; this.go("spin"); SZ.audio.play("swing_e", { rate: 0.75, x: this.x }); }
+        break;
+      case "spin": {
+        turn = 0;
+        var Sw = D.sweep, drift = dist > 14 ? 45 : 0;
+        tx = Math.cos(ang) * drift; ty = Math.sin(ang) * drift;
+        if (Math.floor(this.st / 0.12) !== Math.floor((this.st - dt) / 0.12)) { SZ.audio.play("swing", { rate: 0.7, x: this.x, vol: 0.7 }); w.push(this.x, this.y, 36, 3, 0.4, { spin: this.spinDir }); }
+        if (!this.hitDone && dist < Sw.reach + 5 && this.st > 0.05) {
+          this.hitDone = true;
+          var r2 = pl.hurt(Sw.dmg, this.x, this.y, this);
+          if (r2 === "parry") { this.stagger(D.parryStagger, ang + Math.PI, 0.9); break; }
+        }
+        if (this.st >= Sw.spin) { this.recT = Sw.rec; this.go("recover"); }
+        break;
+      }
+      // Sprung mit Einschlag
+      case "crouch":
+        turn = 6;
+        if (this.st >= this.wu) {
+          var tt = D.slam.air, lx = pl.x + (pl.vx || 0) * tt * 0.35, ly = pl.y + (pl.vy || 0) * tt * 0.35;
+          if (!a.walkable(lx, ly, 6) || w.blockedAt(lx, ly)) { lx = pl.x; ly = pl.y; }
+          if (!a.walkable(lx, ly, 6)) { lx = this.x; ly = this.y; }
+          this.leap = { x0: this.x, y0: this.y, x1: lx, y1: ly };
+          this.go("leap"); SZ.audio.play("dash", { x: this.x, rate: 0.6, vol: 0.9 });
+          w.parts.dust(this.x, this.y, 8, "#8A7A5A");
+        }
+        break;
+      case "leap": {
+        var L = this.leap, u = Math.min(1, this.st / D.slam.air), e2 = m.smooth(u);
+        this.x = L.x0 + (L.x1 - L.x0) * e2; this.y = L.y0 + (L.y1 - L.y0) * e2; this.vx = this.vy = 0;
+        this.z = Math.sin(u * Math.PI) * D.slam.height;
+        this.face = Math.atan2(pl.y - this.y, pl.x - this.x); this.dir = m.dir8(this.face);
+        if (u >= 1) { this.z = 0; this.land(pl); }
+        return null;
+      }
+      case "block":
+        turn = 14;
+        if (this.st >= 0.3) { this.cd = Math.min(this.cd, 0.25); this.go(dist < 50 ? "strafe" : "approach"); }
+        break;
+      case "recover":
+        turn = 2;
+        if (this.st >= this.recT) {
+          this.cd = rr(D.cooldown[0], D.cooldown[1]) * (this.phase2 ? 0.65 : 1);
+          this.go(Math.random() < 0.5 ? "strafe" : "approach");
+        }
+        break;
+      case "stagger":
+        turn = 0;
+        if (this.st >= this.stagT) { this.cd = 0.5; this.go("approach"); }
+        break;
+    }
+    // Ausweichen: wenn der Samurai gerade zum Schlag ansetzt, springt er manchmal zur Seite
+    if ((this.state === "approach" || this.state === "strafe") && plAlive && dist < 42 && this.dashCd <= 0 && pl.act && pl.act.type === "atk" && pl.act.t < 0.06 && Math.random() < 0.3) {
+      var side = Math.random() < 0.5 ? 1 : -1, da = ang + Math.PI + side * 1.2;
+      if (!w.blockedAt(this.x + Math.cos(da) * 20, this.y + Math.sin(da) * 20) && a.walkable(this.x + Math.cos(da) * 30, this.y + Math.sin(da) * 30, 8)) this.startDash(da, null);
+    }
+    return [tx, ty, turn];
+  };
+  // Landung nach dem Sprung: Druckwelle
+  E.land = function (pl) {
+    var D = this.D, S = D.slam, w = this.world, self = this;
+    w.shake = Math.max(w.shake, 4.5);
+    w.parts.ring(this.x, this.y, S.r, 0.45, "rgba(220,190,150,"); w.parts.ring(this.x, this.y, S.r * 0.6, 0.3, "rgba(255,240,220,");
+    w.parts.dust(this.x, this.y, 18, "#8A7A5A"); w.parts.chips(this.x + Math.cos(this.face) * 10, this.y + Math.sin(this.face) * 6, 2, 12, ["#6E5A40", "#8A7A5A", "#4E3A26"]);
+    w.push(this.x, this.y, S.r + 16, 6, 0.6);
+    SZ.audio.play("guard_break", { x: this.x, rate: 0.6 }); SZ.audio.play("monkey_hit", { x: this.x, rate: 0.7 });
+    w.arena.obj.forEach(function (o) { if (m.dist(o.x, o.y, self.x, self.y) < S.r + 6 && SZ.objSolid(o)) w.hitObject(o, o.x, o.y - 4, 1.2); });
+    var d = m.dist(this.x, this.y, pl.x, pl.y);
+    if (!pl.dead && d < S.r + 4) {
+      var res = pl.hurt(S.dmg, this.x, this.y, this);
+      if (res === "parry") { this.stagger(D.parryStagger * 1.2, Math.atan2(this.y - pl.y, this.x - pl.x), 0.5); return; }
+    }
+    this.recT = S.rec; this.go("recover");
+  };
+  // Wiederholte Angriffe blocken: gleicher Angriff wie der vorige (neue Ausführung) → geblockt.
+  // key = Art des Angriffs, inst = die einzelne Ausführung (mehrere Treffer einer Ausführung zählen als einer)
+  E.guard = function (src, opt, ang) {
+    var key = (opt && opt.k) || src, inst = (opt && opt.i) || null;
+    if (inst && inst === this.gInst) { if (this.gBlocked) this.blockFx(ang, src); return this.gBlocked; }
+    var rep = key === this.gKey;
+    this.gInst = inst; this.gKey = key; this.gBlocked = rep;
+    if (rep) this.blockFx(ang, src);
+    return rep;
+  };
+  E.blockFx = function (ang, src) {
+    var w = this.world, from = ang + Math.PI;
+    if (this.state === "approach" || this.state === "strafe" || this.state === "recover" || this.state === "block" || this.state === "idle") { this.face = from; this.dir = m.dir8(from); this.go("block"); }
+    w.parts.spark(this.x + Math.cos(from) * 6, this.y - 18, 4, 10, "#FFFFFF"); w.parts.ring(this.x, this.y - 2, 14, 0.3, "rgba(255,240,200,");
+    if (!this.blkT || w.clock - this.blkT > 0.12) SZ.audio.play("block", { x: this.x, rate: 0.85 });
+    this.blkT = w.clock;
+    w.bossBlock = (w.bossBlock || 0) + 1;   // Hinweis für die Arena
+  };
+
   E.stagger = function (time, fromAng, power) {
     this.go("stagger"); this.stagT = time;
     this.vx = Math.cos(fromAng) * 110 * power; this.vy = Math.sin(fromAng) * 110 * power;
   };
 
   // Schaden nehmen (Richtung = von wo der Treffer kommt, nach außen)
-  E.hurt = function (dmg, ang, power, src) {
+  E.hurt = function (dmg, ang, power, src, opt) {
     if (this.dead || this.state === "spawn") return;
-    var w = this.world, crit = false;
+    var w = this.world, crit = false, boss = this.D.boss;
+    if (boss && (this.z > 6 || this.state === "leap")) return;                                       // in der Luft nicht zu treffen
+    if (boss && src !== "ally" && src !== "thorns" && this.guard(src, opt, ang)) return;            // gleicher Angriff wie eben: geblockt
     // Perks des Samurai (nicht bei Teamschaden durch Bogenschützen oder Rückschaden)
     if (src !== "ally" && src !== "thorns" && w.player) { var o = SZ.perk.outgoing(w.player, dmg, src); dmg = o.dmg; crit = o.crit; }
     this.hp -= dmg; this.flash = 1; this.hpT = 3;
     if (crit) { w.parts.spark(this.x, this.y - 14 * this.sc, 14, 14, "#FFD84A"); w.parts.ring(this.x, this.y - 2, 14, 0.35, "rgba(255,220,120,"); w.shake = Math.max(w.shake, 1.5); }
     w.parts.spark(this.x, this.y - 12 * this.sc, 12, this.D.armored ? 12 : 8);
     if (src !== "water" && src !== "beam") w.parts.blood(this.x + Math.cos(ang) * 2, this.y, 11 * this.sc, Math.min(16, 5 + Math.round(dmg * 0.5)), ang, 0.7 + (power || 0) * 0.4);
-    if (src !== "beam") SZ.audio.play(src === "arrow" ? "arrow_hit" : "hit_flesh", { x: this.x, vol: src === "water" ? 0.5 : 1 });
+    if (boss) { if (src !== "beam" || Math.random() < 0.3) SZ.audio.play("monkey_hit", { x: this.x, vol: src === "water" || src === "beam" || src === "wind" ? 0.55 : 1 }); }
+    else if (src !== "beam") SZ.audio.play(src === "arrow" ? "arrow_hit" : "hit_flesh", { x: this.x, vol: src === "water" ? 0.5 : 1 });
     if (this.hp <= 0) {
       this.hp = 0; this.dead = true; this.deadT = 0; this.fallDir = Math.cos(ang) >= 0 ? 1 : -1;
       var kb = this.D.armored ? 30 : 120;
       this.vx = Math.cos(ang) * kb * power; this.vy = Math.sin(ang) * kb * power;
       w.parts.ink(this.x, this.y - 10 * this.sc, this.D.armored ? 26 : 16, "26,18,20");
       w.parts.blood(this.x, this.y, 10 * this.sc, this.D.armored ? 26 : 20, ang, 1.2);
+      if (boss) {   // Boss besiegt: Fellbüschel, langer Ruf, Heilkugel fällt
+        w.parts.chips(this.x, this.y - 6, 30, 22, ["#432A1A", "#694426", "#8E6236", "#C9A445"]);
+        w.parts.ring(this.x, this.y, 40, 0.8, "rgba(240,200,150,"); w.shake = 6;
+        SZ.audio.play("monkey_cry", { x: this.x, rate: 0.82 }); SZ.main.slowmo(0.2, 0.7);
+        (w.drops = w.drops || []).push({ x: this.x, y: this.y, t: 0, kind: "heal" });
+        return;
+      }
       if (this.D.armored) w.parts.chips(this.x, this.y - 4, 26, 10, ["#33363F", "#962A1F", "#555A66"]);   // Rüstungsteile
       else w.parts.chips(this.x, this.y - 2, 24, 8, ["#C8A44E", "#E4C878", "#A08038"]);   // Strohfasern vom Hut
       w.shake = Math.max(w.shake, 3);
@@ -347,6 +579,16 @@
 
   E.animName = function () {
     if (this.dead) return "stagger";
+    if (this.D.boss) switch (this.state) {
+      case "windup": case "sweepup": return "windup";
+      case "swing": case "spin": return "atk";
+      case "crouch": return "cast_low";
+      case "leap": return this.st < this.D.slam.air * 0.75 ? "windup" : "atk";
+      case "dash": return "dash";
+      case "block": return "block";
+      case "spawn": return "cast_up";
+      case "recover": return this.pat === "slam" && this.st < 0.5 ? "cast_low" : this.st < 0.2 ? "atk" : "idle";
+    }
     switch (this.state) {
       case "windup": return "windup";
       case "swing": return "atk";
@@ -391,13 +633,15 @@
     var alpha = this.state === "spawn" ? m.smooth(this.st / 0.65) : this.dead ? 1 - Math.max(0, this.deadT - 0.9) / 0.9 : 1;
     if (alpha <= 0) return;
     ctx.globalAlpha = alpha;
-    ctx.fillStyle = "rgba(10,8,8,0.3)"; ctx.beginPath(); ctx.ellipse(x, y, 6 * this.sc, 2.6 * this.sc, 0, 0, TAU); ctx.fill();
+    var shs = D.boss && this.z ? Math.max(0.5, 1 - this.z / 50) : 1;
+    ctx.fillStyle = "rgba(10,8,8,0.3)"; ctx.beginPath(); ctx.ellipse(x, y, 6 * this.sc * shs, 2.6 * this.sc * shs, 0, 0, TAU); ctx.fill();
     if (this.dead) {
       var k = Math.min(1, this.deadT / 0.35);
       ctx.save(); ctx.translate(x, y); ctx.rotate(this.fallDir * k * Math.PI / 2 * 0.92); ctx.drawImage(s.cv, -s.ax, -s.ay); ctx.restore();
       ctx.globalAlpha = 1; return;
     }
     if (D.ranged) { this.drawArcher(ctx, s, x, y); ctx.globalAlpha = 1; return; }
+    if (D.boss) { this.drawMonkey(ctx, s, x, y); ctx.globalAlpha = 1; return; }
     var sp = this.swordPose(), w = { style: D.sword, blade: D.blade };
     var mid = A.proj(sp.hand[0] + Math.cos(sp.ang) * 6, sp.hand[1] + Math.sin(sp.ang) * 6, sp.hand[2]);
     var behind = mid.depth < 3.5 && Math.sin(sp.ang) < 0.2;
@@ -435,9 +679,72 @@
     if (!behind) bow();
     if (this.flash > 0) { ctx.save(); ctx.globalCompositeOperation = "lighter"; ctx.globalAlpha = Math.min(0.8, this.flash); ctx.drawImage(s.cv, x - s.ax, y - s.ay); ctx.restore(); }
   };
+
+  // Monkey Lord: Stab statt Schwert, Sprung mit Zielmarke am Boden
+  E.staffPose = function () {
+    var f = this.face, fx = Math.cos(f), fy = Math.sin(f), rx = -fy, ry = fx, st = this.state, D = this.D;
+    function Wv(mx, my, mz) { return [mx * rx + my * fx, mx * ry + my * fy, mz]; }
+    if (st === "windup") return { hand: Wv(this.side * 1.5, 0.5, 22), ang: f + Math.PI * 0.85 * this.side, tilt: 0.7, b: 8, f: 18, glint: this.wu > 0.25 && this.st > this.wu - 0.14 };
+    if (st === "swing" || (st === "recover" && this.pat === "combo" && this.st < 0.2)) {
+      var p = st === "swing" ? m.easeOutCubic(this.st / D.combo.swing) : 1, half = D.arc * Math.PI / 360;
+      var a = this.atkAng + this.side * (-half + half * 2 * p);
+      return { hand: [Math.cos(a) * 5.5, Math.sin(a) * 5.5, 14.5], ang: a, tilt: 0.05, b: 7, f: 21, swinging: st === "swing" };
+    }
+    if (st === "sweepup") return { hand: Wv(-this.spinDir * 4.5, -1.5, 13), ang: f + Math.PI - this.spinDir * 0.8, tilt: 0.05, b: 11, f: 17, glint: this.st > this.wu - 0.16 };
+    if (st === "spin" || (st === "recover" && this.pat === "sweep" && this.st < 0.15)) {
+      var u = st === "spin" ? this.st / D.sweep.spin : 1, a2 = this.atkAng + this.spinDir * (Math.PI + u * Math.PI * 3);
+      return { hand: [Math.cos(a2) * 4, Math.sin(a2) * 4, 13.5], ang: a2, tilt: 0.02, b: 10, f: 20, swinging: st === "spin" };
+    }
+    if (st === "crouch" || (st === "leap" && this.st < D.slam.air * 0.75) || st === "spawn") return { hand: Wv(0, 1, 26), ang: f + Math.PI / 2, tilt: 0, b: 13, f: 13 };
+    if (st === "leap" || (st === "recover" && this.pat === "slam" && this.st < 0.5)) return { hand: Wv(0, 7, 9), ang: f, tilt: -0.9, b: 9, f: 15 };
+    if (st === "block") return { hand: Wv(0, 5.5, 16), ang: f + Math.PI / 2, tilt: 0.1, b: 12, f: 12 };
+    if (st === "dash") return { hand: Wv(3, -2, 12), ang: f + Math.PI + 0.35, tilt: 0.25, b: 8, f: 16 };
+    if (st === "stagger" || this.dead) return { hand: Wv(4.6, -0.5, 13), ang: f + 1.3, tilt: -0.5, b: 8, f: 16 };
+    return { hand: Wv(4.4, 1.5, 12.5), ang: f + 0.25, tilt: 1.7, b: 9, f: 16 };   // aufrecht in der rechten Hand
+  };
+  function drawStaff(ctx, ox, oy, hand, ang, tilt, back, front, st, glint) {
+    var A = SZ.samurai, dx = Math.cos(ang), dy = Math.sin(ang), dz = tilt, n = Math.sqrt(dx * dx + dy * dy + dz * dz);
+    dx /= n; dy /= n; dz /= n;
+    var e0 = A.proj(hand[0] - dx * back, hand[1] - dy * back, hand[2] - dz * back), e1 = A.proj(hand[0] + dx * front, hand[1] + dy * front, hand[2] + dz * front);
+    var p = SZ.pen(ctx), x0 = ox + e0.x, y0 = oy + e0.y, x1 = ox + e1.x, y1 = oy + e1.y;
+    p.line(x0, y0 + 1, x1, y1 + 1, st.dark); p.line(x0, y0, x1, y1, st.wood); p.line(x0 + 1, y0, x1 + 1, y1, st.hi);
+    var k = 2.2 / (back + front);   // goldene Kappen an beiden Enden
+    p.line(x0, y0, x0 + (x1 - x0) * k, y0 + (y1 - y0) * k, st.cap); p.line(x1, y1, x1 - (x1 - x0) * k, y1 - (y1 - y0) * k, glint ? "#FFFFFF" : st.cap);
+    p.px(x1, y1, glint ? "#FFFFFF" : st.capHi); p.px(x0, y0, st.capHi);
+    return { tip: { x: x1, y: y1 }, base: { x: x0, y: y0 }, depth: (e0.depth + e1.depth) / 2 };
+  }
+  E.drawMonkey = function (ctx, s, x, y) {
+    var D = this.D, sc = this.sc, sp = this.staffPose(), z = Math.round(this.z || 0), now = this.world.clock;
+    // Zielmarke des Sprungs
+    if (this.state === "leap" || this.state === "crouch") {
+      var L = this.state === "leap" ? this.leap : null, gx = L ? L.x1 : x, gy = L ? L.y1 : y, k = L ? Math.min(1, this.st / D.slam.air) : 0;
+      if (L) {
+        var r = D.slam.r * (0.55 + 0.45 * k), pulse = 0.45 + 0.35 * Math.sin(now * 24);
+        ctx.strokeStyle = "rgba(230,80,60," + pulse + ")"; ctx.beginPath(); ctx.ellipse(Math.round(gx) + 0.5, Math.round(gy) + 0.5, r, r * 0.5, 0, 0, TAU); ctx.stroke();
+        ctx.fillStyle = "rgba(200,60,40," + (0.12 + k * 0.12) + ")"; ctx.beginPath(); ctx.ellipse(Math.round(gx), Math.round(gy), r, r * 0.5, 0, 0, TAU); ctx.fill();
+      }
+    }
+    var hand = [sp.hand[0] * sc, sp.hand[1] * sc, sp.hand[2] * sc], b = sp.b * sc, f = sp.f * sc, yy = y - z;
+    var mid = SZ.samurai.proj(hand[0] + Math.cos(sp.ang) * 4, hand[1] + Math.sin(sp.ang) * 4, hand[2]);
+    var behind = mid.depth < 4.5 && Math.sin(sp.ang) < 0.2 && !sp.swinging, st;
+    if (behind) st = drawStaff(ctx, x, yy, hand, sp.ang, sp.tilt, b, f, D.staff, sp.glint);
+    ctx.drawImage(s.cv, x - s.ax, yy - s.ay);
+    if (!behind) st = drawStaff(ctx, x, yy, hand, sp.ang, sp.tilt, b, f, D.staff, sp.glint);
+    if (sp.glint && st) { ctx.fillStyle = "#FFFFFF"; ctx.fillRect(Math.round(st.tip.x) - 2, Math.round(st.tip.y), 5, 1); ctx.fillRect(Math.round(st.tip.x), Math.round(st.tip.y) - 2, 1, 5); }
+    if (sp.swinging && st) this.trail.push({ a: st.tip, b: st.base, t: now });
+    this.trail = this.trail.filter(function (q) { return now - q.t < 0.14; });
+    for (var i = 1; i < this.trail.length; i++) {
+      var T = this.trail, kk = 1 - (now - T[i].t) / 0.14;
+      ctx.fillStyle = "rgba(240,215,170," + (0.4 * kk) + ")";
+      ctx.beginPath(); ctx.moveTo(T[i - 1].a.x, T[i - 1].a.y); ctx.lineTo(T[i].a.x, T[i].a.y);
+      ctx.lineTo(T[i].b.x * 0.35 + T[i].a.x * 0.65, T[i].b.y * 0.35 + T[i].a.y * 0.65); ctx.lineTo(T[i - 1].b.x * 0.35 + T[i - 1].a.x * 0.65, T[i - 1].b.y * 0.35 + T[i - 1].a.y * 0.65);
+      ctx.closePath(); ctx.fill();
+    }
+    if (this.flash > 0) { ctx.save(); ctx.globalCompositeOperation = "lighter"; ctx.globalAlpha = Math.min(0.8, this.flash); ctx.drawImage(s.cv, x - s.ax, yy - s.ay); ctx.restore(); }
+  };
   // Lebensbalken über dem Kopf (unbeleuchtet, nach dem Licht gezeichnet)
   E.drawUI = function (ctx) {
-    if (this.dead || this.hpT <= 0 || this.hp >= this.hpMax) return;
+    if (this.dead || this.hpT <= 0 || this.hp >= this.hpMax || this.D.boss) return;   // Boss: eigener Balken oben
     var x = Math.round(this.x) - 8, y = Math.round(this.y - 34 * this.sc), f = this.hp / this.hpMax;
     ctx.globalAlpha = Math.min(1, this.hpT);
     ctx.fillStyle = "#0C0909"; ctx.fillRect(x - 1, y - 1, 18, 4);

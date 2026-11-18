@@ -518,7 +518,7 @@
       }
       if (b.grabbed && b.hits < self.whipTimes.length && u >= self.whipTimes[b.hits] + 0.16 && !e.dead) {
         b.hits++;
-        e.hurt(SZ.WATER.whipDmg, Math.atan2(e.y - b.sy, e.x - b.sx), 0, "water");
+        e.hurt(SZ.WATER.whipDmg, Math.atan2(e.y - b.sy, e.x - b.sx), 0, "water", { k: "whip", i: self });
         sp.burst(e.x, e.y, 14 * e.sc, 12, 55, 60, 1.3); splashList(self.splashes, e.x, e.y + 1, 5 * e.sc, 9, 7, self.t); w.shake = Math.max(w.shake, 0.8);
         SZ.audio.play("step_water", { x: e.x, vol: 1.5, rate: 1.35 });
       }
@@ -719,7 +719,7 @@
         if (e.dead || e.state === "spawn" || ac.hits.indexOf(e) >= 0) return;
         var d = m.dist(p.x, p.y, e.x, e.y), a = Math.atan2(e.y - p.y, e.x - p.x);
         if (d < P.reach + 6 + e.D.radius && Math.abs(m.angDiff(ac.ang, a)) < P.arc + 6 / Math.max(8, d)) {
-          ac.hits.push(e); e.hurt(P.dmg, a, P.knock, "water");
+          ac.hits.push(e); e.hurt(P.dmg, a, P.knock, "water", { k: "wpunch", i: ac });
           sp.burst(e.x, e.y, 12 * e.sc, 12, 55, 50, 1.3); splashList(self.splashes, e.x, e.y + 1, 4 * e.sc, 8, 7, self.t);
           SZ.audio.play("water_place_" + (1 + (Math.random() * 2 | 0)), { x: e.x, vol: 0.45, rate: 1.35, offset: 0.25 });
         }
@@ -747,7 +747,7 @@
       var hitE = null;
       for (var k = 0; k < w.enemies.length; k++) { var e = w.enemies[k]; if (!e.dead && e.state !== "spawn" && Math.abs(e.x - b.x) < e.D.radius + 4 && b.y > e.y - 9 && b.y < e.y + 5) { hitE = e; break; } }
       if (hitE) {
-        hitE.hurt(B.dmg, b.a, B.knock, "water");
+        hitE.hurt(B.dmg, b.a, B.knock, "water", { k: "wbolt", i: b });
         self.splat(b.x, b.y, b.z * 0.6, false, hitE);
         SZ.audio.play("water_place_" + (1 + (Math.random() * 2 | 0)), { x: b.x, vol: 0.35, rate: 1.6, offset: 0.25 });
         this.bolts.splice(i, 1); continue;
@@ -781,7 +781,7 @@
             var rx = e.x - o.x, ry = e.y - o.y, along = rx * ca + ry * sa, across = Math.abs(-rx * sa + ry * ca);
             if (along < 0 || along > bm.len + e.D.radius || across > e.D.radius + 6) return;
             any = true;
-            e.hurt(BM.dmg, bm.a, e.D.armored ? 0 : BM.push, "beam");
+            e.hurt(BM.dmg, bm.a, e.D.armored ? 0 : BM.push, "beam", { k: "beam", i: bm });
             if (e.D.armored) e.slowT = 0.3;   // Schwere: deutlich langsamer statt zurückgeschoben
             sp.burst(e.x, e.y, 10 * e.sc, 4, 45, 35, 1.1);
             if (Math.random() < 0.5) splashList(self.splashes, e.x - ca * 4, e.y - sa * 4, 3.5 * e.sc, 7, 6, self.t);

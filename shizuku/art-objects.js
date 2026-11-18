@@ -300,6 +300,60 @@
         p.rect(3, 7, 6, 3, "#B2302A"); p.rect(3, 9, 6, 1, "#8A2220"); p.px(4, 7, "#D04A3A");
       }
     },
+    // Banner (Nobori): senkrechte Fahne an einem Pfahl, der in der Erde steckt. 4 Bilder: der Stoff flattert
+    banner: {
+      name: function () { return L2("Banner", "Banner"); },
+      w: 26, h: 60, ax: 6, ay: 58, variants: 3, frames: 4, fps: 5, solid: [[0, -1, 2]],
+      fx: { chips: ["#6B4A2E", "#A8241E", "#E8E0CC", "#1D2438"] },
+      draw: function (p, ctx, rnd, v, fr) {
+        var PX = 5, top = 4, base = 58, c0 = 8, c1 = 19, y0 = 8, y1 = 47, ph = (fr || 0) * Math.PI / 2;
+        // Stoff-Farben je Variante: [dunkel, mittel, hell, Glanz]
+        var C = [["#5E1410", "#8A1E18", "#B02A20", "#CC4430"],      // rot
+                 ["#8A8270", "#BEB6A0", "#E2DAC4", "#F4EEDC"],      // weiß
+                 ["#10131F", "#1D2438", "#2E3852", "#43507A"]][v];  // indigo
+        // Pfahl (schwarz lackiert), Spitze, Querstange oben
+        p.rect(PX, top, 2, base - top, "#2A1E1A"); p.rect(PX, top, 1, base - top, "#4A3A30");
+        p.px(PX, top - 1, "#C9A445"); p.px(PX + 1, top - 1, "#957530"); p.px(PX, top - 2, "#EBD07C");
+        // Erde, in der der Pfahl steckt
+        p.rect(PX - 3, base - 1, 8, 2, "#3A2A1C"); p.rect(PX - 2, base - 2, 6, 1, "#4E3A26"); p.px(PX - 3, base - 2, "#5A4430"); p.px(PX + 4, base - 2, "#33261A");
+        // Stoff: wellt sich zum freien Rand hin (am Pfahl und oben festgebunden)
+        for (var y = y0; y <= y1; y++) {
+          var ty = (y - y0) / (y1 - y0), sway = Math.sin(y * 0.3 - ph) * (0.6 + ty * 1.4), edge = Math.round(c1 + sway + ty * 0.8);
+          if (y === y1) edge -= 1;
+          for (var x = c0; x <= edge; x++) {
+            var tx = (x - c0) / (c1 - c0), fold = Math.sin(x * 0.7 + y * 0.18 - ph * 1.0 + tx * 1.5) * (0.25 + tx * 0.75);
+            var k = fold > 0.45 ? 3 : fold > -0.1 ? 2 : fold > -0.6 ? 1 : 0;
+            if (x === edge) k = Math.max(0, k - 1);
+            var col = C[k];
+            // Muster
+            var mx = x - (c0 + c1) / 2 - 0.5, my = y - 16;
+            if (v === 0) {   // weißes Wappen mit rotem Kern, dunkles Band unten
+              var r = Math.sqrt(mx * mx + my * my);
+              if (r < 4.6) col = r < 1.7 ? C[Math.min(3, k + 1)] : ["#B8B09C", "#D8D0BC", "#ECE6D6", "#FAF6EC"][k];
+              if (y > y1 - 6) col = ["#2A0A08", "#3E100C", "#561812", "#6A2018"][k];
+            } else if (v === 1) {   // schwarzes Kopfband, drei Pinselstriche, rotes Siegel
+              if (y < y0 + 4) col = ["#0A0808", "#141010", "#201A1A", "#2C2424"][k];
+              var sx = x - c0;
+              var ink = "#141010";   // abstrakte Pinselschrift: Querstrich, Hauptstrich mit Haken, zwei Tupfer
+              if (y === 13 && sx > 1 && sx < 10) col = ink; if (y === 14 && sx > 2 && sx < 6) col = ink;
+              if ((sx === 5 || (sx === 6 && y < 30)) && y > 13 && y < 34) col = ink;
+              if ((y === 33 && sx === 4) || (y === 32 && sx === 3)) col = ink;
+              if ((y === 20 && sx === 8) || (y === 21 && (sx === 8 || sx === 9)) || (y === 22 && sx === 9)) col = ink;
+              if ((y === 25 && sx === 3) || (y === 26 && (sx === 2 || sx === 3)) || (y === 27 && sx === 2)) col = "#201A1A";
+              if (y > 37 && y < 42 && sx > 6 && sx < 10) col = y === 38 ? "#D8452E" : "#B02A20";
+            } else {   // weiße Rauten in einer Spalte, weißer Randstreifen am Pfahl
+              var dx = Math.abs(mx), cy = ((y - y0 - 3) % 9 + 9) % 9, dy = Math.abs(cy - 4);
+              if (dx + dy < 3.2 && dx + dy > 1.6 && y > y0 + 2 && y < y1 - 3) col = ["#8A8478", "#BEB6A4", "#E2DCCC", "#FAF6EC"][k];
+              if (x <= c0 + 1) col = ["#8A8478", "#BEB6A4", "#E2DCCC", "#F2ECDA"][Math.min(2, k)];
+            }
+            p.px(x, y, col);
+          }
+        }
+        // Querstange und Ösen am Pfahl
+        p.rect(PX, y0 - 1, c1 - PX + 2, 1, "#2A1E1A"); p.px(c1 + 1, y0 - 1, "#C9A445");
+        for (var ry = y0 + 2; ry < y1; ry += 6) { p.px(PX + 2, ry, "#E8E0CC"); p.px(PX + 1, ry, "#C8C0AC"); }
+      }
+    },
     makiwara: {
       name: function () { return L2("Makiwara (Übungspfahl)", "Makiwara (training post)"); },
       w: 12, h: 28, ax: 6, ay: 27, variants: 1, solid: [[0, -1, 4]], fx: { straw: true },
@@ -435,12 +489,13 @@
 
   // ---------- Sprite-Cache ----------
   var cache = {};
-  SZ.sprite = function (kind, type, v) {
-    var key = kind + ":" + type + ":" + v;
+  SZ.sprite = function (kind, type, v, fr) {
+    fr = fr || 0;
+    var key = kind + ":" + type + ":" + v + (fr ? ":" + fr : "");
     if (cache[key]) return cache[key];
     var def = (kind === "veg" ? SZ.VEG : SZ.OBJECTS)[type];
     var cv = SZ.canvas(def.w, def.h);
-    def.draw(SZ.pen(cv.ctx), cv.ctx, SZ.rng(1000 + v * 97 + type.length * 13 + type.charCodeAt(0)), v || 0);
+    def.draw(SZ.pen(cv.ctx), cv.ctx, SZ.rng(1000 + v * 97 + type.length * 13 + type.charCodeAt(0)), v || 0, fr);
     if (kind === "obj") SZ.outline(cv, "#141012");
     var s = { cv: cv, sil: SZ.silhouette(cv), def: def };
     cache[key] = s;

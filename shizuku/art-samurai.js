@@ -32,7 +32,10 @@
     armor: ["#101114", "#1E2027", "#33363F", "#555A66"],
     lace: ["#3A0E0C", "#6A1A15", "#962A1F", "#C04230"],
     moss: ["#151C12", "#26321E", "#3B4C2C", "#58693E"],
-    earth: ["#1C140E", "#33261A", "#4E3A26", "#6C5236"]
+    earth: ["#1C140E", "#33261A", "#4E3A26", "#6C5236"],
+    fur: ["#24160E", "#432A1A", "#694426", "#8E6236"],      // Monkey Lord: Fell
+    furl: ["#5E4A38", "#8E765C", "#B49C7C", "#D4BE98"],     // helles Bauch- und Gesichtsfell
+    mface: ["#5A1A16", "#8A2E24", "#B44A36", "#D06C52"]     // rotes Affengesicht
   };
   // Aussehen je Figur
   var LOOKS = {
@@ -42,6 +45,8 @@
     // Yumi-heishi: Bogenschütze in moosgrünem Kimono, brauner Hakama, rotem Kopftuch (hinten geknotet, Schnurenden hängen)
     // und Köcher auf dem Rücken, ohne Schwert
     yumi: { torso: "kimono", robe: "moss", sleeve: "moss", legs: "earth", wings: null, saya: false, hat: false, scarf: true, quiver: true },
+    // Monkey Lord (Boss): Fell, rotes Gesicht, Ohren, goldener Stirnreif, rote Weste mit Goldsaum, Schwanz, 40 % größer
+    monkey: { torso: "vest", sleeve: "fur", legs: "ash", wings: null, saya: false, hat: false, monkey: true, scale: 1.4 },
     heavy: { torso: "armor", sleeve: "armor", legs: "ash", wings: null, sode: true, kusazuri: true, saya: true, hat: false, hachimaki: true, scale: 1.3 }
   };
 
@@ -118,8 +123,8 @@
     // Füße (Waraji-Sandalen mit Tabi)
     [[-1, P.lf, P.ll], [1, P.rf, P.rl]].forEach(function (G) {
       var x = G[0] * P.spread, y = G[1], lift = G[2];
-      add(box(x, y + 0.8, 0.5 + lift, 1.2, 1.9, 0.5), "sole");
-      add(ell(x, y + 0.6, 1.5 + lift, 1.1, 1.7, 0.8), "white");
+      add(box(x, y + 0.8, 0.5 + lift, 1.2, 1.9, 0.5), L.monkey ? "fur" : "sole");
+      add(ell(x, y + 0.6, 1.5 + lift, 1.1, 1.7, 0.8), L.monkey ? "mface" : "white");
       // Hakama-Hosenbein, weit ausgestellt
       add(cone([x * 0.55, ln * 0.4, 11.2 + cz], [x * 1.08, y * 0.85, 2.2 + lift], 2.6, 3.4), L.legs);
     });
@@ -142,7 +147,16 @@
     add(ell(0, ln * 0.8 + 0.2, 23.6 + cz + P.breathe, 3.9, 3.7, 4.0), "head");
     var hz = 23.6 + cz + P.breathe, hy = ln * 0.8 + 0.2;
     // Haarband hinten am Kopf (die langen Haare werden dynamisch gezeichnet)
-    if (!L.hat && !L.scarf) add(ell(0, hy - 3.3, hz + 1.4, 1.1, 0.9, 1.0), "red");
+    if (!L.hat && !L.scarf && !L.monkey) add(ell(0, hy - 3.3, hz + 1.4, 1.1, 0.9, 1.0), "red");
+    // Affe: Ohren, vorstehende Schnauze, Schwanz (gebogen nach oben)
+    if (L.monkey) {
+      add(ell(-3.8, hy - 0.4, hz + 0.3, 0.9, 0.7, 1.1), "mface"); add(ell(3.8, hy - 0.4, hz + 0.3, 0.9, 0.7, 1.1), "mface");
+      add(ell(0, hy + 3.0, hz - 1.3, 1.9, 1.3, 1.3), "mface");
+      var by0 = ln * 0.5 - 3;
+      add(cone([0, by0, 10 + cz], [0.6, by0 - 4.5, 8.6 + cz], 0.95, 0.8), "fur");
+      add(cone([0.6, by0 - 4.5, 8.6 + cz], [1.0, by0 - 6.2, 14 + cz], 0.8, 0.65), "fur");
+      add(cone([1.0, by0 - 6.2, 14 + cz], [0.3, by0 - 4.8, 17 + cz], 0.65, 0.5), "fur");
+    }
     // Kopftuch: Knoten am Hinterkopf, zwei Schnurenden hängen herab
     if (L.scarf) {
       add(ell(0, hy - 3.7, hz + 0.4, 1.3, 1.0, 1.1), "red");
@@ -164,6 +178,13 @@
     if (name === "armor") return (((z - M.cz) * 1.15) % 1 + 1) % 1 < 0.2 ? "lace" : "armor";
     if (name === "head") {
       var hy = y - (M.ln * 0.8 + 0.2), hz = z - (23.6 + M.cz + M.P.breathe);
+      if (M.L.monkey) {
+        if (hz > 0.9 && hz < 1.7) return "gold";                                                   // goldener Stirnreif
+        if (M.L.eyes !== false && hy > 1.9 && Math.abs(hz + 0.1) < 0.5 && Math.abs(Math.abs(x) - 1.3) < 0.5) return "eye";
+        if (hy > 1.6 && hz < 0.9 && Math.abs(x) < 2.6) return "mface";                             // Gesicht
+        if (hy > 0.6 && hz < 0.2 && Math.abs(x) < 3.2) return "furl";                              // heller Backenbart
+        return "fur";
+      }
       if (M.L.scarf && (hz > 0.45 || (hy < 0.9 && hz > -1.4))) return "red";   // Kopftuch über Ober- und Hinterkopf
       if (hy < 0.9 - Math.max(0, -hz) * 0.5 || hz > 1.5) return "hair";
       if (M.L.eyes !== false && hy > 1.5 && Math.abs(hz + 0.1) < 0.55 && Math.abs(Math.abs(x) - 1.45) < 0.55) return "eye";
@@ -175,6 +196,12 @@
     if (name === "torso") {
       var ty = y - M.ln * 0.6, tz = z - M.cz;
       if (M.L.torso === "armor") return material("armor", x, y, z, M);
+      if (M.L.torso === "vest") {   // offene rote Weste mit Goldsaum, Fellbrust
+        var open = 0.9 + (tz - 12) * 0.16;
+        if (ty > 0.6 && Math.abs(x) < open) return "furl";
+        if (ty > 0.6 && Math.abs(x) < open + 0.6) return "gold";
+        return "red";
+      }
       if (M.L.torso === "kimono") {
         if (ty > 0.8 && tz > 14.2 && Math.abs(x + (tz - 14) * 0.25) < (tz - 13.6) * 0.42) return Math.abs(x + (tz - 14) * 0.25) > (tz - 13.6) * 0.3 ? "ivory" : "skin";
         return M.L.robe || "rag";
@@ -228,7 +255,7 @@
   }
 
   var FRAMES = { idle: 2, walk: 6, block: 1, parry: 1, atk: 1, dash: 1, bow: 1, windup: 1, stagger: 1, blockwalk: 6, bowwalk: 6, cast_up: 1, cast_flow: 1, cast_flow2: 1, cast_push: 1, cast_low: 1, punch_l: 1, punch_r: 1 };
-  var USE = { samurai: ["idle", "walk", "block", "parry", "atk", "dash", "bow", "stagger", "blockwalk", "bowwalk", "cast_up", "cast_flow", "cast_flow2", "cast_push", "cast_low", "punch_l", "punch_r"], ronin: ["idle", "walk", "atk", "windup", "stagger", "block"], heavy: ["idle", "walk", "atk", "windup", "stagger"], yumi: ["idle", "walk", "bow", "stagger"] };
+  var USE = { samurai: ["idle", "walk", "block", "parry", "atk", "dash", "bow", "stagger", "blockwalk", "bowwalk", "cast_up", "cast_flow", "cast_flow2", "cast_push", "cast_low", "punch_l", "punch_r"], ronin: ["idle", "walk", "atk", "windup", "stagger", "block"], heavy: ["idle", "walk", "atk", "windup", "stagger"], yumi: ["idle", "walk", "bow", "stagger"], monkey: ["idle", "walk", "atk", "windup", "stagger", "block", "dash", "cast_up", "cast_low"] };
   var cache = {}, queue = [];
   function frame(dir, anim, k, look) {
     look = look || "samurai";

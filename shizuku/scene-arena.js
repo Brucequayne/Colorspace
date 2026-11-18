@@ -59,7 +59,7 @@
     { a: { heavy: 1, yumi: 2 }, form: "wall", sub: sub("Schild und Bogen", "Shield and bow") },
     { a: { yumi: 3 }, form: "ring", sub: sub("Aus allen Richtungen", "From every direction") },
     { a: { ronin: 4 }, re: { heavy: 1 }, form: "flank", sub: sub("Von beiden Seiten", "From both sides") },
-    { a: { heavy: 2, yumi: 2 }, form: "pincer", sub: sub("Die Zange", "The pincer") },
+    { a: { monkey: 1 }, boss: true, sub: sub("Der Monkey Lord", "The Monkey Lord") },   // erster Boss
     { a: { ronin: 2, yumi: 3 }, re: { ronin: 2 }, form: "ambush", sub: sub("Hinterhalt", "Ambush") },
     { a: { heavy: 1, ronin: 3, yumi: 3 }, form: "wall", sub: sub("Schlachtreihe", "Battle line") }
   ];
@@ -78,11 +78,49 @@
     return { a: { ronin: Math.ceil(r / 2), heavy: Math.ceil(h / 2), yumi: y }, re: { ronin: Math.floor(r / 2), heavy: Math.floor(h / 2) }, form: ["wall", "pincer", "flank", "ring"][ri(0, 3)] };
   }
   SZ.waveSpec = waveSpec;   // für Tests und den Dev-Tool-Einblick
+  // ---------- Fundstücke (Heilkugel vom Boss) ----------
+  // Schwebt über dem Boden; kommt man nah, fliegt sie zum Samurai und heilt 50 % des maximalen Lebens
+  var HEAL = 0.5;
+  function dropsUpdate(dt, w, p) {
+    if (!w.drops) return;
+    w.drops = w.drops.filter(function (d) {
+      d.t += dt;
+      if (d.t < 0.6 || p.dead) return true;   // erst kurz liegen lassen
+      var dx = p.x - d.x, dy = p.y - d.y, dd = Math.hypot(dx, dy);
+      if (dd < 36) { var v = Math.min(dd, (60 + (36 - dd) * 6) * dt); d.x += dx / dd * v; d.y += dy / dd * v; }
+      if (dd < 7) {
+        var add = Math.round(p.hpMax * HEAL);
+        p.hp = Math.min(p.hpMax, p.hp + add);
+        w.parts.spark(p.x, p.y - 12, 14, 16, "#FFD0C0"); w.parts.swirl(p.x, p.y, 12, 1, 0.8); w.parts.ring(p.x, p.y - 2, 20, 0.5, "rgba(255,160,140,");
+        SZ.audio.play("parry_hit", { x: p.x, rate: 1.35, vol: 0.7 }); SZ.audio.play("water_absorb", { x: p.x, vol: 0.5, rate: 1.2 });
+        pop(L2("+50 % Leben", "+50 % health")); toast(L2("Heilkugel: +50 % Leben", "Healing orb: +50 % health"));
+        return false;
+      }
+      return true;
+    });
+  }
+  function dropsDraw(ctx, w) {
+    if (!w.drops) return;
+    var t = w.clock;
+    w.drops.forEach(function (d) {
+      var x = Math.round(d.x), z = 9 + Math.sin(d.t * 3.2) * 2, y = Math.round(d.y - z), pu = 0.5 + 0.5 * Math.sin(t * 5);
+      ctx.fillStyle = "rgba(10,8,8,0.35)"; ctx.fillRect(x - 3, Math.round(d.y), 7, 1); ctx.fillRect(x - 2, Math.round(d.y) - 1, 5, 1);
+      var g = ctx.createRadialGradient(x + 0.5, y + 0.5, 1, x + 0.5, y + 0.5, 14);
+      g.addColorStop(0, "rgba(255,130,100," + (0.35 + pu * 0.2) + ")"); g.addColorStop(1, "rgba(255,90,60,0)");
+      ctx.fillStyle = g; ctx.fillRect(x - 14, y - 14, 29, 29);
+      var P = SZ.pen(ctx);
+      P.rect(x - 2, y - 4, 5, 9, "#5A1410"); P.rect(x - 4, y - 2, 9, 5, "#5A1410"); P.rect(x - 3, y - 3, 7, 7, "#5A1410");
+      P.rect(x - 2, y - 3, 5, 7, "#C83C2A"); P.rect(x - 3, y - 2, 7, 5, "#C83C2A");
+      P.rect(x - 1, y - 2, 3, 4, "#E8664A"); P.rect(x - 2, y - 1, 2, 2, "#F49A80");
+      P.px(x - 1, y - 2, "#FFE6DC"); P.px(x, y - 2, "#FFFFFF");
+      for (var i = 0; i < 3; i++) { var ph = (t * 0.8 + i / 3) % 1; P.px(x - 5 + i * 5 + Math.round(Math.sin(t * 3 + i) ), Math.round(y + 4 - ph * 16), ph < 0.7 ? "#FFC0B0" : "#E8664A"); }
+    });
+  }
   function count(o) { var n = 0; for (var k in o) n += o[k] || 0; return n; }
   // Gegner nach Aufstellung erscheinen lassen
   function spawnGroup(w, p, group, hpMul, form) {
     var list = [];
-    ["heavy", "ronin", "yumi"].forEach(function (t) { for (var i = 0; i < (group[t] || 0); i++) list.push(t); });
+    ["monkey", "heavy", "ronin", "yumi"].forEach(function (t) { for (var i = 0; i < (group[t] || 0); i++) list.push(t); });
     var base = Math.random() * Math.PI * 2, W = SZ.W, H = SZ.H, cx = W / 2, cy = H / 2;
     // Zielpunkt je Gegner (null = irgendwo)
     function goal(t, i, n) {
@@ -205,6 +243,13 @@
   }
   function hudDom() {
     var ui = SZ.main.ui, top = ui.querySelector(".sz-top");
+    var boss = S.world.enemies.filter(function (e) { return e.D.boss && !e.dead && !e.falling; })[0], bb = ui.querySelector(".sz-boss");
+    if (bb.hidden === !!boss) bb.hidden = !boss;
+    if (boss) {
+      var bn = boss.D.name(); if (bb.dataset.n !== bn) { bb.querySelector("b").textContent = bn; bb.dataset.n = bn; }
+      var pc = Math.max(0, boss.hp / boss.hpMax * 100).toFixed(1) + "%"; if (bb.dataset.p !== pc) { bb.querySelector("i").style.width = pc; bb.dataset.p = pc; }
+      bb.classList.toggle("p2", !!boss.phase2);
+    }
     var alive = S.world.enemies.filter(function (e) { return !e.dead; }).length + (S.reinf ? count(S.reinf.g) : 0);
     var pts = String(S.points), wv = S.wave ? L2("Welle ", "Wave ") + S.wave + (S.between ? "" : " · " + alive + L2(" übrig", " left")) : "";
     if (top.dataset.p !== pts) { top.querySelector("b").textContent = pts; top.dataset.p = pts; }
@@ -283,6 +328,7 @@
         '<div class="sz-elq" hidden><span class="sz-wv">' + SZ.WAVE_SVG + '</span><kbd>Q</kbd><b></b></div>' +
         '<div class="sz-elx" hidden><span class="sz-wv">' + SZ.WAVE_SVG + '</span><kbd>X</kbd><b></b></div>' +
         '<div class="sz-etoast" hidden></div>' +
+        '<div class="sz-boss" hidden><b></b><div><i></i></div></div>' +
         '<div class="sz-hint">' +
         L2("WASD laufen · Maus zielen · Leertaste Dash · Linksklick Katana ziehen, dann Hieb · Linksklick halten: Stich · Shift + Linksklick: Drehhieb · Rechtsklick Block · Block halten + Linksklick: Konter · Q / E + Rechtsklick: Parade / Ausweichen · Wurfwaffen: Linksklick halten · 1 / 2 / 3: Waffe wechseln (3 = Element) · X Spezialangriff (einmal pro Welle) · Wasser zwischen den Wellen: Q · E nächste Welle · M Ton · Esc Menü",
            "WASD move · mouse aim · space dash · left click draw katana, then slash · hold left click: thrust · shift + left click: spin · right click block · hold block + left click: counter · Q / E + right click: parry / dodge · throwing weapons: hold left click · 1 / 2 / 3: switch weapon (3 = element) · X special (once per wave) · water between waves: Q · E next wave · M sound · Esc menu") + '</div>';
@@ -303,6 +349,9 @@
       SZ.audio.musicLevel(p.dead ? 0.12 : S.between ? 0.4 : 1, S.between ? 1.6 : 0.8);
       for (var i = w.enemies.length - 1; i >= 0; i--) { w.enemies[i].update(dt, p); if (w.enemies[i].gone) w.enemies.splice(i, 1); }
       w.tickObjects(dt);
+      dropsUpdate(dt, w, p);
+      // Monkey Lord blockt: die ersten Male erklären, warum
+      if (w.bossBlock) { S.blockTips = (S.blockTips || 0) + 1; if (S.blockTips <= 3) toast(L2("Geblockt! Er wehrt jede Wiederholung ab – wechsle die Attacke.", "Blocked! He stops any repeated attack – switch it up.")); w.bossBlock = 0; }
       // Gleichgewicht für besiegte Gegner
       w.enemies.forEach(function (e) {
         if (e.dead && !e.counted) {
@@ -331,6 +380,7 @@
     render: function (ctx) {
       var w = S.world;
       w.render(ctx, { ents: [S.player], player: S.player });
+      dropsDraw(ctx, w);
       w.enemies.forEach(function (e) { e.drawUI(ctx); });
       if (S.waterMode) drawWaterSel(ctx);
       SZ.hud.draw(ctx, S.player, SZ.main.realDt || 0.016);

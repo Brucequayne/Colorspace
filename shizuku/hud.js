@@ -59,7 +59,7 @@
       bar(ctx, x, y + 7, 74, 3, e, low ? "#8A7A5A" : "#E2D29A", low ? null : "#FFF4C8", back);
       ctx.fillStyle = "#0A0808"; ctx.fillRect(x + Math.round(74 / 3), y + 7, 1, 3); ctx.fillRect(x + Math.round(74 * 2 / 3), y + 7, 1, 3);
       // Mana (für den Element-Slot): lädt langsamer als die Energie, blinkt, wenn es nicht reicht
-      if (pl.slots && pl.slots.length > 2) {
+      if (pl.element && pl.element !== "none") {   // auch mit Selbstachtung (nur noch der Element-Slot)
         var mf = pl.mana / pl.manaMax, fl = pl.manaFlash > 0 && Math.floor(pl.manaFlash * 12) % 2;
         bar(ctx, x, y + 13, 74, 2, mf, fl ? "#D88A7A" : "#6E9C96", fl ? null : "#96C4BE", "#16242A");
       }

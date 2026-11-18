@@ -496,7 +496,7 @@
       ac.hits.push(e);
       var mul = ac.countered ? ac.A.counterMul || 2.4 : 1;
       var pow = (ac.kind === "kaiten" ? 1.3 : ac.countered ? 1.8 : ac.kind === "tsuki" ? 1 + ac.charge * 0.6 : 1) * (self.weapon.knock || 1);   // Speer: stärkerer Rückstoß
-      e.hurt(ac.dmg * mul, Math.atan2(e.y - self.y, e.x - self.x), pow, "sword");
+      e.hurt(ac.dmg * mul, Math.atan2(e.y - self.y, e.x - self.x), pow, "sword", { k: ac.countered ? "counter" : ac.kind, i: ac });
       if (ac.countered) { w.parts.ring(e.x, e.y - 2, 20, 0.5, "rgba(170,240,255,"); SZ.main.slowmo(0.2, 0.25); w.shake = 4; }
       self.hitstop = ac.countered ? 0.1 : 0.05;
     });

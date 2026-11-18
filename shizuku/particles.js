@@ -164,7 +164,7 @@
       else if (p.type === "mist") { ctx.fillStyle = "rgba(220,236,240," + (0.35 * k) + ")"; var r3 = Math.round(p.r * (1 + (1 - k))); ctx.fillRect(x - r3, y - r3, r3 * 2, r3); }
       else if (p.type === "spark") { ctx.globalAlpha = k; ctx.fillStyle = p.col; ctx.fillRect(x, y, 1, 1); ctx.globalAlpha = 1; }
       else if (p.type === "ghost") {
-        ctx.globalAlpha = k * 0.45; ctx.drawImage(p.spr.cv, Math.round(p.x - SZ.samurai.AX), Math.round(p.y - SZ.samurai.AY));
+        ctx.globalAlpha = k * 0.45; ctx.drawImage(p.spr.cv, Math.round(p.x - (p.spr.ax || SZ.samurai.AX)), Math.round(p.y - (p.spr.ay || SZ.samurai.AY)));
         ctx.globalAlpha = 1;
       }
     });

@@ -118,7 +118,7 @@
     w.enemies.forEach(function (e) {
       if (e.dead || e.state === "spawn") return;
       var d = m.dist(h.x, h.y, e.x, e.y);
-      if (d < S.r + e.D.radius + 6) hitEnemy(w, e, S.dmg, Math.atan2(e.y - h.y, e.x - h.x) + h.spin * 0.6, S.fling);
+      if (d < S.r + e.D.radius + 6) hitEnemy(w, e, S.dmg, Math.atan2(e.y - h.y, e.x - h.x) + h.spin * 0.6, S.fling, { k: "storm_end", i: h });
     });
     h.debris.forEach(function (d0) {
       if (!d0.leaf) return;
@@ -145,8 +145,8 @@
   };
 
   // ---------- Treffer ----------
-  function hitEnemy(w, e, dmg, ang, knock) {
-    e.hurt(dmg, ang, e.D.armored ? 0 : knock, "wind");
+  function hitEnemy(w, e, dmg, ang, knock, opt) {
+    e.hurt(dmg, ang, e.D.armored ? 0 : knock, "wind", opt);   // opt: Art und Ausführung des Angriffs (Monkey Lord blockt Wiederholungen)
     if (!e.D.armored) e.knockT = 0.45;   // erzwungene Bewegung: kann über die Kante fliegen
     for (var i = 0; i < 3; i++) w.parts.wind(e.x + rnd(-4, 4), e.y - rnd(4, 18), ang, rnd(10, 18), 0.3, 0.9);
   }
@@ -163,7 +163,7 @@
         w.enemies.forEach(function (e) {
           if (e.dead || e.state === "spawn" || ac.hits.indexOf(e) >= 0) return;
           var d = m.dist(p.x, p.y, e.x, e.y), a = Math.atan2(e.y - p.y, e.x - p.x);
-          if (d < S.reach + e.D.radius && Math.abs(m.angDiff(s.a, a)) < S.arc * 0.5 + 6 / Math.max(8, d)) { ac.hits.push(e); hitEnemy(w, e, S.dmg, a, S.knock); SZ.audio.play("hit_flesh", { x: e.x, vol: 0.45, rate: 1.2 }); }
+          if (d < S.reach + e.D.radius && Math.abs(m.angDiff(s.a, a)) < S.arc * 0.5 + 6 / Math.max(8, d)) { ac.hits.push(e); hitEnemy(w, e, S.dmg, a, S.knock, { k: "aslash", i: ac }); if (!e.D.boss) SZ.audio.play("hit_flesh", { x: e.x, vol: 0.45, rate: 1.2 }); }
         });
       }
       if (s.t > 0.36) this.slashes.splice(i, 1);
@@ -194,7 +194,7 @@
         w.enemies.forEach(function (e) {
           if (e.dead || e.state === "spawn") return;
           var d = m.dist(p.x, p.y, e.x, e.y);
-          if (d < W.r + e.D.radius) { var a = Math.atan2(e.y - p.y, e.x - p.x); hitEnemy(w, e, W.dmg, a, W.knock); }
+          if (d < W.r + e.D.radius) { var a = Math.atan2(e.y - p.y, e.x - p.x); hitEnemy(w, e, W.dmg, a, W.knock, { k: "awhirl", i: h }); }
         });
         tear(w, p.x, p.y, W.r, 10, null, h.spin);
         w.shake = Math.max(w.shake, 2);
@@ -242,8 +242,8 @@
             if (w.arena.tilePx(e.x, e.y) === "v") { e.startFall(); return; }
           }
           if (hitNow && d < S.r + e.D.radius) {
-            e.hurt(S.dmg, a + st.spin * Math.PI / 2, 0, "wind");
-            SZ.audio.play("hit_flesh", { x: e.x, vol: 0.35, rate: 1.3 });
+            e.hurt(S.dmg, a + st.spin * Math.PI / 2, 0, "wind", { k: "storm", i: st });
+            if (!e.D.boss) SZ.audio.play("hit_flesh", { x: e.x, vol: 0.35, rate: 1.3 });
           }
         });
         if (Math.floor(st.t / 0.45) !== Math.floor((st.t - dt) / 0.45)) SZ.audio.play("dash", { x: st.x, rate: 0.6 + Math.random() * 0.2, vol: 0.5 });
@@ -263,7 +263,7 @@
       w.enemies.forEach(function (e) {
         if (e.dead || e.state === "spawn" || g.hits.indexOf(e) >= 0) return;
         var d = m.dist(g.x, g.y, e.x, e.y), a = Math.atan2(e.y - g.y, e.x - g.x);
-        if (d < reach + e.D.radius && d > reach - 18 && Math.abs(m.angDiff(g.a, a)) < G.arc * 0.5) { g.hits.push(e); hitEnemy(w, e, G.dmg, a, G.knock); }
+        if (d < reach + e.D.radius && d > reach - 18 && Math.abs(m.angDiff(g.a, a)) < G.arc * 0.5) { g.hits.push(e); hitEnemy(w, e, G.dmg, a, G.knock, { k: "gust", i: g }); }
       });
       if (g.t < 0.2) w.push(g.x + Math.cos(g.a) * reach, g.y + Math.sin(g.a) * reach, 26, 3.5, 0.6, { dir: g.a });
       if (g.t > 0.3) this.gusts.splice(k, 1);
