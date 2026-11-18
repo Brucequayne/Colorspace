@@ -24,12 +24,29 @@
     ".rs-ed-btns .go{background:#F2C230;color:#1B1B1C;border-color:#F2C230;font-weight:600}" +
     ".rs-ed-info{margin-top:12px;color:#8E8A84;font-size:.74rem;line-height:1.45}" +
     ".rs-ed-status{margin-top:8px;min-height:1.4em;color:#B9F0CF;font-size:.78rem}" +
+    ".rs-ed-mx label{flex:0 0 92px}.rs-ed-mx output{flex:0 0 58px}.rs-ed-chk{display:flex;align-items:center;gap:8px;margin:6px 0;color:#ACA89F;cursor:pointer}.rs-ed-chk input{accent-color:#F2C230;margin:0}" +
+    ".rs-ed-meter{margin-top:6px;color:#ACA89F;font-size:.74rem;line-height:1.45;font-variant-numeric:tabular-nums;min-height:1.4em}.rs-ed-meter b{color:#E6E2DA;font-weight:600}.rs-ed-meter .hot{color:#FF6A5A}" +
     ".rs-ed-pos{position:absolute;right:10px;top:8px;font:12px monospace;color:#D2CDC4;background:rgba(0,0,0,.6);padding:3px 7px;pointer-events:none}";
 
   var TOOLS = ["tile", "obj", "crowd", "move", "erase", "stage"];
   function toolName(t) { return { tile: L2("Boden", "Ground"), obj: L2("Objekte", "Objects"), crowd: L2("Crowd", "Crowd"), move: L2("Verschieben", "Move"), erase: L2("Radierer", "Eraser"), stage: L2("Bühne", "Stage") }[t]; }
   var GROUPS = [["house", function () { return L2("Häuser", "Buildings"); }], ["car", function () { return L2("Autos", "Cars"); }], ["deco", function () { return L2("Straße & Deko", "Street & props"); }]];
   var TILE_ORDER = ["a", "r", "x", "y", "c", "e", "l", "k", "w", "s", "b", "d", "g"];
+
+  // Audio (Dev Tool): Regler für mix.js – [Schlüssel, Name, min, max, Schritt, Einheit]
+  var MX = [
+    ["thr", function () { return L2("Threshold", "Threshold"); }, -50, 0, 1, " dB"],
+    ["ratio", function () { return "Ratio"; }, 1, 20, 0.5, ":1"],
+    ["att", function () { return "Attack"; }, 0.5, 50, 0.5, " ms"],
+    ["rel", function () { return "Release"; }, 20, 600, 10, " ms"],
+    ["micGain", function () { return L2("Mikro-Pegel", "Mic level"); }, -12, 30, 0.5, " dB"],
+    ["micCeil", function () { return L2("Mikro-Limiter", "Mic limiter"); }, -24, 0, 0.5, " dB"],
+    ["beatGain", function () { return L2("Beat-Pegel", "Beat level"); }, -24, 6, 0.5, " dB"],
+    ["beatCeil", function () { return L2("Beat-Limiter", "Beat limiter"); }, -24, 0, 0.5, " dB"]
+  ];
+  function mxRow(r) { return '<div class="rs-ed-row rs-ed-mx"><label>' + r[1]() + '</label><input type="range" min="' + r[2] + '" max="' + r[3] + '" step="' + r[4] + '" data-mx="' + r[0] + '"><output data-mo="' + r[0] + '"></output></div>'; }
+  function num(v) { return String(Math.round(v * 10) / 10).replace(".", ","); }
+  function meter(t) { var el = E && E.ui && E.ui.querySelector(".rs-ed-meter"); if (el) el.innerHTML = t; }
 
   var E = null;
   function status(t) { var el = E && E.ui && E.ui.querySelector(".rs-ed-status"); if (el) { el.textContent = t; clearTimeout(E.stT); E.stT = setTimeout(function () { el.textContent = ""; }, 3500); } }
@@ -104,6 +121,22 @@
       '<div class="rs-ed-row"><label>' + L2("Uhrzeit", "Time") + '</label><input type="range" min="0" max="24" step="0.05" data-k="time"><output data-o="time"></output></div>' +
       '<div class="rs-ed-pre"><button type="button" data-time="7">' + L2("Morgen", "Morning") + '</button><button type="button" data-time="13">' + L2("Mittag", "Noon") + '</button><button type="button" data-time="18.4">' + L2("Abend", "Evening") + '</button><button type="button" data-time="22.5">' + L2("Nacht", "Night") + '</button></div>' +
       '<h3>' + L2("Ansicht", "View") + '</h3><div class="rs-ed-btns"><button type="button" data-a="grid">' + L2("Raster (G)", "Grid (G)") + '</button><button type="button" data-a="cheer">' + L2("Jubeln (Leertaste)", "Cheer (Space)") + '</button></div>' +
+      '<h3>Audio – ' + L2("Aufnahme", "Recording") + '</h3>' +
+      '<div class="rs-ed-sub">' + L2("Mikro: Compressor", "Mic: compressor") + '</div>' +
+      '<label class="rs-ed-chk"><input type="checkbox" data-mx="comp">' + L2("Compressor an", "Compressor on") + '</label>' +
+      MX.slice(0, 4).map(mxRow).join("") +
+      '<div class="rs-ed-sub">' + L2("Mikro: Pegel und Limiter", "Mic: level and limiter") + '</div>' + MX.slice(4, 6).map(mxRow).join("") +
+      '<div class="rs-ed-sub">' + L2("Instrumental", "Instrumental") + '</div>' + MX.slice(6, 8).map(mxRow).join("") +
+      '<div class="rs-ed-sub">' + L2("Mikro testen", "Test mic") + '</div>' +
+      '<div class="rs-ed-btns"><select class="w" data-k="mbeat">' + RS.BEATS.map(function (b, i) { return '<option value="' + i + '">' + b.file.replace(/\.mp3$/i, "").replace(/_/g, " ") + '</option>'; }).join("") + '</select></div>' +
+      '<div class="rs-ed-row"><label>' + L2("Ab", "From") + '</label><input type="range" min="0" max="60" step="0.5" data-k="mat"><output data-o="mat"></output></div>' +
+      '<div class="rs-ed-btns"><button type="button" class="go w" data-a="mtest">' + L2("Mikro testen (2 s)", "Test mic (2 s)") + '</button>' +
+      '<button type="button" data-a="mplay">' + L2("Anhören", "Listen") + '</button><button type="button" data-a="mraw">' + L2("Roh anhören", "Listen raw") + '</button>' +
+      '<button type="button" data-a="mcopy">' + L2("Werte kopieren", "Copy values") + '</button><button type="button" data-a="mreset">' + L2("Standardwerte", "Defaults") + '</button></div>' +
+      '<div class="rs-ed-meter"></div>' +
+      '<div class="rs-ed-info">' + L2(
+        "Gilt für die Aufnahme jedes Battles (in diesem Browser). Test: ein Takt Vorlauf, dann 2 Sekunden Beat + Mikro – mit Kopfhörern, sonst nimmt das Mikro den Beat aus den Boxen mit. „Anhören“ rechnet die Aufnahme immer mit den aktuellen Reglern neu, „Roh“ ohne Compressor und Limiter.",
+        "Applies to the recording of every battle (in this browser). Test: one bar pre-roll, then 2 seconds of beat + mic – use headphones, otherwise the mic picks up the beat from the speakers. “Listen” always renders the take with the current settings, “raw” without compressor and limiters.") + '</div>' +
       '<h3>Map</h3><div class="rs-ed-btns">' +
       '<input type="text" class="w" data-k="name" maxlength="40" aria-label="Name">' +
       '<button type="button" class="go" data-a="save">' + L2("Speichern", "Save") + '</button><button type="button" data-a="undo">' + L2("Rückgängig", "Undo") + '</button>' +
@@ -143,6 +176,12 @@
     q("[data-o=var]").textContent = (E.obj.v + 1) + " / " + RS.OBJECTS[E.obj.t].variants;
     q("[data-a=grid]").setAttribute("aria-pressed", E.grid); q("[data-a=cheer]").setAttribute("aria-pressed", E.cheer);
     var nm = q("[data-k=name]"); if (document.activeElement !== nm) nm.value = E.world.map.name;
+    var ms = RS.audio.mixGet(); q("[data-mx=comp]").checked = !!ms.comp;
+    MX.forEach(function (r) { q("[data-mx=" + r[0] + "]").value = ms[r[0]]; q("[data-mo=" + r[0] + "]").textContent = num(ms[r[0]]) + r[5]; });
+    E.ui.querySelectorAll("[data-mx=thr],[data-mx=ratio],[data-mx=att],[data-mx=rel]").forEach(function (el) { el.disabled = !ms.comp; });
+    var bt = RS.BEATS[E.mbeat] || RS.BEATS[0], at = q("[data-k=mat]"); q("[data-k=mbeat]").value = E.mbeat;
+    at.max = Math.max(1, Math.floor(bt.dur - 3)); if (E.mat == null) E.mat = Math.round((bt.down + 4 * 240 / bt.bpm) * 2) / 2; E.mat = Math.min(E.mat, +at.max);
+    at.value = E.mat; var sec = Math.floor(E.mat); q("[data-o=mat]").textContent = Math.floor(sec / 60) + ":" + (sec % 60 < 10 ? "0" : "") + (sec % 60);
     fillLoad();
   }
   function setVariant(d) {
@@ -180,9 +219,37 @@
     else if (a === "import") E.ui.querySelector("input[type=file]").click();
     else if (a === "clear") { snapshot(); var bl = RS.blankMap(); bl.name = E.world.map.name; setMap(bl, true); status(L2("Map geleert (Rückgängig möglich).", "Map cleared (undo possible).")); }
     else if (a === "menu") { saveWork(); RS.main.go("menu"); }
+    else if (a === "mtest") micTest();
+    else if (a === "mplay" || a === "mraw") listen(a === "mraw");
+    else if (a === "mcopy") {
+      var txt = JSON.stringify(RS.audio.mixGet());
+      var done = function () { status(L2("Werte kopiert – an Claude schicken, dann werden sie Standard.", "Values copied.")); };
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(done, function () { window.prompt("", txt); });
+      else window.prompt("", txt);
+    }
+    else if (a === "mreset") { RS.audio.mixReset(); syncUI(); status(L2("Standardwerte geladen.", "Defaults loaded.")); }
+  }
+  function micTest() {
+    var T = RS.audio.test; if (T.busy) { T.stop(); return; }
+    var bt = E.ui.querySelector("[data-a=mtest]"); bt.textContent = L2("Abbrechen", "Cancel"); meter(L2("Mikro wird geöffnet …", "Opening mic …"));
+    T.record(RS.BEATS[E.mbeat] || RS.BEATS[0], E.mat, function (t) { meter("<b>" + t + "</b>"); }).then(function () {
+      bt.textContent = L2("Mikro testen (2 s)", "Test mic (2 s)"); listen(false);
+    }, function (err) { if (!E.ui) return; bt.textContent = L2("Mikro testen (2 s)", "Test mic (2 s)"); meter(L2("Test nicht möglich: ", "Test failed: ") + (err && err.message || err)); });
+  }
+  function db(v) { return '<b class="' + (v > -0.05 ? "hot" : "") + '">' + (v < -99 ? "–" : num(v)) + " dBFS</b>"; }
+  function listen(raw) {
+    var T = RS.audio.test; if (!T.take) { meter(L2("Erst „Mikro testen“ drücken.", "Press “Test mic” first.")); return; }
+    T.listen(raw).then(function (r) {
+      meter((raw ? L2("Roh", "Raw") : L2("Bearbeitet", "Processed")) + " · " + L2("Mikro roh: Spitze ", "Mic raw: peak ") + db(r.mic) + "<br>" + L2("Ergebnis: Spitze ", "Result: peak ") + db(r.out) +
+        (r.mic > -0.1 ? "<br>" + L2("Mikro übersteuert schon am Eingang – das kann kein Limiter reparieren. Eingangspegel im System oder am Interface runter.", "Mic already clips at the input – no limiter can fix that. Lower the input level in your system or interface.") : "") +
+        (r.mic < -30 ? "<br>" + L2("Mikro sehr leise – näher ran oder Eingangspegel im System erhöhen.", "Mic very quiet – get closer or raise the input level in your system.") : ""));
+    }, function (err) { meter(L2("Abspielen nicht möglich: ", "Playback failed: ") + (err && err.message || err)); });
   }
   function onInput(e) {
+    var mk = e.target.dataset.mx;
+    if (mk) { var ms = RS.audio.mixGet(); ms[mk] = mk === "comp" ? (e.target.checked ? 1 : 0) : +e.target.value; RS.audio.mixSet(ms); syncUI(); return; }
     var k = e.target.dataset.k; if (!k) return;
+    if (k === "mat") { E.mat = +e.target.value; syncUI(); return; }
     if (k === "time") { E.world.time = +e.target.value; }
     else if (k === "tsize") E.tsize = +e.target.value;
     else if (k === "crad") E.crad = +e.target.value;
@@ -193,6 +260,7 @@
   function onChange(e) {
     var k = e.target.dataset.k;
     if (k === "cface") { E.cface = e.target.value; return; }
+    if (k === "mbeat") { E.mbeat = +e.target.value; E.mat = null; syncUI(); return; }
     if (k !== "load" || !e.target.value) return;
     var v = e.target.value; snapshot();
     if (v.indexOf("pool:") === 0) { var p = RS.POOL.filter(function (x) { return "pool:" + x.id === v; })[0]; if (p) setMap(p.data || p.make()); }
@@ -241,7 +309,7 @@
     enter: function () {
       if (!E) {
         var data = null; try { data = JSON.parse(RS.store.get(WORK) || "null"); } catch (er) {}
-        E = { tool: "tile", tile: "a", tsize: 1, obj: { t: "brown", v: 0, r: 0 }, crad: 1.5, cgap: 0.5, cface: "mix", grid: false, cheer: false, undo: [], sel: null, world: null, t: 0 };
+        E = { tool: "tile", tile: "a", tsize: 1, obj: { t: "brown", v: 0, r: 0 }, crad: 1.5, cgap: 0.5, cface: "mix", grid: false, cheer: false, undo: [], sel: null, world: null, t: 0, mbeat: 0, mat: null };
         E.world = new RS.World(data || RS.POOL[0].make());
       }
       E.ui = null; build();
@@ -255,7 +323,7 @@
       };
       window.addEventListener("keydown", E.keys);
     },
-    exit: function () { RS.main.setSidebar(0); if (E && E.keys) window.removeEventListener("keydown", E.keys); if (E && E.world) saveWork(); },
+    exit: function () { if (RS.audio.test) RS.audio.test.stop(); RS.main.setSidebar(0); if (E && E.keys) window.removeEventListener("keydown", E.keys); if (E && E.world) saveWork(); },
     update: function (dt) {
       var I = RS.input, w = E.world, g = RS.toGrid(I.mx, I.my), gc = [Math.floor(g.x), Math.floor(g.y)];
       w.update(dt); E.t += dt;

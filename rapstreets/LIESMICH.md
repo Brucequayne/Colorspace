@@ -10,8 +10,9 @@ Die Startseite lädt nur `rapstreets.js` (Lader). Der lädt beim Öffnen die Dat
 | `beats/beats.js` | Instrumentals mit Tempo, erstem Downbeat, Länge (`RS.BEATS`); die .mp3 liegen daneben |
 | `maps/pool.js` | Mitgelieferte Maps (`RS.POOL`), Vorlage „Brooklyn Corner“ |
 | `world.js` | Map-Modell, Tiefensortierung, Schatten, Tageszeit/Licht, Crowd-Animation, Dampf (`RS.World`) |
-| `editor.js` | Level-Editor (Code 282828), Werkzeug „Bühne“ setzt `stage` |
+| `editor.js` | Level-Editor = Dev Tool (Code 282828), Werkzeug „Bühne“ setzt `stage`, Bereich „Audio“ (Regler für mix.js, Mikro-Test) |
 | `battle.js` | Battle: Audio (WebAudio, Mikro-Pegel), Ablauf `RS.plan` (Viertel + 2 Takte Pass the mic), Crowd-Hype, Rapper-Wege, HUD/Zeitleiste |
+| `mix.js` | Aufnahme-Mischung: Mikro → Compressor → Pegel → Limiter, Beat → Pegel → Limiter, Summen-Limiter (AudioWorklet, eigene Dynamik ohne versteckte Anhebung). Einstellungen im Dev Tool (`rapstreets-audio-v1`), Standardwerte `MIX_DEF`. Mikro-Test (`RS.audio.test`) |
 | `record.js` | Aufnahme als MP4 live während des Battles (WebCodecs + `mp4-muxer.js`): Spielbild 3× + gezeichnete Anzeige, Beat (um Latenz verzögert, −3 dB, Begrenzer) + Mikro |
 | `main.js` | Hülle, Skalierung, Menü, Schleife |
 

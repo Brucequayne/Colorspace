@@ -28,6 +28,7 @@
   };
   A.stop = function () { if (A.src) { try { A.src.stop(); } catch (e) {} A.src.disconnect(); A.src = null; } };
   // Mikro: nur Pegel messen, nie zu den Lautsprechern durchschleifen (sonst Rückkopplung)
+  // Seit v0.31 ohne jede Browser-Bearbeitung (keine Echo-/Rauschunterdrückung, keine automatische Lautstärke) – die machten die Stimme unverständlich.
   // Audio komplett neu aufsetzen (neuer Context, Mikro neu verbinden) – hilft, wenn das Ausgabegerät hängt,
   // z. B. Bluetooth-Kopfhörer, die beim Öffnen des Mikros auf Headset-Betrieb umschalten
   A.reset = function () {
@@ -39,7 +40,7 @@
     if (A.mic) return Promise.resolve(true);
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return Promise.resolve(false);
     var ctx = A.context(); if (!ctx) return Promise.resolve(false);
-    return navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: false } }).then(function (st) {
+    return navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false, voiceIsolation: false, channelCount: 1 } }).then(function (st) {
       A.mic = st; var src = A.micSrc = ctx.createMediaStreamSource(st); A.an = ctx.createAnalyser(); A.an.fftSize = 1024; src.connect(A.an); A.data = new Float32Array(A.an.fftSize); return true;
     }).catch(function () { return false; });
   };

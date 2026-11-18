@@ -38,9 +38,8 @@
     if (!R.supported()) { R.note = L2("Aufnahme geht in diesem Browser nicht (Chrome oder Edge nehmen).", "Recording doesn't work in this browser (use Chrome or Edge)."); return; }
     var ctx = A.ctx, my = R.cur = { B: B, ok: false, n: 0, vlast: -1, samples: 0, err: null };
     // Latenz: Ausgabe (Boxen/Kopfhörer) + Eingabe (Mikro). Um so viel kommt die Stimme später als der Beat, zu dem gerappt wird.
-    var inLat = 0; try { inLat = A.mic ? (A.mic.getAudioTracks()[0].getSettings().latency || 0.01) : 0; } catch (e) {}
-    my.D = Math.max(0, Math.min(0.6, (ctx.outputLatency || 0) + (ctx.baseLatency || 0) + inLat));
-    Promise.all([loadMuxer(), pickVideo(), pickAudio(ctx.sampleRate)]).then(function (r) {
+    my.D = A.latency();
+    Promise.all([loadMuxer(), pickVideo(), pickAudio(ctx.sampleRate), A.mixPrepare(ctx)]).then(function (r) {
       if (R.cur !== my) return;
       var vcfg = r[1], acfg = r[2];
       if (!vcfg) { R.note = L2("Video-Kodierung wird hier nicht unterstützt.", "Video encoding is not supported here."); R.cur = null; return; }
@@ -53,17 +52,11 @@
       if (acfg) {
         my.aenc = new AudioEncoder({ output: function (c, m) { my.mux.addAudioChunk(c, m); }, error: function (e) { my.err = e; } });
         my.aenc.configure(acfg.cfg);
-        // Aufnahme-Mischung: Beat (verzögert) + Mikro (etwas verdichtet), getrennt von den Boxen
-        var bus = ctx.createGain(), dl = ctx.createDelay(1), bg = ctx.createGain(); dl.delayTime.value = my.D; bg.gain.value = 0.7; A.gain.connect(dl); dl.connect(bg); bg.connect(bus);
-        // Begrenzer am Ende: Beat (gemastert) + Stimme dürfen nicht übersteuern
-        var lim = ctx.createDynamicsCompressor(); lim.threshold.value = -2; lim.knee.value = 0; lim.ratio.value = 20; lim.attack.value = 0.002; lim.release.value = 0.1;
-        if (A.micSrc) {
-          var cmp = ctx.createDynamicsCompressor(); cmp.threshold.value = -24; cmp.ratio.value = 3; cmp.attack.value = 0.005; cmp.release.value = 0.15;
-          var mg = ctx.createGain(); mg.gain.value = 1.8; A.micSrc.connect(cmp); cmp.connect(mg); mg.connect(bus); my.micNodes = [cmp, mg];
-        }
+        // Aufnahme-Mischung (mix.js, Einstellungen aus dem Dev Tool): Beat (verzögert) + Mikro, getrennt von den Boxen
+        var dl = ctx.createDelay(1); dl.delayTime.value = my.D; A.gain.connect(dl);
+        var mx = my.mx = A.mixBuild(ctx, A.micSrc || null, dl, A.mixGet());
         var sp = ctx.createScriptProcessor(2048, 2, 2), mute = ctx.createGain(); mute.gain.value = 0;
-        var clip = ctx.createWaveShaper(), cu = new Float32Array(2049); for (var q = 0; q < cu.length; q++) { var xq = q / 1024 - 1; cu[q] = Math.abs(xq) < 0.85 ? xq : Math.sign(xq) * (0.85 + 0.1 * Math.tanh((Math.abs(xq) - 0.85) / 0.1)); } clip.curve = cu;
-        bus.connect(lim); lim.connect(clip); clip.connect(sp); sp.connect(mute); mute.connect(ctx.destination);
+        mx.out.connect(sp); sp.connect(mute); mute.connect(ctx.destination);
         sp.onaudioprocess = function (e) {
           if (R.cur !== my || !my.ok || my.stopped) return;
           var ib = e.inputBuffer, n = ib.length, buf = new Float32Array(n * 2);
@@ -72,7 +65,7 @@
           var ad = new AudioData({ format: "f32-planar", sampleRate: ctx.sampleRate, numberOfFrames: n, numberOfChannels: 2, timestamp: Math.round(my.samples / ctx.sampleRate * 1e6), data: buf });
           try { my.aenc.encode(ad); } catch (er) { my.err = er; } ad.close(); my.samples += n;
         };
-        my.nodes = [bus, dl, sp, mute, bg, lim, clip];
+        my.nodes = [dl, sp, mute]; my.micSrc = A.micSrc;
       }
       my.ok = true;
     }).catch(function (e) { if (R.cur === my) { R.note = L2("Aufnahme konnte nicht starten: ", "Recording could not start: ") + (e && e.message || e); R.cur = null; } });
@@ -143,10 +136,10 @@
 
   // ---------- Ende ----------
   function teardown(my) {
-    (my.nodes || []).concat(my.micNodes || []).forEach(function (n) { try { n.disconnect(); } catch (e) {} });
-    if (my.nodes && my.nodes[2]) my.nodes[2].onaudioprocess = null;
-    try { A.gain.disconnect(my.nodes && my.nodes[1]); } catch (e) {}
-    if (A.micSrc && my.micNodes) try { A.micSrc.disconnect(my.micNodes[0]); } catch (e) {}
+    if (my.nodes && my.nodes[1]) my.nodes[1].onaudioprocess = null;
+    try { A.gain.disconnect(my.nodes && my.nodes[0]); } catch (e) {}
+    A.mixFree(my.mx, my.micSrc, my.nodes && my.nodes[0]);
+    (my.nodes || []).forEach(function (n) { try { n.disconnect(); } catch (e) {} });
   }
   R.stop = function (B, done) {
     var my = R.cur; R.cur = null;
