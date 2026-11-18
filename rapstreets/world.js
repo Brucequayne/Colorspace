@@ -8,7 +8,7 @@
   var RS = window.RS, G = RS.G, HW = RS.HW, HH = RS.HH, W = RS.W, H = RS.H, m = RS.m;
 
   // ---------- Map ----------
-  RS.blankMap = function () { return { name: "Brooklyn", time: 17.5, tiles: new Array(G * G + 1).join("s"), obj: [], ppl: [] }; };
+  RS.blankMap = function () { return { name: "Brooklyn", time: 17.5, tiles: new Array(G * G + 1).join("s"), obj: [], ppl: [], veg: [], wind: 1 }; };
   RS.cleanMap = function (d) {
     var b = RS.blankMap(); if (!d || typeof d !== "object") return b;
     var t = typeof d.tiles === "string" && d.tiles.length === G * G ? d.tiles : b.tiles;
@@ -21,6 +21,10 @@
       ppl: (Array.isArray(d.ppl) ? d.ppl : []).filter(function (p) { return p; }).slice(0, 800).map(function (p) {
         return { v: (p.v | 0) % RS.PEOPLE_N, x: +p.x || 0, y: +p.y || 0, f: p.f ? 1 : 0 };
       }),
+      veg: (Array.isArray(d.veg) ? d.veg : []).filter(function (q) { return q && RS.VEG[q[0]]; }).slice(0, 6000).map(function (q) {
+        return [q[0], m.clamp(+q[1] || 0, 0, G), m.clamp(+q[2] || 0, 0, G), m.clamp(q[3] | 0, 0, RS.VEG[q[0]].variants - 1)];
+      }),
+      wind: d.wind == null ? 1 : m.clamp(+d.wind || 0, 0, 3),
       stage: d.stage && isFinite(+d.stage.x) && isFinite(+d.stage.y) ? { x: m.clamp(+d.stage.x, 1, G - 1), y: m.clamp(+d.stage.y, 1, G - 1) } : null
     };
   };
@@ -43,7 +47,7 @@
     this.time = this.map.time; this.cheer = false; this.t = 0;
     this.ground = RS.canvas(W, H); this.gimg = this.ground.ctx.createImageData(W, H);
     this.shadow = RS.canvas(W, H); this.light = RS.canvas(W, H); this.fx = RS.canvas(W, H);
-    this.steam = []; this.order = null; this.actors = []; this.hype = 0; this.beat = null; this.groundAll();
+    this.steam = []; this.vegLayer = RS.canvas(W, H); this.vegN = 0; this.vegDirty = true; this.order = null; this.actors = []; this.hype = 0; this.beat = null; this.groundAll();
   }
   RS.World = World;
   World.prototype.tile = function (x, y) { if (x < 0 || y < 0 || x >= G || y >= G) return "s"; return this.map.tiles[y * G + x]; };
@@ -68,7 +72,7 @@
     list.forEach(function (q) { var cx = RS.sx(q[0] + 0.5, q[1] + 0.5), cy = RS.sy(q[0] + 0.5, q[1] + 0.5); x0 = Math.min(x0, cx); x1 = Math.max(x1, cx); y0 = Math.min(y0, cy); y1 = Math.max(y1, cy); });
     if (x0 > x1) return; this.groundRect(x0 - 2 * HW - 2, y0 - 2 * HH - 2, x1 + 2 * HW + 2, y1 + 2 * HH + 2);
   };
-  World.prototype.dirty = function () { this.order = null; };
+  World.prototype.dirty = function () { this.order = null; this.vegDirty = true; };
 
   // ---------- Tiefensortierung ----------
   // Jedes Element hat eine Grundfläche [x0,x1]×[y0,y1]. Liegt A ganz hinter B (kleineres x oder y), wird A zuerst gezeichnet.
@@ -143,12 +147,17 @@
     this.t += dt;
     var self = this;
     // Dampf aus Gullideckeln
+    var wind = this.map.wind == null ? 1 : this.map.wind;
     this.map.obj.forEach(function (o) {
-      var s = RS.sprite(o.t, o.v, o.r); if (!s.steam) return;
-      if (RS.hash2(Math.floor(self.t * 9), o.x * 7 | 0, o.y * 13 | 0) < dt * 9 * 0.9) self.steam.push({ x: o.x + s.steam.x, y: o.y + s.steam.y, z: 0, a: 0, life: 0, max: 2.2 + Math.random() * 1.2, dx: (Math.random() - 0.3) * 4, r: 1.5 + Math.random() });
+      var s = RS.sprite(o.t, o.v, o.r), em = [];
+      if (s.steam) em.push({ x: s.steam.x, y: s.steam.y, z: 0, rate: 0.9, size: 1 });
+      if (s.fx) s.fx.forEach(function (f) { if (f.k === "steam") em.push(f); });
+      em.forEach(function (f) {
+        if (Math.random() < dt * 9 * f.rate) self.steam.push({ x: o.x + f.x, y: o.y + f.y, z: f.z || 0, life: 0, max: (2.2 + Math.random() * 1.2) * (0.8 + f.size * 0.2), dx: (Math.random() - 0.3) * 4, r: (1.5 + Math.random()) * f.size, g: f.size, c: f.col || null });
+      });
     });
-    this.steam = this.steam.filter(function (p) { p.life += dt; p.z += dt * 9; p.dx += dt * 1.5; p.r += dt * 2.2; return p.life < p.max; });
-    if (this.steam.length > 160) this.steam.splice(0, this.steam.length - 160);
+    this.steam = this.steam.filter(function (p) { p.life += dt; p.z += dt * 9 * (0.7 + p.g * 0.3); p.dx += dt * (0.8 + wind * 1.4); p.r += dt * 2.2 * p.g; return p.life < p.max; });
+    if (this.steam.length > 320) this.steam.splice(0, this.steam.length - 320);
   };
   // Figur (Zuschauer oder Rapper) mit Bildposition
   World.prototype.figure = function (q) {
@@ -173,7 +182,11 @@
     if (sun.a > 0.01) {
       var sc = this.shadow.ctx; sc.clearRect(0, 0, W, H); sc.fillStyle = "#000";
       this.order.forEach(function (q) {
-        if (q.k === "o") { if (q.flat) return; q.s.boxes.forEach(function (b) { if (b.h > 0) shadowPoly(sc, { x: b.x + q.o.x, y: b.y + q.o.y, w: b.w, d: b.d, z: b.z, h: b.h }, RS.OX, RS.OY, sun); }); }
+        if (q.k === "o") { if (q.flat) return; q.s.boxes.forEach(function (b) {
+          if (b.h <= 0 || b.noShadow) return;
+          if (b.round) { var zc = b.z + b.h * 0.5, gx = q.o.x + b.x + b.w / 2 + sun.x * zc, gy = q.o.y + b.y + b.d / 2 + sun.y * zc, ex = RS.sx(gx, gy), ey = RS.sy(gx, gy), rr = (b.w + b.d) * 0.36 * HW * 1.414;
+            var str = Math.hypot(sun.x, sun.y) * b.h * HW; sc.save(); sc.translate(ex, ey); sc.rotate(Math.atan2(RS.sy(sun.x, sun.y) - RS.OY, RS.sx(sun.x, sun.y) - RS.OX)); sc.beginPath(); sc.ellipse(0, 0, rr + str * 0.5, rr * 0.8, 0, 0, Math.PI * 2); sc.restore(); sc.fill(); return; }
+          shadowPoly(sc, { x: b.x + q.o.x, y: b.y + q.o.y, w: b.w, d: b.d, z: b.z, h: b.h }, RS.OX, RS.OY, sun); }); }
         else { var f = q.p || q.a, px = RS.sx(f.x, f.y), py = RS.sy(f.x, f.y); var ex = RS.sx(f.x + sun.x * 22, f.y + sun.y * 22) - px, ey = RS.sy(f.x + sun.x * 22, f.y + sun.y * 22) - py; sc.beginPath(); sc.moveTo(px - 3, py); sc.lineTo(px + 3, py); sc.lineTo(px + ex + 2, py + ey); sc.lineTo(px + ex - 2, py + ey); sc.closePath(); sc.fill(); }
       });
       c.globalAlpha = sun.a; c.drawImage(this.shadow, 0, 0); c.globalAlpha = 1;
@@ -187,18 +200,32 @@
       c.save(); c.translate(px, py); c.scale(1, 0.5); c.beginPath(); c.arc(0, 0, 8, 0, Math.PI * 2); c.restore();
       c.strokeStyle = "rgba(" + p.ring.join(",") + "," + (p.on ? 0.95 : 0.5) + ")"; c.lineWidth = 1.5; c.stroke();
     });
+    // Vegetation (niedrige Ebene): nur jedes 3. Bild neu, der Wind ist langsam
+    var wind = this.map.wind == null ? 1 : this.map.wind;
+    if (this.map.veg.length) {
+      var vd = this.vegDirty; if (vd) this.vegFront();
+      if (vd || this.vegN++ % 3 === 0) {
+        var vc = this.vegLayer.ctx; vc.clearRect(0, 0, W, H);
+        for (var vi = 0; vi < this.map.veg.length; vi++) if (!this.vegTop[vi]) RS.drawVeg(vc, this.map.veg[vi], this.t, wind);
+      }
+      c.drawImage(this.vegLayer, 0, 0);
+    }
     // Objekte und Figuren in Tiefenreihenfolge
     this.order.forEach(function (q) {
       if (q.k === "o") {
-        var s = q.s, x = Math.round(RS.sx(q.o.x, q.o.y) - s.ax), y = Math.round(RS.sy(q.o.x, q.o.y) - s.ay);
+        if (q.s.def.fxOnly && !opt.editor) return;
+        var s = RS.spriteAt(q.o, self.t), x = Math.round(RS.sx(q.o.x, q.o.y) - s.ax), y = Math.round(RS.sy(q.o.x, q.o.y) - s.ay);
         c.drawImage(s.cv, x, y); if (opt.sel === q.o) { c.globalAlpha = 0.35 + 0.2 * Math.sin(self.t * 8); c.globalCompositeOperation = "lighter"; c.drawImage(s.cv, x, y); c.globalCompositeOperation = "source-over"; c.globalAlpha = 1; }
       } else { var fg = self.figure(q); c.drawImage(fg.sp.cv, fg.x, fg.y); }
     });
+    // Hohe Pflanzen, die vor allem stehen, was sie überdecken
+    if (this.map.veg.length) for (var vj = 0; vj < this.map.veg.length; vj++) if (this.vegTop[vj]) RS.drawVeg(c, this.map.veg[vj], this.t, wind);
     // Dampf
     this.steam.forEach(function (p) {
       var k = p.life / p.max, a = Math.sin(Math.PI * k) * 0.32, px = RS.sx(p.x, p.y) + p.dx, py = RS.sy(p.x, p.y) - p.z;
       c.fillStyle = "rgba(220,220,224," + (a * 0.7).toFixed(3) + ")"; c.beginPath(); c.arc(px, py, p.r, 0, Math.PI * 2); c.fill();
     });
+    var FX = this.fxList();
     // Umgebungslicht
     var a = L.amb.map(Math.round);
     if (a[0] < 254 || a[1] < 254 || a[2] < 254) { c.globalCompositeOperation = "multiply"; c.fillStyle = "rgb(" + a.join(",") + ")"; c.fillRect(0, 0, W, H); c.globalCompositeOperation = "source-over"; }
@@ -208,24 +235,54 @@
       this.order.forEach(function (q) {
         if (q.k !== "o") return; var s = q.s, ox = RS.sx(q.o.x, q.o.y), oy = RS.sy(q.o.x, q.o.y);
         s.lights.forEach(function (l) {
+          var fk = RS.flickerAt(FX, q.o.x + l.x, q.o.y + l.y, self.t); if (fk <= 0.01) return; lc.globalAlpha = fk;
           var gx = RS.sx(q.o.x + l.x, q.o.y + l.y), gy = RS.sy(q.o.x + l.x, q.o.y + l.y);
           var g = lc.createRadialGradient(gx, gy, 0, gx, gy, l.r); g.addColorStop(0, "rgba(" + l.col.join(",") + ",.55)"); g.addColorStop(0.5, "rgba(" + l.col.join(",") + ",.18)"); g.addColorStop(1, "rgba(" + l.col.join(",") + ",0)");
-          lc.fillStyle = g; lc.save(); lc.translate(gx, gy); lc.scale(1, HH / HW); lc.translate(-gx, -gy); lc.fillRect(gx - l.r, gy - l.r, l.r * 2, l.r * 2); lc.restore();
+          lc.fillStyle = g; lc.save(); lc.translate(gx, gy); lc.scale(1, HH / HW); lc.translate(-gx, -gy); lc.fillRect(gx - l.r, gy - l.r, l.r * 2, l.r * 2); lc.restore(); lc.globalAlpha = 1;
         });
       });
       // Leuchtende Fenster in Tiefenreihenfolge: was davor steht, radiert das Leuchten dahinter aus
       var fc = this.fx.ctx; fc.clearRect(0, 0, W, H);
       this.order.forEach(function (q) {
         if (q.k === "o") {
-          var x = Math.round(RS.sx(q.o.x, q.o.y) - q.s.ax), y = Math.round(RS.sy(q.o.x, q.o.y) - q.s.ay);
-          fc.globalCompositeOperation = "destination-out"; fc.drawImage(q.s.cv, x, y);
-          if (q.s.em) { fc.globalCompositeOperation = "source-over"; fc.drawImage(q.s.em, x, y); }
+          if (q.s.def.fxOnly) return;
+          var s2 = RS.spriteAt(q.o, self.t), x = Math.round(RS.sx(q.o.x, q.o.y) - s2.ax), y = Math.round(RS.sy(q.o.x, q.o.y) - s2.ay);
+          fc.globalCompositeOperation = "destination-out"; fc.drawImage(s2.cv, x, y);
+          if (s2.em) { fc.globalCompositeOperation = "source-over"; fc.drawImage(s2.em, x, y); }
         } else { var fg = self.figure(q); fc.globalCompositeOperation = "destination-out"; fc.drawImage(fg.sp.cv, fg.x, fg.y); }
       });
       fc.globalCompositeOperation = "source-over";
       c.globalAlpha = L.night; c.globalCompositeOperation = "lighter"; c.drawImage(this.light, 0, 0); c.drawImage(this.fx, 0, 0);
       c.globalCompositeOperation = "source-over"; c.globalAlpha = 1;
     }
+    // Effekte: Sirenen, flackernde Lichtkegel, Feuer – leuchten auch am Tag ein wenig
+    if (FX.length) RS.drawFx(c, FX, this.t, L.night);
+  };
+  // Alle Effekt-Punkte der Map in Weltkoordinaten
+  World.prototype.fxList = function () {
+    var L = [];
+    this.map.obj.forEach(function (o) { var s = RS.sprite(o.t, o.v, o.r); if (s.fx) s.fx.forEach(function (f) { if (f.k !== "steam") L.push(Object.assign({}, f, { x: o.x + f.x, y: o.y + f.y, seed: (o.x * 7 + o.y * 13) | 0 })); }); });
+    return L;
+  };
+  // Welche hohen Pflanzen werden nach den Objekten gezeichnet? (vor allem, was sie überdecken)
+  World.prototype.vegFront = function () {
+    var self = this, its = [], top = this.vegTop = [];
+    if (!this.order) this.sort();
+    this.order.forEach(function (q) {
+      if (q.flat) return;
+      if (q.k === "o") { var s = q.s, x = RS.sx(q.o.x, q.o.y) - s.ax, y = RS.sy(q.o.x, q.o.y) - s.ay; its.push({ l: x, r: x + s.cv.width, t: y, b: y + s.cv.height, q: q }); }
+      else if (q.p) { var px = RS.sx(q.p.x, q.p.y), py = RS.sy(q.p.x, q.p.y); its.push({ l: px - 8, r: px + 8, t: py - 30, b: py + 2, q: q }); }
+    });
+    this.map.veg.forEach(function (v, i) {
+      var d = RS.VEG[v[0]]; if (!d.tall) { top[i] = false; return; }
+      var R = RS.vegRect(v), front = true, any = false;
+      for (var k = 0; k < its.length && front; k++) {
+        var it = its[k]; if (it.r < R.l || it.l > R.r || it.b < R.t || it.t > R.b) continue;
+        any = true; var q = it.q, x1 = q.x1, y1 = q.y1; if (!(x1 <= v[1] + 0.05 || y1 <= v[2] + 0.05)) front = false;
+      }
+      top[i] = front && any;
+    });
+    this.vegDirty = false;
   };
   // Treffer: welches Objekt / welche Figur liegt unter dem Bildpunkt? (vorderstes zuerst)
   World.prototype.pick = function (px, py) {
@@ -246,6 +303,6 @@
   };
   World.prototype.serialize = function () {
     var r = function (v) { return Math.round(v * 100) / 100; }, mp = this.map;
-    return { name: mp.name, time: r(this.time), tiles: mp.tiles, obj: mp.obj.map(function (o) { return { t: o.t, v: o.v, r: o.r, x: r(o.x), y: r(o.y) }; }), ppl: mp.ppl.map(function (p) { return { v: p.v, x: r(p.x), y: r(p.y), f: p.f }; }), stage: mp.stage ? { x: r(mp.stage.x), y: r(mp.stage.y) } : null };
+    return { name: mp.name, time: r(this.time), wind: r(mp.wind == null ? 1 : mp.wind), tiles: mp.tiles, veg: mp.veg.map(function (q) { return [q[0], r(q[1]), r(q[2]), q[3]]; }), obj: mp.obj.map(function (o) { return { t: o.t, v: o.v, r: o.r, x: r(o.x), y: r(o.y) }; }), ppl: mp.ppl.map(function (p) { return { v: p.v, x: r(p.x), y: r(p.y), f: p.f }; }), stage: mp.stage ? { x: r(mp.stage.x), y: r(mp.stage.y) } : null };
   };
 })();

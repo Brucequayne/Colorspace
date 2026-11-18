@@ -85,6 +85,16 @@
       if (M.stage) { var st = M.stage.style; st.left = v.x + "px"; st.top = v.y + "px"; st.width = v.w + "px"; st.height = v.h + "px"; st.fontSize = Math.max(9, v.w / 480 * 4.2).toFixed(2) + "px"; }
     },
     setSidebar: function (px) { M.sidebar = px; M.layout(); },
+    // Kamera: im Spiel (Menü, Battle, Aufnahme) um ZOOM näher dran, Mitte auf der Bühne; im Editor das ganze Bild
+    ZOOM: 1.2,
+    crop: function () {
+      if (M.name === "editor" || !M.world) return { x: 0, y: 0, w: W, h: H };
+      // ganzzahlige Vergrößerung in Gerätepixeln, möglichst nah an ZOOM (gleichmäßige Pixel)
+      var v = M.view, ds = v.s * (v.dpr || 1), k = Math.max(1, Math.round(ds * M.ZOOM)) / ds; if (Math.abs(k / M.ZOOM - 1) > 0.06) k = M.ZOOM;
+      var w = Math.round(W / k), h = Math.round(H / k), S = RS.stageOf(M.world.map);
+      var cx = RS.sx(S.x, S.y), cy = RS.sy(S.x, S.y) - 24;
+      return { x: Math.round(m.clamp(cx - w / 2, 0, W - w)), y: Math.round(m.clamp(cy - h / 2, 0, H - h)), w: w, h: h };
+    },
     frame: function (now) {
       if (!M.root) return;
       M.raf = requestAnimationFrame(M.frame);
@@ -96,7 +106,8 @@
         var c = M.ctx, v = M.view, d = v.dpr;
         c.setTransform(1, 0, 0, 1, 0, 0); c.fillStyle = "#000"; c.fillRect(0, 0, M.cv.width, M.cv.height);
         c.imageSmoothingEnabled = false;
-        c.drawImage(M.lo, Math.round(v.x * d), Math.round(v.y * d), Math.round(v.w * d), Math.round(v.h * d));
+        var cr = M.crop();
+        c.drawImage(M.lo, cr.x, cr.y, cr.w, cr.h, Math.round(v.x * d), Math.round(v.y * d), Math.round(v.w * d), Math.round(v.h * d));
       }
       RS.input.endFrame();
     }

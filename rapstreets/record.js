@@ -128,7 +128,7 @@
     var now = A.ctx.currentTime, ts = now - my.t0 + my.D;   // Bild um die Latenz später einordnen, passend zum verzögerten Beat
     if (ts < 0 || ts - my.vlast < 1 / FPS - 0.002) return;
     if (my.venc.encodeQueueSize > 8) return;   // Kodierer kommt nicht hinterher: Bild auslassen statt das Spiel auszubremsen
-    var x = my.cv.ctx; x.imageSmoothingEnabled = false; x.drawImage(lo, 0, 0, VW, VH); hud(x, B, t);
+    var x = my.cv.ctx, cr = RS.main.crop(); x.imageSmoothingEnabled = false; x.drawImage(lo, cr.x, cr.y, cr.w, cr.h, 0, 0, VW, VH); hud(x, B, t);
     var vf = new VideoFrame(my.cv, { timestamp: Math.round(ts * 1e6), duration: Math.round(1e6 / FPS) });
     try { my.venc.encode(vf, { keyFrame: my.n % (FPS * 2) === 0 }); } catch (e) { my.err = e; } vf.close();
     my.vlast = ts; my.n++;

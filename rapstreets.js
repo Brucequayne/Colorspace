@@ -6,6 +6,9 @@
     "core.js",        // Namensraum RS, Maße, Projektion (Boden um 45° gedreht), Mathe, Zufall, Eingabe, L2
     "art.js",         // Boden, Häuser, Autos, Deko, Crowd – alles prozedural als Pixel-Sprites
     "art-rapper.js",  // Die Rapper (Posen nach Mikro-Pegel und Takt)
+    "art-props.js",   // Weitere Objekte: Autos, Möbel, Bäume, Häuser, Graffiti, Müll, Subway, Straßenmöbel, Tiere
+    "fx.js",          // Platzierbare Effekte: Dampf, Sirene, Flackerlicht/Lichtkegel
+    "veg.js",         // Vegetation für den Pinsel (wiegt im Wind)
     "beats/beats.js", // Instrumentals mit Tempo und erstem Downbeat
     "maps/pool.js",   // Map-Pool
     "world.js",       // Map-Daten, Zeichnen mit Tiefe, Schatten, Tageszeit, Licht, Leben (Crowd, Dampf, Laternen)

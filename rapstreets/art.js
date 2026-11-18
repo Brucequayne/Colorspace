@@ -81,7 +81,7 @@
 
   // ===================== Quader-Grafik =====================
   // Fläche zeichnen: o = Bildpunkt der Ecke (oben links der Fläche), U/V = Bildschirmvektoren je Einheit, lu/lv = Längen
-  function face(ctx, img, em, o, U, V, lu, lv, tex, k) {
+  function face(ctx, img, em, o, U, V, lu, lv, tex, k, clip) {
     var det = U[0] * V[1] - U[1] * V[0]; if (!det) return;
     var xs = [o[0], o[0] + U[0] * lu, o[0] + V[0] * lv, o[0] + U[0] * lu + V[0] * lv], ys = [o[1], o[1] + U[1] * lu, o[1] + V[1] * lv, o[1] + U[1] * lu + V[1] * lv];
     var x0 = Math.floor(Math.min.apply(null, xs)), x1 = Math.ceil(Math.max.apply(null, xs)), y0 = Math.floor(Math.min.apply(null, ys)), y1 = Math.ceil(Math.max.apply(null, ys));
@@ -89,6 +89,7 @@
     for (var py = Math.max(0, y0); py < Math.min(img.height, y1); py++) for (var px = Math.max(0, x0); px < Math.min(W, x1); px++) {
       var dx = px + 0.5 - o[0], dy = py + 0.5 - o[1], a = (dx * V[1] - dy * V[0]) / det, b = (U[0] * dy - U[1] * dx) / det;
       if (a < 0 || b < 0 || a >= lu || b >= lv) continue;
+      if (clip && !clip(px, py)) continue;
       var c = tex(a * (U[0] ? Math.abs(U[0]) : 1), b * (V[1] ? Math.abs(V[1]) : 1), a, b, LU); if (!c) continue;
       var cc = k ? sh(c, k) : c, i = (py * W + px) * 4;
       d[i] = cc[0]; d[i + 1] = cc[1]; d[i + 2] = cc[2]; d[i + 3] = c[3] == null ? 255 : c[3];
@@ -97,6 +98,7 @@
   }
   // Quader: b = { x, y, z, w, d, h, top, fy, fx } (x/y/w/d in Feldern, z/h in Pixeln), Texturen: function(u, v, a, b) → Farbe
   function drawBox(ctx, img, em, ax, ay, b) {
+    if (b.ghost) return;
     var P = function (x, y, z) { return [ax + (x - y) * HW, ay + (x + y) * HH - z]; };
     var zt = b.z + b.h;
     if (b.top) face(ctx, img, em, P(b.x, b.y, zt), [HW, HH], [-HW, HH], b.w, b.d, b.top, 0.06);
@@ -104,7 +106,7 @@
     if (b.fx && b.h > 0) face(ctx, img, em, P(b.x + b.w, b.y + b.d, zt), [HW, -HH], [0, 1], b.d, b.h, b.fx, -0.2);
   }
   // Spiegeln für r = 1: x ↔ y, Flächen tauschen
-  function mirror(b) { return { x: b.y, y: b.x, z: b.z, w: b.d, d: b.w, h: b.h, top: b.top && function (u, v, a, bb) { return b.top(v, u, bb, a); }, fy: b.fx, fx: b.fy }; }
+  function mirror(b) { return { x: b.y, y: b.x, z: b.z, w: b.d, d: b.w, h: b.h, top: b.top && function (u, v, a, bb) { return b.top(v, u, bb, a); }, fy: b.fx, fx: b.fy, ghost: b.ghost, noShadow: b.noShadow, round: b.round }; }
 
   // ---------- Textur-Bausteine ----------
   function solid(col, noise, seed) { var c = hex(col); return function (u, v) { return noise ? sh(c, (h2(u | 0, v | 0, seed || 1) - 0.5) * noise) : c; }; }
@@ -129,12 +131,14 @@
     var b = hex(base), m = hex(mortar);
     return function (u, v) { var row = Math.floor(v / 2), off = row % 2 ? 2 : 0, col = Math.floor((u + off) / 4); if (v % 2 >= 1.5 || (u + off) % 4 < 0.9) return m; return sh(b, (h2(col, row, 7) - 0.5) * 0.25); };
   }
+  var FONT;
   function pixText(str, x0, y0, u, v) {   // 3×5-Pixelschrift für Schilder
-    var F = { D: "110101101101110", E: "111100110100111", L: "100100100100111", I: "111010010010111", B: "110101110101110", O: "111101101101111", G: "111100101101111", A: "010101111101101", R: "110101110101101", X: "101101010101101", T: "111010010010010", C: "111100100100111", K: "101110100110101", S: "111100111001111", N: "101111111111101", Y: "101101010010010", P: "110101110100100", " ": "000000000000000", "2": "111001111100111", "4": "101101111001001", "7": "111001001010010", "/": "001001010100100" };
+    var F = FONT = FONT || { D: "110101101101110", E: "111100110100111", L: "100100100100111", I: "111010010010111", B: "110101110101110", O: "111101101101111", G: "111100101101111", A: "010101111101101", R: "110101110101101", X: "101101010101101", T: "111010010010010", C: "111100100100111", K: "101110100110101", S: "111100111001111", N: "101111111111101", Y: "101101010010010", P: "110101110100100", " ": "000000000000000", "2": "111001111100111", "4": "101101111001001", "7": "111001001010010", "/": "001001010100100", H: "101101111101101", U: "101101101101111", Z: "111001010100111", Q: "010101101110011", M: "101111111101101", W: "101101111111101", F: "111100110100100", V: "101101101101010", J: "001001001101111", "0": "111101101101111", "1": "010110010010111", "3": "111001111001111", "5": "111100111001111", "6": "111100111101111", "8": "111101111101111", "9": "111101111001111", "!": "010010010000010", ".": "000000000000010", "-": "000000111000000", "'": "010010000000000", "$": "011110010011110" };
     var dx = Math.floor(u - x0), dy = Math.floor(v - y0); if (dy < 0 || dy > 4 || dx < 0) return false;
     var ci = Math.floor(dx / 4), cx = dx % 4; if (ci >= str.length || cx > 2) return false;
     var g = F[str[ci]] || F[" "]; return g[dy * 3 + cx] === "1";
   }
+  RS.glyph = function (ch) { if (!FONT) pixText("A", 0, 0, 0, 0); return FONT[ch] || FONT[" "]; };
 
   // ===================== Objekte =====================
   // Jede Art: name, w/d (Felder, bei r = 0), h (Pixel ungefähr), variants, build(v) → { boxes, extra(ctx, P), lights: [{x,y,z,r,col}], steam }
@@ -262,6 +266,8 @@
         if (v2 >= 5) return hex("#2A2A2C");                                                     // Schweller
         if (opts.check && v2 >= 2 && v2 < 3) return ((Math.floor(u / 1.5) % 2) ? hex("#141414") : hex("#E8E4D8"));
         if (opts.stripe && v2 >= 2 && v2 < 3) return hex(opts.stripe);
+        if (opts.panel && v2 >= 1.5 && v2 < 4.5 && u > 2 && u < L - 2) return sh(hex(opts.panel), (Math.floor(v2 * 2) % 2 ? -0.08 : 0.04) + (h2(u | 0, 3, 9) - 0.5) * 0.12);
+        if (opts.text && v2 >= 1 && v2 < 6 && pixText(opts.text, Math.round(L / 2 - opts.text.length * 2) + 1, 1, u, v2 - 0.0)) return hex(opts.textCol || "#1E3E8A");
         if (Math.abs(u - (cx0 + cx1) / 2) < 0.5 && v2 < 4.5) return dk;                         // Türfuge
         if (Math.abs(u - L * 0.82) < 2 && v2 > 3) return dk;                                      // Radlauf
         if (Math.abs(u - L * 0.2) < 2 && v2 > 3) return dk;
@@ -276,14 +282,14 @@
       };
       var top = function (u, v2, a) { var c = sh(col, 0.14); if (Math.abs(a - (cab.x + cab.w + 0.04)) < 0.05 || Math.abs(a - (cab.x - 0.04)) < 0.05) return sh(col, -0.1); return c; };
       var cabS = function (u, v2) {                                                              // Seitenscheiben mit Säulen
-        if (v2 < 1) return sh(col, 0.2);
+        if (v2 < 1) return opts.vinyl ? hex(opts.vinyl) : sh(col, 0.2);
         if (v2 >= cab.h - 1) return col;
         if (u < 1.2 || u > cab.w * HW - 1.2 || Math.abs(u - cab.w * HW * (opts.van ? 0.25 : 0.5)) < 0.7) return col;
         if (opts.van && u < cab.w * HW * 0.25 - 0.7) return col;
         return v2 < 2.5 ? glass2 : glass;
       };
       var cabF = function (u, v2) { if (v2 < 1 || v2 >= cab.h - 0.5 || u < 0.8 || u > (wid - 0.2) * HW - 0.8) return col; return v2 < 2.5 ? glass2 : glass; };   // Frontscheibe
-      var roof = function (u, v2, a, b) { if (a > cab.w - (opts.van ? 0.12 : 0.22)) return glass2; if (!opts.van && a < 0.16) return glass; return sh(col, 0.22 + (b > 0.15 && b < (wid - 0.2) - 0.15 && opts.rack ? -0.4 : 0)); };
+      var roof = function (u, v2, a, b) { if (opts.vinyl && a > 0.08 && a < cab.w - 0.25) return sh(hex(opts.vinyl), (h2(u | 0, v2 | 0, 4) - 0.5) * 0.12); if (a > cab.w - (opts.van ? 0.12 : 0.22)) return glass2; if (!opts.van && a < 0.16) return glass; return sh(col, 0.22 + (b > 0.15 && b < (wid - 0.2) - 0.15 && opts.rack ? -0.4 : 0)); };
       var T = solid("#121214"), boxes = [
         { x: len * 0.12, y: -0.03, z: 0, w: 0.42, d: wid + 0.06, h: 4, top: T, fy: T, fx: T },
         { x: len * 0.7, y: -0.03, z: 0, w: 0.42, d: wid + 0.06, h: 4, top: T, fy: T, fx: T },
@@ -347,13 +353,39 @@
 
   // ---------- Sprite-Erzeugung mit Zwischenspeicher ----------
   var CACHE = {};
-  RS.sprite = function (t, v, r) {
-    var k = t + ":" + v + ":" + r; if (CACHE[k]) return CACHE[k];
-    var o = OBJ[t], b = o.build(v || 0), boxes = b.boxes.map(function (q) { return r ? mirror(q) : q; });
+  // Loch im Boden (z. B. Subway-Abgang): Innenwände und Stufen unter z = 0, auf die Öffnung beschnitten
+  function drawHole(img, em, ax, ay, ho, r) {
+    var x0 = ho.x, y0 = ho.y, w = ho.w, d = ho.d; if (r) { x0 = ho.y; y0 = ho.x; w = ho.d; d = ho.w; }
+    var P = function (x, y, z) { return [ax + (x - y) * HW, ay + (x + y) * HH - z]; };
+    var clip = function (px, py) { var a = (px + 0.5 - ax) / HW, b = (py + 0.5 - ay) / HH, gx = (a + b) / 2, gy = (b - a) / 2; return gx >= x0 && gy >= y0 && gx < x0 + w && gy < y0 + d; };
+    var D = ho.depth, n = ho.steps, rise = D / n, len = r ? d : w, step = len / n;
+    // hintere Wände (zeigen zum Betrachter)
+    face(null, img, em, P(x0, y0, 0), [HW, HH], [0, 1], w, D, function (u, v) { return ho.wall(u, v, D); }, -0.1, clip);
+    face(null, img, em, P(x0, y0, 0), [-HW, HH], [0, 1], d, D, function (u, v) { return ho.wall(u + 40, v, D); }, -0.25, clip);
+    // Stufen: oben an der offenen Seite (+x bzw. +y bei r), nach hinten immer tiefer
+    for (var i = n - 1; i >= 0; i--) {
+      var z = -(i + 1) * rise, dk = -0.12 - i / n * 0.55;
+      if (!r) {
+        var xs = x0 + w - (i + 1) * step;
+        face(null, img, em, P(xs, y0, z), [HW, HH], [-HW, HH], step, d, function (u, v, a) { return ho.tread(a / step, v); }, dk, clip);
+        face(null, img, em, P(xs + step, y0 + d, z + rise), [HW, -HH], [0, 1], d, rise, function (u, v) { return ho.riser(u, v); }, dk - 0.15, clip);
+      } else {
+        var ys = y0 + d - (i + 1) * step;
+        face(null, img, em, P(x0, ys, z), [HW, HH], [-HW, HH], w, step, function (u, v, a, b) { return ho.tread(b / step, u); }, dk, clip);
+        face(null, img, em, P(x0, ys + step, z + rise), [HW, HH], [0, 1], w, rise, function (u, v) { return ho.riser(u, v); }, dk - 0.05, clip);
+      }
+    }
+  }
+  var CACHE = {};
+  RS.sprite = function (t, v, r, fr) {
+    fr = fr || 0;
+    var k = t + ":" + v + ":" + r + ":" + fr; if (CACHE[k]) return CACHE[k];
+    var o = OBJ[t], b = o.build(v || 0, fr), boxes = b.boxes.map(function (q) { return r ? mirror(q) : q; });
     var x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9;
     boxes.forEach(function (q) { [[q.x, q.y], [q.x + q.w, q.y], [q.x, q.y + q.d], [q.x + q.w, q.y + q.d]].forEach(function (p) { var sx = (p[0] - p[1]) * HW, sy = (p[0] + p[1]) * HH; x0 = Math.min(x0, sx); x1 = Math.max(x1, sx); y0 = Math.min(y0, sy - q.z - q.h); y1 = Math.max(y1, sy - q.z); }); });
-    var pad = 12, ax = Math.round(-x0 + pad), ay = Math.round(-y0 + pad + 10), W = Math.round(x1 - x0 + pad * 2), H = Math.round(y1 - y0 + pad * 2 + 10);
+    var pad = 12 + (b.pad || 0), ax = Math.round(-x0 + pad), ay = Math.round(-y0 + pad + 10), W = Math.round(x1 - x0 + pad * 2), H = Math.round(y1 - y0 + pad * 2 + 10 + (b.hole ? b.hole.depth : 0));
     var cv = RS.canvas(W, H), img = cv.ctx.createImageData(W, H), em = cv.ctx.createImageData(W, H);
+    if (b.hole) drawHole(img, em, ax, ay, b.hole, r);
     // Quader von hinten nach vorn (nach Tiefe der Grundfläche, dann Höhe)
     boxes.slice().sort(function (a, bb) {
       var e = 0.001, ab = a.x + a.w <= bb.x + e || a.y + a.d <= bb.y + e, ba = bb.x + bb.w <= a.x + e || bb.y + bb.d <= a.y + e;
@@ -362,14 +394,23 @@
     }).forEach(function (q) { drawBox(cv.ctx, img, em, ax, ay, q); });
     cv.ctx.putImageData(img, 0, 0);
     var P = function (x, y, z) { if (r) { var s = x; x = y; y = s; } return [ax + (x - y) * HW, ay + (x + y) * HH - (z || 0)]; };
-    if (b.extra) b.extra(cv.ctx, P);
     var emc = RS.canvas(W, H); emc.ctx.putImageData(em, 0, 0);
-    var hasEm = false; for (var i = 3; i < em.data.length; i += 4) if (em.data[i]) { hasEm = true; break; }
-    var W0 = r ? o.d : o.w, D0 = r ? o.w : o.d;
-    var res = { cv: cv, em: hasEm ? emc : null, ax: ax, ay: ay, w: W0, d: D0, def: o, lights: (b.lights || []).map(function (l) { return r ? { x: l.y, y: l.x, z: l.z, r: l.r, col: l.col } : l; }), steam: b.steam ? (r ? { x: b.steam.y, y: b.steam.x } : b.steam) : null, boxes: boxes };
+    if (b.extra) b.extra(cv.ctx, P, emc.ctx, r);
+    var hasEm = !!b.emissive; if (!hasEm) { var ed = emc.ctx.getImageData(0, 0, W, H).data; for (var i = 3; i < ed.length; i += 4) if (ed[i]) { hasEm = true; break; } }
+    var W0 = r ? o.d : o.w, D0 = r ? o.w : o.d, sw = function (p) { return r ? Object.assign({}, p, { x: p.y, y: p.x }) : p; };
+    var res = { cv: cv, em: hasEm ? emc : null, ax: ax, ay: ay, w: W0, d: D0, def: o, lights: (b.lights || []).map(function (l) { return r ? { x: l.y, y: l.x, z: l.z, r: l.r, col: l.col, day: l.day } : l; }),
+      steam: b.steam ? sw(b.steam) : null, fx: b.fx ? b.fx.map(sw) : null, boxes: boxes };
     CACHE[k] = res; return res;
   };
+  // Bild eines Objekts zum Zeitpunkt t (animierte Objekte wechseln das Bild; Phase je Position versetzt)
+  RS.spriteAt = function (o, t) {
+    var d = OBJ[o.t], A = d.anim; if (!A) return RS.sprite(o.t, o.v, o.r);
+    var ph = RS.hash2(Math.round(o.x * 10), Math.round(o.y * 10), 17), fr = A.at ? A.at(t + ph * (A.span || 10), o.v) : Math.floor(t * A.fps + ph * A.n) % A.n;
+    return RS.sprite(o.t, o.v, o.r, fr);
+  };
   function line(c, x0, y0, x1, y1) { x0 = Math.round(x0); y0 = Math.round(y0); x1 = Math.round(x1); y1 = Math.round(y1); var dx = Math.abs(x1 - x0), dy = -Math.abs(y1 - y0), sx = x0 < x1 ? 1 : -1, sy = y0 < y1 ? 1 : -1, err = dx + dy; for (var i = 0; i < 300; i++) { c.fillRect(x0, y0, 1, 1); if (x0 === x1 && y0 === y1) break; var e2 = 2 * err; if (e2 >= dy) { err += dy; x0 += sx; } if (e2 <= dx) { err += dx; y0 += sy; } } }
+
+  RS.ART = { face: face, drawBox: drawBox, solid: solid, windows: windows, brick: brick, pixText: pixText, line: line, def: def, GLASS: GLASS, GLASS2: GLASS2, LIT: LIT, car: car };
 
   // ===================== Crowd =====================
   // 2D-Figur von vorn, 16 × 30 Pixel, Fußpunkt (8, 28). Frames: 0/1 wippen, 2/3 jubeln (Hände hoch)

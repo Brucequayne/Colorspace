@@ -28,9 +28,11 @@
     ".rs-ed-meter{margin-top:6px;color:#ACA89F;font-size:.74rem;line-height:1.45;font-variant-numeric:tabular-nums;min-height:1.4em}.rs-ed-meter b{color:#E6E2DA;font-weight:600}.rs-ed-meter .hot{color:#FF6A5A}" +
     ".rs-ed-pos{position:absolute;right:10px;top:8px;font:12px monospace;color:#D2CDC4;background:rgba(0,0,0,.6);padding:3px 7px;pointer-events:none}";
 
-  var TOOLS = ["tile", "obj", "crowd", "move", "erase", "stage"];
-  function toolName(t) { return { tile: L2("Boden", "Ground"), obj: L2("Objekte", "Objects"), crowd: L2("Crowd", "Crowd"), move: L2("Verschieben", "Move"), erase: L2("Radierer", "Eraser"), stage: L2("Bühne", "Stage") }[t]; }
-  var GROUPS = [["house", function () { return L2("Häuser", "Buildings"); }], ["car", function () { return L2("Autos", "Cars"); }], ["deco", function () { return L2("Straße & Deko", "Street & props"); }]];
+  var TOOLS = ["tile", "obj", "veg", "crowd", "move", "erase", "stage"];
+  function toolName(t) { return { tile: L2("Boden", "Ground"), obj: L2("Objekte", "Objects"), crowd: L2("Crowd", "Crowd"), veg: L2("Pinsel", "Brush"), move: L2("Verschieben", "Move"), erase: L2("Radierer", "Eraser"), stage: L2("Bühne", "Stage") }[t]; }
+  var GROUPS = [["house", function () { return L2("Häuser", "Buildings"); }], ["car", function () { return L2("Autos", "Cars"); }], ["street", function () { return L2("Straße", "Street"); }], ["deco", function () { return L2("Straße & Deko", "Street & props"); }],
+    ["furn", function () { return L2("Tische, Stühle, Bänke", "Tables, chairs, benches"); }], ["wall", function () { return L2("An die Wand (rastet ein)", "On walls (snaps)"); }], ["trash", function () { return L2("Müll & Sperrmüll", "Trash & junk"); }],
+    ["nature", function () { return L2("Bäume & Tiere", "Trees & animals"); }], ["ground", function () { return L2("Boden-Details", "Ground details"); }], ["fx", function () { return L2("Effekte (im Spiel unsichtbar)", "Effects (invisible in game)"); }]];
   var TILE_ORDER = ["a", "r", "x", "y", "c", "e", "l", "k", "w", "s", "b", "d", "g"];
 
   // Audio (Dev Tool): Regler für mix.js – [Schlüssel, Name, min, max, Schritt, Einheit]
@@ -67,6 +69,13 @@
     for (var y = 0; y < s.cv.height; y++) for (var x = 0; x < s.cv.width; x++) if (c[(y * s.cv.width + x) * 4 + 3]) { x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); }
     var w = x1 - x0 + 1, h = y1 - y0 + 1, sc = Math.min(60 / w, 44 / h, 4), cv = RS.canvas(Math.max(1, Math.round(w * sc)), Math.max(1, Math.round(h * sc)));
     cv.ctx.drawImage(s.cv, x0, y0, w, h, 0, 0, cv.width, cv.height);
+    return (THUMB[k] = cv.toDataURL());
+  }
+  function vegThumb(b) {
+    var k = "v:" + b.id; if (THUMB[k]) return THUMB[k];
+    var cv = RS.canvas(44, 30), r = RS.rng(b.id.length * 77 + 3), tot = 0; b.mix.forEach(function (q) { tot += q[1]; });
+    var L = []; for (var i = 0; i < 9; i++) { var pk = r() * tot, t = b.mix[0][0]; for (var j = 0, ss = 0; j < b.mix.length; j++) { ss += b.mix[j][1]; if (pk <= ss) { t = b.mix[j][0]; break; } } L.push([t, 6 + r() * 32, 14 + r() * 15, (r() * RS.VEG[t].variants) | 0]); }
+    L.sort(function (a, c) { return a[2] - c[2]; }).forEach(function (q) { var d = RS.VEG[q[0]]; cv.ctx.drawImage(RS.vegSprite(q[0], q[3]).cv, Math.round(q[1] - d.ax), Math.round(q[2] - d.ay)); });
     return (THUMB[k] = cv.toDataURL());
   }
   function tileThumb(t) {
@@ -111,15 +120,20 @@
       '<div class="rs-ed-row"><label>' + L2("Größe", "Size") + '</label><input type="range" min="1" max="7" step="2" data-k="tsize"><output data-o="tsize"></output></div>' +
       '<div class="rs-ed-list">' + TILE_ORDER.map(function (k) { return '<button type="button" data-tile="' + k + '"><img alt="" src="' + tileThumb(k) + '">' + RS.TILES[k].name() + '</button>'; }).join("") + '</div></div>' +
       '<div data-pane="obj"><h3>' + L2("Objekte", "Objects") + '</h3>' +
-      '<div class="rs-ed-row"><label>' + L2("Variante", "Variant") + '</label><button type="button" data-a="vprev">‹</button><output data-o="var" style="flex:1;text-align:center"></output><button type="button" data-a="vnext">›</button><button type="button" data-a="rot">' + L2("Drehen", "Rotate") + '</button></div>' +
+      '<div class="rs-ed-row"><label>' + L2("Variante", "Variant") + '</label><button type="button" data-a="vprev">‹</button><output data-o="var" style="flex:1;text-align:center;font-size:.72rem;line-height:1.2"></output><button type="button" data-a="vnext">›</button><button type="button" data-a="rot">' + L2("Drehen", "Rotate") + '</button></div>' +
       objList + '</div>' +
       '<div data-pane="crowd"><h3>Crowd</h3>' +
       '<div class="rs-ed-row"><label>' + L2("Radius", "Radius") + '</label><input type="range" min="0.5" max="4" step="0.25" data-k="crad"><output data-o="crad"></output></div>' +
       '<div class="rs-ed-row"><label>' + L2("Dichte", "Density") + '</label><input type="range" min="0.35" max="0.9" step="0.05" data-k="cgap"><output data-o="cgap"></output></div>' +
       '<div class="rs-ed-row"><label>' + L2("Blick", "Facing") + '</label><select data-k="cface" style="flex:1"><option value="mix">' + L2("gemischt", "mixed") + '</option><option value="0">' + L2("nach rechts", "right") + '</option><option value="1">' + L2("nach links", "left") + '</option></select></div></div>' +
+      '<div data-pane="veg"><h3>' + L2("Vegetationspinsel", "Vegetation brush") + '</h3>' +
+      '<div class="rs-ed-row"><label>' + L2("Größe", "Size") + '</label><input type="range" min="0.3" max="4" step="0.1" data-k="vrad"><output data-o="vrad"></output></div>' +
+      '<div class="rs-ed-row"><label>' + L2("Dichte", "Density") + '</label><input type="range" min="1" max="12" step="1" data-k="vdens"><output data-o="vdens"></output></div>' +
+      '<div class="rs-ed-list">' + RS.VEG_BRUSHES.map(function (b) { return '<button type="button" data-vb="' + b.id + '"><img alt="" src="' + vegThumb(b) + '">' + b.name() + '</button>'; }).join("") + '</div></div>' +
       '<h3>' + L2("Licht", "Light") + '</h3>' +
       '<div class="rs-ed-row"><label>' + L2("Uhrzeit", "Time") + '</label><input type="range" min="0" max="24" step="0.05" data-k="time"><output data-o="time"></output></div>' +
       '<div class="rs-ed-pre"><button type="button" data-time="7">' + L2("Morgen", "Morning") + '</button><button type="button" data-time="13">' + L2("Mittag", "Noon") + '</button><button type="button" data-time="18.4">' + L2("Abend", "Evening") + '</button><button type="button" data-time="22.5">' + L2("Nacht", "Night") + '</button></div>' +
+      '<div class="rs-ed-row"><label>Wind</label><input type="range" min="0" max="3" step="0.1" data-k="wind"><output data-o="wind"></output></div>' +
       '<h3>' + L2("Ansicht", "View") + '</h3><div class="rs-ed-btns"><button type="button" data-a="grid">' + L2("Raster (G)", "Grid (G)") + '</button><button type="button" data-a="cheer">' + L2("Jubeln (Leertaste)", "Cheer (Space)") + '</button></div>' +
       '<h3>Audio – ' + L2("Aufnahme", "Recording") + '</h3>' +
       '<div class="rs-ed-sub">' + L2("Mikro: Compressor", "Mic: compressor") + '</div>' +
@@ -173,7 +187,11 @@
     q("[data-k=cgap]").value = E.cgap; q("[data-o=cgap]").textContent = Math.round((1 - (E.cgap - 0.35) / 0.55) * 100) + " %";
     q("[data-k=cface]").value = E.cface;
     q("[data-k=time]").value = E.world.time; q("[data-o=time]").textContent = fmtTime(E.world.time);
-    q("[data-o=var]").textContent = (E.obj.v + 1) + " / " + RS.OBJECTS[E.obj.t].variants;
+    var od = RS.OBJECTS[E.obj.t]; q("[data-o=var]").textContent = (E.obj.v + 1) + " / " + od.variants + (od.vname ? " · " + od.vname(E.obj.v) : "");
+    E.ui.querySelectorAll("[data-vb]").forEach(function (b) { b.setAttribute("aria-pressed", b.dataset.vb === E.vb); });
+    q("[data-k=vrad]").value = E.vrad; q("[data-o=vrad]").textContent = String(E.vrad).replace(".", ",");
+    q("[data-k=vdens]").value = E.vdens; q("[data-o=vdens]").textContent = E.vdens;
+    var wd = E.world.map.wind == null ? 1 : E.world.map.wind; q("[data-k=wind]").value = wd; q("[data-o=wind]").textContent = String(wd).replace(".", ",");
     q("[data-a=grid]").setAttribute("aria-pressed", E.grid); q("[data-a=cheer]").setAttribute("aria-pressed", E.cheer);
     var nm = q("[data-k=name]"); if (document.activeElement !== nm) nm.value = E.world.map.name;
     var ms = RS.audio.mixGet(); q("[data-mx=comp]").checked = !!ms.comp;
@@ -203,6 +221,7 @@
     if (b.dataset.tile) { E.tile = b.dataset.tile; E.tool = "tile"; syncUI(); return; }
     if (b.dataset.obj) { if (E.obj.t !== b.dataset.obj) E.obj = { t: b.dataset.obj, v: 0, r: E.obj.r }; E.tool = "obj"; syncUI(); return; }
     if (b.dataset.time) { E.world.time = +b.dataset.time; syncUI(); return; }
+    if (b.dataset.vb) { E.vb = b.dataset.vb; E.tool = "veg"; syncUI(); return; }
     var a = b.dataset.a;
     if (a === "vprev") setVariant(-1);
     else if (a === "vnext") setVariant(1);
@@ -253,6 +272,9 @@
     if (k === "time") { E.world.time = +e.target.value; }
     else if (k === "tsize") E.tsize = +e.target.value;
     else if (k === "crad") E.crad = +e.target.value;
+    else if (k === "vrad") E.vrad = +e.target.value;
+    else if (k === "vdens") E.vdens = +e.target.value;
+    else if (k === "wind") E.world.map.wind = +e.target.value;
     else if (k === "cgap") E.cgap = +e.target.value;
     else if (k === "name") { E.world.map.name = e.target.value.slice(0, 40); return; }
     syncUI();
@@ -281,7 +303,38 @@
   function cellsAround(gx, gy, n) { var L = [], h = (n - 1) / 2, cx = Math.floor(gx), cy = Math.floor(gy); for (var y = cy - h; y <= cy + h; y++) for (var x = cx - h; x <= cx + h; x++) if (x >= 0 && y >= 0 && x < G && y < G) L.push([x, y]); return L; }
   function paint(cells) { var w = E.world, ch = []; cells.forEach(function (c) { if (w.setTile(c[0], c[1], E.tile)) ch.push(c); }); if (ch.length) w.groundTiles(ch); }
   function rectCells(a, b) { var L = [], x0 = Math.min(a[0], b[0]), x1 = Math.max(a[0], b[0]), y0 = Math.min(a[1], b[1]), y1 = Math.max(a[1], b[1]); for (var y = y0; y <= y1; y++) for (var x = x0; x <= x1; x++) if (x >= 0 && y >= 0 && x < G && y < G) L.push([x, y]); return L; }
-  function ghostPos(g) { var s = RS.sprite(E.obj.t, E.obj.v, E.obj.r), sn = snapOf(s.def); return { x: m.clamp(snap(g.x - s.w / 2, sn), -1, G), y: m.clamp(snap(g.y - s.d / 2, sn), -1, G), s: s }; }
+  function ghostPos(g) { var s = RS.sprite(E.obj.t, E.obj.v, E.obj.r), sn = snapOf(s.def), p = { x: m.clamp(snap(g.x - s.w / 2, sn), -1, G), y: m.clamp(snap(g.y - s.d / 2, sn), -1, G), s: s }; return magnet(p, E.obj.r, null); }
+  // Einrasten: Wand-Deko an die Vorderseite eines Hauses/einer Mauer, Lichtkegel an Laternen
+  function magnet(p, r, self) {
+    var d = p.s.def, w = E.world, best = null, bd = 1e9;
+    if (d.wall) w.map.obj.forEach(function (o) {
+      if (o === self) return; var od = RS.OBJECTS[o.t]; if (od.group !== "house") return; var hs = RS.sprite(o.t, o.v, o.r);
+      if (!r) { var y1 = o.y + hs.d, dd = Math.abs(p.y - y1); if (dd < 1 && p.x + p.s.w > o.x && p.x < o.x + hs.w && dd < bd) { bd = dd; best = { x: m.clamp(p.x, o.x, o.x + hs.w - p.s.w), y: y1 }; } }
+      else { var x1 = o.x + hs.w, dx = Math.abs(p.x - x1); if (dx < 1 && p.y + p.s.d > o.y && p.y < o.y + hs.d && dx < bd) { bd = dx; best = { x: x1, y: m.clamp(p.y, o.y, o.y + hs.d - p.s.d) }; } }
+    });
+    if (d.snapLamp) w.map.obj.forEach(function (o) {
+      if (o === self) return; var ls = RS.sprite(o.t, o.v, o.r); if (!ls.lights.length) return;
+      ls.lights.forEach(function (l) { var lx = o.x + l.x - 0.15, ly = o.y + l.y - 0.15, dd = Math.hypot(p.x - lx, p.y - ly); if (dd < 1.5 && dd < bd) { bd = dd; best = { x: lx, y: ly }; } });
+    });
+    if (best) { p.x = Math.round(best.x * 100) / 100; p.y = Math.round(best.y * 100) / 100; p.snapped = true; }
+    return p;
+  }
+  // Vegetation streuen / löschen
+  function vegAt(x, y) { var w = E.world; for (var i = 0; i < w.map.obj.length; i++) { var o = w.map.obj[i], od = RS.OBJECTS[o.t]; if (od.group !== "house" && od.group !== "car") continue; var s = RS.sprite(o.t, o.v, o.r); if (x > o.x && y > o.y && x < o.x + s.w && y < o.y + s.d) return false; } return x > 0 && y > 0 && x < G && y < G; }
+  function vegPaint(g, dt) {
+    var w = E.world, b = RS.VEG_BRUSHES.filter(function (q) { return q.id === E.vb; })[0] || RS.VEG_BRUSHES[0], tot = 0, R = E.vrad, V = w.map.veg;
+    b.mix.forEach(function (q) { tot += q[1]; });
+    for (E.acc += E.vdens * dt * (5 + R * R * 9) * (b.dens || 1); E.acc >= 1 && V.length < 6000; E.acc--) {
+      var a = Math.random() * 6.283, rr = Math.sqrt(Math.random()) * R, x = g.x + Math.cos(a) * rr, y = g.y + Math.sin(a) * rr;
+      var pk = Math.random() * tot, t = b.mix[0][0]; for (var i = 0, ss = 0; i < b.mix.length; i++) { ss += b.mix[i][1]; if (pk <= ss) { t = b.mix[i][0]; break; } }
+      if (!vegAt(x, y)) continue;
+      var gap = RS.VEG[t].flat ? 0.22 : 0.13, close = false;
+      for (var k = V.length - 1; k >= 0 && !close; k--) { var q = V[k]; if (q[0] === t && Math.abs(q[1] - x) < gap && Math.abs(q[2] - y) < gap) close = true; }
+      if (close) continue;
+      V.push([t, Math.round(x * 100) / 100, Math.round(y * 100) / 100, (Math.random() * RS.VEG[t].variants) | 0]); w.vegDirty = true;
+    }
+  }
+  function vegErase(g, R) { var w = E.world, n = w.map.veg.length; w.map.veg = w.map.veg.filter(function (q) { return Math.hypot(q[1] - g.x, q[2] - g.y) > R; }); if (w.map.veg.length !== n) w.vegDirty = true; }
   function blocked(x, y) {   // steht dort schon ein (nicht flaches) Objekt oder eine Figur zu nah?
     var w = E.world;
     for (var i = 0; i < w.map.obj.length; i++) { var o = w.map.obj[i], s = RS.sprite(o.t, o.v, o.r); if (!s.def.flat && x > o.x - 0.1 && y > o.y - 0.1 && x < o.x + s.w + 0.1 && y < o.y + s.d + 0.1) return true; }
@@ -309,8 +362,8 @@
     enter: function () {
       if (!E) {
         var data = null; try { data = JSON.parse(RS.store.get(WORK) || "null"); } catch (er) {}
-        E = { tool: "tile", tile: "a", tsize: 1, obj: { t: "brown", v: 0, r: 0 }, crad: 1.5, cgap: 0.5, cface: "mix", grid: false, cheer: false, undo: [], sel: null, world: null, t: 0, mbeat: 0, mat: null };
-        E.world = new RS.World(data || RS.POOL[0].make());
+        E = { tool: "tile", tile: "a", tsize: 1, obj: { t: "brown", v: 0, r: 0 }, crad: 1.5, cgap: 0.5, cface: "mix", grid: false, cheer: false, undo: [], sel: null, world: null, t: 0, mbeat: 0, mat: null, vb: "lot", vrad: 1.2, vdens: 6, acc: 0 };
+        E.world = new RS.World(data || RS.POOL[0].data || RS.POOL[0].make());
       }
       E.ui = null; build();
       RS.main.setSidebar(PANEL);
@@ -329,11 +382,16 @@
       w.update(dt); E.t += dt;
       if (I.hit("g")) { E.grid = !E.grid; syncUI(); }
       if (I.hit("r")) rotate();
-      if (I.wheel) { if (E.tool === "obj" || E.tool === "move") setVariant(I.wheel > 0 ? 1 : -1); else if (E.tool === "tile") { E.tsize = m.clamp(E.tsize + (I.wheel > 0 ? -2 : 2), 1, 7); syncUI(); } else if (E.tool === "crowd") { E.crad = m.clamp(E.crad + (I.wheel > 0 ? -0.25 : 0.25), 0.5, 4); syncUI(); } }
+      if (I.wheel) { if (E.tool === "obj" || E.tool === "move") setVariant(I.wheel > 0 ? 1 : -1); else if (E.tool === "tile") { E.tsize = m.clamp(E.tsize + (I.wheel > 0 ? -2 : 2), 1, 7); syncUI(); } else if (E.tool === "crowd") { E.crad = m.clamp(E.crad + (I.wheel > 0 ? -0.25 : 0.25), 0.5, 4); syncUI(); } else if (E.tool === "veg") { E.vrad = Math.round(m.clamp(E.vrad + (I.wheel > 0 ? -0.2 : 0.2), 0.3, 4) * 10) / 10; syncUI(); } }
       E.pos.textContent = I.inside ? "x " + g.x.toFixed(1) + "  y " + g.y.toFixed(1) + "   " + w.map.obj.length + " " + L2("Objekte", "objects") + " · " + w.map.ppl.length + " " + L2("Leute", "people") : "";
       if (!I.inside && !E.drag) { E.hover = null; return; }
       E.hover = E.tool === "erase" || E.tool === "move" || I.rmb ? w.pick(I.mx, I.my) : null;
       // Rechte Maustaste: löschen, was unter dem Zeiger liegt
+      if (E.tool === "veg") {
+        if (I.lmbHit || I.rmbHit) snapshot();
+        if (I.lmb) vegPaint(g, dt); else if (I.rmb) vegErase(g, E.vrad);
+        return;
+      }
       if (I.rmbHit) { var q = w.pick(I.mx, I.my); if (q) { snapshot(); removeItem(q); } return; }
       if (E.tool === "tile") {
         if (I.lmbHit) { snapshot(); E.drag = { shift: I.down("Shift"), a: gc }; }
@@ -346,7 +404,7 @@
         if (I.lmb) crowdBrush(g, dt);
       } else if (E.tool === "erase") {
         if (I.lmbHit) { snapshot(); E.drag = {}; }
-        if (E.drag && I.lmb) removeItem(w.pick(I.mx, I.my));
+        if (E.drag && I.lmb) { removeItem(w.pick(I.mx, I.my)); vegErase(g, 0.3); }
         if (E.drag && !I.lmb) E.drag = null;
       } else if (E.tool === "stage") {
         if (I.lmbHit) { snapshot(); w.map.stage = { x: Math.round(g.x * 10) / 10, y: Math.round(g.y * 10) / 10 }; status(L2("Bühne gesetzt: hier stehen die Rapper.", "Stage set: the rappers stand here.")); }
@@ -355,13 +413,14 @@
           var hit = w.pick(I.mx, I.my); E.sel = hit;
           if (hit) { snapshot(); var it = hit.o || hit.p; E.drag = { it: it, dx: it.x - g.x, dy: it.y - g.y, sn: hit.o ? snapOf(hit.s.def) : 0.05 }; }
         }
-        if (E.drag && I.lmb) { var d = E.drag; d.it.x = snap(g.x + d.dx, d.sn); d.it.y = snap(g.y + d.dy, d.sn); w.dirty(); }
+        if (E.drag && I.lmb) { var d = E.drag; d.it.x = snap(g.x + d.dx, d.sn); d.it.y = snap(g.y + d.dy, d.sn);
+          if (d.it.t) { var ms = RS.sprite(d.it.t, d.it.v, d.it.r), mp = magnet({ x: d.it.x, y: d.it.y, s: ms }, d.it.r, d.it); d.it.x = mp.x; d.it.y = mp.y; } w.dirty(); }
         if (E.drag && !I.lmb) { E.drag = null; if (E.sel && E.sel.o) reselect(E.sel.o); }
       }
     },
     render: function (c) {
       var w = E.world, I = RS.input, g = RS.toGrid(I.mx, I.my);
-      w.render(c, { sel: E.sel && E.sel.o });
+      w.render(c, { sel: E.sel && E.sel.o, editor: true });
       // Raster
       if (E.grid) {
         c.strokeStyle = "rgba(255,255,255,.13)"; c.lineWidth = 1; c.beginPath();
@@ -384,8 +443,8 @@
       } else if (E.tool === "obj") {
         var gp = ghostPos(g); dia(gp.x, gp.y, gp.x + gp.s.w, gp.y + gp.s.d, "rgba(242,194,48,.8)", "rgba(242,194,48,.12)");
         c.globalAlpha = 0.65; c.drawImage(gp.s.cv, Math.round(RS.sx(gp.x, gp.y) - gp.s.ax), Math.round(RS.sy(gp.x, gp.y) - gp.s.ay)); c.globalAlpha = 1;
-      } else if (E.tool === "crowd") {
-        var cx = RS.sx(g.x, g.y), cy = RS.sy(g.x, g.y), r = E.crad * Math.SQRT2 * HW;
+      } else if (E.tool === "crowd" || E.tool === "veg") {
+        var cx = RS.sx(g.x, g.y), cy = RS.sy(g.x, g.y), r = (E.tool === "veg" ? E.vrad : E.crad) * Math.SQRT2 * HW;
         c.save(); c.translate(cx, cy); c.scale(1, HH / HW); c.beginPath(); c.arc(0, 0, r, 0, Math.PI * 2); c.restore();
         c.strokeStyle = "rgba(242,194,48,.85)"; c.lineWidth = 1; c.stroke();
       }

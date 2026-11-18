@@ -1,57 +1,10 @@
 /* Rap Streets – maps/pool.js
-   Mitgelieferte Maps. "Brooklyn Corner": Kreuzung mit der Spitze zum Betrachter, vorn ein Parkplatz mit Crowd um einen Ghettoblaster
-   (vorn offen – dort stehen später die Rapper). Eigene Maps aus dem Editor (Export) können hier als Daten dazukommen:
-   RS.POOL.push({ id: "…", name: "…", data: { …exportierte Map… } }) */
+   Mitgelieferte Maps (der Map-Pool, aus dem jedes Battle zufällig eine nimmt).
+   Seit v0.32: "Brooklyn Corner" ist Noahs erste Map aus dem Editor (die alte, generierte Vorlage ist raus).
+   Neue Maps: im Editor als .json exportieren, an Claude schicken, hier als RS.POOL-Eintrag mit data ergänzen. */
 (function () {
-  var RS = window.RS, G = RS.G;
-  function corner() {
-    var t = [], x, y;
-    for (y = 0; y < G; y++) for (x = 0; x < G; x++) {
-      var c = "s", sx = x >= 13 && x <= 17, sy = y >= 13 && y <= 17;
-      if (sy) c = x === 11 || x === 12 || x === 18 || x === 19 ? "e" : y === 15 && !sx ? "x" : "a";
-      if (sx) c = sy ? "a" : (y === 11 || y === 12 || y === 18 || y === 19 ? "c" : x === 15 ? "y" : "a");
-      if (x >= 20 && y >= 20) {   // Parkplatz vorn
-        c = RS.hash2(x, y, 4) > 0.55 ? "r" : "a";
-        if (y >= 20 && y <= 22 && x >= 27 && x % 2 === 1) c = "k";
-        if (x >= 20 && x <= 22 && y >= 27 && y % 2 === 1) c = "l";
-        if ((x === 26 || x === 27) && y === 24 || x === 21 && y === 25) c = "w";
-        if (x >= 34 || y >= 34) c = "d";
-      }
-      if (x <= 1 && y >= 21) c = "d"; if (x <= 1 && y >= 24 && y <= 26) c = "g";
-      if ((x === 16 && y === 6) || (x === 14 && y === 24)) c = "r";
-      if ((x === 16 && y === 15) || (x === 10 && y === 14)) c = "w";
-      t.push(c);
-    }
-    var obj = [], O = function (id, x, y, v, r) { obj.push({ t: id, v: v || 0, r: r || 0, x: x, y: y }); };
-    // Hinten: Bodega an der Ecke, Brownstones, Backsteinblock
-    O("bodega", 7, 7, 0); O("brown", 3, 8, 0); O("brick", 0, 2, 0); O("brown", 8, 3, 1, 1);
-    // Rechts: Häuserzeile an der Straße
-    O("brown", 20, 8, 1); O("brown", 24, 8, 0); O("brick", 28, 7, 1); O("garage", 20, 2, 1); O("brick", 25, 1, 0);
-    // Links: Garage mit Graffiti zur Straße, dahinter Backstein und noch eine Bodega
-    O("garage", 7, 20, 2, 1); O("brick", 7, 25, 0, 1); O("bodega", 3, 20, 2);
-    // Straßen
-    O("taxi", 20.5, 13.4, 0); O("sedan", 23.6, 16.6, 0); O("sedan", 4.5, 16.8, 1); O("van", 0.2, 13.2, 2);
-    O("sedan", 13.3, 22, 3, 1); O("taxi", 16.6, 4.5, 0, 1);
-    O("manhole", 14.7, 14.6); O("manhole", 25, 14.7);
-    // Gehwege
-    O("lamp", 11.3, 11.3); O("lamp", 19.4, 11.3); O("lamp", 11.3, 19.4); O("lamp", 19.5, 18.4); O("lamp", 4, 11.4); O("lamp", 27, 11.4);
-    O("hydrant", 10.6, 12.4); O("trash", 12, 10.2, 0); O("crates", 11.2, 9.4, 2); O("crates", 11.25, 8.7, 0);
-    O("pot", 4.1, 11.1, 0); O("pot", 6.3, 11.1, 1); O("pot", 21.1, 11.1, 2); O("pot", 23.3, 11.1, 0);
-    O("bench", 24.8, 11.9, 0); O("trash", 30, 11.9, 1); O("dumpster", 11.3, 25.2, 0, 1); O("hydrant", 18.4, 19.5);
-    // Parkplatz
-    O("sedan", 27.5, 20.1, 2, 1); O("van", 29.45, 20, 1, 1); O("sedan", 31.5, 20.1, 0, 1);
-    O("sedan", 20.1, 27.5, 1); O("taxi", 20.1, 29.5, 0);
-    O("fence", 33.4, 20, 0, 1); O("fence", 33.4, 22, 0, 1); O("fence", 33.4, 24, 0, 1);
-    O("crates", 32.6, 25.6, 1); O("trash", 32.4, 26.4, 0); O("bench", 25.6, 19.2, 1);
-    O("boombox", 20.9, 20.95, 0);
-    // Crowd: Bogen um den Platz vor dem Ghettoblaster, nach vorn offen
-    var ppl = [], r = RS.rng(1990), cx = 21.7, cy = 21.7, N = 42;
-    for (var i = 0; i < N; i++) {
-      var a = Math.PI * 0.25 + Math.PI * 0.32 + (i / (N - 1)) * Math.PI * 1.36 + (r() - 0.5) * 0.1, d = 2.5 + r() * 1.2;
-      ppl.push({ v: Math.floor(r() * RS.PEOPLE_N), x: Math.round((cx + Math.cos(a) * d) * 100) / 100, y: Math.round((cy + Math.sin(a) * d) * 100) / 100, f: r() < 0.5 ? 1 : 0 });
-    }
-    [[12, 10.6], [12.4, 10.9], [21.6, 12], [5.3, 12.1], [30.5, 19.2]].forEach(function (q, k) { ppl.push({ v: (k * 11 + 5) % RS.PEOPLE_N, x: q[0], y: q[1], f: k % 2 }); });
-    return { name: "Brooklyn Corner", time: 18.4, tiles: t.join(""), obj: obj, ppl: ppl, stage: { x: 22.1, y: 22.1 } };
-  }
-  RS.POOL = [{ id: "corner", name: "Brooklyn Corner", make: corner }];
+  var RS = window.RS;
+  RS.POOL = [
+    { id: "corner", name: "Brooklyn Corner", data: {"name":"Brooklyn Corner","time":8.7,"tiles":"sssssssssssssssssssssssssssssssssssssssssssssssssssssssssggsssssssssssssssssssssssssssssssssgggsssssssssssssssssssssssssssssssssgsgssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssgssssssssssssssssssssssssssssssssssggssssssssssssssssssssssssssssssssssggsssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssgsssssssssssssssssssssdsssssssssgggggssssssssssssdsssdssssssssdddssssssssssssssssssssssssssssssssssssssssssssssssssssssssdaaaaaaawwklcclllllllssssssssaaaaaaaaallllllllaaccaaaaaasssssssssaaaaaaaaaaaaaaaaaaaccaaaaassssssssssaaaaaaaaaaaaaaaaaaaccaaaaasssssssssssaaaaaaaaaaaaaaaaawccaaaassssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssgggggsssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssggggssssssssssssssssssssssssssssssssssssssssssssssssssssssss","obj":[{"t":"bodega","v":1,"r":1,"x":13,"y":14},{"t":"brick","v":0,"r":0,"x":22,"y":14},{"t":"brick","v":0,"r":1,"x":27,"y":12},{"t":"brown","v":0,"r":1,"x":21,"y":10},{"t":"brown","v":0,"r":0,"x":21,"y":6},{"t":"brown","v":0,"r":0,"x":31,"y":12},{"t":"brown","v":0,"r":0,"x":31,"y":13},{"t":"taxi","v":0,"r":0,"x":9,"y":20},{"t":"van","v":0,"r":0,"x":11,"y":20},{"t":"sedan","v":0,"r":0,"x":13.5,"y":20},{"t":"pot","v":0,"r":0,"x":16.3,"y":17.9},{"t":"pot","v":0,"r":0,"x":14.2,"y":18},{"t":"pot","v":0,"r":0,"x":13.5,"y":18},{"t":"pot","v":0,"r":0,"x":12.9,"y":18},{"t":"manhole","v":0,"r":0,"x":16.8,"y":21.4},{"t":"manhole","v":0,"r":0,"x":10.7,"y":21.7},{"t":"crates","v":0,"r":0,"x":14.5,"y":18},{"t":"brick","v":0,"r":0,"x":8,"y":14},{"t":"brick","v":0,"r":0,"x":5,"y":27},{"t":"brown","v":1,"r":0,"x":10,"y":31},{"t":"brown","v":1,"r":0,"x":10,"y":28},{"t":"brown","v":1,"r":0,"x":14,"y":31},{"t":"brown","v":1,"r":0,"x":14,"y":28},{"t":"sedan","v":0,"r":0,"x":9,"y":24},{"t":"taxi","v":0,"r":0,"x":11.5,"y":24},{"t":"sedan","v":0,"r":0,"x":14,"y":24},{"t":"sedan","v":0,"r":0,"x":16.5,"y":24},{"t":"lamp","v":0,"r":1,"x":9.8,"y":18},{"t":"lamp","v":0,"r":1,"x":16.7,"y":17.9},{"t":"lamp","v":0,"r":1,"x":21.9,"y":17.8},{"t":"lamp","v":0,"r":1,"x":26.9,"y":17.7},{"t":"boombox","v":0,"r":0,"x":12,"y":18},{"t":"dumpster","v":0,"r":0,"x":22,"y":17.9},{"t":"dumpster","v":0,"r":1,"x":20.6,"y":16.2},{"t":"fence","v":0,"r":0,"x":18,"y":28},{"t":"fence","v":0,"r":0,"x":19,"y":28},{"t":"pot","v":0,"r":0,"x":22.9,"y":16.1},{"t":"pot","v":0,"r":0,"x":25,"y":17.7},{"t":"pot","v":0,"r":0,"x":28.4,"y":16.7},{"t":"pot","v":1,"r":0,"x":23.8,"y":17.7},{"t":"brown","v":2,"r":0,"x":17,"y":28},{"t":"bodega","v":2,"r":1,"x":4,"y":15},{"t":"bench","v":0,"r":0,"x":6.3,"y":19},{"t":"brown","v":0,"r":1,"x":13,"y":10},{"t":"brown","v":2,"r":1,"x":26,"y":4},{"t":"garage","v":0,"r":1,"x":26,"y":5},{"t":"garage","v":0,"r":1,"x":32,"y":12},{"t":"taxi","v":0,"r":0,"x":22,"y":24},{"t":"hydrant","v":0,"r":0,"x":24.9,"y":19.6},{"t":"hydrant","v":0,"r":0,"x":16.8,"y":19.6},{"t":"hydrant","v":0,"r":0,"x":5.9,"y":20.6},{"t":"manhole","v":0,"r":0,"x":18.3,"y":18.5},{"t":"manhole","v":0,"r":0,"x":6.5,"y":19.5},{"t":"manhole","v":0,"r":0,"x":3.5,"y":22},{"t":"sedan","v":1,"r":0,"x":6.5,"y":20},{"t":"sedan","v":2,"r":0,"x":6.5,"y":24}],"ppl":[{"v":5,"x":16.51,"y":18.46,"f":0},{"v":19,"x":16.46,"y":19.16,"f":0},{"v":12,"x":15.91,"y":18.64,"f":0},{"v":33,"x":16.8,"y":18.74,"f":0},{"v":22,"x":15.94,"y":19.51,"f":0},{"v":39,"x":16.32,"y":19.66,"f":0},{"v":2,"x":15.41,"y":19.56,"f":1},{"v":30,"x":16.05,"y":19.04,"f":1},{"v":17,"x":16.35,"y":20.24,"f":0},{"v":36,"x":15.67,"y":19.18,"f":0},{"v":11,"x":15.96,"y":19.98,"f":0},{"v":19,"x":15.16,"y":19.07,"f":1},{"v":10,"x":22.24,"y":19.23,"f":1},{"v":36,"x":23.1,"y":18.95,"f":0},{"v":42,"x":22.81,"y":19.44,"f":0},{"v":46,"x":22.6,"y":18.94,"f":1},{"v":5,"x":22.09,"y":19.79,"f":1},{"v":31,"x":21.81,"y":19.31,"f":0},{"v":29,"x":24.1,"y":19.03,"f":1},{"v":42,"x":24.81,"y":18.19,"f":1},{"v":46,"x":24.51,"y":18.52,"f":1},{"v":3,"x":23.77,"y":18.73,"f":1},{"v":30,"x":23.47,"y":19.19,"f":0},{"v":1,"x":24.64,"y":18.97,"f":1},{"v":37,"x":25,"y":18.7,"f":1},{"v":42,"x":17.33,"y":15.42,"f":1},{"v":36,"x":17.47,"y":15.94,"f":0},{"v":32,"x":17.66,"y":16.37,"f":0},{"v":47,"x":17.22,"y":16.46,"f":0},{"v":30,"x":18.31,"y":15.35,"f":1},{"v":43,"x":18.02,"y":15.72,"f":0},{"v":9,"x":17.69,"y":14.97,"f":1},{"v":20,"x":19.18,"y":16.47,"f":0},{"v":45,"x":19.44,"y":15.92,"f":1},{"v":18,"x":19.78,"y":16.27,"f":1},{"v":6,"x":19.93,"y":15.8,"f":0},{"v":23,"x":19.17,"y":24.72,"f":1},{"v":34,"x":19.83,"y":24.22,"f":0},{"v":36,"x":19.32,"y":23.84,"f":1},{"v":33,"x":19.39,"y":24.29,"f":0},{"v":37,"x":19.74,"y":24.64,"f":1},{"v":12,"x":18.94,"y":24.34,"f":0},{"v":16,"x":16.08,"y":20.57,"f":1},{"v":41,"x":16.59,"y":20.69,"f":0},{"v":27,"x":17.72,"y":20.31,"f":1},{"v":32,"x":17.03,"y":20.2,"f":0},{"v":9,"x":17.5,"y":20.98,"f":1},{"v":28,"x":17.16,"y":20.73,"f":0},{"v":40,"x":17.91,"y":20.84,"f":1},{"v":3,"x":16.27,"y":21.08,"f":0},{"v":13,"x":16.23,"y":21.62,"f":1},{"v":14,"x":15.62,"y":21.16,"f":0},{"v":27,"x":25.58,"y":19,"f":1},{"v":37,"x":25.65,"y":18.5,"f":1},{"v":20,"x":26.24,"y":18.36,"f":0},{"v":25,"x":26.4,"y":18.96,"f":1},{"v":20,"x":26.64,"y":18.36,"f":1},{"v":28,"x":27.4,"y":18.52,"f":1},{"v":15,"x":27.12,"y":18.82,"f":0},{"v":23,"x":26.28,"y":19.35,"f":1},{"v":42,"x":26.77,"y":19.35,"f":0},{"v":19,"x":25.12,"y":19.46,"f":0},{"v":1,"x":24.31,"y":19.55,"f":0},{"v":20,"x":23.26,"y":19.69,"f":1},{"v":10,"x":23.74,"y":19.69,"f":1},{"v":36,"x":25.71,"y":19.66,"f":0},{"v":15,"x":26.21,"y":19.82,"f":1},{"v":32,"x":25.99,"y":18.98,"f":1},{"v":33,"x":20.95,"y":18.59,"f":0},{"v":37,"x":21.2,"y":18.23,"f":0},{"v":21,"x":20.51,"y":18.2,"f":0},{"v":8,"x":20.82,"y":19.01,"f":0},{"v":20,"x":20.36,"y":18.76,"f":1},{"v":36,"x":21.25,"y":18.96,"f":1},{"v":4,"x":20.48,"y":19.29,"f":0},{"v":7,"x":20.84,"y":19.52,"f":1},{"v":40,"x":21.24,"y":19.45,"f":0},{"v":35,"x":21.03,"y":20.19,"f":1},{"v":37,"x":21.43,"y":19.92,"f":0},{"v":20,"x":13.53,"y":18.88,"f":0},{"v":31,"x":13.49,"y":19.45,"f":1},{"v":18,"x":13.16,"y":19.14,"f":1},{"v":1,"x":20.28,"y":24.96,"f":0},{"v":11,"x":20.62,"y":24.69,"f":1},{"v":4,"x":20.71,"y":25.41,"f":1},{"v":11,"x":19.5,"y":26.06,"f":1},{"v":1,"x":18.99,"y":25.56,"f":0},{"v":13,"x":19.72,"y":25.63,"f":1},{"v":4,"x":19.95,"y":25.23,"f":1},{"v":14,"x":20.98,"y":25.02,"f":1},{"v":19,"x":21.5,"y":25.27,"f":0},{"v":26,"x":21.07,"y":24.63,"f":1},{"v":19,"x":21.57,"y":24.6,"f":1},{"v":3,"x":22.57,"y":20.43,"f":1},{"v":39,"x":22.93,"y":20.76,"f":1},{"v":47,"x":22.14,"y":20.4,"f":1},{"v":3,"x":22.37,"y":20.83,"f":0},{"v":47,"x":23.5,"y":20.75,"f":0},{"v":12,"x":23.5,"y":20.16,"f":1},{"v":43,"x":22.53,"y":23.09,"f":1},{"v":35,"x":22.94,"y":23.3,"f":1},{"v":5,"x":16.29,"y":23.45,"f":1},{"v":16,"x":16.6,"y":22.91,"f":1},{"v":47,"x":16.83,"y":23.4,"f":0},{"v":32,"x":17.65,"y":23.74,"f":1},{"v":15,"x":17.48,"y":23.2,"f":0},{"v":46,"x":17.88,"y":23.12,"f":1},{"v":25,"x":17.25,"y":23.62,"f":1},{"v":22,"x":19.37,"y":19.53,"f":0},{"v":15,"x":19.85,"y":19.18,"f":0},{"v":45,"x":19.92,"y":19.62,"f":1}],"stage":{"x":19.1,"y":21.5}} }
+  ];
 })();
