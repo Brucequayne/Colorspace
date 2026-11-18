@@ -66,9 +66,9 @@
       window.removeEventListener("resize", M.layout);
       RS.input.detach(); RS.audio.stop(); RS.audio.micClose(); M.root = null;
     },
-    // Neue zufällige Map aus dem Pool (beim Start und nach einem Battle) – nicht zweimal hintereinander dieselbe
-    newMap: function () {
-      var L = RS.POOL, c = L.filter(function (p) { return p !== M.mapDef; }); if (!c.length) c = L;
+    // Zufällige Map aus dem Pool (bei jedem Start rein zufällig); other = true: eine andere als die aktuelle ("Neue Map")
+    newMap: function (other) {
+      var L = RS.POOL, c = other ? L.filter(function (p) { return p !== M.mapDef; }) : L; if (!c.length) c = L;
       M.mapDef = c[Math.floor(Math.random() * c.length)];
       M.world = new RS.World(M.mapDef.data || M.mapDef.make());
     },

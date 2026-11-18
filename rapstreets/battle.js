@@ -146,7 +146,7 @@
       if (b.dataset.a === "save") { RS.rec.download(); return; }
       if (b.dataset.a === "close") { var pl = RS.main.stage.querySelector(".rs-play"); if (pl) { pl.querySelector("video").pause(); pl.remove(); } return; }
       if (b.dataset.a === "again") RS.main.go("battle", { names: B.names, beat: RS.pickBeat() });
-      else if (b.dataset.a === "new") { RS.main.newMap(); RS.main.go("menu"); }
+      else if (b.dataset.a === "new") { RS.main.newMap(true); RS.main.go("menu"); }
       else RS.main.go("menu");
     });
   }
