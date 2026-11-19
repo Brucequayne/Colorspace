@@ -9,7 +9,7 @@
 (function () {
   "use strict";
 
-  var VERSION = "0.1", OW = 1080, OH = 1920, MIN = 0.1, JF = 12;
+  var VERSION = "0.11", OW = 1080, OH = 1920, MIN = 0.1, JF = 12;
   var KEYC = ["#D9D6D0", "#E2621B", "#E3B83F", "#8DBF45", "#23A06A", "#2BB0B8", "#3B7FE0", "#8A6CF0", "#C452C8", "#E0457A"];
   var KEY_ORDER = [1, 2, 3, 4, 5, 6, 7, 8, 9, 0], PAD_ORDER = [7, 8, 9, 4, 5, 6, 1, 2, 3, 0];
   var ANIMS = ["none", "turb", "judder", "punch", "shake"];
@@ -25,6 +25,9 @@
     keys: L2("Live-Tasten", "Live keys"),
     keysNote: L2("Zahl drücken schneidet live auf den Clip, dort weiter, wo noch nichts benutzt wurde. Belegen: Clip auf eine Taste ziehen oder anklicken und Umschalt + Zahl.", "A number cuts live to its clip, continuing where nothing has been used yet. Assign: drag a clip onto a key, or click it and press Shift + number."),
     empty: L2("leer", "empty"), clear: L2("Taste leeren", "Clear key"),
+    modeH: L2("Wiedergabe der Tasten", "Key playback"), modeCont: L2("Weiterspielen", "Continue"), modeRand: L2("Random Time", "Random Time"),
+    modeContD: L2("Jede Taste spielt ihren Clip dort weiter, wo sie zuletzt aufgehört hat.", "Each key continues its clip where it last stopped."),
+    modeRandD: L2("Jeder Tastendruck springt an eine zufällige, noch unbenutzte Stelle im Clip. Die Lücken dazwischen bleiben verfügbar, bis der ganze Clip gezeigt wurde, erst dann rückt der nächste nach.", "Every key press jumps to a random, still unused spot in the clip. The gaps in between stay available until the whole clip has been shown; only then does the next one move in."),
     fill: L2("Freie Tasten füllen", "Fill free keys"), reset: L2("Zähler zurücksetzen", "Reset counters"),
     liveAnim: L2("Animation bei Live-Schnitten", "Animation on live cuts"),
     str: L2("Stärke", "Strength"), dur: L2("Dauer", "Duration"),
@@ -66,6 +69,7 @@
     helpH: L2("So funktioniert SkapeForm", "How SkapeForm works"),
     help1: L2("Clips importieren oder in die Bibliothek ziehen. Die ersten zehn landen automatisch auf den Tasten 1–9 und 0, umlegen per Ziehen auf eine Taste oder Umschalt + Zahl.", "Import clips or drag them into the library. The first ten land on keys 1–9 and 0 automatically; reassign by dragging onto a key or with Shift + number."),
     help2: L2("Live-Schnitt: Leertaste (oder Enter am Ziffernblock) startet die Wiedergabe. Jede Zahl schneidet sofort auf ihren Clip und spielt ihn dort weiter, wo von ihm noch nichts benutzt wurde. Gehst du von 5 auf 7 und zurück auf 5, läuft 5 an der Stelle weiter, an der du es verlassen hast. Dieselbe Zahl noch mal drücken setzt einen neuen Schnitt mit Animation, ohne Sprung im Bild. Eine Zahl im Stillstand startet Wiedergabe und Live-Schnitt zugleich.", "Live cut: Space (or Enter on the numpad) starts playback. Each number instantly cuts to its clip and continues it where nothing of it has been used yet. Going from 5 to 7 and back to 5 continues 5 where you left it. Pressing the same number again adds a new cut with animation, without a jump in the picture. A number while stopped starts playback and the live cut at once."),
+    help3b: L2("Random Time (rechts unter den Tasten): Jeder Tastendruck, auch dieselbe Zahl noch mal, springt an eine zufällige Stelle im Clip, die noch nicht benutzt wurde. Läuft eine Stelle in schon benutztes Material, springt der Clip von selbst an die nächste freie Stelle. Aufgebraucht ist ein Clip erst, wenn alles von ihm gezeigt wurde (Reste unter einer Zehntelsekunde zählen nicht).", "Random Time (on the right below the keys): every key press, including the same number again, jumps to a random spot in the clip that has not been used yet. If a spot runs into already used material, the clip jumps to the next free spot by itself. A clip is only used up once all of it has been shown (leftovers under a tenth of a second do not count)."),
     help3: L2("Ist ein Clip aufgebraucht, holt sich die Taste automatisch den nächsten Clip aus der Bibliothek (von oben nach unten), der noch nie auf einer Taste lag. Der Live-Schnitt überschreibt die Timeline ab der Stelle, an der du die erste Zahl gedrückt hast, bis zum Stopp. Strg+Z macht den ganzen Take rückgängig, auch die Zähler.", "When a clip is used up, the key automatically takes the next clip from the library (top to bottom) that has never been on a key. The live cut overwrites the timeline from where you pressed the first number until you stop. Ctrl+Z undoes the whole take, including the counters."),
     help4: L2("Timeline: Clip anklicken zum Auswählen, ziehen zum Umsortieren, an den Kanten ziehen zum Kürzen oder Verlängern. S teilt am Abspielkopf, Entf löscht. Mausrad scrollt, Strg + Mausrad oder + / − zoomt. ← / → einzelne Bilder, mit Umschalt eine Sekunde.", "Timeline: click a clip to select it, drag to reorder, drag its edges to shorten or extend. S splits at the playhead, Delete removes. Mouse wheel scrolls, Ctrl + wheel or + / − zooms. ← / → single frames, with Shift one second."),
     help5: L2("Animationen spielen am Anfang eines Schnitts: Turbulenz (wilde, weiche Kamerabewegung mit Bewegungsunschärfe), Judder Shake (ruckelnde Stöße, das Bild stottert), Zoom Punch und Wackeln. Für Live-Schnitte rechts einstellen, für einzelne Clips über der Timeline.", "Animations play at the start of a cut: Turbulence (wild, smooth camera motion with motion blur), Judder Shake (jerky hits, the picture stutters), Zoom Punch and Wobble. Set them on the right for live cuts, above the timeline for single clips."),
@@ -91,7 +95,7 @@
   var P = {
     clips: [], segs: [], slots: [null, null, null, null, null, null, null, null, null, null],
     sel: 0, selClip: 0, T: 0, nextId: 1, undo: [], redo: [],
-    live: { anim: "turb", as: 1, ad: 0.45 }, clipVol: 1, musicVol: 0.9, music: null,
+    live: { anim: "turb", as: 1, ad: 0.45, mode: "cont" }, clipVol: 1, musicVol: 0.9, music: null,
     pps: 60, scroll: 0
   };
   var V = null, raf = 0;
@@ -116,11 +120,11 @@
   function copySeg(g) { var o = {}; for (var k in g) o[k] = g[k]; return o; }
 
   // ---------- Rückgängig ----------
-  function snap() { return JSON.stringify({ s: P.segs, k: P.slots, c: P.clips.map(function (c) { return [c.id, c.pos, c.bound, c.done]; }) }); }
+  function snap() { return JSON.stringify({ s: P.segs, k: P.slots, c: P.clips.map(function (c) { return [c.id, c.pos, c.bound, c.done, c.used]; }) }); }
   function pushUndo() { P.undo.push(snap()); if (P.undo.length > 120) P.undo.shift(); P.redo = []; }
   function restore(str) {
     var o = JSON.parse(str);
-    o.c.forEach(function (a) { var c = clipById(a[0]); if (c) { c.pos = a[1]; c.bound = a[2]; c.done = a[3]; } });
+    o.c.forEach(function (a) { var c = clipById(a[0]); if (c) { c.pos = a[1]; c.bound = a[2]; c.done = a[3]; c.used = a[4] || []; c.pre = null; } });
     P.segs = o.s.filter(function (g) { return clipById(g.clip); });
     var old = P.slots.slice();
     P.slots = o.k.map(function (id) { return id && clipById(id) ? id : null; });
@@ -152,7 +156,7 @@
       var el = mkVid(c.url); c.vS = el;
       el.addEventListener("loadedmetadata", function () {
         if (c.vS !== el) return;
-        var p = REC && REC.cur && REC.cur.clip === c.id ? REC.cur.in + (P.T - REC.cur.t) : c.pos;
+        var p = REC && REC.cur && REC.cur.clip === c.id ? REC.cur.in + (P.T - REC.cur.t) : c.pre ? c.pre.s : c.pos;
         el.currentTime = Math.min(p, Math.max(0, c.dur - 0.05));
       }, { once: true });
     }
@@ -161,8 +165,50 @@
   function prepS(c) {
     if (!c) return; var el = vS(c);
     if (REC && REC.cur && REC.cur.clip === c.id) return;
-    if (el.readyState >= 1 && Math.abs(el.currentTime - c.pos) > 0.04) el.currentTime = Math.min(c.pos, Math.max(0, c.dur - 0.05));
+    if (!c.pre || !gapAt(c, c.pre.s)) prepick(c);
+    var p = c.pre ? c.pre.s : c.pos;
+    if (el.readyState >= 1 && Math.abs(el.currentTime - p) > 0.04) el.currentTime = Math.min(p, Math.max(0, c.dur - 0.05));
   }
+
+  // ---------- Benutztes Material je Clip ----------
+  // c.used: sortierte, zusammengeführte Bereiche [von, bis], die schon in einem Live-Schnitt waren.
+  // Lücken unter MINGAP zählen als benutzt, sonst bleiben winzige Reste übrig, die nur noch Mini-Schnitte erzeugen.
+  var MINGAP = 0.1, SNAP = 0.35;
+  function addUsed(c, a, b) {
+    if (b - a <= 0.0005) return;
+    var u = c.used.concat([[a, b]]).sort(function (x, y) { return x[0] - y[0]; }), out = [];
+    u.forEach(function (r) { var l = out[out.length - 1]; if (l && r[0] <= l[1] + 0.002) l[1] = Math.max(l[1], r[1]); else out.push([r[0], r[1]]); });
+    c.used = out;
+  }
+  function gaps(c) {
+    var g = [], p = 0;
+    c.used.forEach(function (r) { if (r[0] - p >= MINGAP) g.push([p, r[0]]); p = Math.max(p, r[1]); });
+    if (c.dur - p >= MINGAP) g.push([p, c.dur]);
+    return g;
+  }
+  function freeTime(c) { return gaps(c).reduce(function (s, g) { return s + g[1] - g[0]; }, 0); }
+  function gapAt(c, s) { var g = gaps(c); for (var i = 0; i < g.length; i++) if (s >= g[i][0] - 1e-3 && s < g[i][1] - 0.05) return g[i]; return null; }
+  function pickStart(c) {
+    var g = gaps(c), i; if (!g.length) return null;
+    if (P.live.mode !== "rand") {                     // Weiterspielen: dort, wo zuletzt aufgehört wurde, sonst nächste Lücke
+      for (i = 0; i < g.length; i++) if (c.pos >= g[i][0] - 1e-3 && c.pos < g[i][1] - 0.05) return { s: Math.max(c.pos, g[i][0]), e: g[i][1] };
+      for (i = 0; i < g.length; i++) if (g[i][0] >= c.pos) return { s: g[i][0], e: g[i][1] };
+      return { s: g[0][0], e: g[0][1] };
+    }
+    var r = Math.random() * freeTime(c);              // Random Time: zufällige Stelle, gewichtet nach Länge der Lücken
+    for (i = 0; i < g.length; i++) {
+      var L = g[i][1] - g[i][0];
+      if (r <= L || i === g.length - 1) {
+        var s = g[i][0] + Math.min(r, L), keep = Math.min(0.5, L);
+        if (g[i][1] - s < keep) s = g[i][1] - keep;                // mindestens ein kurzes Stück abspielen
+        if (s - g[i][0] < SNAP) s = g[i][0];                       // und keinen zu kleinen Rest vorne liegen lassen
+        return { s: s, e: g[i][1] };
+      }
+      r -= L;
+    }
+    return null;
+  }
+  function prepick(c) { c.pre = pickStart(c); }
   function releaseS(c) { if (c && c.vS) { c.vS.pause(); c.vS.removeAttribute("src"); c.vS.load(); c.vS = null; } }
   function seekEl(v, tm) {
     return new Promise(function (res) {
@@ -181,7 +227,7 @@
     if (aud.length) loadMusic(aud[0]);
     var vids = files.filter(isVideo).sort(function (a, b) { return a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" }); });
     vids.forEach(function (f) {
-      var c = { id: P.nextId++, name: f.name.replace(/\.[^.]+$/, ""), file: f, url: URL.createObjectURL(f), dur: 0, w: 0, h: 0, pos: 0, bound: false, done: false, tiles: [], poster: "", bad: false, vT: null, vS: null };
+      var c = { id: P.nextId++, name: f.name.replace(/\.[^.]+$/, ""), file: f, url: URL.createObjectURL(f), dur: 0, w: 0, h: 0, pos: 0, used: [], pre: null, bound: false, done: false, tiles: [], poster: "", bad: false, vT: null, vS: null };
       P.clips.push(c);
       var m = document.createElement("video"); m.preload = "metadata"; m.muted = true; m.src = c.url;
       m.onloadedmetadata = function () {
@@ -246,8 +292,8 @@
     var old = slotOf(id); if (old >= 0 && old !== k) P.slots[old] = null;
     var prev = P.slots[k]; if (prev && prev !== id) releaseS(clipById(prev));
     P.slots[k] = id; c.bound = true;
-    if (c.done || c.pos >= c.dur - 0.05) { c.pos = 0; c.done = false; }
-    prepS(c); return true;
+    if (c.done || !gaps(c).length) { c.pos = 0; c.used = []; c.done = false; }
+    c.pre = null; prepS(c); return true;
   }
   function autoFill(quiet) {
     var n = 0;
@@ -257,11 +303,16 @@
   }
   function resetCounters() {
     if (REC) return; pushUndo();
-    P.clips.forEach(function (c) { c.pos = 0; c.done = false; c.bound = slotOf(c.id) >= 0; });
+    P.clips.forEach(function (c) { c.pos = 0; c.used = []; c.pre = null; c.done = false; c.bound = slotOf(c.id) >= 0; });
     P.slots.forEach(function (id) { if (id) prepS(clipById(id)); });
     note(t("resetDone")); renderAll();
   }
 
+  function setMode(m) {
+    P.live.mode = m;
+    P.slots.forEach(function (id) { var c = id && clipById(id); if (c) { c.pre = null; prepS(c); } });
+    renderSide();
+  }
   function liveHit(k) {
     if (V && V.exporting) return;
     var id = P.slots[k];
@@ -279,20 +330,24 @@
     renderPads(); flashPad(k, false); updateBar();
   }
   function openCur(k, T) {
-    var c = clipById(P.slots[k]), el = vS(c);
-    if (el.readyState >= 1 && Math.abs(el.currentTime - c.pos) > 0.12) el.currentTime = c.pos;
+    var c = clipById(P.slots[k]), el = vS(c), g0 = c.pre && gapAt(c, c.pre.s);
+    var pk = g0 ? { s: c.pre.s, e: g0[1] } : pickStart(c);
+    if (!pk) pk = { s: Math.max(0, c.dur - MINGAP), e: c.dur };
+    c.pre = null;
+    if (el.readyState >= 1 && Math.abs(el.currentTime - pk.s) > 0.12) el.currentTime = pk.s;
     setVol(el); var pr = el.play(); if (pr) pr.catch(noop);
     var an = P.live.anim === "rand" ? (Math.random() < 0.5 ? "turb" : "judder") : P.live.anim;
-    REC.cur = { slot: k, clip: c.id, in: c.pos, t: T, anim: an, seed: newSeed() };
+    REC.cur = { slot: k, clip: c.id, in: pk.s, end: pk.e, t: T, anim: an, seed: newSeed() };
     REC.pre = 0;
   }
   function closeCur(T) {
     var cur = REC && REC.cur; if (!cur) return;
-    var c = clipById(cur.clip), d = Math.min(T - cur.t, c.dur - cur.in);
+    var c = clipById(cur.clip), d = Math.min(T - cur.t, cur.end - cur.in);
     if (d > 0.001) { var g = mkSeg(c.id, cur.in, d, cur.anim, cur.slot, cur.seed); REC.segs.push(g); }
+    addUsed(c, cur.in, cur.in + Math.max(0, d));
     c.pos = Math.min(c.dur, cur.in + Math.max(0, d));
-    if (c.vS) c.vS.pause();
     REC.cur = null;
+    if (c.vS) { c.vS.pause(); prepS(c); }              // schon an die nächste Startstelle spulen
   }
   function curSeg(T) {
     var cur = REC.cur; if (!cur) return null;
@@ -300,11 +355,13 @@
   }
   function liveTick(T) {
     var cur = REC.cur; if (!cur) return;
-    var c = clipById(cur.clip), el = c.vS, rest = c.dur - (cur.in + (T - cur.t));
-    if (rest < 3 && !REC.pre) { var nf = nextFree(); if (nf) vS(nf); REC.pre = 1; }   // Nachrücker schon mal laden
+    var c = clipById(cur.clip), el = c.vS, rest = cur.end - (cur.in + (T - cur.t));
+    if (freeTime(c) - (T - cur.t) < 3 && !REC.pre) { var nf = nextFree(); if (nf) vS(nf); REC.pre = 1; }   // Nachrücker schon mal laden
     if (rest <= 0.03) {
-      var tEnd = cur.t + (c.dur - cur.in), k = cur.slot, name = c.name;
-      closeCur(tEnd); c.done = true; c.pos = c.dur;
+      var tEnd = cur.t + (cur.end - cur.in), k = cur.slot, name = c.name;
+      closeCur(tEnd);
+      if (gaps(c).length) { openCur(k, tEnd); renderPads(); return; }   // Lücke zu Ende, Clip hat noch Material: dorthin springen
+      c.done = true; c.pos = c.dur;
       P.slots[k] = null; releaseS(c);
       var nc = nextFree();
       if (!nc) { note(fmt(t("keyFreed"), { k: k, a: name }) + " " + t("noMore")); stopPlay(tEnd); return; }
@@ -653,7 +710,7 @@
     ".sf-ct{width:42px;height:56px;flex:none;background:#000 center/cover no-repeat}" +
     ".sf-cb{min-width:0;flex:1;display:flex;flex-direction:column;gap:3px;justify-content:center}" +
     ".sf-cb b{font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.sf-cb span{color:var(--sfs);font-size:12px;font-variant-numeric:tabular-nums}" +
-    ".sf-cu{display:block;height:3px;background:#383A38}.sf-cu i{display:block;height:100%;background:#E3B83F}" +
+    ".sf-cu{display:block;position:relative;height:3px;background:#383A38}.sf-cu i{position:absolute;top:0;height:100%;background:#E3B83F}" +
     ".sf-ck{position:absolute;left:4px;top:4px;min-width:18px;height:18px;padding:0 4px;font:700 12px/18px var(--f-body,sans-serif);text-align:center;color:#111}" +
     ".sf-cx{position:absolute;right:4px;top:4px;padding:0 6px!important;line-height:18px;opacity:0;background:transparent!important;border:0!important;color:var(--sfs)!important}.sf-clip:hover .sf-cx{opacity:1}" +
     ".sf-stage{grid-area:stage;position:relative;display:grid;place-items:center;min-height:0;min-width:0;background:#141514;overflow:hidden}" +
@@ -703,6 +760,7 @@
       '<aside class="sf-side" id="sf-side">' +
         '<div><h3>' + t("keys") + '</h3><div class="sf-pads" id="sf-pads"></div></div>' +
         '<p class="sf-desc">' + t("keysNote") + '</p>' +
+        '<div><h3>' + t("modeH") + '</h3><div class="sf-sw" style="display:flex"><button type="button" data-a="mode-cont" id="sf-mc">' + t("modeCont") + '</button><button type="button" data-a="mode-rand" id="sf-mr">' + t("modeRand") + '</button></div><p class="sf-desc" id="sf-md" style="margin-top:8px"></p></div>' +
         '<div class="sf-btns"><button type="button" data-a="fill">' + t("fill") + '</button><button type="button" data-a="reset">' + t("reset") + "</button></div>" +
         '<div><h3>' + t("liveAnim") + '</h3><select id="sf-lanim">' + opts(ANIMS, true) + "</select>" +
           '<div class="sf-row"><label for="sf-lstr">' + t("str") + ' <span id="sf-lstr-v"></span></label><input type="range" id="sf-lstr" min="20" max="200" step="5"></div>' +
@@ -735,19 +793,19 @@
     V.root.querySelector("#sf-libn").textContent = P.clips.length ? "· " + P.clips.length : "";
     if (!P.clips.length) { box.innerHTML = '<p class="sf-le">' + t("libEmpty") + "</p>"; return; }
     box.innerHTML = P.clips.map(function (c) {
-      var k = slotOf(c.id), used = c.dur ? clamp(c.pos / c.dur, 0, 1) : 0;
-      var info = c.bad ? "✕" : !c.dur ? t("loading") : tc(c.dur) + (c.done ? " · " + t("usedUp") : c.pos > 0 ? " · " + tc(c.dur - c.pos) + " " + (lang === "de" ? "übrig" : "left") : "") + (c.bound && k < 0 && !c.done ? " · " + t("wasKey") : "");
+      var k = slotOf(c.id), bars = c.dur ? c.used.map(function (r) { return '<i style="left:' + (r[0] / c.dur * 100).toFixed(2) + "%;width:" + Math.max(0.4, (r[1] - r[0]) / c.dur * 100).toFixed(2) + '%"></i>'; }).join("") : "";
+      var info = c.bad ? "✕" : !c.dur ? t("loading") : tc(c.dur) + (c.done ? " · " + t("usedUp") : c.used.length ? " · " + tc(freeTime(c)) + " " + (lang === "de" ? "übrig" : "left") : "") + (c.bound && k < 0 && !c.done ? " · " + t("wasKey") : "");
       return '<div class="sf-clip' + (P.selClip === c.id ? " sel" : "") + (c.done ? " done" : "") + '" data-c="' + c.id + '">' +
         '<div class="sf-ct" style="background-image:' + (c.poster ? "url(" + c.poster + ")" : "none") + '"></div>' +
-        '<div class="sf-cb"><b title="' + esc(c.name) + '">' + esc(c.name) + "</b><span>" + info + '</span><span class="sf-cu"><i style="width:' + (used * 100).toFixed(1) + '%"></i></span></div>' +
+        '<div class="sf-cb"><b title="' + esc(c.name) + '">' + esc(c.name) + "</b><span>" + info + '</span><span class="sf-cu">' + bars + '</span></div>' +
         (k >= 0 ? '<span class="sf-ck" style="background:' + KEYC[k] + '">' + k + "</span>" : "") +
         '<button type="button" class="sf-cx" data-cx="' + c.id + '" title="' + t("remove") + '">×</button></div>';
     }).join("");
   }
   function padRest(c, k) {
-    var pos = c.pos;
-    if (REC && REC.cur && REC.cur.slot === k) pos = Math.min(c.dur, REC.cur.in + (P.T - REC.cur.t));
-    return Math.max(0, c.dur - pos);
+    var f = freeTime(c);
+    if (REC && REC.cur && REC.cur.slot === k) f -= Math.min(P.T - REC.cur.t, REC.cur.end - REC.cur.in);
+    return Math.max(0, f);
   }
   function renderPads() {
     if (!V) return;
@@ -767,6 +825,9 @@
   function renderSide() {
     if (!V) return; var r = V.root;
     r.querySelector("#sf-lanim").value = P.live.anim;
+    var rm = P.live.mode === "rand";
+    r.querySelector("#sf-mc").setAttribute("aria-pressed", String(!rm)); r.querySelector("#sf-mr").setAttribute("aria-pressed", String(rm));
+    r.querySelector("#sf-md").textContent = t(rm ? "modeRandD" : "modeContD");
     r.querySelector("#sf-lstr").value = Math.round(P.live.as * 100); r.querySelector("#sf-lstr-v").textContent = Math.round(P.live.as * 100) + " %";
     r.querySelector("#sf-ldur").value = Math.round(P.live.ad * 100); r.querySelector("#sf-ldur-v").textContent = sec(P.live.ad);
     r.querySelector("#sf-cvol").value = Math.round(P.clipVol * 100); r.querySelector("#sf-cvol-v").textContent = Math.round(P.clipVol * 100) + " %";
@@ -1050,6 +1111,7 @@
     else if (a === "zout") zoom(1 / 1.4);
     else if (a === "fill") { if (!REC) { pushUndo(); autoFill(false); renderAll(); } }
     else if (a === "reset") resetCounters();
+    else if (a === "mode-cont" || a === "mode-rand") setMode(a === "mode-rand" ? "rand" : "cont");
     else if (a === "fill-p" || a === "fit-p") { if (selSeg()) { pushUndo(); setSelProp("fit", a === "fit-p" ? "fit" : "fill"); } }
     else if (a === "toall") { var s = selSeg(); if (s) { pushUndo(); P.segs.forEach(function (g) { g.anim = s.anim; g.as = s.as; g.ad = s.ad; g.fit = s.fit; }); } }
     else if (a === "exp-go") { var f = V.root.querySelector('input[name="sf-fps"]:checked'); doExport(f ? +f.value : 30); }
@@ -1128,7 +1190,7 @@
     var m = V.root.querySelector("#sf-modal"), old = keepNote && m.querySelector("#sf-pg") ? m.querySelector("#sf-pg").textContent : "";
     m.hidden = false;
     if (V.modal === "help") {
-      m.innerHTML = '<div class="sf-box"><h2>' + t("helpH") + "</h2><p>" + t("help1") + "</p><p>" + t("help2") + "</p><p>" + t("help3") + "</p><p>" + t("help4") + "</p><p>" + t("help5") + "</p><p>" + t("help6") + '</p><div class="sf-btns"><button type="button" data-a="close">' + t("close") + "</button></div></div>";
+      m.innerHTML = '<div class="sf-box"><h2>' + t("helpH") + "</h2><p>" + t("help1") + "</p><p>" + t("help2") + "</p><p>" + t("help3") + "</p><p>" + t("help3b") + "</p><p>" + t("help4") + "</p><p>" + t("help5") + "</p><p>" + t("help6") + '</p><div class="sf-btns"><button type="button" data-a="close">' + t("close") + "</button></div></div>";
       return;
     }
     var D = total(), ex = V.exporting;
