@@ -71,12 +71,13 @@
       '<div class="sr-ed-only sr-tbar"><span class="sr-seg"><button type="button" data-act="ed-ship">' + t("edShip") + '</button><button type="button" data-act="ed-st">' + t("edSt") + '</button></span><input id="sr-name" class="sr-name" maxlength="28" spellcheck="false" placeholder="' + t("namePh") + '"><button type="button" data-act="undo">' + t("undo") + '</button><button type="button" data-act="starter">' + t("starter") + '</button><button type="button" data-act="clear">' + t("clear") + '</button><button type="button" data-act="exp">Export</button><button type="button" data-act="imp">Import</button><button type="button" data-act="npc">' + t("hangar") + '</button><button type="button" class="sr-dev-only" data-act="dev-lock">' + t("devLock") + '</button></div>' +
       '<div class="sr-sp"></div><div class="sr-seg"><button type="button" data-view="in">' + t("vIn") + '</button><button type="button" data-view="out">' + t("vOut") + '</button></div>' +
       '<button type="button" class="sr-go sr-ed-only" data-act="test">' + t("test") + ' ▸</button><button type="button" class="sr-go sr-fl-only" data-act="edit">◂ ' + t("toEd") + '</button></div>' +
-      '<aside class="sr-pal sr-ed-only"><div class="sr-tools"><button type="button" data-tool="build">' + t("tBuild") + '</button><button type="button" data-tool="erase">' + t("tErase") + '</button><button type="button" data-tool="paint">' + t("tPaint") + '</button></div>' +
-      '<div class="sr-envtabs sr-dev-only"><span class="sr-seg"><button type="button" data-act="tab-blk">' + t("tabBlk") + '</button><button type="button" data-act="tab-env">' + t("tabEnv") + '</button></span></div>' +
+      '<aside class="sr-pal sr-ed-only"><div class="sr-tools"><button type="button" data-tool="build">' + t("tBuild") + '</button><button type="button" data-tool="erase">' + t("tErase") + '</button><button type="button" data-tool="paint">' + t("tPaint") + '</button><button type="button" data-tool="select">' + t("tSel") + '</button></div>' +
+      '<div class="sr-envtabs sr-dev-only"><span class="sr-seg"><button type="button" data-act="tab-blk">' + t("tabBlk") + '</button><button type="button" data-act="tab-env">' + t("tabEnv") + '</button><button type="button" data-act="tab-ev">' + t("tabEv") + '</button></span></div>' +
+      '<div class="sr-evp sr-dev-only"><small>' + t("evH") + '</small><p class="sr-envh">' + t("evHelp") + '</p><div class="sr-evlist"></div><div class="sr-eved"></div></div>' +
       '<div class="sr-envp sr-dev-only"><small>' + t("envLayer") + '</small><span class="sr-seg sr-envl"><button type="button" data-envl="-1">' + t("envBack") + '</button><button type="button" data-envl="0">' + t("envGame") + '</button><button type="button" data-envl="1">' + t("envFront") + '</button></span>' +
       '<label class="sr-envr"><small>' + t("envScale") + ' <b id="sr-env-sv"></b></small><input type="range" id="sr-env-s" min="-232" max="200" step="1"></label>' +
       '<label class="sr-envr"><small>' + t("envRot") + ' <b id="sr-env-rv"></b></small><input type="range" id="sr-env-r" min="0" max="355" step="5"></label>' +
-      '<button type="button" data-act="env-rnd" class="sr-envrnd"></button><p class="sr-envh">' + t("envHelp") + '</p><small class="sr-envcat">' + t("envAst") + '</small><div class="sr-grid sr-envlist"></div><small class="sr-envcat">' + t("envBd") + '</small><p class="sr-envh">' + t("envBdH") + '</p><div class="sr-grid sr-envlist sr-bdlist"></div></div>' +
+      '<button type="button" data-act="env-rnd" class="sr-envrnd"></button><p class="sr-envh">' + t("envHelp") + '</p><small class="sr-envcat">' + t("envAst") + '</small><div class="sr-grid sr-envlist"></div><small class="sr-envcat">' + t("envBd") + '</small><p class="sr-envh">' + t("envBdH") + '</p><div class="sr-grid sr-envlist sr-bdlist"></div><small class="sr-envcat">' + t("envFx") + '</small><p class="sr-envh">' + t("envFxH") + '</p><div class="sr-grid sr-envlist sr-fxlist"></div></div>' +
       '<div class="sr-paint"><label>' + t("color") + ' <input type="color" id="sr-col"></label><div class="sr-sws">' + sw + '</div></div>' +
       '<div class="sr-opts"><button type="button" data-act="rot">' + t("rot") + '</button><button type="button" data-act="flip">' + t("flip") + '</button><button type="button" data-act="sym">' + t("sym") + '</button><button type="button" data-act="symm" class="sr-symm"></button><button type="button" data-act="auto" class="sr-auto" title="' + t("autoOn") + '">' + t("autoR") + '</button></div>' +
       '<div class="sr-list">' + pal + '</div><div class="sr-vpop" hidden></div></aside>' +
@@ -99,7 +100,7 @@
       '<div class="sr-ebot sr-fl-only"><div class="sr-ebot-bar"><i id="sr-be-s"></i><i id="sr-be-e"></i></div><span id="sr-be-t"></span>' +
       '<label class="sr-shs"><small>' + t("shield") + '</small><input type="range" id="sr-shp" min="0" max="100" step="5" value="0"><b id="sr-shp-v">0 %</b><button type="button" data-act="shfill" title="' + t("shFill") + '">↻</button></label><em id="sr-shp-n"></em></div>' +
       '<div class="sr-tip sr-fl-only" hidden title="' + (lang === "de" ? "Klicken zum Ausblenden" : "Click to dismiss") + '"></div>' +
-      '<div class="sr-hint" id="sr-hint"></div><div class="sr-note" hidden></div>' +
+      '<div class="sr-hint" id="sr-hint"></div><div class="sr-note" hidden></div>' + recHtml() +
       '<div class="sr-io sr-npc" hidden><div class="sr-io-box sr-npc-box"><div class="sr-tbar"><b class="sr-npc-t">' + t("hangar") + '</b><span class="sr-sp"></span><button type="button" data-act="npc-x">' + (lang === "de" ? "Schließen" : "Close") + '</button></div><div class="sr-io-h">' + t("hangarH") + '</div><div class="sr-npc-list"></div></div></div>' +
       '<div class="sr-io sr-dev" hidden><div class="sr-io-box sr-dev-box"><div class="sr-io-h">' + t("devH") + '</div><input class="sr-dev-in" type="password" inputmode="numeric" autocomplete="off" maxlength="6" spellcheck="false" aria-label="Code"><div class="sr-tbar"><span class="sr-dev-msg"></span><span class="sr-sp"></span><button type="button" data-act="dev-x">' + t("cancel") + '</button></div></div></div>' +
       '<div class="sr-io sr-exio" hidden><div class="sr-io-box"><div class="sr-io-h"></div><span class="sr-seg sr-io-mode"><button type="button" data-act="io-scene">' + t("expScene") + '</button><button type="button" data-act="io-struct">' + t("expStruct") + '</button></span><textarea spellcheck="false"></textarea><div class="sr-tbar"><button type="button" data-act="io-copy">' + (lang === "de" ? "Kopieren" : "Copy") + '</button><button type="button" data-act="io-load">' + (lang === "de" ? "Laden" : "Load") + '</button><button type="button" data-act="io-txt">' + t("txtSave") + '</button><button type="button" data-act="io-open">' + t("txtOpen") + '</button><input type="file" class="sr-io-file" accept=".txt,text/plain" hidden><span class="sr-sp"></span><button type="button" data-act="io-x">' + (lang === "de" ? "Schließen" : "Close") + '</button></div></div></div></div>';
@@ -112,8 +113,10 @@
     r.querySelectorAll("[data-blk]").forEach(function (b) { b.setAttribute("aria-pressed", String(b.getAttribute("data-blk") === S.sel && S.tool === "build")); });
     r.querySelectorAll("[data-view]").forEach(function (b) { b.setAttribute("aria-pressed", String(b.getAttribute("data-view") === S.view)); });
     r.querySelector(".sr-root").classList.toggle("st", S.ed === "station");
-    var envt = S.ed === "station" && S.envTab; r.querySelector(".sr-root").classList.toggle("envt", envt);
-    var tb1 = r.querySelector('[data-act="tab-blk"]'), tb2 = r.querySelector('[data-act="tab-env"]'); if (tb1) { tb1.setAttribute("aria-pressed", String(!S.envTab)); tb2.setAttribute("aria-pressed", String(!!S.envTab)); }
+    var envt = S.ed === "station" && S.envTab, evt = S.ed === "station" && S.evTab; r.querySelector(".sr-root").classList.toggle("envt", envt); r.querySelector(".sr-root").classList.toggle("evt", evt);
+    var tb1 = r.querySelector('[data-act="tab-blk"]'), tb2 = r.querySelector('[data-act="tab-env"]'), tb3 = r.querySelector('[data-act="tab-ev"]'); if (tb1) { tb1.setAttribute("aria-pressed", String(!S.envTab && !S.evTab)); tb2.setAttribute("aria-pressed", String(!!S.envTab)); tb3.setAttribute("aria-pressed", String(!!S.evTab)); }
+    if (evt) evSync(r, false);
+    recUi();
     if (envt) envSync(r);
     if (S.ed !== "station" && T[S.sel] && T[S.sel].dev) S.sel = "lblk";   // Dev-Bauteile gibt es im Schiffsbau nicht
     r.querySelector(".sr-root").classList.toggle("foot", !!(FL && !FL.seated)); if (FL) syncHot();
@@ -126,7 +129,7 @@
     r.querySelector(".sr-paint").hidden = S.tool !== "paint";
     var ci = r.querySelector("#sr-col"); if (ci && ci.value !== S.color) ci.value = S.color;
     r.querySelectorAll("[data-sw]").forEach(function (b) { b.setAttribute("aria-pressed", String(b.getAttribute("data-sw").toLowerCase() === S.color.toLowerCase())); });
-    set("sr-hint", fly ? "" : t("hintEd")); var hn = V.root.querySelector("#sr-hint"); if (hn) hn.hidden = fly;
+    set("sr-hint", fly ? "" : t(S.ed === "station" && S.evTab ? "evHelp" : "hintEd")); var hn = V.root.querySelector("#sr-hint"); if (hn) hn.hidden = fly;
     if (!fly) info();
   }
   // Waffenwerte: im Tooltip der Bauteilliste und als eigener Abschnitt im Infofeld (je Typ Anzahl, Schaden, Feuerrate, DPS)
@@ -146,7 +149,8 @@
   function dimTxt() { var b = bounds(S.blocks); if (!b) return "–"; var w = b.x1 - b.x0, h = b.y1 - b.y0; return w + " × " + h + " (" + nf(w * CELL_M, 1) + " × " + nf(h * CELL_M, 1) + " m)"; }
   // Environment-Panel: Liste erst beim ersten Öffnen zeichnen (Vorschaubilder kosten etwas), danach nur Zustand abgleichen
   function envSync(r) {
-    var list = r.querySelector(".sr-envlist:not(.sr-bdlist)"), list2 = r.querySelector(".sr-bdlist");
+    var list = r.querySelector(".sr-envlist:not(.sr-bdlist):not(.sr-fxlist)"), list2 = r.querySelector(".sr-bdlist"), list3 = r.querySelector(".sr-fxlist");
+    if (list3 && !list3.childElementCount) list3.innerHTML = FX_IDS.map(function (id) { return '<button type="button" class="sr-blk sr-envb" data-env="' + id + '" title="' + ENV[id].n[lang] + '"><img alt="" src="' + envThumb(id) + '"><span>' + ENV[id].sn[lang] + "</span></button>"; }).join("");
     if (list2 && !list2.childElementCount) list2.innerHTML = BD_IDS.map(function (id) { return '<button type="button" class="sr-blk sr-envb" data-env="' + id + '" title="' + ENV[id].n[lang] + '"><img alt="" src="' + envThumb(id) + '"><span>' + ENV[id].sn[lang] + "</span></button>"; }).join("");
     if (list && !list.childElementCount) list.innerHTML = ENV_IDS.map(function (id) { return '<button type="button" class="sr-blk sr-envb" data-env="' + id + '" title="' + ENV[id].n[lang] + '"><img alt="" src="' + envThumb(id) + '"><span>' + ENV[id].sn[lang] + "</span></button>"; }).join("");
     r.querySelectorAll("[data-env]").forEach(function (b) { b.setAttribute("aria-pressed", String(b.getAttribute("data-env") === S.envSel && S.tool === "build")); });

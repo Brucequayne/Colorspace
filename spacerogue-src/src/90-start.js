@@ -11,7 +11,7 @@
     raf = requestAnimationFrame(loop);
     var dt = Math.min(0.05, (now - (last || now)) / 1000); last = now;
     var dpr = window.devicePixelRatio || 1; V.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    if (S.mode === "fly" && FL) { var g = FL.paused ? 0 : dt; while (g > 0 && FL) { var d = Math.min(1 / 120, g); flTick(d); g -= d; } if (FL) flDraw(); }
+    if (S.mode === "fly" && FL) { recPre(dt); var g = FL.paused ? 0 : dt; while (g > 0 && FL) { var d = Math.min(1 / 120, g); flTick(d); g -= d; } if (FL) flDraw(); }
     else {
       var k = V.keys, sp = 14 / V.zoom * dt;
       if (k.w || k.arrowup) V.cam.y -= sp; if (k.s || k.arrowdown) V.cam.y += sp; if (k.a || k.arrowleft) V.cam.x -= sp; if (k.d || k.arrowright) V.cam.x += sp;
@@ -36,6 +36,7 @@
     V.cv.addEventListener("wheel", onWheel, { passive: false }); V.cv.addEventListener("contextmenu", function (e) { e.preventDefault(); });
     V.cv.addEventListener("pointerleave", function () { if (V && S.mode !== "fly") V.mouse = null; });
     el.addEventListener("click", onClick); el.addEventListener("input", onInput);
+    el.addEventListener("pointerdown", function (e) { if (e.target.classList && e.target.classList.contains("sr-rec-cv")) recTlDown(e); });
     el.addEventListener("change", function (e) { if (e.target.type === "range") e.target.blur(); if (e.target.classList && e.target.classList.contains("sr-io-file")) { openTxt(e.target.files && e.target.files[0]); e.target.value = ""; } });
     el.addEventListener("focusout", function (e) { if (e.target.classList && e.target.classList.contains("sr-shipn-in")) finishRename(true); });   // Regler loslassen gibt WASD wieder frei
     window.addEventListener("keydown", onKey); window.addEventListener("keyup", onKeyUp); window.addEventListener("resize", layout);
@@ -51,5 +52,5 @@
     document.body.style.overflow = V.ovOld || "";
     FL = null; if (S) S.mode = "edit"; V = null;
   }
-  window.SpaceRogue = { mount: mount, unmount: unmount, _debug: function () { return { S: S, V: V, FL: FL, T: T, edRot: edRot, SND: SND, tryPlace: tryPlace, ghostAt: ghostAt, antRange: antRange, SET: SET, stats: stats, rooms: rooms, components: components, starter: starter, startTest: startTest, damage: damage, dockFace: dockFace, wx: WX_TEX, spawnEnemy: spawnEnemy, NPC: NPC, bd: { ids: BD_IDS, sprite: bdSprite, glow: bdSunGlow, env: ENV, code: sceneCode, parse: parseEnv } }; } };
+  window.SpaceRogue = { mount: mount, unmount: unmount, _debug: function () { return { REC: REC, recStart: recStart, recStop: recStop, recSeek: recSeek, S: S, V: V, FL: FL, T: T, edRot: edRot, SND: SND, tryPlace: tryPlace, ghostAt: ghostAt, antRange: antRange, SET: SET, stats: stats, rooms: rooms, components: components, starter: starter, startTest: startTest, damage: damage, dockFace: dockFace, wx: WX_TEX, spawnEnemy: spawnEnemy, NPC: NPC, bd: { ids: BD_IDS, sprite: bdSprite, glow: bdSunGlow, env: ENV, code: sceneCode, parse: parseEnv } }; } };
 })();

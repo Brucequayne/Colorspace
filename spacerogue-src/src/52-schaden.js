@@ -34,9 +34,19 @@
   }
   function damage(bd, b, dmg, x, y, ns) {
     if (FL.bodies.indexOf(bd) < 0 || bd.blocks.indexOf(b) < 0) return;   // schon zerstört (Kettenreaktion)
+    if (FL.fx && !(REC.on && bd === FL.me)) return;   // Schüsse einer aufgenommenen Spur: nur Effekt (beim Aufnehmen treffen sie das aufgenommene Schiff)
     if (!ns) { dmg = shieldAbsorb(bd, b, dmg, x, y); if (dmg <= 0) return; }
     b.hp -= dmg;
+    if (REC.on) recLogDmg(bd, b);   // Aufnahme: Schaden mitschreiben
     if (b.hp > 0) return;
+    var p = blockKill(bd, b);
+    // Triebwerke und Reaktoren explodieren und beschädigen, was direkt drumherum liegt
+    var kd = T[b.t].kind;
+    if (kd === "reac") blast(p.x, p.y, 3.2 * CELL_M, 85, null, true);
+    else if (kd === "thr") blast(p.x, p.y, (T[b.t].w > 1 ? 2.4 : 1.8) * CELL_M, T[b.t].w > 1 ? 60 : 40, null, true);
+  }
+  // Block zerstören: Trümmer, Feuer, Blitz, aus dem Körper nehmen, Körper ggf. zerbrechen (auch für das Nachspielen von Spuren)
+  function blockKill(bd, b) {
     var p = blockCenter(bd, b), col = b.c || T[b.t].col;
     for (var i = 0; i < 8; i++) { var a = Math.random() * 6.28, v = 4 + Math.random() * 10; FL.parts.push({ x: p.x, y: p.y, vx: bd.vx + Math.cos(a) * v, vy: bd.vy + Math.sin(a) * v, life: 0, max: 1.5 + Math.random(), k: "debris", sz: 0.5 + Math.random() * 0.7, col: col, a: Math.random() * 6, w: (Math.random() - 0.5) * 10 }); }
     for (i = 0; i < 6; i++) FL.parts.push({ x: p.x, y: p.y, vx: bd.vx + (Math.random() - 0.5) * 8, vy: bd.vy + (Math.random() - 0.5) * 8, life: 0, max: 0.35 + Math.random() * 0.3, k: "fire", sz: 1.2 + Math.random() });
@@ -44,10 +54,7 @@
     bd.blocks.splice(bd.blocks.indexOf(b), 1);
     if (bd === FL.me && bd.lost) bd.lost.push(strip(b));
     if (!bd.blocks.length) FL.bodies.splice(FL.bodies.indexOf(bd), 1); else splitBody(bd);
-    // Triebwerke und Reaktoren explodieren und beschädigen, was direkt drumherum liegt
-    var kd = T[b.t].kind;
-    if (kd === "reac") blast(p.x, p.y, 3.2 * CELL_M, 85, null, true);
-    else if (kd === "thr") blast(p.x, p.y, (T[b.t].w > 1 ? 2.4 : 1.8) * CELL_M, T[b.t].w > 1 ? 60 : 40, null, true);
+    return p;
   }
   function splitBody(bd) {
     var comps = components(bd.blocks);
@@ -57,6 +64,7 @@
       if (cp === keep) return;
       if (bd === FL.me && bd.lost) cp.forEach(function (b) { bd.lost.push(strip(b)); });
       var nb = { blocks: cp, x: 0, y: 0, a: bd.a, vx: bd.vx, vy: bd.vy, w: bd.w + (Math.random() - 0.5) * 0.8, ctrl: false, energy: 0, cap: 0, flames: {} };
+      if (bd.trk || bd.trkFrom) nb.trkFrom = bd.trk || bd.trkFrom;   // Trümmer einer Spur: Schaden daran lässt sich zuordnen
       var st = stats(cp), c = toWorld(bd, st.com[0], st.com[1]);
       recalc(nb, true); nb.x = c.x; nb.y = c.y;
       var rx = c.x - bd.x, ry = c.y - bd.y, l = Math.hypot(rx, ry) || 1;

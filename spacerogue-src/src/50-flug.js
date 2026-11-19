@@ -59,15 +59,15 @@
     } else if (!stMode) spawnTargets();
     // Environment (nur Developer Tool): Zelle (0,0) der Szene liegt dort, wo auch die Station liegt; ohne Station 60 m vor dem Schiff
     FL.env = []; FL.envG = [];
-    if (stMode && S.env && S.env.length) {
-      var stb = FL.bodies.filter(function (b) { return b.station; })[0];
-      envFlightInit(stb ? { x: stb.x - stb.com[0] * CELL_M, y: stb.y - stb.com[1] * CELL_M } : { x: me.x, y: me.y - me.rad - 60 });
-    }
+    var stb = FL.bodies.filter(function (b) { return b.station; })[0];
+    FL.O = stb ? { x: stb.x - stb.com[0] * CELL_M, y: stb.y - stb.com[1] * CELL_M } : { x: me.x, y: me.y - me.rad - 60 };   // Zelle (0,0) der Szene (Environment, Eventmarker, Spuren)
+    if (stMode && S.env && S.env.length) envFlightInit(FL.O);
+    if (stMode) { REC.t = 0; recGhosts(); }   // Developer Tool: aufgenommene Spuren stehen an ihrem Start
     S.viewEd = S.view; S.view = "out"; FL.seatWas = true;
     S.mode = "fly"; V.zoomEd = V.zoom; V.zoom = Math.min(1.1, Math.max(0.6, V.zoom));
     syncUI();
   }
-  function stopTest() { sndStopAll(); FL = null; S.mode = "edit"; if (V.zoomEd) V.zoom = V.zoomEd; if (S.viewEd) S.view = S.viewEd; syncUI(); }
+  function stopTest() { if (REC.on || REC.cd > 0 || REC.play) recStop(); sndStopAll(); FL = null; S.mode = "edit"; if (V.zoomEd) V.zoom = V.zoomEd; if (S.viewEd) S.view = S.viewEd; syncUI(); }
   // Zielschiffe: Panzerung mit ein paar Maschinenteilen, damit Rauch und Feuer sichtbar werden
   function targetShip() {
     var B = [];
@@ -91,7 +91,7 @@
   }
 
   function flTick(dt) {
-    FL.t += dt;
+    FL.t += dt; recTick(dt);
     if (FL.oc) { FL.ocT -= dt; if (FL.ocT <= 0) { FL.ocT = 0; FL.oc = false; } }
     else FL.ocT = Math.min(FL.me.ocMax || 3, FL.ocT + dt * 0.5);
     var me = FL.me, k = FL.keys;
@@ -109,6 +109,7 @@
       // Energie: Reaktoren laden, Verbraucher ziehen
       bd.energy = Math.min(bd.cap - (bd.shE || 0), bd.energy + bd.prod * dt);   // der Schildanteil ist reserviert
       bd.flames = {};
+      if (bd.ghost) recGhost(bd, dt);   // aufgenommene Spur: Pose, Flammen, Waffen
       if (bd === me) turretTick(bd, dt, FL.seated && !FL.out ? mouseWorld() : null);
       if (bd === me && bd.ctrl && bd.seat && !FL.dock) control(bd, dt, FL.seated);   // ohne Pilot halten nur die Dämpfer das Schiff; beim Andocken steuert der Autopilot
       if (bd === me) { var fm = 0; for (var fk in bd.flames) fm = Math.max(fm, bd.flames[fk]); if (FL.fire && FL.seated && FL.groups.length) fm = Math.max(fm, 0.6); FL.sig = Math.max(FL.sig * Math.exp(-dt / 1.2), fm); }
@@ -149,6 +150,7 @@
     if (FL.banner > 0) FL.banner -= dt;
     // Geschosse
     FL.shots = FL.shots.filter(function (p) {
+      FL.fx = p.own && p.own.ghost ? p.own : null;   // Schüsse einer Spur: nur Effekt
       p.life += dt; if (p.life > (p.lmax || MG.life)) return false;
       var steps = Math.ceil(Math.hypot(p.vx, p.vy) * dt / 1.0);
       for (var i = 0; i < steps; i++) {
@@ -158,10 +160,12 @@
       }
       return true;
     });
+    FL.fx = null;
     FL.beams = FL.beams.filter(function (b) { b.life += dt; return b.life < 0.3; });
     // Leichte Raketen: starke Beschleunigung, lenken nur ganz leicht zum Mauszeiger
     var mw = mouseWorld();
     FL.missiles = (FL.missiles || []).filter(function (m) {
+      FL.fx = m.own && m.own.ghost ? m.own : null;
       var mk = (m.own && m.own.player ? 1 + PM.msDmg : 1) * (m.k || 1);
       m.life += dt; if (m.life > MS.life) { blast(m.x, m.y, MS.splash, MS.sdmg * mk, m.own); return false; }
       var tg = m.own === FL.me ? mw : (m.own.ai && !m.own.dead ? { x: FL.me.x, y: FL.me.y } : null);
@@ -178,6 +182,7 @@
       }
       return true;
     });
+    FL.fx = null;
     FL.parts = FL.parts.filter(function (q) { q.life += dt; q.x += q.vx * dt; q.y += q.vy * dt; if (q.k === "debris") { q.a += q.w * dt; } return q.life < q.max; });
     if (FL.parts.length > 900) FL.parts.splice(0, FL.parts.length - 900);
     // Dynamische Kamera: schaut ein Stück in Richtung Maus, das Schiff rückt dabei Richtung Bildrand (höchstens 30 % des halben Bildes)
@@ -188,11 +193,13 @@
     }
     FL.camOff = FL.camOff || { x: 0, y: 0 }; var ck = 1 - Math.exp(-dt * 3.5);
     FL.camOff.x += (tox - FL.camOff.x) * ck; FL.camOff.y += (toy - FL.camOff.y) * ck;
-    var fx = me.x, fy = me.y;
+    var fx = me.x, fy = me.y, gf = FL.seated ? recFollow() : null;
+    if (gf) { fx = gf.x; fy = gf.y; }   // Kamera folgt einer Spur
     if (FL.out && FL.eva) { fx = FL.eva.x; fy = FL.eva.y; }
     else if (!FL.seated) { var pw = toWorld(FL.pb || me, FL.pilot.x, FL.pilot.y); fx = pw.x; fy = pw.y; }   // zu Fuß folgt die Kamera der Figur
     // Schwelle überschritten (anderer Körper betreten): Name einblenden
     var here = FL.out ? null : (FL.pb || me);
     if (here !== FL.pbLast) { if (here && FL.pbLast !== undefined && !FL.seated) showPlace(here.name || ""); FL.pbLast = here; }
     FL.cam.x = fx + FL.camOff.x; FL.cam.y = fy + FL.camOff.y;
+    recSample(dt);
   }

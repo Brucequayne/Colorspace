@@ -14,7 +14,7 @@
     (FL.envG || []).forEach(function (e) { var d = Math.hypot(e.x - me.x, e.y - me.y) - e.R; if (d < rg) A.push({ x: e.x, y: e.y, d: Math.max(0, d), k: "ast" }); });
     A.sort(function (a, b) { return a.d - b.d; }); L = A.slice(0, SCAN.ast);   // nur die nächsten Asteroiden, sonst wird der Rand voll
     FL.bodies.forEach(function (bd) {
-      if (bd === me || bd === FL.pb || bd.target) return;   // Übungsziele zählen nicht
+      if (bd === me || bd === FL.pb || bd.target || bd.ghost) return;   // Übungsziele zählen nicht
       var k = bd.station ? "st" : (bd.dead || (!bd.enemy && !bd.ctrl)) ? "wr" : null; if (!k) return;
       var d = Math.hypot(bd.x - me.x, bd.y - me.y) - (bd.rad || 0); if (d < rg) L.push({ x: bd.x, y: bd.y, d: Math.max(0, d), k: k });
     });

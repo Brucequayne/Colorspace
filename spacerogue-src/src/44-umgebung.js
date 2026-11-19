@@ -113,6 +113,7 @@
   }
   function envThumb(id) {
     if (isBD(id)) return bdThumb(id);
+    if (ENV[id].kind === "fx") return fxThumb(id);
     var def = ENV[id], sp = envSprite(def, 0), cv = document.createElement("canvas"); cv.width = cv.height = 44;
     var g = cv.getContext("2d"); if (g && g.drawImage) { var f = 40 / sp.sz; g.drawImage(sp.cv, 2, 2, sp.sz * f, sp.sz * f); }
     try { return cv.toDataURL(); } catch (e) { return ""; }
@@ -120,6 +121,7 @@
   // Zeichnen eines Assets mit Bildschirm-Mittelpunkt (sx, sy) und px = Pixel je Zelle (schon mit Parallaxe)
   function envDraw(c, it, sx, sy, px, alpha) {
     var def = ENV[it.a]; if (!def) return;
+    if (def.kind === "fx") { fxDraw(c, it, sx, sy, px, alpha); return; }   // Effekte (v0.59.1)
     var need = px * it.s, sp = envSprite(def, it.l, need <= ENV_PPC * 1.25 ? 1 : need <= ENV_PPC * 2.5 ? 2 : 4), f = need / sp.ppc, D = sp.sz * f, img = envMip(sp, D);
     if (D < 1.5) return;
     c.save(); c.translate(sx, sy); c.rotate((it.r || 0) * Math.PI / 180);
@@ -167,6 +169,7 @@
     var s = PX * V.zoom * ENV_K[l], W = V.W, H = V.H, al = S.envTab ? (l === S.envL ? 1 : 0.35) : (l === 1 ? 0.3 : 1);
     S.env.forEach(function (it) {
       if (it.l !== l) return;
+      if (l === 0 && (ENV[it.a].kind === "fx") !== FXPASS) return;   // Effekte der Spielebene kommen über die Blöcke
       var sx = W / 2 + (it.x - V.cam.x) * s, sy = H / 2 + (it.y - V.cam.y) * s, rb = envBound(it) * s;
       if (sx < -rb || sx > W + rb || sy < -rb || sy > H + rb) return;
       envDraw(c, it, sx, sy, s, al);
@@ -193,7 +196,7 @@
     FL.env = (S.env || []).filter(function (it) { return it.l !== BD_L && !isBD(it.a); }).map(function (it) {
       return { a: it.a, l: it.l, s: it.s, r: it.r, rad: (it.r || 0) * Math.PI / 180, x: O.x + it.x * CELL_M, y: O.y + it.y * CELL_M, R: envBound(it) * CELL_M, fa: 1 };
     });
-    FL.envG = FL.env.filter(function (e) { return e.l === 0; });
+    FL.envG = FL.env.filter(function (e) { return e.l === 0 && ENV[e.a].kind !== "fx"; });   // Effekte haben keine Kollision
   }
   function envFlInside(e, x, y) {   // Punkt in Metern
     var dx = x - e.x, dy = y - e.y; if (dx > e.R || dx < -e.R || dy > e.R || dy < -e.R) return false;
@@ -205,6 +208,7 @@
     var k = ENV_K[l], px = ppm * CELL_M * k, me = FL.out && FL.eva ? FL.eva : FL.me, msx = W / 2 + (me.x - FL.cam.x) * ppm, msy = H / 2 + (me.y - FL.cam.y) * ppm;
     FL.env.forEach(function (e) {
       if (e.l !== l) return;
+      if (l === 0 && (ENV[e.a].kind === "fx") !== FXPASS) return;
       var sx = W / 2 + (e.x - FL.cam.x) * ppm * k, sy = H / 2 + (e.y - FL.cam.y) * ppm * k, rb = e.R * ppm * k;
       if (sx < -rb || sx > W + rb || sy < -rb || sy > H + rb) return;
       var al = 1;

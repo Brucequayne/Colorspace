@@ -15,12 +15,15 @@
     }
     if (e.button === 1 || (e.button === 0 && V.space)) { V.pan = { x: e.clientX, y: e.clientY, cx: V.cam.x, cy: V.cam.y }; e.preventDefault(); return; }
     var cx = Math.floor(m.x), cy = Math.floor(m.y);
+    if (V.holo) { if (e.button === 2) { V.holo = null; syncUI(); } else if (e.button === 0) holoPlace(e.shiftKey); return; }   // Hologramm: setzen oder abbrechen
     V.down = e.button;
+    if (S.ed === "station" && S.evTab) { evDown(e, m); return; }   // Events: Marker setzen, ziehen, löschen
     if (S.ed === "station" && S.envTab) {   // Environmental: frei platzieren auf der aktiven Ebene
       if (e.button === 2 || S.tool === "erase") { if (envErase(m.sx, m.sy)) syncUI(); }
       else if (e.button === 0 && S.tool === "build") { envPlace(m.sx, m.sy, false); syncUI(); }
       return;
     }
+    if (S.tool === "select" && e.button === 0) { selBoxDown(m, e.shiftKey); return; }
     if (e.button === 2) { if (eraseAt(cx, cy)) syncUI(); V.lastCell = key(cx, cy); return; }
     if (e.button !== 0) return;
     if (S.tool === "build") { V.row = { sx: cx, sy: cy, ex: cx, ey: cy, area: e.shiftKey }; }
@@ -35,7 +38,9 @@
     if (S.mode === "fly") { if (e.shiftKey) FL.mdx += e.movementX || 0; V.mouse = m; return; }
     if (V.pan) { var s = PX * V.zoom; V.cam.x = V.pan.cx - (e.clientX - V.pan.x) / s; V.cam.y = V.pan.cy - (e.clientY - V.pan.y) / s; return; }
     V.mouse = m;
+    if (V.selBox) { V.selBox.x1 = m.x; V.selBox.y1 = m.y; return; }
     if (V.down === undefined || V.down === null) return;
+    if (S.ed === "station" && S.evTab) { if (V.evDrag) evMove(m); return; }
     if (S.ed === "station" && S.envTab) {
       if (V.down === 2 || S.tool === "erase") { if (envErase(m.sx, m.sy)) syncUI(); }
       else if (V.down === 0 && S.tool === "build" && V.envLast) {   // Ziehen streut: neues Asset, sobald genug Abstand zum letzten
@@ -49,7 +54,7 @@
     else if (S.tool === "paint") { if (paintAt(cx, cy)) syncUI(); }
     else if (S.tool === "build" && V.row) { V.row.ex = cx; V.row.ey = cy; }
   }
-  function onUp(e) { if (V && V.drag) invDragEnd(e); if (!V) return; V.envLast = null; V.pan = null; V.down = null; if (FL) FL.fire = false; if (V.row) { placeRow(); V.row = null; syncUI(); } }
+  function onUp(e) { if (V && V.drag) invDragEnd(e); if (!V) return; if (V.evDrag) evUp(); if (V.selBox) selBoxUp(); V.envLast = null; V.pan = null; V.down = null; if (FL) FL.fire = false; if (V.row) { placeRow(); V.row = null; syncUI(); } }
   function onWheel(e) { e.preventDefault(); var k = e.deltaY < 0 ? 1.12 : 1 / 1.12; V.zoom = Math.max(S.mode === "fly" ? ZMIN_FL : S.ed === "station" ? ZMIN_ST : 0.3, Math.min(3, V.zoom * k)); }
   function finishRename(ok) {
     var ib = V.root.querySelector(".sr-shipn-in"), bb = V.root.querySelector(".sr-shipn"); if (!ib || ib.hidden) return;
@@ -58,7 +63,7 @@
   }
   function onKey(e) {
     if (V && e.target.classList && e.target.classList.contains("sr-shipn-in")) { if (e.key === "Enter") finishRename(true); else if (e.key === "Escape") finishRename(false); e.stopPropagation(); return; }
-    if (!V || e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA") return;
+    if (!V || e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA" || e.target.tagName === "SELECT") return;
     if (V.menu) return;   // im Menü keine Spieltasten
     var k = e.key.toLowerCase();
     if (k === "escape" && V.root.querySelector(".sr-vpop") && !V.root.querySelector(".sr-vpop").hidden) { closeVar(); return; }
@@ -88,9 +93,14 @@
       return;
     }
     if (k === " ") { V.space = true; e.preventDefault(); return; }
-    if ((e.ctrlKey || e.metaKey) && k === "z") { undo(); e.preventDefault(); return; }
+    if ((e.ctrlKey || e.metaKey) && (k === "c" || k === "x" || k === "v") && !S.envTab && !S.evTab) { e.preventDefault(); if (k === "v") holoStart(); else selCopy(k === "x"); return; }
+    if ((e.ctrlKey || e.metaKey) && k === "z") { V.holo = null; undo(); e.preventDefault(); return; }
+    if (k === "escape" && (V.holo || V.selSet)) { V.holo = null; selClear(); syncUI(); return; }
+    if ((k === "delete" || k === "backspace") && V.selSet && !S.evTab) { selDelete(); e.preventDefault(); return; }
+    if (V.holo && !e.repeat && (k === "r" || k === "f")) { if (k === "r") holoRot(e.shiftKey ? -1 : 1); else holoFlip(); return; }
     if (["w", "a", "s", "d", "arrowup", "arrowdown", "arrowleft", "arrowright"].indexOf(k) >= 0) { V.keys[k] = true; e.preventDefault(); return; }
     if (e.repeat) return;
+    if (S.ed === "station" && S.evTab && (k === "delete" || k === "backspace")) { evDelSel(); e.preventDefault(); return; }
     if (S.ed === "station" && S.envTab && (k === "r" || k === "[" || k === "]" || k === "+" || k === "=" || k === "-")) {
       if (k === "r") S.envR = (S.envR + (e.shiftKey ? 345 : 15)) % 360;
       else S.envS = Math.max(envSMin(S.envSel), Math.min(envSMax(S.envSel), S.envS * (k === "]" || k === "+" || k === "=" ? 1.1 : 1 / 1.1)));
@@ -100,7 +110,7 @@
     else if (k === "f") { S.f = S.f ? 0 : 1; syncUI(); }
     else if (k === "m") { cycleSym(); syncUI(); }
     else if (k === "v" || k === "tab") { S.view = S.view === "in" ? "out" : "in"; syncUI(); e.preventDefault(); }
-    else if (k === "1") { S.tool = "build"; syncUI(); } else if (k === "2") { S.tool = "erase"; syncUI(); } else if (k === "3") { S.tool = "paint"; syncUI(); }
+    else if (k === "1") { S.tool = "build"; syncUI(); } else if (k === "2") { S.tool = "erase"; syncUI(); } else if (k === "3") { S.tool = "paint"; syncUI(); } else if (k === "4") { S.tool = "select"; syncUI(); }
   }
   function onKeyUp(e) {
     if (!V) return; var k = e.key.toLowerCase();
@@ -108,7 +118,7 @@
     if (FL) { FL.keys[k] = false; if (k === "shift") FL.keys.shift = false; }
     V.keys[k] = false;
   }
-  function undo() { var u = S.undo.pop(); if (!u) return; var o = JSON.parse(u); if (Array.isArray(o)) S.blocks = o; else { S.blocks = o.b; S.env = o.e.map(envUnpack).filter(Boolean); } save(); syncUI(); }
+  function undo() { var u = S.undo.pop(); if (!u) return; var o = JSON.parse(u); if (Array.isArray(o)) S.blocks = o; else { S.blocks = o.b; S.env = o.e.map(envUnpack).filter(Boolean); if (o.v) S.ev = o.v.map(evUnpack).filter(Boolean); } save(); syncUI(); }
   function onClick(e) {
     if (menuClick(e)) return;   // Startmenü und Einstellungen
     var vf = e.target.closest("[data-vf]"), vo = e.target.closest("[data-vopt]");
@@ -118,6 +128,7 @@
     var a = e.target.closest("[data-act]"), tl = e.target.closest("[data-tool]"), bk = e.target.closest("[data-blk]"), vw = e.target.closest("[data-view]"), sw = e.target.closest("[data-sw]");
     if (tl) { S.tool = tl.getAttribute("data-tool"); syncUI(); return; }
     if (bk) { S.sel = bk.getAttribute("data-blk"); S.tool = "build"; syncUI(); return; }
+    var evr = e.target.closest("[data-evsel]"); if (evr) { V.evSel = +evr.getAttribute("data-evsel"); var em = S.ev[V.evSel]; if (em) { V.cam.x = em.x; V.cam.y = em.y; } syncUI(); return; }
     var eb = e.target.closest("[data-env]"); if (eb) { S.envSel = eb.getAttribute("data-env"); S.envS = Math.max(envSMin(S.envSel), Math.min(envSMax(S.envSel), S.envS)); S.tool = "build"; syncUI(); return; }
     var el2 = e.target.closest("[data-envl]"); if (el2) { S.envL = +el2.getAttribute("data-envl"); syncUI(); return; }
     if (vw) { S.view = vw.getAttribute("data-view"); syncUI(); return; }
@@ -134,8 +145,10 @@
     else if (act === "sym") S.sym = !S.sym;
     else if (act === "symm") { S.symGap = !S.symGap; S.sym = true; save(); }
     else if (act === "undo") undo();
-    else if (act === "clear") { pushUndo(); if (S.ed === "station" && S.envTab) S.env = []; else S.blocks = []; save(); }   /* im Environmental-Tab leert es nur das Environment */
-    else if (act === "tab-blk" || act === "tab-env") { S.envTab = act === "tab-env"; if (S.envTab && S.tool === "paint") S.tool = "build"; }
+    else if (act === "clear") { pushUndo(); if (S.ed === "station" && S.envTab) S.env = []; else if (S.ed === "station" && S.evTab) { S.ev = []; V.evSel = -1; } else S.blocks = []; save(); }   /* im Environmental-Tab leert es nur das Environment */
+    else if (act === "tab-blk" || act === "tab-env" || act === "tab-ev") { S.envTab = act === "tab-env"; S.evTab = act === "tab-ev"; if (S.envTab && S.tool === "paint") S.tool = "build"; }
+    else if (act === "ev-del") evDelSel();
+    else if (recClick(act, a)) return;
     else if (act === "env-rnd") S.envRnd = !S.envRnd;
     else if (act === "starter") { pushUndo(); S.blocks = S.ed === "station" ? starterStation() : starter(); save(); fitCam(); }
     else if (act === "exp" || act === "imp") { openIO(act); return; }
@@ -155,7 +168,7 @@
     else if (act === "io-scene" || act === "io-struct") { V.ioScene = act === "io-scene"; openIO("exp"); return; }
     else if (act === "io-txt") { saveTxt(V.root.querySelector(".sr-exio textarea").value); return; }
     else if (act === "io-open") { V.root.querySelector(".sr-io-file").click(); return; }
-    else if (act === "io-load") { var bl = parseShip(V.root.querySelector(".sr-exio textarea").value); var ienv = S.ed === "station" ? parseEnv(V.root.querySelector(".sr-exio textarea").value) : null; if (bl && S.ed !== "station") bl = bl.filter(function (b) { return !T[b.t].dev; });   /* Dev-Bauteile nur im Developer Tool */ if (!bl || (!bl.length && !ienv)) { note(lang === "de" ? "Code ungültig." : "Invalid code."); return; } pushUndo(); S.blocks = bl; if (ienv) S.env = ienv; save(); fitCam(); V.root.querySelector(".sr-exio").hidden = true; if (ienv) note(t("sceneLoaded") + " (" + bl.length + (lang === "de" ? " Blöcke, " : " blocks, ") + ienv.length + " Assets)."); else note(lang === "de" ? "Schiff geladen (" + bl.length + " Blöcke)." : "Ship loaded (" + bl.length + " blocks)."); }
+    else if (act === "io-load") { var bl = parseShip(V.root.querySelector(".sr-exio textarea").value); var ienv = S.ed === "station" ? parseEnv(V.root.querySelector(".sr-exio textarea").value) : null; if (bl && S.ed !== "station") bl = bl.filter(function (b) { return !T[b.t].dev; });   /* Dev-Bauteile nur im Developer Tool */ if (!bl || (!bl.length && !ienv)) { note(lang === "de" ? "Code ungültig." : "Invalid code."); return; } pushUndo(); S.blocks = bl; if (ienv) S.env = ienv; if (S.ed === "station") { var iev = parseEv(V.root.querySelector(".sr-exio textarea").value), irec = parseRec(V.root.querySelector(".sr-exio textarea").value); if (iev) { S.ev = iev; evRenum(); V.evSel = -1; } if (irec) { REC.tracks = irec; recStore(); } } save(); fitCam(); V.root.querySelector(".sr-exio").hidden = true; if (ienv) note(t("sceneLoaded") + " (" + bl.length + (lang === "de" ? " Blöcke, " : " blocks, ") + ienv.length + " Assets)."); else note(lang === "de" ? "Schiff geladen (" + bl.length + " Blöcke)." : "Ship loaded (" + bl.length + " blocks)."); }
     else if (act === "test") { startTest(); return; }
     else if (act === "menu") { menuOpen(); return; }
     else if (act === "auto") { SET.auto = !SET.auto; setSave(); menuSync(); note(t(SET.auto ? "autoOn" : "autoOff")); return; }
@@ -165,6 +178,9 @@
     syncUI();
   }
   function onInput(e) {
+    if (e.target.hasAttribute && e.target.hasAttribute("data-evf")) { evField(e.target.getAttribute("data-evf"), e.target.value); return; }
+    if (e.target.hasAttribute && e.target.hasAttribute("data-recname")) { var rq = REC.tracks.filter(function (q) { return q.id === +e.target.getAttribute("data-recname"); })[0]; if (rq) { rq.name = e.target.value.slice(0, 28) || t("recTrk"); recStore(); var gb = recGhostOf(rq.id); if (gb) gb.name = rq.name; } return; }
+    if (e.target.getAttribute && e.target.getAttribute("data-recf") === "follow") { REC.follow = +e.target.value || 0; e.target.blur(); return; }
     if (e.target.id === "sr-col") { S.color = e.target.value; S.tool = "paint"; save(); syncUI(); }
     if (menuInput(e)) return;
     if (e.target.id === "sr-uis") { hudScale(+e.target.value); try { localStorage.setItem("spacerogue-ui", String(V.uis)); } catch (er) {} }

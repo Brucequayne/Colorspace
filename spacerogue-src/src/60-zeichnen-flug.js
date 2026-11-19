@@ -90,6 +90,7 @@
     envFlDraw(c, W, H, ppm, 0);    // Environment Spielebene
     c.save(); c.translate(W / 2, H / 2); c.scale(ppm, ppm); c.translate(-FL.cam.x, -FL.cam.y);
     drawTrails(c);
+    evFlDraw(c, ppm);   // Eventmarker (Developer Tool)
     // Triebwerksflammen unter den Schiffen
     FL.bodies.forEach(function (bd) {
       bd.blocks.forEach(function (b) {
@@ -230,6 +231,7 @@
       else if (q.k === "debris") { c.save(); c.translate(q.x, q.y); c.rotate(q.a); c.globalAlpha = 1 - k * k; c.fillStyle = q.col; c.fillRect(-q.sz / 2, -q.sz / 2, q.sz, q.sz * 0.6); c.restore(); c.globalAlpha = 1; }
     });
     c.restore();
+    FXPASS = true; envFlDraw(c, W, H, ppm, 0); FXPASS = false;   // Effekte der Spielebene über den Schiffen
     envFlDraw(c, W, H, ppm, 1);    // Environment vorne
     drawDust(c, W, H, ppm, DUST.front);
     if (fxc) { bdFxEnd(V.ctx, W, H, suns); c = V.ctx; }
@@ -237,6 +239,7 @@
     drawFloat(c, W, H, ppm);
     FL.cam.x -= shk.x; FL.cam.y -= shk.y;
     flHud();
+    recOverlay(c, W, H);
   }
   // Antennen: Gegner außerhalb des Bildes, aber in Antennenreichweite, als rotes Dreieck am Bildschirmrand
   // Reichweite: stärkste Antenne 600 m × Faktor, jede weitere +300 m × Faktor; Obergrenze 1.800 m (mindestens die stärkste Antenne allein)

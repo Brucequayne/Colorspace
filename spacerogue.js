@@ -5,7 +5,7 @@
 (function () {
   "use strict";
 
-  var VERSION = "0.59";
+  var VERSION = "0.59.1";
   var CELL_M = 2.5, PX = 24;              // Meter je Zelle, Pixel je Zelle bei Zoom 1
   var lang = "de";
   function L2(de, en) { return { de: de, en: en }; }
@@ -670,6 +670,95 @@
       if (sc > bs) { bs = sc; best = r; }
     }
     return [best === null ? S.r : best, S.f];
+  }
+  // ===== 33-markieren.js · Markieren, Kopieren, Einfügen (seit v0.59.1) =====
+  // Werkzeug "Markieren" (Taste 4): Rahmen über Blöcke ziehen (Umschalt fügt hinzu). Strg+C kopiert, Strg+X schneidet aus,
+  // Entf löscht. Strg+V hängt die Kopie als Hologramm an die Maus: R dreht (Umschalt+R andersherum), F spiegelt,
+  // Linksklick setzt (mit Umschalt bleibt das Hologramm für weitere Kopien), Rechtsklick oder Esc bricht ab.
+  // Gesetzt wird frei, ohne Anschlusspflicht – aber erst, wenn kein Teil auf einem belegten Feld liegt (Böden werden ersetzt).
+  Object.assign(TX, {
+    tSel: L2("Markieren", "Select"), selN: L2("{n} Blöcke markiert · Strg+C kopieren · Strg+X ausschneiden · Entf löschen", "{n} blocks selected · Ctrl+C copy · Ctrl+X cut · Del delete"),
+    selCopy: L2("{n} Blöcke kopiert · Strg+V einfügen", "{n} blocks copied · Ctrl+V paste"), selCut: L2("{n} Blöcke ausgeschnitten · Strg+V einfügen", "{n} blocks cut · Ctrl+V paste"),
+    selDel: L2("{n} Blöcke gelöscht", "{n} blocks deleted"), selNone: L2("Nichts markiert – mit Markieren (4) einen Rahmen ziehen", "Nothing selected – drag a frame with Select (4)"),
+    selClipNone: L2("Nichts kopiert", "Nothing copied"), holoHint: L2("Hologramm: Maus bewegt · R drehen · F spiegeln · Klick setzt (Umschalt: weitere) · Rechtsklick/Esc abbrechen", "Hologram: mouse moves · R rotate · F mirror · click places (Shift: more) · right-click/Esc cancel"),
+    holoPut: L2("{n} Blöcke gesetzt", "{n} blocks placed"), holoBlock: L2("{k} Blöcke überlappen (rot) – Hologramm verschieben oder drehen", "{k} blocks overlap (red) – move or rotate the hologram")
+  });
+  // Rechteck eines Blocks in Zellen
+  function bRect(b) { var f = fp(b); return [b.x, b.y, b.x + f[0], b.y + f[1]]; }
+  function selList() { if (!V.selSet) return []; return S.blocks.filter(function (b) { return V.selSet.has(b); }); }
+  function selClear() { V.selSet = null; V.selBox = null; }
+  function selBoxDown(m, add) { V.selBox = { x0: m.x, y0: m.y, x1: m.x, y1: m.y, add: add }; }
+  function selBoxUp() {
+    var bx = V.selBox; V.selBox = null; if (!bx) return;
+    var x0 = Math.floor(Math.min(bx.x0, bx.x1)), y0 = Math.floor(Math.min(bx.y0, bx.y1)), x1 = Math.floor(Math.max(bx.x0, bx.x1)) + 1, y1 = Math.floor(Math.max(bx.y0, bx.y1)) + 1;
+    var set = bx.add && V.selSet ? V.selSet : new Set();
+    S.blocks.forEach(function (b) { var r = bRect(b); if (r[0] < x1 && r[2] > x0 && r[1] < y1 && r[3] > y0) set.add(b); });
+    V.selSet = set.size ? set : null;
+    if (V.selSet) note(fmt(t("selN"), { n: nf(V.selSet.size) }));
+  }
+  // Kopie: Blöcke relativ zur Mitte ihres Rahmens (ganze Zellen)
+  function selCopy(cut) {
+    var L = selList(); if (!L.length) { note(t("selNone")); return; }
+    var x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9; L.forEach(function (b) { var r = bRect(b); x0 = Math.min(x0, r[0]); y0 = Math.min(y0, r[1]); x1 = Math.max(x1, r[2]); y1 = Math.max(y1, r[3]); });
+    var cx = Math.floor((x0 + x1) / 2), cy = Math.floor((y0 + y1) / 2);
+    V.clip = L.map(function (b) { var o = { t: b.t, x: b.x - cx, y: b.y - cy, r: b.r, f: b.f }; if (b.c) o.c = b.c; return o; });
+    if (cut) { pushUndo(); S.blocks = S.blocks.filter(function (b) { return !V.selSet.has(b); }); selClear(); save(); syncUI(); note(fmt(t("selCut"), { n: nf(L.length) })); }
+    else note(fmt(t("selCopy"), { n: nf(L.length) }));
+  }
+  function selDelete() { var L = selList(); if (!L.length) return false; pushUndo(); S.blocks = S.blocks.filter(function (b) { return !V.selSet.has(b); }); selClear(); save(); syncUI(); note(fmt(t("selDel"), { n: nf(L.length) })); return true; }
+  // Hologramm
+  function holoStart() {
+    if (!V.clip || !V.clip.length) { note(t("selClipNone")); return; }
+    var L = V.clip; if (S.ed !== "station") L = L.filter(function (b) { return !T[b.t].dev; });   // Dev-Bauteile gibt es im Schiffsbau nicht
+    if (!L.length) return;
+    S.envTab = false; S.evTab = false; V.row = null;
+    V.holo = L.map(function (b) { return Object.assign({}, b); }); note(t("holoHint")); syncUI();
+  }
+  // ganze Struktur um die Mitte drehen: Zelle (x, y) → (−y−1, x), jeder Block eine Stufe weiter (wie cellOf)
+  function holoRot(dir) {
+    var n = dir < 0 ? 3 : 1;
+    for (var k = 0; k < n; k++) V.holo = V.holo.map(function (b) { var r = bRect(b), o = Object.assign({}, b); o.r = (b.r + 1) % 4; o.x = -r[3]; o.y = r[0]; return o; });
+  }
+  function holoFlip() { V.holo = V.holo.map(function (b) { var f = fp(b), o = Object.assign({}, b); o.x = -b.x - f[0]; o.r = (4 - b.r) % 4; o.f = b.f ? 0 : 1; return o; }); }
+  function holoAt() { var cx = Math.floor(V.mouse ? V.mouse.x : 0), cy = Math.floor(V.mouse ? V.mouse.y : 0); return V.holo.map(function (b) { var o = Object.assign({}, b); o.x += cx; o.y += cy; return o; }); }
+  // welche Teile passen? Belegt = schon ein Block da (Böden darf alles ersetzen, was kein Boden ist)
+  function holoCheck(list, M) {
+    var mine = new Map();
+    return list.map(function (b) {
+      var ok = true, cs = cellsOf(b);
+      cs.forEach(function (q) { var k = key(q.c[0], q.c[1]); if ((M.has(k) && !replaceable(b.t, M.get(k))) || mine.has(k)) ok = false; });
+      if (ok) cs.forEach(function (q) { mine.set(key(q.c[0], q.c[1]), 1); });
+      return ok;
+    });
+  }
+  function holoPlace(keep) {
+    var list = holoAt(), M = buildMap(S.blocks), ok = holoCheck(list, M), put = list.filter(function (b, i) { return ok[i]; });
+    if (put.length < list.length) { note(fmt(t("holoBlock"), { k: nf(list.length - put.length) })); return; }   // erst setzen, wenn alles frei ist
+    pushUndo();
+    var under = new Set(); put.forEach(function (q) { if (T[q.t].kind === "floor" && !T[q.t].loot) return; cellsOf(q).forEach(function (c) { under.add(key(c.c[0], c.c[1])); }); });
+    if (under.size) S.blocks = S.blocks.filter(function (q) { return !(T[q.t].kind === "floor" && under.has(key(q.x, q.y))); });
+    put.forEach(function (q) { var o = { t: q.t, x: q.x, y: q.y, r: q.r, f: q.f }; if (q.c) o.c = q.c; S.blocks.push(o); });
+    save(); if (!keep) V.holo = null; syncUI();
+    note(fmt(t("holoPut"), { n: nf(put.length) }));
+  }
+  // Zeichnen (im Zellen-Raster, c ist schon verschoben, s = Pixel je Zelle)
+  function selDraw(c, s, tm) {
+    if (V.selSet) { c.strokeStyle = "#5FD0D8"; c.lineWidth = 2; c.fillStyle = "rgba(95,208,216,.14)"; selList().forEach(function (b) { var r = bRect(b); c.fillRect(r[0] * s, r[1] * s, (r[2] - r[0]) * s, (r[3] - r[1]) * s); c.strokeRect(r[0] * s + 1, r[1] * s + 1, (r[2] - r[0]) * s - 2, (r[3] - r[1]) * s - 2); }); }
+    if (V.selBox) {
+      var bx = V.selBox, x0 = Math.floor(Math.min(bx.x0, bx.x1)), y0 = Math.floor(Math.min(bx.y0, bx.y1)), x1 = Math.floor(Math.max(bx.x0, bx.x1)) + 1, y1 = Math.floor(Math.max(bx.y0, bx.y1)) + 1;
+      c.fillStyle = "rgba(95,208,216,.08)"; c.fillRect(x0 * s, y0 * s, (x1 - x0) * s, (y1 - y0) * s);
+      c.setLineDash([6, 4]); c.strokeStyle = "#5FD0D8"; c.lineWidth = 1.5; c.strokeRect(x0 * s + 0.5, y0 * s + 0.5, (x1 - x0) * s, (y1 - y0) * s); c.setLineDash([]);
+      c.fillStyle = "#5FD0D8"; c.font = "700 12px " + FONTS(); c.textAlign = "left"; c.fillText((x1 - x0) + " × " + (y1 - y0), x1 * s + 6, y1 * s);
+    }
+    if (V.holo && V.mouse) {
+      var list = holoAt(), ok = holoCheck(list, buildMap(S.blocks)), pulse = 0.45 + 0.15 * Math.sin(tm * 5);
+      list.forEach(function (b, i) {
+        c.globalAlpha = pulse; drawBlock(c, b, s, S.view, 1, tm); c.globalAlpha = 1;
+        var r = bRect(b); c.fillStyle = ok[i] ? "rgba(95,208,216,.18)" : "rgba(224,83,63,.35)"; c.fillRect(r[0] * s, r[1] * s, (r[2] - r[0]) * s, (r[3] - r[1]) * s);
+      });
+      var x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9; list.forEach(function (b) { var r = bRect(b); x0 = Math.min(x0, r[0]); y0 = Math.min(y0, r[1]); x1 = Math.max(x1, r[2]); y1 = Math.max(y1, r[3]); });
+      c.setLineDash([8, 5]); c.strokeStyle = "#5FD0D8"; c.lineWidth = 2; c.strokeRect(x0 * s, y0 * s, (x1 - x0) * s, (y1 - y0) * s); c.setLineDash([]);
+    }
   }
   // ===== 40-zeichnen-bloecke.js · Zeichnen: einzelne Blöcke, Luke, Astronaut, Schadensspuren =====
   // ---------- Zeichnen der Blöcke ----------
@@ -1386,7 +1475,7 @@
     if (bb) { c.fillStyle = "rgba(227,184,63,.9)"; c.beginPath(); c.moveTo(ax * s, (ay - 1.2) * s); c.lineTo((ax - 0.7) * s, ay * s); c.lineTo((ax + 0.7) * s, ay * s); c.closePath(); c.fill();
       c.fillStyle = "rgba(227,184,63,.9)"; c.font = "700 " + Math.max(10, 0.45 * s) + "px " + FONTS(); c.textAlign = "center"; c.fillText(t("dir"), ax * s, (ay + 0.7) * s); }
     // Vorschau
-    if (V.mouse && !V.pan && !(S.ed === "station" && (S.envTab || S.evTab))) {
+    if (V.mouse && !V.pan && !V.holo && S.tool !== "select" && !(S.ed === "station" && (S.envTab || S.evTab))) {
       var cx = Math.floor(V.mouse.x), cy = Math.floor(V.mouse.y);
       if (S.tool === "build") {
         var er = V.row ? null : edRot(cx, cy), ghosts = V.row ? rowList() : [ghostAt(cx, cy, S.sel, er[0], er[1])];
@@ -1406,7 +1495,9 @@
         if (!hb) { c.strokeStyle = "rgba(255,255,255,.3)"; c.lineWidth = 1; c.strokeRect(cx * s, cy * s, s, s); }
       }
     }
+    selDraw(c, s, tm);   // Markieren und Hologramm
     c.restore();
+    FXPASS = true; envEdDraw(c, 0); FXPASS = false;   // Effekte der Spielebene über den Blöcken
     envEdDraw(c, 1);   // Environment vorne
     if (fxc) { bdFxEnd(V.ctx, W, H, suns); c = V.ctx; }
     if (S.ed === "station") { envEdGhost(c); bdEdGhost(c); }
@@ -1546,6 +1637,7 @@
   }
   function envThumb(id) {
     if (isBD(id)) return bdThumb(id);
+    if (ENV[id].kind === "fx") return fxThumb(id);
     var def = ENV[id], sp = envSprite(def, 0), cv = document.createElement("canvas"); cv.width = cv.height = 44;
     var g = cv.getContext("2d"); if (g && g.drawImage) { var f = 40 / sp.sz; g.drawImage(sp.cv, 2, 2, sp.sz * f, sp.sz * f); }
     try { return cv.toDataURL(); } catch (e) { return ""; }
@@ -1553,6 +1645,7 @@
   // Zeichnen eines Assets mit Bildschirm-Mittelpunkt (sx, sy) und px = Pixel je Zelle (schon mit Parallaxe)
   function envDraw(c, it, sx, sy, px, alpha) {
     var def = ENV[it.a]; if (!def) return;
+    if (def.kind === "fx") { fxDraw(c, it, sx, sy, px, alpha); return; }   // Effekte (v0.59.1)
     var need = px * it.s, sp = envSprite(def, it.l, need <= ENV_PPC * 1.25 ? 1 : need <= ENV_PPC * 2.5 ? 2 : 4), f = need / sp.ppc, D = sp.sz * f, img = envMip(sp, D);
     if (D < 1.5) return;
     c.save(); c.translate(sx, sy); c.rotate((it.r || 0) * Math.PI / 180);
@@ -1600,6 +1693,7 @@
     var s = PX * V.zoom * ENV_K[l], W = V.W, H = V.H, al = S.envTab ? (l === S.envL ? 1 : 0.35) : (l === 1 ? 0.3 : 1);
     S.env.forEach(function (it) {
       if (it.l !== l) return;
+      if (l === 0 && (ENV[it.a].kind === "fx") !== FXPASS) return;   // Effekte der Spielebene kommen über die Blöcke
       var sx = W / 2 + (it.x - V.cam.x) * s, sy = H / 2 + (it.y - V.cam.y) * s, rb = envBound(it) * s;
       if (sx < -rb || sx > W + rb || sy < -rb || sy > H + rb) return;
       envDraw(c, it, sx, sy, s, al);
@@ -1626,7 +1720,7 @@
     FL.env = (S.env || []).filter(function (it) { return it.l !== BD_L && !isBD(it.a); }).map(function (it) {
       return { a: it.a, l: it.l, s: it.s, r: it.r, rad: (it.r || 0) * Math.PI / 180, x: O.x + it.x * CELL_M, y: O.y + it.y * CELL_M, R: envBound(it) * CELL_M, fa: 1 };
     });
-    FL.envG = FL.env.filter(function (e) { return e.l === 0; });
+    FL.envG = FL.env.filter(function (e) { return e.l === 0 && ENV[e.a].kind !== "fx"; });   // Effekte haben keine Kollision
   }
   function envFlInside(e, x, y) {   // Punkt in Metern
     var dx = x - e.x, dy = y - e.y; if (dx > e.R || dx < -e.R || dy > e.R || dy < -e.R) return false;
@@ -1638,6 +1732,7 @@
     var k = ENV_K[l], px = ppm * CELL_M * k, me = FL.out && FL.eva ? FL.eva : FL.me, msx = W / 2 + (me.x - FL.cam.x) * ppm, msy = H / 2 + (me.y - FL.cam.y) * ppm;
     FL.env.forEach(function (e) {
       if (e.l !== l) return;
+      if (l === 0 && (ENV[e.a].kind === "fx") !== FXPASS) return;
       var sx = W / 2 + (e.x - FL.cam.x) * ppm * k, sy = H / 2 + (e.y - FL.cam.y) * ppm * k, rb = e.R * ppm * k;
       if (sx < -rb || sx > W + rb || sy < -rb || sy > H + rb) return;
       var al = 1;
@@ -2352,6 +2447,92 @@
   function evFlDraw(c, ppm) {
     if (S.ed !== "station" || !S.ev || !S.ev.length || !FL.O) return;
     S.ev.forEach(function (m) { evMark(c, FL.O.x + m.x * CELL_M, FL.O.y + m.y * CELL_M, m.r, m, 0.45, false, 1 / ppm); });
+  }
+  // ===== 49-effekte.js · Effekte im Environment (Developer Tool, seit v0.59.1) =====
+  // Eigene Kategorie "Effekte" im Tab Environmental: Funken (kaputtes Kabel), Licht, rotes Licht, Sirene, Blinklicht,
+  // Blinklichter (Lauflicht) und Rauch. Platziert, gedreht, skaliert und exportiert wie Asteroiden ([id, x, y, grad, maßstab, ebene]).
+  // Effekte haben keine Kollision. Auf der Spielebene werden sie über den Blöcken gezeichnet, damit Lampen an Wänden sichtbar sind.
+  // Alles wird aus der Uhrzeit berechnet (kein Math.random), jedes Exemplar läuft durch seine Lage etwas versetzt.
+  var FX_IDS = [], FXPASS = false;
+  (function () {
+    function add(id, de, en, sde, sen, R) { ENV[id] = { id: id, kind: "fx", n: { de: de, en: en }, sn: { de: sde, en: sen }, R: R, rr: [R, R, R, R, R, R, R, R], Rmax: R }; FX_IDS.push(id); }
+    add("fxspark", "Funken (kaputtes Kabel)", "Sparks (broken cable)", "Funken", "Sparks", 1.6);
+    add("fxlight", "Licht", "Light", "Licht", "Light", 3);
+    add("fxred", "Rotes Licht", "Red light", "Rotes Licht", "Red light", 3);
+    add("fxsiren", "Sirene (Rundumlicht)", "Siren (rotating beacon)", "Sirene", "Siren", 3.5);
+    add("fxblink", "Blinklicht", "Blinking light", "Blinklicht", "Blinker", 2);
+    add("fxchase", "Blinklichter (Lauflicht)", "Chasing lights", "Blinklichter", "Chase lights", 2.6);
+    add("fxsmoke", "Rauch", "Smoke", "Rauch", "Smoke", 3.5);
+  })();
+  Object.assign(TX, { envFx: L2("Effekte", "Effects"), envFxH: L2("Ohne Kollision. Drehen bestimmt die Richtung (Rauch, Funken, Lauflicht), Größe die Reichweite.", "No collision. Rotation sets the direction (smoke, sparks, chase lights), size sets the reach.") });
+  function fxH(a, b) { var h = Math.imul((a * 73856093) ^ (b * 19349663), 2654435761) >>> 0; h ^= h >>> 15; h = Math.imul(h, 2246822519) >>> 0; h ^= h >>> 13; return (h >>> 0) / 4294967296; }
+  function fxGlow(c, x, y, r, col, a) {
+    if (r < 0.5 || a <= 0) return;
+    var g = c.createRadialGradient(x, y, 0, x, y, r); g.addColorStop(0, "rgba(" + col + "," + a + ")"); g.addColorStop(0.25, "rgba(" + col + "," + (a * 0.45) + ")"); g.addColorStop(1, "rgba(" + col + ",0)");
+    c.fillStyle = g; c.beginPath(); c.arc(x, y, r, 0, 6.283); c.fill();
+  }
+  function fxCore(c, x, y, r, col) { c.fillStyle = col; c.beginPath(); c.arc(x, y, Math.max(1, r), 0, 6.283); c.fill(); }
+  // it: { a, s, r(Grad) }, (sx, sy) Bildpunkt der Mitte, px = Pixel je Zelle, al = Deckkraft, tm = Zeit in s
+  function fxDraw(c, it, sx, sy, px, al, tm) {
+    var def = ENV[it.a]; if (!def) return;
+    if (tm == null) tm = performance.now() / 1000;
+    var u = px * it.s, ph = fxH(Math.round(it.x * 10), Math.round(it.y * 10)) * 10, t = tm + ph, rot = (it.r || 0) * Math.PI / 180;
+    c.save(); c.translate(sx, sy); c.rotate(rot); if (al !== undefined && al < 1) c.globalAlpha = al;
+    var add = function () { c.globalCompositeOperation = "lighter"; };
+    if (def.id === "fxlight") { add(); fxGlow(c, 0, 0, 3 * u, "255,236,200", 0.55); fxCore(c, 0, 0, 0.12 * u, "#FFF8E8"); }
+    else if (def.id === "fxred") { add(); var fr = 0.9 + 0.1 * Math.sin(t * 2.1); fxGlow(c, 0, 0, 3 * u, "255,50,40", 0.6 * fr); fxCore(c, 0, 0, 0.12 * u, "#FFB0A8"); }
+    else if (def.id === "fxblink") {
+      var bp = (t % 1.3) / 1.3, on = bp < 0.12 ? 1 : bp < 0.2 ? 1 - (bp - 0.12) / 0.08 : 0;
+      c.fillStyle = "#4A2020"; c.beginPath(); c.arc(0, 0, 0.14 * u, 0, 6.283); c.fill();
+      if (on > 0) { add(); fxGlow(c, 0, 0, 2 * u, "255,70,50", 0.8 * on); fxCore(c, 0, 0, 0.14 * u, "rgba(255,220,210," + on + ")"); }
+    } else if (def.id === "fxchase") {   // Lauflicht: 5 Lampen in Drehrichtung (nach oben = 0°), das Licht wandert
+      var n = 5, Lh = 2.2 * u;
+      for (var i = 0; i < n; i++) {
+        var y = Lh - i * Lh / (n - 1) * 2, k = ((t * 6 - i) % n + n) % n, lv = k < 1 ? 1 - k : 0;
+        c.globalCompositeOperation = "source-over"; c.fillStyle = "#3A2E14"; c.beginPath(); c.arc(0, y, 0.11 * u, 0, 6.283); c.fill();
+        if (lv > 0.02) { add(); fxGlow(c, 0, y, 0.9 * u, "255,190,60", 0.8 * lv); fxCore(c, 0, y, 0.11 * u, "rgba(255,240,200," + lv + ")"); }
+      }
+    } else if (def.id === "fxsiren") {   // Rundumlicht: Gehäuse, zwei Lichtkegel drehen sich
+      var a = t * 4.2;
+      c.fillStyle = "#3A1A10"; c.beginPath(); c.arc(0, 0, 0.3 * u, 0, 6.283); c.fill();
+      add();
+      for (var s2 = 0; s2 < 2; s2++) {
+        var aa = a + s2 * Math.PI, L = 3.4 * u, wdt = 0.42, gr = c.createRadialGradient(0, 0, 0, 0, 0, L);
+        gr.addColorStop(0, "rgba(255,120,40,.55)"); gr.addColorStop(1, "rgba(255,60,20,0)");
+        c.fillStyle = gr; c.beginPath(); c.moveTo(0, 0); c.arc(0, 0, L, aa - wdt, aa + wdt); c.closePath(); c.fill();
+      }
+      fxGlow(c, 0, 0, 1.2 * u, "255,110,40", 0.5 + 0.3 * Math.abs(Math.sin(a))); fxCore(c, 0, 0, 0.16 * u, "#FFE0C0");
+    } else if (def.id === "fxspark") {   // Kabelstück, ab und zu ein Funkenschauer in Drehrichtung (nach oben = 0°)
+      c.strokeStyle = "#1A1A1A"; c.lineWidth = Math.max(1, 0.16 * u); c.beginPath(); c.moveTo(0, 0.9 * u); c.quadraticCurveTo(0.3 * u, 0.4 * u, 0, 0); c.stroke();
+      c.strokeStyle = "#C87A3A"; c.lineWidth = Math.max(1, 0.06 * u); c.beginPath(); c.moveTo(-0.05 * u, 0); c.lineTo(0.08 * u, -0.08 * u); c.stroke();
+      var slot = Math.floor(t * 3), st = t * 3 - slot, burst = fxH(slot, Math.round(ph * 100)) < 0.32;   // etwa jede dritte Drittelsekunde
+      if (burst && st < 0.75) {
+        add(); var bk = st / 0.75;
+        fxGlow(c, 0, 0, (1.4 - bk) * u, "160,200,255", 0.7 * (1 - bk));
+        for (var j = 0; j < 14; j++) {
+          var ang = -Math.PI / 2 + (fxH(slot * 31 + j, 7) - 0.5) * 2.2, sp = (1.2 + fxH(j, slot) * 2.4) * u, d = sp * bk, gy = 1.2 * u * bk * bk;
+          var x = Math.cos(ang) * d, y2 = Math.sin(ang) * d + gy, x0 = Math.cos(ang) * d * 0.8, y0 = Math.sin(ang) * d * 0.8 + gy * 0.64;
+          c.strokeStyle = "rgba(255," + (220 - j * 6) + ",150," + (1 - bk) + ")"; c.lineWidth = Math.max(1, 0.06 * u); c.beginPath(); c.moveTo(x0, y0); c.lineTo(x, y2); c.stroke();
+        }
+      }
+    } else if (def.id === "fxsmoke") {   // Rauchschwaden steigen in Drehrichtung (nach oben = 0°), werden größer und blasser
+      for (var q = 0; q < 12; q++) {
+        var life = 3.2, k2 = ((t + q * life / 12) % life) / life, seed = Math.floor((t + q * life / 12) / life) * 12 + q, dx = (fxH(seed, 3) - 0.5) * 1.2 * u * k2;
+        var py = -k2 * 3.2 * u, pr = (0.35 + k2 * 1.2) * u, pa = 0.5 * Math.sin(Math.PI * Math.min(1, k2 * 1.15)) * (1 - k2 * 0.4);
+        var gs = c.createRadialGradient(dx, py, 0, dx, py, pr); gs.addColorStop(0, "rgba(170,172,178," + pa + ")"); gs.addColorStop(0.6, "rgba(140,142,148," + (pa * 0.5) + ")"); gs.addColorStop(1, "rgba(120,122,128,0)");
+        c.fillStyle = gs; c.beginPath(); c.arc(dx, py, pr, 0, 6.283); c.fill();
+      }
+    }
+    c.restore();
+  }
+  function fxThumb(id) {
+    var cv = document.createElement("canvas"); cv.width = cv.height = 44; var g = cv.getContext("2d"); if (!g || !g.fillRect) return "";
+    g.fillStyle = "#0B1018"; g.fillRect(0, 0, 44, 44);
+    var it = { a: id, x: 0.3, y: 0.7, r: 0, s: 1 }, R = ENV[id].R, px = 18 / R;
+    var tt = id === "fxspark" ? 0.1 : id === "fxblink" ? 0.05 : 1.7;
+    if (id === "fxspark") { for (var k = 0; k < 200; k++) { var tm = k / 30, slot = Math.floor(tm * 3); if (fxH(slot, Math.round(fxH(3, 7) * 1000)) < 0.32 && tm * 3 - slot < 0.3) { tt = tm; break; } } it.x = 0.3; it.y = 0.7; }
+    fxDraw(g, it, 22, id === "fxsmoke" ? 32 : id === "fxspark" ? 28 : 22, px, 1, tt - fxH(Math.round(it.x * 10), Math.round(it.y * 10)) * 10);
+    try { return cv.toDataURL(); } catch (e) { return ""; }
   }
   // ===== 50-flug.js · Flug: Körper, Start/Ende des Testflugs, Hauptschleife der Simulation (flTick) =====
   // ---------- Testflug ----------
@@ -4198,6 +4379,7 @@
       else if (q.k === "debris") { c.save(); c.translate(q.x, q.y); c.rotate(q.a); c.globalAlpha = 1 - k * k; c.fillStyle = q.col; c.fillRect(-q.sz / 2, -q.sz / 2, q.sz, q.sz * 0.6); c.restore(); c.globalAlpha = 1; }
     });
     c.restore();
+    FXPASS = true; envFlDraw(c, W, H, ppm, 0); FXPASS = false;   // Effekte der Spielebene über den Schiffen
     envFlDraw(c, W, H, ppm, 1);    // Environment vorne
     drawDust(c, W, H, ppm, DUST.front);
     if (fxc) { bdFxEnd(V.ctx, W, H, suns); c = V.ctx; }
@@ -4610,13 +4792,13 @@
       '<div class="sr-ed-only sr-tbar"><span class="sr-seg"><button type="button" data-act="ed-ship">' + t("edShip") + '</button><button type="button" data-act="ed-st">' + t("edSt") + '</button></span><input id="sr-name" class="sr-name" maxlength="28" spellcheck="false" placeholder="' + t("namePh") + '"><button type="button" data-act="undo">' + t("undo") + '</button><button type="button" data-act="starter">' + t("starter") + '</button><button type="button" data-act="clear">' + t("clear") + '</button><button type="button" data-act="exp">Export</button><button type="button" data-act="imp">Import</button><button type="button" data-act="npc">' + t("hangar") + '</button><button type="button" class="sr-dev-only" data-act="dev-lock">' + t("devLock") + '</button></div>' +
       '<div class="sr-sp"></div><div class="sr-seg"><button type="button" data-view="in">' + t("vIn") + '</button><button type="button" data-view="out">' + t("vOut") + '</button></div>' +
       '<button type="button" class="sr-go sr-ed-only" data-act="test">' + t("test") + ' ▸</button><button type="button" class="sr-go sr-fl-only" data-act="edit">◂ ' + t("toEd") + '</button></div>' +
-      '<aside class="sr-pal sr-ed-only"><div class="sr-tools"><button type="button" data-tool="build">' + t("tBuild") + '</button><button type="button" data-tool="erase">' + t("tErase") + '</button><button type="button" data-tool="paint">' + t("tPaint") + '</button></div>' +
+      '<aside class="sr-pal sr-ed-only"><div class="sr-tools"><button type="button" data-tool="build">' + t("tBuild") + '</button><button type="button" data-tool="erase">' + t("tErase") + '</button><button type="button" data-tool="paint">' + t("tPaint") + '</button><button type="button" data-tool="select">' + t("tSel") + '</button></div>' +
       '<div class="sr-envtabs sr-dev-only"><span class="sr-seg"><button type="button" data-act="tab-blk">' + t("tabBlk") + '</button><button type="button" data-act="tab-env">' + t("tabEnv") + '</button><button type="button" data-act="tab-ev">' + t("tabEv") + '</button></span></div>' +
       '<div class="sr-evp sr-dev-only"><small>' + t("evH") + '</small><p class="sr-envh">' + t("evHelp") + '</p><div class="sr-evlist"></div><div class="sr-eved"></div></div>' +
       '<div class="sr-envp sr-dev-only"><small>' + t("envLayer") + '</small><span class="sr-seg sr-envl"><button type="button" data-envl="-1">' + t("envBack") + '</button><button type="button" data-envl="0">' + t("envGame") + '</button><button type="button" data-envl="1">' + t("envFront") + '</button></span>' +
       '<label class="sr-envr"><small>' + t("envScale") + ' <b id="sr-env-sv"></b></small><input type="range" id="sr-env-s" min="-232" max="200" step="1"></label>' +
       '<label class="sr-envr"><small>' + t("envRot") + ' <b id="sr-env-rv"></b></small><input type="range" id="sr-env-r" min="0" max="355" step="5"></label>' +
-      '<button type="button" data-act="env-rnd" class="sr-envrnd"></button><p class="sr-envh">' + t("envHelp") + '</p><small class="sr-envcat">' + t("envAst") + '</small><div class="sr-grid sr-envlist"></div><small class="sr-envcat">' + t("envBd") + '</small><p class="sr-envh">' + t("envBdH") + '</p><div class="sr-grid sr-envlist sr-bdlist"></div></div>' +
+      '<button type="button" data-act="env-rnd" class="sr-envrnd"></button><p class="sr-envh">' + t("envHelp") + '</p><small class="sr-envcat">' + t("envAst") + '</small><div class="sr-grid sr-envlist"></div><small class="sr-envcat">' + t("envBd") + '</small><p class="sr-envh">' + t("envBdH") + '</p><div class="sr-grid sr-envlist sr-bdlist"></div><small class="sr-envcat">' + t("envFx") + '</small><p class="sr-envh">' + t("envFxH") + '</p><div class="sr-grid sr-envlist sr-fxlist"></div></div>' +
       '<div class="sr-paint"><label>' + t("color") + ' <input type="color" id="sr-col"></label><div class="sr-sws">' + sw + '</div></div>' +
       '<div class="sr-opts"><button type="button" data-act="rot">' + t("rot") + '</button><button type="button" data-act="flip">' + t("flip") + '</button><button type="button" data-act="sym">' + t("sym") + '</button><button type="button" data-act="symm" class="sr-symm"></button><button type="button" data-act="auto" class="sr-auto" title="' + t("autoOn") + '">' + t("autoR") + '</button></div>' +
       '<div class="sr-list">' + pal + '</div><div class="sr-vpop" hidden></div></aside>' +
@@ -4688,7 +4870,8 @@
   function dimTxt() { var b = bounds(S.blocks); if (!b) return "–"; var w = b.x1 - b.x0, h = b.y1 - b.y0; return w + " × " + h + " (" + nf(w * CELL_M, 1) + " × " + nf(h * CELL_M, 1) + " m)"; }
   // Environment-Panel: Liste erst beim ersten Öffnen zeichnen (Vorschaubilder kosten etwas), danach nur Zustand abgleichen
   function envSync(r) {
-    var list = r.querySelector(".sr-envlist:not(.sr-bdlist)"), list2 = r.querySelector(".sr-bdlist");
+    var list = r.querySelector(".sr-envlist:not(.sr-bdlist):not(.sr-fxlist)"), list2 = r.querySelector(".sr-bdlist"), list3 = r.querySelector(".sr-fxlist");
+    if (list3 && !list3.childElementCount) list3.innerHTML = FX_IDS.map(function (id) { return '<button type="button" class="sr-blk sr-envb" data-env="' + id + '" title="' + ENV[id].n[lang] + '"><img alt="" src="' + envThumb(id) + '"><span>' + ENV[id].sn[lang] + "</span></button>"; }).join("");
     if (list2 && !list2.childElementCount) list2.innerHTML = BD_IDS.map(function (id) { return '<button type="button" class="sr-blk sr-envb" data-env="' + id + '" title="' + ENV[id].n[lang] + '"><img alt="" src="' + envThumb(id) + '"><span>' + ENV[id].sn[lang] + "</span></button>"; }).join("");
     if (list && !list.childElementCount) list.innerHTML = ENV_IDS.map(function (id) { return '<button type="button" class="sr-blk sr-envb" data-env="' + id + '" title="' + ENV[id].n[lang] + '"><img alt="" src="' + envThumb(id) + '"><span>' + ENV[id].sn[lang] + "</span></button>"; }).join("");
     r.querySelectorAll("[data-env]").forEach(function (b) { b.setAttribute("aria-pressed", String(b.getAttribute("data-env") === S.envSel && S.tool === "build")); });
@@ -4887,6 +5070,7 @@
     }
     if (e.button === 1 || (e.button === 0 && V.space)) { V.pan = { x: e.clientX, y: e.clientY, cx: V.cam.x, cy: V.cam.y }; e.preventDefault(); return; }
     var cx = Math.floor(m.x), cy = Math.floor(m.y);
+    if (V.holo) { if (e.button === 2) { V.holo = null; syncUI(); } else if (e.button === 0) holoPlace(e.shiftKey); return; }   // Hologramm: setzen oder abbrechen
     V.down = e.button;
     if (S.ed === "station" && S.evTab) { evDown(e, m); return; }   // Events: Marker setzen, ziehen, löschen
     if (S.ed === "station" && S.envTab) {   // Environmental: frei platzieren auf der aktiven Ebene
@@ -4894,6 +5078,7 @@
       else if (e.button === 0 && S.tool === "build") { envPlace(m.sx, m.sy, false); syncUI(); }
       return;
     }
+    if (S.tool === "select" && e.button === 0) { selBoxDown(m, e.shiftKey); return; }
     if (e.button === 2) { if (eraseAt(cx, cy)) syncUI(); V.lastCell = key(cx, cy); return; }
     if (e.button !== 0) return;
     if (S.tool === "build") { V.row = { sx: cx, sy: cy, ex: cx, ey: cy, area: e.shiftKey }; }
@@ -4908,6 +5093,7 @@
     if (S.mode === "fly") { if (e.shiftKey) FL.mdx += e.movementX || 0; V.mouse = m; return; }
     if (V.pan) { var s = PX * V.zoom; V.cam.x = V.pan.cx - (e.clientX - V.pan.x) / s; V.cam.y = V.pan.cy - (e.clientY - V.pan.y) / s; return; }
     V.mouse = m;
+    if (V.selBox) { V.selBox.x1 = m.x; V.selBox.y1 = m.y; return; }
     if (V.down === undefined || V.down === null) return;
     if (S.ed === "station" && S.evTab) { if (V.evDrag) evMove(m); return; }
     if (S.ed === "station" && S.envTab) {
@@ -4923,7 +5109,7 @@
     else if (S.tool === "paint") { if (paintAt(cx, cy)) syncUI(); }
     else if (S.tool === "build" && V.row) { V.row.ex = cx; V.row.ey = cy; }
   }
-  function onUp(e) { if (V && V.drag) invDragEnd(e); if (!V) return; if (V.evDrag) evUp(); V.envLast = null; V.pan = null; V.down = null; if (FL) FL.fire = false; if (V.row) { placeRow(); V.row = null; syncUI(); } }
+  function onUp(e) { if (V && V.drag) invDragEnd(e); if (!V) return; if (V.evDrag) evUp(); if (V.selBox) selBoxUp(); V.envLast = null; V.pan = null; V.down = null; if (FL) FL.fire = false; if (V.row) { placeRow(); V.row = null; syncUI(); } }
   function onWheel(e) { e.preventDefault(); var k = e.deltaY < 0 ? 1.12 : 1 / 1.12; V.zoom = Math.max(S.mode === "fly" ? ZMIN_FL : S.ed === "station" ? ZMIN_ST : 0.3, Math.min(3, V.zoom * k)); }
   function finishRename(ok) {
     var ib = V.root.querySelector(".sr-shipn-in"), bb = V.root.querySelector(".sr-shipn"); if (!ib || ib.hidden) return;
@@ -4962,7 +5148,11 @@
       return;
     }
     if (k === " ") { V.space = true; e.preventDefault(); return; }
-    if ((e.ctrlKey || e.metaKey) && k === "z") { undo(); e.preventDefault(); return; }
+    if ((e.ctrlKey || e.metaKey) && (k === "c" || k === "x" || k === "v") && !S.envTab && !S.evTab) { e.preventDefault(); if (k === "v") holoStart(); else selCopy(k === "x"); return; }
+    if ((e.ctrlKey || e.metaKey) && k === "z") { V.holo = null; undo(); e.preventDefault(); return; }
+    if (k === "escape" && (V.holo || V.selSet)) { V.holo = null; selClear(); syncUI(); return; }
+    if ((k === "delete" || k === "backspace") && V.selSet && !S.evTab) { selDelete(); e.preventDefault(); return; }
+    if (V.holo && !e.repeat && (k === "r" || k === "f")) { if (k === "r") holoRot(e.shiftKey ? -1 : 1); else holoFlip(); return; }
     if (["w", "a", "s", "d", "arrowup", "arrowdown", "arrowleft", "arrowright"].indexOf(k) >= 0) { V.keys[k] = true; e.preventDefault(); return; }
     if (e.repeat) return;
     if (S.ed === "station" && S.evTab && (k === "delete" || k === "backspace")) { evDelSel(); e.preventDefault(); return; }
@@ -4975,7 +5165,7 @@
     else if (k === "f") { S.f = S.f ? 0 : 1; syncUI(); }
     else if (k === "m") { cycleSym(); syncUI(); }
     else if (k === "v" || k === "tab") { S.view = S.view === "in" ? "out" : "in"; syncUI(); e.preventDefault(); }
-    else if (k === "1") { S.tool = "build"; syncUI(); } else if (k === "2") { S.tool = "erase"; syncUI(); } else if (k === "3") { S.tool = "paint"; syncUI(); }
+    else if (k === "1") { S.tool = "build"; syncUI(); } else if (k === "2") { S.tool = "erase"; syncUI(); } else if (k === "3") { S.tool = "paint"; syncUI(); } else if (k === "4") { S.tool = "select"; syncUI(); }
   }
   function onKeyUp(e) {
     if (!V) return; var k = e.key.toLowerCase();

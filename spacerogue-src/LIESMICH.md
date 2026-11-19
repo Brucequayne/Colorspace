@@ -37,6 +37,10 @@ Diese Datei wird **gebaut** – aus den Teilen in `spacerogue-src/src/`.
 | `53-ki.js` | Gegner-KI |
 | `54-figur.js` | Luft, Luken, Jetpack, Schweißen, Laufen, Pistole, Inventar |
 | `55-andocken.js` | Andocken |
+| `33-markieren.js` | Markieren/Kopieren/Einfügen im Editor (seit v0.59.1): Werkzeug `select` (Taste 4), `V.selSet`, Zwischenablage `V.clip`, Hologramm `V.holo` (R dreht wie `cellOf`, F spiegelt), `holoPlace` setzt nur, wenn alles frei ist |
+| `49-effekte.js` | Effekte im Environment (seit v0.59.1): `FX_IDS` (fxspark, fxlight, fxred, fxsiren, fxblink, fxchase, fxsmoke) als `ENV`-Einträge mit `kind: "fx"`, `fxDraw` zeitbasiert ohne Math.random; keine Kollision (`FL.envG` ohne fx); auf Ebene 0 über Blöcken/Schiffen (`FXPASS`) |
+| `48-events.js` | Eventmarker im Developer Tool (seit v0.59, Tab „Events“): `S.ev` = `[{n, k, x, y, r, s, b, trk, txt}]` in Szenen-Zellen, Auslöser `EVK`, Panel `evSync`, Zeichnen im Editor `evEdDraw` und im Flug `evFlDraw`; Export im Szenencode als `ev` |
+| `61-aufnahme.js` | Aufnahme von Choreografien (seit v0.59): Spuren `REC.tracks` (Schiffscode, 20 Bilder/s relativ zu `FL.O`, Schaden `d` = `[t·100, Besitzer, x, y, HP·10]`), Neustart = Testflug neu (`recReset`), Vorzähler, Overdub, Wiedergabe und Springen, Leiste mit Zeitleiste; Speicher `spacerogue-rec-v1`, Export im Szenencode als `rec`. Schüsse von Spuren: `FL.fx` → in `damage()` nur Effekt (außer beim Aufnehmen aufs eigene Schiff) |
 | `47-luftstrom.js` | Luftfäden an offenen Stellen (seit v0.57.2): `airOpenings` (Boden/Tür ohne Nachbarblock, je Körper zwischengespeichert), `drawAirflow`, Werte in `AIRF` |
 | `32-autodrehen.js` | Auto-Drehen beim Bauen (seit v0.57.5): `edRot(cx, cy)` bewertet alle vier Drehungen (Anschlüsse, freie Düse/Mündung, Triebwerk vom Schiff weg, Waffen nach vorn); `SET` = Einstellungen |
 | `58-scanner.js` | Scanner (seit v0.57.5): `scanTargets`, `scanEdges` (Asteroiden, Stationen, Wracks in Antennenreichweite am Bildrand), `hudDodge` |

@@ -42,7 +42,7 @@
     if (bb) { c.fillStyle = "rgba(227,184,63,.9)"; c.beginPath(); c.moveTo(ax * s, (ay - 1.2) * s); c.lineTo((ax - 0.7) * s, ay * s); c.lineTo((ax + 0.7) * s, ay * s); c.closePath(); c.fill();
       c.fillStyle = "rgba(227,184,63,.9)"; c.font = "700 " + Math.max(10, 0.45 * s) + "px " + FONTS(); c.textAlign = "center"; c.fillText(t("dir"), ax * s, (ay + 0.7) * s); }
     // Vorschau
-    if (V.mouse && !V.pan && !(S.ed === "station" && S.envTab)) {
+    if (V.mouse && !V.pan && !V.holo && S.tool !== "select" && !(S.ed === "station" && (S.envTab || S.evTab))) {
       var cx = Math.floor(V.mouse.x), cy = Math.floor(V.mouse.y);
       if (S.tool === "build") {
         var er = V.row ? null : edRot(cx, cy), ghosts = V.row ? rowList() : [ghostAt(cx, cy, S.sel, er[0], er[1])];
@@ -62,12 +62,15 @@
         if (!hb) { c.strokeStyle = "rgba(255,255,255,.3)"; c.lineWidth = 1; c.strokeRect(cx * s, cy * s, s, s); }
       }
     }
+    selDraw(c, s, tm);   // Markieren und Hologramm
     c.restore();
+    FXPASS = true; envEdDraw(c, 0); FXPASS = false;   // Effekte der Spielebene über den Blöcken
     envEdDraw(c, 1);   // Environment vorne
     if (fxc) { bdFxEnd(V.ctx, W, H, suns); c = V.ctx; }
     if (S.ed === "station") { envEdGhost(c); bdEdGhost(c); }
     // Infokasten zum Block unter dem Mauszeiger: Name, Gewicht, Leben
-    if (V.mouse && !V.pan && !V.row && !(S.ed === "station" && S.envTab)) {
+    evEdDraw(c);   // Eventmarker
+    if (V.mouse && !V.pan && !V.row && !(S.ed === "station" && (S.envTab || S.evTab))) {
       var hb2 = blockAt(Math.floor(V.mouse.x), Math.floor(V.mouse.y), M);
       if (hb2) {
         var ty2 = T[hb2.t], txt = ty2.n[lang] + " · " + kg(ty2.mass) + " · " + ty2.hp + " HP · " + cr(ty2.cost);
