@@ -1,10 +1,10 @@
-/* EZ Crop 0.31 – Videos im Browser auf 9:16, 4:5 oder 1:1 zuschneiden, Crop-Fahrt live per Maus aufnehmen. Für Color Space.
+/* EZ Crop 0.32 – Videos im Browser auf 9:16, 4:5 oder 1:1 zuschneiden, Crop-Fahrt live per Maus aufnehmen. Für Color Space.
    Einbindung: ezcrop.js per script-Tag laden, dann EzCrop.mount(element, "de" | "en") und EzCrop.unmount().
    Für den Export wird mp4-muxer.js (MIT) aus demselben Ordner nachgeladen. Videos verlassen nie das Gerät. */
 (function () {
   "use strict";
 
-  var VERSION = "0.31", FPS = 30, BITRATE = 40000000;   // hohe Bitrate: Export ist Zwischenmaterial fürs Schnittprogramm
+  var VERSION = "0.32", FPS = 30, BITRATE = 40000000;   // hohe Bitrate: Export ist Zwischenmaterial fürs Schnittprogramm
   // TikTok-Variante: fertige Datei zum direkten Hochladen. Mäßige, gleichmäßige Bitrate, damit TikTok möglichst schonend neu kodiert
   var TT_BR30 = 12000000, TT_BR60 = 15000000, TT_HFR = 47;   // ab 47 Bilder/s in der Quelle (50, 59,94, 60) wird mit 60 exportiert
   // Formate: Seitenverhältnis und Full-HD-Ausgabe (Breite immer 1080)
@@ -28,6 +28,10 @@
     keys: L2("{n} Keyframes", "{n} keyframes"), noKeys: L2("Noch keine Keyframes: der Rahmen steht still.", "No keyframes yet: the frame stays still."),
     clear: L2("Keyframes löschen", "Clear keyframes"), sure: L2("Wirklich alle löschen?", "Really clear all?"),
     rec: L2("Aufnahme", "Recording"),
+    inB: L2("[ Start", "[ In"), outB: L2("Ende ]", "Out ]"), rngX: L2("Bereich aufheben", "Clear range"),
+    inT: L2("Startpunkt auf die aktuelle Stelle setzen (Taste I)", "Set the start point to the current position (key I)"), outT: L2("Endpunkt auf die aktuelle Stelle setzen (Taste O)", "Set the end point to the current position (key O)"),
+    rngAll: L2("Exportiert wird das ganze Video ({d}). Mit [ Start und Ende ] (Tasten I und O) grenzt du den Bereich ein.", "The whole video gets exported ({d}). Use [ In and Out ] (keys I and O) to narrow the range."),
+    rngOn: L2("Exportiert wird nur {a} bis {b} ({d}).", "Only {a} to {b} gets exported ({d})."),
     exportH: L2("Export", "Export"), exportInfo: L2("MP4 · {w} × {h} · 30 Bilder/s · H.264, variable Bitrate um {br} Mbit/s · mit Ton. Hohe Bitrate als Zwischenmaterial fürs Schnittprogramm.", "MP4 · {w} × {h} · 30 fps · H.264, variable bitrate around {br} Mbps · with audio. High bitrate as intermediate footage for your editing tool."),
     modeHD: L2("Full HD · Schnitt", "Full HD · editing"), modeTT: L2("TikTok · Full HD", "TikTok · Full HD"), modeLow: L2("Low Quality · nativ", "Low quality · native"),
     ttInfo: L2("MP4 · {w} × {h} · {fps} Bilder/s · H.264 mit gleichmäßigen {br} Mbit/s · Ton AAC. Fertig zum direkten Hochladen: TikTok kodiert jedes Video neu, aber eine Datei in genau diesem Rahmen wird am schonendsten behandelt.",
@@ -48,13 +52,14 @@
     howH: L2("So funktioniert’s", "How it works"),
     how1: L2("Spiel das Video ab und halte die Maus im Bild gedrückt: Der Rahmen im gewählten Format folgt deiner Hand, und jede Bewegung wird mit der Zeit des Videos gespeichert. Fährst du eine Stelle später noch einmal, ersetzt die neue Fahrt die alte nur dort, wo du gefahren bist. Mit dem Regler für die Größe zoomst du hinein, auch das wird beim Abspielen aufgezeichnet.",
              "Play the video and hold the mouse down in the picture: the frame in the chosen format follows your hand, and every movement is stored with the video's time. If you go over a passage again later, the new move replaces the old one only where you moved. The size slider zooms in, and that is recorded during playback too."),
-    how2: L2("Glättung nimmt kleine Zitterer aus der Fahrt. Der Export rechnet Bild für Bild den Ausschnitt in Full HD heraus: 1080 × 1920 bei 9:16, 1080 × 1350 bei 4:5 und 1080 × 1080 bei 1:1, jeweils 30 Bilder pro Sekunde mit variabler Bitrate um 40 Mbit/s. Das ist bewusst hoch, weil das Video danach im Schnittprogramm meist noch einmal gerendert wird und dabei möglichst wenig Qualität verlieren soll. Der Ton wird übernommen. Das Format kannst du jederzeit wechseln, die Fahrt bleibt erhalten.",
-             "Smoothing takes small jitters out of the move. The export renders the section frame by frame in Full HD: 1080 × 1920 for 9:16, 1080 × 1350 for 4:5 and 1080 × 1080 for 1:1, each at 30 frames per second with a variable bitrate around 40 Mbps. That is deliberately high, because the video usually gets rendered once more in your editing tool and should lose as little quality as possible there. The audio is kept. You can switch the format at any time, the move is kept."),
+    how2: L2("Glättung nimmt kleine Zitterer aus der Fahrt. Der Export rechnet Bild für Bild den Ausschnitt in Full HD heraus: 1080 × 1920 bei 9:16, 1080 × 1350 bei 4:5 und 1080 × 1080 bei 1:1, jeweils 30 Bilder pro Sekunde mit variabler Bitrate um 40 Mbit/s. Das ist bewusst hoch, weil das Video danach im Schnittprogramm meist noch einmal gerendert wird und dabei möglichst wenig Qualität verlieren soll. Der Ton wird übernommen. Das Format kannst du jederzeit wechseln, die Fahrt bleibt erhalten. Mit [ Start und Ende ] (Tasten I und O) setzt du Start- und Endpunkt an der aktuellen Stelle, dann wird nur der Bereich dazwischen exportiert.",
+             "Smoothing takes small jitters out of the move. The export renders the section frame by frame in Full HD: 1080 × 1920 for 9:16, 1080 × 1350 for 4:5 and 1080 × 1080 for 1:1, each at 30 frames per second with a variable bitrate around 40 Mbps. That is deliberately high, because the video usually gets rendered once more in your editing tool and should lose as little quality as possible there. The audio is kept. You can switch the format at any time, the move is kept. With [ In and Out ] (keys I and O) you set start and end points at the current position, and only the range in between gets exported."),
     how3: L2("Der Export läuft vollständig in deinem Browser. Er dauert je nach Rechner etwa so lange wie das Video selbst oder etwas länger.", "The export runs entirely in your browser. Depending on your computer it takes about as long as the video itself, or a little longer.")
   };
   function t(k) { return TX[k][lang]; }
   function fmt(s, o) { return s.replace(/\{(\w+)\}/g, function (_, k) { return o[k]; }); }
   function clamp(v, a, b) { return v < a ? a : v > b ? b : v; }
+  function dur(s) { var v = (Math.round(s * 10) / 10).toFixed(1); return (lang === "de" ? v.replace(".", ",") : v) + " s"; }
   function tc(s) { s = Math.max(0, s || 0); var m = Math.floor(s / 60), r = s - m * 60; return m + ":" + (r < 10 ? "0" : "") + r.toFixed(1); }
 
   // ---------- Zustand ----------
@@ -91,6 +96,11 @@
     if (i >= 0) k[i] = nk; else { k.push(nk); k.sort(function (a, b) { return a.t - b.t; }); }
   }
   // Aufnahme: ersetzt nur die Keyframes zwischen dem letzten aufgenommenen Zeitpunkt und jetzt
+  // Start- und Endpunkt des Exports (Sekunden). null = Anfang bzw. Ende des Videos
+  function rngA() { return E.inP != null ? E.inP : 0; }
+  function rngB() { return E.outP != null ? E.outP : E.dur; }
+  function setIn(tm) { tm = clamp(tm, 0, E.dur); if (E.outP != null && tm > E.outP - 0.1) E.outP = null; E.inP = tm < 0.05 ? null : tm; keysSig = ""; updateSide(); }
+  function setOut(tm) { tm = clamp(tm, 0, E.dur); if (E.inP != null && tm < E.inP + 0.1) E.inP = null; E.outP = tm > E.dur - 0.05 ? null : tm; keysSig = ""; updateSide(); }
   function recordKey(tm, c) {
     var prev = V.recPrev;
     if (prev === null || tm < prev) { prev = tm - 1e-3; }
@@ -105,7 +115,7 @@
     if (!file || !/^video\//.test(file.type) && !/\.(mp4|mov|m4v|webm|mkv)$/i.test(file.name || "")) { note(t("bad")); return; }
     if (E && E.url) URL.revokeObjectURL(E.url);
     var url = URL.createObjectURL(file);
-    E = { file: file, url: url, name: (file.name || "video").replace(/\.[^.]+$/, ""), dur: 0, vw: 0, vh: 0, keys: [], cur: { x: 0.5, y: 0.5, s: 1 }, smooth: 40, mode: (E && E.mode) || "hd", ar: (E && E.ar) || "9:16" };
+    E = { file: file, url: url, name: (file.name || "video").replace(/\.[^.]+$/, ""), dur: 0, vw: 0, vh: 0, keys: [], cur: { x: 0.5, y: 0.5, s: 1 }, smooth: 40, inP: null, outP: null, mode: (E && E.mode) || "hd", ar: (E && E.ar) || "9:16" };
     if (V) buildUI();
   }
   // Bildrate der Quelle: aus dem MP4/MOV-Kopf (stts der Videospur), sonst beim Abspielen gemessen
@@ -219,11 +229,16 @@
   }
   var keysSig = "";
   function drawKeys() {
-    var k = E.keys, sig = k.length + ":" + (k.length ? k[0].t + k[k.length - 1].t : 0) + ":" + V.cv.width;
+    var k = E.keys, sig = k.length + ":" + (k.length ? k[0].t + k[k.length - 1].t : 0) + ":" + V.cv.width + ":" + E.inP + ":" + E.outP + ":" + E.dur;
     if (sig === keysSig) return; keysSig = sig;
     var c = V.root.querySelector("#ez-keys"), w = c.clientWidth, dpr = window.devicePixelRatio || 1;
     c.width = Math.round(w * dpr); c.height = Math.round(10 * dpr);
     var x = c.getContext("2d"); x.clearRect(0, 0, c.width, c.height);
+    if (E.dur && (E.inP != null || E.outP != null)) {   // außerhalb des Bereichs abdunkeln, Start/Ende als helle Klammern
+      var ax = Math.round(rngA() / E.dur * c.width), bx = Math.round(rngB() / E.dur * c.width), lw = Math.max(2, 2 * dpr);
+      x.fillStyle = "rgba(20,20,20,.55)"; x.fillRect(0, 0, ax, c.height); x.fillRect(bx, 0, c.width - bx, c.height);
+      x.fillStyle = "#F1EFEA"; if (E.inP != null) x.fillRect(ax, 0, lw, c.height); if (E.outP != null) x.fillRect(bx - lw, 0, lw, c.height);
+    }
     x.fillStyle = "#E2621B";
     k.forEach(function (q) { var px = Math.round(q.t / (E.dur || 1) * c.width); x.fillRect(px, 0, Math.max(1, dpr), c.height); });
     var n = V.root.querySelector("#ez-kn"); if (n) n.textContent = k.length ? fmt(t("keys"), { n: k.length.toLocaleString(lang === "de" ? "de-DE" : "en-GB") }) : t("noKeys");
@@ -245,7 +260,7 @@
     var f = F();
     if (E.mode === "tt") { var hf = E.fps >= TT_HFR; return { w: f.w, h: f.h, br: hf ? TT_BR60 : TT_BR30, fps: hf ? 60 : 30, cbr: true }; }
     if (E.mode !== "low") return { w: f.w, h: f.h, br: BITRATE, fps: FPS };
-    var maxH = 0, list = E.keys.length ? E.keys : [E.cur];
+    var a0 = rngA(), b0 = rngB(), list = E.keys.length ? E.keys.filter(function (q) { return q.t >= a0 && q.t <= b0; }).concat([path(a0), path(b0)]) : [E.cur], maxH = 0;
     list.forEach(function (c) { maxH = Math.max(maxH, rect(c).h); });
     var uw = f.aw * 2, uh = f.ah * 2;                                               // kleinste Einheit mit geraden Werten im exakten Format
     var k = clamp(Math.round(maxH / uh), Math.ceil(320 / uh), f.h / uh), w = k * uw, h = k * uh;   // höchstens Full HD
@@ -303,10 +318,11 @@
       await new Promise(function (res, rej) { ev.onloadeddata = res; ev.onerror = function () { rej(new Error("video")); }; });
       var cv = document.createElement("canvas"); cv.width = OW; cv.height = OH;
       var x = cv.getContext("2d"); x.imageSmoothingQuality = "high";
-      var n = Math.max(1, Math.floor(E.dur * FR)), us = 1e6 / FR;
+      var T0 = rngA(), T1 = rngB(), D = Math.max(1 / FR, T1 - T0);   // nur der Bereich zwischen Start- und Endpunkt
+      var n = Math.max(1, Math.floor(D * FR + 1e-6)), us = 1e6 / FR;
       for (var i = 0; i < n; i++) {
         if (cancelReq || encErr) break;
-        var tm = Math.min(i / FR, E.dur - 0.001);
+        var tm = Math.min(T0 + i / FR, E.dur - 0.001);
         await seek(ev, tm);
         var r = rect(path(tm));
         x.drawImage(ev, r.x, r.y, r.w, r.h, 0, 0, OW, OH);
@@ -322,12 +338,12 @@
         note(t("audio"));
         var aenc = new AudioEncoder({ output: function (c, m) { muxer.addAudioChunk(c, m); }, error: function (e) { encErr = e; } });
         aenc.configure(acfg.cfg);
-        var total = Math.min(audio.length, Math.round(E.dur * 48000)), step = 1024, chans = [];
+        var s0 = Math.round(T0 * 48000), total = Math.min(audio.length, s0 + Math.round(n / FR * 48000)), step = 1024, chans = [];
         for (var c2 = 0; c2 < ach; c2++) chans.push(audio.getChannelData(c2));
-        for (var s = 0; s < total; s += step) {
+        for (var s = s0; s < total; s += step) {
           var len = Math.min(step, total - s), buf = new Float32Array(len * ach);
           for (var c3 = 0; c3 < ach; c3++) buf.set(chans[c3].subarray(s, s + len), c3 * len);
-          var ad = new AudioData({ format: "f32-planar", sampleRate: 48000, numberOfFrames: len, numberOfChannels: ach, timestamp: Math.round(s / 48000 * 1e6), data: buf });
+          var ad = new AudioData({ format: "f32-planar", sampleRate: 48000, numberOfFrames: len, numberOfChannels: ach, timestamp: Math.round((s - s0) / 48000 * 1e6), data: buf });
           aenc.encode(ad); ad.close();
           if (aenc.encodeQueueSize > 50) await new Promise(function (r3) { setTimeout(r3, 2); });
         }
@@ -336,9 +352,9 @@
       }
       muxer.finalize();
       var blob = new Blob([target.buffer], { type: "video/mp4" }), url = URL.createObjectURL(blob), a = document.createElement("a");
-      a.href = url; a.download = E.name + "-ezcrop-" + E.ar.replace(":", "x") + (E.mode === "low" ? "-" + OW + "x" + OH : E.mode === "tt" ? "-tiktok-" + FR + "fps" : "") + ".mp4"; document.body.appendChild(a); a.click(); a.remove();
+      a.href = url; a.download = E.name + "-ezcrop-" + E.ar.replace(":", "x") + (E.mode === "low" ? "-" + OW + "x" + OH : E.mode === "tt" ? "-tiktok-" + FR + "fps" : "") + (E.inP != null || E.outP != null ? "-" + Math.floor(T0) + "s-" + Math.ceil(T1) + "s" : "") + ".mp4"; document.body.appendChild(a); a.click(); a.remove();
       setTimeout(function () { URL.revokeObjectURL(url); }, 10000);
-      var mb = blob.size / 1048576, mbit = blob.size * 8 / (E.dur || 1) / 1e6;
+      var mb = blob.size / 1048576, mbit = blob.size * 8 / (n / FR) / 1e6;
       note([fmt(t("done"), { mb: mb.toFixed(1).replace(".", lang === "de" ? "," : "."), mbit: mbit.toFixed(1).replace(".", lang === "de" ? "," : ".") })].concat(notes).join(" "));
     } catch (e) {
       note(fmt(t("failed"), { e: (e && e.message) || e }));
@@ -359,6 +375,7 @@
     ".ez-tl{flex:1;min-width:200px;display:flex;flex-direction:column;gap:3px}" +
     ".ez-tl input{width:100%;accent-color:#E2621B;margin:0}.ez-tl canvas{display:block;width:100%;height:10px;background:var(--line)}" +
     ".ez-time{font:600 .9rem var(--f-body);font-variant-numeric:tabular-nums;color:var(--soft);min-width:96px;text-align:right}" +
+    ".ez-rngbar{margin-top:8px}.ez-rngbar button{min-width:96px}.ez-rngbar .ez-x{background:transparent;color:var(--soft);border:1px solid var(--line);min-width:0}.ez-rngbar .ez-x[hidden]{display:none}" +
     ".ez-hint{margin:8px 0 0;color:var(--soft);font-size:.9rem}" +
     ".ez-side{display:flex;flex-direction:column;gap:14px;min-width:0}" +
     ".ez-box{border:1px solid var(--line);background:var(--card,transparent);padding:14px 16px;display:flex;flex-direction:column;gap:12px}" +
@@ -397,14 +414,15 @@
     desk.innerHTML = '<canvas id="ez-cv" aria-label="' + E.name + '"></canvas>';
     bar.innerHTML = '<div class="ez-bar"><button type="button" id="ez-play" data-ez="play"></button>' +
       '<div class="ez-tl"><input type="range" id="ez-pos" min="0" max="1000" step="1" value="0" aria-label="Position"><canvas id="ez-keys"></canvas></div>' +
-      '<span class="ez-time" id="ez-time"></span></div><p class="ez-hint">' + t("hint") + "</p>";
+      '<span class="ez-time" id="ez-time"></span></div>' +
+      '<div class="ez-bar ez-rngbar"><button type="button" data-ez="in" title="' + t("inT") + '">' + t("inB") + '</button><button type="button" data-ez="out" title="' + t("outT") + '">' + t("outB") + '</button><button type="button" class="ez-x" data-ez="rng0" id="ez-rng0">' + t("rngX") + '</button></div><p class="ez-hint">' + t("hint") + "</p>";
     side.innerHTML = '<div class="px-btns ez-btns"><button type="button" class="navbtn" data-ez="pick">' + t("other") + "</button></div>" +
       '<div class="ez-box"><h3>' + t("formatH") + '</h3><div class="ez-btns">' + FORMAT_ORDER.map(function (k) { return '<button type="button" class="navbtn" data-ez="ar" data-ar="' + k + '" id="ez-ar-' + k.replace(":", "x") + '">' + t({ "9:16": "f916", "4:5": "f45", "1:1": "f11" }[k]) + "</button>"; }).join("") + "</div></div>" +
       '<div class="ez-box"><h3 id="ez-pvh"></h3><div><canvas class="ez-pv" id="ez-pv"></canvas></div>' +
       '<div class="ez-row"><label for="ez-scale">' + t("scale") + '<span id="ez-scale-v"></span></label><input type="range" id="ez-scale" min="30" max="100" step="1"></div>' +
       '<div class="ez-row"><label for="ez-smooth">' + t("smooth") + '<span id="ez-smooth-v"></span></label><input type="range" id="ez-smooth" min="0" max="100" step="1"></div>' +
       '<p class="ez-desc" id="ez-kn"></p><div class="ez-btns"><button type="button" class="navbtn" data-ez="clear">' + t("clear") + "</button></div></div>" +
-      '<div class="ez-box"><h3>' + t("exportH") + '</h3><div class="ez-btns"><button type="button" class="navbtn" data-ez="mode" data-m="hd" id="ez-m-hd">' + t("modeHD") + '</button><button type="button" class="navbtn" data-ez="mode" data-m="tt" id="ez-m-tt">' + t("modeTT") + '</button><button type="button" class="navbtn" data-ez="mode" data-m="low" id="ez-m-low">' + t("modeLow") + '</button></div><p class="ez-desc" id="ez-info"></p><p class="ez-desc" id="ez-lowinfo"></p><button type="button" class="ez-save" data-ez="save" id="ez-save">' + t("save") + '</button><p class="ez-note" id="ez-note"></p></div>';
+      '<div class="ez-box"><h3>' + t("exportH") + '</h3><div class="ez-btns"><button type="button" class="navbtn" data-ez="mode" data-m="hd" id="ez-m-hd">' + t("modeHD") + '</button><button type="button" class="navbtn" data-ez="mode" data-m="tt" id="ez-m-tt">' + t("modeTT") + '</button><button type="button" class="navbtn" data-ez="mode" data-m="low" id="ez-m-low">' + t("modeLow") + '</button></div><p class="ez-desc" id="ez-rng"></p><p class="ez-desc" id="ez-info"></p><p class="ez-desc" id="ez-lowinfo"></p><button type="button" class="ez-save" data-ez="save" id="ez-save">' + t("save") + '</button><p class="ez-note" id="ez-note"></p></div>';
     var vid = document.createElement("video");
     vid.src = E.url; vid.playsInline = true; vid.preload = "auto";
     vid.addEventListener("loadedmetadata", onMeta);
@@ -423,6 +441,9 @@
     V.root.querySelector("#ez-pvh").textContent = fmt(t("preview"), { ar: E.ar });
     ["hd", "tt", "low"].forEach(function (m) { var b = V.root.querySelector("#ez-m-" + m); b.setAttribute("aria-pressed", String(E.mode === m)); b.classList.toggle("armed", E.mode === m); });
     if (E.vw) { var sp = spec(); V.root.querySelector("#ez-info").textContent = fmt(t(E.mode === "tt" ? "ttInfo" : "exportInfo"), { w: sp.w, h: sp.h, br: mb1(sp.br), fps: sp.fps }); }
+    var rg = V.root.querySelector("#ez-rng"), on = E.inP != null || E.outP != null;
+    V.root.querySelector("#ez-rng0").hidden = !on;
+    if (E.vw) rg.textContent = on ? fmt(t("rngOn"), { a: tc(rngA()), b: tc(rngB()), d: dur(rngB() - rngA()) }) : fmt(t("rngAll"), { d: dur(E.dur) });
     var li = V.root.querySelector("#ez-lowinfo"); li.hidden = E.mode === "hd";
     if (E.vw && E.mode === "low") li.textContent = fmt(t("lowInfo"), { src: mb1(srcBitrate()) });
     else if (E.vw && E.mode === "tt") {
@@ -484,6 +505,8 @@
     if (a === "pick") { if (!busy) V.root.querySelector("#ez-file").click(); return; }
     if (!E) return;
     if (a === "play") { if (V.vid.paused) V.vid.play(); else V.vid.pause(); return; }
+    if (a === "in" || a === "out") { if (!busy && E.dur) (a === "in" ? setIn : setOut)(V.vid.currentTime); return; }
+    if (a === "rng0") { if (!busy) { E.inP = E.outP = null; keysSig = ""; updateSide(); } return; }
     if (a === "mode") { if (!busy) { E.mode = b.dataset.m; updateSide(); } return; }
     if (a === "ar") { if (!busy && E.ar !== b.dataset.ar) { E.ar = b.dataset.ar; if (E.vw) { clampCur(); E.keys.forEach(function (q) { var r = rect(q); q.x = (r.x + r.w / 2) / E.vw; q.y = (r.y + r.h / 2) / E.vh; }); layout(); } updateSide(); } return; }
     if (a === "save") { if (busy) cancelReq = true; else doExport(); return; }
@@ -494,6 +517,7 @@
   }
   function onKey(e) {
     if (!V || !E || !V.vid || /INPUT|TEXTAREA/.test((e.target && e.target.tagName) || "") && e.target.type !== "range") return;
+    if ((e.code === "KeyI" || e.code === "KeyO") && !e.ctrlKey && !e.metaKey && !e.altKey && !busy && E.dur) { e.preventDefault(); (e.code === "KeyI" ? setIn : setOut)(V.vid.currentTime); return; }
     if (e.code === "Space") { e.preventDefault(); if (V.vid.paused) V.vid.play(); else V.vid.pause(); }
   }
   function onDragOver(e) { if (!e.dataTransfer || Array.prototype.indexOf.call(e.dataTransfer.types || [], "Files") < 0) return; e.preventDefault(); V.root.querySelector("#ez-desk").classList.add("over"); }
