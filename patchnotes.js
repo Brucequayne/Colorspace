@@ -31,6 +31,12 @@ window.PATCHNOTES = {
       en: ["First version: paint on a spinning record", "Every stroke turns into rings and spirals", "Export as JPEG"] }
   ],
 
+  skapeform: [
+    { v: "0.1", t: "2026-11-19T03:36:00+01:00",
+      de: ["Erste Version: Vollbild-Videoeditor im TikTok-Format 9:16 mit Bibliothek, Vorschau und magnetischer Timeline", "Live-Schnitt mit den Zahlentasten: bis zu 10 Clips auf 1–9 und 0, beim Abspielen schneidet jede Zahl sofort auf ihren Clip", "Jeder Clip läuft dort weiter, wo von ihm noch nichts benutzt wurde; ist er aufgebraucht, rückt automatisch der nächste unbenutzte Clip aus der Bibliothek auf die Taste", "Animationen beim Reinkommen eines Clips: Turbulenz, Judder Shake, Zoom Punch und Wackeln, mit Stärke und Dauer", "Timeline: Clips ziehen zum Umsortieren, Kanten ziehen zum Kürzen und Verlängern, Teilen mit S, Rückgängig mit Strg+Z", "Musik als Taktgeber: Live-Schnitte landen genau dort, wo du sie gehört hast", "Export als MP4 in 1080 × 1920 mit 30 oder 60 Bildern pro Sekunde, alles im Browser"],
+      en: ["First version: full-screen video editor in TikTok format 9:16 with library, preview and magnetic timeline", "Live cutting with the number keys: up to 10 clips on 1–9 and 0, during playback each number instantly cuts to its clip", "Each clip continues where nothing of it has been used yet; when it is used up, the next unused clip from the library moves onto the key automatically", "Animations when a clip comes in: turbulence, judder shake, zoom punch and wobble, with strength and duration", "Timeline: drag clips to reorder, drag edges to shorten and extend, split with S, undo with Ctrl+Z", "Music as the clock: live cuts land exactly where you heard them", "Export as MP4 at 1080 × 1920 with 30 or 60 frames per second, all in the browser"] }
+  ],
+
   ezcrop: [
     { v: "0.3", t: "2026-11-19T02:45:00+01:00",
       de: ["Export mit deutlich höherer Bitrate: rund 40 Mbit/s statt 16 Mbit/s, gedacht als Zwischenmaterial, das im Schnittprogramm noch einmal gerendert wird", "Im Low-Quality-Modus bekommt der Ausschnitt jetzt doppelt so viel Reserve über der Quelle (bis 40 Mbit/s)", "Jede Sekunde ein Keyframe, damit das Video im Schnittprogramm flüssiger zu scrubben ist", "Nutzt H.264 Level 4.2, damit die hohe Bitrate erlaubt ist; ältere Geräte fallen automatisch auf eine niedrigere Stufe zurück"],

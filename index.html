@@ -243,21 +243,22 @@ button.navbtn{background:transparent;cursor:pointer;border-color:var(--ink)}
   <footer class="foot"><a id="plink" href="#datenschutz">Datenschutz</a></footer>
 </div>
 
-<script src="patchnotes.js?v=20261119-0245"></script>
-<script src="flughafen.js?v=20261119-0245"></script>
-<script src="gigachess.js?v=20261119-0245"></script>
-<script src="colorspin.js?v=20261119-0245"></script>
-<script src="pixellab.js?v=20261119-0245"></script>
-<script src="ezcrop.js?v=20261119-0245"></script>
-<script src="framepaint.js?v=20261119-0245"></script>
-<script src="drawspace.js?v=20261119-0245"></script>
-<script src="citygen.js?v=20261119-0245"></script>
-<script src="spacerogue.js?v=20261119-0245"></script>
-<script src="channels.js?v=20261119-0245"></script>
-<script src="noaim.js?v=20261119-0245"></script>
-<script src="weltmacht.js?v=20261119-0245"></script>
-<script src="shizuku.js?v=20261119-0245"></script>
-<script src="rapstreets.js?v=20261119-0245"></script>
+<script src="patchnotes.js?v=20261119-0336"></script>
+<script src="flughafen.js?v=20261119-0336"></script>
+<script src="gigachess.js?v=20261119-0336"></script>
+<script src="colorspin.js?v=20261119-0336"></script>
+<script src="pixellab.js?v=20261119-0336"></script>
+<script src="ezcrop.js?v=20261119-0336"></script>
+<script src="framepaint.js?v=20261119-0336"></script>
+<script src="drawspace.js?v=20261119-0336"></script>
+<script src="citygen.js?v=20261119-0336"></script>
+<script src="spacerogue.js?v=20261119-0336"></script>
+<script src="channels.js?v=20261119-0336"></script>
+<script src="noaim.js?v=20261119-0336"></script>
+<script src="weltmacht.js?v=20261119-0336"></script>
+<script src="shizuku.js?v=20261119-0336"></script>
+<script src="rapstreets.js?v=20261119-0336"></script>
+<script src="skapeform.js?v=20261119-0336"></script>
 <script>
 (function () {
   var T = {
@@ -284,6 +285,7 @@ button.navbtn{background:transparent;cursor:pointer;border-color:var(--ink)}
     colorspin: { de: "Colorspin", en: "Colorspin" },
     pixellab: { de: "PIXELLAB", en: "PIXELLAB" },
     ezcrop: { de: "EZ Crop", en: "EZ Crop" },
+    skapeform: { de: "SkapeForm", en: "SkapeForm" },
     framepaint: { de: "Frame Painter", en: "Frame Painter" },
     drawspace: { de: "Draw Space", en: "Draw Space" }, citygen: { de: "CityGenerator", en: "CityGenerator" }, spacerogue: { de: "Space Rogue", en: "Space Rogue" }, shizuku: { de: "Shizuku", en: "Shizuku" }, rapstreets: { de: "Rap Streets", en: "Rap Streets" }
   };
@@ -298,6 +300,8 @@ button.navbtn{background:transparent;cursor:pointer;border-color:var(--ink)}
       d: { de: "Bau einen Flughafen von der grünen Wiese aus: Piste, Rollwege, Terminals. Flugzeuge, Busse und Autos bringen echte Passagierzahlen.", en: "Build an airport from an empty field: runway, taxiways, terminals. Aircraft, buses and cars carry real passenger numbers." } },
     { id: "gigachess", tone: "#9A4216", ver: "v0.2", art: "ICO_gigachess",
       d: { de: "Schach auf 10 × 10 Feldern mit dem Räuber, der schiebt statt schlägt. Zu zweit oder gegen die KI in 10 Stufen, mit Schachuhr.", en: "Chess on a 10 × 10 board with the robber, who pushes instead of capturing. Two players or against the AI in 10 levels, with a chess clock." } },
+    { id: "skapeform", tone: "#1E5A40", ver: "v0.1", art: "ICO_skapeform",
+      d: { de: "Vollbild-Videoeditor im TikTok-Format: Clips schneiden, Turbulenz und Judder Shake beim Reinkommen. Dazu Live-Schnitt mit dem Ziffernblock: bis zu 10 Clips auf den Zahlen, beim Abspielen schneidest du per Tastendruck. Export als MP4, alles bleibt auf deinem Gerät.", en: "Full-screen video editor in TikTok format: cut clips, turbulence and judder shake as they come in. Plus live cutting with the numpad: up to 10 clips on the numbers, cut by key press during playback. Export as MP4, everything stays on your device." } },
     { id: "pixellab", tone: "#1E5A40", ver: "v0.32", art: "ICO_pixellab",
       d: { de: "Fotos hochladen, mit einer Kette aus Modifiern verfremden und als JPEG speichern. Modifier: Fragments und Polymerge. Das Foto bleibt auf deinem Gerät.", en: "Upload photos, transform them with a chain of modifiers and save as JPEG. Modifiers: Fragments and Polymerge. The photo stays on your device." } },
     { id: "colorspin", tone: "#1E5A40", ver: "v0.11", art: "ICO_colorspin",
@@ -331,8 +335,8 @@ button.navbtn{background:transparent;cursor:pointer;border-color:var(--ink)}
         p: { de: "Die Schrift ist in der Seite selbst gespeichert, die Bilder liegen auf demselben Server. Dafür werden keine Daten an Google oder andere Dienste gesendet.", en: "The font is stored in the page itself and the images sit on the same server. No data is sent to Google or other services for them." } },
       { h: { de: "Spracheinstellung und Spielstände", en: "Language setting and game progress" },
         p: { de: "Deine Wahl zwischen Deutsch und Englisch, der Spielstand des Flughafen-Spiels, deine Gigachess-Partie, die laufende Weltmacht-Partie sowie Highscores und Einstellungen von No Aim No Game im Shizuku-Dev-Tool gespeicherte Arenen und im Rap-Streets-Editor gespeicherte Maps werden nur lokal in deinem Browser auf deinem Gerät gespeichert. Sie werden nicht an mich gesendet.", en: "Your choice between German and English, your progress in the airport game, your Gigachess game, your current Weltmacht game the high scores and settings of No Aim No Game and arenas saved in the Shizuku dev tool are stored only locally by your browser on your device. They are not sent to me." } },
-      { h: { de: "Videos in EZ Crop und Frame Painter", en: "Videos in EZ Crop and Frame Painter" },
-        p: { de: "Videos, die du in EZ Crop oder im Frame Painter öffnest, werden nur in deinem Browser abgespielt, bearbeitet und kodiert, auch deine Bemalung bleibt dort. Sie werden nicht hochgeladen oder an mich gesendet. Für den Export lädt die Seite die Bibliothek mp4-muxer vom selben Server nach. Bei Rap Streets wird dein Mikrofon nur im Browser gemessen und für die Battle-Aufnahme verwendet; Ton und Video bleiben auf deinem Gerät, bis du sie selbst speicherst.", en: "Videos you open in EZ Crop or Frame Painter are played, edited and encoded only in your browser, and so is your painting. They are not uploaded or sent to me. For the export the page loads the mp4-muxer library from the same server. In Rap Streets your microphone is only measured in the browser and used for the battle recording; sound and video stay on your device until you save them yourself." } },
+      { h: { de: "Videos in EZ Crop, Frame Painter und SkapeForm", en: "Videos in EZ Crop, Frame Painter and SkapeForm" },
+        p: { de: "Videos und Musik, die du in EZ Crop, im Frame Painter oder in SkapeForm öffnest, werden nur in deinem Browser abgespielt, bearbeitet und kodiert, auch deine Bemalung bleibt dort. Sie werden nicht hochgeladen oder an mich gesendet. Für den Export lädt die Seite die Bibliothek mp4-muxer vom selben Server nach. Bei Rap Streets wird dein Mikrofon nur im Browser gemessen und für die Battle-Aufnahme verwendet; Ton und Video bleiben auf deinem Gerät, bis du sie selbst speicherst.", en: "Videos and music you open in EZ Crop, Frame Painter or SkapeForm are played, edited and encoded only in your browser, and so is your painting. They are not uploaded or sent to me. For the export the page loads the mp4-muxer library from the same server. In Rap Streets your microphone is only measured in the browser and used for the battle recording; sound and video stay on your device until you save them yourself." } },
       { h: { de: "Fotos und Bilder in PIXELLAB, Channel Exporter, Colorspin und Draw Space", en: "Photos and images in PIXELLAB, Channel Exporter, Colorspin and Draw Space" },
         p: { de: "Bilder, die du in PIXELLAB oder im Channel Exporter öffnest, und alles, was du in Colorspin oder Draw Space malst, werden nur in deinem Browser verarbeitet. Nichts davon wird hochgeladen oder an mich gesendet, und nach dem Verlassen der Seite wird nichts aufbewahrt. Für die Tiefenkarte im Channel Exporter lädt dein Browser einmalig ein KI-Modell von dieser Seite (GitHub Pages) und rechnet damit lokal, auch dabei wird dein Bild nicht übertragen.", en: "Images you open in PIXELLAB or the Channel Exporter and anything you paint in Colorspin or Draw Space are processed only in your browser. None of it is uploaded or sent to me, and nothing is kept after you leave the page. For the depth map in the Channel Exporter, your browser loads an AI model once from this site (GitHub Pages) and runs it locally; your image is not transferred then either." } },
       { h: { de: "Aufrufzähler und Bewertungen", en: "View counter and ratings" },
@@ -365,7 +369,7 @@ button.navbtn{background:transparent;cursor:pointer;border-color:var(--ink)}
   (function () {
     var F = 'class="fg"', A = 'class="ac"', S = 'class="st"';
     var SH = { rapstreets: "#C85020", shizuku: "#D05E26", spacerogue: "#C9561C", flughafen: "#D8682A", gigachess: "#CF5A24", weltmacht: "#C24E18", noaim: "#DE7030", citygen: "#D4622A",
-      pixellab: "#2A7A57", colorspin: "#2F8460", ezcrop: "#26704F", drawspace: "#33885F", framepaint: "#287454", channels: "#2D7F5C" };
+      pixellab: "#2A7A57", colorspin: "#2F8460", ezcrop: "#26704F", skapeform: "#2A7A57", drawspace: "#33885F", framepaint: "#287454", channels: "#2D7F5C" };
     function wrap(cat, body, id) { return '<svg class="ico ico-' + cat + '" style="--ib:' + SH[id] + '" viewBox="0 0 320 200" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><rect class="bg" width="320" height="200"/><g class="grid">' + grid() + '</g>' + body + '</svg>'; }
     function grid() { var o = ""; for (var x = 20; x < 320; x += 40) for (var y = 20; y < 200; y += 40) o += '<rect x="' + (x - 1.5) + '" y="' + (y - 1.5) + '" width="3" height="3"/>'; return o; }
     var I = {
@@ -392,6 +396,8 @@ button.navbtn{background:transparent;cursor:pointer;border-color:var(--ink)}
       colorspin: ['t', '<g class="a-spin"><circle ' + F + ' cx="160" cy="100" r="62"/><path class="bgs" d="M160 56a44 44 0 0 1 44 44"/><path class="bgs" d="M160 144a44 44 0 0 1 -38 -22"/><circle ' + A + ' cx="160" cy="100" r="20"/><circle class="bgc" cx="160" cy="100" r="5"/></g>'],
       ezcrop: ['t', '<rect ' + S + ' opacity=".45" x="60" y="56" width="200" height="112"/><polygon ' + F + ' opacity=".45" points="64,164 120,110 156,140 200,96 256,164"/>' +
         '<g class="a-pan"><rect class="ac" opacity=".25" x="132" y="48" width="56" height="128"/><rect ' + S + ' x="132" y="48" width="56" height="128"/><path ' + S + ' d="M132 66v-18h18M188 158v18h-18"/></g>'],
+      skapeform: ['t', '<rect ' + S + ' x="70" y="34" width="76" height="134"/><g class="a-frag"><rect ' + F + ' opacity=".55" x="80" y="58" width="56" height="86"/><polygon ' + A + ' points="100,86 122,101 100,116"/></g>' +
+        '<g ' + F + '><rect x="176" y="52" width="20" height="20"/><rect x="202" y="52" width="20" height="20"/><rect x="228" y="52" width="20" height="20"/><rect x="176" y="78" width="20" height="20"/><rect ' + A + ' x="202" y="78" width="20" height="20"/><rect x="228" y="78" width="20" height="20"/><rect x="176" y="104" width="20" height="20"/><rect x="202" y="104" width="20" height="20"/><rect x="228" y="104" width="20" height="20"/><rect x="176" y="130" width="46" height="20"/></g>'],
       drawspace: ['t', '<path class="st a-draw" d="M70 140c30-70 50-70 70-20s40 40 60-10 30-40 50-20"/><circle  class="ac a-tip" cx="250" cy="90" r="9"/>'],
       framepaint: ['t', '<g class="a-film"><rect ' + F + ' x="10" y="58" width="300" height="84"/><g class="bgc">' + (function () { var o = ""; for (var x = 18; x < 310; x += 24) { o += '<rect x="' + x + '" y="64" width="12" height="8"/><rect x="' + x + '" y="128" width="12" height="8"/>'; } return o; })() + '</g>' +
         '<rect class="bgc" x="38" y="78" width="70" height="44"/><rect class="bgc" x="125" y="78" width="70" height="44"/><rect class="bgc" x="212" y="78" width="70" height="44"/></g>' +
@@ -527,7 +533,7 @@ button.navbtn{background:transparent;cursor:pointer;border-color:var(--ink)}
 
   // ---------- Bewertung (1 bis 5 Sterne) und Aufrufzähler über den Zähldienst Abacus ----------
   // Pro Anwendung: <id>-views und <id>-r1 … <id>-r5. Ein Aufruf zählt einmal pro Seitenbesuch und Anwendung.
-  var RATE_API = "https://abacus.jasoncameron.dev", RATE_NS = "colorspace-brucequayne", FULL = ["flughafen", "noaim", "weltmacht", "drawspace", "citygen", "spacerogue", "shizuku", "rapstreets"];
+  var RATE_API = "https://abacus.jasoncameron.dev", RATE_NS = "colorspace-brucequayne", FULL = ["flughafen", "noaim", "weltmacht", "drawspace", "citygen", "spacerogue", "shizuku", "rapstreets", "skapeform"];
   var viewed = {}, rateTok = 0;
   var STAR = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5l2.9 6.2 6.8.8-5 4.7 1.3 6.7L12 17.6l-6 3.3 1.3-6.7-5-4.7 6.8-.8z" fill="currentColor"/></svg>';
   var EYE = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12z" fill="none" stroke="currentColor" stroke-width="2"/><rect x="9.5" y="9.5" width="5" height="5" fill="currentColor"/></svg>';
@@ -593,12 +599,13 @@ button.navbtn{background:transparent;cursor:pointer;border-color:var(--ink)}
     if (window.Weltmacht) window.Weltmacht.unmount();
     if (window.Shizuku) window.Shizuku.unmount();
     if (window.RapStreets) window.RapStreets.unmount();
+    if (window.SkapeForm) window.SkapeForm.unmount();
     var v = S.view;
-    if (v === "flughafen" || v === "gigachess" || v === "colorspin" || v === "pixellab" || v === "ezcrop" || v === "framepaint" || v === "drawspace" || v === "citygen" || v === "spacerogue" || v === "channels" || v === "noaim" || v === "weltmacht" || v === "shizuku" || v === "rapstreets") {
+    if (v === "flughafen" || v === "gigachess" || v === "colorspin" || v === "pixellab" || v === "ezcrop" || v === "framepaint" || v === "drawspace" || v === "citygen" || v === "spacerogue" || v === "channels" || v === "noaim" || v === "weltmacht" || v === "shizuku" || v === "rapstreets" || v === "skapeform") {
       var full = FULL.indexOf(v) >= 0;
       app.innerHTML = '<div class="appbar"><a class="back" href="#">' + U("back") + '</a>' + (full ? "" : '<div class="abr">' + pnButton(v) + '<div class="rate" id="rate" hidden></div></div>') + '</div><div id="approot"></div>';
       if (full) { var d = document.createElement("div"); d.className = "fbar"; d.innerHTML = pnButton(v) + '<div class="rate" id="rate" hidden></div>'; document.body.appendChild(d); }
-      var mod = { flughafen: window.Flughafen, gigachess: window.Gigachess, colorspin: window.Colorspin, pixellab: window.Pixellab, ezcrop: window.EzCrop, framepaint: window.FramePainter, drawspace: window.DrawSpace, citygen: window.CityGen, spacerogue: window.SpaceRogue, channels: window.Channels, noaim: window.NoAim, weltmacht: window.Weltmacht, shizuku: window.Shizuku, rapstreets: window.RapStreets }[v];
+      var mod = { flughafen: window.Flughafen, gigachess: window.Gigachess, colorspin: window.Colorspin, pixellab: window.Pixellab, ezcrop: window.EzCrop, framepaint: window.FramePainter, drawspace: window.DrawSpace, citygen: window.CityGen, spacerogue: window.SpaceRogue, channels: window.Channels, noaim: window.NoAim, weltmacht: window.Weltmacht, shizuku: window.Shizuku, rapstreets: window.RapStreets, skapeform: window.SkapeForm }[v];
       if (mod) mod.mount(document.getElementById("approot"), S.lang);
       loadRating(v);
     } else if (v === "privacy") app.innerHTML = privacyHTML();
@@ -620,7 +627,7 @@ button.navbtn{background:transparent;cursor:pointer;border-color:var(--ink)}
   function setView() {
     var id = location.hash.replace("#", "");
     if (id === "fotoprojekt") { id = "channels"; history.replaceState(null, "", "#channels"); }
-    S.view = id === "datenschutz" ? "privacy" : ["flughafen", "gigachess", "pixellab", "colorspin", "ezcrop", "framepaint", "drawspace", "citygen", "spacerogue", "channels", "noaim", "weltmacht", "shizuku", "rapstreets"].indexOf(id) >= 0 ? id : "home";
+    S.view = id === "datenschutz" ? "privacy" : ["flughafen", "gigachess", "pixellab", "colorspin", "ezcrop", "framepaint", "drawspace", "citygen", "spacerogue", "channels", "noaim", "weltmacht", "shizuku", "rapstreets", "skapeform"].indexOf(id) >= 0 ? id : "home";
   }
   function route() { setView(); render(); window.scrollTo(0, 0); }
 
