@@ -9,7 +9,7 @@
 (function () {
   "use strict";
 
-  var VERSION = "0.11", OW = 1080, OH = 1920, MIN = 0.1, JF = 12;
+  var VERSION = "0.2", OW = 1080, OH = 1920, MIN = 0.1, JF = 12;
   var KEYC = ["#D9D6D0", "#E2621B", "#E3B83F", "#8DBF45", "#23A06A", "#2BB0B8", "#3B7FE0", "#8A6CF0", "#C452C8", "#E0457A"];
   var KEY_ORDER = [1, 2, 3, 4, 5, 6, 7, 8, 9, 0], PAD_ORDER = [7, 8, 9, 4, 5, 6, 1, 2, 3, 0];
   var ANIMS = ["none", "turb", "judder", "punch", "shake"];
@@ -25,6 +25,12 @@
     keys: L2("Live-Tasten", "Live keys"),
     keysNote: L2("Zahl drücken schneidet live auf den Clip, dort weiter, wo noch nichts benutzt wurde. Belegen: Clip auf eine Taste ziehen oder anklicken und Umschalt + Zahl.", "A number cuts live to its clip, continuing where nothing has been used yet. Assign: drag a clip onto a key, or click it and press Shift + number."),
     empty: L2("leer", "empty"), clear: L2("Taste leeren", "Clear key"),
+    fxH: L2("Effekte (Buchstaben halten)", "Effects (hold letters)"),
+    fxNote: L2("Buchstaben halten, während das Video läuft: Solange du hältst, liegt der Effekt auf dem Bild und landet als eigene Ebene in der Timeline. Dort kannst du ihn verschieben, an den Kanten kürzen oder verlängern, mit S teilen und mit Entf löschen. Im Stillstand zeigt Halten nur eine Vorschau. Auf den Buchstaben klicken, um die Taste zu ändern.", "Hold letters while the video plays: as long as you hold, the effect is on the picture and lands as its own layer in the timeline. There you can move it, shorten or extend it at the edges, split it with S and delete it with Delete. While stopped, holding only shows a preview. Click the letter to change the key."),
+    fxKeyT: L2("Taste ändern", "Change key"), fxPress: L2("Taste …", "Key …"),
+    fxLearn: L2("Jetzt einen Buchstaben drücken (Esc bricht ab).", "Now press a letter (Esc cancels)."),
+    fxBadKey: L2("Nur Buchstaben A–Z, außer S (Teilen).", "Only letters A–Z, except S (split)."),
+    fxSel: L2("Effekt „{n}“ ausgewählt ({d}): ziehen verschiebt, Kanten kürzen, S teilt am Abspielkopf, Entf löscht.", "Effect “{n}” selected ({d}): drag to move, edges to trim, S splits at the playhead, Delete removes."),
     modeH: L2("Wiedergabe der Tasten", "Key playback"), modeCont: L2("Weiterspielen", "Continue"), modeRand: L2("Random Time", "Random Time"),
     modeContD: L2("Jede Taste spielt ihren Clip dort weiter, wo sie zuletzt aufgehört hat.", "Each key continues its clip where it last stopped."),
     modeRandD: L2("Jeder Tastendruck springt an eine zufällige, noch unbenutzte Stelle im Clip. Die Lücken dazwischen bleiben verfügbar, bis der ganze Clip gezeigt wurde, erst dann rückt der nächste nach.", "Every key press jumps to a random, still unused spot in the clip. The gaps in between stay available until the whole clip has been shown; only then does the next one move in."),
@@ -72,6 +78,7 @@
     help3b: L2("Random Time (rechts unter den Tasten): Jeder Tastendruck, auch dieselbe Zahl noch mal, springt an eine zufällige Stelle im Clip, die noch nicht benutzt wurde. Läuft eine Stelle in schon benutztes Material, springt der Clip von selbst an die nächste freie Stelle. Aufgebraucht ist ein Clip erst, wenn alles von ihm gezeigt wurde (Reste unter einer Zehntelsekunde zählen nicht).", "Random Time (on the right below the keys): every key press, including the same number again, jumps to a random spot in the clip that has not been used yet. If a spot runs into already used material, the clip jumps to the next free spot by itself. A clip is only used up once all of it has been shown (leftovers under a tenth of a second do not count)."),
     help3: L2("Ist ein Clip aufgebraucht, holt sich die Taste automatisch den nächsten Clip aus der Bibliothek (von oben nach unten), der noch nie auf einer Taste lag. Der Live-Schnitt überschreibt die Timeline ab der Stelle, an der du die erste Zahl gedrückt hast, bis zum Stopp. Strg+Z macht den ganzen Take rückgängig, auch die Zähler.", "When a clip is used up, the key automatically takes the next clip from the library (top to bottom) that has never been on a key. The live cut overwrites the timeline from where you pressed the first number until you stop. Ctrl+Z undoes the whole take, including the counters."),
     help4: L2("Timeline: Clip anklicken zum Auswählen, ziehen zum Umsortieren, an den Kanten ziehen zum Kürzen oder Verlängern. S teilt am Abspielkopf, Entf löscht. Mausrad scrollt, Strg + Mausrad oder + / − zoomt. ← / → einzelne Bilder, mit Umschalt eine Sekunde.", "Timeline: click a clip to select it, drag to reorder, drag its edges to shorten or extend. S splits at the playhead, Delete removes. Mouse wheel scrolls, Ctrl + wheel or + / − zooms. ← / → single frames, with Shift one second."),
+    help5b: L2("Effekte: Buchstaben halten, während das Video läuft (zum Start Negativ auf Q). Das geht beim normalen Abspielen und beim Live-Schnitt gleichzeitig mit den Zahlen. Effekte liegen als eigene Spuren unter den Clips, unabhängig vom Schnitt: Verschiebst du Clips, bleibt der Effekt an seiner Zeit. Ebenen rasten an Schnitten und am Abspielkopf ein.", "Effects: hold letters while the video plays (to start: Negative on Q). This works during normal playback and during a live cut together with the numbers. Effects sit on their own tracks below the clips, independent of the cut: if you move clips, the effect stays at its time. Layers snap to cuts and the playhead."),
     help5: L2("Animationen spielen am Anfang eines Schnitts: Turbulenz (wilde, weiche Kamerabewegung mit Bewegungsunschärfe), Judder Shake (ruckelnde Stöße, das Bild stottert), Zoom Punch und Wackeln. Für Live-Schnitte rechts einstellen, für einzelne Clips über der Timeline.", "Animations play at the start of a cut: Turbulence (wild, smooth camera motion with motion blur), Judder Shake (jerky hits, the picture stutters), Zoom Punch and Wobble. Set them on the right for live cuts, above the timeline for single clips."),
     help6: L2("Alles bleibt auf deinem Gerät. Das Projekt bleibt erhalten, solange diese Seite offen ist.", "Everything stays on your device. The project is kept as long as this page is open."),
     leave: L2("SkapeForm-Projekt geht beim Schließen verloren.", "The SkapeForm project is lost when closing.")
@@ -96,7 +103,8 @@
     clips: [], segs: [], slots: [null, null, null, null, null, null, null, null, null, null],
     sel: 0, selClip: 0, T: 0, nextId: 1, undo: [], redo: [],
     live: { anim: "turb", as: 1, ad: 0.45, mode: "cont" }, clipVol: 1, musicVol: 0.9, music: null,
-    pps: 60, scroll: 0
+    pps: 60, scroll: 0,
+    fx: [], selFx: 0, fxKeys: {}                      // Effekt-Ebenen: { id, type, start, dur } in Timeline-Zeit
   };
   var V = null, raf = 0;
   var REC = null;                                     // laufender Live-Schnitt
@@ -120,12 +128,13 @@
   function copySeg(g) { var o = {}; for (var k in g) o[k] = g[k]; return o; }
 
   // ---------- Rückgängig ----------
-  function snap() { return JSON.stringify({ s: P.segs, k: P.slots, c: P.clips.map(function (c) { return [c.id, c.pos, c.bound, c.done, c.used]; }) }); }
+  function snap() { return JSON.stringify({ s: P.segs, f: P.fx, k: P.slots, c: P.clips.map(function (c) { return [c.id, c.pos, c.bound, c.done, c.used]; }) }); }
   function pushUndo() { P.undo.push(snap()); if (P.undo.length > 120) P.undo.shift(); P.redo = []; }
   function restore(str) {
     var o = JSON.parse(str);
     o.c.forEach(function (a) { var c = clipById(a[0]); if (c) { c.pos = a[1]; c.bound = a[2]; c.done = a[3]; c.used = a[4] || []; c.pre = null; } });
     P.segs = o.s.filter(function (g) { return clipById(g.clip); });
+    P.fx = o.f || []; if (P.selFx && !fxById(P.selFx)) P.selFx = 0;
     var old = P.slots.slice();
     P.slots = o.k.map(function (id) { return id && clipById(id) ? id : null; });
     old.forEach(function (id) { if (id && P.slots.indexOf(id) < 0) releaseS(clipById(id)); });
@@ -453,6 +462,7 @@
   function stopPlay(Tend) {
     if (!PL.on) return;
     var T = Tend != null ? Tend : clock(performance.now());
+    fxReleaseAll(T);
     PL.on = false; stopMusicSrc(); pauseAll();
     if (REC) finishRec(T); else P.T = clamp(T, 0, total());
     PL.seg = null; PL.el = null;
@@ -535,10 +545,77 @@
     }
   }
 
+  // ---------- Effekte (Buchstaben halten) ----------
+  // Ein neuer Effekt = ein Eintrag in FXDEF und seine Kennung in FX_ORDER (Reihenfolge der Spuren und der Anwendung).
+  // draw(x, W, H, o) malt über das fertige Bild; o = { t: Sekunden seit Effektbeginn, d: Effektlänge, T: Timeline-Zeit }.
+  // Alles andere (Taste, Aufnahme beim Halten, eigene Spur, Schneiden/Verschieben, Vorschau, Export, Rückgängig) läuft automatisch.
+  var FXDEF = {
+    neg: {
+      name: L2("Negativ", "Negative"), color: "#9B86F2", key: "KeyQ",
+      draw: function (x, W, H) { x.save(); x.globalCompositeOperation = "difference"; x.fillStyle = "#fff"; x.fillRect(0, 0, W, H); x.restore(); }
+    }
+  };
+  var FX_ORDER = ["neg"], FX_RESERVED = ["KeyS"], FX_MIN = 1 / 30;
+  FX_ORDER.forEach(function (ty) { if (!P.fxKeys[ty]) P.fxKeys[ty] = FXDEF[ty].key; });
+  function fxById(id) { for (var i = 0; i < P.fx.length; i++) if (P.fx[i].id === id) return P.fx[i]; return null; }
+  function keyLabel(code) { return code ? code.replace(/^Key/, "") : "–"; }
+  function fxTypeForCode(code) { for (var i = 0; i < FX_ORDER.length; i++) if (P.fxKeys[FX_ORDER[i]] === code) return FX_ORDER[i]; return null; }
+  function fxActive(T, noPeek) {
+    var out = [];
+    FX_ORDER.forEach(function (ty) {
+      for (var i = 0; i < P.fx.length; i++) { var f = P.fx[i]; if (f.type === ty && T >= f.start && T < f.start + f.dur) { out.push({ type: ty, t: T - f.start, d: f.dur }); return; } }
+      if (!noPeek && V && V.fxPeek[ty]) out.push({ type: ty, t: (performance.now() - V.fxPeek[ty]) / 1000, d: 0 });
+    });
+    return out;
+  }
+  function drawFx(x, W, H, list, T) { list.forEach(function (a) { FXDEF[a.type].draw(x, W, H, { t: a.t, d: a.d, T: T }); }); }
+  function mergeFx(ty) {                              // gleiche Effekte, die sich überlappen oder berühren, zu einem Stück zusammenfassen
+    var mine = P.fx.filter(function (f) { return f.type === ty; }).sort(function (a, b) { return a.start - b.start; }), keep = [];
+    mine.forEach(function (f) {
+      var l = keep[keep.length - 1];
+      if (l && f.start <= l.start + l.dur + 0.01) { var e = Math.max(l.start + l.dur, f.start + f.dur); l.dur = e - l.start; if (P.selFx === f.id) P.selFx = l.id; }
+      else keep.push(f);
+    });
+    P.fx = P.fx.filter(function (f) { return f.type !== ty; }).concat(keep);
+  }
+  function fxPress(ty) {
+    if (V.fxHeld[ty] || V.fxPeek[ty]) return;
+    if (!PL.on) { V.fxPeek[ty] = performance.now(); renderFx(); return; }   // im Stillstand nur Vorschau, keine Aufnahme
+    if (!REC) pushUndo();                             // im Live-Schnitt gehört der Effekt zum Take (ein Rückgängig für alles)
+    var f = { id: P.nextId++, type: ty, start: clock(performance.now()), dur: FX_MIN };
+    P.fx.push(f); V.fxHeld[ty] = f.id; renderFx(); updateBar();
+  }
+  function fxEnd(ty, T) {
+    var id = V.fxHeld[ty]; delete V.fxHeld[ty];
+    var f = id && fxById(id); if (f) { f.dur = Math.max(FX_MIN, T - f.start); mergeFx(ty); }
+  }
+  function fxRelease(ty) {
+    if (!V) return;
+    if (V.fxPeek[ty]) delete V.fxPeek[ty];
+    if (V.fxHeld[ty]) fxEnd(ty, PL.on ? clock(performance.now()) : P.T);
+    renderFx(); updateBar();
+  }
+  function fxReleaseAll(T) {
+    if (!V) return;
+    Object.keys(V.fxHeld).forEach(function (ty) { fxEnd(ty, T); });
+    V.fxPeek = {}; renderFx();
+  }
+  function fxTick(T) { Object.keys(V.fxHeld).forEach(function (ty) { var f = fxById(V.fxHeld[ty]); if (f) f.dur = Math.max(FX_MIN, T - f.start); }); }
+  function fxSetKey(ty, code) {
+    FX_ORDER.forEach(function (o) { if (o !== ty && P.fxKeys[o] === code) P.fxKeys[o] = ""; });   // Buchstabe kann nur einen Effekt haben
+    P.fxKeys[ty] = code;
+  }
+
   // ---------- Timeline-Bearbeitung ----------
   function selSeg() { return P.sel ? segById(P.sel) : null; }
   function splitAt() {
     if (REC) return;
+    var ef = P.selFx && fxById(P.selFx);
+    if (ef) {                                          // ausgewählten Effekt am Abspielkopf teilen
+      if (P.T - ef.start < FX_MIN || ef.start + ef.dur - P.T < FX_MIN) return;
+      pushUndo(); var nf = { id: P.nextId++, type: ef.type, start: P.T, dur: ef.start + ef.dur - P.T };
+      ef.dur = P.T - ef.start; P.fx.push(nf); P.selFx = nf.id; updateBar(); return;
+    }
     var s = segAt(P.T); if (!s) return;
     var d1 = P.T - s.start; if (d1 < MIN / 2 || s.dur - d1 < MIN / 2) return;
     pushUndo();
@@ -546,7 +623,10 @@
     s.dur = d1; P.segs.splice(P.segs.indexOf(s) + 1, 0, b); layout(); P.sel = b.id; renderAll();
   }
   function delSel() {
-    if (REC) return; var s = selSeg(); if (!s) return;
+    if (REC) return;
+    var ef = P.selFx && fxById(P.selFx);
+    if (ef) { pushUndo(); P.fx.splice(P.fx.indexOf(ef), 1); P.selFx = 0; updateBar(); return; }
+    var s = selSeg(); if (!s) return;
     pushUndo(); P.segs.splice(P.segs.indexOf(s), 1); layout(); P.sel = 0; P.T = Math.min(P.T, total()); renderAll();
   }
   function insertClip(id, idx) {
@@ -638,6 +718,7 @@
         if (Math.abs(ev.currentTime - st) > 1e-4 || ev.readyState < 2) await seekEl(ev, st);
         x.fillStyle = "#000"; x.fillRect(0, 0, OW, OH);
         if (ev.videoWidth) drawSeg(x, OW, OH, ev, ev.videoWidth, ev.videoHeight, g, tt, null);
+        drawFx(x, OW, OH, fxActive(T, true), T);
         var vf = new VideoFrame(cv, { timestamp: Math.round(i * us), duration: Math.round(us) });
         venc.encode(vf, { keyFrame: i % fps === 0 }); vf.close();
         while (venc.encodeQueueSize > 6) await new Promise(function (r2) { setTimeout(r2, 4); });
@@ -726,6 +807,9 @@
     ".sf-pt{padding:0 5px 3px;font-size:11px;color:#C9CBC6;font-variant-numeric:tabular-nums}.sf-pe{padding:0 5px 6px;color:#6F716C;font-size:12px}" +
     ".sf-pr{display:block;height:4px;background:rgba(0,0,0,.6)}.sf-pr i{display:block;height:100%;background:var(--kc)}" +
     ".sf-px{position:absolute!important;right:2px;top:1px;padding:0 5px;font:700 14px/18px var(--f-body,sans-serif);color:#C9CBC6;opacity:0;cursor:pointer}.sf-pad:hover .sf-px{opacity:.9}" +
+    ".sf-fx{display:flex;align-items:center;gap:9px;padding:5px 6px;border:1px solid #333533;margin-bottom:4px}.sf-fx i{width:14px;height:14px;background:var(--fc)}.sf-fx b{flex:1;font-size:13px}" +
+    ".sf-fx button{min-width:44px;padding:3px 8px!important;font:700 13px var(--f-body,sans-serif)!important}.sf-fx button.learn{background:#E3B83F!important;color:#151515!important;border-color:#E3B83F!important}" +
+    ".sf-fx.on{border-color:var(--fc);box-shadow:0 0 12px var(--fc)}.sf-fx.on i{box-shadow:0 0 8px var(--fc)}" +
     ".sf-desc{margin:0;color:var(--sfs);font-size:12px;line-height:1.5}" +
     ".sf-btns{display:flex;flex-wrap:wrap;gap:6px}" +
     ".sf-row{display:flex;flex-direction:column;gap:5px;margin-top:8px}.sf-row label{display:flex;justify-content:space-between;font-weight:600;font-size:12px}.sf-row label span{color:var(--sfs);font-variant-numeric:tabular-nums}" +
@@ -760,6 +844,7 @@
       '<aside class="sf-side" id="sf-side">' +
         '<div><h3>' + t("keys") + '</h3><div class="sf-pads" id="sf-pads"></div></div>' +
         '<p class="sf-desc">' + t("keysNote") + '</p>' +
+        '<div><h3>' + t("fxH") + '</h3><div id="sf-fxl"></div><p class="sf-desc" style="margin-top:8px">' + t("fxNote") + "</p></div>" +
         '<div><h3>' + t("modeH") + '</h3><div class="sf-sw" style="display:flex"><button type="button" data-a="mode-cont" id="sf-mc">' + t("modeCont") + '</button><button type="button" data-a="mode-rand" id="sf-mr">' + t("modeRand") + '</button></div><p class="sf-desc" id="sf-md" style="margin-top:8px"></p></div>' +
         '<div class="sf-btns"><button type="button" data-a="fill">' + t("fill") + '</button><button type="button" data-a="reset">' + t("reset") + "</button></div>" +
         '<div><h3>' + t("liveAnim") + '</h3><select id="sf-lanim">' + opts(ANIMS, true) + "</select>" +
@@ -779,14 +864,22 @@
           '<span class="sf-sw" style="display:flex;gap:0"><button type="button" data-a="fill-p" id="sf-pf">' + t("pFill") + '</button><button type="button" data-a="fit-p" id="sf-pw">' + t("pFit") + "</button></span>" +
           '<button type="button" data-a="toall">' + t("toAll") + "</button></span></div>" +
         '<span class="sp"></span><button type="button" data-a="zout" title="−">−</button><button type="button" data-a="zin" title="+">+</button></div>' +
-        '<div class="sf-tlw" id="sf-tlw"><canvas id="sf-tl"></canvas></div></section>' +
+        '<div class="sf-tlw" id="sf-tlw" style="height:' + TLH + 'px"><canvas id="sf-tl"></canvas></div></section>' +
       '<div class="sf-modal" id="sf-modal" hidden></div></div>';
   }
 
   var noteT = 0;
   function note(s) { if (!V) return; var n = V.root.querySelector("#sf-note"); n.textContent = s; clearTimeout(noteT); noteT = setTimeout(function () { if (V) n.textContent = ""; }, 6000); }
 
-  function renderAll() { renderLib(); renderPads(); renderSide(); updateBar(); }
+  function renderAll() { renderLib(); renderPads(); renderSide(); renderFx(); updateBar(); }
+  function renderFx() {
+    if (!V) return;
+    V.root.querySelector("#sf-fxl").innerHTML = FX_ORDER.map(function (ty) {
+      var d = FXDEF[ty], on = V.fxHeld[ty] || V.fxPeek[ty], learn = V.fxLearn === ty;
+      return '<div class="sf-fx' + (on ? " on" : "") + '" style="--fc:' + d.color + '"><i></i><b>' + d.name[lang] + '</b>' +
+        '<button type="button" data-a="fxkey" data-fx="' + ty + '" class="' + (learn ? "learn" : "") + '" title="' + t("fxKeyT") + '">' + (learn ? t("fxPress") : keyLabel(P.fxKeys[ty])) + "</button></div>";
+    }).join("");
+  }
   function renderLib() {
     if (!V) return;
     var box = V.root.querySelector("#sf-list");
@@ -842,6 +935,8 @@
     r.querySelector("#sf-undo").disabled = !P.undo.length || !!REC; r.querySelector("#sf-redo").disabled = !P.redo.length || !!REC;
     var s = REC ? null : selSeg();
     r.querySelector("#sf-ns").hidden = !!s; r.querySelector("#sf-sc").hidden = !s;
+    var ef = !s && !REC && P.selFx ? fxById(P.selFx) : null;
+    r.querySelector("#sf-ns").textContent = ef ? fmt(t("fxSel"), { n: FXDEF[ef.type].name[lang], d: sec(ef.dur) }) : t("noSel");
     if (s) {
       r.querySelector("#sf-anim").value = s.anim; r.querySelector("#sf-astr").value = Math.round(s.as * 100); r.querySelector("#sf-adur").value = Math.round(s.ad * 100);
       r.querySelector("#sf-pf").setAttribute("aria-pressed", String(s.fit !== "fit")); r.querySelector("#sf-pw").setAttribute("aria-pressed", String(s.fit === "fit"));
@@ -873,7 +968,7 @@
       var s = segAt(P.T) || (P.segs.length && P.T >= total() - 1e-6 ? P.segs[P.segs.length - 1] : null);
       if (s) { c = clipById(s.clip); src = PL.on && PL.el ? PL.el : c.vT; g = s; tt = Math.min(P.T - s.start, s.dur - 0.001); }
     }
-    if (src && src.readyState >= 2 && src.videoWidth && !src.seeking) { x.fillStyle = "#000"; x.fillRect(0, 0, W, H); drawSeg(x, W, H, src, src.videoWidth, src.videoHeight, g, tt, V.hold); V.pvOk = true; }
+    if (src && src.readyState >= 2 && src.videoWidth && !src.seeking) { x.fillStyle = "#000"; x.fillRect(0, 0, W, H); drawSeg(x, W, H, src, src.videoWidth, src.videoHeight, g, tt, V.hold); drawFx(x, W, H, fxActive(P.T), P.T); V.pvOk = true; }
     else if (!g || !V.pvOk) { x.fillStyle = "#000"; x.fillRect(0, 0, W, H); }   // sonst letztes Bild stehen lassen, kein Schwarzblitz beim Suchen
     if (REC) {
       var f = Math.max(12, W * 0.045);
@@ -886,7 +981,8 @@
   }
 
   // ---------- Timeline zeichnen ----------
-  var RUL = 22, TY = 30, TH = 74, MY = 112, MH = 30, PADL = 12;
+  var RUL = 22, TY = 30, TH = 74, FXY = TY + TH + 6, FXH = 22, MY = FXY + FX_ORDER.length * (FXH + 3) + 3, MH = 30, TLH = MY + MH + 8, PADL = 12;
+  function laneY(i) { return FXY + i * (FXH + 3); }
   function tToX(T) { return PADL + (T - P.scroll) * P.pps; }
   function xToT(x) { return P.scroll + (x - PADL) / P.pps; }
   function tileAt(c, st) {
@@ -946,6 +1042,21 @@
     }
     if (V.ldrop != null) { var lx2 = V.ldrop >= P.segs.length ? tToX(total()) : tToX(P.segs[V.ldrop].start); x.fillStyle = "#E3B83F"; x.fillRect(lx2 - 2, TY - 4, 4, TH + 8); }
     if (!list.length) { x.fillStyle = "#6F716C"; x.font = "600 12px system-ui,sans-serif"; x.fillText(lang === "de" ? "Timeline leer: Clip hierher ziehen, doppelklicken oder live mit den Zahlen schneiden" : "Timeline empty: drag a clip here, double-click one, or cut live with the numbers", PADL + 4, TY + TH / 2); }
+    // Effekt-Spuren
+    FX_ORDER.forEach(function (ty, li) {
+      var y = laneY(li), def = FXDEF[ty], held = V.fxHeld[ty];
+      x.fillStyle = "#1C1D1C"; x.fillRect(0, y, W, FXH);
+      x.fillStyle = "#4F514E"; x.font = "600 10px system-ui,sans-serif"; x.fillText(keyLabel(P.fxKeys[ty]) + " · " + def.name[lang], 4, y + FXH / 2);
+      P.fx.forEach(function (f) {
+        if (f.type !== ty) return;
+        var fx0 = tToX(f.start), fw = Math.max(2, f.dur * P.pps); if (fx0 > W || fx0 + fw < 0) return;
+        x.save(); x.beginPath(); x.rect(fx0, y, fw, FXH); x.clip();
+        x.fillStyle = def.color; x.globalAlpha = held === f.id ? 1 : 0.82; x.fillRect(fx0, y, fw, FXH); x.globalAlpha = 1;
+        x.fillStyle = "#141414"; x.font = "700 10px system-ui,sans-serif"; x.fillText(keyLabel(P.fxKeys[ty]) + "  " + def.name[lang], fx0 + 5, y + FXH / 2);
+        x.restore();
+        if (!REC && P.selFx === f.id) { x.strokeStyle = "#E2621B"; x.lineWidth = 2; x.strokeRect(fx0 + 1, y + 1, Math.max(1, fw - 2), FXH - 2); }
+      });
+    });
     // Musik
     var m = P.music;
     x.fillStyle = "#1A1B1A"; x.fillRect(0, MY, W, MH);
@@ -990,15 +1101,38 @@
     }
     return null;
   }
+  function hitFx(p) {
+    for (var li = 0; li < FX_ORDER.length; li++) {
+      var y = laneY(li); if (p.y < y || p.y > y + FXH) continue;
+      var ty = FX_ORDER[li], best = null;
+      P.fx.forEach(function (f) {
+        if (f.type !== ty) return;
+        var x0 = tToX(f.start), x1 = tToX(f.start + f.dur);
+        if (p.x >= x0 - 4 && p.x <= x1 + 4) best = { f: f, edge: x1 - p.x < 7 ? "R" : p.x - x0 < 7 ? "L" : null };
+      });
+      return best || { lane: ty };
+    }
+    return null;
+  }
+  function snapT(T, ex) {                              // an Schnitte und Abspielkopf einrasten (7 px)
+    var best = T, bd = 7 / P.pps;
+    var cand = [P.T]; P.segs.forEach(function (g) { cand.push(g.start, g.start + g.dur); });
+    P.fx.forEach(function (f) { if (f.id !== ex) cand.push(f.start, f.start + f.dur); });
+    cand.forEach(function (c) { if (Math.abs(c - T) < bd) { bd = Math.abs(c - T); best = c; } });
+    return best;
+  }
   function onTLDown(e) {
     if (e.button > 0 || V.exporting) return;
     e.preventDefault(); V.tcv.setPointerCapture(e.pointerId);
     var p = tlPos(e);
     if (REC) return;
+    var hf = p.y >= RUL ? hitFx(p) : null;
+    if (hf && hf.f) { P.selFx = hf.f.id; P.sel = 0; V.drag = { mode: hf.edge ? "fxtrim" + hf.edge : "fxmove", id: hf.f.id, x0: p.x, s0: hf.f.start, d0: hf.f.dur, undo: false }; updateBar(); return; }
+    if (hf) { P.selFx = 0; P.sel = 0; updateBar(); }
     var h = p.y >= RUL ? hitSeg(p) : null;
-    if (h && h.edge) { V.drag = { mode: "trim" + h.edge, id: h.g.id, x0: p.x, in0: h.g.in, dur0: h.g.dur, undo: false }; P.sel = h.g.id; updateBar(); return; }
-    if (h) { V.drag = { mode: "move", id: h.g.id, x0: p.x, moved: false, idx: 0 }; P.sel = h.g.id; updateBar(); return; }
-    if (p.y >= RUL && p.y >= TY && p.y <= TY + TH) { P.sel = 0; updateBar(); }
+    if (h && h.edge) { V.drag = { mode: "trim" + h.edge, id: h.g.id, x0: p.x, in0: h.g.in, dur0: h.g.dur, undo: false }; P.sel = h.g.id; P.selFx = 0; updateBar(); return; }
+    if (h) { V.drag = { mode: "move", id: h.g.id, x0: p.x, moved: false, idx: 0 }; P.sel = h.g.id; P.selFx = 0; updateBar(); return; }
+    if (p.y >= RUL && p.y >= TY && p.y <= TY + TH) { P.sel = 0; P.selFx = 0; updateBar(); }
     V.drag = { mode: "scrub" }; seekTo(xToT(p.x));
   }
   function onTLMove(e) {
@@ -1006,9 +1140,24 @@
     var p = tlPos(e), dg = V.drag;
     if (!dg) {
       if (REC) { V.tcv.style.cursor = "default"; return; }
+      var hf = p.y >= RUL ? hitFx(p) : null;
+      if (hf && hf.f) { V.tcv.style.cursor = hf.edge ? "ew-resize" : "grab"; return; }
       var h = p.y >= RUL ? hitSeg(p) : null; V.tcv.style.cursor = h && h.edge ? "ew-resize" : h ? "grab" : "default"; return;
     }
     if (dg.mode === "scrub") { seekTo(xToT(p.x)); return; }
+    if (dg.mode.indexOf("fx") === 0) {
+      var f = fxById(dg.id); if (!f) return;
+      if (!dg.undo && Math.abs(p.x - dg.x0) > 2) { pushUndo(); dg.undo = true; V.tcv.style.cursor = dg.mode === "fxmove" ? "grabbing" : "ew-resize"; }
+      if (!dg.undo) return;
+      var fdt = (p.x - dg.x0) / P.pps, end0 = dg.s0 + dg.d0;
+      if (dg.mode === "fxmove") {
+        var ns = Math.max(0, dg.s0 + fdt), sn = snapT(ns, f.id);
+        if (sn === ns) { var se = snapT(ns + f.dur, f.id); ns = se - f.dur; } else ns = sn;
+        f.start = Math.max(0, ns);
+      } else if (dg.mode === "fxtrimL") { var st2 = snapT(clamp(dg.s0 + fdt, 0, end0 - FX_MIN), f.id); f.start = Math.min(st2, end0 - FX_MIN); f.dur = end0 - f.start; }
+      else { var e2 = snapT(Math.max(dg.s0 + FX_MIN, end0 + fdt), f.id); f.dur = Math.max(FX_MIN, e2 - f.start); }
+      return;
+    }
     var g = segById(dg.id); if (!g) return;
     var c = clipById(g.clip), dt = (p.x - dg.x0) / P.pps;
     if (dg.mode === "trimL" || dg.mode === "trimR") {
@@ -1027,6 +1176,7 @@
   function insertIdx(T) { for (var i = 0; i < P.segs.length; i++) if (T < P.segs[i].start + P.segs[i].dur / 2) return i; return P.segs.length; }
   function onTLUp() {
     if (!V || !V.drag) return; var dg = V.drag; V.drag = null;
+    if (dg.mode.indexOf("fx") === 0) { var f = fxById(dg.id); if (f && dg.undo) mergeFx(f.type); V.tcv.style.cursor = "default"; updateBar(); return; }
     if (dg.mode === "move" && dg.moved) {
       var g = segById(dg.id), from = P.segs.indexOf(g), to = dg.idx;
       if (g && to !== from && to !== from + 1) { pushUndo(); P.segs.splice(from, 1); if (to > from) to--; P.segs.splice(to, 0, g); layout(); }
@@ -1111,6 +1261,7 @@
     else if (a === "zout") zoom(1 / 1.4);
     else if (a === "fill") { if (!REC) { pushUndo(); autoFill(false); renderAll(); } }
     else if (a === "reset") resetCounters();
+    else if (a === "fxkey") { V.fxLearn = V.fxLearn === b.dataset.fx ? null : b.dataset.fx; renderFx(); if (V.fxLearn) note(t("fxLearn")); }
     else if (a === "mode-cont" || a === "mode-rand") setMode(a === "mode-rand" ? "rand" : "cont");
     else if (a === "fill-p" || a === "fit-p") { if (selSeg()) { pushUndo(); setSelProp("fit", a === "fit-p" ? "fit" : "fill"); } }
     else if (a === "toall") { var s = selSeg(); if (s) { pushUndo(); P.segs.forEach(function (g) { g.anim = s.anim; g.as = s.as; g.ad = s.ad; g.fit = s.fit; }); } }
@@ -1146,6 +1297,14 @@
     var tg = e.target, tag = (tg && tg.tagName) || "";
     if (tag === "TEXTAREA" || (tag === "INPUT" && tg.type !== "range")) return;
     if (!V.root.querySelector("#sf-modal").hidden) { if (e.code === "Escape" && !V.exporting) closeModal(); return; }
+    if (V.fxLearn) {                                   // Buchstabe für einen Effekt festlegen
+      e.preventDefault();
+      if (e.code === "Escape") { V.fxLearn = null; renderFx(); return; }
+      if (!/^Key[A-Z]$/.test(e.code) || FX_RESERVED.indexOf(e.code) >= 0) { note(t("fxBadKey")); return; }
+      fxSetKey(V.fxLearn, e.code); V.fxLearn = null; renderFx(); note(""); return;
+    }
+    var mod0 = e.ctrlKey || e.metaKey || e.altKey, fty = mod0 ? null : fxTypeForCode(e.code);
+    if (fty) { e.preventDefault(); if (!e.repeat) fxPress(fty); return; }
     var d = digitOf(e.code);
     if (d >= 0) {
       if (e.ctrlKey || e.metaKey) return;
@@ -1160,7 +1319,7 @@
     var mod = e.ctrlKey || e.metaKey;
     switch (e.code) {
       case "Space": case "NumpadEnter": e.preventDefault(); if (!e.repeat) togglePlay(); break;
-      case "Escape": if (PL.on) stopPlay(); else { P.sel = 0; updateBar(); } break;
+      case "Escape": if (PL.on) stopPlay(); else { P.sel = 0; P.selFx = 0; updateBar(); } break;
       case "KeyS": if (!mod) { e.preventDefault(); splitAt(); } break;
       case "Delete": case "Backspace": e.preventDefault(); delSel(); break;
       case "KeyZ": if (mod) { e.preventDefault(); if (e.shiftKey) redo(); else undo(); } break;
@@ -1174,6 +1333,8 @@
       case "NumpadSubtract": case "Minus": case "Slash": e.preventDefault(); zoom(1 / 1.4); break;
     }
   }
+  function onKeyUp(e) { if (!V) return; var ty = fxTypeForCode(e.code); if (ty) { e.preventDefault(); fxRelease(ty); } }
+  function onBlur() { if (!V) return; Object.keys(V.fxHeld).concat(Object.keys(V.fxPeek)).forEach(function (ty) { fxRelease(ty); }); }
   function onDragOver(e) { if (!e.dataTransfer || Array.prototype.indexOf.call(e.dataTransfer.types || [], "Files") < 0) return; e.preventDefault(); V.root.classList.add("drop"); }
   function onDragLeave(e) { if (!e.relatedTarget || !V.root.contains(e.relatedTarget)) V.root.classList.remove("drop"); }
   function onDrop(e) { if (!e.dataTransfer || !e.dataTransfer.files.length) return; e.preventDefault(); V.root.classList.remove("drop"); importFiles(e.dataTransfer.files); }
@@ -1190,7 +1351,7 @@
     var m = V.root.querySelector("#sf-modal"), old = keepNote && m.querySelector("#sf-pg") ? m.querySelector("#sf-pg").textContent : "";
     m.hidden = false;
     if (V.modal === "help") {
-      m.innerHTML = '<div class="sf-box"><h2>' + t("helpH") + "</h2><p>" + t("help1") + "</p><p>" + t("help2") + "</p><p>" + t("help3") + "</p><p>" + t("help3b") + "</p><p>" + t("help4") + "</p><p>" + t("help5") + "</p><p>" + t("help6") + '</p><div class="sf-btns"><button type="button" data-a="close">' + t("close") + "</button></div></div>";
+      m.innerHTML = '<div class="sf-box"><h2>' + t("helpH") + "</h2><p>" + t("help1") + "</p><p>" + t("help2") + "</p><p>" + t("help3") + "</p><p>" + t("help3b") + "</p><p>" + t("help4") + "</p><p>" + t("help5") + "</p><p>" + t("help5b") + "</p><p>" + t("help6") + '</p><div class="sf-btns"><button type="button" data-a="close">' + t("close") + "</button></div></div>";
       return;
     }
     var D = total(), ex = V.exporting;
@@ -1215,6 +1376,7 @@
       if (REC) { P.T = T; liveTick(T); }
       else if (T >= total()) { stopPlay(total()); }
       else { P.T = T; timelineTick(T); }
+      if (PL.on) fxTick(P.T);
       if (PL.on || REC) follow();
     } else stillTick();
     drawPreview(); drawTL(); updateTime();
@@ -1231,7 +1393,7 @@
     injectCSS();
     el.innerHTML = html();
     var root = el.querySelector("#sf-root");
-    V = { root: root, host: el, pcv: root.querySelector("#sf-pv"), tcv: root.querySelector("#sf-tl"), hold: { cv: canvasEl(2, 2), key: "" }, drag: null, ld: null, ldrop: null, exporting: false, modal: null, fps: 30 };
+    V = { root: root, host: el, pcv: root.querySelector("#sf-pv"), tcv: root.querySelector("#sf-tl"), hold: { cv: canvasEl(2, 2), key: "" }, drag: null, ld: null, ldrop: null, exporting: false, modal: null, fps: 30, fxHeld: {}, fxPeek: {}, fxLearn: null };
     V.px = V.pcv.getContext("2d"); V.tx = V.tcv.getContext("2d");
     root.addEventListener("click", onClick); root.addEventListener("dblclick", onDbl);
     root.addEventListener("input", onInput); root.addEventListener("change", onChange);
@@ -1239,6 +1401,7 @@
     V.tcv.addEventListener("pointerdown", onTLDown); V.tcv.addEventListener("wheel", onTLWheel, { passive: false });
     window.addEventListener("pointermove", onMove); window.addEventListener("pointerup", onUp);
     window.addEventListener("keydown", onKey); window.addEventListener("resize", onResize);
+    window.addEventListener("keyup", onKeyUp); window.addEventListener("blur", onBlur);
     window.addEventListener("beforeunload", onBeforeUnload);
     root.addEventListener("dragover", onDragOver); root.addEventListener("dragleave", onDragLeave); root.addEventListener("drop", onDrop);
     renderAll(); layoutStage();
@@ -1254,11 +1417,12 @@
       if (V.ld && V.ld.gh) V.ld.gh.remove();
       window.removeEventListener("pointermove", onMove); window.removeEventListener("pointerup", onUp);
       window.removeEventListener("keydown", onKey); window.removeEventListener("resize", onResize);
+      window.removeEventListener("keyup", onKeyUp); window.removeEventListener("blur", onBlur);
       window.removeEventListener("beforeunload", onBeforeUnload);
       if (document.fullscreenElement && V.root.contains(document.fullscreenElement)) document.exitFullscreen().catch(noop);
       V = null;
     }
   }
 
-  window.SkapeForm = { mount: mount, unmount: unmount, _debug: function () { return { P: P, REC: REC, PL: PL, liveHit: liveHit, stopPlay: stopPlay, startPlay: startPlay, insertClip: insertClip, splitAt: splitAt, doExport: doExport, total: total, clock: clock, assign: assign }; } };
+  window.SkapeForm = { mount: mount, unmount: unmount, _debug: function () { return { P: P, REC: REC, PL: PL, liveHit: liveHit, stopPlay: stopPlay, startPlay: startPlay, insertClip: insertClip, splitAt: splitAt, doExport: doExport, fxActive: fxActive, total: total, clock: clock, assign: assign }; } };
 })();
