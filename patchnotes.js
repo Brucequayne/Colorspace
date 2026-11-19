@@ -32,6 +32,9 @@ window.PATCHNOTES = {
   ],
 
   ezcrop: [
+    { v: "0.3", t: "2026-11-19T02:45:00+01:00",
+      de: ["Export mit deutlich höherer Bitrate: rund 40 Mbit/s statt 16 Mbit/s, gedacht als Zwischenmaterial, das im Schnittprogramm noch einmal gerendert wird", "Im Low-Quality-Modus bekommt der Ausschnitt jetzt doppelt so viel Reserve über der Quelle (bis 40 Mbit/s)", "Jede Sekunde ein Keyframe, damit das Video im Schnittprogramm flüssiger zu scrubben ist", "Nutzt H.264 Level 4.2, damit die hohe Bitrate erlaubt ist; ältere Geräte fallen automatisch auf eine niedrigere Stufe zurück"],
+      en: ["Export with a much higher bitrate: around 40 Mbps instead of 16 Mbps, meant as intermediate footage that gets rendered once more in your editing tool", "In low-quality mode the section now gets twice as much headroom above the source (up to 40 Mbps)", "A keyframe every second, so the video scrubs more smoothly in your editing tool", "Uses H.264 level 4.2 so the high bitrate is allowed; older devices automatically fall back to a lower level"] },
     { v: "0.2", t: "2026-11-11T02:20:00+01:00",
       de: ["Formatauswahl: neben 9:16 jetzt auch 4:5 (1080 × 1350) und 1:1 (1080 × 1080)", "Rahmen, Vorschau und Export richten sich nach dem gewählten Format, auch im Low-Quality-Modus", "Formatwechsel jederzeit möglich, die aufgenommene Fahrt bleibt erhalten", "Dateiname enthält das Format"],
       en: ["Format choice: besides 9:16 now also 4:5 (1080 × 1350) and 1:1 (1080 × 1080)", "Frame, preview and export follow the chosen format, also in low-quality mode", "Switch the format any time, the recorded move is kept", "File name includes the format"] },

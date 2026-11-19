@@ -4,7 +4,7 @@
 (function () {
   "use strict";
 
-  var VERSION = "0.2", FPS = 30, BITRATE = 16000000;
+  var VERSION = "0.3", FPS = 30, BITRATE = 40000000;   // hohe Bitrate: Export ist Zwischenmaterial fürs Schnittprogramm
   // Formate: Seitenverhältnis und Full-HD-Ausgabe (Breite immer 1080)
   var FORMATS = { "9:16": { aw: 9, ah: 16, w: 1080, h: 1920 }, "4:5": { aw: 4, ah: 5, w: 1080, h: 1350 }, "1:1": { aw: 1, ah: 1, w: 1080, h: 1080 } };
   var FORMAT_ORDER = ["9:16", "4:5", "1:1"];
@@ -41,8 +41,8 @@
     howH: L2("So funktioniert’s", "How it works"),
     how1: L2("Spiel das Video ab und halte die Maus im Bild gedrückt: Der Rahmen im gewählten Format folgt deiner Hand, und jede Bewegung wird mit der Zeit des Videos gespeichert. Fährst du eine Stelle später noch einmal, ersetzt die neue Fahrt die alte nur dort, wo du gefahren bist. Mit dem Regler für die Größe zoomst du hinein, auch das wird beim Abspielen aufgezeichnet.",
              "Play the video and hold the mouse down in the picture: the frame in the chosen format follows your hand, and every movement is stored with the video's time. If you go over a passage again later, the new move replaces the old one only where you moved. The size slider zooms in, and that is recorded during playback too."),
-    how2: L2("Glättung nimmt kleine Zitterer aus der Fahrt. Der Export rechnet Bild für Bild den Ausschnitt in Full HD heraus: 1080 × 1920 bei 9:16, 1080 × 1350 bei 4:5 und 1080 × 1080 bei 1:1, jeweils 30 Bilder pro Sekunde mit variabler Bitrate um 16 Mbit/s. Der Ton wird übernommen. Das Format kannst du jederzeit wechseln, die Fahrt bleibt erhalten.",
-             "Smoothing takes small jitters out of the move. The export renders the section frame by frame in Full HD: 1080 × 1920 for 9:16, 1080 × 1350 for 4:5 and 1080 × 1080 for 1:1, each at 30 frames per second with a variable bitrate around 16 Mbps. The audio is kept. You can switch the format at any time, the move is kept."),
+    how2: L2("Glättung nimmt kleine Zitterer aus der Fahrt. Der Export rechnet Bild für Bild den Ausschnitt in Full HD heraus: 1080 × 1920 bei 9:16, 1080 × 1350 bei 4:5 und 1080 × 1080 bei 1:1, jeweils 30 Bilder pro Sekunde mit variabler Bitrate um 40 Mbit/s. Das ist bewusst hoch, weil das Video danach im Schnittprogramm meist noch einmal gerendert wird und dabei möglichst wenig Qualität verlieren soll. Der Ton wird übernommen. Das Format kannst du jederzeit wechseln, die Fahrt bleibt erhalten.",
+             "Smoothing takes small jitters out of the move. The export renders the section frame by frame in Full HD: 1080 × 1920 for 9:16, 1080 × 1350 for 4:5 and 1080 × 1080 for 1:1, each at 30 frames per second with a variable bitrate around 40 Mbps. That is deliberately high, because the video usually gets rendered once more in your editing tool and should lose as little quality as possible there. The audio is kept. You can switch the format at any time, the move is kept."),
     how3: L2("Der Export läuft vollständig in deinem Browser. Er dauert je nach Rechner etwa so lange wie das Video selbst oder etwas länger.", "The export runs entirely in your browser. Depending on your computer it takes about as long as the video itself, or a little longer.")
   };
   function t(k) { return TX[k][lang]; }
@@ -188,15 +188,16 @@
     list.forEach(function (c) { maxH = Math.max(maxH, rect(c).h); });
     var uw = f.aw * 2, uh = f.ah * 2;                                               // kleinste Einheit mit geraden Werten im exakten Format
     var k = clamp(Math.round(maxH / uh), Math.ceil(320 / uh), f.h / uh), w = k * uw, h = k * uh;   // höchstens Full HD
-    var br = srcBitrate() * (w * h) / (E.vw * E.vh) * 1.5;                          // Pixelanteil der Quelle plus Reserve
-    br = clamp(Math.round(br / 1e5) * 1e5, 1000000, 12000000);
+    var br = srcBitrate() * (w * h) / (E.vw * E.vh) * 3;                            // Pixelanteil der Quelle plus viel Reserve fürs zweite Rendern
+    br = clamp(Math.round(br / 1e5) * 1e5, 4000000, BITRATE);
     return { w: w, h: h, br: br };
   }
   function mb1(v) { var s = (v / 1e6).toFixed(1); return lang === "de" ? s.replace(".", ",") : s; }
   async function pickVideoCodec(sp) {
-    var list = ["avc1.640028", "avc1.4d0028", "avc1.42e028"];
+    // Level 4.2 erlaubt die hohe Bitrate (High bis 62,5 Mbit/s), Level 4.0 als Rückfall mit gedeckelter Bitrate
+    var list = [["avc1.64002a", 62.5e6], ["avc1.4d002a", 50e6], ["avc1.42e02a", 50e6], ["avc1.640028", 25e6], ["avc1.4d0028", 20e6], ["avc1.42e028", 20e6]];
     for (var i = 0; i < list.length; i++) {
-      var cfg = { codec: list[i], width: sp.w, height: sp.h, bitrate: sp.br, bitrateMode: "variable", framerate: FPS, latencyMode: "quality", avc: { format: "avc" } };
+      var cfg = { codec: list[i][0], width: sp.w, height: sp.h, bitrate: Math.min(sp.br, list[i][1]), bitrateMode: "variable", framerate: FPS, latencyMode: "quality", avc: { format: "avc" } };
       try { var r = await VideoEncoder.isConfigSupported(cfg); if (r.supported) return cfg; } catch (e) {}
     }
     return null;
@@ -246,7 +247,7 @@
         var r = rect(path(tm));
         x.drawImage(ev, r.x, r.y, r.w, r.h, 0, 0, OW, OH);
         var vf = new VideoFrame(cv, { timestamp: Math.round(i * us), duration: Math.round(us) });
-        venc.encode(vf, { keyFrame: i % (FPS * 2) === 0 }); vf.close();
+        venc.encode(vf, { keyFrame: i % FPS === 0 }); vf.close();   // jede Sekunde ein Keyframe: flüssigeres Scrubben im Schnittprogramm
         while (venc.encodeQueueSize > 6) await new Promise(function (r2) { setTimeout(r2, 4); });
         if (i % 5 === 0) note(fmt(t("working"), { i: i + 1, n: n, p: Math.round(i / n * (audio ? 92 : 100)) }));
       }
