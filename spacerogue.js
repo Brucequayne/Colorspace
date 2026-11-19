@@ -5,7 +5,7 @@
 (function () {
   "use strict";
 
-  var VERSION = "0.58.2";
+  var VERSION = "0.59";
   var CELL_M = 2.5, PX = 24;              // Meter je Zelle, Pixel je Zelle bei Zoom 1
   var lang = "de";
   function L2(de, en) { return { de: de, en: en }; }
@@ -460,7 +460,7 @@
   // Schiffscode: kompaktes JSON, damit Entwürfe geteilt und später als Gegner-Blaupausen eingebaut werden können.
   function shipCode() { return JSON.stringify({ sr: 1, color: S.color, b: S.blocks.map(function (b) { var a = [b.t, b.x, b.y, b.r, b.f]; if (b.c) a.push(b.c); return a; }) }); }
   // Szene (Developer Tool): Schiffscode plus Environment. Gleiches Format, nur mit zusätzlichem Feld env – alte Versionen lesen daraus einfach die Blöcke.
-  function sceneCode() { var o = JSON.parse(shipCode()); o.env = (S.env || []).map(envPack); if (S.names.station) o.name = S.names.station; return JSON.stringify(o); }
+  function sceneCode() { var o = JSON.parse(shipCode()); o.env = (S.env || []).map(envPack); if (S.ev && S.ev.length) o.ev = S.ev.map(evPack); if (REC.tracks.length) o.rec = REC.tracks.map(function (q) { return { id: q.id, name: q.name, on: q.on, ship: q.ship, g: q.g, f: q.f, d: q.d, col: q.col }; }); if (S.names.station) o.name = S.names.station; return JSON.stringify(o); }
   function parseEnv(txt) { try { var o = JSON.parse(String(txt).trim()); return o && Array.isArray(o.env) ? o.env.map(envUnpack).filter(Boolean) : null; } catch (e) { return null; } }
   function parseShip(txt) {
     try {
@@ -474,21 +474,22 @@
   var S = null, V = null, raf = 0, last = 0;
   var SAVE = "spacerogue-ship-v1", SAVE_ST = "spacerogue-station-v1";
   function freshState() {
-    return { blocks: [], ed: "ship", ship: [], station: [], names: { ship: "", station: "" }, tool: "build", sel: "lblk", r: 0, f: 0, sym: false, symGap: false, view: "in", color: "#C8473A", undo: [], mode: "edit", env: [], envTab: false, envSel: "ast01", envL: 0, envS: 1, envR: 0, envRnd: false };
+    return { blocks: [], ed: "ship", ship: [], station: [], names: { ship: "", station: "" }, tool: "build", sel: "lblk", r: 0, f: 0, sym: false, symGap: false, view: "in", color: "#C8473A", undo: [], mode: "edit", env: [], ev: [], envTab: false, evTab: false, envSel: "ast01", envL: 0, envS: 1, envR: 0, envRnd: false };
   }
   function load() {
-    S = freshState();
+    S = freshState(); recLoad();
     try { var j = JSON.parse(localStorage.getItem(SAVE) || "null"); if (j && j.blocks) { S.blocks = j.blocks.filter(function (b) { return T[b.t]; }); if (j.color) S.color = j.color; if (j.symGap) S.symGap = true; } } catch (e) {}
     if (!S.blocks.length) S.blocks = starter();
     S.ship = S.blocks;
     try { var jn = JSON.parse(localStorage.getItem(SAVE) || "null"); if (jn && jn.name) S.names.ship = jn.name; } catch (e) {}
-    try { var js = JSON.parse(localStorage.getItem(SAVE_ST) || "null"); if (js && js.blocks) S.station = js.blocks.filter(function (b) { return T[b.t]; }); if (js && Array.isArray(js.env)) S.env = js.env.map(envUnpack).filter(Boolean); if (js && js.name) S.names.station = js.name; if (js && js.ed === "station" && devOk()) { S.ed = "station"; S.blocks = S.station; } } catch (e) {}
+    try { var js = JSON.parse(localStorage.getItem(SAVE_ST) || "null"); if (js && js.blocks) S.station = js.blocks.filter(function (b) { return T[b.t]; }); if (js && Array.isArray(js.env)) S.env = js.env.map(envUnpack).filter(Boolean); if (js && Array.isArray(js.ev)) S.ev = js.ev.map(evUnpack).filter(Boolean); if (js && js.name) S.names.station = js.name; if (js && js.ed === "station" && devOk()) { S.ed = "station"; S.blocks = S.station; } } catch (e) {}
   }
   function save() {
     if (S.ed === "station") S.station = S.blocks; else S.ship = S.blocks;
     try {
       localStorage.setItem(SAVE, JSON.stringify({ blocks: S.ship.map(strip), color: S.color, symGap: !!S.symGap, name: S.names.ship }));
-      localStorage.setItem(SAVE_ST, JSON.stringify({ blocks: S.station.map(strip), ed: S.ed, name: S.names.station, env: (S.env || []).map(envPack) }));
+      var sto = { blocks: S.station.map(strip), ed: S.ed, name: S.names.station, env: (S.env || []).map(envPack) }; if (S.ev && S.ev.length) sto.ev = S.ev.map(evPack);   /* Eventmarker (v0.59) nur, wenn es welche gibt */
+      localStorage.setItem(SAVE_ST, JSON.stringify(sto));
     } catch (e) {}
   }
   // Editor-Modus umschalten: Schiff oder Raumstation, jeder mit eigenem Entwurf
@@ -527,7 +528,7 @@
     save(); fitCam(); syncUI();
   }
   function strip(b) { var o = { t: b.t, x: b.x, y: b.y, r: b.r, f: b.f }; if (b.c) o.c = b.c; return o; }
-  function pushUndo() { S.undo.push(JSON.stringify(S.ed === "station" ? { b: S.blocks.map(strip), e: (S.env || []).map(envPack) } : S.blocks.map(strip)));   /* im Developer Tool mit Environment */ if (S.undo.length > 60) S.undo.shift(); }
+  function pushUndo() { S.undo.push(JSON.stringify(S.ed === "station" ? { b: S.blocks.map(strip), e: (S.env || []).map(envPack), v: (S.ev || []).map(evPack) } : S.blocks.map(strip)));   /* im Developer Tool mit Environment */ if (S.undo.length > 60) S.undo.shift(); }
 
   // Beispielschiff: Cockpit vorn, luftdichter Raum, Triebwerke in alle Richtungen, Gyroskop, Energie, Waffen
   function starter() {
@@ -1385,7 +1386,7 @@
     if (bb) { c.fillStyle = "rgba(227,184,63,.9)"; c.beginPath(); c.moveTo(ax * s, (ay - 1.2) * s); c.lineTo((ax - 0.7) * s, ay * s); c.lineTo((ax + 0.7) * s, ay * s); c.closePath(); c.fill();
       c.fillStyle = "rgba(227,184,63,.9)"; c.font = "700 " + Math.max(10, 0.45 * s) + "px " + FONTS(); c.textAlign = "center"; c.fillText(t("dir"), ax * s, (ay + 0.7) * s); }
     // Vorschau
-    if (V.mouse && !V.pan && !(S.ed === "station" && S.envTab)) {
+    if (V.mouse && !V.pan && !(S.ed === "station" && (S.envTab || S.evTab))) {
       var cx = Math.floor(V.mouse.x), cy = Math.floor(V.mouse.y);
       if (S.tool === "build") {
         var er = V.row ? null : edRot(cx, cy), ghosts = V.row ? rowList() : [ghostAt(cx, cy, S.sel, er[0], er[1])];
@@ -1410,7 +1411,8 @@
     if (fxc) { bdFxEnd(V.ctx, W, H, suns); c = V.ctx; }
     if (S.ed === "station") { envEdGhost(c); bdEdGhost(c); }
     // Infokasten zum Block unter dem Mauszeiger: Name, Gewicht, Leben
-    if (V.mouse && !V.pan && !V.row && !(S.ed === "station" && S.envTab)) {
+    evEdDraw(c);   // Eventmarker
+    if (V.mouse && !V.pan && !V.row && !(S.ed === "station" && (S.envTab || S.evTab))) {
       var hb2 = blockAt(Math.floor(V.mouse.x), Math.floor(V.mouse.y), M);
       if (hb2) {
         var ty2 = T[hb2.t], txt = ty2.n[lang] + " · " + kg(ty2.mass) + " · " + ty2.hp + " HP · " + cr(ty2.cost);
@@ -2221,6 +2223,136 @@
     });
     c.restore();
   }
+  // ===== 48-events.js · Eventmarker (Developer Tool, seit v0.59) =====
+  // Tab "Events" im Developer Tool: Noah setzt nummerierte Marker in die Szene. Die Nummer ist die Reihenfolge der Mission
+  // (der erste gesetzte ist Event 1). Jeder Marker hat einen Auslöser aus einer festen Liste, einen Radius (Meter), bei
+  // "Zeit" Sekunden nach dem vorigen Event, optional ein Ziel (Block der Struktur oder eine aufgenommene Spur) und einen
+  // freien Text, was passieren soll. Die Missionslogik daraus entsteht später (v0.6); hier wird nur gesetzt, gezeigt und exportiert.
+  // Koordinaten wie das Environment: Zellen der Szene (Ebene 0). Im Testflug liegt Zelle (0,0) bei FL.O.
+  Object.assign(TX, {
+    tabEv: L2("Events", "Events"), evH: L2("Eventmarker", "Event markers"),
+    evHelp: L2("Klick setzt den nächsten Marker, die Nummer ist die Reihenfolge. Ziehen verschiebt, am Ring ziehen ändert den Radius, Rechtsklick löscht.", "Click places the next marker, its number is the order. Drag to move, drag the ring to change the radius, right-click deletes."),
+    evNone: L2("Noch keine Marker.", "No markers yet."), evNr: L2("Nummer", "Number"), evK: L2("Auslöser", "Trigger"), evR: L2("Radius (m)", "Radius (m)"), evS: L2("Sekunden nach dem vorigen Event", "Seconds after the previous event"),
+    evTgt: L2("Ziel", "Target"), evTxt: L2("Was passiert?", "What happens?"), evDel: L2("Marker löschen", "Delete marker"),
+    evTxtPh: L2("z. B. Funkspruch: „Alarm! Alle auf die Stationen!“ · danach Spur „Pirat Anflug“ · Musik wechselt auf Kampf", "e.g. radio: “Alert! Everyone to their stations!” · then track “Pirate approach” · music switches to combat"),
+    evBlk: L2("Block", "Block"), evNoBlk: L2("Marker auf einen Block der Struktur ziehen oder eine Spur wählen", "Drag the marker onto a block of the structure or pick a track"), evTrk: L2("oder Spur", "or track"), evTrk0: L2("– keine –", "– none –"),
+    ev_start: L2("Missionsstart", "Mission start"), ev_ort: L2("Ort erreichen", "Reach area"), ev_zeit: L2("Zeit", "Time"), ev_zerst: L2("Ziel zerstören", "Destroy target"), ev_repar: L2("Block reparieren", "Repair block"),
+    ev_dock: L2("Andocken", "Dock"), ev_raum: L2("Raum betreten", "Enter room"), ev_wrack: L2("Wrack finden", "Find wreck"), ev_frei: L2("Sonstiges (im Text)", "Other (in the text)")
+  });
+  var EVK = ["start", "ort", "zeit", "zerst", "repar", "dock", "raum", "wrack", "frei"];
+  var EV_COL = { start: "#57D18A", ort: "#7FB2E0", zeit: "#C9A0F5", zerst: "#E0533F", repar: "#E3B83F", dock: "#5FD0D8", raum: "#8FD06A", wrack: "#D89A5A", frei: "#B9C4D4" };
+  var EV_BOUND = { zerst: 1, repar: 1, dock: 1, raum: 1, wrack: 1 };   // Auslöser, die sich auf ein Objekt beziehen
+  function evL() { return S.ev || (S.ev = []); }
+  function evRenum() { evL().forEach(function (m, i) { m.n = i + 1; }); }
+  function r2(v) { return Math.round(v * 100) / 100; }
+  function evPack(m) { var o = { n: m.n, k: m.k, x: r2(m.x), y: r2(m.y), r: r2(m.r), txt: m.txt || "" }; if (m.k === "zeit") o.s = m.s || 0; if (m.b) o.b = m.b; if (m.trk) o.trk = m.trk; return o; }
+  function evUnpack(o) {
+    if (!o || !isFinite(+o.x) || !isFinite(+o.y)) return null;
+    var m = { n: +o.n || 0, k: EVK.indexOf(o.k) >= 0 ? o.k : "ort", x: +o.x, y: +o.y, r: Math.max(1, Math.min(5000, +o.r || 10)), txt: String(o.txt || "").slice(0, 4000) };
+    if (m.k === "zeit") m.s = Math.max(0, Math.min(3600, +o.s || 0));
+    if (Array.isArray(o.b) && o.b.length === 2) m.b = [o.b[0] | 0, o.b[1] | 0]; if (o.trk) m.trk = +o.trk || 0;
+    return m;
+  }
+  function parseEv(txt) { try { var o = JSON.parse(String(txt).trim()); return o && Array.isArray(o.ev) ? o.ev.map(evUnpack).filter(Boolean).sort(function (a, b) { return a.n - b.n; }) : null; } catch (e) { return null; } }
+  // Bildschirm ↔ Szene (wie Environment-Ebene 0)
+  function evScr(m) { var s = PX * V.zoom; return { x: V.W / 2 + (m.x - V.cam.x) * s, y: V.H / 2 + (m.y - V.cam.y) * s, r: m.r / CELL_M * s }; }
+  function evPick(sx, sy) {
+    var L = evL();
+    for (var i = L.length - 1; i >= 0; i--) { var p = evScr(L[i]); if (Math.hypot(sx - p.x, sy - p.y) < 15) return { i: i, part: "c" }; }
+    for (i = L.length - 1; i >= 0; i--) { var q = evScr(L[i]), d = Math.hypot(sx - q.x, sy - q.y); if (Math.abs(d - q.r) < 7) return { i: i, part: "r" }; }
+    return null;
+  }
+  // Marker an den Block darunter hängen (nur bei Auslösern, die ein Objekt brauchen)
+  function evAttach(m) {
+    if (!EV_BOUND[m.k]) { delete m.b; return; }
+    var hb = blockAt(Math.floor(m.x), Math.floor(m.y), buildMap(S.blocks)); if (hb) m.b = [hb.x, hb.y];
+  }
+  function evBlock(m) { if (!m.b) return null; for (var i = 0; i < S.blocks.length; i++) if (S.blocks[i].x === m.b[0] && S.blocks[i].y === m.b[1]) return S.blocks[i]; return null; }
+  // ---------- Eingabe im Editor ----------
+  function evDown(e, m) {
+    var h = evPick(m.sx, m.sy), L = evL();
+    if (e.button === 2) { if (h) { pushUndo(); L.splice(h.i, 1); evRenum(); if (V.evSel >= L.length) V.evSel = L.length - 1; save(); syncUI(); } return; }
+    if (e.button !== 0) return;
+    if (h) { V.evSel = h.i; pushUndo(); V.evDrag = { i: h.i, part: h.part, dx: L[h.i].x - m.x, dy: L[h.i].y - m.y }; syncUI(); return; }
+    pushUndo();
+    var nm = { n: L.length + 1, k: L.length ? "ort" : "start", x: m.x, y: m.y, r: 10, txt: "" };
+    L.push(nm); V.evSel = L.length - 1; V.evDrag = { i: V.evSel, part: "c", dx: 0, dy: 0 }; save(); syncUI();
+  }
+  function evMove(m) {
+    var d = V.evDrag, mk = evL()[d.i]; if (!mk) return;
+    if (d.part === "c") { mk.x = m.x + d.dx; mk.y = m.y + d.dy; }
+    else mk.r = Math.max(1, Math.min(5000, Math.round(Math.hypot(m.x - mk.x, m.y - mk.y) * CELL_M)));
+  }
+  function evUp() { var d = V.evDrag; V.evDrag = null; var mk = d && evL()[d.i]; if (mk) evAttach(mk); save(); syncUI(); }
+  function evDelSel() { var L = evL(); if (V.evSel == null || V.evSel < 0 || !L[V.evSel]) return; pushUndo(); L.splice(V.evSel, 1); evRenum(); V.evSel = Math.min(V.evSel, L.length - 1); save(); syncUI(); }
+  // Feld im Panel geändert
+  function evField(f, v) {
+    var L = evL(), m = L[V.evSel]; if (!m) return;
+    if (f === "n") { var to = Math.max(1, Math.min(L.length, Math.round(+v) || 1)) - 1; if (to !== V.evSel) { pushUndo(); L.splice(V.evSel, 1); L.splice(to, 0, m); evRenum(); V.evSel = to; } save(); evSync(V.root, true); return; }
+    if (f === "k") { pushUndo(); m.k = EVK.indexOf(v) >= 0 ? v : "ort"; if (m.k === "zeit" && m.s == null) m.s = 5; evAttach(m); save(); evSync(V.root, true); return; }
+    if (f === "r") m.r = Math.max(1, Math.min(5000, +v || 1));
+    else if (f === "s") m.s = Math.max(0, Math.min(3600, +v || 0));
+    else if (f === "trk") { m.trk = +v || 0; if (!m.trk) delete m.trk; }
+    else if (f === "txt") m.txt = String(v).slice(0, 4000);
+    save(); evSync(V.root, false);
+  }
+  // ---------- Panel ----------
+  function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
+  function evSync(r, force) {
+    var box = r.querySelector(".sr-evp"); if (!box) return;
+    var L = evL(); if (V.evSel == null || V.evSel >= L.length) V.evSel = L.length - 1;
+    var list = L.length ? L.map(function (m, i) {
+      return '<button type="button" class="sr-evrow" data-evsel="' + i + '" aria-pressed="' + (i === V.evSel) + '"><b style="background:' + EV_COL[m.k] + '">' + m.n + '</b><span>' + t("ev_" + m.k) + (m.k === "zeit" ? " · " + nf(m.s || 0) + " s" : "") + "<small>" + esc((m.txt || "").slice(0, 60) || "–") + "</small></span></button>";
+    }).join("") : '<p class="sr-envh">' + t("evNone") + "</p>";
+    var lb = box.querySelector(".sr-evlist"); if (lb.innerHTML !== list) lb.innerHTML = list;
+    var m = L[V.evSel], key = m ? [V.evSel, m.n, m.k, L.length, (REC.tracks || []).length].join(":") : "none", ed = box.querySelector(".sr-eved");
+    if (!force && ed.getAttribute("data-k") === key) { if (m) { var bi = ed.querySelector(".sr-evb"); if (bi) bi.textContent = evTgtTxt(m); } return; }
+    ed.setAttribute("data-k", key);
+    if (!m) { ed.innerHTML = ""; return; }
+    ed.innerHTML = '<div class="sr-evrw"><label><small>' + t("evNr") + '</small><input type="number" data-evf="n" min="1" max="' + L.length + '" value="' + m.n + '"></label>' +
+      '<label class="sr-evk"><small>' + t("evK") + '</small><select data-evf="k">' + EVK.map(function (k) { return '<option value="' + k + '"' + (k === m.k ? " selected" : "") + ">" + t("ev_" + k) + "</option>"; }).join("") + "</select></label></div>" +
+      (m.k === "zeit" ? '<label><small>' + t("evS") + '</small><input type="number" data-evf="s" min="0" max="3600" step="0.5" value="' + (m.s || 0) + '"></label>'
+        : '<label><small>' + t("evR") + '</small><input type="number" data-evf="r" min="1" max="5000" value="' + m.r + '"></label>') +
+      (EV_BOUND[m.k] ? '<label><small>' + t("evTgt") + '</small><span class="sr-evb">' + evTgtTxt(m) + '</span></label><label><small>' + t("evTrk") + '</small><select data-evf="trk"><option value="0">' + t("evTrk0") + "</option>" +
+        (REC.tracks || []).map(function (q) { return '<option value="' + q.id + '"' + (q.id === m.trk ? " selected" : "") + ">" + esc(q.name) + "</option>"; }).join("") + "</select></label>" : "") +
+      '<label><small>' + t("evTxt") + '</small><textarea data-evf="txt" rows="6" spellcheck="false" placeholder="' + esc(t("evTxtPh")) + '">' + esc(m.txt || "") + "</textarea></label>" +
+      '<button type="button" data-act="ev-del" class="sr-evdel">' + t("evDel") + "</button>";
+  }
+  function evTgtTxt(m) { var b = evBlock(m); return b ? t("evBlk") + ": " + T[b.t].n[lang] + " (" + b.x + ", " + b.y + ")" : t("evNoBlk"); }
+  // ---------- Zeichnen ----------
+  function evMark(c, x, y, rr, m, al, sel, ppx) {   // ppx: Pixelgröße (1 im Editor, 1/ppm im Flug)
+    var col = EV_COL[m.k];
+    c.save(); c.globalAlpha = al;
+    if (m.k !== "zeit" && m.k !== "start") {
+      c.fillStyle = col + "18"; c.beginPath(); c.arc(x, y, rr, 0, 6.283); c.fill();
+      c.strokeStyle = col; c.lineWidth = (sel ? 2.5 : 1.5) * ppx; c.setLineDash([7 * ppx, 5 * ppx]); c.beginPath(); c.arc(x, y, rr, 0, 6.283); c.stroke(); c.setLineDash([]);
+      if (sel) { c.fillStyle = "#fff"; c.beginPath(); c.arc(x + rr, y, 4 * ppx, 0, 6.283); c.fill(); }
+    }
+    var R = 11 * ppx; c.fillStyle = "#0B1018"; c.beginPath(); c.arc(x, y, R + 2 * ppx, 0, 6.283); c.fill();
+    c.fillStyle = col; c.beginPath(); c.arc(x, y, R, 0, 6.283); c.fill();
+    if (sel) { c.strokeStyle = "#fff"; c.lineWidth = 2 * ppx; c.beginPath(); c.arc(x, y, R + 3.5 * ppx, 0, 6.283); c.stroke(); }
+    c.fillStyle = "#0B1018"; c.font = "800 " + (12 * ppx) + "px " + FONTS(); c.textAlign = "center"; c.textBaseline = "middle"; c.fillText(String(m.n), x, y + 0.5 * ppx);
+    c.textAlign = "left"; c.font = "700 " + (11 * ppx) + "px " + FONTS(); c.fillStyle = "rgba(0,0,0,.6)";
+    var lbl = t("ev_" + m.k) + (m.k === "zeit" ? " +" + (m.s || 0) + " s" : "");
+    c.fillText(lbl, x + R + 6 * ppx + ppx, y + ppx); c.fillStyle = col; c.fillText(lbl, x + R + 6 * ppx, y);
+    c.textBaseline = "alphabetic"; c.restore();
+  }
+  function evEdDraw(c) {
+    if (S.ed !== "station" || !S.ev || !S.ev.length) return;
+    var on = S.evTab, s = PX * V.zoom;
+    S.ev.forEach(function (m, i) {
+      var p = evScr(m);
+      var b = on && evBlock(m); if (b) { var f = fp(b), bx = V.W / 2 + (b.x + f[0] / 2 - V.cam.x) * s, by = V.H / 2 + (b.y + f[1] / 2 - V.cam.y) * s; c.strokeStyle = EV_COL[m.k]; c.lineWidth = 1.5; c.setLineDash([3, 4]); c.beginPath(); c.moveTo(p.x, p.y); c.lineTo(bx, by); c.stroke(); c.setLineDash([]); c.strokeRect(bx - f[0] * s / 2, by - f[1] * s / 2, f[0] * s, f[1] * s); }
+      evMark(c, p.x, p.y, p.r, m, on ? 1 : 0.35, on && i === V.evSel, 1);
+    });
+    // Reihenfolge als dünne Linie
+    if (on && S.ev.length > 1) { c.strokeStyle = "rgba(185,196,212,.25)"; c.lineWidth = 1; c.beginPath(); S.ev.forEach(function (m, i) { var p = evScr(m); if (i) c.lineTo(p.x, p.y); else c.moveTo(p.x, p.y); }); c.stroke(); }
+  }
+  // Im Testflug (nur Developer Tool) blass in der Welt; c ist in Metern
+  function evFlDraw(c, ppm) {
+    if (S.ed !== "station" || !S.ev || !S.ev.length || !FL.O) return;
+    S.ev.forEach(function (m) { evMark(c, FL.O.x + m.x * CELL_M, FL.O.y + m.y * CELL_M, m.r, m, 0.45, false, 1 / ppm); });
+  }
   // ===== 50-flug.js · Flug: Körper, Start/Ende des Testflugs, Hauptschleife der Simulation (flTick) =====
   // ---------- Testflug ----------
   var FL = null, BID = 0, ZMIN_FL = 0.2, ZMIN_ST = 0.1, VMAX = 500, VHI = 120;
@@ -2282,15 +2414,15 @@
     } else if (!stMode) spawnTargets();
     // Environment (nur Developer Tool): Zelle (0,0) der Szene liegt dort, wo auch die Station liegt; ohne Station 60 m vor dem Schiff
     FL.env = []; FL.envG = [];
-    if (stMode && S.env && S.env.length) {
-      var stb = FL.bodies.filter(function (b) { return b.station; })[0];
-      envFlightInit(stb ? { x: stb.x - stb.com[0] * CELL_M, y: stb.y - stb.com[1] * CELL_M } : { x: me.x, y: me.y - me.rad - 60 });
-    }
+    var stb = FL.bodies.filter(function (b) { return b.station; })[0];
+    FL.O = stb ? { x: stb.x - stb.com[0] * CELL_M, y: stb.y - stb.com[1] * CELL_M } : { x: me.x, y: me.y - me.rad - 60 };   // Zelle (0,0) der Szene (Environment, Eventmarker, Spuren)
+    if (stMode && S.env && S.env.length) envFlightInit(FL.O);
+    if (stMode) { REC.t = 0; recGhosts(); }   // Developer Tool: aufgenommene Spuren stehen an ihrem Start
     S.viewEd = S.view; S.view = "out"; FL.seatWas = true;
     S.mode = "fly"; V.zoomEd = V.zoom; V.zoom = Math.min(1.1, Math.max(0.6, V.zoom));
     syncUI();
   }
-  function stopTest() { sndStopAll(); FL = null; S.mode = "edit"; if (V.zoomEd) V.zoom = V.zoomEd; if (S.viewEd) S.view = S.viewEd; syncUI(); }
+  function stopTest() { if (REC.on || REC.cd > 0 || REC.play) recStop(); sndStopAll(); FL = null; S.mode = "edit"; if (V.zoomEd) V.zoom = V.zoomEd; if (S.viewEd) S.view = S.viewEd; syncUI(); }
   // Zielschiffe: Panzerung mit ein paar Maschinenteilen, damit Rauch und Feuer sichtbar werden
   function targetShip() {
     var B = [];
@@ -2314,7 +2446,7 @@
   }
 
   function flTick(dt) {
-    FL.t += dt;
+    FL.t += dt; recTick(dt);
     if (FL.oc) { FL.ocT -= dt; if (FL.ocT <= 0) { FL.ocT = 0; FL.oc = false; } }
     else FL.ocT = Math.min(FL.me.ocMax || 3, FL.ocT + dt * 0.5);
     var me = FL.me, k = FL.keys;
@@ -2332,6 +2464,7 @@
       // Energie: Reaktoren laden, Verbraucher ziehen
       bd.energy = Math.min(bd.cap - (bd.shE || 0), bd.energy + bd.prod * dt);   // der Schildanteil ist reserviert
       bd.flames = {};
+      if (bd.ghost) recGhost(bd, dt);   // aufgenommene Spur: Pose, Flammen, Waffen
       if (bd === me) turretTick(bd, dt, FL.seated && !FL.out ? mouseWorld() : null);
       if (bd === me && bd.ctrl && bd.seat && !FL.dock) control(bd, dt, FL.seated);   // ohne Pilot halten nur die Dämpfer das Schiff; beim Andocken steuert der Autopilot
       if (bd === me) { var fm = 0; for (var fk in bd.flames) fm = Math.max(fm, bd.flames[fk]); if (FL.fire && FL.seated && FL.groups.length) fm = Math.max(fm, 0.6); FL.sig = Math.max(FL.sig * Math.exp(-dt / 1.2), fm); }
@@ -2372,6 +2505,7 @@
     if (FL.banner > 0) FL.banner -= dt;
     // Geschosse
     FL.shots = FL.shots.filter(function (p) {
+      FL.fx = p.own && p.own.ghost ? p.own : null;   // Schüsse einer Spur: nur Effekt
       p.life += dt; if (p.life > (p.lmax || MG.life)) return false;
       var steps = Math.ceil(Math.hypot(p.vx, p.vy) * dt / 1.0);
       for (var i = 0; i < steps; i++) {
@@ -2381,10 +2515,12 @@
       }
       return true;
     });
+    FL.fx = null;
     FL.beams = FL.beams.filter(function (b) { b.life += dt; return b.life < 0.3; });
     // Leichte Raketen: starke Beschleunigung, lenken nur ganz leicht zum Mauszeiger
     var mw = mouseWorld();
     FL.missiles = (FL.missiles || []).filter(function (m) {
+      FL.fx = m.own && m.own.ghost ? m.own : null;
       var mk = (m.own && m.own.player ? 1 + PM.msDmg : 1) * (m.k || 1);
       m.life += dt; if (m.life > MS.life) { blast(m.x, m.y, MS.splash, MS.sdmg * mk, m.own); return false; }
       var tg = m.own === FL.me ? mw : (m.own.ai && !m.own.dead ? { x: FL.me.x, y: FL.me.y } : null);
@@ -2401,6 +2537,7 @@
       }
       return true;
     });
+    FL.fx = null;
     FL.parts = FL.parts.filter(function (q) { q.life += dt; q.x += q.vx * dt; q.y += q.vy * dt; if (q.k === "debris") { q.a += q.w * dt; } return q.life < q.max; });
     if (FL.parts.length > 900) FL.parts.splice(0, FL.parts.length - 900);
     // Dynamische Kamera: schaut ein Stück in Richtung Maus, das Schiff rückt dabei Richtung Bildrand (höchstens 30 % des halben Bildes)
@@ -2411,13 +2548,15 @@
     }
     FL.camOff = FL.camOff || { x: 0, y: 0 }; var ck = 1 - Math.exp(-dt * 3.5);
     FL.camOff.x += (tox - FL.camOff.x) * ck; FL.camOff.y += (toy - FL.camOff.y) * ck;
-    var fx = me.x, fy = me.y;
+    var fx = me.x, fy = me.y, gf = FL.seated ? recFollow() : null;
+    if (gf) { fx = gf.x; fy = gf.y; }   // Kamera folgt einer Spur
     if (FL.out && FL.eva) { fx = FL.eva.x; fy = FL.eva.y; }
     else if (!FL.seated) { var pw = toWorld(FL.pb || me, FL.pilot.x, FL.pilot.y); fx = pw.x; fy = pw.y; }   // zu Fuß folgt die Kamera der Figur
     // Schwelle überschritten (anderer Körper betreten): Name einblenden
     var here = FL.out ? null : (FL.pb || me);
     if (here !== FL.pbLast) { if (here && FL.pbLast !== undefined && !FL.seated) showPlace(here.name || ""); FL.pbLast = here; }
     FL.cam.x = fx + FL.camOff.x; FL.cam.y = fy + FL.camOff.y;
+    recSample(dt);
   }
   // ===== 51-steuerung-waffen.js · Steuerung und Waffen: Schub, Drehen, Minigun/Raketen/Railgun, Geschütze, Zielcomputer =====
   function dirAngle(b) { var d = dirOut(b, 2); return Math.atan2(DV[d][1], DV[d][0]); }
@@ -2648,9 +2787,19 @@
   }
   function damage(bd, b, dmg, x, y, ns) {
     if (FL.bodies.indexOf(bd) < 0 || bd.blocks.indexOf(b) < 0) return;   // schon zerstört (Kettenreaktion)
+    if (FL.fx && !(REC.on && bd === FL.me)) return;   // Schüsse einer aufgenommenen Spur: nur Effekt (beim Aufnehmen treffen sie das aufgenommene Schiff)
     if (!ns) { dmg = shieldAbsorb(bd, b, dmg, x, y); if (dmg <= 0) return; }
     b.hp -= dmg;
+    if (REC.on) recLogDmg(bd, b);   // Aufnahme: Schaden mitschreiben
     if (b.hp > 0) return;
+    var p = blockKill(bd, b);
+    // Triebwerke und Reaktoren explodieren und beschädigen, was direkt drumherum liegt
+    var kd = T[b.t].kind;
+    if (kd === "reac") blast(p.x, p.y, 3.2 * CELL_M, 85, null, true);
+    else if (kd === "thr") blast(p.x, p.y, (T[b.t].w > 1 ? 2.4 : 1.8) * CELL_M, T[b.t].w > 1 ? 60 : 40, null, true);
+  }
+  // Block zerstören: Trümmer, Feuer, Blitz, aus dem Körper nehmen, Körper ggf. zerbrechen (auch für das Nachspielen von Spuren)
+  function blockKill(bd, b) {
     var p = blockCenter(bd, b), col = b.c || T[b.t].col;
     for (var i = 0; i < 8; i++) { var a = Math.random() * 6.28, v = 4 + Math.random() * 10; FL.parts.push({ x: p.x, y: p.y, vx: bd.vx + Math.cos(a) * v, vy: bd.vy + Math.sin(a) * v, life: 0, max: 1.5 + Math.random(), k: "debris", sz: 0.5 + Math.random() * 0.7, col: col, a: Math.random() * 6, w: (Math.random() - 0.5) * 10 }); }
     for (i = 0; i < 6; i++) FL.parts.push({ x: p.x, y: p.y, vx: bd.vx + (Math.random() - 0.5) * 8, vy: bd.vy + (Math.random() - 0.5) * 8, life: 0, max: 0.35 + Math.random() * 0.3, k: "fire", sz: 1.2 + Math.random() });
@@ -2658,10 +2807,7 @@
     bd.blocks.splice(bd.blocks.indexOf(b), 1);
     if (bd === FL.me && bd.lost) bd.lost.push(strip(b));
     if (!bd.blocks.length) FL.bodies.splice(FL.bodies.indexOf(bd), 1); else splitBody(bd);
-    // Triebwerke und Reaktoren explodieren und beschädigen, was direkt drumherum liegt
-    var kd = T[b.t].kind;
-    if (kd === "reac") blast(p.x, p.y, 3.2 * CELL_M, 85, null, true);
-    else if (kd === "thr") blast(p.x, p.y, (T[b.t].w > 1 ? 2.4 : 1.8) * CELL_M, T[b.t].w > 1 ? 60 : 40, null, true);
+    return p;
   }
   function splitBody(bd) {
     var comps = components(bd.blocks);
@@ -2671,6 +2817,7 @@
       if (cp === keep) return;
       if (bd === FL.me && bd.lost) cp.forEach(function (b) { bd.lost.push(strip(b)); });
       var nb = { blocks: cp, x: 0, y: 0, a: bd.a, vx: bd.vx, vy: bd.vy, w: bd.w + (Math.random() - 0.5) * 0.8, ctrl: false, energy: 0, cap: 0, flames: {} };
+      if (bd.trk || bd.trkFrom) nb.trkFrom = bd.trk || bd.trkFrom;   // Trümmer einer Spur: Schaden daran lässt sich zuordnen
       var st = stats(cp), c = toWorld(bd, st.com[0], st.com[1]);
       recalc(nb, true); nb.x = c.x; nb.y = c.y;
       var rx = c.x - bd.x, ry = c.y - bd.y, l = Math.hypot(rx, ry) || 1;
@@ -3620,7 +3767,7 @@
     (FL.envG || []).forEach(function (e) { var d = Math.hypot(e.x - me.x, e.y - me.y) - e.R; if (d < rg) A.push({ x: e.x, y: e.y, d: Math.max(0, d), k: "ast" }); });
     A.sort(function (a, b) { return a.d - b.d; }); L = A.slice(0, SCAN.ast);   // nur die nächsten Asteroiden, sonst wird der Rand voll
     FL.bodies.forEach(function (bd) {
-      if (bd === me || bd === FL.pb || bd.target) return;   // Übungsziele zählen nicht
+      if (bd === me || bd === FL.pb || bd.target || bd.ghost) return;   // Übungsziele zählen nicht
       var k = bd.station ? "st" : (bd.dead || (!bd.enemy && !bd.ctrl)) ? "wr" : null; if (!k) return;
       var d = Math.hypot(bd.x - me.x, bd.y - me.y) - (bd.rad || 0); if (d < rg) L.push({ x: bd.x, y: bd.y, d: Math.max(0, d), k: k });
     });
@@ -3910,6 +4057,7 @@
     envFlDraw(c, W, H, ppm, 0);    // Environment Spielebene
     c.save(); c.translate(W / 2, H / 2); c.scale(ppm, ppm); c.translate(-FL.cam.x, -FL.cam.y);
     drawTrails(c);
+    evFlDraw(c, ppm);   // Eventmarker (Developer Tool)
     // Triebwerksflammen unter den Schiffen
     FL.bodies.forEach(function (bd) {
       bd.blocks.forEach(function (b) {
@@ -4057,6 +4205,7 @@
     drawFloat(c, W, H, ppm);
     FL.cam.x -= shk.x; FL.cam.y -= shk.y;
     flHud();
+    recOverlay(c, W, H);
   }
   // Antennen: Gegner außerhalb des Bildes, aber in Antennenreichweite, als rotes Dreieck am Bildschirmrand
   // Reichweite: stärkste Antenne 600 m × Faktor, jede weitere +300 m × Faktor; Obergrenze 1.800 m (mindestens die stärkste Antenne allein)
@@ -4154,6 +4303,240 @@
     var ue = V.root.querySelector(".sr-use"); if (ue) { var uh = useHint(); if (ue.textContent !== uh) ue.textContent = uh; ue.classList.toggle("on", !!uh); }
   }
 
+  // ===== 61-aufnahme.js · Aufnahme von Choreografien (Developer Tool, seit v0.59) =====
+  // Im Testflug des Developer Tools: das eigene Schiff fliegen und aufnehmen. Jede Aufnahme wird eine Spur (wie in Ableton).
+  // - Jeder Take startet von einer frischen Szene: Station, Schiffe, Asteroiden sind heil (Neustart = Testflug neu aufbauen),
+  //   das eigene Schiff steht dort, wo es beim Drücken auf Aufnahme war. Danach 3 s Vorzähler.
+  // - Overdub: alle aktiven Spuren spielen beim Aufnehmen mit. Sie fliegen exakt ihre Aufnahme ab (unbeweglich für Stöße).
+  // - Schaden wird mitgeschrieben (welcher Block wann welche HP hat, für eigenes Schiff, Spuren und Station) und beim
+  //   Abspielen genau so nachgestellt. Schüsse der Spuren sind dann nur Effekt – außer beim Aufnehmen auf das gerade
+  //   aufgenommene Schiff: dort treffen sie echt (das wird Teil des neuen Takes).
+  // - Positionen relativ zu Zelle (0,0) der Szene (FL.O), damit Spuren auch nach Umbauten am eigenen Schiff passen.
+  Object.assign(TX, {
+    recH: L2("Aufnahme", "Recording"), recRec: L2("● Aufnehmen", "● Record"), recPlay: L2("▶ Abspielen", "▶ Play"), recStop: L2("■ Stopp", "■ Stop"), recHome: L2("⟲ Neustart", "⟲ Restart"),
+    recCam: L2("Kamera", "Camera"), recCamMe: L2("eigenes Schiff", "own ship"), recNone: L2("Noch keine Spuren. Losfliegen, ● drücken, nach dem Vorzähler wird aufgenommen; ■ beendet den Take.", "No tracks yet. Fly somewhere, press ●, recording starts after the count-in; ■ ends the take."),
+    recSaved: L2("Spur gespeichert: {n} ({s} s)", "Track saved: {n} ({s} s)"), recShort: L2("Take zu kurz, verworfen", "Take too short, discarded"), recDelQ: L2("Spur löschen", "Delete track"),
+    recOn: L2("Spur an/aus (spielt mit oder nicht)", "Track on/off (plays along or not)"), recTrk: L2("Spur", "Track"), recFull: L2("Speicher voll – Spur nur in dieser Sitzung. Szene exportieren, um sie zu sichern.", "Storage full – track kept for this session only. Export the scene to keep it."),
+    recRecording: L2("AUFNAHME", "RECORDING"), recPlaying: L2("WIEDERGABE", "PLAYBACK"), recHide: L2("Spuren ein-/ausklappen", "Show/hide tracks")
+  });
+  var REC = { tracks: [], on: false, play: false, t: 0, cd: 0, take: null, follow: 0, open: true }, REC_SAVE = "spacerogue-rec-v1", REC_HZ = 20, REC_COL = ["#E3B83F", "#5FD0D8", "#C9A0F5", "#8FD06A", "#E0814F", "#7FB2E0", "#E07AB0", "#B9C4D4"];
+  function recLoad() { try { var o = JSON.parse(localStorage.getItem(REC_SAVE) || "null"); if (o && Array.isArray(o.tracks)) REC.tracks = o.tracks.map(recUnpack).filter(Boolean); } catch (e) {} }
+  function recStore() { try { localStorage.setItem(REC_SAVE, JSON.stringify({ tracks: REC.tracks })); return true; } catch (e) { return false; } }
+  function recUnpack(q) {
+    if (!q || !Array.isArray(q.f) || !Array.isArray(q.ship) || !q.f.length) return null;
+    return { id: +q.id || 1, name: String(q.name || "Spur").slice(0, 28), on: q.on !== false, ship: q.ship, g: Array.isArray(q.g) ? q.g : [], f: q.f, d: Array.isArray(q.d) ? q.d : [], col: q.col || REC_COL[((+q.id || 1) - 1) % REC_COL.length] };
+  }
+  function parseRec(txt) { try { var o = JSON.parse(String(txt).trim()); return o && Array.isArray(o.rec) ? o.rec.map(recUnpack).filter(Boolean) : null; } catch (e) { return null; } }
+  function recLen(q) { return q.f.length / REC_HZ; }
+  function recMax() { return REC.tracks.reduce(function (a, q) { return Math.max(a, q.on ? recLen(q) : 0); }, 0); }
+  function recDev() { return S.ed === "station" && FL && S.mode === "fly"; }
+
+  // ---------- Pose aus den Bildern einer Spur (linear dazwischen) ----------
+  function recPose(q, t) {
+    var n = q.f.length, u = Math.max(0, Math.min(n - 1, t * REC_HZ)), i = Math.min(n - 2, Math.floor(u)), k = n > 1 ? u - i : 0, a = q.f[Math.max(0, i)], b = q.f[Math.min(n - 1, i + 1)];
+    if (n === 1) b = a;
+    var da = Math.atan2(Math.sin((b[2] - a[2]) / 1000), Math.cos((b[2] - a[2]) / 1000));
+    return { x: FL.O.x + (a[0] + (b[0] - a[0]) * k) / 100, y: FL.O.y + (a[1] + (b[1] - a[1]) * k) / 100, a: a[2] / 1000 + da * k, vx: (a[3] + (b[3] - a[3]) * k) / 10, vy: (a[4] + (b[4] - a[4]) * k) / 10, fl: (k < 0.5 ? a : b)[5], fire: (k < 0.5 ? a : b)[6], end: t * REC_HZ >= n - 1 };
+  }
+
+  // ---------- Szene neu aufbauen (alles heil), eigenes Schiff an die Pose ----------
+  function recReset(pose) {
+    var vz = V.zoom, zed = V.zoomEd, ved = S.viewEd, view = S.view, fol = REC.follow;
+    sndStopAll(); FL = null; S.mode = "edit"; startTest();
+    if (!FL) return false;
+    V.zoom = vz; V.zoomEd = zed; S.viewEd = ved; S.view = view; REC.follow = fol;
+    if (pose) { var me = FL.me; me.x = pose.x; me.y = pose.y; me.a = pose.a; me.vx = pose.vx || 0; me.vy = pose.vy || 0; me.w = pose.w || 0; var sp0 = seatPos(me); FL.pilot.x = sp0.x; FL.pilot.y = sp0.y; }
+    REC.t = 0; syncUI(); return true;   // Spuren hat startTest schon an ihren Start gestellt
+  }
+  function recGhosts() {
+    REC.tracks.forEach(function (q) {
+      q.di = 0; if (!q.on) return;
+      var bl = parseShip(JSON.stringify({ b: q.ship })); if (!bl || !bl.length) return;
+      var bd = makeBody(bl, false); bd.ghost = true; bd.static = true; bd.trk = q.id; bd.name = q.name; bd.id = ++BID;
+      var p = recPose(q, 0); bd.x = p.x; bd.y = p.y; bd.a = p.a; bd.vx = bd.vy = bd.w = 0;
+      FL.bodies.push(bd);
+    });
+  }
+  function recGhostOf(id) { if (!FL) return null; for (var i = 0; i < FL.bodies.length; i++) if (FL.bodies[i].trk === id) return FL.bodies[i]; return null; }
+
+  // ---------- Bedienung ----------
+  function recPoseOfMe() { var me = FL.me; return { x: me.x, y: me.y, a: me.a, vx: me.vx, vy: me.vy, w: me.w }; }
+  function recStart() {
+    if (!recDev() || REC.on || REC.cd > 0) return;
+    REC.play = false;
+    if (!recReset(recPoseOfMe())) return;
+    var me = FL.me;
+    REC.take = { ship: me.blocks.map(function (b) { var a = [b.t, b.x, b.y, b.r, b.f]; if (b.c) a.push(b.c); return a; }), g: FL.groups.slice(), f: [], d: [], acc: 0 };
+    REC.cd = 3; FL.paused = true; recUi();
+  }
+  function recBegin() { REC.cd = 0; FL.paused = false; REC.on = true; REC.t = 0; recSample(0, true); recUi(); }
+  function recStop() {
+    if (REC.cd > 0) { REC.cd = 0; REC.take = null; if (FL) FL.paused = false; recUi(); return; }
+    if (REC.on) {
+      REC.on = false; var tk = REC.take; REC.take = null;
+      if (tk && tk.f.length >= REC_HZ / 2) {
+        var id = REC.tracks.reduce(function (a, q) { return Math.max(a, q.id); }, 0) + 1;
+        tk.d.forEach(function (e) { if (e[1] === "me") e[1] = id; });
+        var q = { id: id, name: (FL && FL.me.name ? FL.me.name : t("recTrk")) + " " + id, on: true, ship: tk.ship, g: tk.g, f: tk.f, d: tk.d, col: REC_COL[(id - 1) % REC_COL.length] };
+        REC.tracks.push(q); var ok = recStore();
+        note(ok ? fmtN(t("recSaved"), { n: q.name, s: nf(recLen(q), 1) }) : t("recFull"));
+      } else note(t("recShort"));
+    }
+    REC.play = false; recUi();
+  }
+  function recPlay() { if (!recDev() || REC.on || REC.cd > 0) return; if (!recReset(recPoseOfMe())) return; REC.play = true; recUi(); }
+  function recHome() { if (!recDev() || REC.on || REC.cd > 0) return; REC.play = false; recReset(recPoseOfMe()); recUi(); }
+  // Springen auf Zeit t: Szene neu, Schaden bis t sofort anwenden, Spuren an ihre Pose
+  function recSeek(t) {
+    if (!recDev() || REC.on || REC.cd > 0) return;
+    var was = REC.play; REC.play = false;
+    if (!recReset(recPoseOfMe())) return;
+    REC.t = Math.max(0, t); recApplyUntil(REC.t); REC.play = was; recUi();
+  }
+  function fmtN(s, o) { return s.replace(/\{(\w+)\}/g, function (_, k) { return o[k] != null ? o[k] : ""; }); }
+
+  // ---------- Simulation (aus flTick) ----------
+  // Vorlauf mit echter Zeit (auch wenn der Flug während des Vorzählers steht)
+  function recPre(dt) { if (REC.cd > 0) { REC.cd -= dt; if (REC.cd <= 0) recBegin(); } }
+  // Zu Beginn von flTick: Zeit weiter, mitgeschriebenen Schaden der Spuren anwenden
+  function recTick(dt) {
+    if (!REC.tracks.length && !REC.on) return;
+    if (REC.on || REC.play) { REC.t += dt; recApplyUntil(REC.t); }
+    if (REC.play && REC.t > recMax() + 1.5) { REC.play = false; recUi(); }
+  }
+  function recApplyUntil(t) {
+    REC.tracks.forEach(function (q) {
+      if (!q.on) return; q.di = q.di || 0;
+      while (q.di < q.d.length && q.d[q.di][0] / 100 <= t) { var e = q.d[q.di++]; recApplyDmg(e[1], e[2], e[3], e[4] / 10); }
+    });
+  }
+  function recApplyDmg(owner, bx, by, hp) {
+    var L = FL.bodies;
+    for (var i = 0; i < L.length; i++) {
+      var bd = L[i]; if (owner === "st" ? !bd.station : (bd.trk !== owner && bd.trkFrom !== owner)) continue;
+      for (var j = 0; j < bd.blocks.length; j++) {
+        var b = bd.blocks[j]; if (b.x !== bx || b.y !== by) continue;
+        if (hp > 0) { b.hp = hp; return; }
+        if (bd.gv) { bd.vx = bd.gv.x; bd.vy = bd.gv.y; }   // Trümmer übernehmen das Tempo der Spur
+        blockKill(bd, b); return;
+      }
+    }
+  }
+  // Im Durchlauf aller Körper (nach dem Zurücksetzen der Flammen): Spur an ihre Pose, Flammen, Waffen
+  function recGhost(bd, dt) {
+    var q = null; for (var i = 0; i < REC.tracks.length; i++) if (REC.tracks[i].id === bd.trk) { q = REC.tracks[i]; break; }
+    if (!q || !FL.O) return;
+    var p = recPose(q, REC.t), run = (REC.on || REC.play) && !p.end;
+    bd.x = p.x; bd.y = p.y; bd.a = p.a; bd.vx = run ? p.vx : 0; bd.vy = run ? p.vy : 0; bd.w = 0; bd.gv = { x: bd.vx, y: bd.vy };
+    if (run) for (var d = 0; d < 4; d++) { var fk = Math.floor(p.fl / Math.pow(10, d)) % 10; if (fk) bd.flames[d] = fk / 9; }
+    bd.energy = bd.cap;
+    var g = run && p.fire ? q.g[p.fire - 1] : null;
+    FL.fx = bd; weapons(bd, dt, g, !!g, null); FL.fx = null;
+  }
+  // Am Ende von flTick: Bild des eigenen Schiffs mitschreiben (20 pro Sekunde)
+  function recSample(dt, first) {
+    var tk = REC.take; if (!REC.on || !tk || !FL) return;
+    tk.acc += dt; if (!first && tk.acc < 1 / REC_HZ) return; if (!first) tk.acc -= 1 / REC_HZ;
+    var me = FL.me, fl = 0; for (var d = 0; d < 4; d++) fl += Math.min(9, Math.round((me.flames[d] || 0) * 9)) * Math.pow(10, d);
+    var gi = FL.fire && FL.seated && FL.groups.length ? tk.g.indexOf(FL.groups[FL.wsel]) + 1 : 0;
+    tk.f.push([Math.round((me.x - FL.O.x) * 100), Math.round((me.y - FL.O.y) * 100), Math.round(me.a * 1000), Math.round(me.vx * 10), Math.round(me.vy * 10), fl, gi]);
+  }
+  // Aus damage(): HP-Änderung mitschreiben
+  function recLogDmg(bd, b) {
+    var tk = REC.take; if (!tk) return;
+    var owner = bd === FL.me ? "me" : bd.station ? "st" : bd.trk || bd.trkFrom || null; if (owner == null) return;
+    tk.d.push([Math.round(REC.t * 100), owner, b.x, b.y, Math.round(b.hp * 10)]);
+  }
+  function recFollow() { if (!REC.follow || !FL) return null; var g = recGhostOf(REC.follow); return g || null; }
+
+  // ---------- Anzeige im Flug ----------
+  function recOverlay(c, W, H) {
+    if (!recDev()) return;
+    if (REC.cd > 0) {
+      var n = Math.ceil(REC.cd), k = REC.cd - Math.floor(REC.cd);
+      c.save(); c.fillStyle = "rgba(0,0,0,.25)"; c.fillRect(0, 0, W, H);
+      c.font = "800 " + Math.round(110 + 40 * k) + "px " + FONTS(); c.textAlign = "center"; c.textBaseline = "middle"; c.fillStyle = "rgba(224,83,63," + (0.5 + 0.5 * k) + ")"; c.fillText(String(n), W / 2, H / 2);
+      c.restore();
+    }
+    var tl = REC.on ? t("recRecording") : REC.play ? t("recPlaying") : "";
+    if (tl) { c.save(); c.font = "800 13px " + FONTS(); c.textAlign = "center"; var tw = c.measureText(tl).width + 34; c.fillStyle = "rgba(14,19,28,.85)"; c.fillRect(W / 2 - tw / 2, 70, tw, 26); c.fillStyle = REC.on ? "#E0533F" : "#57D18A"; if (!REC.on || Math.floor(performance.now() / 500) % 2) { c.beginPath(); c.arc(W / 2 - tw / 2 + 13, 83, 5, 0, 6.283); c.fill(); } c.fillText(tl, W / 2 + 7, 88); c.restore(); }
+    recTl();
+  }
+  // Leiste unten: Knöpfe, Spuren, Zeitleiste
+  function recUi() {
+    if (!V) return; var r = V.root, box = r.querySelector(".sr-rec"); if (!box) return;
+    var show = S.ed === "station" && S.mode === "fly" && !!FL; r.querySelector(".sr-root").classList.toggle("recd", show); box.hidden = !show; if (!show) return;
+    var busy = REC.on || REC.cd > 0;
+    box.querySelector('[data-act="rec-rec"]').setAttribute("aria-pressed", String(busy));
+    box.querySelector('[data-act="rec-play"]').setAttribute("aria-pressed", String(REC.play));
+    ["rec-play", "rec-home"].forEach(function (a) { box.querySelector('[data-act="' + a + '"]').disabled = busy; });
+    var cam = box.querySelector('[data-recf="follow"]'), co = '<option value="0">' + t("recCamMe") + "</option>" + REC.tracks.map(function (q) { return '<option value="' + q.id + '">' + esc(q.name) + "</option>"; }).join("");
+    if (cam.getAttribute("data-k") !== co) { cam.innerHTML = co; cam.setAttribute("data-k", co); } cam.value = String(REC.follow || 0);
+    var heads = box.querySelector(".sr-rec-heads"), hh = REC.tracks.length ? REC.tracks.map(function (q) {
+      return '<div class="sr-rec-h" data-trk="' + q.id + '"><i style="background:' + q.col + '"></i><input data-recname="' + q.id + '" maxlength="28" spellcheck="false" value="' + esc(q.name) + '"><button type="button" data-act="rec-on" data-trk="' + q.id + '" aria-pressed="' + q.on + '" title="' + t("recOn") + '">' + (q.on ? "●" : "○") + '</button><button type="button" data-act="rec-del" data-trk="' + q.id + '" title="' + t("recDelQ") + '">×</button></div>';
+    }).join("") : '<p class="sr-rec-none">' + t("recNone") + "</p>";
+    if (heads.getAttribute("data-k") !== hh && !(document.activeElement && document.activeElement.hasAttribute && document.activeElement.hasAttribute("data-recname"))) { heads.innerHTML = hh; heads.setAttribute("data-k", hh); }
+    box.classList.toggle("closed", !REC.open); box.querySelector(".sr-rec-cv").style.setProperty("--rows", String(Math.max(1, REC.tracks.length + 1)));
+    var bh = box.offsetHeight; r.querySelector(".sr-root").style.setProperty("--rb", bh + "px");
+  }
+  function recScale(cv) { var len = Math.max(20, Math.ceil(Math.max(recMax(), REC.on ? REC.t : 0, REC.t) / 10) * 10 + 5); return { len: len, k: (cv.clientWidth - 16) / len }; }
+  // Zeitleiste zeichnen (je Bild)
+  function recTl() {
+    var box = V.root.querySelector(".sr-rec"); if (!box || box.hidden) return;
+    var tm = box.querySelector(".sr-rec-time"), tt = REC.cd > 0 ? "−" + nf(REC.cd, 1) : recClock(REC.t); if (tm.textContent !== tt) tm.textContent = tt;
+    var cv = box.querySelector(".sr-rec-cv"), dpr = window.devicePixelRatio || 1, W = cv.clientWidth, H = cv.clientHeight; if (!W || !H) return;
+    if (cv.width !== Math.round(W * dpr) || cv.height !== Math.round(H * dpr)) { cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); }
+    var c = cv.getContext("2d"); c.setTransform(dpr, 0, 0, dpr, 0, 0); c.clearRect(0, 0, W, H);
+    var sc = recScale(cv), X = function (s) { return 8 + s * sc.k; }, rowH = 24, top = 18;
+    // Lineal
+    c.fillStyle = "#0B1018"; c.fillRect(0, 0, W, 16); c.strokeStyle = "#33415A"; c.fillStyle = "#8FA0B8"; c.font = "600 10px " + FONTS(); c.textAlign = "left";
+    var step = sc.len > 120 ? 10 : 5;
+    for (var s = 0; s <= sc.len; s += 1) { var x = Math.round(X(s)) + 0.5, big = s % step === 0; c.beginPath(); c.moveTo(x, big ? 4 : 10); c.lineTo(x, 16); c.stroke(); if (big) c.fillText(recClock(s, true), x + 3, 11); }
+    // Spuren
+    var rows = REC.tracks.length + (REC.on ? 1 : 0);
+    REC.tracks.forEach(function (q, i) {
+      var y = top + i * rowH, len = recLen(q);
+      c.fillStyle = "rgba(255,255,255,.03)"; c.fillRect(0, y, W, rowH - 2);
+      c.globalAlpha = q.on ? 1 : 0.35; c.fillStyle = q.col + "55"; c.fillRect(X(0), y + 4, len * sc.k, rowH - 10); c.fillStyle = q.col; c.fillRect(X(0), y + 4, len * sc.k, 2);
+      // Schüsse (rot) als Striche, Schaden am eigenen Schiff (orange) und zerstörte Blöcke (weiß) als Rauten = Ereignisse auf der Spur
+      c.fillStyle = "#E0533F"; for (var f = 0; f < q.f.length; f += 2) if (q.f[f][6]) c.fillRect(X(f / REC_HZ), y + 8, Math.max(1, 2 * sc.k / REC_HZ), 6);
+      q.d.forEach(function (e) { if (e[1] !== q.id) return; var dx = X(e[0] / 100), dy = y + rowH - 8, kill = e[4] <= 0; c.fillStyle = kill ? "#FFFFFF" : "#E0814F"; c.beginPath(); c.moveTo(dx, dy - 3.5); c.lineTo(dx + 3.5, dy); c.lineTo(dx, dy + 3.5); c.lineTo(dx - 3.5, dy); c.closePath(); c.fill(); });
+      c.globalAlpha = 1;
+    });
+    if (REC.on && REC.take) { var yy = top + REC.tracks.length * rowH; c.fillStyle = "rgba(224,83,63,.35)"; c.fillRect(X(0), yy + 4, REC.t * sc.k, rowH - 10); c.fillStyle = "#E0533F"; c.fillRect(X(0), yy + 4, REC.t * sc.k, 2); }
+    // Abspielkopf
+    var px = Math.round(X(REC.t)) + 0.5; c.strokeStyle = REC.on ? "#E0533F" : "#FFFFFF"; c.lineWidth = 1.5; c.beginPath(); c.moveTo(px, 0); c.lineTo(px, Math.max(H, top + rows * rowH)); c.stroke();
+    c.fillStyle = c.strokeStyle; c.beginPath(); c.moveTo(px - 5, 0); c.lineTo(px + 5, 0); c.lineTo(px, 7); c.closePath(); c.fill();
+  }
+  function recClock(s, short) { s = Math.max(0, s); var m = Math.floor(s / 60), r = s - m * 60; return m + ":" + (r < 10 ? "0" : "") + (short ? Math.floor(r) : r.toFixed(1)); }
+  // Klick/Ziehen auf der Zeitleiste springt
+  function recTlDown(e) {
+    var cv = e.currentTarget; if (REC.on || REC.cd > 0) return; e.preventDefault();
+    var go = function (ev) { var r = cv.getBoundingClientRect(), sc = recScale(cv); recSeek(Math.max(0, (ev.clientX - r.left - 8) / sc.k)); };
+    go(e); var mv = function (ev) { if (ev.buttons) go(ev); }, up = function () { window.removeEventListener("pointermove", mv); window.removeEventListener("pointerup", up); };
+    window.addEventListener("pointermove", mv); window.addEventListener("pointerup", up);
+  }
+  function recHtml() {
+    return '<div class="sr-rec" hidden><div class="sr-rec-ctl"><b>' + t("recH") + '</b><button type="button" data-act="rec-rec" class="sr-rec-r">' + t("recRec") + '</button><button type="button" data-act="rec-play">' + t("recPlay") + '</button><button type="button" data-act="rec-stop">' + t("recStop") + '</button><button type="button" data-act="rec-home">' + t("recHome") + '</button>' +
+      '<span class="sr-rec-time">0:00.0</span><label class="sr-rec-cam"><small>' + t("recCam") + '</small><select data-recf="follow"></select></label><span class="sr-sp"></span><button type="button" data-act="rec-open" class="sr-rec-tg" title="' + t("recHide") + '">▾</button></div>' +
+      '<div class="sr-rec-tl"><div class="sr-rec-heads"></div><canvas class="sr-rec-cv"></canvas></div></div>';
+  }
+  // Knöpfe der Leiste (aus onClick)
+  function recClick(act, a) {
+    if (act === "rec-rec") { if (REC.on || REC.cd > 0) recStop(); else recStart(); }
+    else if (act === "rec-play") { if (REC.play) { REC.play = false; recUi(); } else recPlay(); }
+    else if (act === "rec-stop") recStop();
+    else if (act === "rec-home") recHome();
+    else if (act === "rec-open") { REC.open = !REC.open; recUi(); }
+    else if (act === "rec-on" || act === "rec-del") {
+      if (REC.on || REC.cd > 0) return true;
+      var id = +a.getAttribute("data-trk"), i = REC.tracks.findIndex(function (q) { return q.id === id; }); if (i < 0) return true;
+      if (act === "rec-on") REC.tracks[i].on = !REC.tracks[i].on;
+      else { REC.tracks.splice(i, 1); if (REC.follow === id) REC.follow = 0; S.ev && S.ev.forEach(function (m) { if (m.trk === id) delete m.trk; }); }
+      recStore(); recHome();
+    } else return false;
+    a.blur && a.blur(); return true;
+  }
   // ===== 70-ui.js · UI: HTML-Aufbau, Infofeld, Spieltipps-Anzeige =====
   // ---------- UI ----------
   function set(id, txt) { var e = document.getElementById(id); if (e && e.textContent !== txt) e.textContent = txt; }
@@ -4228,7 +4611,8 @@
       '<div class="sr-sp"></div><div class="sr-seg"><button type="button" data-view="in">' + t("vIn") + '</button><button type="button" data-view="out">' + t("vOut") + '</button></div>' +
       '<button type="button" class="sr-go sr-ed-only" data-act="test">' + t("test") + ' ▸</button><button type="button" class="sr-go sr-fl-only" data-act="edit">◂ ' + t("toEd") + '</button></div>' +
       '<aside class="sr-pal sr-ed-only"><div class="sr-tools"><button type="button" data-tool="build">' + t("tBuild") + '</button><button type="button" data-tool="erase">' + t("tErase") + '</button><button type="button" data-tool="paint">' + t("tPaint") + '</button></div>' +
-      '<div class="sr-envtabs sr-dev-only"><span class="sr-seg"><button type="button" data-act="tab-blk">' + t("tabBlk") + '</button><button type="button" data-act="tab-env">' + t("tabEnv") + '</button></span></div>' +
+      '<div class="sr-envtabs sr-dev-only"><span class="sr-seg"><button type="button" data-act="tab-blk">' + t("tabBlk") + '</button><button type="button" data-act="tab-env">' + t("tabEnv") + '</button><button type="button" data-act="tab-ev">' + t("tabEv") + '</button></span></div>' +
+      '<div class="sr-evp sr-dev-only"><small>' + t("evH") + '</small><p class="sr-envh">' + t("evHelp") + '</p><div class="sr-evlist"></div><div class="sr-eved"></div></div>' +
       '<div class="sr-envp sr-dev-only"><small>' + t("envLayer") + '</small><span class="sr-seg sr-envl"><button type="button" data-envl="-1">' + t("envBack") + '</button><button type="button" data-envl="0">' + t("envGame") + '</button><button type="button" data-envl="1">' + t("envFront") + '</button></span>' +
       '<label class="sr-envr"><small>' + t("envScale") + ' <b id="sr-env-sv"></b></small><input type="range" id="sr-env-s" min="-232" max="200" step="1"></label>' +
       '<label class="sr-envr"><small>' + t("envRot") + ' <b id="sr-env-rv"></b></small><input type="range" id="sr-env-r" min="0" max="355" step="5"></label>' +
@@ -4255,7 +4639,7 @@
       '<div class="sr-ebot sr-fl-only"><div class="sr-ebot-bar"><i id="sr-be-s"></i><i id="sr-be-e"></i></div><span id="sr-be-t"></span>' +
       '<label class="sr-shs"><small>' + t("shield") + '</small><input type="range" id="sr-shp" min="0" max="100" step="5" value="0"><b id="sr-shp-v">0 %</b><button type="button" data-act="shfill" title="' + t("shFill") + '">↻</button></label><em id="sr-shp-n"></em></div>' +
       '<div class="sr-tip sr-fl-only" hidden title="' + (lang === "de" ? "Klicken zum Ausblenden" : "Click to dismiss") + '"></div>' +
-      '<div class="sr-hint" id="sr-hint"></div><div class="sr-note" hidden></div>' +
+      '<div class="sr-hint" id="sr-hint"></div><div class="sr-note" hidden></div>' + recHtml() +
       '<div class="sr-io sr-npc" hidden><div class="sr-io-box sr-npc-box"><div class="sr-tbar"><b class="sr-npc-t">' + t("hangar") + '</b><span class="sr-sp"></span><button type="button" data-act="npc-x">' + (lang === "de" ? "Schließen" : "Close") + '</button></div><div class="sr-io-h">' + t("hangarH") + '</div><div class="sr-npc-list"></div></div></div>' +
       '<div class="sr-io sr-dev" hidden><div class="sr-io-box sr-dev-box"><div class="sr-io-h">' + t("devH") + '</div><input class="sr-dev-in" type="password" inputmode="numeric" autocomplete="off" maxlength="6" spellcheck="false" aria-label="Code"><div class="sr-tbar"><span class="sr-dev-msg"></span><span class="sr-sp"></span><button type="button" data-act="dev-x">' + t("cancel") + '</button></div></div></div>' +
       '<div class="sr-io sr-exio" hidden><div class="sr-io-box"><div class="sr-io-h"></div><span class="sr-seg sr-io-mode"><button type="button" data-act="io-scene">' + t("expScene") + '</button><button type="button" data-act="io-struct">' + t("expStruct") + '</button></span><textarea spellcheck="false"></textarea><div class="sr-tbar"><button type="button" data-act="io-copy">' + (lang === "de" ? "Kopieren" : "Copy") + '</button><button type="button" data-act="io-load">' + (lang === "de" ? "Laden" : "Load") + '</button><button type="button" data-act="io-txt">' + t("txtSave") + '</button><button type="button" data-act="io-open">' + t("txtOpen") + '</button><input type="file" class="sr-io-file" accept=".txt,text/plain" hidden><span class="sr-sp"></span><button type="button" data-act="io-x">' + (lang === "de" ? "Schließen" : "Close") + '</button></div></div></div></div>';
@@ -4268,8 +4652,10 @@
     r.querySelectorAll("[data-blk]").forEach(function (b) { b.setAttribute("aria-pressed", String(b.getAttribute("data-blk") === S.sel && S.tool === "build")); });
     r.querySelectorAll("[data-view]").forEach(function (b) { b.setAttribute("aria-pressed", String(b.getAttribute("data-view") === S.view)); });
     r.querySelector(".sr-root").classList.toggle("st", S.ed === "station");
-    var envt = S.ed === "station" && S.envTab; r.querySelector(".sr-root").classList.toggle("envt", envt);
-    var tb1 = r.querySelector('[data-act="tab-blk"]'), tb2 = r.querySelector('[data-act="tab-env"]'); if (tb1) { tb1.setAttribute("aria-pressed", String(!S.envTab)); tb2.setAttribute("aria-pressed", String(!!S.envTab)); }
+    var envt = S.ed === "station" && S.envTab, evt = S.ed === "station" && S.evTab; r.querySelector(".sr-root").classList.toggle("envt", envt); r.querySelector(".sr-root").classList.toggle("evt", evt);
+    var tb1 = r.querySelector('[data-act="tab-blk"]'), tb2 = r.querySelector('[data-act="tab-env"]'), tb3 = r.querySelector('[data-act="tab-ev"]'); if (tb1) { tb1.setAttribute("aria-pressed", String(!S.envTab && !S.evTab)); tb2.setAttribute("aria-pressed", String(!!S.envTab)); tb3.setAttribute("aria-pressed", String(!!S.evTab)); }
+    if (evt) evSync(r, false);
+    recUi();
     if (envt) envSync(r);
     if (S.ed !== "station" && T[S.sel] && T[S.sel].dev) S.sel = "lblk";   // Dev-Bauteile gibt es im Schiffsbau nicht
     r.querySelector(".sr-root").classList.toggle("foot", !!(FL && !FL.seated)); if (FL) syncHot();
@@ -4282,7 +4668,7 @@
     r.querySelector(".sr-paint").hidden = S.tool !== "paint";
     var ci = r.querySelector("#sr-col"); if (ci && ci.value !== S.color) ci.value = S.color;
     r.querySelectorAll("[data-sw]").forEach(function (b) { b.setAttribute("aria-pressed", String(b.getAttribute("data-sw").toLowerCase() === S.color.toLowerCase())); });
-    set("sr-hint", fly ? "" : t("hintEd")); var hn = V.root.querySelector("#sr-hint"); if (hn) hn.hidden = fly;
+    set("sr-hint", fly ? "" : t(S.ed === "station" && S.evTab ? "evHelp" : "hintEd")); var hn = V.root.querySelector("#sr-hint"); if (hn) hn.hidden = fly;
     if (!fly) info();
   }
   // Waffenwerte: im Tooltip der Bauteilliste und als eigener Abschnitt im Infofeld (je Typ Anzahl, Schaden, Feuerrate, DPS)
@@ -4460,6 +4846,28 @@
     ".sr-root [hidden]{display:none!important}" +
     // Die Website hat eine eigene Klasse .foot (Fußzeile). Ohne diese Zeile rutscht das Spiel zu Fuß um 56 px nach unten und wird beschnitten.
     ".sr-root.foot{margin:0;padding:0;border:0;box-shadow:none;clip-path:none;font-size:inherit}" +
+    // Eventmarker (v0.59)
+    ".sr-root:not(.evt) .sr-evp,.sr-root.evt .sr-paint,.sr-root.evt .sr-opts,.sr-root.evt .sr-list,.sr-root.evt .sr-tools{display:none}" +
+    ".sr-evp{display:flex;flex-direction:column;gap:6px;padding:0 8px 8px;flex:1;min-height:0;overflow:auto}.sr-evp>small{font:600 .68rem var(--f-body,inherit);letter-spacing:.08em;text-transform:uppercase;color:#8FA0B8}" +
+    ".sr-evlist{display:flex;flex-direction:column;gap:3px;max-height:38%;overflow:auto;flex:none}" +
+    ".sr-evrow{display:flex;align-items:flex-start;gap:8px;text-align:left;padding:5px 6px;background:#101620;border:1px solid #263142;color:#B9C4D4;cursor:pointer}.sr-evrow:hover{border-color:#8FA0B8}.sr-evrow[aria-pressed=true]{border-color:#E3B83F;background:#1A2232;color:#fff}" +
+    ".sr-evrow b{flex:none;width:22px;height:22px;display:grid;place-items:center;color:#0B1018;font-size:.74rem;font-weight:800;border-radius:50%}.sr-evrow span{display:flex;flex-direction:column;font-size:.74rem;min-width:0}.sr-evrow small{color:#7D8AA0;font-size:.66rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}" +
+    ".sr-eved{display:flex;flex-direction:column;gap:7px;border-top:1px solid #263142;padding-top:8px}.sr-eved label{display:flex;flex-direction:column;gap:3px}.sr-eved small{color:#8FA0B8;font-size:.68rem}" +
+    ".sr-evrw{display:flex;gap:6px}.sr-evrw label:first-child{width:64px;flex:none}.sr-evk{flex:1;min-width:0}" +
+    ".sr-eved input,.sr-eved select,.sr-eved textarea{width:100%;box-sizing:border-box;background:#0B1018;color:#E6EAF0;border:1px solid #33415A;border-radius:0;padding:5px 6px;font:inherit;font-size:.78rem}.sr-eved textarea{resize:vertical;min-height:90px;line-height:1.4}" +
+    ".sr-eved input:focus,.sr-eved select:focus,.sr-eved textarea:focus{outline:none;border-color:#E3B83F}.sr-evb{font-size:.74rem;color:#E6EAF0}.sr-evdel{font-size:.74rem;padding:6px;color:#E07A6A}" +
+    // Aufnahme-Leiste (v0.59)
+    ".sr-rec{position:absolute;left:12px;right:12px;bottom:10px;z-index:4;display:flex;flex-direction:column;background:rgba(11,16,24,.94);border:1px solid #33415A}.sr-rec[hidden]{display:none}" +
+    ".sr-rec-ctl{display:flex;align-items:center;gap:6px;padding:6px 8px;flex-wrap:wrap}.sr-rec-ctl>b{font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;color:#8FA0B8;margin-right:4px}" +
+    ".sr-rec-ctl button{font-size:.76rem;padding:5px 10px}.sr-rec-r{color:#E0533F}.sr-rec-r[aria-pressed=true]{background:#E0533F;color:#fff;border-color:#E0533F}.sr-rec-ctl [data-act=rec-play][aria-pressed=true]{background:#2E6B4C;border-color:#57D18A;color:#fff}" +
+    ".sr-rec-time{font:700 .9rem ui-monospace,Menlo,Consolas,monospace;color:#E6EAF0;min-width:70px;text-align:right;margin:0 6px}" +
+    ".sr-rec-cam{display:flex;align-items:center;gap:5px}.sr-rec-cam small{color:#8FA0B8;font-size:.7rem}.sr-rec-cam select{background:#0B1018;color:#E6EAF0;border:1px solid #33415A;border-radius:0;font-size:.74rem;padding:3px 4px;max-width:160px}" +
+    ".sr-rec-tl{display:flex;border-top:1px solid #263142;max-height:150px;overflow-y:auto}.sr-rec.closed .sr-rec-tl{display:none}" +
+    ".sr-rec-heads{width:230px;flex:none;padding-top:18px;border-right:1px solid #263142}.sr-rec-h{display:flex;align-items:center;gap:4px;height:24px;padding:0 4px}" +
+    ".sr-rec-h i{width:4px;height:16px;flex:none}.sr-rec-h input{flex:1;min-width:0;background:transparent;border:1px solid transparent;color:#E6EAF0;font-size:.74rem;padding:2px 4px;border-radius:0}.sr-rec-h input:focus{outline:none;border-color:#E3B83F;background:#0B1018}" +
+    ".sr-rec-h button{width:22px;height:20px;padding:0;font-size:.74rem;flex:none}.sr-rec-h button[aria-pressed=false]{color:#5A6678}.sr-rec-none{margin:0;padding:4px 8px 8px;color:#7D8AA0;font-size:.72rem;line-height:1.4}" +
+    ".sr-rec-cv{flex:1;min-width:0;height:max(60px,calc(18px + var(--rows,1) * 24px));cursor:pointer;display:block}" +
+    ".sr-root.recd .sr-ebot,.sr-root.recd .sr-hot{bottom:calc(var(--rb,0px) + 18px)}.sr-root.recd .sr-uis,.sr-root.recd .sr-ctlb,.sr-root.recd .sr-shipn,.sr-root.recd .sr-shipn-in{bottom:calc(var(--rb,0px) + 14px)}.sr-root.recd .sr-tip{bottom:calc(var(--rb,0px) + 96px)}" +
     "@media (max-width:900px){.sr-info{display:none}.sr-hint{max-width:calc(100% - 280px)}}";
 
   // ===== 72-eingabe.js · Eingabe: Maus, Tastatur, Klicks auf Knöpfe, Regler =====
@@ -4480,6 +4888,7 @@
     if (e.button === 1 || (e.button === 0 && V.space)) { V.pan = { x: e.clientX, y: e.clientY, cx: V.cam.x, cy: V.cam.y }; e.preventDefault(); return; }
     var cx = Math.floor(m.x), cy = Math.floor(m.y);
     V.down = e.button;
+    if (S.ed === "station" && S.evTab) { evDown(e, m); return; }   // Events: Marker setzen, ziehen, löschen
     if (S.ed === "station" && S.envTab) {   // Environmental: frei platzieren auf der aktiven Ebene
       if (e.button === 2 || S.tool === "erase") { if (envErase(m.sx, m.sy)) syncUI(); }
       else if (e.button === 0 && S.tool === "build") { envPlace(m.sx, m.sy, false); syncUI(); }
@@ -4500,6 +4909,7 @@
     if (V.pan) { var s = PX * V.zoom; V.cam.x = V.pan.cx - (e.clientX - V.pan.x) / s; V.cam.y = V.pan.cy - (e.clientY - V.pan.y) / s; return; }
     V.mouse = m;
     if (V.down === undefined || V.down === null) return;
+    if (S.ed === "station" && S.evTab) { if (V.evDrag) evMove(m); return; }
     if (S.ed === "station" && S.envTab) {
       if (V.down === 2 || S.tool === "erase") { if (envErase(m.sx, m.sy)) syncUI(); }
       else if (V.down === 0 && S.tool === "build" && V.envLast) {   // Ziehen streut: neues Asset, sobald genug Abstand zum letzten
@@ -4513,7 +4923,7 @@
     else if (S.tool === "paint") { if (paintAt(cx, cy)) syncUI(); }
     else if (S.tool === "build" && V.row) { V.row.ex = cx; V.row.ey = cy; }
   }
-  function onUp(e) { if (V && V.drag) invDragEnd(e); if (!V) return; V.envLast = null; V.pan = null; V.down = null; if (FL) FL.fire = false; if (V.row) { placeRow(); V.row = null; syncUI(); } }
+  function onUp(e) { if (V && V.drag) invDragEnd(e); if (!V) return; if (V.evDrag) evUp(); V.envLast = null; V.pan = null; V.down = null; if (FL) FL.fire = false; if (V.row) { placeRow(); V.row = null; syncUI(); } }
   function onWheel(e) { e.preventDefault(); var k = e.deltaY < 0 ? 1.12 : 1 / 1.12; V.zoom = Math.max(S.mode === "fly" ? ZMIN_FL : S.ed === "station" ? ZMIN_ST : 0.3, Math.min(3, V.zoom * k)); }
   function finishRename(ok) {
     var ib = V.root.querySelector(".sr-shipn-in"), bb = V.root.querySelector(".sr-shipn"); if (!ib || ib.hidden) return;
@@ -4522,7 +4932,7 @@
   }
   function onKey(e) {
     if (V && e.target.classList && e.target.classList.contains("sr-shipn-in")) { if (e.key === "Enter") finishRename(true); else if (e.key === "Escape") finishRename(false); e.stopPropagation(); return; }
-    if (!V || e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA") return;
+    if (!V || e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA" || e.target.tagName === "SELECT") return;
     if (V.menu) return;   // im Menü keine Spieltasten
     var k = e.key.toLowerCase();
     if (k === "escape" && V.root.querySelector(".sr-vpop") && !V.root.querySelector(".sr-vpop").hidden) { closeVar(); return; }
@@ -4555,6 +4965,7 @@
     if ((e.ctrlKey || e.metaKey) && k === "z") { undo(); e.preventDefault(); return; }
     if (["w", "a", "s", "d", "arrowup", "arrowdown", "arrowleft", "arrowright"].indexOf(k) >= 0) { V.keys[k] = true; e.preventDefault(); return; }
     if (e.repeat) return;
+    if (S.ed === "station" && S.evTab && (k === "delete" || k === "backspace")) { evDelSel(); e.preventDefault(); return; }
     if (S.ed === "station" && S.envTab && (k === "r" || k === "[" || k === "]" || k === "+" || k === "=" || k === "-")) {
       if (k === "r") S.envR = (S.envR + (e.shiftKey ? 345 : 15)) % 360;
       else S.envS = Math.max(envSMin(S.envSel), Math.min(envSMax(S.envSel), S.envS * (k === "]" || k === "+" || k === "=" ? 1.1 : 1 / 1.1)));
@@ -4572,7 +4983,7 @@
     if (FL) { FL.keys[k] = false; if (k === "shift") FL.keys.shift = false; }
     V.keys[k] = false;
   }
-  function undo() { var u = S.undo.pop(); if (!u) return; var o = JSON.parse(u); if (Array.isArray(o)) S.blocks = o; else { S.blocks = o.b; S.env = o.e.map(envUnpack).filter(Boolean); } save(); syncUI(); }
+  function undo() { var u = S.undo.pop(); if (!u) return; var o = JSON.parse(u); if (Array.isArray(o)) S.blocks = o; else { S.blocks = o.b; S.env = o.e.map(envUnpack).filter(Boolean); if (o.v) S.ev = o.v.map(evUnpack).filter(Boolean); } save(); syncUI(); }
   function onClick(e) {
     if (menuClick(e)) return;   // Startmenü und Einstellungen
     var vf = e.target.closest("[data-vf]"), vo = e.target.closest("[data-vopt]");
@@ -4582,6 +4993,7 @@
     var a = e.target.closest("[data-act]"), tl = e.target.closest("[data-tool]"), bk = e.target.closest("[data-blk]"), vw = e.target.closest("[data-view]"), sw = e.target.closest("[data-sw]");
     if (tl) { S.tool = tl.getAttribute("data-tool"); syncUI(); return; }
     if (bk) { S.sel = bk.getAttribute("data-blk"); S.tool = "build"; syncUI(); return; }
+    var evr = e.target.closest("[data-evsel]"); if (evr) { V.evSel = +evr.getAttribute("data-evsel"); var em = S.ev[V.evSel]; if (em) { V.cam.x = em.x; V.cam.y = em.y; } syncUI(); return; }
     var eb = e.target.closest("[data-env]"); if (eb) { S.envSel = eb.getAttribute("data-env"); S.envS = Math.max(envSMin(S.envSel), Math.min(envSMax(S.envSel), S.envS)); S.tool = "build"; syncUI(); return; }
     var el2 = e.target.closest("[data-envl]"); if (el2) { S.envL = +el2.getAttribute("data-envl"); syncUI(); return; }
     if (vw) { S.view = vw.getAttribute("data-view"); syncUI(); return; }
@@ -4598,8 +5010,10 @@
     else if (act === "sym") S.sym = !S.sym;
     else if (act === "symm") { S.symGap = !S.symGap; S.sym = true; save(); }
     else if (act === "undo") undo();
-    else if (act === "clear") { pushUndo(); if (S.ed === "station" && S.envTab) S.env = []; else S.blocks = []; save(); }   /* im Environmental-Tab leert es nur das Environment */
-    else if (act === "tab-blk" || act === "tab-env") { S.envTab = act === "tab-env"; if (S.envTab && S.tool === "paint") S.tool = "build"; }
+    else if (act === "clear") { pushUndo(); if (S.ed === "station" && S.envTab) S.env = []; else if (S.ed === "station" && S.evTab) { S.ev = []; V.evSel = -1; } else S.blocks = []; save(); }   /* im Environmental-Tab leert es nur das Environment */
+    else if (act === "tab-blk" || act === "tab-env" || act === "tab-ev") { S.envTab = act === "tab-env"; S.evTab = act === "tab-ev"; if (S.envTab && S.tool === "paint") S.tool = "build"; }
+    else if (act === "ev-del") evDelSel();
+    else if (recClick(act, a)) return;
     else if (act === "env-rnd") S.envRnd = !S.envRnd;
     else if (act === "starter") { pushUndo(); S.blocks = S.ed === "station" ? starterStation() : starter(); save(); fitCam(); }
     else if (act === "exp" || act === "imp") { openIO(act); return; }
@@ -4619,7 +5033,7 @@
     else if (act === "io-scene" || act === "io-struct") { V.ioScene = act === "io-scene"; openIO("exp"); return; }
     else if (act === "io-txt") { saveTxt(V.root.querySelector(".sr-exio textarea").value); return; }
     else if (act === "io-open") { V.root.querySelector(".sr-io-file").click(); return; }
-    else if (act === "io-load") { var bl = parseShip(V.root.querySelector(".sr-exio textarea").value); var ienv = S.ed === "station" ? parseEnv(V.root.querySelector(".sr-exio textarea").value) : null; if (bl && S.ed !== "station") bl = bl.filter(function (b) { return !T[b.t].dev; });   /* Dev-Bauteile nur im Developer Tool */ if (!bl || (!bl.length && !ienv)) { note(lang === "de" ? "Code ungültig." : "Invalid code."); return; } pushUndo(); S.blocks = bl; if (ienv) S.env = ienv; save(); fitCam(); V.root.querySelector(".sr-exio").hidden = true; if (ienv) note(t("sceneLoaded") + " (" + bl.length + (lang === "de" ? " Blöcke, " : " blocks, ") + ienv.length + " Assets)."); else note(lang === "de" ? "Schiff geladen (" + bl.length + " Blöcke)." : "Ship loaded (" + bl.length + " blocks)."); }
+    else if (act === "io-load") { var bl = parseShip(V.root.querySelector(".sr-exio textarea").value); var ienv = S.ed === "station" ? parseEnv(V.root.querySelector(".sr-exio textarea").value) : null; if (bl && S.ed !== "station") bl = bl.filter(function (b) { return !T[b.t].dev; });   /* Dev-Bauteile nur im Developer Tool */ if (!bl || (!bl.length && !ienv)) { note(lang === "de" ? "Code ungültig." : "Invalid code."); return; } pushUndo(); S.blocks = bl; if (ienv) S.env = ienv; if (S.ed === "station") { var iev = parseEv(V.root.querySelector(".sr-exio textarea").value), irec = parseRec(V.root.querySelector(".sr-exio textarea").value); if (iev) { S.ev = iev; evRenum(); V.evSel = -1; } if (irec) { REC.tracks = irec; recStore(); } } save(); fitCam(); V.root.querySelector(".sr-exio").hidden = true; if (ienv) note(t("sceneLoaded") + " (" + bl.length + (lang === "de" ? " Blöcke, " : " blocks, ") + ienv.length + " Assets)."); else note(lang === "de" ? "Schiff geladen (" + bl.length + " Blöcke)." : "Ship loaded (" + bl.length + " blocks)."); }
     else if (act === "test") { startTest(); return; }
     else if (act === "menu") { menuOpen(); return; }
     else if (act === "auto") { SET.auto = !SET.auto; setSave(); menuSync(); note(t(SET.auto ? "autoOn" : "autoOff")); return; }
@@ -4629,6 +5043,9 @@
     syncUI();
   }
   function onInput(e) {
+    if (e.target.hasAttribute && e.target.hasAttribute("data-evf")) { evField(e.target.getAttribute("data-evf"), e.target.value); return; }
+    if (e.target.hasAttribute && e.target.hasAttribute("data-recname")) { var rq = REC.tracks.filter(function (q) { return q.id === +e.target.getAttribute("data-recname"); })[0]; if (rq) { rq.name = e.target.value.slice(0, 28) || t("recTrk"); recStore(); var gb = recGhostOf(rq.id); if (gb) gb.name = rq.name; } return; }
+    if (e.target.getAttribute && e.target.getAttribute("data-recf") === "follow") { REC.follow = +e.target.value || 0; e.target.blur(); return; }
     if (e.target.id === "sr-col") { S.color = e.target.value; S.tool = "paint"; save(); syncUI(); }
     if (menuInput(e)) return;
     if (e.target.id === "sr-uis") { hudScale(+e.target.value); try { localStorage.setItem("spacerogue-ui", String(V.uis)); } catch (er) {} }
@@ -4767,7 +5184,7 @@
     raf = requestAnimationFrame(loop);
     var dt = Math.min(0.05, (now - (last || now)) / 1000); last = now;
     var dpr = window.devicePixelRatio || 1; V.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    if (S.mode === "fly" && FL) { var g = FL.paused ? 0 : dt; while (g > 0 && FL) { var d = Math.min(1 / 120, g); flTick(d); g -= d; } if (FL) flDraw(); }
+    if (S.mode === "fly" && FL) { recPre(dt); var g = FL.paused ? 0 : dt; while (g > 0 && FL) { var d = Math.min(1 / 120, g); flTick(d); g -= d; } if (FL) flDraw(); }
     else {
       var k = V.keys, sp = 14 / V.zoom * dt;
       if (k.w || k.arrowup) V.cam.y -= sp; if (k.s || k.arrowdown) V.cam.y += sp; if (k.a || k.arrowleft) V.cam.x -= sp; if (k.d || k.arrowright) V.cam.x += sp;
@@ -4792,6 +5209,7 @@
     V.cv.addEventListener("wheel", onWheel, { passive: false }); V.cv.addEventListener("contextmenu", function (e) { e.preventDefault(); });
     V.cv.addEventListener("pointerleave", function () { if (V && S.mode !== "fly") V.mouse = null; });
     el.addEventListener("click", onClick); el.addEventListener("input", onInput);
+    el.addEventListener("pointerdown", function (e) { if (e.target.classList && e.target.classList.contains("sr-rec-cv")) recTlDown(e); });
     el.addEventListener("change", function (e) { if (e.target.type === "range") e.target.blur(); if (e.target.classList && e.target.classList.contains("sr-io-file")) { openTxt(e.target.files && e.target.files[0]); e.target.value = ""; } });
     el.addEventListener("focusout", function (e) { if (e.target.classList && e.target.classList.contains("sr-shipn-in")) finishRename(true); });   // Regler loslassen gibt WASD wieder frei
     window.addEventListener("keydown", onKey); window.addEventListener("keyup", onKeyUp); window.addEventListener("resize", layout);
@@ -4807,5 +5225,5 @@
     document.body.style.overflow = V.ovOld || "";
     FL = null; if (S) S.mode = "edit"; V = null;
   }
-  window.SpaceRogue = { mount: mount, unmount: unmount, _debug: function () { return { S: S, V: V, FL: FL, T: T, edRot: edRot, SND: SND, tryPlace: tryPlace, ghostAt: ghostAt, antRange: antRange, SET: SET, stats: stats, rooms: rooms, components: components, starter: starter, startTest: startTest, damage: damage, dockFace: dockFace, wx: WX_TEX, spawnEnemy: spawnEnemy, NPC: NPC, bd: { ids: BD_IDS, sprite: bdSprite, glow: bdSunGlow, env: ENV, code: sceneCode, parse: parseEnv } }; } };
+  window.SpaceRogue = { mount: mount, unmount: unmount, _debug: function () { return { REC: REC, recStart: recStart, recStop: recStop, recSeek: recSeek, S: S, V: V, FL: FL, T: T, edRot: edRot, SND: SND, tryPlace: tryPlace, ghostAt: ghostAt, antRange: antRange, SET: SET, stats: stats, rooms: rooms, components: components, starter: starter, startTest: startTest, damage: damage, dockFace: dockFace, wx: WX_TEX, spawnEnemy: spawnEnemy, NPC: NPC, bd: { ids: BD_IDS, sprite: bdSprite, glow: bdSunGlow, env: ENV, code: sceneCode, parse: parseEnv } }; } };
 })();
