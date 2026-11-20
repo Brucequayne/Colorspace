@@ -9,7 +9,7 @@
 (function () {
   "use strict";
 
-  var VERSION = "0.21", OW = 1080, OH = 1920, MIN = 0.1, JF = 12;
+  var VERSION = "0.3", OW = 1080, OH = 1920, MIN = 0.1, JF = 12;
   var KEYC = ["#D9D6D0", "#E2621B", "#E3B83F", "#8DBF45", "#23A06A", "#2BB0B8", "#3B7FE0", "#8A6CF0", "#C452C8", "#E0457A"];
   var KEY_ORDER = [1, 2, 3, 4, 5, 6, 7, 8, 9, 0], PAD_ORDER = [7, 8, 9, 4, 5, 6, 1, 2, 3, 0];
   var ANIMS = ["none", "turb", "judder", "punch", "shake"];
@@ -26,6 +26,7 @@
     keysNote: L2("Zahl drücken schneidet live auf den Clip, dort weiter, wo noch nichts benutzt wurde. Belegen: Clip auf eine Taste ziehen oder anklicken und Umschalt + Zahl.", "A number cuts live to its clip, continuing where nothing has been used yet. Assign: drag a clip onto a key, or click it and press Shift + number."),
     empty: L2("leer", "empty"), clear: L2("Taste leeren", "Clear key"),
     fxH: L2("Effekte (Buchstaben halten)", "Effects (hold letters)"),
+    fxReset: L2("Regler zurücksetzen", "Reset sliders"),
     fxNote: L2("Buchstaben halten, während das Video läuft: Solange du hältst, liegt der Effekt auf dem Bild und landet als eigene Ebene in der Timeline. Dort kannst du ihn verschieben, an den Kanten kürzen oder verlängern, mit S teilen und mit Entf löschen. Im Stillstand zeigt Halten nur eine Vorschau. Auf den Buchstaben klicken, um die Taste zu ändern.", "Hold letters while the video plays: as long as you hold, the effect is on the picture and lands as its own layer in the timeline. There you can move it, shorten or extend it at the edges, split it with S and delete it with Delete. While stopped, holding only shows a preview. Click the letter to change the key."),
     fxKeyT: L2("Taste ändern", "Change key"), fxPress: L2("Taste …", "Key …"),
     fxLearn: L2("Jetzt einen Buchstaben drücken (Esc bricht ab).", "Now press a letter (Esc cancels)."),
@@ -105,7 +106,7 @@
     sel: 0, selClip: 0, T: 0, nextId: 1, undo: [], redo: [],
     live: { anim: "turb", as: 1, ad: 0.45, mode: "cont" }, clipVol: 1, musicVol: 0.9, music: null,
     pps: 60, scroll: 0, ratio: "9:16",
-    fx: [], selFx: 0, fxKeys: {}                      // Effekt-Ebenen: { id, type, start, dur } in Timeline-Zeit
+    fx: [], selFx: 0, fxKeys: {}, fxSet: {}           // Effekt-Ebenen: { id, type, start, dur, seed } in Timeline-Zeit; fxSet: Regler je Effekt
   };
   var V = null, raf = 0;
   // Bildformate (Breite × Höhe des Exports). Clips werden wie bisher mit „Füllen“ oder „Einpassen“ hineingesetzt.
@@ -557,17 +558,143 @@
     }
   }
 
+
+  // ---------- GPU-Effekte (WebGL, seit v0.3) ----------
+  // Dimension und Splitter rechnen als Shader: Jeder Bildpunkt des fertigen Bildes holt sich seine Farbe genau einmal aus dem
+  // aktuellen Bild. Es wird nichts verkleinert kopiert, die Kosten hängen nur von der Bildschirm- bzw. Export-Auflösung ab.
+  // Eine gemeinsame WebGL-Leinwand, die nur wächst (Vorschau und Export wechseln sich so nicht ständig mit Neuanlegen ab).
+  var GLX = null;
+  var GLSL_HEAD = "precision highp float;uniform sampler2D u_tex;uniform vec2 u_res;uniform float u_t;uniform float u_seed;" +
+    "float hash(vec2 p,float s){vec3 p3=fract(vec3(p.xyx+s*0.61803)*vec3(.1031,.1030,.0973));p3+=dot(p3,p3.yzx+33.33);return fract((p3.x+p3.y)*p3.z);}" +
+    "float vnoise(vec2 p,float s){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(hash(i,s),hash(i+vec2(1.,0.),s),f.x),mix(hash(i+vec2(0.,1.),s),hash(i+vec2(1.,1.),s),f.x),f.y);}" +
+    "float fbm(vec2 p,float s,int oct){float t=0.,a=.5,n=0.;for(int i=0;i<4;i++){if(i>=oct)break;t+=a*vnoise(p,s+float(i)*17.);n+=a;p*=2.;a*=.5;}return t/n;}" +
+    "vec2 mr(vec2 u){return 1.-abs(1.-mod(u,2.));}" +
+    "vec4 px(vec2 q){return texture2D(u_tex,mr(q/u_res));}" +
+    "vec2 P0(){return vec2(gl_FragCoord.x,u_res.y-gl_FragCoord.y);}";
+  // Dimension = Polymerge aus Pixellab (Form aus Collage-Teilen), zusätzlich bewegen und verformen sich Form und Teile organisch
+  var GLSL_DIM = GLSL_HEAD + "uniform float u_mode,u_p,u_Rs,u_cs,u_src,u_ell,u_n,u_swirl,u_warp,u_wf,u_vein,u_ns,u_cseed,u_mv;uniform vec2 u_C,u_rot,u_fxy;" +
+    "float sdTri(vec2 p,float r){float k=sqrt(3.);p.y=-p.y;p.x=abs(p.x)-r;p.y=p.y+r/k;if(p.x+k*p.y>0.)p=vec2(p.x-k*p.y,-k*p.x-p.y)/2.;p.x-=clamp(p.x,-2.*r,0.);return -length(p)*sign(p.y);}" +
+    "void main(){vec2 P=P0();vec4 base=texture2D(u_tex,P/u_res);float tm=u_t*(.35+u_mv*1.1),mv=u_mv;" +
+    "float Rs=u_Rs*(1.+.07*mv*sin(tm*1.3));vec2 e=P-u_C-vec2(sin(tm*.41),cos(tm*.37))*Rs*.06*mv;" +
+    "float dx=e.x*u_rot.x+e.y*u_rot.y,dy=(-e.x*u_rot.y+e.y*u_rot.x)*u_ell;vec2 w=vec2(dx,dy),dr=vec2(tm*.23,-tm*.19)*mv;" +
+    "float wp=u_warp+.12*mv;if(wp>0.){w.x+=wp*Rs*(fbm(vec2(dx,dy)/Rs*u_wf+vec2(3.1,0.)+dr,u_ns,3)-.5)*2.;w.y+=wp*Rs*(fbm(vec2(dx,dy)/Rs*u_wf+vec2(0.,7.7)-dr,u_ns+3.,3)-.5)*2.;}" +
+    "float sd;vec2 q=w;" +
+    "if(u_mode<.5)sd=length(w)-Rs;else if(u_mode<1.5)sd=sdTri(w,Rs*.86);" +
+    "else if(u_mode<2.5){vec2 uv=w/Rs+dr*.5;float r1=1.-abs(2.*fbm(vec2(uv.x*u_fxy.x*(1.+u_p)+11.,uv.y*u_fxy.y*(1.+u_p)),u_ns+21.,4)-1.);" +
+    "float r2=1.-abs(2.*fbm(vec2(uv.x*u_fxy.x*2.3+5.,uv.y*u_fxy.y*2.3+2.),u_ns+37.,3)-1.);float val=max(r1,r2*(.86+u_p*.08))-length(vec2(w.x,w.y*.8))/Rs*.3;sd=(u_vein-val)*Rs*.35;}" +
+    "else{float nv=fbm(w/Rs*(1.4+u_p*1.6)+dr*.5,u_ns,4)-length(w)/Rs*.5;sd=(.16-nv)*Rs*.6;}" +
+    "if(sd>1.2){gl_FragColor=base;return;}" +
+    "if(u_mode<1.5){float r=length(w),sec=6.2831853/(u_mode<.5?u_n:3.),a=atan(w.y,w.x)+(u_swirl+.5*mv*sin(tm*.7))*r/Rs;a=mod(a,sec);a=abs(a-sec/2.);q=r*vec2(cos(a),sin(a));}" +
+    "vec2 gc=floor(q/u_cs);float d1=1e30;vec2 b=vec2(0.),bi=vec2(0.);" +
+    "for(int j=-1;j<=1;j++)for(int i=-1;i<=1;i++){vec2 g=gc+vec2(float(i),float(j));float h1=hash(g,u_cseed),h2=hash(g,u_cseed+1.);" +
+    "vec2 sp=(g+.5+(vec2(h1,h2)-.5)*.85+.28*mv*vec2(sin(tm*1.3+h1*6.28),cos(tm*1.1+h2*6.28)))*u_cs;vec2 dd=q-sp;float d=dot(dd,dd);if(d<d1){d1=d;b=sp;bi=g;}}" +
+    "float an=(hash(bi,u_cseed+3.)*2.-1.)*3.14159*(.4+u_p*.6)+.25*mv*sin(tm*.9+hash(bi,u_cseed+8.)*6.28),cA=cos(an),sA=sin(an);" +
+    "float mir=hash(bi,u_cseed+4.)<.5?-1.:1.,scl=1.+(hash(bi,u_cseed+7.)-.5)*u_p*1.4;vec2 l=q-b;vec2 uv2=vec2((l.x*cA-l.y*sA)*mir,l.x*sA+l.y*cA)*scl;" +
+    "vec2 of=(vec2(hash(bi,u_cseed+5.),hash(bi,u_cseed+6.))-.5)*u_src*(.3+u_p);vec4 col=px(u_res*.5+of+uv2*(u_src/u_cs));" +
+    "gl_FragColor=mix(base,col,clamp(.5-sd/1.2,0.,1.));}";
+  // Splitter = Fragments aus Pixellab, aber mit Dynamik: ein Quadtree teilt große Zellen zufällig in immer kleinere,
+  // darin Voronoi-Splitter. Viele kleine, wenige große. Jedes Teil zeigt eine gedrehte, gespiegelte Kopie des Bildausschnitts.
+  // Splitter = Fragments aus Pixellab, aber mit Dynamik: grobe Voronoi-Splitter, von denen ein Teil zufällig in feinere zerfällt
+  // (bis zu vier Stufen). Alle Kanten bleiben Scherbenkanten, viele kleine, wenige große. Jedes Teil zeigt eine gedrehte,
+  // gespiegelte Kopie des Bildausschnitts.
+  var GLSL_SPL = GLSL_HEAD + "uniform float u_S0,u_split,u_src,u_rot,u_sc,u_seam,u_mir,u_mv;" +
+    "void vor(vec2 P,float s,float ks,out vec2 b,out vec2 bi,out float e){vec2 gc=floor(P/s);float d1=1e30,d2=1e30;b=vec2(0.);bi=vec2(0.);" +
+    "for(int j=-1;j<=1;j++)for(int i=-1;i<=1;i++){vec2 g=gc+vec2(float(i),float(j));vec2 sp=(g+.5+(vec2(hash(g,ks),hash(g,ks+1.))-.5)*.9)*s;vec2 dd=P-sp;float d=dot(dd,dd);" +
+    "if(d<d1){d2=d1;d1=d;b=sp;bi=g;}else if(d<d2)d2=d;}e=sqrt(d2)-sqrt(d1);}" +
+    "void main(){vec2 P=P0();float s=u_S0,ks=u_seed,em=1e30,e;vec2 b,bi;" +
+    "for(int L=0;L<4;L++){ks=u_seed+float(L)*31.;vor(P,s,ks,b,bi,e);em=min(em,e);if(L<3&&hash(bi,ks+11.)<u_split*(L==0?.9:1.)){s*=.42;}else break;}" +
+    "float tm=u_t*(.4+u_mv),a=(hash(bi,ks+3.)*2.-1.)*3.14159*u_rot+.3*u_mv*sin(tm+hash(bi,ks+9.)*6.28),cA=cos(a),sA=sin(a);" +
+    "float m=(u_mir>.5&&hash(bi,ks+4.)<.5)?-1.:1.;vec2 l=P-b;vec2 uv=vec2((l.x*cA-l.y*sA)*m,l.x*sA+l.y*cA);" +
+    "vec2 of=(vec2(hash(bi,ks+5.),hash(bi,ks+6.))-.5)*u_sc*u_src*1.5+u_mv*u_src*.12*vec2(sin(tm*.8+hash(bi,ks+7.)*6.28),cos(tm*.7+hash(bi,ks+8.)*6.28));" +
+    "vec4 col=px(u_res*.5+of+uv*(u_src/s));" +
+    "if(u_seam>0.&&em<u_seam){float k=1.-em/u_seam;col.rgb*=1.-k*k*.85;}" +
+    "gl_FragColor=vec4(col.rgb,1.);}";
+  function glGet() {
+    if (GLX) return GLX.ok ? GLX : null;
+    GLX = { ok: false, prog: {} };
+    try {
+      var cv = document.createElement("canvas"); cv.width = cv.height = 2;
+      var gl = cv.getContext("webgl", { premultipliedAlpha: false, alpha: false, antialias: false, preserveDrawingBuffer: true });
+      if (!gl) return null;
+      var buf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, buf); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
+      var tex = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, tex);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      GLX = { ok: true, cv: cv, gl: gl, tex: tex, buf: buf, prog: {} };
+      cv.addEventListener("webglcontextlost", function (e) { e.preventDefault(); GLX = null; });
+      return GLX;
+    } catch (e) { return null; }
+  }
+  function glProg(G, key, fsrc) {
+    if (G.prog[key]) return G.prog[key];
+    var gl = G.gl, sh = function (type, src) { var o = gl.createShader(type); gl.shaderSource(o, src); gl.compileShader(o); if (!gl.getShaderParameter(o, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(o)); return o; };
+    var pr = gl.createProgram();
+    gl.attachShader(pr, sh(gl.VERTEX_SHADER, "attribute vec2 a;void main(){gl_Position=vec4(a,0.,1.);}")); gl.attachShader(pr, sh(gl.FRAGMENT_SHADER, fsrc));
+    gl.linkProgram(pr); if (!gl.getProgramParameter(pr, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(pr));
+    var o = { pr: pr, a: gl.getAttribLocation(pr, "a"), u: {} };
+    G.prog[key] = o; return o;
+  }
+  // Bild von x durch den Shader schicken und das Ergebnis zurück auf x zeichnen
+  function glFx(x, W, H, key, fsrc, uni) {
+    var G = glGet(); if (!G) return;
+    var gl = G.gl, P2;
+    try { P2 = glProg(G, key, fsrc); } catch (e) { if (window.console) console.warn("SkapeForm-Effekt", key, e); G.prog[key] = null; return; }
+    if (G.cv.width < W || G.cv.height < H) { G.cv.width = Math.max(G.cv.width, W); G.cv.height = Math.max(G.cv.height, H); }
+    gl.viewport(0, 0, W, H); gl.useProgram(P2.pr);
+    gl.bindTexture(gl.TEXTURE_2D, G.tex); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, x.canvas);
+    var U = function (n) { if (!(n in P2.u)) P2.u[n] = gl.getUniformLocation(P2.pr, n); return P2.u[n]; };
+    gl.uniform1i(U("u_tex"), 0); gl.uniform2f(U("u_res"), W, H);
+    Object.keys(uni).forEach(function (n) { var v = uni[n], l = U(n); if (!l) return; if (v.length === 2) gl.uniform2f(l, v[0], v[1]); else gl.uniform1f(l, v); });
+    gl.bindBuffer(gl.ARRAY_BUFFER, G.buf);
+    gl.enableVertexAttribArray(P2.a); gl.vertexAttribPointer(P2.a, 2, gl.FLOAT, false, 0, 0);
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    x.save(); x.setTransform(1, 0, 0, 1, 0, 0); x.globalAlpha = 1; x.globalCompositeOperation = "source-over";
+    x.drawImage(G.cv, 0, G.cv.height - H, W, H, 0, 0, W, H); x.restore();
+  }
+  function rngS(seed) { var a = seed >>> 0 || 1; return function () { a = (a + 0x6D2B79F5) >>> 0; var t2 = a; t2 = Math.imul(t2 ^ (t2 >>> 15), t2 | 1); t2 ^= t2 + Math.imul(t2 ^ (t2 >>> 7), t2 | 61); return ((t2 ^ (t2 >>> 14)) >>> 0) / 4294967296; }; }
+
   // ---------- Effekte (Buchstaben halten) ----------
   // Ein neuer Effekt = ein Eintrag in FXDEF und seine Kennung in FX_ORDER (Reihenfolge der Spuren und der Anwendung).
   // draw(x, W, H, o) malt über das fertige Bild; o = { t: Sekunden seit Effektbeginn, d: Effektlänge, T: Timeline-Zeit }.
   // Alles andere (Taste, Aufnahme beim Halten, eigene Spur, Schneiden/Verschieben, Vorschau, Export, Rückgängig) läuft automatisch.
+  // set: Regler rechts im Panel (k, l, min, max, u; type "seg" mit opts, type "check"), Werte in P.fxSet[typ]. o.seed: Zufall je Tastendruck.
   var FXDEF = {
     neg: {
       name: L2("Negativ", "Negative"), color: "#9B86F2", key: "KeyQ",
       draw: function (x, W, H) { x.save(); x.globalCompositeOperation = "difference"; x.fillStyle = "#fff"; x.fillRect(0, 0, W, H); x.restore(); }
+    },
+    dim: {
+      name: L2("Dimension", "Dimension"), color: "#4FC3A1", key: "KeyW",
+      set: [{ k: "mode", type: "seg", l: L2("Form", "Shape"), opts: [["circle", L2("Kreis", "Circle")], ["tri", L2("Dreieck", "Triangle")], ["roots", L2("Wurzeln", "Roots")], ["noise", L2("Fleck", "Blot")]] },
+        { k: "punch", l: L2("Punch", "Punch"), min: 0, max: 100, u: " %" }, { k: "shape", l: L2("Größe der Form", "Shape size"), min: 10, max: 100, u: " %" },
+        { k: "cell", l: L2("Größe der Teile", "Piece size"), min: 3, max: 40, u: " %" }, { k: "src", l: L2("Größe des Ausschnitts", "Section size"), min: 5, max: 100, u: " %" },
+        { k: "move", l: L2("Bewegung", "Motion"), min: 0, max: 100, u: " %" }],
+      def: { mode: "circle", punch: 35, shape: 70, cell: 14, src: 25, move: 50 },
+      draw: function (x, W, H, o) {
+        var S2 = fxSet("dim"), p = S2.punch / 100, mn = Math.min(W, H), Rs = mn / 2 * S2.shape / 100, R = rngS((o.seed || 1) * 977 + 13);
+        var C = [W / 2 + (R() - 0.5) * p * 0.5 * Rs, H / 2 + (R() - 0.5) * p * 0.5 * Rs], rot = (R() - 0.5) * 2 * Math.PI * p, ell = 1 + (R() - 0.5) * p * 0.9;
+        var n = Math.max(3, Math.round(5 + R() * (1 + p * 14))), swirl = (R() - 0.5) * 2 * p * 2.6, wf = 1.2 + R() * 1.6, fx = 1.2 + R() * 1.4, fy = 0.5 + R() * 0.6;
+        glFx(x, W, H, "dim", GLSL_DIM, { u_t: o.t, u_seed: o.seed % 9973, u_mode: ["circle", "tri", "roots", "noise"].indexOf(S2.mode), u_p: p, u_Rs: Rs, u_cs: Rs * S2.cell / 100 * 1.4,
+          u_src: mn * S2.src / 100, u_C: C, u_rot: [Math.cos(rot), Math.sin(rot)], u_ell: ell, u_n: n, u_swirl: swirl, u_warp: p * 0.55, u_wf: wf, u_fxy: [fx, fy],
+          u_vein: 0.76 - p * 0.12, u_ns: ((o.seed || 1) * 101 + 7) % 9973, u_cseed: ((o.seed || 1) * 31 + 5) % 9973, u_mv: S2.move / 100 });
+      }
+    },
+    split: {
+      name: L2("Splitter", "Splitter"), color: "#E8A04A", key: "KeyE",
+      set: [{ k: "size", l: L2("Größte Splitter", "Largest shards"), min: 10, max: 80, u: " %" }, { k: "dyn", l: L2("Dynamik (viele kleine)", "Dynamics (many small)"), min: 0, max: 100, u: " %" },
+        { k: "src", l: L2("Größe des Ausschnitts", "Section size"), min: 10, max: 100, u: " %" }, { k: "rot", l: L2("Drehung", "Rotation"), min: 0, max: 100, u: " %" },
+        { k: "scatter", l: L2("Streuung", "Scatter"), min: 0, max: 100, u: " %" }, { k: "seam", l: L2("Fugen", "Seams"), min: 0, max: 20, u: "" },
+        { k: "move", l: L2("Bewegung", "Motion"), min: 0, max: 100, u: " %" }, { k: "mirror", type: "check", l: L2("Spiegeln wie im Kaleidoskop", "Mirror like a kaleidoscope") }],
+      def: { size: 40, dyn: 70, src: 60, rot: 100, scatter: 40, seam: 2, move: 25, mirror: true },
+      draw: function (x, W, H, o) {
+        var S2 = fxSet("split"), mx = Math.max(W, H);
+        glFx(x, W, H, "split", GLSL_SPL, { u_t: o.t, u_seed: (o.seed || 1) % 9973, u_S0: mx * S2.size / 100, u_split: S2.dyn / 100 * 0.8, u_src: Math.min(W, H) * S2.src / 100,
+          u_rot: S2.rot / 100, u_sc: S2.scatter / 100, u_seam: S2.seam * mx / 1000, u_mir: S2.mirror ? 1 : 0, u_mv: S2.move / 100 });
+      }
     }
   };
-  var FX_ORDER = ["neg"], FX_RESERVED = ["KeyS"], FX_MIN = 1 / 30;
+  function fxSet(ty) { var d = FXDEF[ty]; if (!P.fxSet[ty]) P.fxSet[ty] = Object.assign({}, d.def || {}); return P.fxSet[ty]; }
+  var FX_ORDER = ["neg", "dim", "split"], FX_RESERVED = ["KeyS"], FX_MIN = 1 / 30;
   FX_ORDER.forEach(function (ty) { if (!P.fxKeys[ty]) P.fxKeys[ty] = FXDEF[ty].key; });
   function fxById(id) { for (var i = 0; i < P.fx.length; i++) if (P.fx[i].id === id) return P.fx[i]; return null; }
   function keyLabel(code) { return code ? code.replace(/^Key/, "") : "–"; }
@@ -575,12 +702,15 @@
   function fxActive(T, noPeek) {
     var out = [];
     FX_ORDER.forEach(function (ty) {
-      for (var i = 0; i < P.fx.length; i++) { var f = P.fx[i]; if (f.type === ty && T >= f.start && T < f.start + f.dur) { out.push({ type: ty, t: T - f.start, d: f.dur }); return; } }
-      if (!noPeek && V && V.fxPeek[ty]) out.push({ type: ty, t: (performance.now() - V.fxPeek[ty]) / 1000, d: 0 });
+      // gehaltener Effekt gilt immer als aktiv (sonst flackert er, weil seine Länge erst nach dem Zeichnen nachwächst)
+      var held = !noPeek && V && V.fxHeld[ty] ? fxById(V.fxHeld[ty]) : null;
+      if (held) { out.push({ type: ty, t: Math.max(0, T - held.start), d: held.dur, seed: held.seed || held.id }); return; }
+      for (var i = 0; i < P.fx.length; i++) { var f = P.fx[i]; if (f.type === ty && T >= f.start && T < f.start + f.dur) { out.push({ type: ty, t: T - f.start, d: f.dur, seed: f.seed || f.id }); return; } }
+      if (!noPeek && V && V.fxPeek[ty]) out.push({ type: ty, t: (performance.now() - V.fxPeek[ty]) / 1000, d: 0, seed: V.fxPeekSeed[ty] || 1 });
     });
     return out;
   }
-  function drawFx(x, W, H, list, T) { list.forEach(function (a) { FXDEF[a.type].draw(x, W, H, { t: a.t, d: a.d, T: T }); }); }
+  function drawFx(x, W, H, list, T) { list.forEach(function (a) { FXDEF[a.type].draw(x, W, H, { t: a.t, d: a.d, T: T, seed: a.seed || 1 }); }); }
   function mergeFx(ty) {                              // gleiche Effekte, die sich überlappen oder berühren, zu einem Stück zusammenfassen
     var mine = P.fx.filter(function (f) { return f.type === ty; }).sort(function (a, b) { return a.start - b.start; }), keep = [];
     mine.forEach(function (f) {
@@ -592,9 +722,9 @@
   }
   function fxPress(ty) {
     if (V.fxHeld[ty] || V.fxPeek[ty]) return;
-    if (!PL.on) { V.fxPeek[ty] = performance.now(); renderFx(); return; }   // im Stillstand nur Vorschau, keine Aufnahme
+    if (!PL.on) { V.fxPeek[ty] = performance.now(); V.fxPeekSeed[ty] = newSeed(); renderFx(); return; }   // im Stillstand nur Vorschau, keine Aufnahme
     if (!REC) pushUndo();                             // im Live-Schnitt gehört der Effekt zum Take (ein Rückgängig für alles)
-    var f = { id: P.nextId++, type: ty, start: clock(performance.now()), dur: FX_MIN };
+    var f = { id: P.nextId++, type: ty, start: clock(performance.now()), dur: FX_MIN, seed: newSeed() };   // jeder Druck: neue Zufallsanordnung
     P.fx.push(f); V.fxHeld[ty] = f.id; renderFx(); updateBar();
   }
   function fxEnd(ty, T) {
@@ -625,7 +755,7 @@
     var ef = P.selFx && fxById(P.selFx);
     if (ef) {                                          // ausgewählten Effekt am Abspielkopf teilen
       if (P.T - ef.start < FX_MIN || ef.start + ef.dur - P.T < FX_MIN) return;
-      pushUndo(); var nf = { id: P.nextId++, type: ef.type, start: P.T, dur: ef.start + ef.dur - P.T };
+      pushUndo(); var nf = { id: P.nextId++, type: ef.type, start: P.T, dur: ef.start + ef.dur - P.T, seed: ef.seed || ef.id };
       ef.dur = P.T - ef.start; P.fx.push(nf); P.selFx = nf.id; updateBar(); return;
     }
     var s = segAt(P.T); if (!s) return;
@@ -822,6 +952,10 @@
     ".sf-fx{display:flex;align-items:center;gap:9px;padding:5px 6px;border:1px solid #333533;margin-bottom:4px}.sf-fx i{width:14px;height:14px;background:var(--fc)}.sf-fx b{flex:1;font-size:13px}" +
     ".sf-fx button{min-width:44px;padding:3px 8px!important;font:700 13px var(--f-body,sans-serif)!important}.sf-fx button.learn{background:#E3B83F!important;color:#151515!important;border-color:#E3B83F!important}" +
     ".sf-fx.on{border-color:var(--fc);box-shadow:0 0 12px var(--fc)}.sf-fx.on i{box-shadow:0 0 8px var(--fc)}" +
+    ".sf-fxset{border-left:3px solid var(--fc);padding:2px 0 8px 10px;margin-top:12px}.sf-fxset h4{margin:0 0 2px;font-size:13px;display:flex;align-items:center;gap:7px}.sf-fxset h4 i{width:10px;height:10px;background:var(--fc)}" +
+    ".sf-fxset .sf-sw button{flex:1;padding:4px 6px!important;font-size:12px!important}.sf-fxset .sf-sw button+button{border-left:0}" +
+    ".sf-chk{display:flex;align-items:center;gap:7px;margin-top:8px;font-weight:600;font-size:12px;cursor:pointer}.sf-chk input{accent-color:var(--sfa)}" +
+    ".sf-fxr{margin-top:8px;font-size:12px!important;padding:4px 9px!important}" +
     ".sf-desc{margin:0;color:var(--sfs);font-size:12px;line-height:1.5}" +
     ".sf-btns{display:flex;flex-wrap:wrap;gap:6px}" +
     ".sf-row{display:flex;flex-direction:column;gap:5px;margin-top:8px}.sf-row label{display:flex;justify-content:space-between;font-weight:600;font-size:12px}.sf-row label span{color:var(--sfs);font-variant-numeric:tabular-nums}" +
@@ -856,7 +990,7 @@
       '<aside class="sf-side" id="sf-side">' +
         '<div><h3>' + t("keys") + '</h3><div class="sf-pads" id="sf-pads"></div></div>' +
         '<p class="sf-desc">' + t("keysNote") + '</p>' +
-        '<div><h3>' + t("fxH") + '</h3><div id="sf-fxl"></div><p class="sf-desc" style="margin-top:8px">' + t("fxNote") + "</p></div>" +
+        '<div><h3>' + t("fxH") + '</h3><div id="sf-fxl"></div><p class="sf-desc" style="margin-top:8px">' + t("fxNote") + '</p><div id="sf-fxs"></div></div>' +
         '<div><h3>' + t("modeH") + '</h3><div class="sf-sw" style="display:flex"><button type="button" data-a="mode-cont" id="sf-mc">' + t("modeCont") + '</button><button type="button" data-a="mode-rand" id="sf-mr">' + t("modeRand") + '</button></div><p class="sf-desc" id="sf-md" style="margin-top:8px"></p></div>' +
         '<div class="sf-btns"><button type="button" data-a="fill">' + t("fill") + '</button><button type="button" data-a="reset">' + t("reset") + "</button></div>" +
         '<div><h3>' + t("liveAnim") + '</h3><select id="sf-lanim">' + opts(ANIMS, true) + "</select>" +
@@ -883,7 +1017,7 @@
   var noteT = 0;
   function note(s) { if (!V) return; var n = V.root.querySelector("#sf-note"); n.textContent = s; clearTimeout(noteT); noteT = setTimeout(function () { if (V) n.textContent = ""; }, 6000); }
 
-  function renderAll() { renderLib(); renderPads(); renderSide(); renderFx(); updateBar(); }
+  function renderAll() { renderLib(); renderPads(); renderSide(); renderFx(); renderFxSet(); updateBar(); }
   function renderFx() {
     if (!V) return;
     V.root.querySelector("#sf-fxl").innerHTML = FX_ORDER.map(function (ty) {
@@ -892,6 +1026,21 @@
         '<button type="button" data-a="fxkey" data-fx="' + ty + '" class="' + (learn ? "learn" : "") + '" title="' + t("fxKeyT") + '">' + (learn ? t("fxPress") : keyLabel(P.fxKeys[ty])) + "</button></div>";
     }).join("");
   }
+  // Regler der Effekte (einmal aufbauen, beim Ziehen nur die Zahl aktualisieren)
+  function fxVal(c, v) { return c.type === "check" ? "" : v + (c.u || ""); }
+  function renderFxSet() {
+    if (!V) return;
+    V.root.querySelector("#sf-fxs").innerHTML = FX_ORDER.filter(function (ty) { return FXDEF[ty].set; }).map(function (ty) {
+      var d = FXDEF[ty], S2 = fxSet(ty);
+      return '<div class="sf-fxset" style="--fc:' + d.color + '"><h4><i></i>' + d.name[lang] + " · " + keyLabel(P.fxKeys[ty]) + "</h4>" + d.set.map(function (c) {
+        var id = "sf-fx-" + ty + "-" + c.k;
+        if (c.type === "seg") return '<div class="sf-row"><label>' + c.l[lang] + '</label><div class="sf-btns sf-sw" style="gap:0">' + c.opts.map(function (o) { return '<button type="button" data-fxseg="' + ty + ":" + c.k + ":" + o[0] + '" aria-pressed="' + (S2[c.k] === o[0]) + '">' + o[1][lang] + "</button>"; }).join("") + "</div></div>";
+        if (c.type === "check") return '<label class="sf-chk"><input type="checkbox" id="' + id + '" data-fxs="' + ty + ":" + c.k + '"' + (S2[c.k] ? " checked" : "") + "> " + c.l[lang] + "</label>";
+        return '<div class="sf-row"><label for="' + id + '">' + c.l[lang] + ' <span id="' + id + '-v">' + fxVal(c, S2[c.k]) + '</span></label><input type="range" id="' + id + '" data-fxs="' + ty + ":" + c.k + '" min="' + c.min + '" max="' + c.max + '" step="1" value="' + S2[c.k] + '"></div>';
+      }).join("") + '<button type="button" data-fxreset="' + ty + '" class="sf-fxr">' + t("fxReset") + "</button></div>";
+    }).join("");
+  }
+  function fxCtl(ty, k) { var l = FXDEF[ty].set; for (var i = 0; i < l.length; i++) if (l[i].k === k) return l[i]; return null; }
   function renderLib() {
     if (!V) return;
     var box = V.root.querySelector("#sf-list");
@@ -1256,6 +1405,10 @@
     var px = e.target.closest("[data-px]"); if (px) { var k = +px.dataset.px; if (REC && REC.cur && REC.cur.slot === k) return; pushUndo(); releaseS(clipById(P.slots[k])); P.slots[k] = null; renderAll(); return; }
     var pad = e.target.closest(".sf-pad"); if (pad) { liveHit(+pad.dataset.k); return; }
     var rt = e.target.closest("[data-ratio]"); if (rt) { setRatio(rt.getAttribute("data-ratio")); rt.blur(); return; }
+    var fsg = e.target.closest("[data-fxseg]");
+    if (fsg) { var q = fsg.getAttribute("data-fxseg").split(":"); fxSet(q[0])[q[1]] = q[2]; fsg.parentNode.querySelectorAll("button").forEach(function (o) { o.setAttribute("aria-pressed", String(o === fsg)); }); fsg.blur(); return; }
+    var frs = e.target.closest("[data-fxreset]");
+    if (frs) { var ty0 = frs.getAttribute("data-fxreset"); P.fxSet[ty0] = Object.assign({}, FXDEF[ty0].def); renderFxSet(); return; }
     var b = e.target.closest("[data-a]"); if (!b) return;
     var a = b.dataset.a; if (b.blur) b.blur();
     if (V.exporting && a !== "exp-cancel") return;
@@ -1285,6 +1438,8 @@
   function onDbl(e) { var it = e.target.closest(".sf-clip"); if (it && !e.target.closest("[data-cx]")) insertClip(+it.dataset.c); }
   function onInput(e) {
     var id = e.target.id, v = +e.target.value, r = V.root;
+    var fs = e.target.getAttribute && e.target.getAttribute("data-fxs");
+    if (fs) { var pr = fs.split(":"), c = fxCtl(pr[0], pr[1]); fxSet(pr[0])[pr[1]] = c.type === "check" ? e.target.checked : v; if (c.type !== "check") r.querySelector("#" + id + "-v").textContent = fxVal(c, v); return; }
     if (id === "sf-lstr") { P.live.as = v / 100; r.querySelector("#sf-lstr-v").textContent = v + " %"; }
     else if (id === "sf-ldur") { P.live.ad = v / 100; r.querySelector("#sf-ldur-v").textContent = sec(v / 100); }
     else if (id === "sf-cvol") { P.clipVol = v / 100; r.querySelector("#sf-cvol-v").textContent = v + " %"; P.clips.forEach(function (c) { if (c.vT) setVol(c.vT); if (c.vS) setVol(c.vS); }); }
@@ -1314,7 +1469,7 @@
       e.preventDefault();
       if (e.code === "Escape") { V.fxLearn = null; renderFx(); return; }
       if (!/^Key[A-Z]$/.test(e.code) || FX_RESERVED.indexOf(e.code) >= 0) { note(t("fxBadKey")); return; }
-      fxSetKey(V.fxLearn, e.code); V.fxLearn = null; renderFx(); note(""); return;
+      fxSetKey(V.fxLearn, e.code); V.fxLearn = null; renderFx(); renderFxSet(); note(""); return;
     }
     var mod0 = e.ctrlKey || e.metaKey || e.altKey, fty = mod0 ? null : fxTypeForCode(e.code);
     if (fty) { e.preventDefault(); if (!e.repeat) fxPress(fty); return; }
@@ -1406,7 +1561,7 @@
     injectCSS();
     el.innerHTML = html();
     var root = el.querySelector("#sf-root");
-    V = { root: root, host: el, pcv: root.querySelector("#sf-pv"), tcv: root.querySelector("#sf-tl"), hold: { cv: canvasEl(2, 2), key: "" }, drag: null, ld: null, ldrop: null, exporting: false, modal: null, fps: 30, fxHeld: {}, fxPeek: {}, fxLearn: null }; applyRatio();
+    V = { root: root, host: el, pcv: root.querySelector("#sf-pv"), tcv: root.querySelector("#sf-tl"), hold: { cv: canvasEl(2, 2), key: "" }, drag: null, ld: null, ldrop: null, exporting: false, modal: null, fps: 30, fxHeld: {}, fxPeek: {}, fxPeekSeed: {}, fxLearn: null }; applyRatio();
     V.px = V.pcv.getContext("2d"); V.tx = V.tcv.getContext("2d");
     root.addEventListener("click", onClick); root.addEventListener("dblclick", onDbl);
     root.addEventListener("input", onInput); root.addEventListener("change", onChange);
