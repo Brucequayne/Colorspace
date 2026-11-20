@@ -9,7 +9,7 @@
 (function () {
   "use strict";
 
-  var VERSION = "0.3", OW = 1080, OH = 1920, MIN = 0.1, JF = 12;
+  var VERSION = "0.35", OW = 1080, OH = 1920, MIN = 0.1, JF = 12;
   var KEYC = ["#D9D6D0", "#E2621B", "#E3B83F", "#8DBF45", "#23A06A", "#2BB0B8", "#3B7FE0", "#8A6CF0", "#C452C8", "#E0457A"];
   var KEY_ORDER = [1, 2, 3, 4, 5, 6, 7, 8, 9, 0], PAD_ORDER = [7, 8, 9, 4, 5, 6, 1, 2, 3, 0];
   var ANIMS = ["none", "turb", "judder", "punch", "shake"];
@@ -26,7 +26,7 @@
     keysNote: L2("Zahl drücken schneidet live auf den Clip, dort weiter, wo noch nichts benutzt wurde. Belegen: Clip auf eine Taste ziehen oder anklicken und Umschalt + Zahl.", "A number cuts live to its clip, continuing where nothing has been used yet. Assign: drag a clip onto a key, or click it and press Shift + number."),
     empty: L2("leer", "empty"), clear: L2("Taste leeren", "Clear key"),
     fxH: L2("Effekte (Buchstaben halten)", "Effects (hold letters)"),
-    fxReset: L2("Regler zurücksetzen", "Reset sliders"),
+    fxReset: L2("Regler zurücksetzen", "Reset sliders"), fxRand: L2("Zufall", "Randomize"),
     fxNote: L2("Buchstaben halten, während das Video läuft: Solange du hältst, liegt der Effekt auf dem Bild und landet als eigene Ebene in der Timeline. Dort kannst du ihn verschieben, an den Kanten kürzen oder verlängern, mit S teilen und mit Entf löschen. Im Stillstand zeigt Halten nur eine Vorschau. Auf den Buchstaben klicken, um die Taste zu ändern.", "Hold letters while the video plays: as long as you hold, the effect is on the picture and lands as its own layer in the timeline. There you can move it, shorten or extend it at the edges, split it with S and delete it with Delete. While stopped, holding only shows a preview. Click the letter to change the key."),
     fxKeyT: L2("Taste ändern", "Change key"), fxPress: L2("Taste …", "Key …"),
     fxLearn: L2("Jetzt einen Buchstaben drücken (Esc bricht ab).", "Now press a letter (Esc cancels)."),
@@ -106,7 +106,7 @@
     sel: 0, selClip: 0, T: 0, nextId: 1, undo: [], redo: [],
     live: { anim: "turb", as: 1, ad: 0.45, mode: "cont" }, clipVol: 1, musicVol: 0.9, music: null,
     pps: 60, scroll: 0, ratio: "9:16",
-    fx: [], selFx: 0, fxKeys: {}, fxSet: {}           // Effekt-Ebenen: { id, type, start, dur, seed } in Timeline-Zeit; fxSet: Regler je Effekt
+    fx: [], selFx: 0, fxKeys: {}, fxSet: {}, fxOpen: { dim: true }           // Effekt-Ebenen: { id, type, start, dur, seed } in Timeline-Zeit; fxSet: Regler je Effekt
   };
   var V = null, raf = 0;
   // Bildformate (Breite × Höhe des Exports). Clips werden wie bisher mit „Füllen“ oder „Einpassen“ hineingesetzt.
@@ -644,12 +644,136 @@
     gl.bindTexture(gl.TEXTURE_2D, G.tex); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, x.canvas);
     var U = function (n) { if (!(n in P2.u)) P2.u[n] = gl.getUniformLocation(P2.pr, n); return P2.u[n]; };
     gl.uniform1i(U("u_tex"), 0); gl.uniform2f(U("u_res"), W, H);
-    Object.keys(uni).forEach(function (n) { var v = uni[n], l = U(n); if (!l) return; if (v.length === 2) gl.uniform2f(l, v[0], v[1]); else gl.uniform1f(l, v); });
+    Object.keys(uni).forEach(function (n) {
+      var v = uni[n], l = U(n); if (!l) return;
+      if (v && v.fv) gl.uniform1fv(l, new Float32Array(v.fv)); else if (v && v.f3) gl.uniform3fv(l, new Float32Array(v.f3));
+      else if (v.length === 3) gl.uniform3f(l, v[0], v[1], v[2]); else if (v.length === 2) gl.uniform2f(l, v[0], v[1]); else gl.uniform1f(l, v);
+    });
     gl.bindBuffer(gl.ARRAY_BUFFER, G.buf);
     gl.enableVertexAttribArray(P2.a); gl.vertexAttribPointer(P2.a, 2, gl.FLOAT, false, 0, 0);
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
     x.save(); x.setTransform(1, 0, 0, 1, 0, 0); x.globalAlpha = 1; x.globalCompositeOperation = "source-over";
     x.drawImage(G.cv, 0, G.cv.height - H, W, H, 0, 0, W, H); x.restore();
+  }
+
+  // Mirror: Spiegel als Linie (eine Seite spiegelt die andere) oder als Form (Kreis, Dreieck, Viereck), innen gespiegelt.
+  var GLSL_MIR = GLSL_HEAD + "uniform float u_shape,u_flip,u_size,u_edge,u_side;uniform vec2 u_c,u_rot;uniform vec3 u_ec;" +
+    "float sdTri(vec2 p,float r){float k=sqrt(3.);p.y=-p.y;p.x=abs(p.x)-r;p.y=p.y+r/k;if(p.x+k*p.y>0.)p=vec2(p.x-k*p.y,-k*p.x-p.y)/2.;p.x-=clamp(p.x,-2.*r,0.);return -length(p)*sign(p.y);}" +
+    "void main(){vec2 P=P0(),d=P-u_c;vec2 l=vec2(d.x*u_rot.x+d.y*u_rot.y,-d.x*u_rot.y+d.y*u_rot.x);vec2 q=l;float sd;" +
+    "if(u_shape<.5){float v=u_flip<.5?l.x:l.y;v*=u_side;sd=v;if(v<0.){if(u_flip<.5)q.x=-q.x;else q.y=-q.y;}}" +
+    "else{if(u_shape<1.5)sd=length(l)-u_size;else if(u_shape<2.5)sd=sdTri(l,u_size*.9);else{vec2 a=abs(l)-vec2(u_size);sd=length(max(a,0.))+min(max(a.x,a.y),0.);}" +
+    "if(sd<0.){if(u_flip<.5||u_flip>1.5)q.x=-q.x;if(u_flip>.5)q.y=-q.y;}}" +
+    "vec2 w=u_c+vec2(q.x*u_rot.x-q.y*u_rot.y,q.x*u_rot.y+q.y*u_rot.x);vec4 c=sd<0.?px(w):texture2D(u_tex,P/u_res);" +
+    "if(u_edge>0.&&abs(sd)<u_edge)c.rgb=mix(c.rgb,u_ec,clamp(1.-abs(sd)/u_edge,0.,1.)*.9);gl_FragColor=vec4(c.rgb,1.);}";
+  // Film Grain / Noise: Korn je Bildpunkt, wechselt mit eigener Bildrate. Typen: Film (weich, in den Mitten), Farbe, Digital, Grob.
+  var GLSL_GRN = GLSL_HEAD + "uniform float u_type,u_amt,u_size,u_chroma,u_fr,u_dust,u_fade,u_vig;" +
+    "float g3(vec2 p,float s){return (hash(p,s)+hash(p,s+1.7)+hash(p,s+3.1))/1.5-1.;}" +
+    "void main(){vec2 P=P0();vec3 c=texture2D(u_tex,P/u_res).rgb;float fr=floor(u_t*u_fr),sd=u_seed+fr*7.13;vec2 g=P/u_size;" +
+    "float lum=dot(c,vec3(.2126,.7152,.0722)),mid=.35+2.6*lum*(1.-lum);vec3 n;" +
+    "if(u_type<.5){float a=(vnoise(g,sd)+vnoise(g*1.9+3.,sd+5.)*.6)/1.6*2.-1.;n=vec3(a)+u_chroma*vec3(vnoise(g,sd+11.)-.5,vnoise(g,sd+13.)-.5,vnoise(g,sd+17.)-.5)*1.4;n*=mid;}" +
+    "else if(u_type<1.5){n=vec3(g3(floor(g),sd),g3(floor(g),sd+5.),g3(floor(g),sd+9.))*mix(.5,1.,u_chroma);n=mix(vec3(dot(n,vec3(.333))),n,.6+.4*u_chroma)*mid;}" +
+    "else if(u_type<2.5){vec2 cg=floor(g);n=vec3(hash(cg,sd),hash(cg,sd+2.),hash(cg,sd+4.))*2.-1.;n=mix(vec3(n.r),n,u_chroma);}" +
+    "else{float a=(vnoise(g*.35,sd)*2.-1.)*1.4+(hash(floor(g),sd)-.5)*.6;n=vec3(a)+u_chroma*vec3(vnoise(g*.35,sd+3.)-.5,0.,vnoise(g*.35,sd+7.)-.5);n*=mid;}" +
+    "c+=n*u_amt*.42;" +
+    "if(u_dust>0.){float cs=u_res.y*.05;vec2 dc=floor(P/cs);float h=hash(dc,sd+21.);if(h<u_dust*.08){vec2 cp=(dc+vec2(hash(dc,sd+22.),hash(dc,sd+23.)))*cs;float r=cs*(.04+.12*hash(dc,sd+24.));" +
+    "float k=smoothstep(r,r*.4,length(P-cp));c=mix(c,vec3(hash(dc,sd+25.)<.7?.05:.95),k*.8);}" +
+    "float sx=hash(vec2(fr,1.),u_seed+31.)*u_res.x;if(hash(vec2(fr,2.),u_seed)<u_dust*.5){float k=smoothstep(1.5,0.,abs(P.x-sx-sin(P.y*.02+fr)*3.));c=mix(c,vec3(.85),k*.5);}}" +
+    "c=mix(c,vec3(.12)+c*.88,u_fade);" +
+    "if(u_vig>0.){vec2 v=(P/u_res-.5)*vec2(u_res.x/u_res.y,1.);c*=1.-u_vig*smoothstep(.25,.95,length(v)*1.2);}" +
+    "gl_FragColor=vec4(clamp(c,0.,1.),1.);}";
+  // Color Transform: sechs Farbbereiche (Rot, Gelb, Grün, Cyan, Blau, Magenta) wandern je zu einer Zielfarbe (Farbton, Sättigung, Helligkeit),
+  // dazu Tönung von Schatten und Lichtern, Sättigung, Kontrast und Stärke.
+  var GLSL_CT = GLSL_HEAD + "uniform float u_dh[6],u_sf[6],u_vf[6];uniform vec3 u_sh,u_hi;uniform float u_tone,u_sat,u_con,u_mix;" +
+    "vec3 hsv(vec3 c){vec4 K=vec4(0.,-1./3.,2./3.,-1.);vec4 p=mix(vec4(c.bg,K.wz),vec4(c.gb,K.xy),step(c.b,c.g));vec4 q=mix(vec4(p.xyw,c.r),vec4(c.r,p.yzx),step(p.x,c.r));" +
+    "float d=q.x-min(q.w,q.y);return vec3(abs(q.z+(q.w-q.y)/(6.*d+1e-10)),d/(q.x+1e-10),q.x);}" +
+    "vec3 rgb(vec3 c){vec3 p=abs(fract(c.xxx+vec3(1.,2./3.,1./3.))*6.-3.);return c.z*mix(vec3(1.),clamp(p-1.,0.,1.),c.y);}" +
+    "void main(){vec2 P=P0();vec3 c0=texture2D(u_tex,P/u_res).rgb,h=hsv(c0);float dh=0.,sf=0.,vf=0.;" +
+    "for(int i=0;i<6;i++){float d=abs(h.x-float(i)/6.);d=min(d,1.-d);float w=max(0.,1.-d*6.);dh+=w*u_dh[i];sf+=w*u_sf[i];vf+=w*u_vf[i];}" +
+    "float s1=clamp(h.y*sf*u_sat,0.,1.),v1=h.z*mix(1.,vf,smoothstep(.05,.35,h.y));vec3 c=rgb(vec3(fract(h.x+dh),s1,v1));" +
+    "float l=dot(c,vec3(.2126,.7152,.0722));c+=(u_sh-.5)*(1.-l)*(1.-l)*u_tone+(u_hi-.5)*l*l*u_tone;c=(c-.5)*u_con+.5;" +
+    "gl_FragColor=vec4(clamp(mix(c0,c,u_mix),0.,1.),1.);}";
+  function hexRgb3(h) { var n = parseInt((h || "#000000").slice(1), 16); return [(n >> 16 & 255) / 255, (n >> 8 & 255) / 255, (n & 255) / 255]; }
+  function rgbHsv(c) { var mx = Math.max(c[0], c[1], c[2]), mn = Math.min(c[0], c[1], c[2]), d = mx - mn, h = 0; if (d) { if (mx === c[0]) h = ((c[1] - c[2]) / d + 6) % 6; else if (mx === c[1]) h = (c[2] - c[0]) / d + 2; else h = (c[0] - c[1]) / d + 4; } return [h / 6, mx ? d / mx : 0, mx]; }
+  function hsvHex(h, s2, v) { var i = Math.floor(h * 6), f = h * 6 - i, p = v * (1 - s2), q = v * (1 - f * s2), u = v * (1 - (1 - f) * s2), r = [[v, u, p], [q, v, p], [p, v, u], [p, q, v], [u, p, v], [v, p, q]][((i % 6) + 6) % 6]; return "#" + r.map(function (x) { return ("0" + Math.round(x * 255).toString(16)).slice(-2); }).join(""); }
+  var CT_BANDS = ["#FF0000", "#FFFF00", "#00FF00", "#00FFFF", "#0000FF", "#FF00FF"], CT_NAMES = [L2("Rot", "Red"), L2("Gelb", "Yellow"), L2("Grün", "Green"), L2("Cyan", "Cyan"), L2("Blau", "Blue"), L2("Magenta", "Magenta")];
+  // Color Grades: Zielfarben für Rot, Gelb, Grün, Cyan, Blau, Magenta, dazu Schatten-/Lichter-Tönung, Tönungsstärke, Sättigung, Kontrast
+  var CT_GRADES = [
+    { id: "teal", n: L2("Orange & Teal", "Orange & Teal"), m: ["#FF6A1A", "#FFA54A", "#3FA08C", "#00A6B4", "#0A7FA6", "#FF5A3C"], sh: "#1E6E7C", hi: "#FFB46E", tone: 45, sat: 110, con: 112 },
+    { id: "dgreen", n: L2("Desaturated Green", "Desaturated Green"), m: ["#E36E3C", "#E3A250", "#7C8C68", "#4E8EA2", "#3A6CB2", "#B0607E"], sh: "#2A5E6A", hi: "#FFC48A", tone: 40, sat: 92, con: 108 },
+    { id: "bleach", n: L2("Bleach Bypass", "Bleach Bypass"), m: ["#C26A5E", "#C9BA84", "#7E9078", "#7A9A9E", "#6A7A98", "#A07890"], sh: "#3A4044", hi: "#E8E4DA", tone: 25, sat: 62, con: 135 },
+    { id: "warm", n: L2("Warmer Film", "Warm Film"), m: ["#FF4A2A", "#FFC23A", "#8CC23A", "#3AB0A0", "#3A60C0", "#E0508A"], sh: "#5A3420", hi: "#FFE0B0", tone: 45, sat: 96, con: 104 },
+    { id: "night", n: L2("Kalte Nacht", "Cold Night"), m: ["#C84A6A", "#9CB0A0", "#3A9C8C", "#2AA0E0", "#3A5AFF", "#8A5AE0"], sh: "#0E2048", hi: "#A8CCFF", tone: 55, sat: 82, con: 110 },
+    { id: "matrix", n: L2("Matrix", "Matrix"), m: ["#7AA03A", "#B6E04A", "#2AE05A", "#3AC08A", "#2A7A5A", "#6A9A4A"], sh: "#002A10", hi: "#C8FFC0", tone: 55, sat: 85, con: 118 },
+    { id: "pastel", n: L2("Pastell", "Pastel"), m: ["#FF9A9A", "#FFE6A0", "#A8E6B4", "#A0E6E6", "#A6B8FF", "#F0A8E0"], sh: "#8AA4C8", hi: "#FFEAF2", tone: 40, sat: 60, con: 84 },
+    { id: "ir", n: L2("Infrarot", "Infrared"), m: ["#FF3A3A", "#FFB8C8", "#FF3A8C", "#E0F0FF", "#1A2A6A", "#C83AFF"], sh: "#20184A", hi: "#FFE8F0", tone: 30, sat: 115, con: 108 },
+    { id: "vapor", n: L2("Vaporwave", "Vaporwave"), m: ["#FF3AC8", "#FFB0E0", "#3AF0FF", "#7AE0FF", "#7A3CFF", "#FF4FD8"], sh: "#2A0A5A", hi: "#FFC0F0", tone: 50, sat: 120, con: 106 }
+  ];
+  function ctApply(S2, g) { S2.map = g.m.slice(); S2.sh = g.sh; S2.hi = g.hi; S2.tone = g.tone; S2.sat = g.sat; S2.con = g.con; S2.grade = g.id; }
+  function ctRandom(S2) {
+    var R = Math.random;
+    S2.map = CT_BANDS.map(function () { return hsvHex(R(), 0.25 + R() * 0.75, 0.55 + R() * 0.45); });
+    S2.sh = hsvHex(R(), 0.3 + R() * 0.5, 0.2 + R() * 0.3); S2.hi = hsvHex(R(), 0.15 + R() * 0.4, 0.85 + R() * 0.15);
+    S2.tone = Math.round(20 + R() * 40); S2.sat = Math.round(70 + R() * 50); S2.con = Math.round(95 + R() * 25); S2.grade = "";
+  }
+  // Crop Clone: Bild wird in Kacheln ausgeschnitten (nie vergrößert, höchstens 1:1) und als Collage auf eine Hintergrundfarbe gelegt.
+  // Jeder Tastendruck würfelt Lage, Ausschnitte und Formen neu. Gezeichnet mit 2D-Clipping: jede Kachel kostet nur ihre eigene Fläche.
+  var CC_TMP = null;
+  function ccTiles(W, H, S2, seed) {
+    var R = rngS(seed * 7919 + 3), mn = Math.min(W, H), base = mn * S2.size / 100, n = Math.max(1, Math.round(S2.count)), out = [], i;
+    var shapes = ["rect", "square", "circle", "tri", "strip"];
+    function shp() { return S2.shape === "mix" ? shapes[Math.floor(R() * shapes.length)] : S2.shape; }
+    function dims(sh, k) { var w = base * k, h = base * k; if (sh === "rect") { var a = 0.6 + R() * 1.0; w *= Math.sqrt(a); h /= Math.sqrt(a); } else if (sh === "strip") { if (R() < 0.5) { w *= 2.2; h *= 0.4; } else { w *= 0.4; h *= 2.2; } } return [w, h]; }
+    var lay = S2.layout === "mix" ? ["row", "grid", "stack", "scatter"][Math.floor(R() * 4)] : S2.layout, sh0 = shp();
+    if (lay === "row" || lay === "grid") {
+      var d = dims(sh0, 1), gap = base * 0.12, fitC = Math.max(1, Math.floor((W * 0.94 + gap) / (d[0] + gap)));
+      var cols = lay === "row" ? Math.min(n, fitC) : Math.min(fitC, Math.max(1, Math.ceil(Math.sqrt(n * W / H * d[1] / d[0])))), rows = Math.ceil(n / cols);
+      var f3 = Math.min(1, (W * 0.94 - gap * (cols - 1)) / cols / d[0], (H * 0.94 - gap * (rows - 1)) / rows / d[1]); d = [d[0] * f3, d[1] * f3]; gap *= f3;
+      var tw = cols * d[0] + (cols - 1) * gap, th = rows * d[1] + (rows - 1) * gap, x0 = (W - tw) / 2 + d[0] / 2, y0 = (H - th) / 2 + d[1] / 2;
+      for (i = 0; i < n; i++) { var cx = x0 + (i % cols) * (d[0] + gap), cy = y0 + Math.floor(i / cols) * (d[1] + gap), jj = S2.offset / 100 * base * 0.25; out.push({ sh: sh0, w: d[0], h: d[1], x: cx + (R() - 0.5) * jj, y: cy + (R() - 0.5) * jj }); }
+    } else if (lay === "stack") {
+      var dd = dims(sh0, 1.25), ang = R() * Math.PI * 2, step = base * (0.08 + S2.offset / 100 * 0.35), sx = W / 2 - Math.cos(ang) * step * (n - 1) / 2, sy = H / 2 - Math.sin(ang) * step * (n - 1) / 2;
+      for (i = 0; i < n; i++) out.push({ sh: sh0, w: dd[0], h: dd[1], x: sx + Math.cos(ang) * step * i + (R() - 0.5) * step * 0.4, y: sy + Math.sin(ang) * step * i + (R() - 0.5) * step * 0.4 });
+    } else {
+      for (i = 0; i < n; i++) { var sh = shp(), k = R() < 0.25 ? 1.3 + R() * 0.5 : 0.45 + R() * 0.7, d2 = dims(sh, k); out.push({ sh: sh, w: d2[0], h: d2[1], x: W * (0.12 + R() * 0.76), y: H * (0.1 + R() * 0.8) }); }
+    }
+    out.forEach(function (tl) {
+      tl.r = (R() - 0.5) * 2 * S2.rot * Math.PI / 180;
+      tl.k = Math.min(1, S2.scale / 100 * (0.85 + R() * 0.3));                 // Bild in der Kachel: höchstens 1:1, sonst verkleinert
+      var sw = tl.w / tl.k, shh = tl.h / tl.k;
+      tl.sx = sw >= W ? W / 2 : sw / 2 + R() * (W - sw); tl.sy = shh >= H ? H / 2 : shh / 2 + R() * (H - shh);
+      tl.ph = R() * 6.28;
+    });
+    return out;
+  }
+  function ccPath(x, tl) {
+    var w = tl.w, h = tl.h; x.beginPath();
+    if (tl.sh === "circle") x.ellipse(0, 0, w / 2, h / 2, 0, 0, 6.2832);
+    else if (tl.sh === "tri") { x.moveTo(0, -h / 2); x.lineTo(w / 2, h / 2); x.lineTo(-w / 2, h / 2); x.closePath(); }
+    else x.rect(-w / 2, -h / 2, w, h);
+  }
+  function ccDraw(x, W, H, o) {
+    var S2 = fxSet("crop");
+    if (!CC_TMP) CC_TMP = canvasEl(2, 2);
+    if (CC_TMP.width !== W || CC_TMP.height !== H) { CC_TMP.width = W; CC_TMP.height = H; }
+    var tx = CC_TMP.getContext("2d"); tx.drawImage(x.canvas, 0, 0);
+    var tiles = ccTiles(W, H, S2, o.seed || 1), mn = Math.min(W, H), bw = S2.border * mn / 1080, mv = S2.move / 100;
+    x.save(); x.setTransform(1, 0, 0, 1, 0, 0); x.globalAlpha = 1; x.globalCompositeOperation = "source-over";
+    x.fillStyle = S2.bg; x.fillRect(0, 0, W, H);
+    var ly = Math.max(1, Math.round(S2.layers)), ea = (o.seed || 1) % 360 * Math.PI / 180, es = mn * (0.012 + S2.offset / 100 * 0.05);
+    var list = [];   // Schichten: jede Kachel liegt mehrfach leicht versetzt übereinander, die hinteren zuerst
+    for (var e = ly - 1; e >= 0; e--) tiles.forEach(function (tl) { list.push(e ? Object.assign({}, tl, { x: tl.x + Math.cos(ea) * es * e, y: tl.y + Math.sin(ea) * es * e, r: tl.r + e * 0.03 }) : tl); });
+    list.forEach(function (tl) {
+      var dx = mv ? Math.sin(o.t * 0.9 + tl.ph) * mn * 0.015 * mv : 0, dy = mv ? Math.cos(o.t * 0.7 + tl.ph) * mn * 0.015 * mv : 0;
+      x.save(); x.translate(tl.x + dx, tl.y + dy); x.rotate(tl.r + (mv ? Math.sin(o.t * 0.5 + tl.ph) * 0.04 * mv : 0));
+      if (S2.shadow) { x.save(); x.shadowColor = "rgba(0,0,0,.45)"; x.shadowBlur = mn * 0.025; x.shadowOffsetX = mn * 0.006; x.shadowOffsetY = mn * 0.01; x.fillStyle = S2.bg; ccPath(x, tl); x.fill(); x.restore(); }
+      x.save(); ccPath(x, tl); x.clip();
+      var sw = tl.w / tl.k, sh = tl.h / tl.k;
+      x.drawImage(CC_TMP, tl.sx - sw / 2, tl.sy - sh / 2, sw, sh, -tl.w / 2, -tl.h / 2, tl.w, tl.h);
+      x.restore();
+      if (bw > 0) { x.lineWidth = bw; x.strokeStyle = S2.bcol; ccPath(x, tl); x.stroke(); }
+      x.restore();
+    });
+    x.restore();
   }
   function rngS(seed) { var a = seed >>> 0 || 1; return function () { a = (a + 0x6D2B79F5) >>> 0; var t2 = a; t2 = Math.imul(t2 ^ (t2 >>> 15), t2 | 1); t2 ^= t2 + Math.imul(t2 ^ (t2 >>> 7), t2 | 61); return ((t2 ^ (t2 >>> 14)) >>> 0) / 4294967296; }; }
 
@@ -691,10 +815,71 @@
         glFx(x, W, H, "split", GLSL_SPL, { u_t: o.t, u_seed: (o.seed || 1) % 9973, u_S0: mx * S2.size / 100, u_split: S2.dyn / 100 * 0.8, u_src: Math.min(W, H) * S2.src / 100,
           u_rot: S2.rot / 100, u_sc: S2.scatter / 100, u_seam: S2.seam * mx / 1000, u_mir: S2.mirror ? 1 : 0, u_mv: S2.move / 100 });
       }
+    },
+    mirror: {
+      name: L2("Mirror", "Mirror"), color: "#6FB7FF", key: "KeyR",
+      set: [{ k: "shape", type: "seg", l: L2("Spiegel", "Mirror"), opts: [["line", L2("Linie", "Line")], ["circle", L2("Kreis", "Circle")], ["tri", L2("Dreieck", "Triangle")], ["square", L2("Viereck", "Square")]] },
+        { k: "flip", type: "seg", l: L2("Richtung", "Direction"), opts: [["h", L2("Horizontal", "Horizontal")], ["v", L2("Vertikal", "Vertical")], ["hv", L2("Beides", "Both")]] },
+        { k: "x", l: L2("Position links/rechts", "Position left/right"), min: 0, max: 100, u: " %" }, { k: "y", l: L2("Position oben/unten", "Position up/down"), min: 0, max: 100, u: " %" },
+        { k: "rot", l: L2("Drehung", "Rotation"), min: -180, max: 180, u: "°" }, { k: "size", l: L2("Größe der Form", "Shape size"), min: 5, max: 100, u: " %" },
+        { k: "edge", l: L2("Rand", "Edge"), min: 0, max: 20, u: "" }, { k: "ecol", type: "color", l: L2("Randfarbe", "Edge colour") },
+        { k: "swap", type: "check", l: L2("Seite tauschen (bei Linie)", "Swap side (line)") }],
+      def: { shape: "line", flip: "h", x: 50, y: 50, rot: 0, size: 35, edge: 0, ecol: "#FFFFFF", swap: false },
+      draw: function (x, W, H, o) {
+        var S2 = fxSet("mirror"), a = S2.rot * Math.PI / 180, mn = Math.min(W, H);
+        glFx(x, W, H, "mirror", GLSL_MIR, { u_t: o.t, u_seed: 1, u_shape: ["line", "circle", "tri", "square"].indexOf(S2.shape), u_flip: S2.shape === "line" ? (S2.flip === "v" ? 1 : 0) : ["h", "v", "hv"].indexOf(S2.flip),
+          u_size: mn * S2.size / 200, u_c: [W * S2.x / 100, H * S2.y / 100], u_rot: [Math.cos(a), Math.sin(a)], u_edge: S2.edge * mn / 1080, u_ec: hexRgb3(S2.ecol), u_side: S2.swap ? -1 : 1 });
+      }
+    },
+    grain: {
+      name: L2("Film Grain", "Film grain"), color: "#C9C2A8", key: "KeyT",
+      set: [{ k: "type", type: "seg", l: L2("Korn-Typ", "Grain type"), opts: [["film", L2("Film", "Film")], ["color", L2("Farbe", "Colour")], ["digital", L2("Digital", "Digital")], ["coarse", L2("Grob", "Coarse")]] },
+        { k: "amt", l: L2("Menge", "Amount"), min: 0, max: 100, u: " %" }, { k: "size", l: L2("Korngröße", "Grain size"), min: 1, max: 12, u: " px" },
+        { k: "chroma", l: L2("Farbanteil", "Colour amount"), min: 0, max: 100, u: " %" }, { k: "fps", l: L2("Korn-Bildrate", "Grain frame rate"), min: 1, max: 60, u: " fps" },
+        { k: "dust", l: L2("Staub und Kratzer", "Dust and scratches"), min: 0, max: 100, u: " %" }, { k: "fade", l: L2("Ausbleichen", "Fade"), min: 0, max: 100, u: " %" },
+        { k: "vig", l: L2("Vignette", "Vignette"), min: 0, max: 100, u: " %" }],
+      def: { type: "film", amt: 45, size: 2, chroma: 20, fps: 24, dust: 15, fade: 10, vig: 25 },
+      draw: function (x, W, H, o) {
+        var S2 = fxSet("grain");
+        glFx(x, W, H, "grain", GLSL_GRN, { u_t: o.t, u_seed: (o.seed || 1) % 997, u_type: ["film", "color", "digital", "coarse"].indexOf(S2.type), u_amt: S2.amt / 100, u_size: Math.max(0.6, S2.size * H / 1080),
+          u_chroma: S2.chroma / 100, u_fr: S2.fps, u_dust: S2.dust / 100, u_fade: S2.fade / 100 * 0.6, u_vig: S2.vig / 100 * 0.8 });
+      }
+    },
+    color: {
+      name: L2("Color Transform", "Color transform"), color: "#E85AA0", key: "KeyF",
+      set: [{ k: "grade", type: "grades", l: L2("Color Grades", "Color grades") }, { k: "map", type: "map", l: L2("Farbe → wird zu", "Colour → becomes") },
+        { k: "sh", type: "color", l: L2("Tönung Schatten", "Shadow tint") }, { k: "hi", type: "color", l: L2("Tönung Lichter", "Highlight tint") },
+        { k: "tone", l: L2("Stärke der Tönung", "Tint strength"), min: 0, max: 100, u: " %" }, { k: "sat", l: L2("Sättigung", "Saturation"), min: 0, max: 200, u: " %" },
+        { k: "con", l: L2("Kontrast", "Contrast"), min: 50, max: 160, u: " %" }, { k: "mix", l: L2("Stärke", "Strength"), min: 0, max: 100, u: " %" }],
+      def: { grade: "teal", map: CT_GRADES[0].m.slice(), sh: CT_GRADES[0].sh, hi: CT_GRADES[0].hi, tone: 45, sat: 110, con: 112, mix: 100 },
+      draw: function (x, W, H, o) {
+        var S2 = fxSet("color"), dh = [], sf = [], vf = [];
+        CT_BANDS.forEach(function (b, i) {
+          var tg = rgbHsv(hexRgb3(S2.map[i])), d = tg[0] - i / 6; d -= Math.round(d);
+          dh.push(tg[1] < 0.02 ? 0 : d); sf.push(tg[1]); vf.push(tg[2]);
+        });
+        var shc = hexRgb3(S2.sh), hic = hexRgb3(S2.hi), cen = function (c) { var m = (c[0] + c[1] + c[2]) / 3; return [c[0] - m + 0.5, c[1] - m + 0.5, c[2] - m + 0.5]; };
+        glFx(x, W, H, "color", GLSL_CT, { u_t: o.t, u_seed: 1, "u_dh[0]": { fv: dh }, "u_sf[0]": { fv: sf }, "u_vf[0]": { fv: vf }, u_sh: cen(shc), u_hi: cen(hic),
+          u_tone: S2.tone / 100 * 0.6, u_sat: S2.sat / 100, u_con: S2.con / 100, u_mix: S2.mix / 100 });
+      }
+    },
+    crop: {
+      name: L2("Crop Clone", "Crop clone"), color: "#F2D04A", key: "KeyG",
+      set: [{ k: "layout", type: "seg", l: L2("Anordnung", "Layout"), opts: [["mix", L2("Zufall", "Random")], ["row", L2("Reihe", "Row")], ["grid", L2("Raster", "Grid")], ["stack", L2("Stapel", "Stack")], ["scatter", L2("Collage", "Collage")]] },
+        { k: "shape", type: "seg", l: L2("Form", "Shape"), opts: [["mix", L2("Gemischt", "Mixed")], ["rect", L2("Rechteck", "Rectangle")], ["square", L2("Quadrat", "Square")], ["circle", L2("Kreis", "Circle")], ["tri", L2("Dreieck", "Triangle")], ["strip", L2("Streifen", "Strip")]] },
+        { k: "count", l: L2("Anzahl", "Count"), min: 1, max: 24, u: "" }, { k: "size", l: L2("Größe der Kacheln", "Tile size"), min: 8, max: 90, u: " %" },
+        { k: "scale", l: L2("Bild in der Kachel (100 % = 1:1)", "Picture in tile (100% = 1:1)"), min: 20, max: 100, u: " %" },
+        { k: "layers", l: L2("Schichten (versetzt übereinander)", "Layers (offset on top)"), min: 1, max: 5, u: "" },
+        { k: "offset", l: L2("Versatz", "Offset"), min: 0, max: 100, u: " %" }, { k: "rot", l: L2("Drehung", "Rotation"), min: 0, max: 45, u: "°" },
+        { k: "border", l: L2("Rahmen", "Border"), min: 0, max: 30, u: "" }, { k: "bcol", type: "color", l: L2("Rahmenfarbe", "Border colour") },
+        { k: "bg", type: "color", l: L2("Background color", "Background color") }, { k: "move", l: L2("Bewegung", "Motion"), min: 0, max: 100, u: " %" },
+        { k: "shadow", type: "check", l: L2("Schatten", "Shadow") }],
+      def: { layout: "mix", shape: "mix", count: 7, size: 34, layers: 2, scale: 70, offset: 35, rot: 6, border: 6, bcol: "#F4F1EA", bg: "#16181A", move: 15, shadow: true },
+      draw: function (x, W, H, o) { ccDraw(x, W, H, o); }
     }
   };
-  function fxSet(ty) { var d = FXDEF[ty]; if (!P.fxSet[ty]) P.fxSet[ty] = Object.assign({}, d.def || {}); return P.fxSet[ty]; }
-  var FX_ORDER = ["neg", "dim", "split"], FX_RESERVED = ["KeyS"], FX_MIN = 1 / 30;
+  function fxSet(ty) { var d = FXDEF[ty]; if (!P.fxSet[ty]) P.fxSet[ty] = JSON.parse(JSON.stringify(d.def || {})); return P.fxSet[ty]; }
+  var FX_ORDER = ["neg", "dim", "split", "mirror", "crop", "color", "grain"], FX_RESERVED = ["KeyS"], FX_MIN = 1 / 30;
   FX_ORDER.forEach(function (ty) { if (!P.fxKeys[ty]) P.fxKeys[ty] = FXDEF[ty].key; });
   function fxById(id) { for (var i = 0; i < P.fx.length; i++) if (P.fx[i].id === id) return P.fx[i]; return null; }
   function keyLabel(code) { return code ? code.replace(/^Key/, "") : "–"; }
@@ -952,10 +1137,17 @@
     ".sf-fx{display:flex;align-items:center;gap:9px;padding:5px 6px;border:1px solid #333533;margin-bottom:4px}.sf-fx i{width:14px;height:14px;background:var(--fc)}.sf-fx b{flex:1;font-size:13px}" +
     ".sf-fx button{min-width:44px;padding:3px 8px!important;font:700 13px var(--f-body,sans-serif)!important}.sf-fx button.learn{background:#E3B83F!important;color:#151515!important;border-color:#E3B83F!important}" +
     ".sf-fx.on{border-color:var(--fc);box-shadow:0 0 12px var(--fc)}.sf-fx.on i{box-shadow:0 0 8px var(--fc)}" +
-    ".sf-fxset{border-left:3px solid var(--fc);padding:2px 0 8px 10px;margin-top:12px}.sf-fxset h4{margin:0 0 2px;font-size:13px;display:flex;align-items:center;gap:7px}.sf-fxset h4 i{width:10px;height:10px;background:var(--fc)}" +
+    ".sf-fxset{border-left:3px solid var(--fc);padding:2px 0 2px 10px;margin-top:8px}.sf-fxset[open]{padding-bottom:8px}.sf-fxset summary{cursor:pointer;list-style:none}.sf-fxset summary::-webkit-details-marker{display:none}" +
+    ".sf-fxset summary h4::after{content:'+';margin-left:auto;color:var(--sfs);font-size:15px}.sf-fxset[open] summary h4::after{content:'−'}" +
+    ".sf-fxset h4{margin:0 0 2px;font-size:13px;display:flex;align-items:center;gap:7px}.sf-fxset h4 i{width:10px;height:10px;background:var(--fc)}" +
     ".sf-fxset .sf-sw button{flex:1;padding:4px 6px!important;font-size:12px!important}.sf-fxset .sf-sw button+button{border-left:0}" +
     ".sf-chk{display:flex;align-items:center;gap:7px;margin-top:8px;font-weight:600;font-size:12px;cursor:pointer}.sf-chk input{accent-color:var(--sfa)}" +
     ".sf-fxr{margin-top:8px;font-size:12px!important;padding:4px 9px!important}" +
+    ".sf-fxset .sf-sw{flex-wrap:wrap}.sf-fxset .sf-sw button{flex:1 1 30%}.sf-crow{flex-direction:row!important;align-items:center;justify-content:space-between}" +
+    ".sf-fxset input[type=color]{width:44px;height:24px;padding:0;border:1px solid var(--sfl);background:none;cursor:pointer}" +
+    ".sf-grades{display:grid;grid-template-columns:1fr 1fr;gap:4px}.sf-grades button{display:flex;align-items:center;gap:6px;text-align:left;font-size:12px!important;padding:4px 6px!important}" +
+    ".sf-grades button i{width:22px;height:12px;flex:none}.sf-grades button[aria-pressed=true]{border-color:var(--sfi)!important;box-shadow:inset 0 0 0 1px var(--sfi)}.sf-rand{grid-column:span 2;justify-content:center}" +
+    ".sf-map{display:grid;gap:3px}.sf-mapr{display:grid;grid-template-columns:12px 1fr auto 44px;align-items:center;gap:7px;font-size:12px}.sf-mapr i{width:12px;height:12px}.sf-mapr b{font-weight:600}" +
     ".sf-desc{margin:0;color:var(--sfs);font-size:12px;line-height:1.5}" +
     ".sf-btns{display:flex;flex-wrap:wrap;gap:6px}" +
     ".sf-row{display:flex;flex-direction:column;gap:5px;margin-top:8px}.sf-row label{display:flex;justify-content:space-between;font-weight:600;font-size:12px}.sf-row label span{color:var(--sfs);font-variant-numeric:tabular-nums}" +
@@ -1032,14 +1224,19 @@
     if (!V) return;
     V.root.querySelector("#sf-fxs").innerHTML = FX_ORDER.filter(function (ty) { return FXDEF[ty].set; }).map(function (ty) {
       var d = FXDEF[ty], S2 = fxSet(ty);
-      return '<div class="sf-fxset" style="--fc:' + d.color + '"><h4><i></i>' + d.name[lang] + " · " + keyLabel(P.fxKeys[ty]) + "</h4>" + d.set.map(function (c) {
+      return '<details class="sf-fxset" data-fxd="' + ty + '" style="--fc:' + d.color + '"' + (P.fxOpen[ty] ? " open" : "") + '><summary><h4><i></i>' + d.name[lang] + " · " + keyLabel(P.fxKeys[ty]) + "</h4></summary>" + d.set.map(function (c) {
         var id = "sf-fx-" + ty + "-" + c.k;
         if (c.type === "seg") return '<div class="sf-row"><label>' + c.l[lang] + '</label><div class="sf-btns sf-sw" style="gap:0">' + c.opts.map(function (o) { return '<button type="button" data-fxseg="' + ty + ":" + c.k + ":" + o[0] + '" aria-pressed="' + (S2[c.k] === o[0]) + '">' + o[1][lang] + "</button>"; }).join("") + "</div></div>";
+        if (c.type === "color") return '<div class="sf-row sf-crow"><label for="' + id + '">' + c.l[lang] + '</label><input type="color" id="' + id + '" data-fxs="' + ty + ":" + c.k + '" value="' + S2[c.k] + '"></div>';
+        if (c.type === "grades") return '<div class="sf-row"><label>' + c.l[lang] + '</label><div class="sf-grades">' + CT_GRADES.map(function (g) { return '<button type="button" data-fxgrade="' + g.id + '" aria-pressed="' + (S2.grade === g.id) + '"><i style="background:linear-gradient(90deg,' + g.sh + "," + g.m[2] + "," + g.m[0] + "," + g.hi + ')"></i>' + g.n[lang] + "</button>"; }).join("") +
+          '<button type="button" data-fxrand="' + ty + '" class="sf-rand">⚄ ' + t("fxRand") + "</button></div></div>";
+        if (c.type === "map") return '<div class="sf-row"><label>' + c.l[lang] + '</label><div class="sf-map">' + CT_BANDS.map(function (b, i) { return '<span class="sf-mapr"><i style="background:' + b + '" title="' + CT_NAMES[i][lang] + '"></i><b>' + CT_NAMES[i][lang] + '</b>→<input type="color" data-fxmap="' + i + '" value="' + S2.map[i] + '"></span>'; }).join("") + "</div></div>";
         if (c.type === "check") return '<label class="sf-chk"><input type="checkbox" id="' + id + '" data-fxs="' + ty + ":" + c.k + '"' + (S2[c.k] ? " checked" : "") + "> " + c.l[lang] + "</label>";
         return '<div class="sf-row"><label for="' + id + '">' + c.l[lang] + ' <span id="' + id + '-v">' + fxVal(c, S2[c.k]) + '</span></label><input type="range" id="' + id + '" data-fxs="' + ty + ":" + c.k + '" min="' + c.min + '" max="' + c.max + '" step="1" value="' + S2[c.k] + '"></div>';
-      }).join("") + '<button type="button" data-fxreset="' + ty + '" class="sf-fxr">' + t("fxReset") + "</button></div>";
+      }).join("") + '<button type="button" data-fxreset="' + ty + '" class="sf-fxr">' + t("fxReset") + "</button></details>";
     }).join("");
   }
+  function ctCustom() { var S3 = fxSet("color"); if (!S3.grade) return; S3.grade = ""; V.root.querySelectorAll("[data-fxgrade]").forEach(function (b) { b.setAttribute("aria-pressed", "false"); }); }
   function fxCtl(ty, k) { var l = FXDEF[ty].set; for (var i = 0; i < l.length; i++) if (l[i].k === k) return l[i]; return null; }
   function renderLib() {
     if (!V) return;
@@ -1407,8 +1604,12 @@
     var rt = e.target.closest("[data-ratio]"); if (rt) { setRatio(rt.getAttribute("data-ratio")); rt.blur(); return; }
     var fsg = e.target.closest("[data-fxseg]");
     if (fsg) { var q = fsg.getAttribute("data-fxseg").split(":"); fxSet(q[0])[q[1]] = q[2]; fsg.parentNode.querySelectorAll("button").forEach(function (o) { o.setAttribute("aria-pressed", String(o === fsg)); }); fsg.blur(); return; }
+    var fgr = e.target.closest("[data-fxgrade]");
+    if (fgr) { var gg = CT_GRADES.filter(function (g) { return g.id === fgr.getAttribute("data-fxgrade"); })[0]; ctApply(fxSet("color"), gg); renderFxSet(); return; }
+    var frd = e.target.closest("[data-fxrand]");
+    if (frd) { ctRandom(fxSet("color")); renderFxSet(); return; }
     var frs = e.target.closest("[data-fxreset]");
-    if (frs) { var ty0 = frs.getAttribute("data-fxreset"); P.fxSet[ty0] = Object.assign({}, FXDEF[ty0].def); renderFxSet(); return; }
+    if (frs) { var ty0 = frs.getAttribute("data-fxreset"); P.fxSet[ty0] = JSON.parse(JSON.stringify(FXDEF[ty0].def)); renderFxSet(); return; }
     var b = e.target.closest("[data-a]"); if (!b) return;
     var a = b.dataset.a; if (b.blur) b.blur();
     if (V.exporting && a !== "exp-cancel") return;
@@ -1439,7 +1640,15 @@
   function onInput(e) {
     var id = e.target.id, v = +e.target.value, r = V.root;
     var fs = e.target.getAttribute && e.target.getAttribute("data-fxs");
-    if (fs) { var pr = fs.split(":"), c = fxCtl(pr[0], pr[1]); fxSet(pr[0])[pr[1]] = c.type === "check" ? e.target.checked : v; if (c.type !== "check") r.querySelector("#" + id + "-v").textContent = fxVal(c, v); return; }
+    if (fs) {
+      var pr = fs.split(":"), c = fxCtl(pr[0], pr[1]), S3 = fxSet(pr[0]);
+      S3[pr[1]] = c.type === "check" ? e.target.checked : c.type === "color" ? e.target.value : v;
+      if (pr[0] === "color" && (pr[1] === "sh" || pr[1] === "hi")) ctCustom();
+      if (c.type !== "check" && c.type !== "color") r.querySelector("#" + id + "-v").textContent = fxVal(c, v);
+      return;
+    }
+    var fm = e.target.getAttribute && e.target.getAttribute("data-fxmap");
+    if (fm != null) { fxSet("color").map[+fm] = e.target.value; ctCustom(); return; }
     if (id === "sf-lstr") { P.live.as = v / 100; r.querySelector("#sf-lstr-v").textContent = v + " %"; }
     else if (id === "sf-ldur") { P.live.ad = v / 100; r.querySelector("#sf-ldur-v").textContent = sec(v / 100); }
     else if (id === "sf-cvol") { P.clipVol = v / 100; r.querySelector("#sf-cvol-v").textContent = v + " %"; P.clips.forEach(function (c) { if (c.vT) setVol(c.vT); if (c.vS) setVol(c.vS); }); }
@@ -1565,6 +1774,7 @@
     V.px = V.pcv.getContext("2d"); V.tx = V.tcv.getContext("2d");
     root.addEventListener("click", onClick); root.addEventListener("dblclick", onDbl);
     root.addEventListener("input", onInput); root.addEventListener("change", onChange);
+    root.addEventListener("toggle", function (e) { var d = e.target; if (d && d.getAttribute && d.getAttribute("data-fxd")) P.fxOpen[d.getAttribute("data-fxd")] = d.open; }, true);
     root.addEventListener("pointerdown", onDown);
     V.tcv.addEventListener("pointerdown", onTLDown); V.tcv.addEventListener("wheel", onTLWheel, { passive: false });
     window.addEventListener("pointermove", onMove); window.addEventListener("pointerup", onUp);
