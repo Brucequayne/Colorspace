@@ -3,7 +3,7 @@
 (function () {
   "use strict";
 
-  var VERSION = "0.6", RATES = [5, 15, 30];
+  var VERSION = "0.65", RATES = [5, 15, 30];
   var lang = "de";
   function L2(de, en) { return { de: de, en: en }; }
 
@@ -34,7 +34,9 @@
     crayon: L2("Wachsmalkreide", "Wax crayon"), crayonS: L2("Kreide", "Crayon"), grain: L2("Körnung", "Grain"),
     flowL: L2("Frame-Modus", "Frame mode"), fActive: L2("Active Frames", "Active Frames"), fCalm: L2("Calm Frames", "Calm Frames"), calmL: L2("Ruhe", "Calm"),
     flowNote: L2("Striche bleiben an ihrem Platz und wandern bei Kameraschwenks mit. „Ruhe“: wie stark Kanten am vorigen Frame festhalten.", "Strokes stay in place and travel along with camera pans. “Calm”: how strongly edges hold on to the previous frame."),
-    ptype: L2("Pinseltyp", "Brush type"), tStroke: L2("Pinsel", "Brush"), tSpray: L2("Spray", "Spray"), tCrayon: L2("Wachsmalkreide", "Wax crayon"),
+    ptype: L2("Pinseltyp", "Brush type"), tStroke: L2("Pinsel", "Brush"), tSpray: L2("Spray", "Spray"), tCrayon: L2("Wachsmalkreide", "Wax crayon"), tHair: L2("Haarpinsel", "Hair brush"),
+    guideL: L2("Strichführung", "Stroke guidance"), gClassic: L2("Klassisch", "Classic"), gOrganic: L2("Organisch", "Organic"),
+    guideNote: L2("Organisch liest die Struktur im Bild (Kanten, Konturen, Verläufe) und führt jeden Strich daran entlang: an runden Formen werden Kurven daraus, an klaren Kanten Geraden. In ruhigen Flächen ohne Struktur gilt der eingestellte Winkel.", "Organic reads the structure in the image (edges, contours, gradients) and guides every stroke along it: round shapes give curves, clear edges give straight lines. In calm areas without structure the set angle applies."),
     mpBatchDone: L2("Magic Paint in {n} Frames übernommen.", "Magic Paint applied to {n} frames."),
     mpNext: L2("Für alle folgenden Frames übernehmen", "Apply to all following frames"), mpAll: L2("Auf alle Frames anwenden", "Apply to all frames"),
     mpBatchNote: L2("Zeichnet jeden Frame mit dieser festen Palette nach, ohne einzeln zu bestätigen. Rechne mit etwa einer bis zwei Sekunden pro Frame. Schon damit bemalte Frames werden übersprungen.", "Redraws every frame with this fixed palette without confirming each one. Expect about one to two seconds per frame. Frames already painted with it are skipped."),
@@ -90,8 +92,8 @@
               "The video is split into frames, 5, 15 or 30 per second depending on the frame rate. Each frame has its own paint layer. The arrows jump from frame to frame, and each frame shows exactly what you painted there. “Copy paint from previous frame” brings over the drawing of the frame before, so you only adjust it slightly for the animation. Onion skin shows the previous frame faintly underneath."),
     how2: L2("Farben gibt es bewusst nur über die Pipette: C drücken und ins Bild klicken. Stift malt harte Linien, Pinsel weiche, die Spraydose sprüht Punkte und sprüht weiter, solange du die Maustaste hältst. Deckkraft gilt für den ganzen Strich, er wird also nicht fleckig, wo er sich überlappt. Glättung zieht den Strich etwas hinter der Maus her, so werden Linien ruhig. Mit Grafiktablett reagieren Stift und Pinsel auf Druck.",
               "Colours come only from the picker, on purpose: press C and click the image. The pen paints hard lines, the brush soft ones, the spray can sprays dots and keeps spraying while you hold the button. Opacity applies to the whole stroke, so it does not get blotchy where it overlaps. Smoothing lets the stroke trail a little behind the mouse, which calms lines. With a graphics tablet, pen and brush respond to pressure."),
-    how4: L2("Quickpaint malt eine Farbfläche automatisch aus, wie ein Chroma Key. Die Härte bestimmt, wie streng die Maske auf die gewählte Farbe reagiert. Gefüllt wird mit Schraffur-Strichen im eingestellten Winkel. Humanize macht daraus eine Handskizze: Striche werden ungleich lang, leicht gebogen, verschieden kräftig, es kommen Kreuzschraffur und skizzierte Umrisse dazu, und die Striche dürfen ein kleines Stück über den Rand laufen, aber nie weit. Solange du D gedrückt hältst, ist die ganze Bemalung ausgeblendet und du siehst das Original.",
-               "Quickpaint fills a colour area automatically, like a chroma key. Hardness sets how strictly the mask reacts to the chosen colour. It fills with hatching strokes at the set angle. Humanize turns that into a hand sketch: strokes get uneven lengths, slight curves and varying weight, cross-hatching and sketched outlines are added, and strokes may run slightly past the edge, but never far. While you hold D, all painting is hidden and you see the original."),
+    how4: L2("Quickpaint malt eine Farbfläche automatisch aus, wie ein Chroma Key. Die Härte bestimmt, wie streng die Maske auf die gewählte Farbe reagiert. Gefüllt wird mit Schraffur-Strichen im eingestellten Winkel. Humanize macht daraus eine Handskizze: Striche werden ungleich lang, leicht gebogen, verschieden kräftig, es kommen Kreuzschraffur und skizzierte Umrisse dazu, und die Striche dürfen ein kleines Stück über den Rand laufen, aber nie weit. Als Pinseltyp gibt es Pinsel, Spray, Wachsmalkreide und Haarpinsel. Bei der Strichführung „Organisch“ folgen die Striche der Struktur im Bild und werden zu Kurven und Geraden, „Klassisch“ ist die bisherige Schraffur im festen Winkel. Solange du D gedrückt hältst, ist die ganze Bemalung ausgeblendet und du siehst das Original.",
+               "Quickpaint fills a colour area automatically, like a chroma key. Hardness sets how strictly the mask reacts to the chosen colour. It fills with hatching strokes at the set angle. Humanize turns that into a hand sketch: strokes get uneven lengths, slight curves and varying weight, cross-hatching and sketched outlines are added, and strokes may run slightly past the edge, but never far. Brush types are brush, spray, wax crayon and hair brush. With the stroke guidance “Organic” the strokes follow the structure in the image and become curves and straight lines, “Classic” is the previous hatching at a fixed angle. While you hold D, all painting is hidden and you see the original."),
     how5: L2("Magic Paint nimmt dir die Schichtarbeit ab: Es sucht die wichtigsten Farben im Frame (4 bis 16, je nach Qualität), sortiert sie nach Fläche und malt jede als Quickpaint-Schicht in genau dieser Farbe. Frühe Schichten sind großzügig und dick und überlappen, spätere werden feiner und genauer. So ist am Ende fast das ganze Bild gezeichnet. Weil jeder Frame neu gezeichnet wird, wirken die Striche im Video lebendig, wie bei echter Handanimation. Im Modus Calm Frames bleiben die Striche dagegen von Frame zu Frame an ihrem Platz, das Video wirkt ruhiger.",
                "Magic Paint takes the layer work off your hands: it finds the main colours in the frame (4 to 16 depending on quality), sorts them by area and paints each as a Quickpaint layer in exactly that colour. Early layers are generous, thick and overlapping, later ones get finer and more precise. In the end almost the whole image is drawn. Because each frame is drawn anew, the strokes look alive in the video, like real hand animation. In Calm Frames mode the strokes stay in place from frame to frame instead, so the video looks calmer."),
     how3: L2("Der Export rechnet jeden Frame neu und kodiert ihn als H.264 in Full HD, 1920 × 1080, bei Hochkant-Videos 1080 × 1920. Die Bitrate ist variabel, der Regler gibt den Mittelwert vor. Du kannst die Bemalung über dem Video exportieren oder nur die Bemalung auf Weiß.",
@@ -126,7 +128,7 @@
   // ---------- Zustand ----------
   // F: Projekt { file, url, name, dur, vw, vh, fps, n, ow, oh, idx, paints: { i: {cv}|{blob} } }
   var F = null, V = null;
-  var S = { qp: { hard: 55, human: 55, angle: 35, width: 9, seed: 7, type: "stroke", flow: "active", calm: 60 }, mp: { layers: 10, human: 55, angle: 35, width: 10, seed: 3, type: "stroke", flow: "active", calm: 60 }, tool: "brush", sets: {}, color: "#1A1A1A", recent: [], onion: false, hideVid: false, mode: "video", mbit: 12, audio: true, fpsI: 1 };
+  var S = { qp: { hard: 55, human: 55, angle: 35, width: 9, seed: 7, type: "stroke", flow: "active", calm: 60, guide: "classic" }, mp: { layers: 10, human: 55, angle: 35, width: 10, seed: 3, type: "stroke", flow: "active", calm: 60, guide: "classic" }, tool: "brush", sets: {}, color: "#1A1A1A", recent: [], onion: false, hideVid: false, mode: "video", mbit: 12, audio: true, fpsI: 1 };
   Object.keys(TOOLS).forEach(function (k) { S.sets[k] = Object.assign({}, TOOLS[k].set); });
   function set() { return S.sets[S.tool]; }
   function painted() { return Object.keys(F ? F.paints : {}).length + (V && V.dirty ? 1 : 0); }
@@ -558,8 +560,55 @@
   function buildSketch() {
     var G = qpGrids().m;
     V.qp.sketch = V.qp.sketch && V.qp.sketch.width === F.ow ? V.qp.sketch : canvas(F.ow, F.oh);
-    sketch(maskOf(G, V.qp.key, S.qp.hard), { color: S.color, width: S.qp.width, human: S.qp.human, angle: S.qp.angle, seed: S.qp.seed * 7919, type: S.qp.type, calm: S.qp.flow === "calm" ? S.qp.calm : null, key: "q" }, V.qp.sketch);
+    sketch(maskOf(G, V.qp.key, S.qp.hard), { color: S.color, width: S.qp.width, human: S.qp.human, angle: S.qp.angle, seed: S.qp.seed * 7919, type: S.qp.type, guide: S.qp.guide, calm: S.qp.flow === "calm" ? S.qp.calm : null, key: "q" }, V.qp.sketch);
     need();
+  }
+  // ---------- Strukturfeld für die organische Strichführung (seit v0.65) ----------
+  // Strukturtensor aus Helligkeit und Farbe (Lab) des Frames: zeigt je Stelle, in welche Richtung Kanten und Konturen laufen
+  // und wie eindeutig das ist. Fein geglättet für Details plus grob geglättet, damit die Richtung auch in Flächen hineinreicht.
+  function boxBlur(a, w, h, r, passes) {
+    var b = new Float32Array(a.length), c = Float32Array.from(a), x, y, s0, i;
+    for (var p = 0; p < passes; p++) {
+      for (y = 0; y < h; y++) { var o = y * w; s0 = 0; for (x = -r; x <= r; x++) s0 += c[o + clamp(x, 0, w - 1)];
+        for (x = 0; x < w; x++) { b[o + x] = s0 / (2 * r + 1); s0 += c[o + Math.min(w - 1, x + r + 1)] - c[o + Math.max(0, x - r)]; } }
+      for (x = 0; x < w; x++) { s0 = 0; for (y = -r; y <= r; y++) s0 += b[clamp(y, 0, h - 1) * w + x];
+        for (y = 0; y < h; y++) { c[y * w + x] = s0 / (2 * r + 1); s0 += b[Math.min(h - 1, y + r + 1) * w + x] - b[Math.max(0, y - r) * w + x]; } }
+    }
+    return c;
+  }
+  function flowField() {
+    var G = qpGrids(); if (G.flow) return G.flow;
+    var g = G.s, w = g.w, h = g.h, n = w * h, L = g.L, XX = new Float32Array(n), XY = new Float32Array(n), YY = new Float32Array(n), WC = [1, 0.6, 0.6], i, x, y;
+    for (y = 1; y < h - 1; y++) for (x = 1; x < w - 1; x++) {
+      i = y * w + x; var a = 0, b = 0, c = 0;
+      for (var ch = 0; ch < 3; ch++) { var gx = (L[(i + 1) * 3 + ch] - L[(i - 1) * 3 + ch]) * WC[ch], gy = (L[(i + w) * 3 + ch] - L[(i - w) * 3 + ch]) * WC[ch]; a += gx * gx; b += gx * gy; c += gy * gy; }
+      XX[i] = a; XY[i] = b; YY[i] = c;
+    }
+    var r1 = Math.max(1, Math.round(w / 240)), r2 = Math.max(4, Math.round(w / 40));
+    var sXX = boxBlur(XX, w, h, r1, 2), sXY = boxBlur(XY, w, h, r1, 2), sYY = boxBlur(YY, w, h, r1, 2);
+    var bXX = boxBlur(XX, w, h, r2, 3), bXY = boxBlur(XY, w, h, r2, 3), bYY = boxBlur(YY, w, h, r2, 3);
+    var fx = new Float32Array(n), fy = new Float32Array(n);
+    for (i = 0; i < n; i++) {
+      var A = sXX[i] + 0.35 * bXX[i], B = sXY[i] + 0.35 * bXY[i], C = sYY[i] + 0.35 * bYY[i], tr = A + C;
+      if (tr < 1e-6) continue;
+      var disc = Math.sqrt((A - C) * (A - C) + 4 * B * B), l1 = (tr + disc) / 2, l2 = (tr - disc) / 2, coh = (l1 - l2) / (l1 + l2 + 1e-6);
+      var wgt = Math.sqrt(coh) * l1 / (l1 + 5);
+      // Gradient-Winkel φ, Kantenrichtung = φ + 90°. Gespeichert im doppelten Winkel (Richtung ohne Vorzeichen): cos(2φ+180°) = −cos 2φ
+      var dl = Math.sqrt((A - C) * (A - C) + 4 * B * B) || 1;
+      fx[i] = -(A - C) / dl * wgt; fy[i] = -(2 * B) / dl * wgt;
+    }
+    G.flow = { w: w, h: h, fx: fx, fy: fy };
+    return G.flow;
+  }
+  // Strichrichtung an einer Stelle: Struktur, wo es eine gibt, sonst der eingestellte Winkel th
+  function flowDir(FF, px, py, th) {
+    var gx = clamp(px / F.ow * FF.w - 0.5, 0, FF.w - 1.001), gy = clamp(py / F.oh * FF.h - 0.5, 0, FF.h - 1.001), x0 = Math.floor(gx), y0 = Math.floor(gy), u = gx - x0, v = gy - y0, i = y0 * FF.w + x0;
+    var x1 = Math.min(FF.w - 1, x0 + 1) - x0, y1 = Math.min(FF.h - 1, y0 + 1) > y0 ? FF.w : 0;
+    var vx = (FF.fx[i] * (1 - u) + FF.fx[i + x1] * u) * (1 - v) + (FF.fx[i + y1] * (1 - u) + FF.fx[i + y1 + x1] * u) * v;
+    var vy = (FF.fy[i] * (1 - u) + FF.fy[i + x1] * u) * (1 - v) + (FF.fy[i + y1] * (1 - u) + FF.fy[i + y1 + x1] * u) * v;
+    var m = Math.min(1, Math.hypot(vx, vy)), k = (1 - m) * 0.6;
+    vx += Math.cos(2 * th) * k; vy += Math.sin(2 * th) * k;
+    return 0.5 * Math.atan2(vy, vx);
   }
   function sketch(raw, o, out) {
     var G = qpGrids().m, mw = G.w, mh = G.h, n = mw * mh, i;
@@ -573,6 +622,7 @@
     var calm = o.calm != null, pan = calm ? calmPan() : null;
     if (calm) calmMask(M, bl, mw, mh, o.key, o.calm / 100, pan);
     var f = mw / F.ow, h = o.human / 100, sc = F.oh / 1080, w = o.width * sc, R = rng(o.seed), keep = o.keep == null ? 1 : o.keep, am = 1, type = o.type || "stroke";
+    var organic = o.guide === "organic", FF = organic ? flowField() : null, hrgb = hexRgb(o.color);
     function inside(px, py) { var mx = Math.floor(px * f), my = Math.floor(py * f); return mx >= 0 && my >= 0 && mx < mw && my < mh && M[my * mw + mx] === 1; }
     var g2 = out.getContext("2d");
     g2.globalCompositeOperation = "source-over"; g2.globalAlpha = 1; g2.clearRect(0, 0, F.ow, F.oh);
@@ -603,6 +653,7 @@
         var sh = k === 0 ? t0 * ww : k === seg ? t1 * ww : 0;   // Schrägschnitt an den Enden
         lft.push(px + nx * ww + ux * sh, py + ny * ww + uy * sh); rgt.push(px - nx * ww - ux * sh, py - ny * ww - uy * sh);
       }
+      if (type === "hair") { var cl = []; for (k = 0; k <= seg; k++) { var t4 = k / seg, i4 = 1 - t4; cl.push(i4 * i4 * x0 + 2 * i4 * t4 * qx + t4 * t4 * x1, i4 * i4 * y0 + 2 * i4 * t4 * qy + t4 * t4 * y1); } hairPath(cl, lw, al); return; }
       if (type === "spray") {   // statt Fläche: Sprühstempel entlang der Mittellinie
         var stp = Math.max(2, lw * 0.55), sz0 = lw * 1.7;
         g2.globalAlpha = 1;
@@ -621,10 +672,84 @@
       for (k = rgt.length - 2; k >= 0; k -= 2) g2.lineTo(rgt[k], rgt[k + 1]);
       g2.closePath(); g2.fill();
     }
+    // Haarpinsel: viele feine Haare entlang der Mittellinie, jedes mit eigener Farbnuance, Farbmenge und Lage im Pinsel.
+    // Gegen Ende des Strichs geht die Farbe aus: trockene Haare setzen aus, so entstehen Streifen und Schlieren.
+    function hairPath(pts, lw, al) {
+      var np = pts.length / 2; if (np < 2) return;
+      var nh = clamp(Math.round(lw * 0.55), 5, 16), nx = [], ny = [], k, j;
+      for (k = 0; k < np; k++) { var a = Math.max(0, k - 1), b = Math.min(np - 1, k + 1), dx = pts[b * 2] - pts[a * 2], dy = pts[b * 2 + 1] - pts[a * 2 + 1], dl = Math.hypot(dx, dy) || 1; nx.push(-dy / dl); ny.push(dx / dl); }
+      g2.lineCap = "round"; g2.lineJoin = "round";
+      for (j = 0; j < nh; j++) {
+        var off = (R() - 0.5) * lw * (0.85 + 0.3 * R()), hw2 = Math.max(0.6, lw * (0.05 + 0.1 * R())), ha = al * (0.35 + 0.5 * R()), dry = 0.45 + 0.55 * R(), drift = (R() - 0.5) * lw * 0.25;
+        g2.strokeStyle = shade(hrgb, (R() - 0.5) * 0.34); g2.lineWidth = hw2; g2.globalAlpha = ha;
+        var on = false; g2.beginPath();
+        for (k = 0; k < np; k++) {
+          var tt = k / (np - 1), o2 = off * (0.75 + 0.25 * Math.sin(Math.PI * tt)) + drift * tt, px = pts[k * 2] + nx[k] * o2, py = pts[k * 2 + 1] + ny[k] * o2;
+          var wet = tt < dry || R() < 0.55 - (tt - dry) * 1.2;
+          if (wet) { if (on) g2.lineTo(px, py); else { g2.moveTo(px, py); g2.lineTo(px + 0.01, py); on = true; } } else on = false;
+        }
+        g2.stroke();
+      }
+      g2.globalAlpha = 1;
+    }
+    // Strich entlang einer beliebigen Mittellinie (organische Führung): Band mit schrägen Enden, Spray oder Haare
+    function pathDraw(pts, lw, al) {
+      var np = pts.length / 2, k; if (np < 2) return;
+      if (type === "hair") { hairPath(pts, lw, al); return; }
+      if (type === "spray") {
+        var stp = Math.max(2, lw * 0.55), sz0 = lw * 1.7, acc = 0; g2.globalAlpha = 1;
+        for (k = 1; k < np; k++) {
+          var ax = pts[k * 2 - 2], ay = pts[k * 2 - 1], sl = Math.hypot(pts[k * 2] - ax, pts[k * 2 + 1] - ay);
+          for (; acc <= sl; acc += stp) { var u3 = sl ? acc / sl : 0; g2.drawImage(sprays[Math.floor(R() * 4)], ax + (pts[k * 2] - ax) * u3 - sz0 / 2, ay + (pts[k * 2 + 1] - ay) * u3 - sz0 / 2, sz0, sz0); }
+          acc -= sl;
+        }
+        return;
+      }
+      var hw = lw / 2, lft = [], rgt = [];
+      var sk0 = clamp(nib + (R() - 0.5) * (0.5 + 1.2 * h), -1.15, 1.15), sk1 = R() < 0.7 ? sk0 : clamp(nib + (R() - 0.5) * (0.6 + 1.2 * h), -1.15, 1.15);
+      var t0 = Math.tan(sk0), t1 = Math.tan(sk1), sw = 1 + (R() - 0.5) * 0.25 * h;
+      for (k = 0; k < np; k++) {
+        var a = Math.max(0, k - 1), b = Math.min(np - 1, k + 1), dx = pts[b * 2] - pts[a * 2], dy = pts[b * 2 + 1] - pts[a * 2 + 1], dl = Math.hypot(dx, dy) || 1;
+        var ux = dx / dl, uy = dy / dl, tt = k / (np - 1), ww = hw * (1 + (sw - 1) * tt) * (0.7 + 0.3 * Math.sqrt(Math.sin(Math.PI * tt)));   // leicht angespitzt wie ein geführter Pinsel
+        var sh = k === 0 ? t0 * ww : k === np - 1 ? t1 * ww : 0, px = pts[k * 2], py = pts[k * 2 + 1];
+        lft.push(px - uy * ww + ux * sh, py + ux * ww + uy * sh); rgt.push(px + uy * ww - ux * sh, py - ux * ww - uy * sh);
+      }
+      if (type === "crayon") { for (k = 0; k < lft.length; k += 2) { var jj = (R() - 0.5) * hw * 0.35; lft[k] += (rgt[k] - lft[k]) * jj / lw; lft[k + 1] += (rgt[k + 1] - lft[k + 1]) * jj / lw; } }
+      g2.globalAlpha = 1; g2.beginPath(); g2.moveTo(lft[0], lft[1]);
+      for (k = 2; k < lft.length; k += 2) g2.lineTo(lft[k], lft[k + 1]);
+      for (k = rgt.length - 2; k >= 0; k -= 2) g2.lineTo(rgt[k], rgt[k + 1]);
+      g2.closePath(); g2.fill();
+    }
+    // Organisch: Strich wird von seiner Mitte aus schrittweise dem Strukturfeld nachgeführt (Stromlinie), in beide Richtungen.
+    // Wo die Struktur gerade ist, wird er gerade, wo sie sich biegt, eine Kurve. Pro Schritt nur begrenzt einlenken, damit nichts knickt.
+    // off = Abweichung vom Grundwinkel (Zittern, Kreuzschraffur), läuft relativ zur Struktur mit.
+    function trace(cx, cy, off, len, over) {
+      var st = Math.max(2, w * 0.55), maxTurn = 0.22 + 0.25 * h, out = [[], []];
+      for (var sgn = 0; sgn < 2; sgn++) {
+        var x = cx, y = cy, a0 = flowDir(FF, cx, cy, th) + off + (sgn ? Math.PI : 0), ux = Math.cos(a0), uy = Math.sin(a0), d = 0, ext = 0, arr = out[sgn];
+        while (d < len / 2) {
+          var a = flowDir(FF, x, y, th) + off, vx = Math.cos(a), vy = Math.sin(a);
+          if (vx * ux + vy * uy < 0) { vx = -vx; vy = -vy; }
+          var cr = ux * vy - uy * vx, dt = Math.atan2(cr, ux * vx + uy * vy), tn = clamp(dt, -maxTurn, maxTurn), ca = Math.cos(tn), sa = Math.sin(tn);
+          var nx2 = ux * ca - uy * sa, ny2 = ux * sa + uy * ca; ux = nx2; uy = ny2;
+          var qx = x + ux * st, qy = y + uy * st;
+          if (!inside(qx, qy)) { ext += st; if (ext > over) break; }
+          x = qx; y = qy; d += st; arr.push(x, y);
+        }
+      }
+      var pts = [], k; for (k = out[1].length - 2; k >= 0; k -= 2) pts.push(out[1][k], out[1][k + 1]);
+      pts.push(cx, cy); for (k = 0; k < out[0].length; k++) pts.push(out[0][k]);
+      return pts;
+    }
     // Strich von der Mitte aus in beide Richtungen bis zur Kante der Fläche, plus kleiner Überstand
     function reach(cx, cy, ux, uy, max) { var st = Math.max(1, 1 / f), d = 0; while (d + st <= max && inside(cx + ux * (d + st), cy + uy * (d + st))) d += st; return d; }
     function mark(cx, cy, ang, len, lw, al) {
       if (keep < 1 && R() > keep) return;   // obere Schichten lassen mehr von darunter durch
+      if (organic) {
+        var ov = w * (0.2 + 0.8 * h) * R(), pts = trace(cx, cy, ang - th, len, ov);
+        if (pts.length < 6 || (pts.length / 2 - 1) * Math.max(2, w * 0.55) < w * 0.8) return;
+        pathDraw(pts, lw, al * am); return;
+      }
       var ux = Math.cos(ang), uy = Math.sin(ang), over = w * (0.2 + 0.8 * h) * R();
       var a = reach(cx, cy, -ux, -uy, len / 2), b = reach(cx, cy, ux, uy, len / 2);
       if (a + b < w * 0.8) return;
@@ -843,7 +968,7 @@
       }
       mp.layers.push({ col: P.col, w: Math.round(width), hard: hardness, keep: Math.round(keep * 100) });
       if (area > n * 0.0008 || li === 0) {
-        sketch(raw, { color: P.col, width: width, human: S.mp.human, angle: S.mp.angle + P.ao, seed: P.seed, keep: keep, base: t2 < 0.5, type: S.mp.type, calm: S.mp.flow === "calm" ? S.mp.calm : null, key: "m" + kk }, lay);
+        sketch(raw, { color: P.col, width: width, human: S.mp.human, angle: S.mp.angle + P.ao, seed: P.seed, keep: keep, base: t2 < 0.5, type: S.mp.type, guide: S.mp.guide, calm: S.mp.flow === "calm" ? S.mp.calm : null, key: "m" + kk }, lay);
         rx.drawImage(lay, 0, 0);
       }
       mp.prog = li + 1; mp.preview = res; mpPanel(); need();
@@ -866,7 +991,7 @@
     function sl(k, lab, min, max, u) { return '<div class="fp-row"><label for="fp-m-' + k + '">' + lab + '<span id="fp-m-' + k + '-v">' + S.mp[k] + u + '</span></label><input type="range" id="fp-m-' + k + '" data-mp="' + k + '" min="' + min + '" max="' + max + '" step="1" value="' + S.mp[k] + '"></div>'; }
     var st = mp.applied ? t("mpApplied") : mp.busy || mp.gen ? fmt(t("mpWork"), { i: Math.min(mp.prog + 1, mp.n || S.mp.layers), n: mp.n || S.mp.layers }) : fmt(t("mpDone"), { n: mp.layers.length });
     var html2 = '<div class="fp-qph"><b>' + t("mpH") + '</b><span class="fp-qs" id="fp-mp-st">' + st + '</span><button type="button" class="fp-x" data-fp="mpNo" aria-label="' + t("close") + '" title="' + t("close") + ' (Esc)">×</button></div>' +
-      sl("layers", t("mpLayers"), 4, 16, "") + flowSeg("data-mflow", S.mp, "m") + typeSeg("data-mtype", S.mp.type) + sl("human", t("qpHuman"), 0, 100, " %") + sl("angle", t("mpAngle"), 0, 180, "°") + sl("width", t("mpWidth"), 3, 30, "px") +
+      sl("layers", t("mpLayers"), 4, 16, "") + flowSeg("data-mflow", S.mp, "m") + typeSeg("data-mtype", S.mp.type) + guideSeg("data-mguide", S.mp.guide) + sl("human", t("qpHuman"), 0, 100, " %") + sl("angle", t("mpAngle"), 0, 180, "°") + sl("width", t("mpWidth"), 3, 30, "px") +
       '<div class="fp-mpl">' + mp.layers.map(function (l, i) { return '<span title="' + (i + 1) + " · " + l.col + " · " + l.w + "px · " + t("qpHard") + " " + l.hard + " % · " + t("mpCover") + " " + l.keep + ' %" style="background:' + l.col + '"></span>'; }).join("") + "</div>" +
       '<p class="fp-desc fp-mpdesc">' + t(mp.pal ? "mpLocked" : "mpNew") + "</p>" +
       '<div class="fp-qb"><button type="button" class="fp-save" data-fp="mpOk"' + (mp.result && !mp.gen ? "" : " disabled") + ">" + t("qpOk") + '</button><button type="button" class="navbtn" data-fp="mpSeed">' + t("mpNewPal") + "</button></div>" +
@@ -888,8 +1013,12 @@
       return '<button type="button" ' + attr + '="' + q[0] + '" aria-pressed="' + (o.flow === q[0]) + '">' + t(q[1]) + "</button>"; }).join("") + "</div></div>" +
       (cm ? '<div class="fp-row"><label for="fp-' + pre + '-calm">' + t("calmL") + '<span id="fp-' + pre + '-calm-v">' + o.calm + ' %</span></label><input type="range" id="fp-' + pre + '-calm" data-' + (pre === "q" ? "qp" : "mp") + '="calm" min="0" max="100" step="1" value="' + o.calm + '"></div><p class="fp-desc fp-flown">' + t("flowNote") + "</p>" : "");
   }
+  function guideSeg(attr, cur) {
+    return '<div class="fp-row"><label>' + t("guideL") + '</label><div class="fp-seg">' + [["classic", "gClassic"], ["organic", "gOrganic"]].map(function (o) {
+      return '<button type="button" ' + attr + '="' + o[0] + '" aria-pressed="' + (cur === o[0]) + '">' + t(o[1]) + "</button>"; }).join("") + "</div></div>" + (cur === "organic" ? '<p class="fp-desc">' + t("guideNote") + "</p>" : "");
+  }
   function typeSeg(attr, cur) {
-    return '<div class="fp-row"><label>' + t("ptype") + '</label><div class="fp-seg">' + [["stroke", "tStroke"], ["spray", "tSpray"], ["crayon", "tCrayon"]].map(function (o) {
+    return '<div class="fp-row"><label>' + t("ptype") + '</label><div class="fp-seg fp-seg4">' + [["stroke", "tStroke"], ["spray", "tSpray"], ["crayon", "tCrayon"], ["hair", "tHair"]].map(function (o) {
       return '<button type="button" ' + attr + '="' + o[0] + '" aria-pressed="' + (cur === o[0]) + '">' + t(o[1]) + "</button>"; }).join("") + "</div></div>";
   }
   function qpPanel() {
@@ -898,7 +1027,7 @@
     function sl(k, lab, min, max, u) { return '<div class="fp-row"><label for="fp-q-' + k + '">' + lab + '<span id="fp-q-' + k + '-v">' + S.qp[k] + u + '</span></label><input type="range" id="fp-q-' + k + '" data-qp="' + k + '" min="' + min + '" max="' + max + '" step="1" value="' + S.qp[k] + '"></div>'; }
     pn.dataset.kind = "qp";
     pn.innerHTML = '<div class="fp-qph"><b>' + t("qpH") + "</b>" + (q.keyHex ? '<span class="fp-qk" style="background:' + q.keyHex + '" title="' + t("qpKey") + '"></span>' : "") + '<span class="fp-qs">' + t(q.applied ? "qpApplied" : q.stage === "pick" ? "qpPick" : "qpTune") + '</span><button type="button" class="fp-x" data-fp="qpNo" aria-label="' + t("close") + '" title="' + t("close") + ' (Esc)">×</button></div>' +
-      sl("hard", t("qpHard"), 0, 100, " %") + (q.stage === "tune" ? flowSeg("data-qflow", S.qp, "q") + typeSeg("data-qtype", S.qp.type) + sl("human", t("qpHuman"), 0, 100, " %") + sl("angle", t("qpAngle"), 0, 180, "°") + sl("width", t("qpWidth"), 2, 40, "px") : '<p class="fp-desc">' + t("qpHardNote") + "</p>") +
+      sl("hard", t("qpHard"), 0, 100, " %") + (q.stage === "tune" ? flowSeg("data-qflow", S.qp, "q") + typeSeg("data-qtype", S.qp.type) + guideSeg("data-qguide", S.qp.guide) + sl("human", t("qpHuman"), 0, 100, " %") + sl("angle", t("qpAngle"), 0, 180, "°") + sl("width", t("qpWidth"), 2, 40, "px") : '<p class="fp-desc">' + t("qpHardNote") + "</p>") +
       '<div class="fp-qb">' + (q.stage === "tune" ? '<button type="button" class="fp-save" data-fp="qpOk"' + (q.applied ? " disabled" : "") + ">" + t("qpOk") + '</button><button type="button" class="navbtn" data-fp="qpSeed">' + t("qpSeed") + '</button><button type="button" class="navbtn" data-fp="qpRepick">' + t("qpRepick") + "</button>" : "") + "</div>" +
       (q.stage === "tune" ? '<div class="fp-qbatch">' + (V.batch ? '<p class="fp-desc" id="fp-qbat">' + fmt(t("qpBatchRun"), { i: V.batch.i, n: V.batch.n }) + '</p><button type="button" class="fp-save" data-fp="batchStop">' + t("qpStop") + "</button>"
         : '<button type="button" class="fp-qpbtn" data-fp="qpNext">' + t("qpNext") + '</button><button type="button" class="navbtn" data-fp="qpAll">' + t("qpAll") + '</button><p class="fp-desc">' + t("qpBatchNote") + "</p>") + "</div>" : "");
@@ -1191,7 +1320,8 @@
     ".fp-row input{width:100%;accent-color:var(--accent)}.fp-row input:disabled{opacity:.4}" +
     ".fp-ticks{display:flex;justify-content:space-between;font-size:.78rem;color:var(--soft)}" +
     ".fp-desc{margin:0;color:var(--soft);font-size:.86rem;line-height:1.45}" +
-    ".fp-seg{display:flex}.fp-seg button{flex:1;font:600 .88rem var(--f-body);padding:8px 10px;border:1px solid var(--line);background:transparent;color:var(--ink);cursor:pointer}" +
+    ".fp-seg{display:flex;flex-wrap:wrap}.fp-seg button{flex:1 1 auto;font:600 .88rem var(--f-body);padding:8px 10px;border:1px solid var(--line);background:transparent;color:var(--ink);cursor:pointer}" +
+    ".fp-seg4{display:grid;grid-template-columns:1fr 1fr}.fp-seg4 button,.fp-seg4 button+button{border-left:1px solid var(--line);margin:0 -1px -1px 0}" +
     ".fp-seg button+button{border-left:0}.fp-seg button[aria-pressed=true]{background:var(--ink);color:var(--bg);border-color:var(--ink)}" +
     ".fp-save{font:600 1rem var(--f-body);padding:12px 18px;border:0;background:var(--ink);color:var(--bg);cursor:pointer}" +
     ".fp-note{margin:0;color:var(--soft);font-size:.88rem;min-height:1.3em;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}" +
@@ -1398,9 +1528,11 @@
     if (V.qp.stage === "tune") { qpMask(); qpGenSoon(); } else V.qp.dirty = true;
   }
   function onClick(e) {
-    var b = e.target.closest("[data-fp],[data-tool],[data-mode],[data-col],[data-slot-load],[data-slot-save],[data-qtype],[data-mtype],[data-qflow],[data-mflow]"); if (!b) return;
+    var b = e.target.closest("[data-fp],[data-tool],[data-mode],[data-col],[data-slot-load],[data-slot-save],[data-qtype],[data-mtype],[data-qflow],[data-mflow],[data-qguide],[data-mguide]"); if (!b) return;
     if (V.batch) { if (b.dataset.fp === "batchStop") V.batch.stop = true; return; }
     if (b.dataset.qtype && !V.batch) { S.qp.type = b.dataset.qtype; if (V.qp) { V.qp.done = {}; qpPanel(); qpGenSoon(0); } return; }
+    if (b.dataset.qguide && !V.batch) { S.qp.guide = b.dataset.qguide; if (V.qp) { V.qp.done = {}; qpPanel(); qpGenSoon(0); } return; }
+    if (b.dataset.mguide && !V.batch) { S.mp.guide = b.dataset.mguide; if (V.mp) { V.mp.done = {}; mpTok++; V.mp.busy = true; V.mp.applied = false; V.mp.result = null; V.mp.gen = performance.now(); mpPanel(true); } return; }
     if (b.dataset.qflow && !V.batch) { S.qp.flow = b.dataset.qflow; calmReset(); if (V.qp) { V.qp.done = {}; qpPanel(); qpGenSoon(0); } return; }
     if (b.dataset.mflow && !V.batch) { S.mp.flow = b.dataset.mflow; calmReset(); if (V.mp) { V.mp.done = {}; mpTok++; V.mp.busy = true; V.mp.applied = false; V.mp.result = null; V.mp.gen = performance.now(); mpPanel(true); } return; }
     if (b.dataset.mtype && !V.batch) { S.mp.type = b.dataset.mtype; if (V.mp) { V.mp.done = {}; mpTok++; V.mp.busy = true; V.mp.applied = false; V.mp.result = null; V.mp.gen = performance.now(); mpPanel(true); } return; }
