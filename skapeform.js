@@ -1,4 +1,4 @@
-/* SkapeForm – Vollbild-Videoeditor im TikTok-Stil (9:16).
+/* SkapeForm – Vollbild-Videoeditor im TikTok-Stil (9:16, dazu 16:9, 4:5 und 1:1 seit v0.21).
    Clips schneiden, Drop-Animationen (Turbulenz, Judder Shake, Zoom Punch, Wackeln) und Live-Schnitt über die Zahlentasten:
    bis zu 10 Clips liegen auf 1–9 und 0. Beim Abspielen schneidet jede Zahl live auf ihren Clip, und zwar dort weiter,
    wo von diesem Clip noch nichts benutzt wurde. Ist ein Clip aufgebraucht, rückt automatisch der nächste Clip aus der
@@ -9,7 +9,7 @@
 (function () {
   "use strict";
 
-  var VERSION = "0.2", OW = 1080, OH = 1920, MIN = 0.1, JF = 12;
+  var VERSION = "0.21", OW = 1080, OH = 1920, MIN = 0.1, JF = 12;
   var KEYC = ["#D9D6D0", "#E2621B", "#E3B83F", "#8DBF45", "#23A06A", "#2BB0B8", "#3B7FE0", "#8A6CF0", "#C452C8", "#E0457A"];
   var KEY_ORDER = [1, 2, 3, 4, 5, 6, 7, 8, 9, 0], PAD_ORDER = [7, 8, 9, 4, 5, 6, 1, 2, 3, 0];
   var ANIMS = ["none", "turb", "judder", "punch", "shake"];
@@ -62,7 +62,8 @@
     takeDone: L2("Live-Schnitt übernommen: {n} Schnitte, {d}.", "Live cut applied: {n} cuts, {d}."),
     bad: L2("„{n}“ konnte nicht gelesen werden.", "“{n}” could not be read."),
     expH: L2("Video exportieren", "Export video"),
-    expInfo: L2("MP4 in 1080 × 1920 (9:16), H.264, Ton als AAC. Alles wird in deinem Browser berechnet, das dauert je nach Länge ein paar Minuten.", "MP4 at 1080 × 1920 (9:16), H.264, sound as AAC. Everything is computed in your browser, depending on length this takes a few minutes."),
+    expInfo: L2("MP4 in {w} × {h} ({r}), H.264, Ton als AAC. Alles wird in deinem Browser berechnet, das dauert je nach Länge ein paar Minuten.", "MP4 at {w} × {h} ({r}), H.264, sound as AAC. Everything is computed in your browser, depending on length this takes a few minutes."),
+    ratioT: L2("Bildformat: 9:16 Hochkant (TikTok, Reels), 16:9 Querformat (YouTube), 4:5 (Instagram-Feed), 1:1 Quadrat. Gilt für Vorschau und Export.", "Aspect ratio: 9:16 portrait (TikTok, Reels), 16:9 landscape (YouTube), 4:5 (Instagram feed), 1:1 square. Applies to preview and export."),
     fps: L2("Bilder pro Sekunde", "Frames per second"),
     expGo: L2("Export starten", "Start export"), cancel: L2("Abbrechen", "Cancel"), close: L2("Schließen", "Close"),
     working: L2("Bild {i} von {n} · {p} %", "Frame {i} of {n} · {p} %"), audio: L2("Ton wird gemischt …", "Mixing sound …"),
@@ -103,10 +104,21 @@
     clips: [], segs: [], slots: [null, null, null, null, null, null, null, null, null, null],
     sel: 0, selClip: 0, T: 0, nextId: 1, undo: [], redo: [],
     live: { anim: "turb", as: 1, ad: 0.45, mode: "cont" }, clipVol: 1, musicVol: 0.9, music: null,
-    pps: 60, scroll: 0,
+    pps: 60, scroll: 0, ratio: "9:16",
     fx: [], selFx: 0, fxKeys: {}                      // Effekt-Ebenen: { id, type, start, dur } in Timeline-Zeit
   };
   var V = null, raf = 0;
+  // Bildformate (Breite × Höhe des Exports). Clips werden wie bisher mit „Füllen“ oder „Einpassen“ hineingesetzt.
+  var RATIOS = { "9:16": [1080, 1920], "16:9": [1920, 1080], "4:5": [1080, 1350], "1:1": [1080, 1080] }, RATIO_ORDER = ["9:16", "16:9", "4:5", "1:1"];
+  function applyRatio() { var r = RATIOS[P.ratio] || RATIOS["9:16"]; OW = r[0]; OH = r[1]; }
+  function setRatio(k) {
+    if (!RATIOS[k] || (V && V.exporting)) return;
+    P.ratio = k; applyRatio();
+    if (!V) return;
+    V.hold.key = ""; V.pvOk = false;
+    V.root.querySelectorAll("[data-ratio]").forEach(function (b) { b.setAttribute("aria-pressed", String(b.getAttribute("data-ratio") === k)); });
+    layoutStage(); if (V.modal === "export") renderModal(true);
+  }
   var REC = null;                                     // laufender Live-Schnitt
   var PL = { on: false, T0: 0, wall: 0, ac: false, acT: 0, seg: null, el: null, msrc: null };
   var AC = null;
@@ -781,7 +793,7 @@
     ".sf-back{color:var(--sfs);text-decoration:none;font-weight:600}.sf-back:hover{color:var(--sfi)}" +
     ".sf-title{font:700 16px var(--f-display,var(--f-body,sans-serif));letter-spacing:.02em}.sf-title span{margin-left:8px;padding:1px 6px;border:1px solid var(--sfl);font:600 11px var(--f-body,sans-serif);color:var(--sfs)}" +
     ".sf-note{flex:1;min-width:0;color:#E3B83F;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:13px}" +
-    ".sf-tb{display:flex;gap:6px}" +
+    ".sf-tb{display:flex;gap:6px}.sf-rat{display:flex;margin-right:6px}.sf-rat button+button{border-left:0}" +
     ".sf-lib{grid-area:lib;border-right:1px solid var(--sfl);display:flex;flex-direction:column;min-height:0;padding:12px 0 0}" +
     ".sf-lib h3{padding:0 12px}.sf-list{flex:1;overflow-y:auto;padding:0 8px 12px;scrollbar-width:thin}" +
     ".sf-lib.over{outline:2px dashed #E3B83F;outline-offset:-6px}" +
@@ -835,7 +847,7 @@
     var opts = function (list, all) { return list.map(function (a) { return '<option value="' + a + '">' + t("a_" + a) + "</option>"; }).join("") + (all ? '<option value="rand">' + t("a_rand") + "</option>" : ""); };
     return '<div class="sf" id="sf-root">' +
       '<header class="sf-top"><a class="sf-back" href="#">' + t("back") + '</a><b class="sf-title">SkapeForm<span>v' + VERSION + '</span></b>' +
-        '<span class="sf-note" id="sf-note"></span><div class="sf-tb">' +
+        '<span class="sf-note" id="sf-note"></span><div class="sf-tb"><span class="sf-sw sf-rat" title="' + t("ratioT") + '">' + RATIO_ORDER.map(function (k) { return '<button type="button" data-ratio="' + k + '" aria-pressed="' + (P.ratio === k) + '">' + k + "</button>"; }).join("") + "</span>" +
         '<button type="button" data-a="import">' + t("imp") + '</button><button type="button" data-a="full">' + t("full") + '</button>' +
         '<button type="button" class="pri" data-a="export">' + t("exp") + '</button><button type="button" data-a="help" title="' + t("help") + '">?</button></div>' +
         '<input type="file" id="sf-file" multiple accept="video/*,.mp4,.mov,.m4v,.webm,.mkv" hidden><input type="file" id="sf-mfile" accept="audio/*,.mp3,.wav,.ogg,.m4a,.aac,.flac" hidden></header>' +
@@ -952,8 +964,8 @@
   function layoutStage() {
     if (!V) return;
     var st = V.root.querySelector("#sf-stage"), r = st.getBoundingClientRect(), pad = 16;
-    var h = Math.max(100, r.height - pad * 2), w = h * 9 / 16;
-    if (w > r.width - pad * 2) { w = Math.max(60, r.width - pad * 2); h = w * 16 / 9; }
+    var h = Math.max(100, r.height - pad * 2), w = h * OW / OH;
+    if (w > r.width - pad * 2) { w = Math.max(60, r.width - pad * 2); h = w * OH / OW; }
     var dpr = Math.min(2, window.devicePixelRatio || 1);
     V.pcv.style.width = Math.round(w) + "px"; V.pcv.style.height = Math.round(h) + "px";
     V.pcv.width = Math.round(w * dpr); V.pcv.height = Math.round(h * dpr);
@@ -1243,6 +1255,7 @@
     var cx = e.target.closest("[data-cx]"); if (cx) { removeClip(+cx.dataset.cx); return; }
     var px = e.target.closest("[data-px]"); if (px) { var k = +px.dataset.px; if (REC && REC.cur && REC.cur.slot === k) return; pushUndo(); releaseS(clipById(P.slots[k])); P.slots[k] = null; renderAll(); return; }
     var pad = e.target.closest(".sf-pad"); if (pad) { liveHit(+pad.dataset.k); return; }
+    var rt = e.target.closest("[data-ratio]"); if (rt) { setRatio(rt.getAttribute("data-ratio")); rt.blur(); return; }
     var b = e.target.closest("[data-a]"); if (!b) return;
     var a = b.dataset.a; if (b.blur) b.blur();
     if (V.exporting && a !== "exp-cancel") return;
@@ -1355,7 +1368,7 @@
       return;
     }
     var D = total(), ex = V.exporting;
-    m.innerHTML = '<div class="sf-box"><h2>' + t("expH") + "</h2><p>" + t("expInfo") + "</p>" +
+    m.innerHTML = '<div class="sf-box"><h2>' + t("expH") + "</h2><p>" + fmt(t("expInfo"), { w: OW, h: OH, r: P.ratio }) + "</p>" +
       '<p>' + (lang === "de" ? "Länge" : "Length") + ": <b>" + tc(D, true) + "</b> · " + P.segs.length + " " + (lang === "de" ? "Schnitte" : "cuts") + "</p>" +
       '<div class="sf-btns sf-sw" style="align-items:center"><span style="color:#9C9E99;font-weight:600;font-size:13px;margin-right:6px">' + t("fps") + "</span>" +
       [30, 60].map(function (f) { return '<label style="display:flex;align-items:center;gap:4px;margin-right:10px;font-weight:600"><input type="radio" name="sf-fps" value="' + f + '"' + ((V.fps || 30) === f ? " checked" : "") + (ex ? " disabled" : "") + "> " + f + "</label>"; }).join("") + "</div>" +
@@ -1393,7 +1406,7 @@
     injectCSS();
     el.innerHTML = html();
     var root = el.querySelector("#sf-root");
-    V = { root: root, host: el, pcv: root.querySelector("#sf-pv"), tcv: root.querySelector("#sf-tl"), hold: { cv: canvasEl(2, 2), key: "" }, drag: null, ld: null, ldrop: null, exporting: false, modal: null, fps: 30, fxHeld: {}, fxPeek: {}, fxLearn: null };
+    V = { root: root, host: el, pcv: root.querySelector("#sf-pv"), tcv: root.querySelector("#sf-tl"), hold: { cv: canvasEl(2, 2), key: "" }, drag: null, ld: null, ldrop: null, exporting: false, modal: null, fps: 30, fxHeld: {}, fxPeek: {}, fxLearn: null }; applyRatio();
     V.px = V.pcv.getContext("2d"); V.tx = V.tcv.getContext("2d");
     root.addEventListener("click", onClick); root.addEventListener("dblclick", onDbl);
     root.addEventListener("input", onInput); root.addEventListener("change", onChange);
