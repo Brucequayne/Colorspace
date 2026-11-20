@@ -1,4 +1,4 @@
-/* Channel Exporter 0.3 – Bilder und Videos im Browser in Kanäle zerlegen und exportieren. Für Color Space.
+/* Channel Exporter 0.31 – Bilder und Videos im Browser in Kanäle zerlegen und exportieren. Für Color Space.
    Einbindung: channels.js per script-Tag laden, dann Channels.mount(element, "de" | "en") und Channels.unmount().
    Bilder und Videos verlassen nie das Gerät. Für den Video-Export wird mp4-muxer.js (MIT) aus demselben Ordner nachgeladen.
 
@@ -8,7 +8,7 @@
 (function () {
   "use strict";
 
-  var VERSION = "0.3", PREVIEW = 2000, MAX_PIX = 40e6, VMAX = 1920, VPREV = 960, VFPS = 30;
+  var VERSION = "0.31", PREVIEW = 2000, MAX_PIX = 40e6, VMAX = 1920, VPREV = 960, VFPS = 30;
   var lang = "de";
   function L2(de, en) { return { de: de, en: en }; }
   function tr(o) { return o[lang]; }
@@ -50,6 +50,10 @@
     vFail: L2("Export fehlgeschlagen: {e}", "Export failed: {e}"),
     depthVid: L2("Bei Videos zeigt die Vorschau beim Abspielen eine schnelle Schätzung und im Pausenbild die KI-Tiefe. Im Export rechnet die KI jedes Bild neu und glättet von Bild zu Bild gegen Flackern. Das dauert deutlich länger, je nach Rechner etwa eine halbe bis zwei Sekunden pro Bild.", "With videos the preview shows a quick estimate while playing and the AI depth when paused. The export runs the AI on every frame and smooths from frame to frame against flicker. That takes much longer, about half a second to two seconds per frame depending on your computer."),
     howVid: L2("Videos: Zieh ein MP4, MOV oder WebM auf die Fläche. Alle Werkzeuge arbeiten live auf dem laufenden Bild, du kannst abspielen, spulen und dabei die Ebenen verschieben. Exportiert wird als MP4 mit 30 Bildern pro Sekunde und dem Originalton, entweder jede Ebene als eigenes Video, die Komposition oder bei Tiefe die Tiefenkarte. Mit „Standbild“ speicherst du das aktuelle Bild als PNG. Videos werden höchstens in Full HD verarbeitet.", "Videos: drop an MP4, MOV or WebM onto the area. All tools work live on the running picture, you can play, scrub and move the layers meanwhile. Export is MP4 at 30 frames per second with the original audio, either each layer as its own video, the composite or, for depth, the depth map. “Still” saves the current frame as PNG. Videos are processed at Full HD at most."),
+    sceneB: L2("Ganze Szene exportieren", "Export whole scene"),
+    sceneNote: L2("Ganze Szene: alle sichtbaren Ebenen, so wie du sie angeordnet hast, samt {bg} Hintergrund als ein 16:9-{f} in {w} × {h} px. Der Rahmen umfasst alle Ebenen mit etwas Rand, zeig auf den Knopf, dann siehst du ihn gestrichelt.", "Whole scene: all visible layers as you arranged them, with the {bg} background, as one 16:9 {f} at {w} × {h} px. The frame contains all layers with a little margin; point at the button to see it dashed."),
+    bgBlack: L2("schwarzem", "black"), bgWhite: L2("weißem", "white"), fImg: L2("Bild", "image"), fVid: L2("Video", "video"),
+    howScene: L2("Ganze Szene exportieren: Statt nur der Bildfläche wird alles gerendert, was du auf der Bühne angeordnet hast, mit dem Hintergrund des Werkzeugs (Schwarz bei RGB, Tonwerten und Tiefe, Weiß bei CMYK). Das Ergebnis ist immer 16:9, als PNG oder bei Videos als MP4. Der Rahmen wird so gelegt, dass alle eingeschalteten Ebenen mit etwas Rand hineinpassen.", "Export whole scene: instead of just the picture area, everything you arranged on the stage is rendered, with the tool's background (black for RGB, tones and depth, white for CMYK). The result is always 16:9, as PNG or as MP4 for videos. The frame is placed so that all visible layers fit in with a little margin."),
     howFull: L2("Vollbild: Sobald eine Datei geladen ist, füllt die Arbeitsfläche das ganze Fenster und die Bedienung schwebt rechts daneben. Mit H blendest du das Panel aus, Esc oder „Vollbild beenden“ führt zurück zur Seite, „Ganzer Bildschirm“ blendet auch die Browserleiste aus. Leertaste spielt Videos ab und hält sie an.", "Full screen: as soon as a file is loaded, the work area fills the whole window and the controls float on the right. H hides the panel, Esc or “Exit full screen” takes you back to the page, “Whole screen” also hides the browser bar. Space plays and pauses videos."),
     howH: L2("So funktioniert’s", "How it works"),
     how1: L2("Jede Ebene wird pixelgenau aus deinem Bild herausgerechnet, und bei jedem Werkzeug ergeben alle Ebenen deckungsgleich übereinander wieder das Original. Schon wenige Pixel Versatz erzeugen Farbsäume.",
@@ -426,15 +430,23 @@
     var sw = st.clientWidth, sh = st.clientHeight, m = 18, full = isFull();
     // Im Vollbild das Bild in den freien Bereich setzen: oben die Leiste, rechts das Panel (breite Fenster), unten die Videosteuerung
     var top = full ? 52 : 0, bot = full && IMG.video ? 62 : 0, rgt = full && S.panel && sw >= 900 ? 372 : 0, aw = Math.max(40, sw - 2 * m - rgt), ah = Math.max(40, sh - 2 * m - top - bot);
-    ds = Math.min(aw / IMG.w, ah / IMG.h, IMG.pw / IMG.w * (full ? 2.5 : 1.5));
-    var dw = IMG.w * ds, dh = IMG.h * ds;
-    org = { x: m + (aw - dw) / 2, y: m + top + (ah - dh) / 2 };
+    var cap = IMG.pw / IMG.w * (full ? 2.5 : 1.5), dw, dh;
+    if (V.frame) {   // Szenen-Rahmen sichtbar: ganze Szene einpassen, damit man sieht, was exportiert wird
+      var fs = sceneRect(); ds = Math.min(aw / fs.w, ah / fs.h, cap); dw = IMG.w * ds; dh = IMG.h * ds;
+      org = { x: m + (aw - fs.w * ds) / 2 - fs.x * ds, y: m + top + (ah - fs.h * ds) / 2 - fs.y * ds };
+    } else {
+      ds = Math.min(aw / IMG.w, ah / IMG.h, cap); dw = IMG.w * ds; dh = IMG.h * ds;
+      org = { x: m + (aw - dw) / 2, y: m + top + (ah - dh) / 2 };
+    }
     Array.prototype.forEach.call(st.querySelectorAll(".ch-lyr"), function (c) {
       var k = c.getAttribute("data-k");
       c.style.width = dw + "px"; c.style.height = dh + "px";
       c.style.left = (org.x + L.x[k] * ds) + "px"; c.style.top = (org.y + L.y[k] * ds) + "px";
     });
     drawAdd(st);
+    var fr = st.querySelector("#ch-frame");
+    sceneInfo();
+    if (fr && V.frame) { var sr = sceneRect(); fr.style.left = (org.x + sr.x * ds) + "px"; fr.style.top = (org.y + sr.y * ds) + "px"; fr.style.width = sr.w * ds + "px"; fr.style.height = sr.h * ds + "px"; }
     var side = V.root.querySelector("#ch-side");
     if (side) side.style.maxHeight = !full && window.innerWidth >= 1100 ? V.root.querySelector(".ch-deskbox").offsetHeight + "px" : "";
     status();
@@ -521,6 +533,48 @@
       }
       note(fmt(t("saved"), { f: names.join(", ") }));
     } finally { busy = false; if (IMG) IMG.dcache = null; }
+  }
+  // ---------- Ganze Szene (16:9 mit Hintergrund) ----------
+  // Rahmen in Bildpixeln: umfasst die Bildfläche und alle eingeschalteten Ebenen samt Verschiebung, plus 4 % Rand, auf 16:9 erweitert.
+  function sceneRect() {
+    var x0 = 0, y0 = 0, x1 = IMG.w, y1 = IMG.h;
+    tool().layers.forEach(function (l) { if (!L.on[l.k]) return; x0 = Math.min(x0, L.x[l.k]); y0 = Math.min(y0, L.y[l.k]); x1 = Math.max(x1, L.x[l.k] + IMG.w); y1 = Math.max(y1, L.y[l.k] + IMG.h); });
+    var m = 0.04 * Math.max(x1 - x0, y1 - y0); x0 -= m; y0 -= m; x1 += m; y1 += m;
+    var w = x1 - x0, h = y1 - y0, cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
+    if (w / h > 16 / 9) h = w * 9 / 16; else w = h * 16 / 9;
+    return { x: cx - w / 2, y: cy - h / 2, w: w, h: h };
+  }
+  function sceneSize(sr) {   // Video immer Full HD, Bild in seiner Auflösung, mindestens 1920 und höchstens 3840 breit
+    var ow = IMG.video ? 1920 : Math.min(3840, Math.max(1920, Math.round(sr.w / 2) * 2));
+    return { w: ow, h: Math.round(ow * 9 / 16 / 2) * 2 };
+  }
+  // layerCv(l) liefert die Ebene in voller Auflösung (farbig)
+  function drawScene(x, ow, oh, sr, layerCv) {
+    var T = tool(), sc = ow / sr.w;
+    x.globalCompositeOperation = "source-over"; x.fillStyle = T.bg || "#000"; x.fillRect(0, 0, ow, oh);
+    x.globalCompositeOperation = { screen: "screen", multiply: "multiply", add: "lighter" }[T.blend] || "source-over";
+    x.imageSmoothingQuality = "high";
+    T.layers.forEach(function (l) { if (L.on[l.k]) x.drawImage(layerCv(l), (L.x[l.k] - sr.x) * sc, (L.y[l.k] - sr.y) * sc, IMG.w * sc, IMG.h * sc); });
+    x.globalCompositeOperation = "source-over";
+  }
+  async function exportScene() {
+    if (busy || !IMG) return; busy = true; note(t("working")); await later(); snapFull();
+    try {
+      var T = tool(), sr = sceneRect(), d = sceneSize(sr), c = document.createElement("canvas"); c.width = d.w; c.height = d.h;
+      drawScene(c.getContext("2d"), d.w, d.h, sr, function (l) { return renderLayer(IMG.full, l, "tinted"); });
+      var f = IMG.name + "-" + T.short + "-szene.png";
+      await download(c, f); note(fmt(t("saved"), { f: f }));
+    } finally { busy = false; if (IMG) IMG.dcache = null; }
+  }
+  function sceneInfo() {
+    var n = V && V.root.querySelector("#ch-scnote"); if (!n || !IMG) return;
+    var d = sceneSize(sceneRect()), T = tool();
+    n.textContent = fmt(t("sceneNote"), { bg: t(T.bg === "#fff" ? "bgWhite" : "bgBlack"), f: t(IMG.video && S.vfmt === "mp4" ? "fVid" : "fImg"), w: d.w, h: d.h });
+  }
+  function showFrame(on) {
+    var fr = V && V.root.querySelector("#ch-frame"); if (!fr) return;
+    on = on && !!IMG; if (on === !!V.frame) return;
+    V.frame = on; fr.hidden = !on; animate(); layout();
   }
   async function exportComp() {
     if (busy || !IMG) return; busy = true; note(t("working")); await later(); snapFull();
@@ -657,12 +711,13 @@
       var needDepth = what.kind === "depth" || T.depth;
       if (needDepth) { try { await aiSession(); useAI = true; } catch (e) { useAI = false; } }
       // Ausgaben
-      function out(fname, draw) {
+      function out(fname, draw, ow, oh, cfg) {
+        ow = ow || W; oh = oh || H; cfg = cfg || vcfg;
         var target = new Mp4Muxer.ArrayBufferTarget(), o = { fname: fname, draw: draw, target: target, err: null, cv: document.createElement("canvas") };
-        o.cv.width = W; o.cv.height = H;
-        o.mux = new Mp4Muxer.Muxer({ target: target, video: { codec: "avc", width: W, height: H, frameRate: VFPS }, audio: audio ? { codec: acfg.mux, sampleRate: 48000, numberOfChannels: ach } : undefined, fastStart: "in-memory", firstTimestampBehavior: "offset" });
+        o.cv.width = ow; o.cv.height = oh;
+        o.mux = new Mp4Muxer.Muxer({ target: target, video: { codec: "avc", width: ow, height: oh, frameRate: VFPS }, audio: audio ? { codec: acfg.mux, sampleRate: 48000, numberOfChannels: ach } : undefined, fastStart: "in-memory", firstTimestampBehavior: "offset" });
         o.enc = new VideoEncoder({ output: function (c, m) { o.mux.addVideoChunk(c, m); }, error: function (e) { o.err = e; } });
-        o.enc.configure(vcfg); outs.push(o);
+        o.enc.configure(cfg); outs.push(o);
       }
       function layerDraw(l, mode) { return function (o, sd) { var cx = o.cv.getContext("2d"), od = o.od || (o.od = cx.createImageData(W, H)); l.render(sd, od.data, mode, W, H); cx.putImageData(od, 0, 0); }; }
       if (what.kind === "layers") what.keys.forEach(function (k) { var l = T.layers.filter(function (q) { return q.k === k; })[0]; out(IMG.name + "-" + tr(l.file) + (S.mode === "gray" ? "-" + (T.graySuffix || "grau") : "") + ".mp4", layerDraw(l, S.mode)); });
@@ -673,6 +728,16 @@
         T.layers.forEach(function (l) { if (!L.on[l.k]) return; l.render(sd, od.data, "tinted", W, H); tx.putImageData(od, 0, 0); x.drawImage(tmp, Math.round(L.x[l.k]), Math.round(L.y[l.k])); });
         x.globalCompositeOperation = "source-over";
       });
+      else if (what.kind === "scene") {
+        var sr = sceneRect(), sd0 = sceneSize(sr), scfg = await pickCodec(sd0.w, sd0.h, Math.min(40e6, Math.max(6e6, Math.round(sd0.w * sd0.h * VFPS * 0.3 / 1e5) * 1e5)));
+        if (!scfg) { note(t("noSupport")); return; }
+        out(IMG.name + "-" + T.short + "-szene.mp4", function (o, sd) {
+          var tmp = o.tmp || (o.tmp = document.createElement("canvas")); tmp.width = W; tmp.height = H;
+          var tx = tmp.getContext("2d"), od = o.od || (o.od = tx.createImageData(W, H)), tl = o.tl || (o.tl = {});
+          T.layers.forEach(function (l) { if (!L.on[l.k]) return; var c = tl[l.k] || (tl[l.k] = document.createElement("canvas")); c.width = W; c.height = H; l.render(sd, od.data, "tinted", W, H); c.getContext("2d").putImageData(od, 0, 0); });
+          drawScene(o.cv.getContext("2d"), sd0.w, sd0.h, sr, function (l) { return tl[l.k]; });
+        }, sd0.w, sd0.h, scfg);
+      }
       else out(IMG.name + "-tiefenkarte" + (what.heat ? "-farbig" : "") + ".mp4", function (o) { var x = o.cv.getContext("2d"); x.drawImage(depthMap(W, H, what.heat), 0, 0); });
       // Bild für Bild
       ev = document.createElement("video"); ev.muted = true; ev.playsInline = true; ev.preload = "auto"; ev.src = IMG.url;
@@ -747,8 +812,9 @@
     ".ch-stage.over{outline:3px dashed #E3B83F;outline-offset:-10px}" +
     ".ch-stage:focus-visible{outline:2px solid var(--accent);outline-offset:3px}" +
     ".ch-lyr{position:absolute;display:block;max-width:none;cursor:grab;touch-action:none}" +
+    ".ch-frame{position:absolute;z-index:60;pointer-events:none;outline:2px dashed #E8A04A;box-shadow:0 0 0 1px rgba(0,0,0,.5),0 0 0 9999px rgba(0,0,0,.35)}.ch-frame[hidden]{display:none}" +
     ".ch-addcv{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:50}" +
-    ".ch-lyr.grab{cursor:grabbing}.ch-lyr.off{display:none}.ch-stage.anim .ch-lyr{transition:left .4s ease,top .4s ease}" +
+    ".ch-lyr.grab{cursor:grabbing}.ch-lyr.off{display:none}.ch-stage.anim .ch-lyr{transition:left .4s ease,top .4s ease,width .4s ease,height .4s ease}" +
     ".ch-drop{text-align:center;color:#F1EFEA;display:flex;flex-direction:column;align-items:center;gap:10px;padding:20px}" +
     ".ch-drop b{font:600 1.4rem/1.2 var(--f-display)}.ch-drop span{color:rgba(241,239,234,.7)}" +
     ".ch-wait #ch-dst{color:#F1EFEA;font-weight:600;font-variant-numeric:tabular-nums}.ch-wait #ch-dsub{max-width:36ch;font-size:.9rem}" +
@@ -813,7 +879,7 @@
       '<div class="ch-trans" id="ch-trans" hidden><button type="button" id="ch-play" data-act="play"></button><input type="range" id="ch-pos" min="0" max="1000" step="1" value="0" aria-label="Position"><span class="ch-time" id="ch-time"></span></div>' +
       '<input type="file" id="ch-file" accept="image/*,video/*,.mp4,.mov,.m4v,.webm" hidden></div>' +
       '<div class="ch-side" id="ch-side"></div></div>' +
-      '<section class="phow"><h2>' + t("howH") + "</h2><p>" + t("how1") + "</p><p>" + t("howRgb") + "</p><p>" + t("howCmyk") + "</p><p>" + t("howTone") + "</p><p>" + t("howDepth") + "</p><p>" + t("how2") + "</p><p>" + t("howVid") + "</p><p>" + t("howFull") + "</p></section>";
+      '<section class="phow"><h2>' + t("howH") + "</h2><p>" + t("how1") + "</p><p>" + t("howRgb") + "</p><p>" + t("howCmyk") + "</p><p>" + t("howTone") + "</p><p>" + t("howDepth") + "</p><p>" + t("how2") + "</p><p>" + t("howVid") + "</p><p>" + t("howScene") + "</p><p>" + t("howFull") + "</p></section>";
   }
   function toolsBox() {
     return '<div class="ch-box"><h3>' + t("tools") + '</h3><div class="ch-tools">' +
@@ -848,6 +914,7 @@
       c.setAttribute("aria-label", tr(l.name)); c.style.zIndex = i + 1; c.style.mixBlendMode = cssBlend(T);
       st.appendChild(c);
     });
+    var frm = document.createElement("div"); frm.id = "ch-frame"; frm.className = "ch-frame"; frm.hidden = !V.frame; st.appendChild(frm);
     if (T.blend === "add" && PLUS !== "plus-lighter") {
       Array.prototype.forEach.call(st.querySelectorAll(".ch-lyr"), function (c) { c.style.opacity = "0"; c.style.mixBlendMode = "normal"; });
       var ac = document.createElement("canvas"); ac.className = "ch-addcv"; st.appendChild(ac);
@@ -867,11 +934,13 @@
       '<div class="ch-btns">' + T.layers.map(function (l) { return '<button type="button" class="navbtn" data-one="' + l.k + '">' + fmt(t(vfm ? "oneV" : "one"), { n: tr(l.name) }) + "</button>"; }).join("") +
       '<button type="button" class="navbtn" data-act="all">' + t(vfm ? "allV" : "all") + "</button></div>" +
       '<button type="button" class="ch-save" data-act="comp">' + t(vfm ? "compV" : "comp") + "</button>" +
+      '<button type="button" class="ch-save" data-act="scene" id="ch-scene">' + t("sceneB") + '</button><p class="ch-desc" id="ch-scnote"></p>' +
       (T.depth ? '<h3 class="ch-dh">' + t("depthH") + '</h3><div class="ch-dprev" id="ch-dprev"></div><div class="ch-btns"><button type="button" class="navbtn" data-act="dgray">' + t(vfm ? "depthGrayV" : "depthGray") + '</button><button type="button" class="navbtn" data-act="dheat">' + t(vfm ? "depthHeatV" : "depthHeat") + '</button></div><p class="ch-desc">' + t(IMG.depthAI ? "depthNote" : "depthNoteOld") + "</p>" + (IMG.video ? '<p class="ch-desc">' + t("depthVid") + "</p>" : "") +
         '<div class="ch-desc">' + t("dQual") + '</div><div class="ch-seg">' + ["std", "fine"].map(function (q) { return '<button type="button" data-dq="' + q + '" aria-pressed="' + (S.dq === q) + '">' + t(q === "std" ? "dStd" : "dFine") + "</button>"; }).join("") + '</div><p class="ch-desc">' + t("dQualNote") + "</p>" : "") +
       '<p class="ch-desc">' + (vfm ? fmt(t("vInfo"), { w: IMG.w, h: IMG.h, br: (vBitrate() / 1e6).toFixed(0) }) : IMG.video ? fmt(t("stillInfo"), { w: IMG.w, h: IMG.h }) : fmt(t("compNote"), { w: IMG.w, h: IMG.h })) + '</p><p class="ch-note" id="ch-note">' + (T.depth && IMG.depthErr && !IMG.depthAI ? t("dFail") : IMG.shrunk ? fmt(t(IMG.video ? "vShrunk" : "shrunk"), { w: IMG.w, h: IMG.h }) : "") + "</p>" +
       '<button type="button" class="ch-cancel" id="ch-cancel" data-act="cancel"' + (busy && IMG.video ? "" : " hidden") + ">" + t("cancel") + "</button></div>";
     if (T.depth) drawDprev();
+    sceneInfo();
     requestAnimationFrame(layout);
   }
   function note(s) { if (!V) return; var n = V.root.querySelector("#ch-note") || V.root.querySelector("#ch-dn"); if (n) n.textContent = s; }
@@ -929,8 +998,9 @@
         T.layers.forEach(function (l, i) { var d = T.spread[i] || [0, 0], p = clampPos(d[0] * m, d[1] * m); L.x[l.k] = p.x; L.y[l.k] = p.y; });
         layout();
       }
-      else if (IMG && IMG.video && S.vfmt === "mp4" && (a === "all" || a === "comp" || a === "dgray" || a === "dheat"))
-        exportVideo(a === "all" ? { kind: "layers", keys: tool().layers.map(function (l) { return l.k; }) } : a === "comp" ? { kind: "comp" } : { kind: "depth", heat: a === "dheat" });
+      else if (IMG && IMG.video && S.vfmt === "mp4" && (a === "all" || a === "comp" || a === "scene" || a === "dgray" || a === "dheat"))
+        exportVideo(a === "all" ? { kind: "layers", keys: tool().layers.map(function (l) { return l.k; }) } : a === "comp" ? { kind: "comp" } : a === "scene" ? { kind: "scene" } : { kind: "depth", heat: a === "dheat" });
+      else if (a === "scene") exportScene();
       else if (a === "all") exportLayers(tool().layers.map(function (l) { return l.k; }));
       else if (a === "comp") exportComp();
       else if (a === "dgray" || a === "dheat") exportDepth(a === "dheat");
@@ -944,6 +1014,8 @@
     if ((b = e.target.closest("[data-mode]"))) { S.mode = b.getAttribute("data-mode"); Array.prototype.forEach.call(V.root.querySelectorAll("[data-mode]"), function (q) { q.setAttribute("aria-pressed", String(q === b)); }); return; }
     if ((b = e.target.closest("[data-one]"))) { if (IMG && IMG.video && S.vfmt === "mp4") exportVideo({ kind: "layers", keys: [b.getAttribute("data-one")] }); else exportLayers([b.getAttribute("data-one")]); return; }
   }
+  function onOver(e) { if (e.target.closest && e.target.closest("#ch-scene")) showFrame(true); }
+  function onOut(e) { if (e.target.closest && e.target.closest("#ch-scene") && !(e.relatedTarget && e.relatedTarget.closest && e.relatedTarget.closest("#ch-scene"))) showFrame(false); }
   function onInput(e) {
     if (e.target.id === "ch-pos" && IMG && IMG.video && IMG.dur && !busy) { V.scrub = true; IMG.vid.currentTime = +e.target.value / 1000 * IMG.dur; }
   }
@@ -969,6 +1041,7 @@
     window.addEventListener("pointerup", onUp); window.addEventListener("pointercancel", onUp);
     window.addEventListener("keydown", onKey); el.addEventListener("click", onClick); el.addEventListener("change", onChange); el.addEventListener("input", onInput);
     window.addEventListener("resize", onResize); document.addEventListener("fullscreenchange", onResize);
+    el.addEventListener("pointerover", onOver); el.addEventListener("pointerout", onOut); el.addEventListener("focusin", onOver); el.addEventListener("focusout", onOut);
     raf = requestAnimationFrame(vloop);
     var st = stage();
     st.addEventListener("dragover", onDragOver); st.addEventListener("dragleave", onDragLeave); st.addEventListener("drop", onDrop);
@@ -980,6 +1053,7 @@
     window.removeEventListener("pointercancel", onUp); window.removeEventListener("resize", onResize); document.removeEventListener("fullscreenchange", onResize);
     V.root.removeEventListener("pointerdown", onDown); window.removeEventListener("keydown", onKey); V.root.removeEventListener("input", onInput);
     V.root.removeEventListener("click", onClick); V.root.removeEventListener("change", onChange);
+    V.root.removeEventListener("pointerover", onOver); V.root.removeEventListener("pointerout", onOut); V.root.removeEventListener("focusin", onOver); V.root.removeEventListener("focusout", onOut);
     if (raf) cancelAnimationFrame(raf); raf = 0; cancelReq = true;
     if (IMG && IMG.video) IMG.vid.pause();
     if (document.fullscreenElement) { try { document.exitFullscreen(); } catch (e) {} }
