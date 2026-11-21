@@ -63,7 +63,8 @@ export function generate(b) {
   // maximale Tiefe, bei der noch ein Hof übrig bleibt
   let lo = 0, hi = 80;
   for (let k = 0; k < 24; k++) { const m = (lo + hi) / 2; if (insetOk(P, inset(P, m).Q)) lo = m; else hi = m; }
-  const want = 9 + p.dens * 13, d = Math.max(4, Math.min(want, lo * 0.94));
+  // Dichte 0 % = schmale Häuser (9 m) mit großem Hof, 100 % = Hof fast zu: die Haustiefe wächst mit der Blockgröße
+  const full = Math.max(9, lo * 0.95), d = Math.max(4, Math.min(lo * 0.95, 9 + p.dens * (full - 9)));
   const { E, Q } = inset(P, d), out = [];
   const facW = FAC.map(f => [f, f[2] * (PAL_MODES[p.pal] ? (PAL_MODES[p.pal].k[f[0]] ?? 1) : 1)]);
   const roofW = Object.entries((ROOF_MODES[p.roof] || ROOF_MODES.slate).w).map(([k, w]) => [k, w]);
@@ -89,7 +90,7 @@ export function generate(b) {
       out.push({
         key: `${b.id}:${i}:${j}:${p.seed}:${p.fmin}:${p.fmax}:${p.dens}:${p.width}:${p.pal}:${p.roof}:${b.pts.map(q2 => q2.join(',')).join(';')}`,
         q, n: e.n, u: e.u, F, wall: fac[1].map(c => c + (r() - 0.5) * 10), trim, plinth: r() < 0.65 ? SAND : STONE,
-        roof: ROOFS[roofKey].map(c => c + (r() - 0.5) * 8), mansard: corner || r() < 0.75, balcony: r() < 0.55, dormEvery: r() < 0.5 ? 1 : 2, seed: (r() * 1e6) | 0
+        roof: ROOFS[roofKey].map(c => c + (r() - 0.5) * 8), mansard: corner || d > 16 || r() < 0.75, balcony: r() < 0.55, dormEvery: r() < 0.5 ? 1 : 2, seed: (r() * 1e6) | 0
       });
     }
   });
@@ -129,12 +130,25 @@ export function buildParcel(par, cx, cy) {
     const k = Math.min(0.45, 1.15 / Math.max(depthF, 0.1)), zb = E + 2.9, zr = E + 3.8;
     const F0 = lerp2(Q0, R0, k), F1 = lerp2(Q1, R1, k), B0 = lerp2(Q3, R0, k), B1 = lerp2(Q2, R1, k);
     m.quad(Z(Q0, E), Z(Q1, E), Z(F1, zb), Z(F0, zb), roofMat, rid, [-n[0], -n[1], 0.4], RX);
-    m.quad(Z(F0, zb), Z(F1, zb), Z(R1, zr), Z(R0, zr), roofMat, rid, [-n[0], -n[1], 1], RX);
     m.quad(Z(Q2, E), Z(Q3, E), Z(B0, zb), Z(B1, zb), roofMat, rid, [n[0], n[1], 0.4], RX);
-    m.quad(Z(B1, zb), Z(B0, zb), Z(R0, zr), Z(R1, zr), roofMat, rid, [n[0], n[1], 1], RX);
-    for (const [a, f, r2, b2, q] of [[Q0, F0, R0, B0, Q3], [Q1, F1, R1, B1, Q2]]) {
-      const sOut = [(a[0] + q[0]) / 2 - cen[0], (a[1] + q[1]) / 2 - cen[1], 0];
-      m.tri3(Z(a, E), Z(f, zb), Z(q, E), 'firewall', rid, sOut); m.tri3(Z(f, zb), Z(b2, zb), Z(q, E), 'firewall', rid, sOut); m.tri3(Z(f, zb), Z(r2, zr), Z(b2, zb), 'firewall', rid, sOut);
+    const k2 = Math.min(1, 4.6 / Math.max(depthF, 0.1));
+    if (k2 < 1) { // tiefes Haus: oben nur ein Streifen Schiefer, in der Mitte Flachdach (Dachpappe)
+      const G0 = lerp2(Q0, R0, k2), G1 = lerp2(Q1, R1, k2), H0 = lerp2(Q3, R0, k2), H1 = lerp2(Q2, R1, k2);
+      m.quad(Z(F0, zb), Z(F1, zb), Z(G1, zr), Z(G0, zr), roofMat, rid, [-n[0], -n[1], 1], RX);
+      m.quad(Z(B1, zb), Z(B0, zb), Z(H0, zr), Z(H1, zr), roofMat, rid, [n[0], n[1], 1], RX);
+      m.quad(Z(G0, zr), Z(G1, zr), Z(H1, zr), Z(H0, zr), 'tar', rid, [0, 0, 1]);
+      for (const [a, f, g2, h2, b2, q] of [[Q0, F0, G0, H0, B0, Q3], [Q1, F1, G1, H1, B1, Q2]]) {
+        const sOut = [(a[0] + q[0]) / 2 - cen[0], (a[1] + q[1]) / 2 - cen[1], 0];
+        m.tri3(Z(a, E), Z(f, zb), Z(q, E), 'firewall', rid, sOut); m.tri3(Z(f, zb), Z(b2, zb), Z(q, E), 'firewall', rid, sOut);
+        m.tri3(Z(f, zb), Z(g2, zr), Z(b2, zb), 'firewall', rid, sOut); m.tri3(Z(g2, zr), Z(h2, zr), Z(b2, zb), 'firewall', rid, sOut);
+      }
+    } else {
+      m.quad(Z(F0, zb), Z(F1, zb), Z(R1, zr), Z(R0, zr), roofMat, rid, [-n[0], -n[1], 1], RX);
+      m.quad(Z(B1, zb), Z(B0, zb), Z(R0, zr), Z(R1, zr), roofMat, rid, [n[0], n[1], 1], RX);
+      for (const [a, f, r2, b2, q] of [[Q0, F0, R0, B0, Q3], [Q1, F1, R1, B1, Q2]]) {
+        const sOut = [(a[0] + q[0]) / 2 - cen[0], (a[1] + q[1]) / 2 - cen[1], 0];
+        m.tri3(Z(a, E), Z(f, zb), Z(q, E), 'firewall', rid, sOut); m.tri3(Z(f, zb), Z(b2, zb), Z(q, E), 'firewall', rid, sOut); m.tri3(Z(f, zb), Z(r2, zr), Z(b2, zb), 'firewall', rid, sOut);
+      }
     }
     // Gauben auf der Straßenseite
     const aw = len / axes;

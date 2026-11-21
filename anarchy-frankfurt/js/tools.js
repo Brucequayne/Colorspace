@@ -73,7 +73,7 @@ export class Tools {
       }
       this.app.dirty(); return true;
     }
-    if (this.mode === 'block') { this.blockDown(g, e); this.app.dirty(); return true; }
+    if (this.mode === 'block') { this.blockDown(g, e, dx, dy); this.app.dirty(); return true; }
     if (this.mode === 'brush' || this.mode === 'erase') {
       world.begin(); this.app.veg.begin(); this.paint = { g, last: performance.now() }; this.cursor = g; this.paintTick(0.05); return true;
     }
@@ -197,14 +197,19 @@ export class Tools {
     });
     return best || this.snap(g[0], g[1]);
   }
-  blockDown(g, e) {
+  // Block unter dem Mauszeiger: erst pixelgenau über die Hausbilder, dann über die Grundfläche
+  blockAt(g, dx, dy) {
+    const n0 = this.app.cam.toNative(dx, dy);
+    return this.app.blocks.pick(n0[0], n0[1], groundBBox(n0[0] - 300, n0[1] - 400, n0[0] + 300, n0[1] + 400)) || this.app.blocks.containing(g[0], g[1]);
+  }
+  blockDown(g, e, dx, dy) {
     const B = this.block, r = this.tol();
     if (e.button === 2) { this.blockFinish(); return; }
     if (!B.pts.length && this.selBlock) {           // Eckpunkt des gewählten Blocks ziehen?
       const b = this.app.blocks.list.get(this.selBlock);
       if (b) for (let i = 0; i < b.pts.length; i++) if (Math.hypot(b.pts[i][0] - g[0], b.pts[i][1] - g[1]) < r) { B.vdrag = { id: b.id, i, p: b.pts[i].slice() }; return; }
     }
-    if (!B.pts.length) { const hit = this.app.blocks.containing(g[0], g[1]); if (hit) { this.selBlock = hit.id; this.app.ui.sync(); this.app.ui.blockForm(); return; } }
+    if (!B.pts.length) { const hit = this.blockAt(g, dx, dy); if (hit) { this.selBlock = hit.id; this.app.ui.sync(); this.app.ui.blockForm(); return; } }
     if (B.pts.length >= 3 && Math.hypot(B.pts[0][0] - g[0], B.pts[0][1] - g[1]) < r) { this.blockFinish(); return; }
     B.pts.push(this.blockSnap(g)); this.selBlock = null;
     if (B.pts.length >= 8) this.blockFinish();

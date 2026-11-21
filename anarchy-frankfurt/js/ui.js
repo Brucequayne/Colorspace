@@ -105,6 +105,7 @@ export class UI {
     const set = (id, v, txt) => { $(id).value = v; $(id + 'o').textContent = txt; };
     set('kMin', p.fmin, String(p.fmin)); set('kMax', p.fmax, String(p.fmax)); set('kDen', Math.round(p.dens * 100), Math.round(p.dens * 100) + ' %'); set('kWid', p.width, p.width + ' m');
     $('kPal').value = p.pal; $('kRoof').value = p.roof;
+    $('kDel').disabled = !sel;
     if (sel) { const g = this.app.blocks.gen(sel); $('kInfo').textContent = `Gewählter Block: ${g.parcels.length} Häuser, Haustiefe ${g.depth.toFixed(1)} m`; }
     else $('kInfo').textContent = 'Kein Block gewählt – Regler gelten für den nächsten Block.';
   }

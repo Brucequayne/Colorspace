@@ -246,4 +246,19 @@ class App {
   }
 }
 
-const app = new App(); window.AF = app; app.start();
+// Zugang vorerst nur mit Code (wie der Rap-Streets-Editor); gespeichert wird nur der Hash
+const HASH = 'ed3a3254';
+function fnv(s) { let h = 0x811c9dc5; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; } return h.toString(16); }
+function boot() { document.getElementById('lock').remove(); const app = new App(); window.AF = app; app.start(); }
+let unlocked = false; try { unlocked = sessionStorage.getItem('anarchyfrankfurt.dev') === '1'; } catch (e) { /* privat */ }
+if (unlocked) boot();
+else {
+  const f = document.getElementById('lockForm'), inp = document.getElementById('lockCode'), err = document.getElementById('lockErr');
+  inp.focus();
+  inp.oninput = () => { err.hidden = true; };
+  f.onsubmit = e => {
+    e.preventDefault();
+    if (fnv('anarchyfrankfurt:' + inp.value) === HASH) { try { sessionStorage.setItem('anarchyfrankfurt.dev', '1'); } catch (er) { /* egal */ } boot(); }
+    else { err.hidden = false; inp.value = ''; inp.focus(); }
+  };
+}

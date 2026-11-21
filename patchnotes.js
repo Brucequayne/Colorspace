@@ -3,6 +3,9 @@
    Die Versionsnummer auf den Kacheln kommt aus dem obersten Eintrag. */
 window.PATCHNOTES = {
   anarchyfrankfurt: [
+    { v: "0.23", t: "2026-11-21T21:05:00+01:00",
+      de: ["Start vorerst nur mit Code", "Häuserblock auswählen und löschen jetzt auch im Häuserblock-Werkzeug per Klick aufs Haus", "Dichte (Hof) wächst mit der Blockgröße: bei 100 % ist der Hof fast zu, tiefe Häuser bekommen in der Mitte ein Flachdach"],
+      en: ["Starting requires a code for now", "Select and delete a block now also in the block tool by clicking a house", "Courtyard density scales with the block size: at 100 % the courtyard is almost closed, deep houses get a flat roof in the middle"] },
     { v: "0.22", t: "2026-11-21T20:40:00+01:00",
       de: ["Anarchy Frankfurt ist jetzt als Kachel auf Color Space und öffnet den Map-Editor im Vollbild", "Häuserblock-Tool: Gründerzeit-Blockrand mit Innenhof prozedural aus einem gezeichneten Vieleck (3–8 Ecken), mit Etagen-Range, Hofdichte, Hausbreite und Farbpaletten für Fassaden und Dächer", "Straßen in 5°-Schritten, zu spitze Kreuzungen werden nicht mehr verbunden", "Stadtkarte lädt auch außerhalb der Innenstadt, neu: „Ganze Stadt laden“"],
       en: ["Anarchy Frankfurt now has a tile on Color Space and opens the map editor full screen", "Block tool: period perimeter blocks with a courtyard, generated from a drawn polygon (3–8 corners), with storey range, courtyard density, house width and colour palettes for facades and roofs", "Streets in 5° steps, very acute crossings are no longer joined", "The city map now loads outside the centre too, new: “Load whole city”"] },

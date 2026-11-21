@@ -8,10 +8,20 @@
 </head>
 <body>
 <canvas id="view"></canvas>
+<div id="lock">
+  <form id="lockForm" autocomplete="off">
+    <div class="brand">ANARCHY <b>FRANKFURT</b></div>
+    <p>Noch in Entwicklung. Zugang nur mit Code.</p>
+    <input id="lockCode" type="password" inputmode="numeric" maxlength="12" placeholder="Code" aria-label="Code">
+    <button type="submit">Starten</button>
+    <p id="lockErr" class="err" hidden>Falscher Code.</p>
+    <a href="../#" target="_top">← Zurück zu Color Space</a>
+  </form>
+</div>
 
 <header id="top">
   <a id="backCS" href="../#" target="_top" title="Zurück zu Color Space">← Color Space</a>
-  <div class="brand">ANARCHY <b>FRANKFURT</b> <span>Map-Editor v0.22</span></div>
+  <div class="brand">ANARCHY <b>FRANKFURT</b> <span>Map-Editor v0.23</span></div>
   <div class="tools">
     <button data-mode="select" title="Auswählen &amp; verschieben (1)">Auswahl <kbd>1</kbd></button>
     <button data-mode="place" title="Asset platzieren (2)">Platzieren <kbd>2</kbd></button>
@@ -39,9 +49,9 @@
     <label class="row">Hausbreite <input type="range" id="kWid" min="10" max="24" step="1"><output id="kWido"></output></label>
     <label class="row">Fassaden <select id="kPal"></select></label>
     <label class="row">Dächer <select id="kRoof"></select></label>
-    <div class="btns"><button id="kSeed">Neu würfeln</button><button id="kDel">Block löschen</button></div>
+    <div class="btns"><button id="kSeed">Neu würfeln</button><button id="kDel">Gewählten Block löschen</button></div>
     <div id="kInfo" class="hint"></div>
-    <p class="hint">Ecken nacheinander anklicken (3–8). Auf den ersten Punkt, Rechtsklick oder Enter = fertig, Esc = abbrechen. Gewählten Block: Ecken ziehen zum Anpassen. Regler ändern den gewählten Block, sonst die Vorgabe für neue.</p>
+    <p class="hint">Ecken nacheinander anklicken (3–8). Auf den ersten Punkt, Rechtsklick oder Enter = fertig, Esc = abbrechen. Block auswählen: auf ein Haus oder in den Hof klicken (Auswahl oder Häuserblock). Löschen: Entf oder Knopf oben. Gewählten Block: Ecken ziehen zum Anpassen. Regler ändern den gewählten Block, sonst die Vorgabe für neue.</p>
   </details>
 
   <details open id="roadPanel">

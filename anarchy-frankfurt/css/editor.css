@@ -63,3 +63,11 @@ body.inframe #backCS { display: block; }
 body.inframe #status .attr { margin-left: 0; order: -1; }
 body.inframe #status { padding-right: 280px; }
 @media (max-width: 1500px) { kbd, .brand span { display: none; } }
+#lock { position: fixed; inset: 0; z-index: 50; background: var(--bg); display: flex; align-items: center; justify-content: center; }
+#lockForm { display: flex; flex-direction: column; gap: 12px; width: 260px; }
+#lockForm .brand { font-size: 18px; }
+#lockForm p { margin: 0; color: var(--muted); }
+#lockForm input { background: var(--panel2); border: 1px solid var(--line); padding: 8px 10px; letter-spacing: 3px; }
+#lockForm .err { color: var(--accent); }
+#lockForm a { color: var(--muted); }
+button:disabled { opacity: .4; cursor: default; }

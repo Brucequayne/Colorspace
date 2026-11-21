@@ -160,6 +160,7 @@ Object.assign(M, {
     if (fv > 0.82) return mul(c, 0.7); if (fr(x) < 0.08) return mul(c, 0.85); if (fv < 0.15) return mul(c, 1.12); return c;
   } },
   zinc: plain([122, 126, 132], 8, 64),
+  tar: { f: (u, v, P) => { const h = tx(P, 0.25, 65); return jit(h < 0.1 ? [92, 92, 90] : [112, 112, 108], tx(P, 0.125, 66), 8); } },
   dormer: { f: (u, v) => (u > 0.22 && u < 0.98 && v > 0.35 && v < 1.75 ? glass((u - 0.22) / 0.76, (v - 0.35) / 1.4, 0.76, 1.4) : [126, 130, 136]) },
   iron: { alpha: 1, f: (u, v) => { if (v > 0.92 || (v > 0.04 && v < 0.12)) return [44, 44, 48]; if (v > 0.12 && fr(u / 0.13) < 0.28) return [52, 52, 58]; return null; } }
 });
