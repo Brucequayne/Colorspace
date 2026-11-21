@@ -10,6 +10,7 @@ export const PRESETS = [
   ['Große Achse', { w: 30, sw: 3.5, lanes: 4, oneway: false, bike: true, bus: true, zebra: true }]
 ];
 const BIKE = 1.85, BUS = 3.25, CELL = 32;
+export const ACUTE = Math.cos(25 * Math.PI / 180);
 const pkey = p => [p.w, p.sw, p.lanes, p.oneway ? 1 : 0, p.bike ? 1 : 0, p.bus ? 1 : 0, p.zebra ? 1 : 0].join('|');
 
 // Querschnitt: Elemente von rechter Kante (t = -h) bis linker Kante (t = +h) aus Sicht a->b (Rechtsverkehr)
@@ -159,6 +160,8 @@ export class Roads {
       if (s.a === na.id || s.b === na.id || s.a === nb.id || s.b === nb.id) continue;
       const A = this.nodes.get(s.a), B = this.nodes.get(s.b), ex = B.x - A.x, ey = B.y - A.y, den = dx * ey - dy * ex;
       if (Math.abs(den) < 1e-9) continue;
+      // zu spitze Kreuzungen (< 25°) nicht verbinden: die Straßen laufen dann übereinander
+      if (Math.abs(dx * ex + dy * ey) / (Math.hypot(dx, dy) * Math.hypot(ex, ey)) > ACUTE) continue;
       const t = ((A.x - ax) * ey - (A.y - ay) * ex) / den, u = ((A.x - ax) * dy - (A.y - ay) * dx) / den;
       if (t > 0.001 && t < 0.999 && u > -0.001 && u < 1.001) cuts.push([t, s.id, ax + dx * t, ay + dy * t]);
     }
@@ -239,9 +242,9 @@ export class Roads {
       let al = B.ang - A.ang; while (al <= 0) al += Math.PI * 2;
       if (k === 2 && i === 1) { /* zweites Paar bei 2 Armen */ }
       if (al < Math.PI - 0.03) {
-        const sa = Math.sin(Math.max(al, 0.25)), ca = Math.cos(al);
-        cut[i] = Math.max(cut[i], (B.h + A.h * ca) / sa);
-        cut[(i + 1) % k] = Math.max(cut[(i + 1) % k], (A.h + B.h * ca) / sa);
+        const sa = Math.sin(Math.max(al, 0.25)), ca = Math.cos(al), lim = 2.5 * Math.max(A.h, B.h);
+        cut[i] = Math.max(cut[i], Math.min(lim, (B.h + A.h * ca) / sa));
+        cut[(i + 1) % k] = Math.max(cut[(i + 1) % k], Math.min(lim, (A.h + B.h * ca) / sa));
       }
     }
     const pts = [];
