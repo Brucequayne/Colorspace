@@ -1,7 +1,8 @@
 // Oberfläche: Werkzeugleiste, Seitenleiste, Statuszeile
 import { CFG } from './config.js';
-import { ASSET_LIST, ASSETS, VEG } from './assets.js';
-import { toLatLon, toWorld } from './geo.js';
+import { ASSET_LIST, ASSETS } from './assets.js';
+import { BRUSHES, brushThumb } from './veg.js';
+import { toLatLon, toWorld } from './camera.js';
 import { PRESETS, layout } from './roads.js';
 
 const $ = id => document.getElementById(id);
@@ -41,15 +42,14 @@ export class UI {
     this.roadForm();
 
     // Pinsel
-    range('bR', () => t.brush.r, v => t.brush.r = v, v => v + ' m');
+    range('bR', () => t.brush.r, v => t.brush.r = v, v => v.toLocaleString('de-DE') + ' m');
     range('bD', () => t.brush.d, v => t.brush.d = v, v => v + '/10');
     range('eR', () => t.eraser.r, v => t.eraser.r = v, v => v + ' m');
     $('eVeg').checked = t.eraser.vegOnly; $('eVeg').onchange = e => t.eraser.vegOnly = e.target.checked;
-    for (const k of VEG) {
-      const l = document.createElement('label'); l.className = 'check';
-      l.innerHTML = `<input type="checkbox" ${t.brush.set[k] ? 'checked' : ''}> ${ASSETS[k].name}`;
-      l.querySelector('input').onchange = e => { t.brush.set[k] = e.target.checked; };
-      $('vegSet').appendChild(l);
+    for (const b of BRUSHES) {
+      const el = document.createElement('button'); el.className = 'asset vb'; el.dataset.vb = b.id; el.title = b.name;
+      el.appendChild(brushThumb(b, ASSETS, app.sprites)); el.insertAdjacentHTML('beforeend', `<span>${b.name}</span>`);
+      el.onclick = () => { t.brush.id = b.id; t.setMode('brush'); }; $('vegSet').appendChild(el);
     }
 
     // Raster
@@ -98,14 +98,15 @@ export class UI {
     $('rSel').innerHTML = rs ? `Ausgewählte Straße: ${rs.p.w.toLocaleString('de-DE')} m, ${rs.p.lanes} Spur${rs.p.lanes > 1 ? 'en' : ''}${rs.p.oneway ? ', Einbahn' : ''}${rs.p.bike ? ', Rad' : ''}${rs.p.bus ? ', Bus' : ''} · ${rs.g.L.toFixed(1)} m lang` : 'Straße mit „Auswahl“ anklicken, um sie zu bearbeiten.';
     $('rSelBtns').style.display = rs ? 'flex' : 'none';
     document.querySelectorAll('[data-mode]').forEach(b => b.classList.toggle('on', b.dataset.mode === t.mode));
-    document.querySelectorAll('.asset').forEach(b => b.classList.toggle('on', t.mode === 'place' && b.dataset.key === t.asset));
+    document.querySelectorAll('.asset[data-key]').forEach(b => b.classList.toggle('on', t.mode === 'place' && b.dataset.key === t.asset));
+    document.querySelectorAll('.asset[data-vb]').forEach(b => b.classList.toggle('on', t.mode === 'brush' && b.dataset.vb === t.brush.id));
     const sel = t.sel && this.app.world.objs.get(t.sel);
     $('rotLabel').textContent = ((sel ? sel.r : t.rot) * 15) + '°';
     const info = $('selInfo');
     if (sel) info.innerHTML = `Ausgewählt: <b>${ASSETS[sel.a].name}</b> · ${sel.r * 15}° · Variante ${sel.v + 1}/${ASSETS[sel.a].variants}<br>Q/E drehen · V Variante · Entf löschen`;
     else if (t.mode === 'place') info.innerHTML = `Platzieren: <b>${ASSETS[t.asset].name}</b> · ${t.rot * 15}° · ${t.randVar ? 'zufällige Variante' : 'Variante ' + (t.variant + 1)}`;
     else info.textContent = 'Asset anklicken, dann auf der Karte platzieren.';
-    $('sObj').textContent = this.app.world.size.toLocaleString('de-DE') + ' Objekte';
+    $('sObj').textContent = this.app.world.size.toLocaleString('de-DE') + ' Objekte · ' + this.app.veg.size.toLocaleString('de-DE') + ' Pflanzen';
   }
   status() {
     const app = this.app, c = app.tools.cursor;

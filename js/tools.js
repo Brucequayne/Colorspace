@@ -1,7 +1,8 @@
 // Editor-Werkzeuge: Auswählen/Verschieben, Platzieren, Vegetationspinsel, Radierer
 import { proj, groundDepth, groundBBox, PPM } from './camera.js';
-import { inWorld } from './geo.js';
-import { ASSETS, VEG } from './assets.js';
+import { inWorld } from './camera.js';
+import { ASSETS } from './assets.js';
+import { VEG, BRUSHES } from './veg.js';
 import { ROAD_DEFAULT, layout } from './roads.js';
 
 export const MODES = ['select', 'place', 'brush', 'erase', 'road'];
@@ -11,7 +12,7 @@ export class Tools {
   constructor(app) {
     this.app = app; this.mode = 'select';
     this.asset = 'haus_siedlung'; this.rot = 0; this.variant = 0; this.randVar = true;
-    this.brush = { r: 6, d: 4, set: { linde: true, platane: false, obstbaum: true, busch: true, gras: true, blumen: true } };
+    this.brush = { r: 3, d: 6, id: 'meadow', acc: 0 };
     this.eraser = { r: 4, vegOnly: true };
     this.road = { p: { ...ROAD_DEFAULT }, start: null }; this.selRoad = null;
     this.sel = null; this.drag = null; this.paint = null; this.cursor = null; this.shift = false;
@@ -69,7 +70,7 @@ export class Tools {
       this.app.dirty(); return true;
     }
     if (this.mode === 'brush' || this.mode === 'erase') {
-      world.begin(); this.paint = { last: g, t: 0 }; this.stroke(g); return true;
+      world.begin(); this.app.veg.begin(); this.paint = { g, last: performance.now() }; this.cursor = g; this.paintTick(0.05); return true;
     }
     return false;
   }
@@ -79,38 +80,49 @@ export class Tools {
     if (this.drag) {
       const [x, y] = this.snap(g[0] + this.drag.off[0], g[1] + this.drag.off[1]);
       if (inWorld(x, y)) world.move(this.drag.id, { x, y });
-    } else if (this.paint) {
-      const r = this.mode === 'erase' || this.shift ? this.eraser.r : this.brush.r;
-      const now = performance.now();
-      if (Math.hypot(g[0] - this.paint.last[0], g[1] - this.paint.last[1]) > r * 0.3 || now - this.paint.t > 160) { this.paint.last = g; this.stroke(g); }
-    }
+    } else if (this.paint) { this.paint.g = g; }
     this.app.dirty();
   }
   up() {
     if (this.drag) { this.app.world.logMod(this.drag.b); this.drag = null; }
-    if (this.paint) { this.app.world.commit(); this.paint = null; }
+    if (this.paint) { this.app.world.commit(); this.app.veg.commit(); this.paint = null; }
     this.app.ui.sync();
   }
-  stroke(g) {
-    this.paint.t = performance.now();
-    if (this.mode === 'erase' || this.shift) this.erase(g); else this.stamp(g);
-    this.app.ui.sync();
+  // wird jedes Bild aufgerufen, solange gemalt wird (wie in Rap Streets: Menge pro Zeit)
+  paintTick(dt) {
+    if (!this.paint) return;
+    const g = this.paint.g, now = performance.now(); dt = Math.min(0.1, dt || (now - this.paint.last) / 1000); this.paint.last = now;
+    if (this.mode === 'erase' || this.shift) this.erase(g); else this.vegPaint(g, dt);
+    this.app.veg.flush(); this.app.ui.sync();
   }
-  stamp(g) {
-    const { world } = this.app, B = this.brush, types = VEG.filter(k => B.set[k]);
-    if (!types.length) return;
-    const tw = types.reduce((s, k) => s + ASSETS[k].w, 0), area = Math.PI * B.r * B.r;
-    const n = Math.max(1, Math.round(area * B.d / 100 * 1.5));
-    for (let i = 0; i < n; i++) {
-      const a = Math.random() * 6.2832, rr = B.r * Math.sqrt(Math.random()), x = g[0] + Math.cos(a) * rr, y = g[1] + Math.sin(a) * rr;
+  brushDef() { return BRUSHES.find(b => b.id === this.brush.id) || BRUSHES[0]; }
+  vegPaint(g, dt) {
+    const B = this.brush, b = this.brushDef(), R = B.r, tot = b.mix.reduce((a, q) => a + q[1], 0);
+    B.acc += (B.d / 5) * dt * (6 + Math.PI * R * R * 9) * (b.dens || 1);
+    for (let guard = 0; B.acc >= 1 && guard < 400; B.acc--, guard++) {
+      const a = Math.random() * 6.2832, rr = Math.sqrt(Math.random()) * R, x = g[0] + Math.cos(a) * rr, y = g[1] + Math.sin(a) * rr;
       if (!inWorld(x, y)) continue;
-      let w = Math.random() * tw, k = types[0];
-      for (const t of types) { w -= ASSETS[t].w; if (w <= 0) { k = t; break; } }
-      const d = ASSETS[k];
-      if (this.blocked(x, y, d)) continue;
-      world.add({ a: k, x, y, r: d.rot * Math.floor(Math.random() * 24 / d.rot), v: Math.floor(Math.random() * d.variants) });
+      let pk = Math.random() * tot, t = b.mix[0][0];
+      for (const q of b.mix) { pk -= q[1]; if (pk <= 0) { t = q[0]; break; } }
+      if (b.tree) { const d = ASSETS[t]; if (!this.blocked(x, y, d) && !this.onRoad(x, y, true)) this.app.world.add({ a: t, x, y, r: d.rot * Math.floor(Math.random() * 24 / d.rot), v: Math.floor(Math.random() * d.variants) }); continue; }
+      if (this.onRoad(x, y, !b.sidewalk) && !b.road) continue;
+      if (!VEG[t].flat && this.inBuilding(x, y)) continue;
+      if (this.app.veg.crowded(t, x, y)) continue;
+      this.app.veg.add(t, x, y, (Math.random() * VEG[t].variants) | 0);
     }
+    if (B.acc > 1) B.acc = 1;
   }
+  // liegt der Punkt auf einer Straße? (wide = inkl. Gehweg)
+  onRoad(x, y, wide) {
+    const R = this.app.roads; if (!R.segs.size) return false;
+    for (const s of R.query(x - 1, y - 1, x + 1, y + 1).segs) {
+      const q = s.g, rx = x - q.ax, ry = y - q.ay, sl = rx * q.ux + ry * q.uy, t = Math.abs(rx * q.nx + ry * q.ny);
+      if (sl >= -q.lay.h && sl <= q.L + q.lay.h && t <= (wide ? q.lay.H : q.lay.h)) return true;
+    }
+    for (const n of R.query(x - 1, y - 1, x + 1, y + 1).nodes) { let ins = true; const h = n.hull; for (let i = 0; i < h.length; i++) { const A = h[i], Bq = h[(i + 1) % h.length]; if ((Bq[0] - A[0]) * (y - A[1]) - (Bq[1] - A[1]) * (x - A[0]) < 0) { ins = false; break; } } if (ins) return true; }
+    return false;
+  }
+  inBuilding(x, y) { for (const o of this.app.world.near(x, y, 7)) if (ASSETS[o.a].cat === 'Gebäude' && Math.hypot(o.x - x, o.y - y) < ASSETS[o.a].sp - 0.8) return true; return false; }
   blocked(x, y, d) {
     for (const o of this.app.world.near(x, y, d.sp + 6)) {
       const od = ASSETS[o.a], dist = Math.hypot(o.x - x, o.y - y);
@@ -121,8 +133,9 @@ export class Tools {
     return false;
   }
   erase(g) {
-    const { world } = this.app;
-    for (const o of world.near(g[0], g[1], this.eraser.r)) if (!this.eraser.vegOnly || ASSETS[o.a].veg) world.del(o.id);
+    const r = this.mode === 'erase' ? this.eraser.r : this.brush.r;
+    this.app.veg.eraseCircle(g[0], g[1], r);
+    if (this.mode === 'erase') for (const o of this.app.world.near(g[0], g[1], r)) if (!this.eraser.vegOnly || ASSETS[o.a].veg) this.app.world.del(o.id);
   }
   rotate(dir) {
     if (this.mode === 'select' && this.sel) {
@@ -220,7 +233,7 @@ export class Tools {
       ring(x, y, 0.25, '#ffd34a', 2);
     } else if (this.mode === 'brush' || this.mode === 'erase') {
       const er = this.mode === 'erase' || this.shift;
-      ring(gx, gy, er ? this.eraser.r : this.brush.r, er ? '#ff6a5a' : '#b6f07a', 2);
+      ring(gx, gy, this.mode === 'erase' ? this.eraser.r : this.brush.r, er ? '#ff6a5a' : '#b6f07a', 2);
     }
   }
 }

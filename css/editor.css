@@ -56,3 +56,4 @@ kbd { font-size: 10px; opacity: .6; margin-left: 3px; }
   #panel.open { transform: none; }
   #status #sZoom, #status #sObj { display: none; }
 }
+.asset.vb canvas { width: 56px; height: 31px; }

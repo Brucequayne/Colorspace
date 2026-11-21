@@ -1,13 +1,14 @@
 // Anarchy Frankfurt – Map-Editor: Start, Eingabe, Zeichenschleife
 import { CFG } from './config.js';
 import { Camera, proj, PPM } from './camera.js';
-import { toWorld, osmTileOf } from './geo.js';
+import { toWorld, osmTileOf } from './camera.js';
 import { OSM } from './osm.js';
 import { drawRef, LAYERS, COL } from './refmap.js';
 import { Sprites } from './renderer.js';
 import { Tiles } from './tiles.js';
 import { World } from './world.js';
 import { Roads } from './roads.js';
+import { VegLayer } from './veg.js';
 import { Tools } from './tools.js';
 import { UI } from './ui.js';
 import { ASSETS } from './assets.js';
@@ -20,7 +21,7 @@ class App {
     this.cv = document.getElementById('view'); this.ctx = this.cv.getContext('2d');
     this.cam = new Camera(); this.layers = { ...LAYERS }; this.mapAlpha = 1; this.autoLoad = true;
     this.grid = { angle: 0, step: 1, snap: true, show: true };
-    this.sprites = new Sprites(); this.world = new World(); this.roads = new Roads(); this.hist = []; this.redoH = []; this.tiles = new Tiles(this);
+    this.sprites = new Sprites(); this.world = new World(); this.roads = new Roads(); this.veg = new VegLayer(); this.hist = []; this.redoH = []; this.tiles = new Tiles(this);
     this.osm = new OSM(feats => this.onOsm(feats));
     this.tools = new Tools(this); this.ui = new UI(this);
     this._dirty = true; this.keys = new Set(); this.pointers = new Map(); this.pan = null;
@@ -31,9 +32,14 @@ class App {
     this.world.on(o => this.onObj(o));
     this.world.onLog = () => { this.hist.push('w'); this.redoH = []; };
     this.roads.onLog = () => { this.hist.push('r'); this.redoH = []; };
+    this.veg.onLog = () => { this.hist.push('v'); this.redoH = []; };
+    this.veg.onChange = bb => {
+      const ps = [proj(bb[0], bb[1], 0), proj(bb[2], bb[1], 0), proj(bb[0], bb[3], 0), proj(bb[2], bb[3], 0)], xs = ps.map(p => p[0]), ys = ps.map(p => p[1]);
+      this.tiles.dropObjects(Math.min(...xs) - 16, Math.min(...ys) - 16, Math.max(...xs) + 16, Math.max(...ys) + 8); this.dirty(); this.saveSoon();
+    };
     this.roads.onChange = bb => { this.tiles.dropRoads(bb); this.dirty(); this.saveSoon(); this.ui.sync(); };
     const p = CFG.PLACES[0]; [this.cam.x, this.cam.y] = toWorld(p[1], p[2]);
-    try { const m = await dbGet('maps', 'current'); if (m) { this.world.load(m, ASSETS); this.roads.load(m.roads); this.tiles.clearAll(); } } catch (e) { /* neu */ }
+    try { const m = await dbGet('maps', 'current'); if (m) { this.world.load(m, ASSETS); this.roads.load(m.roads); this.veg.load(m.veg); this.tiles.clearAll(); } } catch (e) { /* neu */ }
     this.ui.sync(); this.bindInput(); this.osm.init(); this.loadVisible();
     const loop = () => { this.frame(); requestAnimationFrame(loop); }; loop();
   }
@@ -55,17 +61,17 @@ class App {
     const s = this.sprites.get(o.a, o.r, o.v), p = proj(o.x, o.y, 0), x = Math.round(p[0]) - s.ox, y = Math.round(p[1]) - s.oy;
     this.tiles.dropObjects(x, y, x + s.w, y + s.h); this.dirty(); this.saveSoon();
   }
-  serialize() { return { ...this.world.serialize(), format: 2, roads: this.roads.serialize() }; }
+  serialize() { return { ...this.world.serialize(), format: 3, roads: this.roads.serialize(), veg: this.veg.serialize() }; }
   saveSoon() { clearTimeout(this._st); this._st = setTimeout(() => dbSet('maps', 'current', this.serialize()).catch(() => {}), 1200); }
-  undo() { const k = this.hist.pop(); if (!k) return; (k === 'w' ? this.world : this.roads).undo(); this.redoH.push(k); this.tools.sel = null; this.tools.selRoad = null; this.ui.sync(); this.dirty(); }
-  redo() { const k = this.redoH.pop(); if (!k) return; (k === 'w' ? this.world : this.roads).redo(); this.hist.push(k); this.ui.sync(); this.dirty(); }
+  undo() { const k = this.hist.pop(); if (!k) return; ({ w: this.world, r: this.roads, v: this.veg })[k].undo(); this.redoH.push(k); this.tools.sel = null; this.tools.selRoad = null; this.ui.sync(); this.dirty(); }
+  redo() { const k = this.redoH.pop(); if (!k) return; ({ w: this.world, r: this.roads, v: this.veg })[k].redo(); this.hist.push(k); this.ui.sync(); this.dirty(); }
   exportMap() { downloadJSON(this.serialize(), 'anarchy_frankfurt_map.json'); }
   async importMap() {
     const f = await pickFile('.json,application/json'); if (!f) return;
-    try { const d = JSON.parse(await f.text()); if (d.game !== 'anarchy-frankfurt') throw new Error(); this.world.load(d, ASSETS); this.roads.load(d.roads); this.hist = []; this.redoH = []; this.tiles.clearAll(); this.saveSoon(); this.ui.sync(); this.dirty(); }
+    try { const d = JSON.parse(await f.text()); if (d.game !== 'anarchy-frankfurt') throw new Error(); this.world.load(d, ASSETS); this.roads.load(d.roads); this.veg.load(d.veg); this.hist = []; this.redoH = []; this.tiles.clearAll(); this.saveSoon(); this.ui.sync(); this.dirty(); }
     catch (e) { alert('Das ist keine gültige Anarchy-Frankfurt-Karte.'); }
   }
-  newMap() { this.world.load({ objects: [] }); this.roads.load(null); this.hist = []; this.redoH = []; this.tools.sel = null; this.tools.selRoad = null; this.tiles.clearAll(); this.saveSoon(); this.ui.sync(); this.dirty(); }
+  newMap() { this.world.load({ objects: [] }); this.roads.load(null); this.veg.load(null); this.hist = []; this.redoH = []; this.tools.sel = null; this.tools.selRoad = null; this.tiles.clearAll(); this.saveSoon(); this.ui.sync(); this.dirty(); }
   goTo(w, z) { this.cam.x = w[0]; this.cam.y = w[1]; if (z) this.cam.zoom = z; this.cam.clamp(); this.dirty(); this.viewChanged(); }
   zoomStep(dir, dx = this.cam.w / 2, dy = this.cam.h / 2) {
     const Z = CFG.ZOOMS; let i = Z.findIndex(z => z >= this.cam.zoom - 1e-9); if (i < 0) i = Z.length - 1;
@@ -132,6 +138,8 @@ class App {
   pinchState() { const [a, b] = [...this.pointers.values()]; return { cx: (a[0] + b[0]) / 2, cy: (a[1] + b[1]) / 2, d: Math.hypot(a[0] - b[0], a[1] - b[1]) || 1 }; }
 
   frame() {
+    const now = performance.now(), dt = Math.min(0.1, (now - (this._ft || now)) / 1000); this._ft = now;
+    if (this.tools.paint) this.tools.paintTick(dt);
     let vx = 0, vy = 0; const K = this.keys;
     if (K.has('w') || K.has('arrowup')) vy += 1; if (K.has('s') || K.has('arrowdown')) vy -= 1;
     if (K.has('a') || K.has('arrowleft')) vx += 1; if (K.has('d') || K.has('arrowright')) vx -= 1;

@@ -1,6 +1,6 @@
 // OpenStreetMap-Daten über Overpass laden, umwandeln, cachen und räumlich abfragen
 import { CFG } from './config.js';
-import { toWorld, osmTileBBox, worldBBox, OSM_N } from './geo.js';
+import { toWorld, osmTileBBox, worldBBox, OSM_N } from './camera.js';
 import { dbGet, dbSet, dbClear } from './storage.js';
 
 const CELL = 250;

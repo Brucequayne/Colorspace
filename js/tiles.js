@@ -3,6 +3,7 @@ import { CFG } from './config.js';
 import { proj, groundDepth, groundBBox, GM, PPM } from './camera.js';
 import { drawRef } from './refmap.js';
 import { SHADOW_RGBA } from './renderer.js';
+import { vegSprite } from './veg.js';
 
 const T = CFG.TILE_PX;
 // Wie weit Objekte über ihre Kachel hinausragen können (native px)
@@ -47,8 +48,15 @@ export class Tiles {
       if (sx >= T || sy >= T || sx + s.w <= 0 || sy + s.h <= 0) continue;
       list.push([s, sx, sy, groundDepth(o.x, o.y)]);
     }
+    // Vegetation (kleine Sprites, ragen kaum über ihre Kachel hinaus)
+    const vb = groundBBox(x0 - 16, y0 - 4, x0 + T + 16, y0 + T + 16);
+    for (const q of this.app.veg.query(vb[0], vb[1], vb[2], vb[3])) {
+      const s = vegSprite(q[0], q[3]), p = proj(q[1], q[2], 0), sx = Math.round(p[0]) - s.ox - x0, sy = Math.round(p[1]) - s.oy - y0;
+      if (sx >= T || sy >= T || sx + s.w <= 0 || sy + s.h <= 0) continue;
+      list.push([s, sx, sy, groundDepth(q[1], q[2])]);
+    }
     if (!list.length) return null;
-    const N = T * T, zb = new Float32Array(N).fill(-1e9), shb = new Uint8Array(N), img = new ImageData(T, T), D = img.data;
+    const N = T * T, zb = new Float32Array(N).fill(-1e9), shb = new Uint8Array(N), vpx = new Uint8Array(N), img = new ImageData(T, T), D = img.data;
     for (const [s, sx, sy] of list) {
       const xa = Math.max(0, sx), xb = Math.min(T, sx + s.w), ya = Math.max(0, sy), yb = Math.min(T, sy + s.h);
       for (let y = ya; y < yb; y++) { const r = (y - sy) * s.w - sx; for (let x = xa; x < xb; x++) if (s.sh[r + x]) shb[y * T + x] = 1; }
@@ -61,11 +69,15 @@ export class Tiles {
           const si = r + x; if (!s.rgba[si * 4 + 3]) continue;
           const d = s.depth[si] + gd, i = y * T + x;
           if (d <= zb[i]) continue;
-          zb[i] = d; D[i * 4] = s.rgba[si * 4]; D[i * 4 + 1] = s.rgba[si * 4 + 1]; D[i * 4 + 2] = s.rgba[si * 4 + 2]; D[i * 4 + 3] = 255;
+          zb[i] = d; vpx[i] = s.veg ? 1 : 0; D[i * 4] = s.rgba[si * 4]; D[i * 4 + 1] = s.rgba[si * 4 + 1]; D[i * 4 + 2] = s.rgba[si * 4 + 2]; D[i * 4 + 3] = 255;
         }
       }
     }
-    for (let i = 0; i < N; i++) if (zb[i] < -1e8 && shb[i]) D.set(SHADOW_RGBA, i * 4);
+    for (let i = 0; i < N; i++) {
+      if (!shb[i]) continue;
+      if (zb[i] < -1e8) D.set(SHADOW_RGBA, i * 4);
+      else if (vpx[i]) { D[i * 4] *= 0.66; D[i * 4 + 1] *= 0.7; D[i * 4 + 2] *= 0.8; } // Schatten auf Gras
+    }
     const c = document.createElement('canvas'); c.width = c.height = T;
     c.getContext('2d').putImageData(img, 0, 0);
     return c;
