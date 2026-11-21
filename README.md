@@ -1,4 +1,4 @@
-# Anarchy Frankfurt – Map-Editor v0.1
+# Anarchy Frankfurt – Map-Editor v0.2
 
 Grundstein für das Spiel: Frankfurt im Maßstab 1:1 (25 × 25 km) mit Stadtkarte aus OpenStreetMap als Boden.
 Kamera: 45° gedreht, 48° geneigt, 12 Pixel pro Meter. Objekte drehen in 15°-Schritten.
@@ -21,7 +21,8 @@ weil die JS-Dateien als Module geladen werden.
 | renderer.js | Pixel-Renderer (Sprites mit Schatten und Umriss) |
 | tiles.js | Kachel-Cache für Boden und Objekte |
 | world.js | Kartenobjekte, Rückgängig, Speichern |
-| tools.js | Werkzeuge (Auswahl, Platzieren, Vegetationspinsel, Radierer) |
+| roads.js | Straßennetz, Kreuzungen, Fahrbahn-Markierungen |
+| tools.js | Werkzeuge (Auswahl, Platzieren, Vegetationspinsel, Radierer, Straße) |
 | ui.js | Oberfläche |
 | main.js | Start, Eingabe, Zeichenschleife |
 

@@ -9,7 +9,7 @@ const T = CFG.TILE_PX;
 const M_TOP = 220, M_BOTTOM = 340, M_SIDE = 240;
 
 export class Tiles {
-  constructor(app) { this.app = app; this.G = new Map(); this.O = new Map(); this.cap = CFG.TILE_CACHE; }
+  constructor(app) { this.app = app; this.G = new Map(); this.O = new Map(); this.Rd = new Map(); this.cap = CFG.TILE_CACHE; }
   _get(map, k) { if (!map.has(k)) return undefined; const v = map.get(k); map.delete(k); map.set(k, v); return v; }
   _put(map, k, v) { map.set(k, v); while (map.size > this.cap) map.delete(map.keys().next().value); return v; }
   // budget = Objekt mit .n (wie viele neue Kacheln dürfen in diesem Frame gebaut werden)
@@ -22,6 +22,15 @@ export class Tiles {
     drawRef(c.getContext('2d'), this.app.osm, groundBBox(x0, y0, x0 + T, y0 + T), [GM[0], GM[1], GM[2], GM[3], -x0, -y0], 1 / PPM, this.app.layers);
     return this._put(this.G, k, c);
   }
+  roads(tx, ty, budget) {
+    const k = tx + ',' + ty; let c = this._get(this.Rd, k);
+    if (c !== undefined || budget.n <= 0) return c;
+    budget.n--;
+    const img = this.app.roads.renderTile(tx * T, ty * T, T);
+    if (img) { c = document.createElement('canvas'); c.width = c.height = T; c.getContext('2d').putImageData(img, 0, 0); } else c = null;
+    return this._put(this.Rd, k, c);
+  }
+  dropRoads(bb) { if (!bb) { this.Rd.clear(); return; } this._drop(this.Rd, bb); }
   objects(tx, ty, budget) {
     const k = tx + ',' + ty; let c = this._get(this.O, k);
     if (c !== undefined || budget.n <= 0) return c;
@@ -62,18 +71,19 @@ export class Tiles {
     return c;
   }
   clearGround() { this.G.clear(); }
-  clearAll() { this.G.clear(); this.O.clear(); }
+  clearAll() { this.G.clear(); this.O.clear(); this.Rd.clear(); }
   // Objekt-Kacheln in einem nativen Rechteck verwerfen
   dropObjects(nx0, ny0, nx1, ny1) {
     for (let ty = Math.floor(ny0 / T); ty <= Math.floor(ny1 / T); ty++)
       for (let tx = Math.floor(nx0 / T); tx <= Math.floor(nx1 / T); tx++) this.O.delete(tx + ',' + ty);
   }
   // Boden-Kacheln in einem Weltbereich verwerfen
-  dropGround(bb) {
+  dropGround(bb) { this._drop(this.G, bb); }
+  _drop(map, bb) {
     const pts = [proj(bb[0], bb[1], 0), proj(bb[2], bb[1], 0), proj(bb[0], bb[3], 0), proj(bb[2], bb[3], 0)];
     const xs = pts.map(p => p[0]), ys = pts.map(p => p[1]);
     const a = Math.floor(Math.min(...xs) / T), b = Math.floor(Math.max(...xs) / T), c = Math.floor(Math.min(...ys) / T), d = Math.floor(Math.max(...ys) / T);
-    if ((b - a) * (d - c) > 4000) { this.G.clear(); return; }
-    for (const k of [...this.G.keys()]) { const [x, y] = k.split(',').map(Number); if (x >= a && x <= b && y >= c && y <= d) this.G.delete(k); }
+    if ((b - a) * (d - c) > 4000) { map.clear(); return; }
+    for (const k of [...map.keys()]) { const [x, y] = k.split(',').map(Number); if (x >= a && x <= b && y >= c && y <= d) map.delete(k); }
   }
 }

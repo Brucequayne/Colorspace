@@ -10,12 +10,13 @@
 <canvas id="view"></canvas>
 
 <header id="top">
-  <div class="brand">ANARCHY <b>FRANKFURT</b> <span>Map-Editor v0.1</span></div>
+  <div class="brand">ANARCHY <b>FRANKFURT</b> <span>Map-Editor v0.2</span></div>
   <div class="tools">
     <button data-mode="select" title="Auswählen &amp; verschieben (1)">Auswahl <kbd>1</kbd></button>
     <button data-mode="place" title="Asset platzieren (2)">Platzieren <kbd>2</kbd></button>
     <button data-mode="brush" title="Vegetationspinsel (3)">Vegetation <kbd>3</kbd></button>
     <button data-mode="erase" title="Radierer (4)">Radierer <kbd>4</kbd></button>
+    <button data-mode="road" title="Straße zeichnen (5)">Straße <kbd>5</kbd></button>
     <span class="sep"></span>
     <button id="rotL" title="Drehen −15° (Q)">⟲ Q</button>
     <span id="rotLabel" class="pill">0°</span>
@@ -28,6 +29,22 @@
 </header>
 
 <aside id="panel">
+  <details open id="roadPanel">
+    <summary>Straße</summary>
+    <div class="btns" id="roadPresets"></div>
+    <label class="row">Gesamtbreite <input type="range" id="rW" min="6" max="40" step="0.5"><output id="rWo"></output></label>
+    <label class="row">Gehweg je Seite <input type="range" id="rS" min="0" max="6" step="0.5"><output id="rSo"></output></label>
+    <label class="row">Fahrspuren <input type="range" id="rL" min="1" max="6" step="1"><output id="rLo"></output></label>
+    <label class="check"><input type="checkbox" id="rOne"> Einbahnstraße</label>
+    <label class="check"><input type="checkbox" id="rBike"> Radfahrstreifen (beidseitig)</label>
+    <label class="check"><input type="checkbox" id="rBus"> Busspur</label>
+    <label class="check"><input type="checkbox" id="rZeb"> Zebrastreifen an Kreuzungen</label>
+    <div id="rInfo" class="hint"></div>
+    <div id="rSel" class="hint"></div>
+    <div class="btns" id="rSelBtns"><button id="rApply">Profil auf Auswahl</button><button id="rApplyAll">Auf ganze Straße</button><button id="rTake">Profil übernehmen</button><button id="rDel">Löschen</button></div>
+    <p class="hint">Klicken = Punkt setzen (15°-Schritte, Länge im Raster). Rechtsklick, Enter oder Esc = Straße beenden. Kreuzungen entstehen automatisch.</p>
+  </details>
+
   <details open>
     <summary>Assets</summary>
     <div id="assets"></div>
@@ -78,6 +95,7 @@
       WASD / Pfeile: bewegen · Mausrad: zoomen<br>
       Rechte/mittlere Maustaste oder Leertaste: Karte ziehen<br>
       Q / E: drehen (15°) · V: Variante · Entf: löschen<br>
+      5: Straße · Rechtsklick/Enter: Straße beenden<br>
       Strg+Z / Strg+Y: rückgängig / wiederholen · Esc: Auswahl
     </p>
   </details>

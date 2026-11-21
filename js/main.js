@@ -7,6 +7,7 @@ import { drawRef, LAYERS, COL } from './refmap.js';
 import { Sprites } from './renderer.js';
 import { Tiles } from './tiles.js';
 import { World } from './world.js';
+import { Roads } from './roads.js';
 import { Tools } from './tools.js';
 import { UI } from './ui.js';
 import { ASSETS } from './assets.js';
@@ -19,7 +20,7 @@ class App {
     this.cv = document.getElementById('view'); this.ctx = this.cv.getContext('2d');
     this.cam = new Camera(); this.layers = { ...LAYERS }; this.mapAlpha = 1; this.autoLoad = true;
     this.grid = { angle: 0, step: 1, snap: true, show: true };
-    this.sprites = new Sprites(); this.world = new World(); this.tiles = new Tiles(this);
+    this.sprites = new Sprites(); this.world = new World(); this.roads = new Roads(); this.hist = []; this.redoH = []; this.tiles = new Tiles(this);
     this.osm = new OSM(feats => this.onOsm(feats));
     this.tools = new Tools(this); this.ui = new UI(this);
     this._dirty = true; this.keys = new Set(); this.pointers = new Map(); this.pan = null;
@@ -28,8 +29,11 @@ class App {
     this.ui.init(); this.resize();
     addEventListener('resize', () => this.resize());
     this.world.on(o => this.onObj(o));
+    this.world.onLog = () => { this.hist.push('w'); this.redoH = []; };
+    this.roads.onLog = () => { this.hist.push('r'); this.redoH = []; };
+    this.roads.onChange = bb => { this.tiles.dropRoads(bb); this.dirty(); this.saveSoon(); this.ui.sync(); };
     const p = CFG.PLACES[0]; [this.cam.x, this.cam.y] = toWorld(p[1], p[2]);
-    try { const m = await dbGet('maps', 'current'); if (m) { this.world.load(m, ASSETS); this.tiles.clearAll(); } } catch (e) { /* neu */ }
+    try { const m = await dbGet('maps', 'current'); if (m) { this.world.load(m, ASSETS); this.roads.load(m.roads); this.tiles.clearAll(); } } catch (e) { /* neu */ }
     this.ui.sync(); this.bindInput(); this.osm.init(); this.loadVisible();
     const loop = () => { this.frame(); requestAnimationFrame(loop); }; loop();
   }
@@ -51,16 +55,17 @@ class App {
     const s = this.sprites.get(o.a, o.r, o.v), p = proj(o.x, o.y, 0), x = Math.round(p[0]) - s.ox, y = Math.round(p[1]) - s.oy;
     this.tiles.dropObjects(x, y, x + s.w, y + s.h); this.dirty(); this.saveSoon();
   }
-  saveSoon() { clearTimeout(this._st); this._st = setTimeout(() => dbSet('maps', 'current', this.world.serialize()).catch(() => {}), 1200); }
-  undo() { this.world.undo(); this.tools.sel = null; this.ui.sync(); }
-  redo() { this.world.redo(); this.ui.sync(); }
-  exportMap() { downloadJSON(this.world.serialize(), 'anarchy_frankfurt_map.json'); }
+  serialize() { return { ...this.world.serialize(), format: 2, roads: this.roads.serialize() }; }
+  saveSoon() { clearTimeout(this._st); this._st = setTimeout(() => dbSet('maps', 'current', this.serialize()).catch(() => {}), 1200); }
+  undo() { const k = this.hist.pop(); if (!k) return; (k === 'w' ? this.world : this.roads).undo(); this.redoH.push(k); this.tools.sel = null; this.tools.selRoad = null; this.ui.sync(); this.dirty(); }
+  redo() { const k = this.redoH.pop(); if (!k) return; (k === 'w' ? this.world : this.roads).redo(); this.hist.push(k); this.ui.sync(); this.dirty(); }
+  exportMap() { downloadJSON(this.serialize(), 'anarchy_frankfurt_map.json'); }
   async importMap() {
     const f = await pickFile('.json,application/json'); if (!f) return;
-    try { const d = JSON.parse(await f.text()); if (d.game !== 'anarchy-frankfurt') throw new Error(); this.world.load(d, ASSETS); this.tiles.clearAll(); this.saveSoon(); this.ui.sync(); this.dirty(); }
+    try { const d = JSON.parse(await f.text()); if (d.game !== 'anarchy-frankfurt') throw new Error(); this.world.load(d, ASSETS); this.roads.load(d.roads); this.hist = []; this.redoH = []; this.tiles.clearAll(); this.saveSoon(); this.ui.sync(); this.dirty(); }
     catch (e) { alert('Das ist keine gültige Anarchy-Frankfurt-Karte.'); }
   }
-  newMap() { this.world.load({ objects: [] }); this.tools.sel = null; this.tiles.clearAll(); this.saveSoon(); this.ui.sync(); this.dirty(); }
+  newMap() { this.world.load({ objects: [] }); this.roads.load(null); this.hist = []; this.redoH = []; this.tools.sel = null; this.tools.selRoad = null; this.tiles.clearAll(); this.saveSoon(); this.ui.sync(); this.dirty(); }
   goTo(w, z) { this.cam.x = w[0]; this.cam.y = w[1]; if (z) this.cam.zoom = z; this.cam.clamp(); this.dirty(); this.viewChanged(); }
   zoomStep(dir, dx = this.cam.w / 2, dy = this.cam.h / 2) {
     const Z = CFG.ZOOMS; let i = Z.findIndex(z => z >= this.cam.zoom - 1e-9); if (i < 0) i = Z.length - 1;
@@ -86,7 +91,8 @@ class App {
       cv.setPointerCapture(e.pointerId); this.pointers.set(e.pointerId, dev(e));
       if (this.pointers.size === 2) { this.tools.up(); this.pan = { pinch: this.pinchState() }; return; }
       const p = dev(e);
-      if (e.button === 1 || e.button === 2 || this.keys.has(' ')) { this.pan = { last: p }; return; }
+      const roadEnd = e.button === 2 && this.tools.mode === 'road' && this.tools.road.start;
+      if (!roadEnd && (e.button === 1 || e.button === 2 || this.keys.has(' '))) { this.pan = { last: p }; return; }
       if (!this.tools.down(p[0], p[1], e)) this.pan = { last: p };
     });
     cv.addEventListener('pointermove', e => {
@@ -149,6 +155,8 @@ class App {
       const b1 = { n: 12 }; ctx.globalAlpha = this.mapAlpha;
       if (this.mapAlpha > 0) for (let ty = ty0; ty <= ty1; ty++) for (let tx = tx0; tx <= tx1; tx++) { const c = this.tiles.ground(tx, ty, b1); if (c === undefined) pending = true; else put(c, tx, ty); }
       ctx.globalAlpha = 1;
+      const b3 = { n: 10 };
+      for (let ty = ty0; ty <= ty1; ty++) for (let tx = tx0; tx <= tx1; tx++) { const c = this.tiles.roads(tx, ty, b3); if (c === undefined) pending = true; else if (c) put(c, tx, ty); }
       this.drawGrid();
       const b2 = { n: 16 };
       for (let ty = ty0; ty <= ty1; ty++) for (let tx = tx0; tx <= tx1; tx++) { const c = this.tiles.objects(tx, ty, b2); if (c === undefined) pending = true; else if (c) put(c, tx, ty); }
@@ -156,6 +164,7 @@ class App {
       ctx.globalAlpha = this.mapAlpha;
       if (this.mapAlpha > 0) drawRef(ctx, this.osm, cam.visibleGround(), GMx, 1 / (PPM * s * 0.75), this.layers);
       ctx.globalAlpha = 1;
+      this.roads.drawVector(ctx, GMx, cam.visibleGround(), 1 / (PPM * s * 0.75));
       const bb = cam.visibleGround(), list = this.world.query(bb[0], bb[1], bb[2], bb[3]);
       const r = Math.max(1, Math.round(2 * cam.dpr));
       for (const ob of list.length < 150000 ? list : []) {
@@ -204,4 +213,4 @@ class App {
   }
 }
 
-new App().start();
+const app = new App(); window.AF = app; app.start();

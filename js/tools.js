@@ -2,8 +2,10 @@
 import { proj, groundDepth, groundBBox, PPM } from './camera.js';
 import { inWorld } from './geo.js';
 import { ASSETS, VEG } from './assets.js';
+import { ROAD_DEFAULT, layout } from './roads.js';
 
-export const MODES = ['select', 'place', 'brush', 'erase'];
+export const MODES = ['select', 'place', 'brush', 'erase', 'road'];
+const STEP = Math.PI / 12;
 
 export class Tools {
   constructor(app) {
@@ -11,9 +13,10 @@ export class Tools {
     this.asset = 'haus_siedlung'; this.rot = 0; this.variant = 0; this.randVar = true;
     this.brush = { r: 6, d: 4, set: { linde: true, platane: false, obstbaum: true, busch: true, gras: true, blumen: true } };
     this.eraser = { r: 4, vegOnly: true };
+    this.road = { p: { ...ROAD_DEFAULT }, start: null }; this.selRoad = null;
     this.sel = null; this.drag = null; this.paint = null; this.cursor = null; this.shift = false;
   }
-  setMode(m) { this.mode = m; this.drag = null; this.paint = null; if (m !== 'select') this.sel = null; this.app.ui.sync(); this.app.dirty(); }
+  setMode(m) { this.mode = m; this.drag = null; this.paint = null; this.road.start = null; if (m !== 'select') { this.sel = null; this.selRoad = null; } this.app.ui.sync(); this.app.dirty(); }
   setAsset(k) { this.asset = k; const d = ASSETS[k]; this.rot = Math.round(this.rot / d.rot) * d.rot; this.variant = 0; this.setMode('place'); }
   snap(x, y) {
     const G = this.app.grid; if (!G.snap) return [x, y];
@@ -41,7 +44,9 @@ export class Tools {
     this.shift = e.shiftKey;
     if (this.mode === 'select') {
       const o = this.pick(dx, dy);
-      this.sel = o ? o.id : null; this.app.ui.sync();
+      this.sel = o ? o.id : null;
+      const rs = o ? null : this.app.roads.segNear(g[0], g[1], 0, true);
+      this.selRoad = rs ? rs.id : null; this.app.ui.sync();
       if (o) { this.drag = { id: o.id, b: { ...o }, off: [o.x - g[0], o.y - g[1]] }; this.app.dirty(); return true; }
       this.app.dirty(); return false; // leere Fläche -> Kamera ziehen
     }
@@ -52,6 +57,16 @@ export class Tools {
       world.add({ a: this.asset, x, y, r: this.rot, v: this.variant % d.variants });
       if (this.randVar) this.variant = Math.floor(Math.random() * d.variants);
       return true;
+    }
+    if (this.mode === 'road') {
+      if (e.button === 2) { this.roadFinish(); return true; }
+      const pt = this.roadPoint(g);
+      if (!this.road.start) { this.road.start = pt; }
+      else if (Math.hypot(pt[0] - this.road.start[0], pt[1] - this.road.start[1]) >= 1) {
+        const R = this.app.roads; R.begin(); const n = R.draw(this.road.start, pt, this.road.p); R.commit();
+        this.road.start = [n.x, n.y];
+      }
+      this.app.dirty(); return true;
     }
     if (this.mode === 'brush' || this.mode === 'erase') {
       world.begin(); this.paint = { last: g, t: 0 }; this.stroke(g); return true;
@@ -121,14 +136,44 @@ export class Tools {
     else { this.randVar = false; this.variant = (this.variant + 1) % ASSETS[this.asset].variants; }
     this.app.ui.sync(); this.app.dirty();
   }
-  deleteSel() { if (this.sel) { this.app.world.del(this.sel); this.sel = null; this.app.ui.sync(); } }
+  deleteSel() {
+    if (this.sel) { this.app.world.del(this.sel); this.sel = null; }
+    else if (this.selRoad) { const R = this.app.roads; R.begin(); R.delSeg(this.selRoad); R.commit(); this.selRoad = null; }
+    this.app.ui.sync();
+  }
+  // Fangradius in Metern (ca. 14 Bildschirmpixel)
+  tol() { return Math.max(1.5, 14 / (12 * this.app.cam.scale * 0.75)); }
+  // Straßenpunkt: Knoten > Kreuzung mit vorhandener Straße > 15°-Richtung mit Rasterlänge
+  roadPoint(g) {
+    const R = this.app.roads, r = this.tol(), st = this.road.start;
+    const n = R.nodeNear(g[0], g[1], r); if (n) return [n.x, n.y];
+    if (!st) {
+      const s = R.segNear(g[0], g[1], r, false);
+      if (s) { const q = s.g, k = (g[0] - q.ax) * q.ux + (g[1] - q.ay) * q.uy, L = Math.max(0, Math.min(q.L, Math.round(k / this.app.grid.step) * this.app.grid.step)); return [q.ax + q.ux * L, q.ay + q.uy * L]; }
+      return this.snap(g[0], g[1]);
+    }
+    const a = Math.round(Math.atan2(g[1] - st[1], g[0] - st[0]) / STEP) * STEP, ux = Math.cos(a), uy = Math.sin(a);
+    const len = Math.max(0, Math.round(((g[0] - st[0]) * ux + (g[1] - st[1]) * uy) / this.app.grid.step) * this.app.grid.step);
+    const e = [st[0] + ux * len, st[1] + uy * len];
+    // Schnittpunkt mit vorhandener Mittellinie in der Nähe?
+    let best = null, bd = r * 1.5;
+    for (const s of R.query(e[0] - 40, e[1] - 40, e[0] + 40, e[1] + 40).segs) {
+      const q = s.g, den = ux * q.uy - uy * q.ux; if (Math.abs(den) < 1e-6) continue;
+      const t = ((q.ax - st[0]) * q.uy - (q.ay - st[1]) * q.ux) / den, u = ((q.ax - st[0]) * uy - (q.ay - st[1]) * ux) / den;
+      if (t <= 0.5 || u < 0 || u > q.L) continue;
+      const P = [st[0] + ux * t, st[1] + uy * t], d = Math.hypot(P[0] - g[0], P[1] - g[1]);
+      if (d < bd) { bd = d; best = P; }
+    }
+    return best || e;
+  }
+  roadFinish() { this.road.start = null; this.app.dirty(); }
   key(e) {
     const k = e.key.toLowerCase();
     if (k === 'q') this.rotate(-1); else if (k === 'e') this.rotate(1);
     else if (k === 'v') this.nextVariant();
     else if (k === 'delete' || k === 'backspace') this.deleteSel();
-    else if (k === 'escape') { this.sel = null; this.setMode('select'); }
-    else if (k >= '1' && k <= '4') this.setMode(MODES[+k - 1]);
+    else if (k === 'escape' || k === 'enter') { if (this.mode === 'road' && this.road.start) this.roadFinish(); else { this.sel = null; this.selRoad = null; this.setMode('select'); } }
+    else if (k >= '1' && k <= '5') this.setMode(MODES[+k - 1]);
     else return false;
     return true;
   }
@@ -138,7 +183,33 @@ export class Tools {
       ctx.save(); ctx.setTransform(...cam.groundMatrix());
       ctx.beginPath(); ctx.arc(x, y, r, 0, 6.2832); ctx.lineWidth = w / (PPM * sc * 0.75); ctx.strokeStyle = col; ctx.stroke(); ctx.restore();
     };
+    const band = (ax, ay, bx, by, h, fill, stroke) => {
+      const L = Math.hypot(bx - ax, by - ay) || 1, nx = -(by - ay) / L * h, ny = (bx - ax) / L * h;
+      ctx.save(); ctx.setTransform(...cam.groundMatrix()); ctx.beginPath();
+      ctx.moveTo(ax + nx, ay + ny); ctx.lineTo(bx + nx, by + ny); ctx.lineTo(bx - nx, by - ny); ctx.lineTo(ax - nx, ay - ny); ctx.closePath();
+      if (fill) { ctx.fillStyle = fill; ctx.fill(); }
+      if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = 2 / (12 * sc * 0.75); ctx.stroke(); }
+      ctx.restore();
+    };
     if (this.sel) { const o = world.objs.get(this.sel); if (o) ring(o.x, o.y, ASSETS[o.a].sp + 0.3, '#ffd34a', 2); }
+    if (this.selRoad) {
+      const ids = this.app.roads.segs.has(this.selRoad) ? [this.selRoad] : [];
+      for (const id of ids) { const g = this.app.roads.segs.get(id).g; band(g.ax, g.ay, g.bx, g.by, g.lay.H, 'rgba(255,211,74,.18)', '#ffd34a'); }
+    }
+    if (this.mode === 'road' && this.cursor) {
+      const p = this.roadPoint(this.cursor), st = this.road.start, lay = layout(this.road.p);
+      if (st) {
+        band(st[0], st[1], p[0], p[1], lay.H, 'rgba(190,186,176,.55)', null);
+        band(st[0], st[1], p[0], p[1], lay.h, 'rgba(60,62,70,.7)', lay.ok ? '#b6f07a' : '#ff6a5a');
+        const L = Math.hypot(p[0] - st[0], p[1] - st[1]), ang = ((Math.round(Math.atan2(p[1] - st[1], p[0] - st[0]) * 12 / Math.PI) * 15) % 360 + 360) % 360;
+        const d = cam.toDevice(...proj(p[0], p[1], 0).slice(0, 2));
+        ctx.save(); ctx.font = `${12 * cam.dpr}px ui-monospace, monospace`; ctx.fillStyle = '#000a'; const txt = `${L.toFixed(1)} m · ${ang}°`;
+        const tw = ctx.measureText(txt).width; ctx.fillRect(d[0] + 12 * cam.dpr, d[1] - 22 * cam.dpr, tw + 10 * cam.dpr, 18 * cam.dpr);
+        ctx.fillStyle = '#ffd34a'; ctx.fillText(txt, d[0] + 17 * cam.dpr, d[1] - 9 * cam.dpr); ctx.restore();
+      }
+      ring(p[0], p[1], 0.6, '#ffd34a', 2);
+      return;
+    }
     if (!this.cursor) return;
     const [gx, gy] = this.cursor;
     if (this.mode === 'place') {

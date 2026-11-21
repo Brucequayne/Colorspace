@@ -22,8 +22,8 @@ export class World {
   _setRaw(s) { const o = this.objs.get(s.id); if (!o) return; this.emit(o); this._rem(o); Object.assign(o, s); this._ins(o); this.emit(o); }
 
   begin() { this.tx = []; }
-  commit() { if (this.tx && this.tx.length) { this.U.push(this.tx); if (this.U.length > 300) this.U.shift(); this.R = []; } this.tx = null; }
-  log(e) { if (this._replay) return; if (this.tx) this.tx.push(e); else { this.U.push([e]); this.R = []; } }
+  commit() { if (this.tx && this.tx.length) { this.U.push(this.tx); if (this.U.length > 300) this.U.shift(); this.R = []; this.onLog && this.onLog(); } this.tx = null; }
+  log(e) { if (this._replay) return; if (this.tx) this.tx.push(e); else { this.U.push([e]); this.R = []; this.onLog && this.onLog(); } }
   undo() { const tx = this.U.pop(); if (!tx) return false; this._replay = true; for (const e of tx.slice().reverse()) { if (e.t === 'add') this._delRaw(e.o.id); else if (e.t === 'del') this._addRaw(e.o); else this._setRaw(e.b); } this._replay = false; this.R.push(tx); return true; }
   redo() { const tx = this.R.pop(); if (!tx) return false; this._replay = true; for (const e of tx) { if (e.t === 'add') this._addRaw(e.o); else if (e.t === 'del') this._delRaw(e.o.id); else this._setRaw(e.a); } this._replay = false; this.U.push(tx); return true; }
 
