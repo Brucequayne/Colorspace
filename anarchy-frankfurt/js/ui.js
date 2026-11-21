@@ -2,7 +2,8 @@
 import { CFG } from './config.js';
 import { ASSET_LIST, ASSETS } from './assets.js';
 import { BRUSHES, brushThumb } from './veg.js';
-import { toLatLon, toWorld } from './camera.js';
+import { PAL_MODES, ROOF_MODES } from './blocks.js';
+import { toLatLon, toWorld, osmTileOf } from './camera.js';
 import { PRESETS, layout } from './roads.js';
 
 const $ = id => document.getElementById(id);
@@ -25,6 +26,22 @@ export class UI {
       b.appendChild(app.sprites.thumb(a.key, 52)); b.insertAdjacentHTML('beforeend', `<span>${a.name}</span>`);
       b.onclick = () => t.setAsset(a.key); grid.appendChild(b);
     }
+
+    // Häuserblock
+    $('kPal').innerHTML = Object.entries(PAL_MODES).map(([k, v]) => `<option value="${k}">${v.name}</option>`).join('');
+    $('kRoof').innerHTML = Object.entries(ROOF_MODES).map(([k, v]) => `<option value="${k}">${v.name}</option>`).join('');
+    const kset = (key, val) => {
+      const sel = t.selBlock && app.blocks.list.get(t.selBlock), p = { ...(sel ? sel.p : t.block.p), [key]: val };
+      if (key === 'fmin' && p.fmax < val) p.fmax = val; if (key === 'fmax' && p.fmin > val) p.fmin = val;
+      if (sel) { clearTimeout(this._kt); this._kt = setTimeout(() => { const B = app.blocks; B.begin(); B.set(sel.id, { p }); B.commit(); sel.pPending = null; this.blockForm(); }, 120); sel.pPending = p; }
+      else t.block.p = p;
+      this.blockForm(p);
+    };
+    for (const [id, key, f] of [['kMin', 'fmin', v => v], ['kMax', 'fmax', v => v], ['kDen', 'dens', v => v / 100], ['kWid', 'width', v => v]]) $(id).oninput = e => kset(key, f(+e.target.value));
+    $('kPal').onchange = e => kset('pal', e.target.value); $('kRoof').onchange = e => kset('roof', e.target.value);
+    $('kSeed').onclick = () => { const sel = t.selBlock && app.blocks.list.get(t.selBlock); kset('seed', ((sel ? sel.p : t.block.p).seed || 1) + 1); };
+    $('kDel').onclick = () => { if (t.selBlock) t.deleteSel(); };
+    this.blockForm();
 
     // Straße
     const range = (id, get, set, fmt) => { const el = $(id), out = $(id + 'o'); el.value = get(); out.textContent = fmt(get()); el.oninput = () => { set(+el.value); out.textContent = fmt(+el.value); app.dirty(); }; };
@@ -70,6 +87,7 @@ export class UI {
     }
     $('autoLoad').checked = app.autoLoad; $('autoLoad').onchange = e => { app.autoLoad = e.target.checked; app.loadVisible(); };
     $('loadView').onclick = () => app.loadVisible(true);
+    $('loadAll').onclick = () => { const [i, j] = osmTileOf(app.cam.x, app.cam.y); app.osm.loadAll(i, j); };
     $('clearOsm').onclick = () => { if (confirm('Gespeicherte Stadtkarten-Daten löschen und neu laden?')) { app.osm.clearCache(); app.tiles.clearGround(); } };
 
     // Navigation
@@ -81,6 +99,14 @@ export class UI {
     $('exp').onclick = () => app.exportMap(); $('imp').onclick = () => app.importMap();
     $('newMap').onclick = () => { if (confirm('Alle platzierten Objekte löschen?')) app.newMap(); };
     this.sync();
+  }
+  blockForm(pp) {
+    const t = this.app.tools, sel = t.selBlock && this.app.blocks.list.get(t.selBlock), p = pp || (sel ? (sel.pPending || sel.p) : t.block.p);
+    const set = (id, v, txt) => { $(id).value = v; $(id + 'o').textContent = txt; };
+    set('kMin', p.fmin, String(p.fmin)); set('kMax', p.fmax, String(p.fmax)); set('kDen', Math.round(p.dens * 100), Math.round(p.dens * 100) + ' %'); set('kWid', p.width, p.width + ' m');
+    $('kPal').value = p.pal; $('kRoof').value = p.roof;
+    if (sel) { const g = this.app.blocks.gen(sel); $('kInfo').textContent = `Gewählter Block: ${g.parcels.length} Häuser, Haustiefe ${g.depth.toFixed(1)} m`; }
+    else $('kInfo').textContent = 'Kein Block gewählt – Regler gelten für den nächsten Block.';
   }
   roadForm() {
     const p = this.app.tools.road.p, set = (id, v, txt) => { $(id).value = v; $(id + 'o').textContent = txt; };
@@ -94,6 +120,7 @@ export class UI {
   }
   sync() {
     const t = this.app.tools;
+    if (this._lastSelBlock !== t.selBlock) { this._lastSelBlock = t.selBlock; const sb = t.selBlock && this.app.blocks.list.get(t.selBlock); if (sb) sb.pPending = null; this.blockForm(); }
     const rs = t.selRoad && this.app.roads.segs.get(t.selRoad);
     $('rSel').innerHTML = rs ? `Ausgewählte Straße: ${rs.p.w.toLocaleString('de-DE')} m, ${rs.p.lanes} Spur${rs.p.lanes > 1 ? 'en' : ''}${rs.p.oneway ? ', Einbahn' : ''}${rs.p.bike ? ', Rad' : ''}${rs.p.bus ? ', Bus' : ''} · ${rs.g.L.toFixed(1)} m lang` : 'Straße mit „Auswahl“ anklicken, um sie zu bearbeiten.';
     $('rSelBtns').style.display = rs ? 'flex' : 'none';

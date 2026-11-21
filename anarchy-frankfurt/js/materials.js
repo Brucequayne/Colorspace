@@ -103,3 +103,63 @@ export const M = {
   shoe: plain([38, 36, 36], 4, 27), hair: plain([62, 42, 30], 6, 28), gun: plain([42, 42, 46], 4, 29),
   glow: { emit: 1, f: () => [255, 238, 176] }
 };
+
+// ---------- Gründerzeit-Altbau ----------
+// Fenster mit Kämpfer und Mittelpfosten (lu, lv = 0..1 innerhalb der Öffnung)
+function glass(lu, lv, W, H) {
+  if (lu < 0.07 || lu > 0.93 || lv < 0.05 || lv > 0.95 || Math.abs(lu - 0.5) * W < 0.04 || Math.abs(lv - 0.72) * H < 0.04) return [232, 230, 222];
+  if (lv < 0.72 && (lu < 0.15 || lu > 0.85) && lv > 0.3) return [208, 198, 178]; // Vorhang
+  const k = lu + lv * 0.6; return k > 0.55 && k < 0.75 ? [98, 124, 152] : lv > 0.8 ? [38, 50, 70] : [50, 66, 90];
+}
+function altbau(u, v, P, ex) {
+  const { len, gh, fh, E, wall, trim, plinth } = ex;
+  const ax = ex.axes, aw = len / ax, ai = Math.min(ax - 1, Math.max(0, Math.floor(u / aw))), du = u - (ai + 0.5) * aw;
+  const n = hash(Math.floor(u * 8), Math.floor(v * 8), ex.seed);
+  if (ex.kind === 'court') {                       // Hofseite: schlicht
+    const cw = mul(wall, 0.9);
+    if (v < 0.4) return jit(mul(plinth, 0.85), n, 10);
+    const fi = v < gh ? -1 : Math.floor((v - gh) / fh), fv = fi < 0 ? v : v - gh - fi * fh;
+    if (v < E - 0.6 && Math.abs(du) < 0.5 && fv > (fi < 0 ? 1.3 : 0.9) && fv < (fi < 0 ? 3.0 : 2.5)) return glass((du + 0.5), (fv - (fi < 0 ? 1.3 : 0.9)) / (fi < 0 ? 1.7 : 1.6), 1, 1.6);
+    if (v < E - 0.6 && Math.abs(du) < 0.6 && fv > (fi < 0 ? 1.2 : 0.8) && fv < (fi < 0 ? 1.3 : 0.9)) return mul(trim, 0.9);
+    return jit(cw, n, 10);
+  }
+  if (v > E - 0.35) return jit(trim, n, 8);                                   // Traufgesims
+  if (v > E - 1.0) {                                                         // Fries mit Konsolen
+    if (fr(u / 0.7) < 0.22 && v < E - 0.45) return mul(trim, 0.92);
+    return jit(mul(wall, 0.93), n, 8);
+  }
+  if (v < gh) {                                                              // Erdgeschoss aus Sandstein
+    if (ai === ex.door && Math.abs(du) < 0.95 && v > 0.25 && v < 3.55) {
+      if (Math.abs(du) > 0.75 || v > 3.3) return mul(plinth, 1.12);
+      if (v > 2.6) return glass((du + 0.75) / 1.5, (v - 2.6) / 0.7, 1.5, 0.7);
+      const pu = Math.abs(du) < 0.68 && Math.abs(Math.abs(du) - 0.35) < 0.25 && ((v > 0.5 && v < 1.4) || (v > 1.6 && v < 2.45));
+      return pu ? [86, 52, 34] : jit([108, 64, 40], n, 10);
+    }
+    if (Math.abs(du) < 0.6 && v > 1.25 && v < 3.15) return glass((du + 0.6) / 1.2, (v - 1.25) / 1.9, 1.2, 1.9);
+    if (Math.abs(du) < 0.74 && v > 1.1 && v < 3.3) return mul(plinth, 1.14);
+    if (v < 0.5) return jit(mul(plinth, 0.82), n, 10);
+    if (fr(v / 0.45) < 0.12) return mul(plinth, 0.78);                       // Bossenfugen
+    return jit(plinth, hash(Math.floor(u / 0.9 + (Math.floor(v / 0.45) % 2) * 0.5), Math.floor(v / 0.45), ex.seed), 14);
+  }
+  if (v < gh + 0.22) return jit(trim, n, 8);                                 // Gurtgesims
+  const fi = Math.floor((v - gh) / fh), fv = v - gh - fi * fh;
+  if (Math.abs(du) < 0.575 && fv > 0.85 && fv < 2.75) return glass((du + 0.575) / 1.15, (fv - 0.85) / 1.9, 1.15, 1.9);
+  if (Math.abs(du) < 0.86 && fv > 0.7 && fv < 0.85) return mul(trim, 0.86);  // Sohlbank
+  if (Math.abs(du) < 0.74 && fv > 0.85 && fv < 2.9) return jit(trim, n, 6);  // Fensterfasche
+  if (fi === 0 && Math.abs(du) < 0.86 && fv > 2.9 && fv < 3.15) return fv > 3.08 ? mul(trim, 1.06) : mul(trim, 0.9); // Verdachung
+  if (fi === 0 && Math.abs(du) < 0.74 && fv > 2.9 && fv < 3.25) return mul(wall, 0.85);
+  return jit(wall, n, 9);
+}
+Object.assign(M, {
+  altbau: { f: (u, v, P, ex) => altbau(u, v, P, ex) },
+  trim: { f: (u, v, P, ex) => jit(ex.trim, tx(P, 0.125, 60), 8) },
+  firewall: { f: (u, v, P) => { const h = tx(P, 0.5, 61), n = tx(P, 0.125, 62); return jit(h < 0.15 ? [160, 154, 146] : [184, 178, 168], n, 10); } },
+  slate: { f: (u, v, P, ex) => {
+    const base = ex.roof, row = Math.floor(v / 0.22), fv = fr(v / 0.22), x = u / 0.2 + (row % 2) * 0.5, h = hash(Math.floor(x), row, 63);
+    let c = jit(base, h, 16);
+    if (fv > 0.82) return mul(c, 0.7); if (fr(x) < 0.08) return mul(c, 0.85); if (fv < 0.15) return mul(c, 1.12); return c;
+  } },
+  zinc: plain([122, 126, 132], 8, 64),
+  dormer: { f: (u, v) => (u > 0.22 && u < 0.98 && v > 0.35 && v < 1.75 ? glass((u - 0.22) / 0.76, (v - 0.35) / 1.4, 0.76, 1.4) : [126, 130, 136]) },
+  iron: { alpha: 1, f: (u, v) => { if (v > 0.92 || (v > 0.04 && v < 0.12)) return [44, 44, 48]; if (v > 0.12 && fr(u / 0.13) < 0.28) return [52, 52, 58]; return null; } }
+});

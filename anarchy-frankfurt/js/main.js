@@ -9,10 +9,11 @@ import { Tiles } from './tiles.js';
 import { World } from './world.js';
 import { Roads } from './roads.js';
 import { VegLayer } from './veg.js';
+import { Blocks } from './blocks.js';
 import { Tools } from './tools.js';
 import { UI } from './ui.js';
 import { ASSETS } from './assets.js';
-import { dbGet, dbSet, downloadJSON, pickFile } from './storage.js';
+import { dbGet, dbSet, downloadJSON, pickFile } from './world.js';
 
 const T = CFG.TILE_PX, H = CFG.WORLD_HALF;
 
@@ -21,7 +22,7 @@ class App {
     this.cv = document.getElementById('view'); this.ctx = this.cv.getContext('2d');
     this.cam = new Camera(); this.layers = { ...LAYERS }; this.mapAlpha = 1; this.autoLoad = true;
     this.grid = { angle: 0, step: 1, snap: true, show: true };
-    this.sprites = new Sprites(); this.world = new World(); this.roads = new Roads(); this.veg = new VegLayer(); this.hist = []; this.redoH = []; this.tiles = new Tiles(this);
+    this.sprites = new Sprites(); this.world = new World(); this.roads = new Roads(); this.veg = new VegLayer(); this.blocks = new Blocks(); this.hist = []; this.redoH = []; this.tiles = new Tiles(this);
     this.osm = new OSM(feats => this.onOsm(feats));
     this.tools = new Tools(this); this.ui = new UI(this);
     this._dirty = true; this.keys = new Set(); this.pointers = new Map(); this.pan = null;
@@ -37,9 +38,17 @@ class App {
       const ps = [proj(bb[0], bb[1], 0), proj(bb[2], bb[1], 0), proj(bb[0], bb[3], 0), proj(bb[2], bb[3], 0)], xs = ps.map(p => p[0]), ys = ps.map(p => p[1]);
       this.tiles.dropObjects(Math.min(...xs) - 16, Math.min(...ys) - 16, Math.max(...xs) + 16, Math.max(...ys) + 8); this.dirty(); this.saveSoon();
     };
+    this.blocks.onLog = () => { this.hist.push('b'); this.redoH = []; };
+    this.blocks.onChange = bb => {
+      if (!bb) this.tiles.O.clear(); else {
+        const ps = [proj(bb[0], bb[1], 0), proj(bb[2], bb[1], 0), proj(bb[0], bb[3], 0), proj(bb[2], bb[3], 0)], xs = ps.map(p => p[0]), ys = ps.map(p => p[1]);
+        this.tiles.dropObjects(Math.min(...xs) - 420, Math.min(...ys) - 520, Math.max(...xs) + 420, Math.max(...ys) + 40);
+      }
+      this.dirty(); this.saveSoon(); this.ui.sync();
+    };
     this.roads.onChange = bb => { this.tiles.dropRoads(bb); this.dirty(); this.saveSoon(); this.ui.sync(); };
     const p = CFG.PLACES[0]; [this.cam.x, this.cam.y] = toWorld(p[1], p[2]);
-    try { const m = await dbGet('maps', 'current'); if (m) { this.world.load(m, ASSETS); this.roads.load(m.roads); this.veg.load(m.veg); this.tiles.clearAll(); } } catch (e) { /* neu */ }
+    try { const m = await dbGet('maps', 'current'); if (m) { this.world.load(m, ASSETS); this.roads.load(m.roads); this.veg.load(m.veg); this.blocks.load(m.blocks); this.tiles.clearAll(); } } catch (e) { /* neu */ }
     this.ui.sync(); this.bindInput(); this.osm.init(); this.loadVisible();
     const loop = () => { this.frame(); requestAnimationFrame(loop); }; loop();
   }
@@ -61,17 +70,17 @@ class App {
     const s = this.sprites.get(o.a, o.r, o.v), p = proj(o.x, o.y, 0), x = Math.round(p[0]) - s.ox, y = Math.round(p[1]) - s.oy;
     this.tiles.dropObjects(x, y, x + s.w, y + s.h); this.dirty(); this.saveSoon();
   }
-  serialize() { return { ...this.world.serialize(), format: 3, roads: this.roads.serialize(), veg: this.veg.serialize() }; }
+  serialize() { return { ...this.world.serialize(), format: 4, roads: this.roads.serialize(), veg: this.veg.serialize(), blocks: this.blocks.serialize() }; }
   saveSoon() { clearTimeout(this._st); this._st = setTimeout(() => dbSet('maps', 'current', this.serialize()).catch(() => {}), 1200); }
-  undo() { const k = this.hist.pop(); if (!k) return; ({ w: this.world, r: this.roads, v: this.veg })[k].undo(); this.redoH.push(k); this.tools.sel = null; this.tools.selRoad = null; this.ui.sync(); this.dirty(); }
-  redo() { const k = this.redoH.pop(); if (!k) return; ({ w: this.world, r: this.roads, v: this.veg })[k].redo(); this.hist.push(k); this.ui.sync(); this.dirty(); }
+  undo() { const k = this.hist.pop(); if (!k) return; ({ w: this.world, r: this.roads, v: this.veg, b: this.blocks })[k].undo(); this.tools.selBlock = null; this.redoH.push(k); this.tools.sel = null; this.tools.selRoad = null; this.ui.sync(); this.dirty(); }
+  redo() { const k = this.redoH.pop(); if (!k) return; ({ w: this.world, r: this.roads, v: this.veg, b: this.blocks })[k].redo(); this.hist.push(k); this.ui.sync(); this.dirty(); }
   exportMap() { downloadJSON(this.serialize(), 'anarchy_frankfurt_map.json'); }
   async importMap() {
     const f = await pickFile('.json,application/json'); if (!f) return;
-    try { const d = JSON.parse(await f.text()); if (d.game !== 'anarchy-frankfurt') throw new Error(); this.world.load(d, ASSETS); this.roads.load(d.roads); this.veg.load(d.veg); this.hist = []; this.redoH = []; this.tiles.clearAll(); this.saveSoon(); this.ui.sync(); this.dirty(); }
+    try { const d = JSON.parse(await f.text()); if (d.game !== 'anarchy-frankfurt') throw new Error(); this.world.load(d, ASSETS); this.roads.load(d.roads); this.veg.load(d.veg); this.blocks.load(d.blocks); this.hist = []; this.redoH = []; this.tiles.clearAll(); this.saveSoon(); this.ui.sync(); this.dirty(); }
     catch (e) { alert('Das ist keine gültige Anarchy-Frankfurt-Karte.'); }
   }
-  newMap() { this.world.load({ objects: [] }); this.roads.load(null); this.veg.load(null); this.hist = []; this.redoH = []; this.tools.sel = null; this.tools.selRoad = null; this.tiles.clearAll(); this.saveSoon(); this.ui.sync(); this.dirty(); }
+  newMap() { this.world.load({ objects: [] }); this.roads.load(null); this.veg.load(null); this.blocks.load(null); this.tools.selBlock = null; this.hist = []; this.redoH = []; this.tools.sel = null; this.tools.selRoad = null; this.tiles.clearAll(); this.saveSoon(); this.ui.sync(); this.dirty(); }
   goTo(w, z) { this.cam.x = w[0]; this.cam.y = w[1]; if (z) this.cam.zoom = z; this.cam.clamp(); this.dirty(); this.viewChanged(); }
   zoomStep(dir, dx = this.cam.w / 2, dy = this.cam.h / 2) {
     const Z = CFG.ZOOMS; let i = Z.findIndex(z => z >= this.cam.zoom - 1e-9); if (i < 0) i = Z.length - 1;
@@ -81,11 +90,11 @@ class App {
   viewChanged() { clearTimeout(this._vt); this._vt = setTimeout(() => this.loadVisible(), 350); }
   // OSM-Kacheln im Sichtbereich anfordern (nah zuerst)
   loadVisible(force) {
-    if (!force && (!this.autoLoad || this.cam.zoom < 1 / 4)) return;
+    if (!force && (!this.autoLoad || this.cam.zoom < 1 / 8)) return;
     const bb = this.cam.visibleGround(), [i0, j0] = osmTileOf(Math.max(-H, bb[0]), Math.max(-H, bb[1])), [i1, j1] = osmTileOf(Math.min(H - 1, bb[2]), Math.min(H - 1, bb[3]));
     const [ci, cj] = osmTileOf(this.cam.x, this.cam.y), keys = [];
     for (let i = i0; i <= i1; i++) for (let j = j0; j <= j1; j++) keys.push([i, j]);
-    if (keys.length > 40 && !force) return;
+    if (keys.length > 80 && !force) return;
     keys.sort((a, b) => Math.hypot(a[0] - ci, a[1] - cj) - Math.hypot(b[0] - ci, b[1] - cj));
     this.osm.want(keys.slice(0, 60).map(k => k[0] + '_' + k[1]));
   }
@@ -97,7 +106,7 @@ class App {
       cv.setPointerCapture(e.pointerId); this.pointers.set(e.pointerId, dev(e));
       if (this.pointers.size === 2) { this.tools.up(); this.pan = { pinch: this.pinchState() }; return; }
       const p = dev(e);
-      const roadEnd = e.button === 2 && this.tools.mode === 'road' && this.tools.road.start;
+      const roadEnd = e.button === 2 && ((this.tools.mode === 'road' && this.tools.road.start) || (this.tools.mode === 'block' && this.tools.block.pts.length));
       if (!roadEnd && (e.button === 1 || e.button === 2 || this.keys.has(' '))) { this.pan = { last: p }; return; }
       if (!this.tools.down(p[0], p[1], e)) this.pan = { last: p };
     });
@@ -166,25 +175,41 @@ class App {
       const b3 = { n: 10 };
       for (let ty = ty0; ty <= ty1; ty++) for (let tx = tx0; tx <= tx1; tx++) { const c = this.tiles.roads(tx, ty, b3); if (c === undefined) pending = true; else if (c) put(c, tx, ty); }
       this.drawGrid();
-      const b2 = { n: 16 };
+      const b2 = { n: 16, spr: { n: 3 } };
       for (let ty = ty0; ty <= ty1; ty++) for (let tx = tx0; tx <= tx1; tx++) { const c = this.tiles.objects(tx, ty, b2); if (c === undefined) pending = true; else if (c) put(c, tx, ty); }
     } else {
-      ctx.globalAlpha = this.mapAlpha;
-      if (this.mapAlpha > 0) drawRef(ctx, this.osm, cam.visibleGround(), GMx, 1 / (PPM * s * 0.75), this.layers);
+      // Übersicht: Boden aus verkleinerten Kacheln (schnell, auch mit vielen Gebäuden)
+      const f = Math.max(1 / 32, Math.pow(2, Math.ceil(Math.log2(cam.zoom)))), S = T / f;
+      const tx0 = Math.floor(v[0] / S), tx1 = Math.floor(v[2] / S), ty0 = Math.floor(v[1] / S), ty1 = Math.floor(v[3] / S), b0 = { n: 10 };
+      ctx.imageSmoothingEnabled = true; ctx.globalAlpha = this.mapAlpha;
+      if (this.mapAlpha > 0) for (let ty = ty0; ty <= ty1; ty++) for (let tx = tx0; tx <= tx1; tx++) {
+        const c = this.tiles.ground(tx, ty, b0, f); if (c === undefined) { pending = true; continue; }
+        const x = Math.round(o[0] + tx * S * s), y = Math.round(o[1] + ty * S * s);
+        ctx.drawImage(c, x, y, Math.round(o[0] + (tx + 1) * S * s) - x, Math.round(o[1] + (ty + 1) * S * s) - y);
+      }
       ctx.globalAlpha = 1;
       this.roads.drawVector(ctx, GMx, cam.visibleGround(), 1 / (PPM * s * 0.75));
+      this.drawBlocksFlat();
       const bb = cam.visibleGround(), list = this.world.query(bb[0], bb[1], bb[2], bb[3]);
       const r = Math.max(1, Math.round(2 * cam.dpr));
       for (const ob of list.length < 150000 ? list : []) {
         const p = proj(ob.x, ob.y, 0); ctx.fillStyle = ASSETS[ob.a].dot;
         ctx.fillRect(Math.round(o[0] + p[0] * s) - r, Math.round(o[1] + p[1] * s) - r, r * 2, r * 2);
       }
-      this.drawOsmState();
     }
+    this.drawOsmState();
     // Kartenrand
     ctx.save(); ctx.setTransform(...GMx); ctx.strokeStyle = '#e0483a'; ctx.lineWidth = 3 / (PPM * s * 0.75); ctx.strokeRect(-H, -H, 2 * H, 2 * H); ctx.restore();
     this.tools.overlay(ctx);
     if (pending) this._dirty = true;
+  }
+  // Übersicht: Häuser von oben als Dachflächen
+  drawBlocksFlat() {
+    const { ctx, cam } = this; if (!this.blocks.size) return;
+    const pars = this.blocks.parcels(cam.visibleGround()); if (!pars.length) return;
+    ctx.save(); ctx.setTransform(...cam.groundMatrix()); ctx.lineWidth = 1 / (PPM * cam.scale * 0.75); ctx.strokeStyle = 'rgba(20,20,24,.6)';
+    for (const p of pars) { ctx.fillStyle = `rgb(${p.roof.map(Math.round).join(',')})`; ctx.beginPath(); p.q.forEach((q, i) => i ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1])); ctx.closePath(); ctx.fill(); ctx.stroke(); }
+    ctx.restore();
   }
   drawGrid() {
     const { ctx, cam, grid } = this;
@@ -212,9 +237,9 @@ class App {
     const { ctx, cam } = this, M = cam.groundMatrix(), K = CFG.OSM_TILE_M;
     ctx.save(); ctx.setTransform(...M);
     for (const [k, st] of this.osm.state) {
-      if (k === 'base' || st === 'done') continue;
+      if (k === 'base' || st === 'done' || st === 'check') continue;
       const [i, j] = k.split('_').map(Number);
-      ctx.fillStyle = st === 'error' ? 'rgba(224,72,58,.25)' : 'rgba(255,211,74,.22)';
+      ctx.fillStyle = st === 'error' ? 'rgba(224,72,58,.22)' : 'rgba(255,211,74,.16)';
       ctx.fillRect(-H + i * K, -H + j * K, K, K);
     }
     ctx.restore();

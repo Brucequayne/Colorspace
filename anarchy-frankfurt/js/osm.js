@@ -1,7 +1,7 @@
 // OpenStreetMap-Daten über Overpass laden, umwandeln, cachen und räumlich abfragen
 import { CFG } from './config.js';
 import { toWorld, osmTileBBox, worldBBox, OSM_N } from './camera.js';
-import { dbGet, dbSet, dbClear } from './storage.js';
+import { dbGet, dbSet, dbClear } from './world.js';
 
 const CELL = 250;
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -125,15 +125,18 @@ export class OSM {
   constructor(onChange) {
     this.f = new Map(); this.grid = new Map(); this.state = new Map();
     this.queue = []; this.busy = false; this.onChange = onChange || (() => {});
-    this.ep = 0; this.stamp = 0; this.err = ''; this.loadedKeys = 0;
+    this.ep = 0; this.stamp = 0; this.err = ''; this.errAt = new Map(); this.all = false;
   }
   status() {
     const q = this.queue.length + (this.busy ? 1 : 0);
-    if (q) return `Stadtkarte lädt … (${q} Bereich${q > 1 ? 'e' : ''} offen)`;
+    const done = [...this.state].filter(([k, v]) => k !== 'base' && v === 'done').length;
+    if (q) return `Stadtkarte lädt … ${done}/${OSM_N * OSM_N} km² fertig, ${q} offen`;
     return this.err || `Stadtkarte: ${this.f.size.toLocaleString('de-DE')} Objekte`;
   }
   init() { return this.ensure('base'); }
   async ensure(key) {
+    const st = this.state.get(key);
+    if (st === 'error' && Date.now() - (this.errAt.get(key) || 0) > 30000) this.state.delete(key); // Fehler nach 30 s erneut versuchen
     if (this.state.has(key)) return;
     this.state.set(key, 'check');
     let cached = null;
@@ -163,11 +166,13 @@ export class OSM {
       try { await dbSet('osm', job.key, feats); } catch (e) { /* Speicher voll */ }
       this.add(feats); this.state.set(job.key, 'done'); this.err = '';
       this.onChange(feats);
+      await sleep(400); // Overpass schonen
     } catch (e) {
       job.tries++;
-      this.err = 'Stadtkarte: Server nicht erreichbar, neuer Versuch …';
-      if (job.tries < 4) { await sleep(2500 * job.tries); this.queue.push(job); }
-      else { this.state.set(job.key, 'error'); this.err = 'Stadtkarte: Laden fehlgeschlagen (später erneut versuchen)'; }
+      const busy = /429|504/.test(String(e && e.message));
+      this.err = busy ? 'Stadtkarte: Server ausgelastet, warte kurz …' : 'Stadtkarte: Server nicht erreichbar, neuer Versuch …';
+      if (job.tries < 5) { await sleep((busy ? 8000 : 2500) * job.tries); this.queue.push(job); }
+      else { this.state.set(job.key, 'error'); this.errAt.set(job.key, Date.now()); this.err = 'Stadtkarte: Ein Bereich konnte nicht geladen werden (wird später erneut versucht)'; }
     }
     this.busy = false; this.onChange(); this.run();
   }
@@ -182,6 +187,14 @@ export class OSM {
       } catch (e) { last = e; }
     }
     throw last;
+  }
+  // ganze Karte im Hintergrund laden (von der Mitte nach außen), bleibt danach im Browser gespeichert
+  loadAll(ci, cj) {
+    const keys = [];
+    for (let i = 0; i < OSM_N; i++) for (let j = 0; j < OSM_N; j++) keys.push([i, j]);
+    keys.sort((a, b) => Math.hypot(a[0] - ci, a[1] - cj) - Math.hypot(b[0] - ci, b[1] - cj));
+    this.all = true;
+    for (const [i, j] of keys) this.ensure(i + '_' + j);
   }
   add(feats) {
     for (const f of feats) {

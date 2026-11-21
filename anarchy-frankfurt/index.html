@@ -10,13 +10,14 @@
 <canvas id="view"></canvas>
 
 <header id="top">
-  <div class="brand">ANARCHY <b>FRANKFURT</b> <span>Map-Editor v0.21</span></div>
+  <div class="brand">ANARCHY <b>FRANKFURT</b> <span>Map-Editor v0.22</span></div>
   <div class="tools">
     <button data-mode="select" title="Auswählen &amp; verschieben (1)">Auswahl <kbd>1</kbd></button>
     <button data-mode="place" title="Asset platzieren (2)">Platzieren <kbd>2</kbd></button>
     <button data-mode="brush" title="Vegetationspinsel (3)">Vegetation <kbd>3</kbd></button>
     <button data-mode="erase" title="Radierer (4)">Radierer <kbd>4</kbd></button>
     <button data-mode="road" title="Straße zeichnen (5)">Straße <kbd>5</kbd></button>
+    <button data-mode="block" title="Häuserblock zeichnen (6)">Häuserblock <kbd>6</kbd></button>
     <span class="sep"></span>
     <button id="rotL" title="Drehen −15° (Q)">⟲ Q</button>
     <span id="rotLabel" class="pill">0°</span>
@@ -29,6 +30,19 @@
 </header>
 
 <aside id="panel">
+  <details open id="blockPanel">
+    <summary>Häuserblock (Altbau)</summary>
+    <label class="row">Etagen min <input type="range" id="kMin" min="2" max="8" step="1"><output id="kMino"></output></label>
+    <label class="row">Etagen max <input type="range" id="kMax" min="2" max="8" step="1"><output id="kMaxo"></output></label>
+    <label class="row">Dichte (Hof) <input type="range" id="kDen" min="0" max="100" step="5"><output id="kDeno"></output></label>
+    <label class="row">Hausbreite <input type="range" id="kWid" min="10" max="24" step="1"><output id="kWido"></output></label>
+    <label class="row">Fassaden <select id="kPal"></select></label>
+    <label class="row">Dächer <select id="kRoof"></select></label>
+    <div class="btns"><button id="kSeed">Neu würfeln</button><button id="kDel">Block löschen</button></div>
+    <div id="kInfo" class="hint"></div>
+    <p class="hint">Ecken nacheinander anklicken (3–8). Auf den ersten Punkt, Rechtsklick oder Enter = fertig, Esc = abbrechen. Gewählten Block: Ecken ziehen zum Anpassen. Regler ändern den gewählten Block, sonst die Vorgabe für neue.</p>
+  </details>
+
   <details open id="roadPanel">
     <summary>Straße</summary>
     <div class="btns" id="roadPresets"></div>
@@ -42,7 +56,7 @@
     <div id="rInfo" class="hint"></div>
     <div id="rSel" class="hint"></div>
     <div class="btns" id="rSelBtns"><button id="rApply">Profil auf Auswahl</button><button id="rApplyAll">Auf ganze Straße</button><button id="rTake">Profil übernehmen</button><button id="rDel">Löschen</button></div>
-    <p class="hint">Klicken = Punkt setzen (15°-Schritte, Länge im Raster). Rechtsklick, Enter oder Esc = Straße beenden. Kreuzungen entstehen automatisch.</p>
+    <p class="hint">Klicken = Punkt setzen (5°-Schritte, Länge im Raster). Zu spitze Kreuzungen (unter 25°) werden nicht verbunden. Rechtsklick, Enter oder Esc = Straße beenden. Kreuzungen entstehen automatisch.</p>
   </details>
 
   <details open>
@@ -74,7 +88,8 @@
     <label class="row">Deckkraft <input type="range" id="mA" min="0" max="100" step="5"><output id="mAo"></output></label>
     <div id="layers" class="checks"></div>
     <label class="check"><input type="checkbox" id="autoLoad"> Beim Navigieren automatisch laden</label>
-    <div class="btns"><button id="loadView">Sichtbaren Bereich laden</button><button id="clearOsm">Cache leeren</button></div>
+    <div class="btns"><button id="loadView">Sichtbaren Bereich laden</button><button id="loadAll">Ganze Stadt laden</button><button id="clearOsm">Cache leeren</button></div>
+    <p class="hint">„Ganze Stadt laden“ holt alle 625 km² im Hintergrund (dauert eine Weile, Fortschritt unten). Danach ist alles im Browser gespeichert. Gelb = lädt, Rot = Fehler (wird erneut versucht).</p>
   </details>
 
   <details open>
@@ -95,7 +110,7 @@
       WASD / Pfeile: bewegen · Mausrad: zoomen<br>
       Rechte/mittlere Maustaste oder Leertaste: Karte ziehen<br>
       Q / E: drehen (15°) · V: Variante · Entf: löschen<br>
-      5: Straße · Rechtsklick/Enter: Straße beenden<br>
+      5: Straße · 6: Häuserblock · Rechtsklick/Enter: fertig<br>
       Strg+Z / Strg+Y: rückgängig / wiederholen · Esc: Auswahl
     </p>
   </details>
