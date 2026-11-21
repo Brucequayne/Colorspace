@@ -6,10 +6,10 @@
 html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); color: var(--text); font: 12px/1.45 var(--font); }
 #view { position: fixed; inset: 0; width: 100vw; height: 100vh; display: block; touch-action: none; cursor: crosshair; }
 button, select, input { font: inherit; color: var(--text); }
-button { background: var(--panel2); border: 1px solid var(--line); border-radius: 4px; padding: 5px 9px; cursor: pointer; }
+button { background: var(--panel2); border: 1px solid var(--line); border-radius: 0; padding: 5px 9px; cursor: pointer; }
 button:hover { border-color: #565d6c; }
 button.on { background: var(--accent); border-color: var(--accent); color: #fff; }
-select { background: var(--panel2); border: 1px solid var(--line); border-radius: 4px; padding: 3px 6px; }
+select { background: var(--panel2); border: 1px solid var(--line); border-radius: 0; padding: 3px 6px; }
 kbd { font-size: 10px; opacity: .6; margin-left: 3px; }
 
 #top { position: fixed; top: 0; left: 0; right: 0; height: 44px; display: flex; align-items: center; gap: 14px; padding: 0 10px;
@@ -19,7 +19,7 @@ kbd { font-size: 10px; opacity: .6; margin-left: 3px; }
 .brand span { color: var(--muted); letter-spacing: 0; margin-left: 6px; }
 .tools { display: flex; align-items: center; gap: 6px; flex: 1; overflow-x: auto; }
 .sep { width: 1px; height: 22px; background: var(--line); margin: 0 4px; }
-.pill { min-width: 46px; text-align: center; padding: 3px 6px; border-radius: 4px; background: #000; color: var(--accent2); }
+.pill { min-width: 46px; text-align: center; padding: 3px 6px; border-radius: 0; background: #000; color: var(--accent2); }
 #panelToggle { display: none; }
 
 #panel { position: fixed; top: 44px; right: 0; bottom: 26px; width: 292px; overflow-y: auto; background: rgba(29, 32, 39, .95);
@@ -57,3 +57,9 @@ kbd { font-size: 10px; opacity: .6; margin-left: 3px; }
   #status #sZoom, #status #sObj { display: none; }
 }
 .asset.vb canvas { width: 56px; height: 31px; }
+#backCS { display: none; color: var(--muted); text-decoration: none; white-space: nowrap; border: 1px solid var(--line); padding: 4px 8px; }
+#backCS:hover { color: var(--text); border-color: #565d6c; }
+body.inframe #backCS { display: block; }
+body.inframe #status .attr { margin-left: 0; order: -1; }
+body.inframe #status { padding-right: 280px; }
+@media (max-width: 1500px) { kbd, .brand span { display: none; } }

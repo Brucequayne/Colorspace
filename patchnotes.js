@@ -2,6 +2,20 @@
    Neueste Version jeweils oben. t = Zeitpunkt des Updates (deutsche Zeit).
    Die Versionsnummer auf den Kacheln kommt aus dem obersten Eintrag. */
 window.PATCHNOTES = {
+  anarchyfrankfurt: [
+    { v: "0.22", t: "2026-11-21T20:40:00+01:00",
+      de: ["Anarchy Frankfurt ist jetzt als Kachel auf Color Space und öffnet den Map-Editor im Vollbild", "Häuserblock-Tool: Gründerzeit-Blockrand mit Innenhof prozedural aus einem gezeichneten Vieleck (3–8 Ecken), mit Etagen-Range, Hofdichte, Hausbreite und Farbpaletten für Fassaden und Dächer", "Straßen in 5°-Schritten, zu spitze Kreuzungen werden nicht mehr verbunden", "Stadtkarte lädt auch außerhalb der Innenstadt, neu: „Ganze Stadt laden“"],
+      en: ["Anarchy Frankfurt now has a tile on Color Space and opens the map editor full screen", "Block tool: period perimeter blocks with a courtyard, generated from a drawn polygon (3–8 corners), with storey range, courtyard density, house width and colour palettes for facades and roofs", "Streets in 5° steps, very acute crossings are no longer joined", "The city map now loads outside the centre too, new: “Load whole city”"] },
+    { v: "0.21", t: "2026-11-21T19:50:00+01:00",
+      de: ["Vegetationspinsel wie in Rap Streets und Shizuku: Wiese, Rasen, hohes Gras, Wildblumen, Schilf, Kornfeld und mehr"],
+      en: ["Vegetation brush like in Rap Streets and Shizuku: meadow, lawn, tall grass, wildflowers, reeds, grain field and more"] },
+    { v: "0.2", t: "2026-11-21T19:34:00+01:00",
+      de: ["Straßen-Tool mit Gesamtbreite, Spuren, Radfahrstreifen, Busspur, sauberen Kreuzungen und Markierungen"],
+      en: ["Street tool with total width, lanes, bike lanes, bus lane, clean junctions and markings"] },
+    { v: "0.1", t: "2026-11-21T16:24:00+01:00",
+      de: ["Erster Map-Editor: Frankfurt 25 × 25 km mit Stadtkarte aus OpenStreetMap, 48°-Pixel-Ansicht, erste Assets"],
+      en: ["First map editor: Frankfurt 25 × 25 km with an OpenStreetMap city map, 48° pixel view, first assets"] }
+  ],
 
   // ================= Tools =================
   pixellab: [

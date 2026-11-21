@@ -10,6 +10,7 @@
 <canvas id="view"></canvas>
 
 <header id="top">
+  <a id="backCS" href="../#" target="_top" title="Zurück zu Color Space">← Color Space</a>
   <div class="brand">ANARCHY <b>FRANKFURT</b> <span>Map-Editor v0.22</span></div>
   <div class="tools">
     <button data-mode="select" title="Auswählen &amp; verschieben (1)">Auswahl <kbd>1</kbd></button>
@@ -124,6 +125,7 @@
   <span class="attr">Kartendaten © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap-Mitwirkende</a> (ODbL)</span>
 </footer>
 
+<script>if (window.top !== window) document.body.classList.add('inframe');</script>
 <script type="module" src="js/main.js"></script>
 </body>
 </html>
