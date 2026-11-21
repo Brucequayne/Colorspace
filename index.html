@@ -21,7 +21,7 @@
 
 
 <!-- oben links: Name -->
-<div id="brand"><a id="backCS" href="../#" target="_top" title="Zurück zu Color Space">←</a><b>ANARCHY</b> FRANKFURT <span>Editor v0.28</span></div>
+<div id="brand"><a id="backCS" href="../#" target="_top" title="Zurück zu Color Space">←</a><b>ANARCHY</b> FRANKFURT <span>Editor v0.29</span></div>
 
 <!-- links: Werkzeuge -->
 <nav id="dock" aria-label="Werkzeuge">
@@ -85,6 +85,7 @@
     </section>
   <section id="roadPanel" data-modes="road">
     <div class="btns" id="roadPresets"></div>
+    <label class="row">Winkelschritt <select id="rStep"><option value="1">1°</option><option value="5">5°</option><option value="15">15°</option></select></label>
     <label class="row">Gesamtbreite <input type="range" id="rW" min="6" max="40" step="0.5"><output id="rWo"></output></label>
     <label class="row">Gehweg je Seite <input type="range" id="rS" min="0" max="6" step="0.5"><output id="rSo"></output></label>
     <label class="row">Fahrspuren <input type="range" id="rL" min="1" max="6" step="1"><output id="rLo"></output></label>
@@ -95,7 +96,7 @@
     <div id="rInfo" class="hint"></div>
     <div id="rSel" class="hint"></div>
     <div class="btns" id="rSelBtns"><button id="rApply">Profil auf Auswahl</button><button id="rApplyAll">Auf ganze Straße</button><button id="rTake">Profil übernehmen</button><button id="rDel">Löschen</button></div>
-    <p class="hint">Klicken = Punkt setzen (5°-Schritte, Länge im Raster). Zu spitze Kreuzungen (unter 25°) werden nicht verbunden. Rechtsklick, Enter oder Esc = Straße beenden. Kreuzungen entstehen automatisch.</p>
+    <p class="hint">Klicken = Punkt setzen (Winkel im eingestellten Schritt, Shift gedrückt = 15°, Länge im Raster). Zu spitze Kreuzungen (unter 25°) werden nicht verbunden. Rechtsklick, Enter oder Esc = Straße beenden. Kreuzungen entstehen automatisch.</p>
     </section>
   </div>
 </aside>

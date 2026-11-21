@@ -76,6 +76,7 @@ export class UI {
     $('rApplyAll').onclick = () => t.selRoad && applyTo(R.chainOf(t.selRoad));
     $('rTake').onclick = () => { const s = t.selRoad && R.segs.get(t.selRoad); if (s) { t.road.p = { ...s.p }; this.roadForm(); } };
     $('rDel').onclick = () => t.deleteSel();
+    $('rStep').value = String(t.roadStep); $('rStep').onchange = e => { t.roadStep = +e.target.value; try { localStorage.setItem('anarchyfrankfurt.roadStep', e.target.value); } catch (er) { /* egal */ } app.dirty(); };
     this.roadForm();
 
     // Pinsel

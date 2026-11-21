@@ -1,6 +1,6 @@
 // Anarchy Frankfurt – zentrale Einstellungen, Projektion, Kamera, Geo-Umrechnung
 export const CFG = {
-  VERSION: '0.28-editor',
+  VERSION: '0.29-editor',
   MODEL_V: '27',           // Cache-Stempel für models/*.png|json
   THETA_DEG: 48,          // Kameraneigung
   PPM: 12,                // Pixel pro Meter (nativ)

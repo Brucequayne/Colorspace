@@ -7,7 +7,6 @@ import { BLOCK_DEFAULT, normPoly } from './blocks.js';
 import { ROAD_DEFAULT, layout, ACUTE } from './roads.js';
 
 export const MODES = ['select', 'place', 'brush', 'erase', 'road', 'block', 'ground'];
-const STEP = Math.PI / 36; // Straßen in 5°-Schritten
 
 export class Tools {
   constructor(app) {
@@ -17,6 +16,7 @@ export class Tools {
     this.eraser = { r: 4, vegOnly: true };
     this.ground = { code: 2, r: 3, erase: false };
     this.road = { p: { ...ROAD_DEFAULT }, start: null }; this.selRoad = null;
+    this.roadStep = 1; try { this.roadStep = +(localStorage.getItem('anarchyfrankfurt.roadStep') || 1); } catch (e) { /* egal */ }   // Winkelschritt der Straßen in Grad
     this.block = { p: { ...BLOCK_DEFAULT }, pts: [], vdrag: null }; this.selBlock = null;
     this.sel = null; this.drag = null; this.paint = null; this.cursor = null; this.shift = false;
   }
@@ -167,7 +167,7 @@ export class Tools {
   }
   // Fangradius in Metern (ca. 14 Bildschirmpixel)
   tol() { return Math.max(1.5, 14 / (12 * this.app.cam.scale * 0.75)); }
-  // Straßenpunkt: Knoten > Kreuzung mit vorhandener Straße > 15°-Richtung mit Rasterlänge
+  // Straßenpunkt: Knoten > Kreuzung mit vorhandener Straße > Richtung im Winkelschritt (Shift = 15°) mit Rasterlänge
   roadPoint(g) {
     const R = this.app.roads, r = this.tol(), st = this.road.start;
     const n = R.nodeNear(g[0], g[1], r); if (n) return [n.x, n.y];
@@ -176,7 +176,7 @@ export class Tools {
       if (s) { const q = s.g, k = (g[0] - q.ax) * q.ux + (g[1] - q.ay) * q.uy, L = Math.max(0, Math.min(q.L, Math.round(k / this.app.grid.step) * this.app.grid.step)); return [q.ax + q.ux * L, q.ay + q.uy * L]; }
       return this.snap(g[0], g[1]);
     }
-    const a = Math.round(Math.atan2(g[1] - st[1], g[0] - st[0]) / STEP) * STEP, ux = Math.cos(a), uy = Math.sin(a);
+    const STEP = (this.shift ? 15 : this.roadStep) * Math.PI / 180, a = Math.round(Math.atan2(g[1] - st[1], g[0] - st[0]) / STEP) * STEP, ux = Math.cos(a), uy = Math.sin(a);
     const len = Math.max(0, Math.round(((g[0] - st[0]) * ux + (g[1] - st[1]) * uy) / this.app.grid.step) * this.app.grid.step);
     const e = [st[0] + ux * len, st[1] + uy * len];
     // Schnittpunkt mit vorhandener Mittellinie in der Nähe?
@@ -277,7 +277,7 @@ export class Tools {
       if (st) {
         band(st[0], st[1], p[0], p[1], lay.H, 'rgba(190,186,176,.55)', null);
         band(st[0], st[1], p[0], p[1], lay.h, 'rgba(60,62,70,.7)', lay.ok ? '#b6f07a' : '#ff6a5a');
-        const L = Math.hypot(p[0] - st[0], p[1] - st[1]), ang = ((Math.round(Math.atan2(p[1] - st[1], p[0] - st[0]) * 36 / Math.PI) * 5) % 360 + 360) % 360;
+        const L = Math.hypot(p[0] - st[0], p[1] - st[1]), ang = ((Math.round(Math.atan2(p[1] - st[1], p[0] - st[0]) * 180 / Math.PI)) % 360 + 360) % 360;
         const d = cam.toDevice(...proj(p[0], p[1], 0).slice(0, 2));
         ctx.save(); ctx.font = `${12 * cam.dpr}px ui-monospace, monospace`; ctx.fillStyle = '#000a'; const txt = `${L.toFixed(1)} m · ${ang}°`;
         const tw = ctx.measureText(txt).width; ctx.fillRect(d[0] + 12 * cam.dpr, d[1] - 22 * cam.dpr, tw + 10 * cam.dpr, 18 * cam.dpr);
