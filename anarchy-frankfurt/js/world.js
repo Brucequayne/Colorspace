@@ -41,7 +41,8 @@ export class World {
   load(d, known) {
     this._mute = true;
     this.objs.clear(); this.cells.clear(); this.next = 1; this.U = []; this.R = [];
-    for (const [a, x, y, r, v] of (d && d.objects) || []) if (!known || known[a]) this._addRaw({ id: this.next, a, x, y, r, v });
+    const k = d && d.format >= 6 ? 1 : 3; // ab Format 6 Drehung in 5°-Schritten (vorher 15°)
+    for (const [a, x, y, r, v] of (d && d.objects) || []) if (!known || known[a]) this._addRaw({ id: this.next, a, x, y, r: r * k, v });
     this._mute = false;
   }
 }

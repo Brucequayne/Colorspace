@@ -87,7 +87,7 @@ export class Play {
     }
     for (const o of A.world.near(x, y, 8)) {
       const d = ASSETS[o.a]; if (!d || !d.col) continue;
-      const a = -o.r * Math.PI / 12, c = Math.cos(a), s = Math.sin(a), lx = (x - o.x) * c - (y - o.y) * s, ly = (x - o.x) * s + (y - o.y) * c;
+      const a = -o.r * Math.PI / 36, c = Math.cos(a), s = Math.sin(a), lx = (x - o.x) * c - (y - o.y) * s, ly = (x - o.x) * s + (y - o.y) * c;
       if (Math.abs(lx) < d.col[0] + R && Math.abs(ly) < d.col[1] + R) return true;
     }
     return false;
@@ -98,7 +98,7 @@ export class Play {
     for (const par of A.blocks.parcels([x - r, y - r, x + r, y + r])) if (par.door) out.push(par.door);
     for (const o of A.world.near(x, y, 12)) {
       const d = ASSETS[o.a]; if (!d || !d.door) continue;
-      const a = o.r * Math.PI / 12, c = Math.cos(a), s = Math.sin(a);
+      const a = o.r * Math.PI / 36, c = Math.cos(a), s = Math.sin(a);
       out.push({ x: o.x + d.door[0] * c - d.door[1] * s, y: o.y + d.door[0] * s + d.door[1] * c, F: d.floors || 1, style: 'haus', w: 10, d: 8 });
     }
     return out;

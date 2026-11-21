@@ -30,6 +30,7 @@ class App {
     this._dirty = true; this.keys = new Set(); this.pointers = new Map(); this.pan = null;
   }
   async start() {
+    await this.sprites.preload();
     this.ui.init(); this.resize();
     addEventListener('resize', () => this.resize());
     this.world.on(o => this.onObj(o));
@@ -74,7 +75,7 @@ class App {
     const s = this.sprites.get(o.a, o.r, o.v), p = proj(o.x, o.y, 0), x = Math.round(p[0]) - s.ox, y = Math.round(p[1]) - s.oy;
     this.tiles.dropObjects(x, y, x + s.w, y + s.h); this.dirty(); this.saveSoon();
   }
-  serialize() { return { ...this.world.serialize(), format: 5, roads: this.roads.serialize(), veg: this.veg.serialize(), blocks: this.blocks.serialize(), ground: this.paint.serialize() }; }
+  serialize() { return { ...this.world.serialize(), format: 6, roads: this.roads.serialize(), veg: this.veg.serialize(), blocks: this.blocks.serialize(), ground: this.paint.serialize() }; }
   saveSoon() { clearTimeout(this._st); this._st = setTimeout(() => dbSet('maps', 'current', this.serialize()).catch(() => {}), 1200); }
   undo() { const k = this.hist.pop(); if (!k) return; ({ w: this.world, r: this.roads, v: this.veg, b: this.blocks, g: this.paint })[k].undo(); this.tools.selBlock = null; this.redoH.push(k); this.tools.sel = null; this.tools.selRoad = null; this.ui.sync(); this.dirty(); }
   redo() { const k = this.redoH.pop(); if (!k) return; ({ w: this.world, r: this.roads, v: this.veg, b: this.blocks, g: this.paint })[k].redo(); this.hist.push(k); this.ui.sync(); this.dirty(); }

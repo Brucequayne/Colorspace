@@ -85,35 +85,81 @@ export function renderSprite(mesh, ang) {
     for (let ch = 0; ch < 3; ch++) rgba[i * 4 + ch] = Math.round(col[i * 3 + ch] * k / 6) * 6;
     rgba[i * 4 + 3] = 255;
   }
-  // Vorschau-Canvas (Schatten + Farbe)
+  return { w: W, h: H, ox, oy, rgba, depth: zb, sh, canvas: spriteCanvas(W, H, rgba, sh) };
+}
+// Vorschau-Canvas (Schatten + Farbe)
+function spriteCanvas(W, H, rgba, sh) {
   const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
   const img = new ImageData(W, H);
-  for (let i = 0; i < N; i++) {
+  for (let i = 0; i < W * H; i++) {
     if (rgba[i * 4 + 3]) { img.data.set(rgba.subarray(i * 4, i * 4 + 4), i * 4); }
     else if (sh[i]) img.data.set(SHADOW_RGBA, i * 4);
   }
   cv.getContext('2d').putImageData(img, 0, 0);
-  return { w: W, h: H, ox, oy, rgba, depth: zb, sh, canvas: cv };
+  return cv;
+}
+
+// ---------- Fertig gerenderte Modelle (models/<datei>.png + .json, aus dem Low-Poly-Pack konvertiert) ----------
+// PNG: obere Hälfte Farbe (Alpha 0/255), untere Hälfte Daten (R,G = Tiefe 16 bit, B = Bodenschatten)
+// JSON: { n: Drehungen, H: Höhe einer Hälfte, f: [[x, y, w, h, ox, oy, dmin, dmax], ...] }
+const MODELS = new Map();
+async function loadModel(file) {
+  const base = 'models/' + file, q = '?v=' + CFG.MODEL_V;
+  const [m, blob] = await Promise.all([fetch(base + '.json' + q).then(r => r.json()), fetch(base + '.png' + q).then(r => r.blob())]);
+  const bmp = await createImageBitmap(blob, { premultiplyAlpha: 'none', colorSpaceConversion: 'none' });
+  const cv = document.createElement('canvas'); cv.width = bmp.width; cv.height = bmp.height;
+  const cx = cv.getContext('2d'); cx.drawImage(bmp, 0, 0);
+  const D = cx.getImageData(0, 0, bmp.width, bmp.height).data, AW = bmp.width;
+  return m.f.map(([x, y, w, h, ox, oy, d0, d1]) => {
+    const n = w * h, rgba = new Uint8ClampedArray(n * 4), depth = new Float32Array(n).fill(-1e9), sh = new Uint8Array(n);
+    for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) {
+      const k = j * w + i, a = ((y + j) * AW + x + i) * 4, b = ((y + j + m.H) * AW + x + i) * 4;
+      if (D[a + 3] > 127) { rgba[k * 4] = D[a]; rgba[k * 4 + 1] = D[a + 1]; rgba[k * 4 + 2] = D[a + 2]; rgba[k * 4 + 3] = 255; }
+      const q = D[b] * 256 + D[b + 1];
+      if (q) depth[k] = d0 + (q - 1) / 65534 * (d1 - d0);
+      if (D[b + 2] > 127) sh[k] = 1;
+    }
+    return { w, h, ox, oy, rgba, depth, sh, canvas: spriteCanvas(w, h, rgba, sh) };
+  });
+}
+// Für den Modell-Bauer: Sprite -> Atlas-Teile
+export function encodeSprite(s) {
+  let d0 = 1e9, d1 = -1e9;
+  for (const d of s.depth) if (d > -1e8) { d0 = Math.min(d0, d); d1 = Math.max(d1, d); }
+  if (d1 <= d0) d1 = d0 + 1e-3;
+  const n = s.w * s.h, col = new Uint8ClampedArray(n * 4), dat = new Uint8ClampedArray(n * 4);
+  for (let k = 0; k < n; k++) {
+    if (s.rgba[k * 4 + 3]) col.set(s.rgba.subarray(k * 4, k * 4 + 4), k * 4);
+    const d = s.depth[k], q = d > -1e8 ? 1 + Math.round((d - d0) / (d1 - d0) * 65534) : 0;
+    dat[k * 4] = q >> 8; dat[k * 4 + 1] = q & 255; dat[k * 4 + 2] = s.sh[k] ? 255 : 0; dat[k * 4 + 3] = 255;
+  }
+  return { col, dat, d0, d1 };
 }
 
 export class Sprites {
   constructor() { this.mesh = new Map(); this.spr = new Map(); }
-  norm(a, r, v) { const d = ASSETS[a]; return [((Math.round(r / d.rot) * d.rot) % 24 + 24) % 24, v % d.variants]; }
+  // alle Modell-Assets vorab laden (fehlende Dateien werden übersprungen)
+  preload() {
+    return Promise.all(Object.values(ASSETS).filter(d => d.model).map(d => loadModel(d.model).then(f => MODELS.set(d.key, f), e => console.warn('Modell fehlt:', d.model, e))));
+  }
+  norm(a, r, v) { const d = ASSETS[a]; return [((Math.round(r / d.rot) * d.rot) % 72 + 72) % 72, v % d.variants]; }
   get(a, r, v) {
     const def = ASSETS[a]; if (!def) return null;
     [r, v] = this.norm(a, r, v);
+    if (def.model) { const f = MODELS.get(a); return f ? f[Math.round(r / 72 * f.length) % f.length] : null; }
     const k = a + '|' + r + '|' + v;
     let s = this.spr.get(k);
     if (!s) {
       const mk = a + '|' + v;
       let me = this.mesh.get(mk);
       if (!me) { me = new Mesh(); def.build(me, v); this.mesh.set(mk, me); }
-      s = renderSprite(me, r * Math.PI / 12); this.spr.set(k, s);
+      s = renderSprite(me, r * Math.PI / 36); this.spr.set(k, s);
     }
     return s;
   }
   thumb(a, size) {
-    const s = this.get(a, 0, 0), cv = document.createElement('canvas'); cv.width = cv.height = size;
+    const s = this.get(a, ASSETS[a].thumbR || 0, 0), cv = document.createElement('canvas'); cv.width = cv.height = size;
+    if (!s) return cv;
     const ctx = cv.getContext('2d'); ctx.imageSmoothingEnabled = false;
     const k = Math.min(size / s.w, size / s.h), w = s.w * k, h = s.h * k;
     ctx.drawImage(s.canvas, (size - w) / 2, (size - h) / 2, w, h);

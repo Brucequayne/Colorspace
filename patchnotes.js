@@ -3,6 +3,9 @@
    Die Versionsnummer auf den Kacheln kommt aus dem obersten Eintrag. */
 window.PATCHNOTES = {
   anarchyfrankfurt: [
+    { v: "0.26", t: "2026-11-21T21:40:00+01:00",
+      de: ["Neue Kategorie „Möbel & Deko“ mit den ersten Modellen aus dem Low-Poly-Pack: Sessel, Doppelbett und zwei Taschen, als fertige Pixel-Sprites", "Objekte drehen jetzt in 5°-Schritten (Q/E), Häuser und Zäune weiter in 15°, Bäume in 90°; ältere Karten werden automatisch umgerechnet"],
+      en: ["New category “Furniture & decor” with the first models from the low-poly pack: armchair, double bed and two bags, as finished pixel sprites", "Objects now rotate in 5° steps (Q/E), houses and fences still in 15°, trees in 90°; older maps are converted automatically"] },
     { v: "0.25", t: "2026-11-21T21:35:00+01:00",
       de: ["Neue Oberfläche: Werkzeugleiste mit Symbolen links, rechts nur die Einstellungen des aktiven Werkzeugs (einklappbar), Stadtkarte, Raster und Speichern im Menü „Karte“, mehr Platz fürs Bild", "Fachwerk-Blöcke ohne schräg verzerrte Eckhäuser: nur gerade Häuser, das Eckhaus zeigt mit einer Seitenfassade um die Ecke, spitze Ecken bleiben frei"],
       en: ["New interface: tool bar with icons on the left, the right panel only shows the active tool (collapsible), city map, grid and saving in the “Map” menu, more room for the picture", "Half-timbered blocks without skewed corner houses: only straight houses, the corner house turns the corner with a side facade, acute corners stay open"] },

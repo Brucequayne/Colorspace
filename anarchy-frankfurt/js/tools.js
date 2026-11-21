@@ -114,7 +114,7 @@ export class Tools {
       if (!inWorld(x, y)) continue;
       let pk = Math.random() * tot, t = b.mix[0][0];
       for (const q of b.mix) { pk -= q[1]; if (pk <= 0) { t = q[0]; break; } }
-      if (b.tree) { const d = ASSETS[t]; if (!this.blocked(x, y, d) && !this.onRoad(x, y, true)) this.app.world.add({ a: t, x, y, r: d.rot * Math.floor(Math.random() * 24 / d.rot), v: Math.floor(Math.random() * d.variants) }); continue; }
+      if (b.tree) { const d = ASSETS[t]; if (!this.blocked(x, y, d) && !this.onRoad(x, y, true)) this.app.world.add({ a: t, x, y, r: d.rot * Math.floor(Math.random() * 72 / d.rot), v: Math.floor(Math.random() * d.variants) }); continue; }
       if (this.onRoad(x, y, !b.sidewalk) && !b.road) continue;
       if (!VEG[t].flat && this.inBuilding(x, y)) continue;
       if (this.app.veg.crowded(t, x, y)) continue;
@@ -150,8 +150,8 @@ export class Tools {
   rotate(dir) {
     if (this.mode === 'select' && this.sel) {
       const o = this.app.world.objs.get(this.sel); if (!o) return;
-      const st = ASSETS[o.a].rot; this.app.world.set(o.id, { r: ((o.r + dir * st) % 24 + 24) % 24 });
-    } else { const st = ASSETS[this.asset].rot; this.rot = ((this.rot + dir * st) % 24 + 24) % 24; }
+      const st = ASSETS[o.a].rot; this.app.world.set(o.id, { r: ((o.r + dir * st) % 72 + 72) % 72 });
+    } else { const st = ASSETS[this.asset].rot; this.rot = ((this.rot + dir * st) % 72 + 72) % 72; }
     this.app.ui.sync(); this.app.dirty();
   }
   nextVariant() {

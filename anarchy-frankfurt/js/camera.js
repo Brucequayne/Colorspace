@@ -1,6 +1,7 @@
 // Anarchy Frankfurt – zentrale Einstellungen, Projektion, Kamera, Geo-Umrechnung
 export const CFG = {
-  VERSION: '0.23-editor',
+  VERSION: '0.26-editor',
+  MODEL_V: '26',           // Cache-Stempel für models/*.png|json
   THETA_DEG: 48,          // Kameraneigung
   PPM: 12,                // Pixel pro Meter (nativ)
   WORLD_HALF: 12500,      // 25 x 25 km Karte -> +-12,5 km um den Mittelpunkt

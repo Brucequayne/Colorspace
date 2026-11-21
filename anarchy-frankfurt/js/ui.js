@@ -85,7 +85,7 @@ export class UI {
     // Raster
     for (let i = 0; i < 12; i++) $('gA').insertAdjacentHTML('beforeend', `<option value="${i}">${i * 15}°</option>`);
     $('gA').value = app.grid.angle; $('gS').value = app.grid.step; $('gSnap').checked = app.grid.snap; $('gShow').checked = app.grid.show;
-    $('gA').onchange = e => { app.grid.angle = +e.target.value; const d = ASSETS[t.asset]; t.rot = Math.round(app.grid.angle / d.rot) * d.rot % 24; this.sync(); app.dirty(); };
+    $('gA').onchange = e => { app.grid.angle = +e.target.value; const d = ASSETS[t.asset]; t.rot = Math.round(app.grid.angle * 3 / d.rot) * d.rot % 72; this.sync(); app.dirty(); };
     $('gS').onchange = e => { app.grid.step = +e.target.value; app.dirty(); };
     $('gSnap').onchange = e => { app.grid.snap = e.target.checked; };
     $('gShow').onchange = e => { app.grid.show = e.target.checked; app.dirty(); };
@@ -152,10 +152,10 @@ export class UI {
     document.querySelectorAll('[data-gc]').forEach(b => b.classList.toggle('on', t.mode === 'ground' && +b.dataset.gc === t.ground.code && !t.ground.erase));
     document.querySelectorAll('.asset[data-vb]').forEach(b => b.classList.toggle('on', t.mode === 'brush' && b.dataset.vb === t.brush.id));
     const sel = t.sel && this.app.world.objs.get(t.sel);
-    $('rotLabel').textContent = ((sel ? sel.r : t.rot) * 15) + '°';
+    $('rotLabel').textContent = ((sel ? sel.r : t.rot) * 5) + '°';
     const info = $('selInfo');
-    if (sel) info.innerHTML = `Ausgewählt: <b>${ASSETS[sel.a].name}</b> · ${sel.r * 15}° · Variante ${sel.v + 1}/${ASSETS[sel.a].variants}<br>Q/E drehen · V Variante · Entf löschen`;
-    else if (t.mode === 'place') info.innerHTML = `Platzieren: <b>${ASSETS[t.asset].name}</b> · ${t.rot * 15}° · ${t.randVar ? 'zufällige Variante' : 'Variante ' + (t.variant + 1)}`;
+    if (sel) info.innerHTML = `Ausgewählt: <b>${ASSETS[sel.a].name}</b> · ${sel.r * 5}° · Variante ${sel.v + 1}/${ASSETS[sel.a].variants}<br>Q/E drehen · V Variante · Entf löschen`;
+    else if (t.mode === 'place') info.innerHTML = `Platzieren: <b>${ASSETS[t.asset].name}</b> · ${t.rot * 5}° · ${t.randVar ? 'zufällige Variante' : 'Variante ' + (t.variant + 1)}`;
     else info.textContent = t.mode === 'select' ? 'Objekt, Haus oder Straße anklicken. Ziehen = verschieben, Q/E = drehen, Entf = löschen. Leere Fläche ziehen = Karte bewegen.' : 'Asset unten wählen, dann auf der Karte klicken.';
     $('sObj').textContent = this.app.world.size.toLocaleString('de-DE') + ' Objekte · ' + this.app.veg.size.toLocaleString('de-DE') + ' Pflanzen';
   }

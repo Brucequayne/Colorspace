@@ -62,6 +62,7 @@ function leafC(P, d, k) {
 const binF = c => ({ f: (u, v, P) => jit(fr((P[0] + P[1]) / 0.12) < 0.18 ? mul(c, 0.82) : c, tx(P, 0.125, 30), 8) });
 
 export const M = {
+  flat: { f: (u, v, P, ex) => ex.c },
   wall: { f: (u, v, P, ex) => facade(ex.ax === 'x' ? P[0] - ex.o : ex.o - P[1], P[2], ex) },
   roof: { f: (u, v, P, ex) => {
     const base = ex.pal.roof;
