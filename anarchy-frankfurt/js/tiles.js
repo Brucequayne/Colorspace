@@ -56,7 +56,7 @@ export class Tiles {
     const bb = groundBBox(x0 - M_SIDE, y0 - M_TOP, x0 + T + M_SIDE, y0 + T + M_BOTTOM);
     const list = [];
     for (const o of world.query(bb[0], bb[1], bb[2], bb[3])) {
-      const s = sprites.get(o.a, o.r, o.v); if (!s) continue;
+      const s = sprites.get(o.a, o.r, o.v); if (!s) { if (sprites.loading(o.a)) return undefined; continue; }
       const p = proj(o.x, o.y, 0), sx = Math.round(p[0]) - s.ox - x0, sy = Math.round(p[1]) - s.oy - y0;
       if (sx >= T || sy >= T || sx + s.w <= 0 || sy + s.h <= 0) continue;
       list.push([s, sx, sy, groundDepth(o.x, o.y)]);

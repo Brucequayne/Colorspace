@@ -30,7 +30,6 @@ class App {
     this._dirty = true; this.keys = new Set(); this.pointers = new Map(); this.pan = null;
   }
   async start() {
-    await this.sprites.preload();
     this.ui.init(); this.resize();
     addEventListener('resize', () => this.resize());
     this.world.on(o => this.onObj(o));
@@ -43,6 +42,8 @@ class App {
     };
     this.paint.onLog = () => { this.hist.push('g'); this.redoH = []; };
     this.paint.onChange = bb => { this.tiles.dropPaint(bb); this.dirty(); this.saveSoon(); };
+    this.blocks.onSprite = () => this.dirty();
+    this.sprites.onModel = k => { this.ui.refreshThumb(k); this.dirty(); };
     this.blocks.onLog = () => { this.hist.push('b'); this.redoH = []; };
     this.blocks.onChange = bb => {
       if (!bb) this.tiles.O.clear(); else {
@@ -53,7 +54,7 @@ class App {
     };
     this.roads.onChange = bb => { this.tiles.dropRoads(bb); this.dirty(); this.saveSoon(); this.ui.sync(); };
     const p = CFG.PLACES[0]; [this.cam.x, this.cam.y] = toWorld(p[1], p[2]);
-    try { const m = await dbGet('maps', 'current'); if (m) { this.world.load(m, ASSETS); this.roads.load(m.roads); this.veg.load(m.veg); this.blocks.load(m.blocks); this.paint.load(m.ground); this.tiles.clearAll(); } } catch (e) { /* neu */ }
+    try { const m = await dbGet('maps', 'current'); if (m) { this.world.load(m, ASSETS); this.roads.load(m.roads); this.veg.load(m.veg); this.blocks.load(m.blocks); this.blocks.loadBakes(); this.paint.load(m.ground); this.tiles.clearAll(); } } catch (e) { /* neu */ }
     this.ui.sync(); this.bindInput(); this.osm.init(); this.loadVisible();
     const loop = () => { this.frame(); requestAnimationFrame(loop); }; loop();
   }
@@ -72,8 +73,9 @@ class App {
     this.dirty();
   }
   onObj(o) {
-    const s = this.sprites.get(o.a, o.r, o.v), p = proj(o.x, o.y, 0), x = Math.round(p[0]) - s.ox, y = Math.round(p[1]) - s.oy;
-    this.tiles.dropObjects(x, y, x + s.w, y + s.h); this.dirty(); this.saveSoon();
+    const s = this.sprites.get(o.a, o.r, o.v), p = proj(o.x, o.y, 0);
+    if (!s) this.tiles.dropObjects(p[0] - 160, p[1] - 220, p[0] + 160, p[1] + 60); // Modell lädt noch: großzügig neu zeichnen
+    else { const x = Math.round(p[0]) - s.ox, y = Math.round(p[1]) - s.oy; this.tiles.dropObjects(x, y, x + s.w, y + s.h); } this.dirty(); this.saveSoon();
   }
   serialize() { return { ...this.world.serialize(), format: 6, roads: this.roads.serialize(), veg: this.veg.serialize(), blocks: this.blocks.serialize(), ground: this.paint.serialize() }; }
   saveSoon() { clearTimeout(this._st); this._st = setTimeout(() => dbSet('maps', 'current', this.serialize()).catch(() => {}), 1200); }
@@ -82,7 +84,7 @@ class App {
   exportMap() { downloadJSON(this.serialize(), 'anarchy_frankfurt_map.json'); }
   async importMap() {
     const f = await pickFile('.json,application/json'); if (!f) return;
-    try { const d = JSON.parse(await f.text()); if (d.game !== 'anarchy-frankfurt') throw new Error(); this.world.load(d, ASSETS); this.roads.load(d.roads); this.veg.load(d.veg); this.blocks.load(d.blocks); this.paint.load(d.ground); this.hist = []; this.redoH = []; this.tiles.clearAll(); this.saveSoon(); this.ui.sync(); this.dirty(); }
+    try { const d = JSON.parse(await f.text()); if (d.game !== 'anarchy-frankfurt') throw new Error(); this.world.load(d, ASSETS); this.roads.load(d.roads); this.veg.load(d.veg); this.blocks.load(d.blocks); this.blocks.loadBakes(); this.paint.load(d.ground); this.hist = []; this.redoH = []; this.tiles.clearAll(); this.saveSoon(); this.ui.sync(); this.dirty(); }
     catch (e) { alert('Das ist keine gültige Anarchy-Frankfurt-Karte.'); }
   }
   newMap() { this.world.load({ objects: [] }); this.roads.load(null); this.veg.load(null); this.blocks.load(null); this.paint.load(null); this.tools.selBlock = null; this.hist = []; this.redoH = []; this.tools.sel = null; this.tools.selRoad = null; this.tiles.clearAll(); this.saveSoon(); this.ui.sync(); this.dirty(); }
@@ -108,7 +110,7 @@ class App {
     const cv = this.cv, dev = e => { const r = cv.getBoundingClientRect(), d = this.cam.dpr; return [(e.clientX - r.left) * d, (e.clientY - r.top) * d]; };
     cv.addEventListener('contextmenu', e => e.preventDefault());
     cv.addEventListener('pointerdown', e => {
-      if (this.play.active) return;
+      if (this.play.active) { this.play.mouseDown(dev(e), e); return; }
       cv.setPointerCapture(e.pointerId); this.pointers.set(e.pointerId, dev(e));
       if (this.pointers.size === 2) { this.tools.up(); this.pan = { pinch: this.pinchState() }; return; }
       const p = dev(e);
@@ -117,7 +119,8 @@ class App {
       if (!this.tools.down(p[0], p[1], e)) this.pan = { last: p };
     });
     cv.addEventListener('pointermove', e => {
-      const p = dev(e); if (this.pointers.has(e.pointerId)) this.pointers.set(e.pointerId, p);
+      const p = dev(e); if (this.play.active) { this.play.mouse = p; return; }
+      if (this.pointers.has(e.pointerId)) this.pointers.set(e.pointerId, p);
       if (this.pan && this.pan.pinch && this.pointers.size === 2) {
         const n = this.pinchState(), o = this.pan.pinch;
         this.cam.panDevice(n.cx - o.cx, n.cy - o.cy);
@@ -149,7 +152,7 @@ class App {
       if (['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', ' '].includes(k)) { this.keys.add(k); e.preventDefault(); return; }
       if (this.tools.key(e)) e.preventDefault();
     });
-    addEventListener('keyup', e => { this.keys.delete(e.key.toLowerCase()); if (this.play.active) this.play.key(e, false); });
+    addEventListener('keyup', e => { this.keys.delete(e.key.toLowerCase()); if (this.play.active) { this.play.key(e, false); if (e.key === 'Alt') e.preventDefault(); } });
     addEventListener('blur', () => { this.keys.clear(); this.play.keys.clear(); });
   }
   pinchState() { const [a, b] = [...this.pointers.values()]; return { cx: (a[0] + b[0]) / 2, cy: (a[1] + b[1]) / 2, d: Math.hypot(a[0] - b[0], a[1] - b[1]) || 1 }; }
@@ -185,7 +188,7 @@ class App {
       for (let ty = ty0; ty <= ty1; ty++) for (let tx = tx0; tx <= tx1; tx++) { const c = this.tiles.paint(tx, ty, bp); if (c === undefined) pending = true; else if (c) put(c, tx, ty); }
       const b3 = { n: 10 };
       for (let ty = ty0; ty <= ty1; ty++) for (let tx = tx0; tx <= tx1; tx++) { const c = this.tiles.roads(tx, ty, b3); if (c === undefined) pending = true; else if (c) put(c, tx, ty); }
-      this.drawGrid();
+      if (!this.play.active) this.drawGrid();
       const b2 = { n: 16, spr: { n: 3 } };
       for (let ty = ty0; ty <= ty1; ty++) for (let tx = tx0; tx <= tx1; tx++) { const c = this.tiles.objects(tx, ty, b2); if (c === undefined) pending = true; else if (c) put(c, tx, ty); }
     } else {

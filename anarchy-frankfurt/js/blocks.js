@@ -3,12 +3,16 @@
 // jede Parzelle wird ein eigenes Haus (Etagen, Farben, Dach, Balkone, Gauben) und als Pixel-Sprite gerendert.
 import { proj, groundDepth } from './camera.js';
 import { Mesh, rng, nrm, cross, sub, dot } from './geometry.js';
-import { renderSprite } from './renderer.js';
+import { renderSprite, spriteToBlob, blobToSprite } from './renderer.js';
+import { dbGet, dbSet } from './world.js';
 
-export const BLOCK_DEFAULT = { style: 'altbau', fmin: 4, fmax: 5, dens: 0.5, width: 15, pal: 'mix', roof: 'slate', gates: 1, seed: 1 };
+export const BLOCK_DEFAULT = { style: 'altbau', fmin: 4, fmax: 5, dens: 0.5, width: 15, pal: 'mix', roof: 'slate', gates: 1, mix: 0, seed: 1 };
 export const STYLES = { altbau: { name: 'Gründerzeit-Altbau', fmin: 4, fmax: 5, width: 15 }, fachwerk: { name: 'Fachwerk (Altstadt)', fmin: 2, fmax: 4, width: 8 } };
 // Fachwerk: Gefachfarben (Putz) und Balkenfarben
 const FW_WALL = [[[236, 232, 220], 5], [[232, 220, 186], 3], [[226, 206, 160], 2], [[224, 196, 180], 1.5], [[214, 212, 204], 1.5], [[210, 196, 150], 1]];
+// Läden im Erdgeschoss (Mixed Use): Schilderfarben und Markisen
+const SIGN = [[[34, 64, 48], 3], [[104, 30, 40], 3], [[28, 38, 66], 3], [[30, 30, 32], 3], [[150, 120, 60], 1], [[236, 232, 220], 2]];
+const AWN = [[[176, 46, 42], 3], [[40, 84, 60], 3], [[34, 48, 86], 2], [[214, 196, 150], 2], [[96, 34, 44], 2], [[60, 60, 62], 1]];
 const FW_BEAM = [[[70, 46, 34], 5], [[42, 36, 34], 3], [[112, 44, 36], 2], [[96, 70, 46], 1.5]];
 
 // Fassadenfarben [Name, Farbe, Gewicht] – typisch: beige, weiß, gelb, ochsenblut/maronenbraun; blau/grün selten
@@ -69,7 +73,7 @@ export function generate(b) {
   for (let k = 0; k < 24; k++) { const m = (lo + hi) / 2; if (insetOk(P, inset(P, m).Q)) lo = m; else hi = m; }
   // Dichte 0 % = schmale Häuser (9 m) mit großem Hof, 100 % = Hof fast zu: die Haustiefe wächst mit der Blockgröße
   const full = Math.max(9, lo * 0.95), d = Math.max(4, Math.min(lo * 0.95, 9 + p.dens * (full - 9)));
-  const { E, Q } = inset(P, d), out = [];
+  const { E, Q } = inset(P, d), out = [], rs = rng(b.id * 1543 + p.seed * 7717 + 91);  // eigener Würfel für Läden, damit alte Blöcke gleich bleiben
   const facW = FAC.map(f => [f, f[2] * (PAL_MODES[p.pal] ? (PAL_MODES[p.pal].k[f[0]] ?? 1) : 1)]);
   const roofW = Object.entries((ROOF_MODES[p.roof] || ROOF_MODES.slate).w).map(([k, w]) => [k, w]);
   // Eigenschaften eines Hauses würfeln und anhängen
@@ -80,9 +84,10 @@ export function generate(b) {
       const fac = pickW(r, facW), dark = fac[1][0] + fac[1][1] + fac[1][2] < 420;
       const trim = dark ? LSTONE : r() < 0.5 ? STUCCO : SAND;
       const roofKey = pickW(r, roofW);
-      out.push({ side,
+      const isShop = rs() < (p.mix || 0) * (corner ? 1.35 : 1), shop = { sign: pickW(rs, SIGN), awn: rs() < 0.65 ? pickW(rs, AWN) : null, stripe: rs() < 0.45, g: (rs() * 1e5) | 0 };
+      out.push({ side, shop: isShop ? shop : null,
         style: fw ? 'fachwerk' : 'altbau', fwWall: pickW(r, FW_WALL), fwBeam: pickW(r, FW_BEAM), edge: i,
-        key: `${b.id}:${i}:${j}:${p.style}:${p.gates}:${p.seed}:${p.fmin}:${p.fmax}:${p.dens}:${p.width}:${p.pal}:${p.roof}:${b.pts.map(q2 => q2.join(',')).join(';')}`,
+        key: `${b.id}:${i}:${j}:${p.style}:${p.gates}:${p.seed}:${p.fmin}:${p.fmax}:${p.dens}:${p.width}:${p.pal}:${p.roof}:${p.mix || 0}:${b.pts.map(q2 => q2.join(',')).join(';')}`,
         q, n: e.n, u: e.u, F, wall: fac[1].map(c => c + (r() - 0.5) * 10), trim, plinth: r() < 0.65 ? SAND : STONE,
         roof: ROOFS[roofKey].map(c => c + (r() - 0.5) * 8), mansard: corner || d > 16 || r() < 0.75, balcony: r() < 0.55, dormEvery: r() < 0.5 ? 1 : 2, seed: (r() * 1e6) | 0
       });
@@ -173,7 +178,8 @@ export function buildParcel(par, cx, cy) {
   const base = { gh, fh, E, F, wall: par.wall, trim: par.trim, plinth: par.plinth, seed: par.seed % 9973, axes, door, arch };
   const hid = m.part(), out = [-n[0], -n[1], 0];
   const Z = (p, z) => [p[0], p[1], z];
-  m.quad(Z(Q0, 0), Z(Q1, 0), Z(Q1, E), Z(Q0, E), 'altbau', hid, out, { ...base, kind: 'front', len });
+  m.quad(Z(Q0, 0), Z(Q1, 0), Z(Q1, E), Z(Q0, E), 'altbau', hid, out, { ...base, kind: 'front', len, shop: par.shop });
+  awnings(m, par, Q0, u, n, len, axes, door, arch, 3.2, 2.55, 1.2);
   const blen = Math.hypot(Q3[0] - Q2[0], Q3[1] - Q2[1]);
   let barch = null;
   if (arch) { const c = [Q0[0] + u[0] * par.gate.c + n[0] * 1, Q0[1] + u[1] * par.gate.c + n[1] * 1], bc = (c[0] - Q2[0]) * (Q3[0] - Q2[0]) / blen + (c[1] - Q2[1]) * (Q3[1] - Q2[1]) / blen; barch = { u0: bc - par.gate.w / 2, u1: bc + par.gate.w / 2 }; }
@@ -240,7 +246,8 @@ export function buildParcel(par, cx, cy) {
 
 // ---------- Blöcke verwalten ----------
 export class Blocks {
-  constructor() { this.list = new Map(); this.nid = 1; this.U = []; this.R = []; this.onLog = null; this.onChange = null; this.geo = new Map(); this.spr = new Map(); this.cap = 260; }
+  constructor() { this.list = new Map(); this.nid = 1; this.U = []; this.R = []; this.onLog = null; this.onChange = null; this.geo = new Map(); this.spr = new Map(); this.cap = 400;
+    this.blobs = new Map(); this.dec = new Set(); this.wait = new Set(); this.onSprite = null; this.baking = 0; }
   get size() { return this.list.size; }
   snap() { return JSON.stringify(this.serialize()); }
   begin() { this._b = this.snap(); this._d = null; }
@@ -254,7 +261,7 @@ export class Blocks {
   bbox(b) { const xs = b.pts.map(p => p[0]), ys = b.pts.map(p => p[1]); return [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)]; }
   gen(b) {
     const key = JSON.stringify([b.pts, b.p]); let g = this.geo.get(b.id);
-    if (!g || g.key !== key) { g = generate(b); g.key = key; for (const par of g.parcels) { par.cx = par.q.reduce((s, q) => s + q[0], 0) / 4; par.cy = par.q.reduce((s, q) => s + q[1], 0) / 4; } this.geo.set(b.id, g); }
+    if (!g || g.key !== key) { g = generate(b); g.key = key; for (const par of g.parcels) { par.bid = b.id; par.cx = par.q.reduce((s, q) => s + q[0], 0) / 4; par.cy = par.q.reduce((s, q) => s + q[1], 0) / 4; } this.geo.set(b.id, g); }
     return g;
   }
   // Parzellen in einem Weltbereich
@@ -264,14 +271,55 @@ export class Blocks {
     return out;
   }
   // Sprite einer Parzelle (begrenzter Zwischenspeicher); budget.n = wie viele neu gerendert werden dürfen
+  // Eingebrannte Blöcke: fertige Hausbilder kommen als PNG aus dem Speicher (schnell entpackt statt neu gerendert)
   sprite(par, budget) {
     let s = this.spr.get(par.key);
     if (s) { this.spr.delete(par.key); this.spr.set(par.key, s); return s; }
+    if (this.wait.has(par.bid)) return null;                  // Bilder des Blocks werden gerade geladen
+    const bl = this.blobs.get(par.key);
+    if (bl) {
+      if (!this.dec.has(par.key)) { this.dec.add(par.key); blobToSprite(bl).then(sp => { this.dec.delete(par.key); this._put(par.key, sp); this.onSprite && this.onSprite(); }, () => { this.dec.delete(par.key); this.blobs.delete(par.key); }); }
+      return null;
+    }
     if (budget && budget.n <= 0) return null;
     if (budget) budget.n--;
-    s = renderSprite(buildParcel(par, par.cx, par.cy), 0);
-    this.spr.set(par.key, s); while (this.spr.size > this.cap) this.spr.delete(this.spr.keys().next().value);
-    return s;
+    return this._put(par.key, renderSprite(buildParcel(par, par.cx, par.cy), 0));
+  }
+  _put(k, s) { this.spr.set(k, s); while (this.spr.size > this.cap) this.spr.delete(this.spr.keys().next().value); return s; }
+  // Block bestätigen: alle Häuser einmal rendern und als Bilder speichern; danach nur noch auswählen/löschen
+  async bake(id) {
+    const b = this.list.get(id); if (!b || b.baked) return;
+    this.begin(); b.baked = true; b.bakeId = b.id + '-' + Date.now().toString(36); this.commit();
+    this.baking++;
+    try {
+      const recs = [];
+      for (const par of this.gen(b).parcels) {
+        const s = this.spr.get(par.key) || this._put(par.key, renderSprite(buildParcel(par, par.cx, par.cy), 0));
+        const r = await spriteToBlob(s); recs.push(r); this.blobs.set(par.key, r);
+        await new Promise(res => setTimeout(res, 0));
+      }
+      await dbSet('bake', b.bakeId, recs).catch(() => {});
+    } finally { this.baking--; this.onSprite && this.onSprite(); }
+  }
+  // nach dem Laden einer Karte: gespeicherte Hausbilder der eingebrannten Blöcke holen (fehlen sie, wird neu gebrannt)
+  loadBakes() {
+    for (const b of this.list.values()) {
+      if (!b.baked || !b.bakeId) continue;
+      this.wait.add(b.id);
+      dbGet('bake', b.bakeId).then(recs => {
+        const ps = this.gen(b).parcels;
+        if (Array.isArray(recs) && recs.length === ps.length) ps.forEach((par, i) => this.blobs.set(par.key, recs[i]));
+        else this._rebake(b);
+      }, () => {}).finally(() => { this.wait.delete(b.id); this.onSprite && this.onSprite(); });
+    }
+  }
+  async _rebake(b) {
+    const recs = [];
+    for (const par of this.gen(b).parcels) {
+      const s = this.spr.get(par.key) || this._put(par.key, renderSprite(buildParcel(par, par.cx, par.cy), 0));
+      const r = await spriteToBlob(s); recs.push(r); this.blobs.set(par.key, r); await new Promise(res => setTimeout(res, 0));
+    }
+    dbSet('bake', b.bakeId, recs).catch(() => {});
   }
   containing(x, y) {
     for (const b of this.list.values()) {
@@ -295,10 +343,10 @@ export class Blocks {
     }
     return best;
   }
-  serialize() { return [...this.list.values()].map(b => ({ id: b.id, pts: b.pts.map(p => [Math.round(p[0] * 100) / 100, Math.round(p[1] * 100) / 100]), p: b.p })); }
+  serialize() { return [...this.list.values()].map(b => ({ id: b.id, pts: b.pts.map(p => [Math.round(p[0] * 100) / 100, Math.round(p[1] * 100) / 100]), p: b.p, ...(b.baked ? { baked: 1, bakeId: b.bakeId } : {}) })); }
   load(d, quiet) {
     this.list.clear(); this.geo.clear(); this.nid = 1; if (!quiet) { this.U = []; this.R = []; }
-    for (const b of Array.isArray(d) ? d : []) { this.list.set(b.id, { id: b.id, pts: b.pts, p: { ...BLOCK_DEFAULT, ...b.p } }); this.nid = Math.max(this.nid, b.id + 1); }
+    for (const b of Array.isArray(d) ? d : []) { this.list.set(b.id, { id: b.id, pts: b.pts, p: { ...BLOCK_DEFAULT, ...b.p }, baked: !!b.baked, bakeId: b.bakeId }); this.nid = Math.max(this.nid, b.id + 1); }
   }
 }
 
@@ -314,7 +362,7 @@ function buildFachwerk(par, cx, cy) {
   let z = 0;
   for (let f = 0; f < F; f++) {
     const h = f === 0 ? gh : fh, A = O(Q0, off(f)), B = O(Q1, off(f));
-    m.quad(Z(A, z), Z(B, z), Z(B, z + h), Z(A, z + h), 'fachwerk', hid, out, { ...ex, kind: f === 0 ? 'ground' : 'floor', fi: f });
+    m.quad(Z(A, z), Z(B, z), Z(B, z + h), Z(A, z + h), 'fachwerk', hid, out, { ...ex, kind: f === 0 ? 'ground' : 'floor', fi: f, shop: f === 0 ? par.shop : null });
     m.quad(Z(Q2, z), Z(Q3, z), Z(Q3, z + h), Z(Q2, z + h), 'fachwerk', hid, [n[0], n[1], 0], { ...ex, kind: f === 0 ? 'back0' : 'floor', fi: f, len: Math.hypot(Q3[0] - Q2[0], Q3[1] - Q2[1]), door: -1, arch: arch ? { u0: len - arch.u1, u1: len - arch.u0 } : null });
     // freiliegende Seite an der Ecke: echte Fassade (Fachwerk bzw. Sandstein-Erdgeschoss) statt Brandwand
     const sideEx = len2 => ({ ...ex, kind: f === 0 ? 'back0' : 'floor', fi: f, len: len2, door: -1, arch: null });
@@ -323,6 +371,7 @@ function buildFachwerk(par, cx, cy) {
     m.quad(Z(Q3, z), Z(A, z), Z(A, z + h), Z(Q3, z + h), sd.start ? 'fachwerk' : 'firewall', hid, sOut(Q3, A), sd.start ? sideEx(Math.hypot(A[0] - Q3[0], A[1] - Q3[1])) : undefined);
     z += h;
   }
+  awnings(m, par, Q0, u, n, len, par.axes, par.doorAx, arch, 2.7, 2.2, 0.95);
   // Giebeldach, First senkrecht zur Straße
   const E = z, A = O(Q0, off(F - 1) + 0.15), B = O(Q1, off(F - 1) + 0.15), M0 = [(A[0] + B[0]) / 2, (A[1] + B[1]) / 2], M1 = [(Q2[0] + Q3[0]) / 2, (Q2[1] + Q3[1]) / 2];
   const zr = E + Math.min(9, Math.max(3, len * 0.95)), rid = m.part(), roofMat = par.roof[0] > 120 ? 'roof' : 'slate', RX = roofMat === 'roof' ? { pal: { roof: par.roof } } : { roof: par.roof };
@@ -333,5 +382,17 @@ function buildFachwerk(par, cx, cy) {
   m.tri([A[0], A[1], E], [B[0], B[1], E], [M0[0], M0[1], zr], [0, 0], [gl, 0], [gl / 2, zr - E], 'fachwerk', nrmOut(A, B, M0, E, zr, out), hid, { ...ex, kind: 'gable', len: gl });
   m.tri3(Z(Q2, E), Z(Q3, E), Z(M1, zr), 'firewall', rid, [n[0], n[1], 0]);
   return m;
+}
+// Markisen über den Schaufenstern (nur Läden mit Markise)
+function awnings(m, par, Q0, u, n, len, axes, door, arch, z0, z1, depth) {
+  const S = par.shop; if (!S || !S.awn) return;
+  const aw = len / axes, Z = (p, z) => [p[0], p[1], z], P = (t, s) => [Q0[0] + u[0] * t - n[0] * s, Q0[1] + u[1] * t - n[1] * s];
+  for (let j = 0; j < axes; j++) {
+    const c = (j + 0.5) * aw; if (j === door || (arch && c > arch.u0 - 0.6 && c < arch.u1 + 0.6)) continue;
+    const w = Math.min(aw - 0.36, 2.8) / 2, id = m.part(), X = { c: S.awn, st: S.stripe };
+    const a = P(c - w, 0.02), b = P(c + w, 0.02), b2 = P(c + w, depth), a2 = P(c - w, depth);
+    m.quad(Z(a, z0), Z(b, z0), Z(b2, z1), Z(a2, z1), 'awning', id, [-n[0] * (z0 - z1), -n[1] * (z0 - z1), depth], X);
+    m.quad(Z(a2, z1), Z(b2, z1), Z(b2, z1 - 0.26), Z(a2, z1 - 0.26), 'awning', id, [-n[0], -n[1], 0], { ...X, val: 1 });
+  }
 }
 function nrmOut(A, B, M0, E, zr, out) { let nn = nrm(cross(sub([B[0], B[1], E], [A[0], A[1], E]), sub([M0[0], M0[1], zr], [A[0], A[1], E]))); if (dot(nn, out) < 0) nn = nn.map(q => -q); return nn; }

@@ -9,6 +9,9 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); c
 button, select, input { font: inherit; color: var(--text); }
 button { background: var(--card2); border: 1px solid var(--line); padding: 5px 9px; cursor: pointer; }
 button:hover { border-color: var(--line2); }
+button.primary { background: #2f5a34; border-color: #4f8a52; color: #e8ffe6; }
+button.primary:disabled { background: var(--card2); border-color: var(--line); color: var(--muted); }
+button:disabled { opacity: .6; cursor: default; }
 button.on { background: var(--accent); border-color: var(--accent); color: #fff; }
 button:disabled { opacity: .4; cursor: default; }
 select { background: var(--card2); border: 1px solid var(--line); padding: 3px 6px; }
@@ -34,6 +37,11 @@ body.inframe #backCS { display: block; }
 #dock .sep { display: block; height: 1px; background: var(--line); margin: 3px 4px; }
 #dock .play { color: var(--accent2); }
 body.playing #dock .play { background: var(--accent); color: #fff; }
+#dock button.fog { height: 34px; padding: 4px 0; gap: 2px; border: 1px solid var(--line); color: var(--muted); }
+#dock button.fog b { font-size: 10px; font-weight: 600; color: #9a978f; }
+#dock button.fog.on { background: #23302a; border-color: #4f8a52; color: #cfe8c9; }
+#dock button.fog.on b { color: #9fe39a; }
+body.playing #view { cursor: none; }
 
 /* oben rechts */
 #topbar { position: fixed; top: 10px; right: 324px; z-index: 6; display: flex; gap: 4px; background: var(--card); border: 1px solid var(--line); padding: 4px; }
@@ -69,8 +77,8 @@ body.panel-min #topbar { right: 12px; }
 .pill { min-width: 46px; text-align: center; padding: 3px 6px; background: #000; color: var(--accent2); }
 
 .cat { color: var(--muted); margin: 8px 0 4px; font-size: 10px; text-transform: uppercase; letter-spacing: 1px; }
-.grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; }
-.asset { padding: 2px; display: flex; flex-direction: column; align-items: center; gap: 2px; background: var(--card2); }
+.grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 5px; }
+.asset { min-width: 0; padding: 2px; display: flex; flex-direction: column; align-items: center; gap: 2px; background: var(--card2); }
 .asset canvas { width: 52px; height: 52px; image-rendering: pixelated; }
 .asset span { font-size: 9px; line-height: 1.15; text-align: center; color: var(--muted); height: 21px; overflow: hidden; }
 .asset.on { outline: 2px solid var(--accent2); background: #3a3320; }
@@ -101,7 +109,8 @@ body.inframe #status { right: 290px; }
 #lockForm a { color: var(--muted); }
 
 /* Spieltest */
-#playHint { display: none; position: fixed; left: 50%; top: 10px; transform: translateX(-50%); z-index: 6; background: var(--card); border: 1px solid var(--line); padding: 6px 12px; color: var(--muted); white-space: nowrap; }
+#playHint { display: none; position: fixed; left: 50%; bottom: 44px; transform: translateX(-50%); z-index: 6; background: var(--card); border: 1px solid var(--line); padding: 6px 12px; color: var(--muted); max-width: 92vw; text-align: center; line-height: 1.5; }
+#playHint b { color: var(--accent2); font-weight: 600; }
 body.playing #playHint { display: block; }
 body.playing #panel, body.playing #mapMenu, body.playing #topbar, body.playing #dock button[data-mode], body.playing #dock .sep { display: none; }
 #inside { position: fixed; inset: 0; z-index: 20; background: rgba(10, 11, 14, .82); display: flex; align-items: center; justify-content: center; }

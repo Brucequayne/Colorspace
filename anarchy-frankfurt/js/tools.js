@@ -7,7 +7,6 @@ import { BLOCK_DEFAULT, normPoly } from './blocks.js';
 import { ROAD_DEFAULT, layout, ACUTE } from './roads.js';
 
 export const MODES = ['select', 'place', 'brush', 'erase', 'road', 'block', 'ground'];
-const STEP = Math.PI / 36; // Straßen in 5°-Schritten
 
 export class Tools {
   constructor(app) {
@@ -17,6 +16,7 @@ export class Tools {
     this.eraser = { r: 4, vegOnly: true };
     this.ground = { code: 2, r: 3, erase: false };
     this.road = { p: { ...ROAD_DEFAULT }, start: null }; this.selRoad = null;
+    this.roadStep = 1; try { this.roadStep = +(localStorage.getItem('anarchyfrankfurt.roadStep') || 1); } catch (e) { /* egal */ }   // Winkelschritt der Straßen in Grad
     this.block = { p: { ...BLOCK_DEFAULT }, pts: [], vdrag: null }; this.selBlock = null;
     this.sel = null; this.drag = null; this.paint = null; this.cursor = null; this.shift = false;
   }
@@ -34,7 +34,7 @@ export class Tools {
     const bb = groundBBox(nx - 240, ny - 340, nx + 240, ny + 340);
     let best = null, bd = -1e18;
     for (const o of world.query(bb[0], bb[1], bb[2], bb[3])) {
-      const s = sprites.get(o.a, o.r, o.v), p = proj(o.x, o.y, 0);
+      const s = sprites.get(o.a, o.r, o.v), p = proj(o.x, o.y, 0); if (!s) continue;
       const lx = nx - (Math.round(p[0]) - s.ox), ly = ny - (Math.round(p[1]) - s.oy);
       if (lx < 0 || ly < 0 || lx >= s.w || ly >= s.h) continue;
       const si = ly * s.w + lx; if (!s.rgba[si * 4 + 3]) continue;
@@ -167,7 +167,7 @@ export class Tools {
   }
   // Fangradius in Metern (ca. 14 Bildschirmpixel)
   tol() { return Math.max(1.5, 14 / (12 * this.app.cam.scale * 0.75)); }
-  // Straßenpunkt: Knoten > Kreuzung mit vorhandener Straße > 15°-Richtung mit Rasterlänge
+  // Straßenpunkt: Knoten > Kreuzung mit vorhandener Straße > Richtung im Winkelschritt (Shift = 15°) mit Rasterlänge
   roadPoint(g) {
     const R = this.app.roads, r = this.tol(), st = this.road.start;
     const n = R.nodeNear(g[0], g[1], r); if (n) return [n.x, n.y];
@@ -176,7 +176,7 @@ export class Tools {
       if (s) { const q = s.g, k = (g[0] - q.ax) * q.ux + (g[1] - q.ay) * q.uy, L = Math.max(0, Math.min(q.L, Math.round(k / this.app.grid.step) * this.app.grid.step)); return [q.ax + q.ux * L, q.ay + q.uy * L]; }
       return this.snap(g[0], g[1]);
     }
-    const a = Math.round(Math.atan2(g[1] - st[1], g[0] - st[0]) / STEP) * STEP, ux = Math.cos(a), uy = Math.sin(a);
+    const STEP = (this.shift ? 15 : this.roadStep) * Math.PI / 180, a = Math.round(Math.atan2(g[1] - st[1], g[0] - st[0]) / STEP) * STEP, ux = Math.cos(a), uy = Math.sin(a);
     const len = Math.max(0, Math.round(((g[0] - st[0]) * ux + (g[1] - st[1]) * uy) / this.app.grid.step) * this.app.grid.step);
     const e = [st[0] + ux * len, st[1] + uy * len];
     // Schnittpunkt mit vorhandener Mittellinie in der Nähe?
@@ -210,7 +210,7 @@ export class Tools {
     if (e.button === 2) { this.blockFinish(); return; }
     if (!B.pts.length && this.selBlock) {           // Eckpunkt des gewählten Blocks ziehen?
       const b = this.app.blocks.list.get(this.selBlock);
-      if (b) for (let i = 0; i < b.pts.length; i++) if (Math.hypot(b.pts[i][0] - g[0], b.pts[i][1] - g[1]) < r) { B.vdrag = { id: b.id, i, p: b.pts[i].slice() }; return; }
+      if (b && !b.baked) for (let i = 0; i < b.pts.length; i++) if (Math.hypot(b.pts[i][0] - g[0], b.pts[i][1] - g[1]) < r) { B.vdrag = { id: b.id, i, p: b.pts[i].slice() }; return; }
     }
     if (!B.pts.length) { const hit = this.blockAt(g, dx, dy); if (hit) { this.selBlock = hit.id; this.app.ui.sync(); this.app.ui.blockForm(); return; } }
     if (B.pts.length >= 3 && Math.hypot(B.pts[0][0] - g[0], B.pts[0][1] - g[1]) < r) { this.blockFinish(); return; }
@@ -277,7 +277,7 @@ export class Tools {
       if (st) {
         band(st[0], st[1], p[0], p[1], lay.H, 'rgba(190,186,176,.55)', null);
         band(st[0], st[1], p[0], p[1], lay.h, 'rgba(60,62,70,.7)', lay.ok ? '#b6f07a' : '#ff6a5a');
-        const L = Math.hypot(p[0] - st[0], p[1] - st[1]), ang = ((Math.round(Math.atan2(p[1] - st[1], p[0] - st[0]) * 36 / Math.PI) * 5) % 360 + 360) % 360;
+        const L = Math.hypot(p[0] - st[0], p[1] - st[1]), ang = ((Math.round(Math.atan2(p[1] - st[1], p[0] - st[0]) * 180 / Math.PI)) % 360 + 360) % 360;
         const d = cam.toDevice(...proj(p[0], p[1], 0).slice(0, 2));
         ctx.save(); ctx.font = `${12 * cam.dpr}px ui-monospace, monospace`; ctx.fillStyle = '#000a'; const txt = `${L.toFixed(1)} m · ${ang}°`;
         const tw = ctx.measureText(txt).width; ctx.fillRect(d[0] + 12 * cam.dpr, d[1] - 22 * cam.dpr, tw + 10 * cam.dpr, 18 * cam.dpr);
@@ -290,9 +290,11 @@ export class Tools {
     const [gx, gy] = this.cursor;
     if (this.mode === 'place') {
       const [x, y] = this.snap(gx, gy), s = sprites.get(this.asset, this.rot, this.variant), p = proj(x, y, 0);
-      const d = cam.toDevice(Math.round(p[0]) - s.ox, Math.round(p[1]) - s.oy);
-      ctx.save(); ctx.imageSmoothingEnabled = false; ctx.globalAlpha = inWorld(x, y) ? 0.72 : 0.3;
-      ctx.drawImage(s.canvas, Math.round(d[0]), Math.round(d[1]), s.w * sc, s.h * sc); ctx.restore();
+      if (s) {
+        const d = cam.toDevice(Math.round(p[0]) - s.ox, Math.round(p[1]) - s.oy);
+        ctx.save(); ctx.imageSmoothingEnabled = false; ctx.globalAlpha = inWorld(x, y) ? 0.72 : 0.3;
+        ctx.drawImage(s.canvas, Math.round(d[0]), Math.round(d[1]), s.w * sc, s.h * sc); ctx.restore();
+      }
       ring(x, y, 0.25, '#ffd34a', 2);
     } else if (this.mode === 'ground') {
       ring(gx, gy, this.ground.r, this.shift || this.ground.erase ? '#ff6a5a' : '#ffd34a', 2);

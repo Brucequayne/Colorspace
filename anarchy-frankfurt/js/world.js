@@ -51,8 +51,8 @@ export class World {
 let dbp = null;
 function db() {
   if (!dbp) dbp = new Promise((res, rej) => {
-    const r = indexedDB.open('anarchy-frankfurt', 1);
-    r.onupgradeneeded = () => { const d = r.result; for (const n of ['osm', 'maps']) if (!d.objectStoreNames.contains(n)) d.createObjectStore(n); };
+    const r = indexedDB.open('anarchy-frankfurt', 2);
+    r.onupgradeneeded = () => { const d = r.result; for (const n of ['osm', 'maps', 'bake']) if (!d.objectStoreNames.contains(n)) d.createObjectStore(n); };
     r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
   });
   return dbp;

@@ -15,6 +15,7 @@ export class UI {
   init() {
     const app = this.app, t = app.tools;
     document.querySelectorAll('[data-mode]').forEach(b => b.onclick = () => t.setMode(b.dataset.mode));
+    $('fogBtn').onclick = e => { e.currentTarget.blur(); app.play.setFog(!app.play.fog); };
     $('playBtn').onclick = e => { e.currentTarget.blur(); if (app.play.active) app.play.stop(); else app.play.start(); };
     $('rotL').onclick = () => t.rotate(-1); $('rotR').onclick = () => t.rotate(1);
     $('undo').onclick = () => app.undo(); $('redo').onclick = () => app.redo();
@@ -23,11 +24,14 @@ export class UI {
     $('mapClose').onclick = () => { $('mapMenu').hidden = true; $('mapBtn').classList.remove('on'); };
 
     // Assets mit Vorschaubildern
+    // Vorschaubilder der Modelle erst laden, wenn sie im Panel sichtbar werden
+    this.thumbObs = new IntersectionObserver(es => { for (const e of es) if (e.isIntersecting) { this.thumbObs.unobserve(e.target); const k = e.target.dataset.key; if (app.sprites.get(k, ASSETS[k].thumbR || 0, 0)) this.refreshThumb(k); } });
     const box = $('assets'); let cat = '', grid;
     for (const a of ASSET_LIST) {
       if (a.cat !== cat) { cat = a.cat; box.insertAdjacentHTML('beforeend', `<div class="cat">${cat}</div>`); grid = document.createElement('div'); grid.className = 'grid'; box.appendChild(grid); }
       const b = document.createElement('button'); b.className = 'asset'; b.dataset.key = a.key; b.title = a.name;
-      b.appendChild(app.sprites.thumb(a.key, 52)); b.insertAdjacentHTML('beforeend', `<span>${a.name}</span>`);
+      b.appendChild(a.model ? document.createElement('canvas') : app.sprites.thumb(a.key, 52)); b.insertAdjacentHTML('beforeend', `<span>${a.name}</span>`);
+      if (a.model) this.thumbObs.observe(b);
       b.onclick = () => t.setAsset(a.key); grid.appendChild(b);
     }
 
@@ -43,18 +47,21 @@ export class UI {
     $('kPal').innerHTML = Object.entries(PAL_MODES).map(([k, v]) => `<option value="${k}">${v.name}</option>`).join('');
     $('kRoof').innerHTML = Object.entries(ROOF_MODES).map(([k, v]) => `<option value="${k}">${v.name}</option>`).join('');
     const kset = (key, val) => {
-      const sel = t.selBlock && app.blocks.list.get(t.selBlock), p = { ...(sel ? sel.p : t.block.p), [key]: val };
+      const sel = t.selBlock && app.blocks.list.get(t.selBlock); if (sel && sel.baked) return;
+      const p = { ...(sel ? sel.p : t.block.p), [key]: val };
       if (key === 'fmin' && p.fmax < val) p.fmax = val; if (key === 'fmax' && p.fmin > val) p.fmin = val;
       if (key === 'style') { const S = STYLES[val]; p.fmin = S.fmin; p.fmax = S.fmax; p.width = S.width; }
       if (sel) { clearTimeout(this._kt); this._kt = setTimeout(() => { const B = app.blocks; B.begin(); B.set(sel.id, { p }); B.commit(); sel.pPending = null; this.blockForm(); }, 120); sel.pPending = p; }
       else t.block.p = p;
       this.blockForm(p);
     };
-    for (const [id, key, f] of [['kMin', 'fmin', v => v], ['kMax', 'fmax', v => v], ['kDen', 'dens', v => v / 100], ['kWid', 'width', v => v], ['kGat', 'gates', v => v]]) $(id).oninput = e => kset(key, f(+e.target.value));
+    for (const [id, key, f] of [['kMin', 'fmin', v => v], ['kMax', 'fmax', v => v], ['kDen', 'dens', v => v / 100], ['kWid', 'width', v => v], ['kGat', 'gates', v => v], ['kMix', 'mix', v => v / 100]]) $(id).oninput = e => kset(key, f(+e.target.value));
     $('kSty').onchange = e => kset('style', e.target.value);
     $('kPal').onchange = e => kset('pal', e.target.value); $('kRoof').onchange = e => kset('roof', e.target.value);
     $('kSeed').onclick = () => { const sel = t.selBlock && app.blocks.list.get(t.selBlock); kset('seed', ((sel ? sel.p : t.block.p).seed || 1) + 1); };
     $('kDel').onclick = () => { if (t.selBlock) t.deleteSel(); };
+    $('kBake').onclick = async () => { const sel = t.selBlock && app.blocks.list.get(t.selBlock); if (!sel || sel.baked) return; const pr = app.blocks.bake(sel.id); this.blockForm(); await pr; this.blockForm(); };
+    $('kBakeAll').onclick = async () => { for (const b of [...app.blocks.list.values()]) if (!b.baked) { const pr = app.blocks.bake(b.id); this.blockForm(); await pr; } this.blockForm(); };
     this.blockForm();
 
     // Straße
@@ -69,6 +76,7 @@ export class UI {
     $('rApplyAll').onclick = () => t.selRoad && applyTo(R.chainOf(t.selRoad));
     $('rTake').onclick = () => { const s = t.selRoad && R.segs.get(t.selRoad); if (s) { t.road.p = { ...s.p }; this.roadForm(); } };
     $('rDel').onclick = () => t.deleteSel();
+    $('rStep').value = String(t.roadStep); $('rStep').onchange = e => { t.roadStep = +e.target.value; try { localStorage.setItem('anarchyfrankfurt.roadStep', e.target.value); } catch (er) { /* egal */ } app.dirty(); };
     this.roadForm();
 
     // Pinsel
@@ -113,13 +121,22 @@ export class UI {
     $('newMap').onclick = () => { if (confirm('Alle platzierten Objekte löschen?')) app.newMap(); };
     this.sync();
   }
+  refreshThumb(k) {
+    const b = document.querySelector(`#assets .asset[data-key="${k}"]`); if (!b) return;
+    const c = this.app.sprites.thumb(k, 52); b.replaceChild(c, b.querySelector('canvas'));
+  }
   blockForm(pp) {
     const t = this.app.tools, sel = t.selBlock && this.app.blocks.list.get(t.selBlock), p = pp || (sel ? (sel.pPending || sel.p) : t.block.p);
     const set = (id, v, txt) => { $(id).value = v; $(id + 'o').textContent = txt; };
-    set('kMin', p.fmin, String(p.fmin)); set('kMax', p.fmax, String(p.fmax)); set('kDen', Math.round(p.dens * 100), Math.round(p.dens * 100) + ' %'); set('kWid', p.width, p.width + ' m'); set('kGat', p.gates || 1, String(p.gates || 1)); $('kSty').value = p.style || 'altbau';
+    set('kMin', p.fmin, String(p.fmin)); set('kMax', p.fmax, String(p.fmax)); set('kDen', Math.round(p.dens * 100), Math.round(p.dens * 100) + ' %'); set('kWid', p.width, p.width + ' m'); set('kGat', p.gates || 1, String(p.gates || 1)); set('kMix', Math.round((p.mix || 0) * 100), Math.round((p.mix || 0) * 100) + ' %'); $('kSty').value = p.style || 'altbau';
     $('kPal').value = p.pal; $('kRoof').value = p.roof;
     $('kDel').disabled = !sel;
-    if (sel) { const g = this.app.blocks.gen(sel); $('kInfo').textContent = `Gewählter Block: ${g.parcels.length} Häuser, Haustiefe ${g.depth.toFixed(1)} m, ${g.parcels.filter(q => q.gate).length} Hofzugang/-zugänge`; }
+    const baked = !!(sel && sel.baked), open = [...this.app.blocks.list.values()].filter(b => !b.baked).length;
+    for (const id of ['kSty', 'kMin', 'kMax', 'kDen', 'kWid', 'kGat', 'kMix', 'kPal', 'kRoof', 'kSeed']) $(id).disabled = baked;
+    $('kBake').disabled = !sel || baked || this.app.blocks.baking > 0; $('kBake').textContent = baked ? '✓ Eingebrannt' : this.app.blocks.baking ? 'Brenne ein …' : '✓ Block bestätigen';
+    $('kBakeAll').disabled = !open || this.app.blocks.baking > 0; $('kBakeAll').textContent = open ? `Alle bestätigen (${open})` : 'Alle bestätigt';
+    if (baked) { const g = this.app.blocks.gen(sel); $('kInfo').textContent = `Eingebrannter Block: ${g.parcels.length} Häuser. Nur noch auswählen und löschen.`; }
+    else if (sel) { const g = this.app.blocks.gen(sel); $('kInfo').textContent = `Gewählter Block: ${g.parcels.length} Häuser, Haustiefe ${g.depth.toFixed(1)} m, ${g.parcels.filter(q => q.gate).length} Hofzugang/-zugänge`; }
     else $('kInfo').textContent = 'Kein Block gewählt – Regler gelten für den nächsten Block.';
   }
   roadForm() {
@@ -133,6 +150,7 @@ export class UI {
     $('rInfo').innerHTML = `Fahrbahn ${f(L.cw)} m · Fahrspur je <b style="color:${L.ok ? 'var(--accent2)' : 'var(--accent)'}">${f(L.carW)} m</b>` + (L.ok ? '' : '<br><span style="color:var(--accent)">Zu schmal – Gesamtbreite erhöhen oder weniger Spuren.</span>');
   }
   sync() {
+    { const fb = $('fogBtn'); if (fb) { fb.classList.toggle('on', this.app.play.fog); fb.querySelector('b').textContent = this.app.play.fog ? 'an' : 'aus'; } }
     const t = this.app.tools;
     // Panel zeigt nur das aktive Werkzeug (in der Auswahl zusätzlich die Einstellungen des gewählten Blocks/der Straße)
     const TT = { select: 'Auswahl', place: 'Objekte platzieren', brush: 'Vegetationspinsel', erase: 'Radierer', road: 'Straße', block: 'Häuserblock', ground: 'Bodenpinsel' };

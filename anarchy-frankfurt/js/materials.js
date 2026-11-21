@@ -62,7 +62,7 @@ function leafC(P, d, k) {
 const binF = c => ({ f: (u, v, P) => jit(fr((P[0] + P[1]) / 0.12) < 0.18 ? mul(c, 0.82) : c, tx(P, 0.125, 30), 8) });
 
 export const M = {
-  flat: { f: (u, v, P, ex) => ex.c },
+  flat: { f: (u, v, P, ex) => ex.c }, flatE: { emit: 1, f: (u, v, P, ex) => ex.c },
   wall: { f: (u, v, P, ex) => facade(ex.ax === 'x' ? P[0] - ex.o : ex.o - P[1], P[2], ex) },
   roof: { f: (u, v, P, ex) => {
     const base = ex.pal.roof;
@@ -121,6 +121,17 @@ function archPix(u, v, a, frame, top) {
   const ring = du < r + 0.3 && (v < h || Math.hypot(u - c, v - h) < r + 0.3) && v < top + 0.3;
   return ring ? frame : null;
 }
+// Laden im Erdgeschoss (Mixed Use): große Schaufenster mit Auslage, Ladentür, Schild mit Schrift
+const GOODS = [[200, 80, 70], [230, 200, 120], [90, 120, 170], [240, 236, 226], [120, 160, 100], [196, 120, 160], [60, 58, 60]];
+function shopWin(du, v, hw, v0, v1, S, u) {
+  if (Math.abs(du) > hw - 0.08 || v < v0 + 0.08 || v > v1 - 0.08 || Math.abs(du) < 0.035) return [46, 46, 50];   // Rahmen + Mittelpfosten
+  if (v < v0 + 0.9) {                                                                                       // Auslage
+    const h = hash(Math.floor(u / 0.2), Math.floor(v / 0.16), S.g);
+    return h < 0.55 ? GOODS[Math.floor(h * 100) % GOODS.length] : [74, 64, 58];
+  }
+  return glass((du + hw) / (2 * hw), (v - v0) / (v1 - v0), 2 * hw, v1 - v0);
+}
+const signText = c => (c[0] + c[1] + c[2] < 330 ? [238, 222, 168] : [44, 40, 38]);
 function altbau(u, v, P, ex) {
   const { len, gh, fh, E, wall, trim, plinth } = ex;
   const ap = archPix(u, v, ex.arch, mul(plinth, 1.1), 3.5); if (ap) return ap;
@@ -138,6 +149,20 @@ function altbau(u, v, P, ex) {
   if (v > E - 1.0) {                                                         // Fries mit Konsolen
     if (fr(u / 0.7) < 0.22 && v < E - 0.45) return mul(trim, 0.92);
     return jit(mul(wall, 0.93), n, 8);
+  }
+  if (ex.shop && ex.kind === 'front' && v < gh) {                           // Laden
+    const S = ex.shop;
+    if (v > 3.28 && v < 3.98) {                                              // Ladenschild über die ganze Breite
+      if (v < 3.34 || v > 3.92) return mul(S.sign, 0.65);
+      const c = len / 2, half = Math.min(len * 0.32, 3.4);
+      if (Math.abs(u - c) < half && v > 3.5 && v < 3.78) { const lu = Math.floor((u - c + half) / 0.14), lv = Math.floor((v - 3.5) / 0.07); if (lu % 5 !== 4 && hash(lu, lv, S.g) < 0.5) return signText(S.sign); }
+      return jit(S.sign, n, 5);
+    }
+    if (ai !== ex.door && v < 3.28) {
+      const hw = aw / 2 - 0.28;
+      if (ai === (ex.door + 1) % ex.axes && Math.abs(du) < 0.6 && v < 2.7) return Math.abs(du) > 0.52 || v > 2.62 ? [46, 46, 50] : glass((du + 0.52) / 1.04, v / 2.62, 1.04, 2.62); // Ladentür
+      if (Math.abs(du) < hw && v > 0.42 && v < 3.12) return shopWin(du, v, hw, 0.42, 3.12, S, u);
+    }
   }
   if (v < gh) {                                                              // Erdgeschoss aus Sandstein
     if (ai === ex.door && Math.abs(du) < 0.95 && v > 0.25 && v < 3.55) {
@@ -162,6 +187,12 @@ function altbau(u, v, P, ex) {
   return jit(wall, n, 9);
 }
 Object.assign(M, {
+  awning: { f: (u, v, P, ex) => {
+    let c = ex.c;
+    if (ex.st && fr(u / 0.56) < 0.5) c = [234, 230, 220];
+    if (ex.val && v > 0.17 && fr(u / 0.28) > 0.5) return null;                // gezackter Volant
+    return jit(mul(c, ex.val ? 0.9 : 1), tx(P, 0.125, 70), 6);
+  }, alpha: 1 },
   altbau: { f: (u, v, P, ex) => altbau(u, v, P, ex) },
   trim: { f: (u, v, P, ex) => jit(ex.trim, tx(P, 0.125, 60), 8) },
   firewall: { f: (u, v, P) => { const h = tx(P, 0.5, 61), n = tx(P, 0.125, 62); return jit(h < 0.15 ? [160, 154, 146] : [184, 178, 168], n, 10); } },
@@ -183,6 +214,11 @@ function fachwerk(u, v, P, ex) {
     const ap = archPix(u, v, ex.arch, [186, 110, 92], 2.8); if (ap) return ap;
     const ax = ex.axes, aw = len / ax, ai = Math.min(ax - 1, Math.floor(u / aw)), du = u - (ai + 0.5) * aw;
     if (v > ex.gh - 0.25) return mul(beam, 1.05);                // Schwelle des 1. OG
+    if (ex.shop && ex.kind === 'ground' && ai !== ex.door) {     // Laden: breites Schaufenster
+      const hw = aw / 2 - 0.22;
+      if (Math.abs(du) < hw && v > 0.4 && v < 2.5) return shopWin(du, v, hw, 0.4, 2.5, ex.shop, u);
+      if (Math.abs(du) < hw + 0.1 && v > 0.3 && v < 2.6) return [186, 110, 92];
+    }
     if (ex.kind === 'ground' && ai === ex.door && Math.abs(du) < 0.55 && v < 2.3) return Math.abs(du) > 0.45 || v > 2.15 ? [186, 110, 92] : jit([96, 58, 36], n, 10);
     if (Math.abs(du) < 0.5 && v > 0.9 && v < 2.3) return glass((du + 0.5), (v - 0.9) / 1.4, 1, 1.4);
     if (Math.abs(du) < 0.62 && v > 0.8 && v < 2.42) return [186, 110, 92];
