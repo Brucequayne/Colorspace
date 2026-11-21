@@ -37,6 +37,11 @@ body.inframe #backCS { display: block; }
 #dock .sep { display: block; height: 1px; background: var(--line); margin: 3px 4px; }
 #dock .play { color: var(--accent2); }
 body.playing #dock .play { background: var(--accent); color: #fff; }
+#dock button.fog { height: 34px; padding: 4px 0; gap: 2px; border: 1px solid var(--line); color: var(--muted); }
+#dock button.fog b { font-size: 10px; font-weight: 600; color: #9a978f; }
+#dock button.fog.on { background: #23302a; border-color: #4f8a52; color: #cfe8c9; }
+#dock button.fog.on b { color: #9fe39a; }
+body.playing #view { cursor: none; }
 
 /* oben rechts */
 #topbar { position: fixed; top: 10px; right: 324px; z-index: 6; display: flex; gap: 4px; background: var(--card); border: 1px solid var(--line); padding: 4px; }
@@ -104,7 +109,8 @@ body.inframe #status { right: 290px; }
 #lockForm a { color: var(--muted); }
 
 /* Spieltest */
-#playHint { display: none; position: fixed; left: 50%; top: 10px; transform: translateX(-50%); z-index: 6; background: var(--card); border: 1px solid var(--line); padding: 6px 12px; color: var(--muted); white-space: nowrap; }
+#playHint { display: none; position: fixed; left: 50%; bottom: 44px; transform: translateX(-50%); z-index: 6; background: var(--card); border: 1px solid var(--line); padding: 6px 12px; color: var(--muted); max-width: 92vw; text-align: center; line-height: 1.5; }
+#playHint b { color: var(--accent2); font-weight: 600; }
 body.playing #playHint { display: block; }
 body.playing #panel, body.playing #mapMenu, body.playing #topbar, body.playing #dock button[data-mode], body.playing #dock .sep { display: none; }
 #inside { position: fixed; inset: 0; z-index: 20; background: rgba(10, 11, 14, .82); display: flex; align-items: center; justify-content: center; }

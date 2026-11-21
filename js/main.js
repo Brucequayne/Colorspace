@@ -110,7 +110,7 @@ class App {
     const cv = this.cv, dev = e => { const r = cv.getBoundingClientRect(), d = this.cam.dpr; return [(e.clientX - r.left) * d, (e.clientY - r.top) * d]; };
     cv.addEventListener('contextmenu', e => e.preventDefault());
     cv.addEventListener('pointerdown', e => {
-      if (this.play.active) return;
+      if (this.play.active) { this.play.mouseDown(dev(e), e); return; }
       cv.setPointerCapture(e.pointerId); this.pointers.set(e.pointerId, dev(e));
       if (this.pointers.size === 2) { this.tools.up(); this.pan = { pinch: this.pinchState() }; return; }
       const p = dev(e);
@@ -119,7 +119,8 @@ class App {
       if (!this.tools.down(p[0], p[1], e)) this.pan = { last: p };
     });
     cv.addEventListener('pointermove', e => {
-      const p = dev(e); if (this.pointers.has(e.pointerId)) this.pointers.set(e.pointerId, p);
+      const p = dev(e); if (this.play.active) { this.play.mouse = p; return; }
+      if (this.pointers.has(e.pointerId)) this.pointers.set(e.pointerId, p);
       if (this.pan && this.pan.pinch && this.pointers.size === 2) {
         const n = this.pinchState(), o = this.pan.pinch;
         this.cam.panDevice(n.cx - o.cx, n.cy - o.cy);
@@ -151,7 +152,7 @@ class App {
       if (['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', ' '].includes(k)) { this.keys.add(k); e.preventDefault(); return; }
       if (this.tools.key(e)) e.preventDefault();
     });
-    addEventListener('keyup', e => { this.keys.delete(e.key.toLowerCase()); if (this.play.active) this.play.key(e, false); });
+    addEventListener('keyup', e => { this.keys.delete(e.key.toLowerCase()); if (this.play.active) { this.play.key(e, false); if (e.key === 'Alt') e.preventDefault(); } });
     addEventListener('blur', () => { this.keys.clear(); this.play.keys.clear(); });
   }
   pinchState() { const [a, b] = [...this.pointers.values()]; return { cx: (a[0] + b[0]) / 2, cy: (a[1] + b[1]) / 2, d: Math.hypot(a[0] - b[0], a[1] - b[1]) || 1 }; }
@@ -187,7 +188,7 @@ class App {
       for (let ty = ty0; ty <= ty1; ty++) for (let tx = tx0; tx <= tx1; tx++) { const c = this.tiles.paint(tx, ty, bp); if (c === undefined) pending = true; else if (c) put(c, tx, ty); }
       const b3 = { n: 10 };
       for (let ty = ty0; ty <= ty1; ty++) for (let tx = tx0; tx <= tx1; tx++) { const c = this.tiles.roads(tx, ty, b3); if (c === undefined) pending = true; else if (c) put(c, tx, ty); }
-      this.drawGrid();
+      if (!this.play.active) this.drawGrid();
       const b2 = { n: 16, spr: { n: 3 } };
       for (let ty = ty0; ty <= ty1; ty++) for (let tx = tx0; tx <= tx1; tx++) { const c = this.tiles.objects(tx, ty, b2); if (c === undefined) pending = true; else if (c) put(c, tx, ty); }
     } else {

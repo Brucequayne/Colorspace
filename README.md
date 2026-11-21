@@ -1,4 +1,4 @@
-# Anarchy Frankfurt – Map-Editor v0.27
+# Anarchy Frankfurt – Map-Editor v0.28
 
 Grundstein für das Spiel: Frankfurt im Maßstab 1:1 (25 × 25 km) mit Stadtkarte aus OpenStreetMap als Boden.
 Kamera: 45° gedreht, 48° geneigt, 12 Pixel pro Meter. Objekte drehen in 15°-Schritten, Straßen in 5°-Schritten.

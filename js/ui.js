@@ -15,6 +15,7 @@ export class UI {
   init() {
     const app = this.app, t = app.tools;
     document.querySelectorAll('[data-mode]').forEach(b => b.onclick = () => t.setMode(b.dataset.mode));
+    $('fogBtn').onclick = e => { e.currentTarget.blur(); app.play.setFog(!app.play.fog); };
     $('playBtn').onclick = e => { e.currentTarget.blur(); if (app.play.active) app.play.stop(); else app.play.start(); };
     $('rotL').onclick = () => t.rotate(-1); $('rotR').onclick = () => t.rotate(1);
     $('undo').onclick = () => app.undo(); $('redo').onclick = () => app.redo();
@@ -148,6 +149,7 @@ export class UI {
     $('rInfo').innerHTML = `Fahrbahn ${f(L.cw)} m · Fahrspur je <b style="color:${L.ok ? 'var(--accent2)' : 'var(--accent)'}">${f(L.carW)} m</b>` + (L.ok ? '' : '<br><span style="color:var(--accent)">Zu schmal – Gesamtbreite erhöhen oder weniger Spuren.</span>');
   }
   sync() {
+    { const fb = $('fogBtn'); if (fb) { fb.classList.toggle('on', this.app.play.fog); fb.querySelector('b').textContent = this.app.play.fog ? 'an' : 'aus'; } }
     const t = this.app.tools;
     // Panel zeigt nur das aktive Werkzeug (in der Auswahl zusätzlich die Einstellungen des gewählten Blocks/der Straße)
     const TT = { select: 'Auswahl', place: 'Objekte platzieren', brush: 'Vegetationspinsel', erase: 'Radierer', road: 'Straße', block: 'Häuserblock', ground: 'Bodenpinsel' };
