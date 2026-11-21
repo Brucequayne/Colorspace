@@ -3,6 +3,9 @@
    Die Versionsnummer auf den Kacheln kommt aus dem obersten Eintrag. */
 window.PATCHNOTES = {
   anarchyfrankfurt: [
+    { v: "0.24", t: "2026-11-21T21:45:00+01:00",
+      de: ["Häuserblock-Tool: neuer Stil Fachwerk für die Altstadt (vorkragende Geschosse, Giebel zur Straße, Sandstein-Erdgeschoss)", "Hofzugänge: jeder Block hat mindestens einen Durchgang in den Innenhof, als Tordurchfahrt oder schmale Lücke (Regler 1–4)", "Bodenpinsel mit Radierer: Asphalt, Rasen, Wiese, trockenes Gras, Trampelpfad, Erde, Kies, Pflasterstein, Gehweg, Plaza", "Spieltest (Taste P): Figur mit 8 Blickrichtungen, laufen, sprinten, springen, stößt an Häusern an", "Türen: an jedem Haus erscheint „E Betreten“. Innenräume mit Treppenhaus und Stockwerken sind angelegt, draußen hält die Zeit an; begehbar folgt später"],
+      en: ["Block tool: new half-timbered style for the old town (jettied storeys, gables facing the street, sandstone ground floor)", "Courtyard access: every block has at least one way into the courtyard, as a gateway or a narrow gap (slider 1–4)", "Ground brush with eraser: asphalt, lawn, meadow, dry grass, dirt path, soil, gravel, cobblestone, pavement, plaza", "Play test (key P): character with 8 directions, walk, sprint, jump, collides with houses", "Doors: every house shows “E Enter”. Interiors with a staircase and storeys are set up and time stops outside; walking inside follows later"] },
     { v: "0.23", t: "2026-11-21T21:05:00+01:00",
       de: ["Start vorerst nur mit Code", "Häuserblock auswählen und löschen jetzt auch im Häuserblock-Werkzeug per Klick aufs Haus", "Dichte (Hof) wächst mit der Blockgröße: bei 100 % ist der Hof fast zu, tiefe Häuser bekommen in der Mitte ein Flachdach"],
       en: ["Starting requires a code for now", "Select and delete a block now also in the block tool by clicking a house", "Courtyard density scales with the block size: at 100 % the courtyard is almost closed, deep houses get a flat roof in the middle"] },

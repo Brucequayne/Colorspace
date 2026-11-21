@@ -21,7 +21,7 @@
 
 <header id="top">
   <a id="backCS" href="../#" target="_top" title="Zurück zu Color Space">← Color Space</a>
-  <div class="brand">ANARCHY <b>FRANKFURT</b> <span>Map-Editor v0.23</span></div>
+  <div class="brand">ANARCHY <b>FRANKFURT</b> <span>Map-Editor v0.24</span></div>
   <div class="tools">
     <button data-mode="select" title="Auswählen &amp; verschieben (1)">Auswahl <kbd>1</kbd></button>
     <button data-mode="place" title="Asset platzieren (2)">Platzieren <kbd>2</kbd></button>
@@ -29,6 +29,9 @@
     <button data-mode="erase" title="Radierer (4)">Radierer <kbd>4</kbd></button>
     <button data-mode="road" title="Straße zeichnen (5)">Straße <kbd>5</kbd></button>
     <button data-mode="block" title="Häuserblock zeichnen (6)">Häuserblock <kbd>6</kbd></button>
+    <button data-mode="ground" title="Bodenpinsel (7)">Boden <kbd>7</kbd></button>
+    <span class="sep"></span>
+    <button id="playBtn" title="Spieltest mit Figur (P)">▶ Spielen <kbd>P</kbd></button>
     <span class="sep"></span>
     <button id="rotL" title="Drehen −15° (Q)">⟲ Q</button>
     <span id="rotLabel" class="pill">0°</span>
@@ -41,12 +44,23 @@
 </header>
 
 <aside id="panel">
+  <details open id="groundPanel">
+    <summary>Bodenpinsel</summary>
+    <div id="groundSet" class="gset"></div>
+    <label class="row">Radius <input type="range" id="gR" min="0.5" max="20" step="0.5"><output id="gRo"></output></label>
+    <label class="check"><input type="checkbox" id="gErase"> Radieren</label>
+    <label class="row">Stadtkarte <input type="range" id="mA2" min="0" max="100" step="5"><output id="mA2o"></output></label>
+    <p class="hint">Maus gedrückt halten und malen. Umschalttaste = radieren. Die Stadtkarte bleibt nur als Vorlage darunter, mit dem Regler kannst du sie ausblenden.</p>
+  </details>
+
   <details open id="blockPanel">
-    <summary>Häuserblock (Altbau)</summary>
+    <summary>Häuserblock</summary>
+    <label class="row">Stil <select id="kSty"></select></label>
     <label class="row">Etagen min <input type="range" id="kMin" min="2" max="8" step="1"><output id="kMino"></output></label>
     <label class="row">Etagen max <input type="range" id="kMax" min="2" max="8" step="1"><output id="kMaxo"></output></label>
     <label class="row">Dichte (Hof) <input type="range" id="kDen" min="0" max="100" step="5"><output id="kDeno"></output></label>
-    <label class="row">Hausbreite <input type="range" id="kWid" min="10" max="24" step="1"><output id="kWido"></output></label>
+    <label class="row">Hausbreite <input type="range" id="kWid" min="5" max="24" step="1"><output id="kWido"></output></label>
+    <label class="row">Hofzugänge <input type="range" id="kGat" min="1" max="4" step="1"><output id="kGato"></output></label>
     <label class="row">Fassaden <select id="kPal"></select></label>
     <label class="row">Dächer <select id="kRoof"></select></label>
     <div class="btns"><button id="kSeed">Neu würfeln</button><button id="kDel">Gewählten Block löschen</button></div>
@@ -121,12 +135,23 @@
       WASD / Pfeile: bewegen · Mausrad: zoomen<br>
       Rechte/mittlere Maustaste oder Leertaste: Karte ziehen<br>
       Q / E: drehen (15°) · V: Variante · Entf: löschen<br>
-      5: Straße · 6: Häuserblock · Rechtsklick/Enter: fertig<br>
+      5: Straße · 6: Häuserblock · 7: Boden · Rechtsklick/Enter: fertig<br>
+      P: Spieltest mit Figur (WASD, Shift, Leertaste, E)<br>
       Strg+Z / Strg+Y: rückgängig / wiederholen · Esc: Auswahl
     </p>
   </details>
 </aside>
 
+<div id="playHint">Spieltest · WASD laufen · Shift sprinten · Leertaste springen · E Tür betreten · Esc beenden</div>
+<div id="inside" hidden>
+  <div class="box">
+    <div class="ttl"></div>
+    <canvas></canvas>
+    <ul class="fl"></ul>
+    <p>Innenraum angelegt: Treppenhaus (gelb), Eingang (rot), Stockwerke wie beim Platzieren. Begehbar wird er in einer späteren Version. Draußen ist die Zeit angehalten.</p>
+    <p class="k">E oder Esc = wieder nach draußen</p>
+  </div>
+</div>
 <footer id="status">
   <span id="sPos">–</span>
   <span id="sZoom"></span>

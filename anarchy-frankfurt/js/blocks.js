@@ -5,7 +5,11 @@ import { proj, groundDepth } from './camera.js';
 import { Mesh, rng, nrm, cross, sub, dot } from './geometry.js';
 import { renderSprite } from './renderer.js';
 
-export const BLOCK_DEFAULT = { fmin: 4, fmax: 5, dens: 0.5, width: 15, pal: 'mix', roof: 'slate', seed: 1 };
+export const BLOCK_DEFAULT = { style: 'altbau', fmin: 4, fmax: 5, dens: 0.5, width: 15, pal: 'mix', roof: 'slate', gates: 1, seed: 1 };
+export const STYLES = { altbau: { name: 'Gründerzeit-Altbau', fmin: 4, fmax: 5, width: 15 }, fachwerk: { name: 'Fachwerk (Altstadt)', fmin: 2, fmax: 4, width: 8 } };
+// Fachwerk: Gefachfarben (Putz) und Balkenfarben
+const FW_WALL = [[[236, 232, 220], 5], [[232, 220, 186], 3], [[226, 206, 160], 2], [[224, 196, 180], 1.5], [[214, 212, 204], 1.5], [[210, 196, 150], 1]];
+const FW_BEAM = [[[70, 46, 34], 5], [[42, 36, 34], 3], [[112, 44, 36], 2], [[96, 70, 46], 1.5]];
 
 // Fassadenfarben [Name, Farbe, Gewicht] – typisch: beige, weiß, gelb, ochsenblut/maronenbraun; blau/grün selten
 const FAC = [
@@ -81,21 +85,45 @@ export function generate(b) {
       const first = j === 0, last = j === ts.length - 2, P0 = [e.a[0] + e.u[0] * ts[j], e.a[1] + e.u[1] * ts[j]], P1 = [e.a[0] + e.u[0] * ts[j + 1], e.a[1] + e.u[1] * ts[j + 1]];
       const q = [first ? e.a.slice() : P0, last ? [e.a[0] + e.u[0] * e.L, e.a[1] + e.u[1] * e.L] : P1,
         last ? B2.slice() : [P1[0] + e.n[0] * d, P1[1] + e.n[1] * d], first ? A2.slice() : [P0[0] + e.n[0] * d, P0[1] + e.n[1] * d]];
-      const corner = first || last;
+      const corner = first || last, fw = p.style === 'fachwerk';
       let F = p.fmin + Math.floor(r() * (p.fmax - p.fmin + 1));
       if (corner && r() < 0.5) F = Math.min(p.fmax, F + 1);
       const fac = pickW(r, facW), dark = fac[1][0] + fac[1][1] + fac[1][2] < 420;
       const trim = dark ? LSTONE : r() < 0.5 ? STUCCO : SAND;
       const roofKey = pickW(r, roofW);
       out.push({
-        key: `${b.id}:${i}:${j}:${p.seed}:${p.fmin}:${p.fmax}:${p.dens}:${p.width}:${p.pal}:${p.roof}:${b.pts.map(q2 => q2.join(',')).join(';')}`,
+        style: fw ? 'fachwerk' : 'altbau', fwWall: pickW(r, FW_WALL), fwBeam: pickW(r, FW_BEAM), edge: i,
+        key: `${b.id}:${i}:${j}:${p.style}:${p.gates}:${p.seed}:${p.fmin}:${p.fmax}:${p.dens}:${p.width}:${p.pal}:${p.roof}:${b.pts.map(q2 => q2.join(',')).join(';')}`,
         q, n: e.n, u: e.u, F, wall: fac[1].map(c => c + (r() - 0.5) * 10), trim, plinth: r() < 0.65 ? SAND : STONE,
         roof: ROOFS[roofKey].map(c => c + (r() - 0.5) * 8), mansard: corner || d > 16 || r() < 0.75, balcony: r() < 0.55, dormEvery: r() < 0.5 ? 1 : 2, seed: (r() * 1e6) | 0
       });
     }
   });
+  // Hofzugänge: Tordurchfahrten (Gang durchs Erdgeschoss) oder schmale Lücken zwischen zwei Häusern
+  const cand = out.map((q, k) => k).filter(k => { const q = out[k].q, L = Math.hypot(q[1][0] - q[0][0], q[1][1] - q[0][1]); return L >= 6 && !isCornerIdx(out, k); });
+  const nG = Math.min(cand.length, Math.max(1, p.gates | 0));
+  for (let g = 0; g < nG; g++) {
+    const par = out[cand[Math.floor((g + 0.25 + r() * 0.5) * cand.length / nG)]]; if (!par || par.gate) continue;
+    const [q0, q1, q2, q3] = par.q, L = Math.hypot(q1[0] - q0[0], q1[1] - q0[1]);
+    if (L >= 8 && r() < 0.35) {          // Lücke am Anfang der Parzelle
+      const w = 3.4; par.q = [[q0[0] + par.u[0] * w, q0[1] + par.u[1] * w], q1, q2, [q3[0] + par.u[0] * w, q3[1] + par.u[1] * w]];
+      par.gate = { type: 'gap' };
+    } else par.gate = { type: 'arch', c: L / 2, w: 3.2 };
+    par.key += ':g' + g;
+  }
+  // Tür (Hauseingang) je Parzelle – für das spätere Betreten
+  for (const par of out) {
+    const [q0, q1] = par.q, L = Math.hypot(q1[0] - q0[0], q1[1] - q0[1]), fw = par.style === 'fachwerk';
+    par.axes = fw ? Math.max(1, Math.round(L / 2.4)) : Math.max(2, Math.round(L / 2.9));
+    let ax = Math.min(par.axes - 1, Math.max(0, Math.floor(par.axes / 2) + (par.seed % 2 ? 0 : -1)));
+    if (par.gate && par.gate.type === 'arch') { const ga = Math.floor(par.gate.c / (L / par.axes)); if (ax === ga) ax = ga > 0 ? ga - 1 : Math.min(par.axes - 1, ga + 1); if (ax === ga) ax = -1; }
+    par.doorAx = ax;
+    if (ax >= 0) { const t = (ax + 0.5) * L / par.axes; par.door = { x: q0[0] + par.u[0] * t - par.n[0] * 0.8, y: q0[1] + par.u[1] * t - par.n[1] * 0.8, F: par.F, style: par.style, w: L, d }; }
+  }
   return { parcels: out, inner: Q, depth: d, P };
 }
+
+function isCornerIdx(out, k) { const a = out[k - 1], b = out[k + 1]; return !a || !b || a.edge !== out[k].edge || b.edge !== out[k].edge; }
 
 // ---------- 3D-Modell einer Parzelle ----------
 function prism(m, pts, z0, z1, top, sides, id, ex) {
@@ -107,15 +135,19 @@ function prism(m, pts, z0, z1, top, sides, id, ex) {
   if (top) { m.tri3([pts[0][0], pts[0][1], z1], [pts[1][0], pts[1][1], z1], [pts[2][0], pts[2][1], z1], top, id, [0, 0, 1], ex); if (pts.length > 3) m.tri3([pts[0][0], pts[0][1], z1], [pts[2][0], pts[2][1], z1], [pts[3][0], pts[3][1], z1], top, id, [0, 0, 1], ex); }
 }
 export function buildParcel(par, cx, cy) {
+  if (par.style === 'fachwerk') return buildFachwerk(par, cx, cy);
   const m = new Mesh(), L = p => [p[0] - cx, p[1] - cy], [Q0, Q1, Q2, Q3] = par.q.map(L), n = par.n, u = par.u;
   const gh = 4.2, fh = 3.4, F = par.F, E = gh + (F - 1) * fh + 1.0, len = Math.hypot(Q1[0] - Q0[0], Q1[1] - Q0[1]);
-  const axes = Math.max(2, Math.round(len / 2.9)), door = Math.min(axes - 1, Math.max(0, Math.floor(axes / 2) + (par.seed % 2 ? 0 : -1)));
-  const base = { gh, fh, E, F, wall: par.wall, trim: par.trim, plinth: par.plinth, seed: par.seed % 9973, axes, door };
+  const axes = par.axes, door = par.doorAx;
+  const arch = par.gate && par.gate.type === 'arch' ? { u0: par.gate.c - par.gate.w / 2, u1: par.gate.c + par.gate.w / 2 } : null;
+  const base = { gh, fh, E, F, wall: par.wall, trim: par.trim, plinth: par.plinth, seed: par.seed % 9973, axes, door, arch };
   const hid = m.part(), out = [-n[0], -n[1], 0];
   const Z = (p, z) => [p[0], p[1], z];
   m.quad(Z(Q0, 0), Z(Q1, 0), Z(Q1, E), Z(Q0, E), 'altbau', hid, out, { ...base, kind: 'front', len });
   const blen = Math.hypot(Q3[0] - Q2[0], Q3[1] - Q2[1]);
-  m.quad(Z(Q2, 0), Z(Q3, 0), Z(Q3, E), Z(Q2, E), 'altbau', hid, [n[0], n[1], 0], { ...base, kind: 'court', len: blen, axes: Math.max(1, Math.round(blen / 3.2)), wall: par.wall.map(c => c * 0.55 + 200 * 0.45) });
+  let barch = null;
+  if (arch) { const c = [Q0[0] + u[0] * par.gate.c + n[0] * 1, Q0[1] + u[1] * par.gate.c + n[1] * 1], bc = (c[0] - Q2[0]) * (Q3[0] - Q2[0]) / blen + (c[1] - Q2[1]) * (Q3[1] - Q2[1]) / blen; barch = { u0: bc - par.gate.w / 2, u1: bc + par.gate.w / 2 }; }
+  m.quad(Z(Q2, 0), Z(Q3, 0), Z(Q3, E), Z(Q2, E), 'altbau', hid, [n[0], n[1], 0], { ...base, kind: 'court', len: blen, arch: barch, axes: Math.max(1, Math.round(blen / 3.2)), wall: par.wall.map(c => c * 0.55 + 200 * 0.45) });
   const cen = [(Q0[0] + Q1[0] + Q2[0] + Q3[0]) / 4, (Q0[1] + Q1[1] + Q2[1] + Q3[1]) / 4];
   for (const [a, b] of [[Q1, Q2], [Q3, Q0]]) m.quad(Z(a, 0), Z(b, 0), Z(b, E), Z(a, E), 'firewall', hid, [(a[0] + b[0]) / 2 - cen[0], (a[1] + b[1]) / 2 - cen[1], 0]);
   // Gesimse als kleine Vorsprünge
@@ -239,3 +271,34 @@ export class Blocks {
     for (const b of Array.isArray(d) ? d : []) { this.list.set(b.id, { id: b.id, pts: b.pts, p: { ...BLOCK_DEFAULT, ...b.p } }); this.nid = Math.max(this.nid, b.id + 1); }
   }
 }
+
+// ---------- Fachwerkhaus (Frankfurter Altstadt): Erdgeschoss aus Sandstein, Obergeschosse vorkragend, Giebel zur Straße ----------
+function buildFachwerk(par, cx, cy) {
+  const m = new Mesh(), L = p => [p[0] - cx, p[1] - cy], [Q0, Q1, Q2, Q3] = par.q.map(L), n = par.n, u = par.u, Z = (p, z) => [p[0], p[1], z];
+  const gh = 3.2, fh = 2.9, F = par.F, len = Math.hypot(Q1[0] - Q0[0], Q1[1] - Q0[1]), hid = m.part(), out = [-n[0], -n[1], 0];
+  const arch = par.gate && par.gate.type === 'arch' ? { u0: par.gate.c - 1.3, u1: par.gate.c + 1.3 } : null;
+  const ex = { len, fh, gh, wall: par.fwWall, beam: par.fwBeam, axes: par.axes, door: par.doorAx, seed: par.seed % 9973, arch };
+  const cen = [(Q0[0] + Q1[0] + Q2[0] + Q3[0]) / 4, (Q0[1] + Q1[1] + Q2[1] + Q3[1]) / 4];
+  const sOut = (a, b) => [(a[0] + b[0]) / 2 - cen[0], (a[1] + b[1]) / 2 - cen[1], 0];
+  const off = f => (f <= 0 ? 0 : 0.28 * f), O = (p, s) => [p[0] - n[0] * s, p[1] - n[1] * s];
+  let z = 0;
+  for (let f = 0; f < F; f++) {
+    const h = f === 0 ? gh : fh, A = O(Q0, off(f)), B = O(Q1, off(f));
+    m.quad(Z(A, z), Z(B, z), Z(B, z + h), Z(A, z + h), 'fachwerk', hid, out, { ...ex, kind: f === 0 ? 'ground' : 'floor', fi: f });
+    m.quad(Z(Q2, z), Z(Q3, z), Z(Q3, z + h), Z(Q2, z + h), 'fachwerk', hid, [n[0], n[1], 0], { ...ex, kind: f === 0 ? 'back0' : 'floor', fi: f, len: Math.hypot(Q3[0] - Q2[0], Q3[1] - Q2[1]), door: -1, arch: arch ? { u0: len - arch.u1, u1: len - arch.u0 } : null });
+    m.quad(Z(B, z), Z(Q2, z), Z(Q2, z + h), Z(B, z + h), 'firewall', hid, sOut(B, Q2));
+    m.quad(Z(Q3, z), Z(A, z), Z(A, z + h), Z(Q3, z + h), 'firewall', hid, sOut(Q3, A));
+    z += h;
+  }
+  // Giebeldach, First senkrecht zur Straße
+  const E = z, A = O(Q0, off(F - 1) + 0.15), B = O(Q1, off(F - 1) + 0.15), M0 = [(A[0] + B[0]) / 2, (A[1] + B[1]) / 2], M1 = [(Q2[0] + Q3[0]) / 2, (Q2[1] + Q3[1]) / 2];
+  const zr = E + Math.min(9, Math.max(3, len * 0.95)), rid = m.part(), roofMat = par.roof[0] > 120 ? 'roof' : 'slate', RX = roofMat === 'roof' ? { pal: { roof: par.roof } } : { roof: par.roof };
+  const sl = [-u[0], -u[1], 0.7], sr = [u[0], u[1], 0.7];
+  m.quad(Z(Q3, E), Z(A, E), Z(M0, zr), Z(M1, zr), roofMat, rid, sl, RX);
+  m.quad(Z(B, E), Z(Q2, E), Z(M1, zr), Z(M0, zr), roofMat, rid, sr, RX);
+  const gl = Math.hypot(B[0] - A[0], B[1] - A[1]);
+  m.tri([A[0], A[1], E], [B[0], B[1], E], [M0[0], M0[1], zr], [0, 0], [gl, 0], [gl / 2, zr - E], 'fachwerk', nrmOut(A, B, M0, E, zr, out), hid, { ...ex, kind: 'gable', len: gl });
+  m.tri3(Z(Q2, E), Z(Q3, E), Z(M1, zr), 'firewall', rid, [n[0], n[1], 0]);
+  return m;
+}
+function nrmOut(A, B, M0, E, zr, out) { let nn = nrm(cross(sub([B[0], B[1], E], [A[0], A[1], E]), sub([M0[0], M0[1], zr], [A[0], A[1], E]))); if (dot(nn, out) < 0) nn = nn.map(q => -q); return nn; }

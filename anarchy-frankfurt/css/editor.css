@@ -71,3 +71,19 @@ body.inframe #status { padding-right: 280px; }
 #lockForm .err { color: var(--accent); }
 #lockForm a { color: var(--muted); }
 button:disabled { opacity: .4; cursor: default; }
+.gset { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; }
+.gset button { display: flex; align-items: center; gap: 6px; padding: 4px 6px; font-size: 10px; text-align: left; }
+.gset button i { width: 14px; height: 14px; flex: none; display: block; }
+.gset button.on { outline: 2px solid var(--accent2); }
+#playHint { display: none; position: fixed; left: 50%; top: 54px; transform: translateX(-50%); z-index: 6; background: rgba(16,18,22,.85); border: 1px solid var(--line); padding: 6px 12px; color: var(--muted); white-space: nowrap; }
+body.playing #playHint { display: block; }
+body.playing #panel, body.playing .tools [data-mode], body.playing #rotL, body.playing #rotR, body.playing #rotLabel { display: none; }
+body.playing #playBtn { background: var(--accent); border-color: var(--accent); color: #fff; }
+#inside { position: fixed; inset: 0; z-index: 20; background: rgba(10,11,14,.82); display: flex; align-items: center; justify-content: center; }
+#inside[hidden] { display: none; }
+#inside .box { background: var(--panel); border: 1px solid var(--line); padding: 16px 20px; max-width: 420px; }
+#inside .ttl { color: var(--accent2); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px; }
+#inside canvas { display: block; margin: 0 0 10px; }
+#inside ul { margin: 0 0 10px; padding-left: 18px; }
+#inside p { color: var(--muted); margin: 6px 0 0; }
+#inside .k { color: var(--text); }

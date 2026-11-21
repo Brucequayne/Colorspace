@@ -111,8 +111,18 @@ function glass(lu, lv, W, H) {
   if (lv < 0.72 && (lu < 0.15 || lu > 0.85) && lv > 0.3) return [208, 198, 178]; // Vorhang
   const k = lu + lv * 0.6; return k > 0.55 && k < 0.75 ? [98, 124, 152] : lv > 0.8 ? [38, 50, 70] : [50, 66, 90];
 }
+// Tordurchfahrt: Rundbogen-Öffnung (dunkel) mit Steinrahmen; null = nicht getroffen
+function archPix(u, v, a, frame, top) {
+  if (!a) return null;
+  const c = (a.u0 + a.u1) / 2, r = (a.u1 - a.u0) / 2, h = top - r, du = Math.abs(u - c);
+  const inside = du < r && (v < h || Math.hypot(u - c, v - h) < r);
+  if (inside) return v < 0.15 ? [58, 54, 52] : [26, 24, 28];
+  const ring = du < r + 0.3 && (v < h || Math.hypot(u - c, v - h) < r + 0.3) && v < top + 0.3;
+  return ring ? frame : null;
+}
 function altbau(u, v, P, ex) {
   const { len, gh, fh, E, wall, trim, plinth } = ex;
+  const ap = archPix(u, v, ex.arch, mul(plinth, 1.1), 3.5); if (ap) return ap;
   const ax = ex.axes, aw = len / ax, ai = Math.min(ax - 1, Math.max(0, Math.floor(u / aw))), du = u - (ai + 0.5) * aw;
   const n = hash(Math.floor(u * 8), Math.floor(v * 8), ex.seed);
   if (ex.kind === 'court') {                       // Hofseite: schlicht
@@ -164,3 +174,39 @@ Object.assign(M, {
   dormer: { f: (u, v) => (u > 0.22 && u < 0.98 && v > 0.35 && v < 1.75 ? glass((u - 0.22) / 0.76, (v - 0.35) / 1.4, 0.76, 1.4) : [126, 130, 136]) },
   iron: { alpha: 1, f: (u, v) => { if (v > 0.92 || (v > 0.04 && v < 0.12)) return [44, 44, 48]; if (v > 0.12 && fr(u / 0.13) < 0.28) return [52, 52, 58]; return null; } }
 });
+
+// ---------- Fachwerk ----------
+function fachwerk(u, v, P, ex) {
+  const { len, fh, wall, beam } = ex, n = hash(Math.floor(u * 8), Math.floor(v * 8), ex.seed + 7), bw = 0.17;
+  if (ex.kind === 'ground' || ex.kind === 'back0') {           // Erdgeschoss: roter Sandstein, Tür, Ladenfenster
+    const ap = archPix(u, v, ex.arch, [186, 110, 92], 2.8); if (ap) return ap;
+    const ax = ex.axes, aw = len / ax, ai = Math.min(ax - 1, Math.floor(u / aw)), du = u - (ai + 0.5) * aw;
+    if (v > ex.gh - 0.25) return mul(beam, 1.05);                // Schwelle des 1. OG
+    if (ex.kind === 'ground' && ai === ex.door && Math.abs(du) < 0.55 && v < 2.3) return Math.abs(du) > 0.45 || v > 2.15 ? [186, 110, 92] : jit([96, 58, 36], n, 10);
+    if (Math.abs(du) < 0.5 && v > 0.9 && v < 2.3) return glass((du + 0.5), (v - 0.9) / 1.4, 1, 1.4);
+    if (Math.abs(du) < 0.62 && v > 0.8 && v < 2.42) return [186, 110, 92];
+    const row = Math.floor(v / 0.38), x = u / 0.7 + (row % 2) * 0.5;
+    if (fr(v / 0.38) < 0.1 || fr(x) < 0.05) return [118, 62, 52];
+    return jit([160, 86, 70], hash(Math.floor(x), row, 88), 16);
+  }
+  const bays = Math.max(1, Math.round(len / 1.15)), bwid = len / bays, bi = Math.min(bays - 1, Math.floor(u / bwid)), lu = u - bi * bwid;
+  if (ex.kind === 'gable') {                                    // Giebel: Riegel alle 1,3 m, Ständer
+    const rv = v % 1.3;
+    if (rv < bw || lu < bw * 0.6 || lu > bwid - bw * 0.6) return jit(beam, n, 10);
+    if (bi % 2 === 1 && v < 2.6 && rv > 0.35 && rv < 1.1 && lu > 0.22 && lu < bwid - 0.22) return glass((lu - 0.22) / (bwid - 0.44), (rv - 0.35) / 0.75, 0.6, 0.75);
+    return jit(wall, n, 8);
+  }
+  if (v < bw || v > fh - bw) return jit(mul(beam, v < bw ? 0.85 : 1), n, 10);   // Schwelle / Rähm
+  if (lu < bw * 0.6 || lu > bwid - bw * 0.6) return jit(beam, n, 10);           // Ständer
+  const win = (bi % 2 === 1) || bays <= 2 && bi === 0;
+  if (win) {
+    if (v > 0.95 && v < 2.35 && lu > 0.2 && lu < bwid - 0.2) return glass((lu - 0.2) / (bwid - 0.4), (v - 0.95) / 1.4, bwid - 0.4, 1.4);
+    if (Math.abs(v - 0.88) < 0.08 || Math.abs(v - 2.42) < 0.08) return jit(beam, n, 10);      // Brust- und Sturzriegel
+    if (v < 0.8) { const a = lu / bwid, b = v / 0.8; if (Math.abs(a - b) < 0.12 || Math.abs(a - (1 - b)) < 0.12) return jit(beam, n, 10); } // Andreaskreuz
+    return jit(wall, n, 8);
+  }
+  const a = lu / bwid, b = v / fh;                                // Strebe (Mann-Figur)
+  if ((bi % 4 === 0 && Math.abs(a - b) < 0.09) || (bi % 4 === 2 && Math.abs(a - (1 - b)) < 0.09) || Math.abs(v - fh * 0.5) < bw * 0.5) return jit(beam, n, 10);
+  return jit(wall, n, 8);
+}
+M.fachwerk = { f: (u, v, P, ex) => fachwerk(u, v, P, ex) };

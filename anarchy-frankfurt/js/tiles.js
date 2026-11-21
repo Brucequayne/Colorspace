@@ -1,7 +1,7 @@
 // Kachel-Cache: Boden (Stadtkarte) und Objekte werden in 256-px-Kacheln vorgerendert
-import { CFG } from './config.js';
+import { CFG } from './camera.js';
 import { proj, groundDepth, groundBBox, GM, PPM } from './camera.js';
-import { drawRef } from './refmap.js';
+import { drawRef } from './osm.js';
 import { SHADOW_RGBA } from './renderer.js';
 import { vegSprite } from './veg.js';
 
@@ -10,7 +10,7 @@ const T = CFG.TILE_PX;
 const M_TOP = 220, M_BOTTOM = 340, M_SIDE = 240;
 
 export class Tiles {
-  constructor(app) { this.app = app; this.G = new Map(); this.O = new Map(); this.Rd = new Map(); this.cap = CFG.TILE_CACHE; }
+  constructor(app) { this.app = app; this.G = new Map(); this.O = new Map(); this.Rd = new Map(); this.Pt = new Map(); this.cap = CFG.TILE_CACHE; }
   _get(map, k) { if (!map.has(k)) return undefined; const v = map.get(k); map.delete(k); map.set(k, v); return v; }
   _put(map, k, v) { map.set(k, v); while (map.size > this.cap) map.delete(map.keys().next().value); return v; }
   // budget = Objekt mit .n (wie viele neue Kacheln dürfen in diesem Frame gebaut werden)
@@ -32,6 +32,16 @@ export class Tiles {
     if (img) { c = document.createElement('canvas'); c.width = c.height = T; c.getContext('2d').putImageData(img, 0, 0); } else c = null;
     return this._put(this.Rd, k, c);
   }
+  // gemalter Boden (Bodenpinsel), auch verkleinert für die Übersicht
+  paint(tx, ty, budget, f = 1) {
+    const k = f + '|' + tx + ',' + ty; let c = this._get(this.Pt, k);
+    if (c !== undefined || budget.n <= 0) return c;
+    budget.n--;
+    const img = this.app.paint.renderTile(tx, ty, T, f);
+    if (img) { c = document.createElement('canvas'); c.width = c.height = T; c.getContext('2d').putImageData(img, 0, 0); } else c = null;
+    return this._put(this.Pt, k, c);
+  }
+  dropPaint(bb) { if (!bb) { this.Pt.clear(); return; } this._drop(this.Pt, bb); }
   dropRoads(bb) { if (!bb) { this.Rd.clear(); return; } this._drop(this.Rd, bb); }
   objects(tx, ty, budget) {
     const k = tx + ',' + ty; let c = this._get(this.O, k);
@@ -101,7 +111,7 @@ export class Tiles {
     return c;
   }
   clearGround() { this.G.clear(); }
-  clearAll() { this.G.clear(); this.O.clear(); this.Rd.clear(); }
+  clearAll() { this.G.clear(); this.O.clear(); this.Rd.clear(); this.Pt.clear(); }
   // Objekt-Kacheln in einem nativen Rechteck verwerfen
   dropObjects(nx0, ny0, nx1, ny1) {
     for (let ty = Math.floor(ny0 / T); ty <= Math.floor(ny1 / T); ty++)

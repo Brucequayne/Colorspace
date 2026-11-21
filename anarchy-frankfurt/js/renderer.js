@@ -1,5 +1,5 @@
 // Software-Pixel-Renderer: rendert jedes Asset (pro Drehung/Variante) einmal als Sprite mit Tiefe, Schatten und Umriss
-import { CFG } from './config.js';
+import { CFG } from './camera.js';
 import { proj, unprojGround, VIEW } from './camera.js';
 import { Mesh, nrm, cross, dot, mul } from './geometry.js';
 import { M } from './materials.js';

@@ -1,15 +1,17 @@
 // Anarchy Frankfurt – Map-Editor: Start, Eingabe, Zeichenschleife
-import { CFG } from './config.js';
+import { CFG } from './camera.js';
 import { Camera, proj, PPM } from './camera.js';
 import { toWorld, osmTileOf } from './camera.js';
 import { OSM } from './osm.js';
-import { drawRef, LAYERS, COL } from './refmap.js';
+import { drawRef, LAYERS, COL } from './osm.js';
 import { Sprites } from './renderer.js';
 import { Tiles } from './tiles.js';
 import { World } from './world.js';
 import { Roads } from './roads.js';
 import { VegLayer } from './veg.js';
 import { Blocks } from './blocks.js';
+import { Paint } from './paint.js';
+import { Play } from './player.js';
 import { Tools } from './tools.js';
 import { UI } from './ui.js';
 import { ASSETS } from './assets.js';
@@ -22,9 +24,9 @@ class App {
     this.cv = document.getElementById('view'); this.ctx = this.cv.getContext('2d');
     this.cam = new Camera(); this.layers = { ...LAYERS }; this.mapAlpha = 1; this.autoLoad = true;
     this.grid = { angle: 0, step: 1, snap: true, show: true };
-    this.sprites = new Sprites(); this.world = new World(); this.roads = new Roads(); this.veg = new VegLayer(); this.blocks = new Blocks(); this.hist = []; this.redoH = []; this.tiles = new Tiles(this);
+    this.sprites = new Sprites(); this.world = new World(); this.roads = new Roads(); this.veg = new VegLayer(); this.blocks = new Blocks(); this.paint = new Paint(); this.hist = []; this.redoH = []; this.tiles = new Tiles(this);
     this.osm = new OSM(feats => this.onOsm(feats));
-    this.tools = new Tools(this); this.ui = new UI(this);
+    this.tools = new Tools(this); this.ui = new UI(this); this.play = new Play(this);
     this._dirty = true; this.keys = new Set(); this.pointers = new Map(); this.pan = null;
   }
   async start() {
@@ -38,6 +40,8 @@ class App {
       const ps = [proj(bb[0], bb[1], 0), proj(bb[2], bb[1], 0), proj(bb[0], bb[3], 0), proj(bb[2], bb[3], 0)], xs = ps.map(p => p[0]), ys = ps.map(p => p[1]);
       this.tiles.dropObjects(Math.min(...xs) - 16, Math.min(...ys) - 16, Math.max(...xs) + 16, Math.max(...ys) + 8); this.dirty(); this.saveSoon();
     };
+    this.paint.onLog = () => { this.hist.push('g'); this.redoH = []; };
+    this.paint.onChange = bb => { this.tiles.dropPaint(bb); this.dirty(); this.saveSoon(); };
     this.blocks.onLog = () => { this.hist.push('b'); this.redoH = []; };
     this.blocks.onChange = bb => {
       if (!bb) this.tiles.O.clear(); else {
@@ -48,7 +52,7 @@ class App {
     };
     this.roads.onChange = bb => { this.tiles.dropRoads(bb); this.dirty(); this.saveSoon(); this.ui.sync(); };
     const p = CFG.PLACES[0]; [this.cam.x, this.cam.y] = toWorld(p[1], p[2]);
-    try { const m = await dbGet('maps', 'current'); if (m) { this.world.load(m, ASSETS); this.roads.load(m.roads); this.veg.load(m.veg); this.blocks.load(m.blocks); this.tiles.clearAll(); } } catch (e) { /* neu */ }
+    try { const m = await dbGet('maps', 'current'); if (m) { this.world.load(m, ASSETS); this.roads.load(m.roads); this.veg.load(m.veg); this.blocks.load(m.blocks); this.paint.load(m.ground); this.tiles.clearAll(); } } catch (e) { /* neu */ }
     this.ui.sync(); this.bindInput(); this.osm.init(); this.loadVisible();
     const loop = () => { this.frame(); requestAnimationFrame(loop); }; loop();
   }
@@ -70,17 +74,17 @@ class App {
     const s = this.sprites.get(o.a, o.r, o.v), p = proj(o.x, o.y, 0), x = Math.round(p[0]) - s.ox, y = Math.round(p[1]) - s.oy;
     this.tiles.dropObjects(x, y, x + s.w, y + s.h); this.dirty(); this.saveSoon();
   }
-  serialize() { return { ...this.world.serialize(), format: 4, roads: this.roads.serialize(), veg: this.veg.serialize(), blocks: this.blocks.serialize() }; }
+  serialize() { return { ...this.world.serialize(), format: 5, roads: this.roads.serialize(), veg: this.veg.serialize(), blocks: this.blocks.serialize(), ground: this.paint.serialize() }; }
   saveSoon() { clearTimeout(this._st); this._st = setTimeout(() => dbSet('maps', 'current', this.serialize()).catch(() => {}), 1200); }
-  undo() { const k = this.hist.pop(); if (!k) return; ({ w: this.world, r: this.roads, v: this.veg, b: this.blocks })[k].undo(); this.tools.selBlock = null; this.redoH.push(k); this.tools.sel = null; this.tools.selRoad = null; this.ui.sync(); this.dirty(); }
-  redo() { const k = this.redoH.pop(); if (!k) return; ({ w: this.world, r: this.roads, v: this.veg, b: this.blocks })[k].redo(); this.hist.push(k); this.ui.sync(); this.dirty(); }
+  undo() { const k = this.hist.pop(); if (!k) return; ({ w: this.world, r: this.roads, v: this.veg, b: this.blocks, g: this.paint })[k].undo(); this.tools.selBlock = null; this.redoH.push(k); this.tools.sel = null; this.tools.selRoad = null; this.ui.sync(); this.dirty(); }
+  redo() { const k = this.redoH.pop(); if (!k) return; ({ w: this.world, r: this.roads, v: this.veg, b: this.blocks, g: this.paint })[k].redo(); this.hist.push(k); this.ui.sync(); this.dirty(); }
   exportMap() { downloadJSON(this.serialize(), 'anarchy_frankfurt_map.json'); }
   async importMap() {
     const f = await pickFile('.json,application/json'); if (!f) return;
-    try { const d = JSON.parse(await f.text()); if (d.game !== 'anarchy-frankfurt') throw new Error(); this.world.load(d, ASSETS); this.roads.load(d.roads); this.veg.load(d.veg); this.blocks.load(d.blocks); this.hist = []; this.redoH = []; this.tiles.clearAll(); this.saveSoon(); this.ui.sync(); this.dirty(); }
+    try { const d = JSON.parse(await f.text()); if (d.game !== 'anarchy-frankfurt') throw new Error(); this.world.load(d, ASSETS); this.roads.load(d.roads); this.veg.load(d.veg); this.blocks.load(d.blocks); this.paint.load(d.ground); this.hist = []; this.redoH = []; this.tiles.clearAll(); this.saveSoon(); this.ui.sync(); this.dirty(); }
     catch (e) { alert('Das ist keine gültige Anarchy-Frankfurt-Karte.'); }
   }
-  newMap() { this.world.load({ objects: [] }); this.roads.load(null); this.veg.load(null); this.blocks.load(null); this.tools.selBlock = null; this.hist = []; this.redoH = []; this.tools.sel = null; this.tools.selRoad = null; this.tiles.clearAll(); this.saveSoon(); this.ui.sync(); this.dirty(); }
+  newMap() { this.world.load({ objects: [] }); this.roads.load(null); this.veg.load(null); this.blocks.load(null); this.paint.load(null); this.tools.selBlock = null; this.hist = []; this.redoH = []; this.tools.sel = null; this.tools.selRoad = null; this.tiles.clearAll(); this.saveSoon(); this.ui.sync(); this.dirty(); }
   goTo(w, z) { this.cam.x = w[0]; this.cam.y = w[1]; if (z) this.cam.zoom = z; this.cam.clamp(); this.dirty(); this.viewChanged(); }
   zoomStep(dir, dx = this.cam.w / 2, dy = this.cam.h / 2) {
     const Z = CFG.ZOOMS; let i = Z.findIndex(z => z >= this.cam.zoom - 1e-9); if (i < 0) i = Z.length - 1;
@@ -103,6 +107,7 @@ class App {
     const cv = this.cv, dev = e => { const r = cv.getBoundingClientRect(), d = this.cam.dpr; return [(e.clientX - r.left) * d, (e.clientY - r.top) * d]; };
     cv.addEventListener('contextmenu', e => e.preventDefault());
     cv.addEventListener('pointerdown', e => {
+      if (this.play.active) return;
       cv.setPointerCapture(e.pointerId); this.pointers.set(e.pointerId, dev(e));
       if (this.pointers.size === 2) { this.tools.up(); this.pan = { pinch: this.pinchState() }; return; }
       const p = dev(e);
@@ -130,6 +135,8 @@ class App {
     cv.addEventListener('wheel', e => { e.preventDefault(); const p = dev(e); this.zoomStep(e.deltaY < 0 ? 1 : -1, p[0], p[1]); }, { passive: false });
     addEventListener('keydown', e => {
       const inField = /INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName);
+      if (this.play.active && !inField) { if (this.play.key(e, true)) e.preventDefault(); return; }
+      if (!inField && e.key.toLowerCase() === 'p' && !e.ctrlKey && !e.metaKey) { this.play.start(); e.preventDefault(); return; }
       if (inField && e.key !== 'Escape') return;
       const k = e.key.toLowerCase();
       if ((e.ctrlKey || e.metaKey) && k === 'z') { e.preventDefault(); e.shiftKey ? this.redo() : this.undo(); return; }
@@ -141,18 +148,19 @@ class App {
       if (['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', ' '].includes(k)) { this.keys.add(k); e.preventDefault(); return; }
       if (this.tools.key(e)) e.preventDefault();
     });
-    addEventListener('keyup', e => this.keys.delete(e.key.toLowerCase()));
-    addEventListener('blur', () => this.keys.clear());
+    addEventListener('keyup', e => { this.keys.delete(e.key.toLowerCase()); if (this.play.active) this.play.key(e, false); });
+    addEventListener('blur', () => { this.keys.clear(); this.play.keys.clear(); });
   }
   pinchState() { const [a, b] = [...this.pointers.values()]; return { cx: (a[0] + b[0]) / 2, cy: (a[1] + b[1]) / 2, d: Math.hypot(a[0] - b[0], a[1] - b[1]) || 1 }; }
 
   frame() {
     const now = performance.now(), dt = Math.min(0.1, (now - (this._ft || now)) / 1000); this._ft = now;
     if (this.tools.paint) this.tools.paintTick(dt);
+    if (this.play.active) { this.play.update(dt); this._dirty = true; }
     let vx = 0, vy = 0; const K = this.keys;
     if (K.has('w') || K.has('arrowup')) vy += 1; if (K.has('s') || K.has('arrowdown')) vy -= 1;
     if (K.has('a') || K.has('arrowleft')) vx += 1; if (K.has('d') || K.has('arrowright')) vx -= 1;
-    if (vx || vy) { const sp = 14 * this.cam.dpr; this.cam.panDevice(vx * sp, vy * sp); this.dirty(); this.viewChanged(); }
+    if ((vx || vy) && !this.play.active) { const sp = 14 * this.cam.dpr; this.cam.panDevice(vx * sp, vy * sp); this.dirty(); this.viewChanged(); }
     if (!this._dirty) return;
     this._dirty = false; this.draw(); this.ui.status();
   }
@@ -172,6 +180,8 @@ class App {
       const b1 = { n: 12 }; ctx.globalAlpha = this.mapAlpha;
       if (this.mapAlpha > 0) for (let ty = ty0; ty <= ty1; ty++) for (let tx = tx0; tx <= tx1; tx++) { const c = this.tiles.ground(tx, ty, b1); if (c === undefined) pending = true; else put(c, tx, ty); }
       ctx.globalAlpha = 1;
+      const bp = { n: 10 };
+      for (let ty = ty0; ty <= ty1; ty++) for (let tx = tx0; tx <= tx1; tx++) { const c = this.tiles.paint(tx, ty, bp); if (c === undefined) pending = true; else if (c) put(c, tx, ty); }
       const b3 = { n: 10 };
       for (let ty = ty0; ty <= ty1; ty++) for (let tx = tx0; tx <= tx1; tx++) { const c = this.tiles.roads(tx, ty, b3); if (c === undefined) pending = true; else if (c) put(c, tx, ty); }
       this.drawGrid();
@@ -188,6 +198,11 @@ class App {
         ctx.drawImage(c, x, y, Math.round(o[0] + (tx + 1) * S * s) - x, Math.round(o[1] + (ty + 1) * S * s) - y);
       }
       ctx.globalAlpha = 1;
+      if (this.paint.size) for (let ty = ty0; ty <= ty1; ty++) for (let tx = tx0; tx <= tx1; tx++) {
+        const c = this.tiles.paint(tx, ty, b0, f); if (c === undefined) { pending = true; continue; } if (!c) continue;
+        const x = Math.round(o[0] + tx * S * s), y = Math.round(o[1] + ty * S * s);
+        ctx.drawImage(c, x, y, Math.round(o[0] + (tx + 1) * S * s) - x, Math.round(o[1] + (ty + 1) * S * s) - y);
+      }
       this.roads.drawVector(ctx, GMx, cam.visibleGround(), 1 / (PPM * s * 0.75));
       this.drawBlocksFlat();
       const bb = cam.visibleGround(), list = this.world.query(bb[0], bb[1], bb[2], bb[3]);
@@ -200,7 +215,7 @@ class App {
     this.drawOsmState();
     // Kartenrand
     ctx.save(); ctx.setTransform(...GMx); ctx.strokeStyle = '#e0483a'; ctx.lineWidth = 3 / (PPM * s * 0.75); ctx.strokeRect(-H, -H, 2 * H, 2 * H); ctx.restore();
-    this.tools.overlay(ctx);
+    if (this.play.active) this.play.draw(ctx); else this.tools.overlay(ctx);
     if (pending) this._dirty = true;
   }
   // Übersicht: Häuser von oben als Dachflächen

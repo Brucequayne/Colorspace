@@ -6,7 +6,7 @@ import { VEG, BRUSHES } from './veg.js';
 import { BLOCK_DEFAULT, normPoly } from './blocks.js';
 import { ROAD_DEFAULT, layout, ACUTE } from './roads.js';
 
-export const MODES = ['select', 'place', 'brush', 'erase', 'road', 'block'];
+export const MODES = ['select', 'place', 'brush', 'erase', 'road', 'block', 'ground'];
 const STEP = Math.PI / 36; // Straßen in 5°-Schritten
 
 export class Tools {
@@ -15,6 +15,7 @@ export class Tools {
     this.asset = 'haus_siedlung'; this.rot = 0; this.variant = 0; this.randVar = true;
     this.brush = { r: 3, d: 6, id: 'meadow', acc: 0 };
     this.eraser = { r: 4, vegOnly: true };
+    this.ground = { code: 2, r: 3, erase: false };
     this.road = { p: { ...ROAD_DEFAULT }, start: null }; this.selRoad = null;
     this.block = { p: { ...BLOCK_DEFAULT }, pts: [], vdrag: null }; this.selBlock = null;
     this.sel = null; this.drag = null; this.paint = null; this.cursor = null; this.shift = false;
@@ -74,6 +75,7 @@ export class Tools {
       this.app.dirty(); return true;
     }
     if (this.mode === 'block') { this.blockDown(g, e, dx, dy); this.app.dirty(); return true; }
+    if (this.mode === 'ground') { this.app.paint.begin(); this.paint = { g, last: performance.now() }; this.cursor = g; this.paintTick(0.05); return true; }
     if (this.mode === 'brush' || this.mode === 'erase') {
       world.begin(); this.app.veg.begin(); this.paint = { g, last: performance.now() }; this.cursor = g; this.paintTick(0.05); return true;
     }
@@ -92,13 +94,14 @@ export class Tools {
   up() {
     if (this.block.vdrag) { const v = this.block.vdrag, b = this.app.blocks.list.get(v.id); if (b && v.p) { const pts = b.pts.map(q => q.slice()); pts[v.i] = v.p; const B = this.app.blocks; B.begin(); B.set(v.id, { pts }); B.commit(); } this.block.vdrag = null; }
     if (this.drag) { this.app.world.logMod(this.drag.b); this.drag = null; }
-    if (this.paint) { this.app.world.commit(); this.app.veg.commit(); this.paint = null; }
+    if (this.paint) { if (this.mode === 'ground') this.app.paint.commit(); else { this.app.world.commit(); this.app.veg.commit(); } this.paint = null; }
     this.app.ui.sync();
   }
   // wird jedes Bild aufgerufen, solange gemalt wird (wie in Rap Streets: Menge pro Zeit)
   paintTick(dt) {
     if (!this.paint) return;
     const g = this.paint.g, now = performance.now(); dt = Math.min(0.1, dt || (now - this.paint.last) / 1000); this.paint.last = now;
+    if (this.mode === 'ground') { const G = this.ground; this.app.paint.circle(g[0], g[1], G.r, this.shift || G.erase ? 0 : G.code); this.app.paint.flush(); return; }
     if (this.mode === 'erase' || this.shift) this.erase(g); else this.vegPaint(g, dt);
     this.app.veg.flush(); this.app.ui.sync();
   }
@@ -227,7 +230,7 @@ export class Tools {
     else if (k === 'v') this.nextVariant();
     else if (k === 'delete' || k === 'backspace') this.deleteSel();
     else if (k === 'escape' || k === 'enter') { if (this.mode === 'block' && this.block.pts.length) { if (k === 'enter') this.blockFinish(); else { this.block.pts = []; this.app.dirty(); } } else if (this.mode === 'road' && this.road.start) this.roadFinish(); else { this.sel = null; this.selRoad = null; this.setMode('select'); } }
-    else if (k >= '1' && k <= '6') this.setMode(MODES[+k - 1]);
+    else if (k >= '1' && k <= '7') this.setMode(MODES[+k - 1]);
     else return false;
     return true;
   }
@@ -291,6 +294,8 @@ export class Tools {
       ctx.save(); ctx.imageSmoothingEnabled = false; ctx.globalAlpha = inWorld(x, y) ? 0.72 : 0.3;
       ctx.drawImage(s.canvas, Math.round(d[0]), Math.round(d[1]), s.w * sc, s.h * sc); ctx.restore();
       ring(x, y, 0.25, '#ffd34a', 2);
+    } else if (this.mode === 'ground') {
+      ring(gx, gy, this.ground.r, this.shift || this.ground.erase ? '#ff6a5a' : '#ffd34a', 2);
     } else if (this.mode === 'brush' || this.mode === 'erase') {
       const er = this.mode === 'erase' || this.shift;
       ring(gx, gy, this.mode === 'erase' ? this.eraser.r : this.brush.r, er ? '#ff6a5a' : '#b6f07a', 2);

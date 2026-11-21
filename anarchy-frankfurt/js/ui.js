@@ -1,8 +1,9 @@
 // Oberfläche: Werkzeugleiste, Seitenleiste, Statuszeile
-import { CFG } from './config.js';
+import { CFG } from './camera.js';
 import { ASSET_LIST, ASSETS } from './assets.js';
 import { BRUSHES, brushThumb } from './veg.js';
-import { PAL_MODES, ROOF_MODES } from './blocks.js';
+import { PAL_MODES, ROOF_MODES, STYLES } from './blocks.js';
+import { GROUNDS } from './paint.js';
 import { toLatLon, toWorld, osmTileOf } from './camera.js';
 import { PRESETS, layout } from './roads.js';
 
@@ -14,6 +15,7 @@ export class UI {
   init() {
     const app = this.app, t = app.tools;
     document.querySelectorAll('[data-mode]').forEach(b => b.onclick = () => t.setMode(b.dataset.mode));
+    $('playBtn').onclick = e => { e.currentTarget.blur(); if (app.play.active) app.play.stop(); else app.play.start(); };
     $('rotL').onclick = () => t.rotate(-1); $('rotR').onclick = () => t.rotate(1);
     $('undo').onclick = () => app.undo(); $('redo').onclick = () => app.redo();
     $('panelToggle').onclick = () => $('panel').classList.toggle('open');
@@ -27,24 +29,33 @@ export class UI {
       b.onclick = () => t.setAsset(a.key); grid.appendChild(b);
     }
 
+    const range = (id, get, set, fmt) => { const el = $(id), out = $(id + 'o'); el.value = get(); out.textContent = fmt(get()); el.oninput = () => { set(+el.value); out.textContent = fmt(+el.value); app.dirty(); }; };
+    // Bodenpinsel
+    GROUNDS.forEach((g, i) => { if (!g) return; const b = document.createElement('button'); b.dataset.gc = i; b.innerHTML = `<i style="background:${g.sw}"></i>${g.name}`; b.onclick = () => { t.ground.code = i; t.ground.erase = false; $('gErase').checked = false; t.setMode('ground'); }; $('groundSet').appendChild(b); });
+    range('gR', () => t.ground.r, v => t.ground.r = v, v => v.toLocaleString('de-DE') + ' m');
+    $('gErase').onchange = e => { t.ground.erase = e.target.checked; t.setMode('ground'); };
+    range('mA2', () => Math.round(app.mapAlpha * 100), v => { app.mapAlpha = v / 100; $('mA').value = v; $('mAo').textContent = v + ' %'; }, v => v + ' %');
+
     // Häuserblock
+    $('kSty').innerHTML = Object.entries(STYLES).map(([k, v]) => `<option value="${k}">${v.name}</option>`).join('');
     $('kPal').innerHTML = Object.entries(PAL_MODES).map(([k, v]) => `<option value="${k}">${v.name}</option>`).join('');
     $('kRoof').innerHTML = Object.entries(ROOF_MODES).map(([k, v]) => `<option value="${k}">${v.name}</option>`).join('');
     const kset = (key, val) => {
       const sel = t.selBlock && app.blocks.list.get(t.selBlock), p = { ...(sel ? sel.p : t.block.p), [key]: val };
       if (key === 'fmin' && p.fmax < val) p.fmax = val; if (key === 'fmax' && p.fmin > val) p.fmin = val;
+      if (key === 'style') { const S = STYLES[val]; p.fmin = S.fmin; p.fmax = S.fmax; p.width = S.width; }
       if (sel) { clearTimeout(this._kt); this._kt = setTimeout(() => { const B = app.blocks; B.begin(); B.set(sel.id, { p }); B.commit(); sel.pPending = null; this.blockForm(); }, 120); sel.pPending = p; }
       else t.block.p = p;
       this.blockForm(p);
     };
-    for (const [id, key, f] of [['kMin', 'fmin', v => v], ['kMax', 'fmax', v => v], ['kDen', 'dens', v => v / 100], ['kWid', 'width', v => v]]) $(id).oninput = e => kset(key, f(+e.target.value));
+    for (const [id, key, f] of [['kMin', 'fmin', v => v], ['kMax', 'fmax', v => v], ['kDen', 'dens', v => v / 100], ['kWid', 'width', v => v], ['kGat', 'gates', v => v]]) $(id).oninput = e => kset(key, f(+e.target.value));
+    $('kSty').onchange = e => kset('style', e.target.value);
     $('kPal').onchange = e => kset('pal', e.target.value); $('kRoof').onchange = e => kset('roof', e.target.value);
     $('kSeed').onclick = () => { const sel = t.selBlock && app.blocks.list.get(t.selBlock); kset('seed', ((sel ? sel.p : t.block.p).seed || 1) + 1); };
     $('kDel').onclick = () => { if (t.selBlock) t.deleteSel(); };
     this.blockForm();
 
     // Straße
-    const range = (id, get, set, fmt) => { const el = $(id), out = $(id + 'o'); el.value = get(); out.textContent = fmt(get()); el.oninput = () => { set(+el.value); out.textContent = fmt(+el.value); app.dirty(); }; };
     const rp = () => t.road.p, rset = (k, v) => { t.road.p = { ...t.road.p, [k]: v }; this.roadInfo(); app.dirty(); };
     range('rW', () => rp().w, v => rset('w', v), v => v.toLocaleString('de-DE') + ' m');
     range('rS', () => rp().sw, v => rset('sw', v), v => v.toLocaleString('de-DE') + ' m');
@@ -103,10 +114,10 @@ export class UI {
   blockForm(pp) {
     const t = this.app.tools, sel = t.selBlock && this.app.blocks.list.get(t.selBlock), p = pp || (sel ? (sel.pPending || sel.p) : t.block.p);
     const set = (id, v, txt) => { $(id).value = v; $(id + 'o').textContent = txt; };
-    set('kMin', p.fmin, String(p.fmin)); set('kMax', p.fmax, String(p.fmax)); set('kDen', Math.round(p.dens * 100), Math.round(p.dens * 100) + ' %'); set('kWid', p.width, p.width + ' m');
+    set('kMin', p.fmin, String(p.fmin)); set('kMax', p.fmax, String(p.fmax)); set('kDen', Math.round(p.dens * 100), Math.round(p.dens * 100) + ' %'); set('kWid', p.width, p.width + ' m'); set('kGat', p.gates || 1, String(p.gates || 1)); $('kSty').value = p.style || 'altbau';
     $('kPal').value = p.pal; $('kRoof').value = p.roof;
     $('kDel').disabled = !sel;
-    if (sel) { const g = this.app.blocks.gen(sel); $('kInfo').textContent = `Gewählter Block: ${g.parcels.length} Häuser, Haustiefe ${g.depth.toFixed(1)} m`; }
+    if (sel) { const g = this.app.blocks.gen(sel); $('kInfo').textContent = `Gewählter Block: ${g.parcels.length} Häuser, Haustiefe ${g.depth.toFixed(1)} m, ${g.parcels.filter(q => q.gate).length} Hofzugang/-zugänge`; }
     else $('kInfo').textContent = 'Kein Block gewählt – Regler gelten für den nächsten Block.';
   }
   roadForm() {
@@ -127,6 +138,7 @@ export class UI {
     $('rSelBtns').style.display = rs ? 'flex' : 'none';
     document.querySelectorAll('[data-mode]').forEach(b => b.classList.toggle('on', b.dataset.mode === t.mode));
     document.querySelectorAll('.asset[data-key]').forEach(b => b.classList.toggle('on', t.mode === 'place' && b.dataset.key === t.asset));
+    document.querySelectorAll('[data-gc]').forEach(b => b.classList.toggle('on', t.mode === 'ground' && +b.dataset.gc === t.ground.code && !t.ground.erase));
     document.querySelectorAll('.asset[data-vb]').forEach(b => b.classList.toggle('on', t.mode === 'brush' && b.dataset.vb === t.brush.id));
     const sel = t.sel && this.app.world.objs.get(t.sel);
     $('rotLabel').textContent = ((sel ? sel.r : t.rot) * 15) + '°';
