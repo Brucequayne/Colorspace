@@ -18,7 +18,9 @@ export class UI {
     $('playBtn').onclick = e => { e.currentTarget.blur(); if (app.play.active) app.play.stop(); else app.play.start(); };
     $('rotL').onclick = () => t.rotate(-1); $('rotR').onclick = () => t.rotate(1);
     $('undo').onclick = () => app.undo(); $('redo').onclick = () => app.redo();
-    $('panelToggle').onclick = () => $('panel').classList.toggle('open');
+    $('panelToggle').onclick = () => { const min = $('panel').classList.toggle('min'); document.body.classList.toggle('panel-min', min); $('panelToggle').textContent = min ? '+' : '–'; };
+    $('mapBtn').onclick = () => { const m = $('mapMenu'); m.hidden = !m.hidden; $('mapBtn').classList.toggle('on', !m.hidden); };
+    $('mapClose').onclick = () => { $('mapMenu').hidden = true; $('mapBtn').classList.remove('on'); };
 
     // Assets mit Vorschaubildern
     const box = $('assets'); let cat = '', grid;
@@ -132,6 +134,15 @@ export class UI {
   }
   sync() {
     const t = this.app.tools;
+    // Panel zeigt nur das aktive Werkzeug (in der Auswahl zusätzlich die Einstellungen des gewählten Blocks/der Straße)
+    const TT = { select: 'Auswahl', place: 'Objekte platzieren', brush: 'Vegetationspinsel', erase: 'Radierer', road: 'Straße', block: 'Häuserblock', ground: 'Bodenpinsel' };
+    $('pTitle').textContent = TT[t.mode] + (t.mode === 'select' && t.selBlock ? ' · Häuserblock' : t.mode === 'select' && t.selRoad ? ' · Straße' : '');
+    document.querySelectorAll('#panel section[data-modes]').forEach(s => {
+      let show = s.dataset.modes.split(' ').includes(t.mode);
+      if (t.mode === 'select' && s.id === 'blockPanel' && t.selBlock) show = true;
+      if (t.mode === 'select' && s.id === 'roadPanel' && t.selRoad) show = true;
+      s.hidden = !show;
+    });
     if (this._lastSelBlock !== t.selBlock) { this._lastSelBlock = t.selBlock; const sb = t.selBlock && this.app.blocks.list.get(t.selBlock); if (sb) sb.pPending = null; this.blockForm(); }
     const rs = t.selRoad && this.app.roads.segs.get(t.selRoad);
     $('rSel').innerHTML = rs ? `Ausgewählte Straße: ${rs.p.w.toLocaleString('de-DE')} m, ${rs.p.lanes} Spur${rs.p.lanes > 1 ? 'en' : ''}${rs.p.oneway ? ', Einbahn' : ''}${rs.p.bike ? ', Rad' : ''}${rs.p.bus ? ', Bus' : ''} · ${rs.g.L.toFixed(1)} m lang` : 'Straße mit „Auswahl“ anklicken, um sie zu bearbeiten.';
@@ -145,7 +156,7 @@ export class UI {
     const info = $('selInfo');
     if (sel) info.innerHTML = `Ausgewählt: <b>${ASSETS[sel.a].name}</b> · ${sel.r * 15}° · Variante ${sel.v + 1}/${ASSETS[sel.a].variants}<br>Q/E drehen · V Variante · Entf löschen`;
     else if (t.mode === 'place') info.innerHTML = `Platzieren: <b>${ASSETS[t.asset].name}</b> · ${t.rot * 15}° · ${t.randVar ? 'zufällige Variante' : 'Variante ' + (t.variant + 1)}`;
-    else info.textContent = 'Asset anklicken, dann auf der Karte platzieren.';
+    else info.textContent = t.mode === 'select' ? 'Objekt, Haus oder Straße anklicken. Ziehen = verschieben, Q/E = drehen, Entf = löschen. Leere Fläche ziehen = Karte bewegen.' : 'Asset unten wählen, dann auf der Karte klicken.';
     $('sObj').textContent = this.app.world.size.toLocaleString('de-DE') + ' Objekte · ' + this.app.veg.size.toLocaleString('de-DE') + ' Pflanzen';
   }
   status() {

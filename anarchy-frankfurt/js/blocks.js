@@ -72,7 +72,23 @@ export function generate(b) {
   const { E, Q } = inset(P, d), out = [];
   const facW = FAC.map(f => [f, f[2] * (PAL_MODES[p.pal] ? (PAL_MODES[p.pal].k[f[0]] ?? 1) : 1)]);
   const roofW = Object.entries((ROOF_MODES[p.roof] || ROOF_MODES.slate).w).map(([k, w]) => [k, w]);
-  E.forEach((e, i) => {
+  // Eigenschaften eines Hauses würfeln und anhängen
+  const addParcel = (q, e, i, j, first, last, side) => {
+      const corner = first || last, fw = p.style === 'fachwerk';
+      let F = p.fmin + Math.floor(r() * (p.fmax - p.fmin + 1));
+      if (corner && r() < 0.5) F = Math.min(p.fmax, F + 1);
+      const fac = pickW(r, facW), dark = fac[1][0] + fac[1][1] + fac[1][2] < 420;
+      const trim = dark ? LSTONE : r() < 0.5 ? STUCCO : SAND;
+      const roofKey = pickW(r, roofW);
+      out.push({ side,
+        style: fw ? 'fachwerk' : 'altbau', fwWall: pickW(r, FW_WALL), fwBeam: pickW(r, FW_BEAM), edge: i,
+        key: `${b.id}:${i}:${j}:${p.style}:${p.gates}:${p.seed}:${p.fmin}:${p.fmax}:${p.dens}:${p.width}:${p.pal}:${p.roof}:${b.pts.map(q2 => q2.join(',')).join(';')}`,
+        q, n: e.n, u: e.u, F, wall: fac[1].map(c => c + (r() - 0.5) * 10), trim, plinth: r() < 0.65 ? SAND : STONE,
+        roof: ROOFS[roofKey].map(c => c + (r() - 0.5) * 8), mansard: corner || d > 16 || r() < 0.75, balcony: r() < 0.55, dormEvery: r() < 0.5 ? 1 : 2, seed: (r() * 1e6) | 0
+      });
+  };
+  if (p.style === 'fachwerk') fachwerkParcels(P, E, d, p, r, addParcel);
+  else E.forEach((e, i) => {
     const A2 = Q[i], B2 = Q[(i + 1) % Q.length], tA = (A2[0] - e.a[0]) * e.u[0] + (A2[1] - e.a[1]) * e.u[1], tB = (B2[0] - e.a[0]) * e.u[0] + (B2[1] - e.a[1]) * e.u[1];
     const loT = Math.max(0, tA) + 3, hiT = Math.min(e.L, tB) - 3, k = Math.max(1, Math.round(e.L / p.width));
     const cuts = [];
@@ -85,18 +101,7 @@ export function generate(b) {
       const first = j === 0, last = j === ts.length - 2, P0 = [e.a[0] + e.u[0] * ts[j], e.a[1] + e.u[1] * ts[j]], P1 = [e.a[0] + e.u[0] * ts[j + 1], e.a[1] + e.u[1] * ts[j + 1]];
       const q = [first ? e.a.slice() : P0, last ? [e.a[0] + e.u[0] * e.L, e.a[1] + e.u[1] * e.L] : P1,
         last ? B2.slice() : [P1[0] + e.n[0] * d, P1[1] + e.n[1] * d], first ? A2.slice() : [P0[0] + e.n[0] * d, P0[1] + e.n[1] * d]];
-      const corner = first || last, fw = p.style === 'fachwerk';
-      let F = p.fmin + Math.floor(r() * (p.fmax - p.fmin + 1));
-      if (corner && r() < 0.5) F = Math.min(p.fmax, F + 1);
-      const fac = pickW(r, facW), dark = fac[1][0] + fac[1][1] + fac[1][2] < 420;
-      const trim = dark ? LSTONE : r() < 0.5 ? STUCCO : SAND;
-      const roofKey = pickW(r, roofW);
-      out.push({
-        style: fw ? 'fachwerk' : 'altbau', fwWall: pickW(r, FW_WALL), fwBeam: pickW(r, FW_BEAM), edge: i,
-        key: `${b.id}:${i}:${j}:${p.style}:${p.gates}:${p.seed}:${p.fmin}:${p.fmax}:${p.dens}:${p.width}:${p.pal}:${p.roof}:${b.pts.map(q2 => q2.join(',')).join(';')}`,
-        q, n: e.n, u: e.u, F, wall: fac[1].map(c => c + (r() - 0.5) * 10), trim, plinth: r() < 0.65 ? SAND : STONE,
-        roof: ROOFS[roofKey].map(c => c + (r() - 0.5) * 8), mansard: corner || d > 16 || r() < 0.75, balcony: r() < 0.55, dormEvery: r() < 0.5 ? 1 : 2, seed: (r() * 1e6) | 0
-      });
+      addParcel(q, e, i, j, first, last, null);
     }
   });
   // Hofzugänge: Tordurchfahrten (Gang durchs Erdgeschoss) oder schmale Lücken zwischen zwei Häusern
@@ -123,6 +128,31 @@ export function generate(b) {
   return { parcels: out, inner: Q, depth: d, P };
 }
 
+// Fachwerk: nur rechteckige Häuser. Jede Ecke gehört dem Haus der vorherigen Straßenseite (mit Seitenfassade zur Ecke),
+// die nächste Seite beginnt erst dahinter. Spitze Ecken bleiben frei statt verzerrte Häuser hineinzuquetschen.
+function fachwerkParcels(P, E, d, p, r, add) {
+  const n = E.length, t0 = new Array(n).fill(0), t1 = E.map(e => e.L);
+  for (let i = 0; i < n; i++) {
+    const e = E[i], f = E[(i + 1) % n], cosT = -(e.u[0] * f.u[0] + e.u[1] * f.u[1]);      // cos des Innenwinkels
+    const sinT = Math.abs(e.u[0] * f.u[1] - e.u[1] * f.u[0]), ang = Math.atan2(sinT, cosT); // Innenwinkel
+    if (ang < Math.PI / 2 - 0.05) t1[i] = Math.max(0, e.L - d / Math.tan(ang));            // spitz: Ecke frei lassen
+    const end = [e.a[0] + e.u[0] * t1[i], e.a[1] + e.u[1] * t1[i]], C = [end[0] + e.n[0] * d, end[1] + e.n[1] * d], B = f.a;
+    t0[(i + 1) % n] = Math.max(0, Math.max((end[0] - B[0]) * f.u[0] + (end[1] - B[1]) * f.u[1], (C[0] - B[0]) * f.u[0] + (C[1] - B[1]) * f.u[1])) + 0.05;
+  }
+  for (let i = 0; i < n; i++) {
+    const e = E[i], a = t0[i], b = t1[i], L = b - a; if (L < 3) continue;
+    const k = Math.max(1, Math.round(L / p.width)), ts = [a];
+    for (let j = 1; j < k; j++) ts.push(a + L * j / k + (r() - 0.5) * p.width * 0.3);
+    ts.push(b);
+    for (let j = 0; j < ts.length - 1; j++) {
+      const P0 = [e.a[0] + e.u[0] * ts[j], e.a[1] + e.u[1] * ts[j]], P1 = [e.a[0] + e.u[0] * ts[j + 1], e.a[1] + e.u[1] * ts[j + 1]];
+      const q = [P0, P1, [P1[0] + e.n[0] * d, P1[1] + e.n[1] * d], [P0[0] + e.n[0] * d, P0[1] + e.n[1] * d]];
+      const first = j === 0, last = j === ts.length - 2;
+      // freiliegende Seiten bekommen eine Fassade statt Brandwand
+      add(q, e, i, j, first, last, { end: last, start: first && t0[i] > 0.5 && t1[(i + n - 1) % n] < E[(i + n - 1) % n].L - 0.5 });
+    }
+  }
+}
 function isCornerIdx(out, k) { const a = out[k - 1], b = out[k + 1]; return !a || !b || a.edge !== out[k].edge || b.edge !== out[k].edge; }
 
 // ---------- 3D-Modell einer Parzelle ----------
@@ -286,8 +316,11 @@ function buildFachwerk(par, cx, cy) {
     const h = f === 0 ? gh : fh, A = O(Q0, off(f)), B = O(Q1, off(f));
     m.quad(Z(A, z), Z(B, z), Z(B, z + h), Z(A, z + h), 'fachwerk', hid, out, { ...ex, kind: f === 0 ? 'ground' : 'floor', fi: f });
     m.quad(Z(Q2, z), Z(Q3, z), Z(Q3, z + h), Z(Q2, z + h), 'fachwerk', hid, [n[0], n[1], 0], { ...ex, kind: f === 0 ? 'back0' : 'floor', fi: f, len: Math.hypot(Q3[0] - Q2[0], Q3[1] - Q2[1]), door: -1, arch: arch ? { u0: len - arch.u1, u1: len - arch.u0 } : null });
-    m.quad(Z(B, z), Z(Q2, z), Z(Q2, z + h), Z(B, z + h), 'firewall', hid, sOut(B, Q2));
-    m.quad(Z(Q3, z), Z(A, z), Z(A, z + h), Z(Q3, z + h), 'firewall', hid, sOut(Q3, A));
+    // freiliegende Seite an der Ecke: echte Fassade (Fachwerk bzw. Sandstein-Erdgeschoss) statt Brandwand
+    const sideEx = len2 => ({ ...ex, kind: f === 0 ? 'back0' : 'floor', fi: f, len: len2, door: -1, arch: null });
+    const sd = par.side || {};
+    m.quad(Z(B, z), Z(Q2, z), Z(Q2, z + h), Z(B, z + h), sd.end ? 'fachwerk' : 'firewall', hid, sOut(B, Q2), sd.end ? sideEx(Math.hypot(Q2[0] - B[0], Q2[1] - B[1])) : undefined);
+    m.quad(Z(Q3, z), Z(A, z), Z(A, z + h), Z(Q3, z + h), sd.start ? 'fachwerk' : 'firewall', hid, sOut(Q3, A), sd.start ? sideEx(Math.hypot(A[0] - Q3[0], A[1] - Q3[1])) : undefined);
     z += h;
   }
   // Giebeldach, First senkrecht zur Straße
