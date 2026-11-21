@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Anarchy Frankfurt – Map-Editor</title>
+<link rel="stylesheet" href="css/editor.css">
+</head>
+<body>
+<canvas id="view"></canvas>
+
+<header id="top">
+  <div class="brand">ANARCHY <b>FRANKFURT</b> <span>Map-Editor v0.21</span></div>
+  <div class="tools">
+    <button data-mode="select" title="Auswählen &amp; verschieben (1)">Auswahl <kbd>1</kbd></button>
+    <button data-mode="place" title="Asset platzieren (2)">Platzieren <kbd>2</kbd></button>
+    <button data-mode="brush" title="Vegetationspinsel (3)">Vegetation <kbd>3</kbd></button>
+    <button data-mode="erase" title="Radierer (4)">Radierer <kbd>4</kbd></button>
+    <button data-mode="road" title="Straße zeichnen (5)">Straße <kbd>5</kbd></button>
+    <span class="sep"></span>
+    <button id="rotL" title="Drehen −15° (Q)">⟲ Q</button>
+    <span id="rotLabel" class="pill">0°</span>
+    <button id="rotR" title="Drehen +15° (E)">E ⟳</button>
+    <span class="sep"></span>
+    <button id="undo" title="Rückgängig (Strg+Z)">↶</button>
+    <button id="redo" title="Wiederholen (Strg+Y)">↷</button>
+  </div>
+  <button id="panelToggle" title="Seitenleiste">☰</button>
+</header>
+
+<aside id="panel">
+  <details open id="roadPanel">
+    <summary>Straße</summary>
+    <div class="btns" id="roadPresets"></div>
+    <label class="row">Gesamtbreite <input type="range" id="rW" min="6" max="40" step="0.5"><output id="rWo"></output></label>
+    <label class="row">Gehweg je Seite <input type="range" id="rS" min="0" max="6" step="0.5"><output id="rSo"></output></label>
+    <label class="row">Fahrspuren <input type="range" id="rL" min="1" max="6" step="1"><output id="rLo"></output></label>
+    <label class="check"><input type="checkbox" id="rOne"> Einbahnstraße</label>
+    <label class="check"><input type="checkbox" id="rBike"> Radfahrstreifen (beidseitig)</label>
+    <label class="check"><input type="checkbox" id="rBus"> Busspur</label>
+    <label class="check"><input type="checkbox" id="rZeb"> Zebrastreifen an Kreuzungen</label>
+    <div id="rInfo" class="hint"></div>
+    <div id="rSel" class="hint"></div>
+    <div class="btns" id="rSelBtns"><button id="rApply">Profil auf Auswahl</button><button id="rApplyAll">Auf ganze Straße</button><button id="rTake">Profil übernehmen</button><button id="rDel">Löschen</button></div>
+    <p class="hint">Klicken = Punkt setzen (15°-Schritte, Länge im Raster). Rechtsklick, Enter oder Esc = Straße beenden. Kreuzungen entstehen automatisch.</p>
+  </details>
+
+  <details open>
+    <summary>Assets</summary>
+    <div id="assets"></div>
+    <div id="selInfo" class="hint"></div>
+  </details>
+
+  <details open>
+    <summary>Vegetationspinsel</summary>
+    <div id="vegSet" class="grid"></div>
+    <label class="row">Radius <input type="range" id="bR" min="0.5" max="15" step="0.5"><output id="bRo"></output></label>
+    <label class="row">Dichte <input type="range" id="bD" min="1" max="10" step="1"><output id="bDo"></output></label>
+    <p class="hint">Maus gedrückt halten und malen – je länger, desto dichter. Umschalttaste = Pflanzen wegradieren.</p>
+    <label class="row">Radierer <input type="range" id="eR" min="1" max="30" step="1"><output id="eRo"></output></label>
+    <label class="check"><input type="checkbox" id="eVeg"> Radierer löscht nur Pflanzen und Bäume</label>
+  </details>
+
+  <details open>
+    <summary>Raster (15°-Schritte)</summary>
+    <label class="row">Winkel <select id="gA"></select></label>
+    <label class="row">Abstand <select id="gS"><option value="0.5">0,5 m</option><option value="1">1 m</option><option value="2">2 m</option></select></label>
+    <label class="check"><input type="checkbox" id="gSnap"> Einrasten</label>
+    <label class="check"><input type="checkbox" id="gShow"> Raster anzeigen (G)</label>
+  </details>
+
+  <details open>
+    <summary>Stadtkarte (OpenStreetMap)</summary>
+    <label class="row">Deckkraft <input type="range" id="mA" min="0" max="100" step="5"><output id="mAo"></output></label>
+    <div id="layers" class="checks"></div>
+    <label class="check"><input type="checkbox" id="autoLoad"> Beim Navigieren automatisch laden</label>
+    <div class="btns"><button id="loadView">Sichtbaren Bereich laden</button><button id="clearOsm">Cache leeren</button></div>
+  </details>
+
+  <details open>
+    <summary>Navigation</summary>
+    <label class="row">Gehe zu <select id="goto"></select></label>
+    <div class="btns"><button id="zIn">Zoom +</button><button id="zOut">Zoom −</button><button id="zFit">Ganze Karte</button></div>
+  </details>
+
+  <details>
+    <summary>Karte speichern</summary>
+    <p class="hint">Wird automatisch im Browser gespeichert. Für GitHub als Datei exportieren.</p>
+    <div class="btns"><button id="exp">Exportieren</button><button id="imp">Importieren</button><button id="newMap">Neue Karte</button></div>
+  </details>
+
+  <details>
+    <summary>Tastenkürzel</summary>
+    <p class="hint">
+      WASD / Pfeile: bewegen · Mausrad: zoomen<br>
+      Rechte/mittlere Maustaste oder Leertaste: Karte ziehen<br>
+      Q / E: drehen (15°) · V: Variante · Entf: löschen<br>
+      5: Straße · Rechtsklick/Enter: Straße beenden<br>
+      Strg+Z / Strg+Y: rückgängig / wiederholen · Esc: Auswahl
+    </p>
+  </details>
+</aside>
+
+<footer id="status">
+  <span id="sPos">–</span>
+  <span id="sZoom"></span>
+  <span id="sObj"></span>
+  <span id="sOsm"></span>
+  <span class="attr">Kartendaten © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap-Mitwirkende</a> (ODbL)</span>
+</footer>
+
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
