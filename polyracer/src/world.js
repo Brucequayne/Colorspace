@@ -18,14 +18,16 @@ export class World {
     this.env = { time: 14, fog: 30, view: 1400, wind: 35, windDir: 40 };
     this.name = "Teststrecke";
     this.terrain.carve = (x, z) => this.road.carve(x, z);
+    this.road.base = (x, z) => this.terrain.heightAt(x, z, true);
     this.windFx = new WindLines(this);
-    engine.scene.add(this.terrain.group); engine.scene.add(this.road.mesh); engine.scene.add(this.veg.group); engine.scene.add(this.windFx.mesh);
+    engine.scene.add(this.terrain.group); engine.scene.add(this.road.mesh); engine.scene.add(this.road.bmesh); engine.scene.add(this.veg.group); engine.scene.add(this.windFx.mesh);
     this.n = new THREE.Vector3();
   }
   // Boden unter (x, z) für die Physik: Fahrbahn hat Vorrang, sonst Gelände mit seiner Bodenart
-  ground(x, z, out) {
+  // y (seit v0.12): Höhe des abfragenden Punkts – wer unter einer Brücke fährt, bekommt das Gelände, nicht die Brücke
+  ground(x, z, out, y) {
     const o = out || {}; const r = this.road.query(x, z), th = this.terrain.heightAt(x, z);
-    if (r && r.h > th - 0.6) { o.h = r.h; o.n = r.n; o.mu = r.kind === "curb" ? 1.22 : 1.35; o.rr = 0.013; o.kind = r.kind; return o; }   // Asphalt seit v0.11 35 % griffiger
+    if (r && r.h > th - 0.6 && !(r.br && y != null && y < r.h - 1.6)) { o.h = r.h; o.n = r.n; o.mu = r.kind === "curb" ? 1.22 : 1.35; o.rr = 0.013; o.kind = r.kind; return o; }   // Asphalt seit v0.11 35 % griffiger
     o.h = th; o.n = this.terrain.normalAt(x, z, this.n); const L = this.terrain.layerAt(x, z); o.mu = SURF[L][0]; o.rr = SURF[L][1]; o.kind = "terrain"; return o;
   }
   setEnv(o) { Object.assign(this.env, o || {}); this.engine.setEnv({ time: this.env.time, fog: this.env.fog, view: this.env.view }); }

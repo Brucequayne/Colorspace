@@ -38,7 +38,7 @@ export class WindLines {
       const wob = Math.sin(t * 2.3 + q.ph) * 0.25 * len * 0.2, x0 = q.x - dx * len - dz * wob, z0 = q.z - dz * len + dx * wob;
       const y1 = T.heightAt(q.x, q.z) + q.h, y0 = T.heightAt(x0, z0) + q.h;
       P.set([x0, y0, z0, q.x, y1, q.z], i * 6);
-      const f = Math.sin(Math.PI * clamp(q.life / q.max, 0, 1)), al = f * (0.16 + 0.3 * k);
+      const f = Math.sin(Math.PI * clamp(q.life / q.max, 0, 1)), al = f * 0.022 * (0.6 + 0.8 * k);   // seit v0.12 nur noch ganz leicht sichtbar (~10 % auf dem Bildschirm; Farbe ist linear, daher so klein)
       C.set([0, 0, 0, al, al, al * 1.05], i * 6);   // hinten unsichtbar, vorne hell: wirkt wie ein Strich in Bewegungsrichtung
     }
     this.init = true;

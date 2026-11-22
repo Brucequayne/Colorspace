@@ -66,12 +66,12 @@ export const MODELS = {
     part(new THREE.IcosahedronGeometry(0.6, 0), "#37602B", M(-0.5, 0.45, -0.3, 1), 0.2, 13)]),
   rock: () => merge([part(new THREE.DodecahedronGeometry(1.2, 0), "#8A867E", M(0, 0.55, 0, 1, 0.7, 1.1), 0.4, 14)]),
   slab: () => merge([part(new THREE.DodecahedronGeometry(1.6, 0), "#77736C", M(0, 0.35, 0, 1.3, 0.35, 1), 0.35, 15), part(new THREE.DodecahedronGeometry(0.6, 0), "#8C887F", M(1.1, 0.3, 0.6, 1, 0.8, 1), 0.2, 16)]),
-  grass: () => blades({ n: 16, h0: 0.35, h1: 0.62, w: 0.06, spread: 0.32, c0: "#55823A", c1: "#93B85A", seed: 21 }),
-  grasslong: () => blades({ n: 18, h0: 0.6, h1: 1.1, w: 0.065, spread: 0.38, c0: "#4E7A34", c1: "#A3BF66", seed: 22 }),
-  grassdry: () => blades({ n: 14, h0: 0.4, h1: 0.78, w: 0.06, spread: 0.34, c0: "#8A8242", c1: "#D3C77A", seed: 23 }),
-  grassshort: () => blades({ n: 20, h0: 0.14, h1: 0.3, w: 0.055, spread: 0.3, c0: "#5E8E38", c1: "#A8CF68", seed: 24 }),
-  grassdark: () => blades({ n: 16, h0: 0.4, h1: 0.72, w: 0.065, spread: 0.34, c0: "#355E27", c1: "#68964A", seed: 25 }),
-  flowers: () => { const g = blades({ n: 10, h0: 0.3, h1: 0.5, w: 0.05, spread: 0.3, c0: "#3F6A26", c1: "#86AE52", seed: 26 }), L = [], cols = ["#E8D24A", "#E07AA0", "#F1F0EA", "#8A7CE0"];
+  grass: () => blades({ n: 16, h0: 0.35, h1: 0.62, w: 0.06, spread: 0.32, c0: "#4E8A34", c1: "#8DC459", seed: 21 }),
+  grasslong: () => blades({ n: 18, h0: 0.6, h1: 1.1, w: 0.065, spread: 0.38, c0: "#4A8432", c1: "#97C660", seed: 22 }),
+  grassdry: () => blades({ n: 14, h0: 0.4, h1: 0.78, w: 0.06, spread: 0.34, c0: "#5E8A36", c1: "#A9C463", seed: 23 }),
+  grassshort: () => blades({ n: 20, h0: 0.14, h1: 0.3, w: 0.055, spread: 0.3, c0: "#569638", c1: "#A0D466", seed: 24 }),
+  grassdark: () => blades({ n: 16, h0: 0.4, h1: 0.72, w: 0.065, spread: 0.34, c0: "#2F6B2C", c1: "#5E9E47", seed: 25 }),
+  flowers: () => { const g = blades({ n: 10, h0: 0.3, h1: 0.5, w: 0.05, spread: 0.3, c0: "#447E2C", c1: "#86BC55", seed: 26 }), L = [], cols = ["#E8D24A", "#E07AA0", "#F1F0EA", "#8A7CE0"];
     for (let i = 0; i < 5; i++) { const a = i * 1.3, r = 0.08 + (i % 3) * 0.08; L.push(part(new THREE.CylinderGeometry(0.012, 0.012, 0.5, 3), "#5E8A3A", M(Math.cos(a) * r, 0.25, Math.sin(a) * r, 1))); L.push(part(new THREE.OctahedronGeometry(0.06, 0), cols[i % 4], M(Math.cos(a) * r, 0.52, Math.sin(a) * r, 1))); }
     const f = merge(L), out = new THREE.BufferGeometry();
     ["position", "color", "normal"].forEach((k) => { const a = g.attributes[k].array, b = f.attributes[k].array, c = new Float32Array(a.length + b.length); c.set(a); c.set(b, a.length); out.setAttribute(k, new THREE.BufferAttribute(c, 3)); });

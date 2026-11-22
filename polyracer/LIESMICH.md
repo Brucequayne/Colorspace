@@ -21,7 +21,7 @@ den Cache-Stempel der Startseite bekommt, und lädt dann `src/main.js`.
 | `core.js` | Namensraum `PR`, Texte (`L2`, `t`), Speicherschlüssel, Mathe, Zufall, Rauschen |
 | `engine.js` | Renderer, Kamera, Himmel, Sonne/Mond nach Uhrzeit, Nebel, Schatten, Qualität |
 | `terrain.js` | Gelände: Höhenraster 360 × 360 Zellen auf 1440 m (ältere 1024-m-Szenen werden mittig übernommen), Kacheln, Pinsel, Bodenarten |
-| `road.js` | Straße: Spline-Punkte (Höhe, Breite, Neigung, Kerbs), Netz, Abfrage, Gelände-Einbettung |
+| `road.js` | Straße: Spline-Punkte (Höhe, Breite, Neigung, Kerbs, Gelände an/aus `t`, Hilfspunkt `a`), Netz, Abfrage, Gelände-Einbettung, automatische Betonbrücken (Brüstungen, Pfeiler) |
 | `models.js` | Prozedurale Platzhalter-Modelle (Bäume, Steine, Gras, Testauto) |
 | `vegetation.js` | Pflanzentypen (Bäume, Gras aus Halmen, Steine, Kollisionsradien), Pinsel-Gruppen mit Wahrscheinlichkeiten und Hangneigung von/bis, Instanzen, Wind |
 | `wind.js` | Wind als feine Linien (Stärke, Richtung) |
@@ -30,7 +30,7 @@ den Cache-Stempel der Startseite bekommt, und lädt dann `src/main.js`.
 | `input.js` | Tastatur, Controller |
 | `car.js` | Fahrphysik: Starrkörper, 4 Räder, Stabilisatoren, Reifen (Kräfte auf Rollzentrum-Höhe), Motor, Getriebe, Antrieb (240 Hz), Kollision mit Stämmen/Felsen |
 | `drive.js` | Testfahrt mit Verfolgerkamera und Anzeige |
-| `editor.js` | Developer Tool |
+| `editor.js` | Developer Tool (Straße: Modi Bearbeiten/Gerade/Kurve, Platzierhöhe C/V, Straßen-Terrain an/aus) |
 | `menu.js` | Hauptmenü (später Werkstatt) |
 | `main.js` | Hülle, Zustände, Schleife, CSS |
 

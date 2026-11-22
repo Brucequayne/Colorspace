@@ -86,7 +86,7 @@ export class Car {
     const contact = this._v[2], vc = this._v[3], wf = this._v[4], lat = this._v[5], rel = this._v[6], tmp = this._v[7], g = this.gr;
     this.wh.forEach((w, i) => {
       const mount = rel.set(w.x, d.mountY, w.z).applyQuaternion(q).add(p);
-      wld.ground(mount.x, mount.z, g);
+      wld.ground(mount.x, mount.z, g, mount.y);
       const n = g.n, nu = Math.max(0.25, n.dot(up)), s = n.y * (mount.y - g.h) / nu;
       // s = Abstand Aufhängung → Boden entlang der Federachse
       let comp = d.rest + d.R - s; w.kind = g.kind;
@@ -152,7 +152,8 @@ export class Car {
   // Kollision der Karosserie (Rechteck von oben) mit runden Hindernissen: Rauslösen + Stoß mit wenig Rückprall und Reibung
   obstacles(fwd) {
     const d = this.def, W = d.size[0] / 2 + 0.05, L = d.size[2] / 2 + 0.05, p = this.p, rx = fwd.z, rz = -fwd.x;   // r = Seitenrichtung in der Ebene
-    this.world.veg.near(p.x, p.z, 4 + L, (cx, cz, r) => {
+    const R = this.world.road;
+    const col = (cx, cz, r) => {
       const ox = cx - p.x, oz = cz - p.z, lf = ox * fwd.x + oz * fwd.z, ls = ox * rx + oz * rz;
       const qf = clamp(lf, -L, L), qs = clamp(ls, -W, W), ex = lf - qf, es = ls - qs, dd = Math.hypot(ex, es);
       let nf, ns, pen;
@@ -160,7 +161,24 @@ export class Car {
       else { const a = L - Math.abs(lf), b = W - Math.abs(ls); if (a < b) { nf = Math.sign(lf) || 1; ns = 0; pen = a + r; } else { nf = 0; ns = Math.sign(ls) || 1; pen = b + r; } }
       // Normale zeigt vom Auto zum Hindernis (Weltkoordinaten, waagrecht)
       const n = new THREE.Vector3(fwd.x * nf + rx * ns, 0, fwd.z * nf + rz * ns).normalize();
-      const cpt = new THREE.Vector3(p.x + fwd.x * qf + rx * qs, p.y, p.z + fwd.z * qf + rz * qs), r0 = cpt.clone().sub(p);
+      const cpt = new THREE.Vector3(p.x + fwd.x * qf + rx * qs, p.y, p.z + fwd.z * qf + rz * qs);
+      this.impulse(cpt, n, pen);
+    };
+    this.world.veg.near(p.x, p.z, 4 + L, col);
+    // Brückenpfeiler (nur wenn das Auto darunter fährt)
+    if (R.pillars.length) for (const pl of R.pillars) { const dx = pl[0] - p.x, dz = pl[1] - p.z; if (p.y < pl[3] && dx * dx + dz * dz < (L + 3) * (L + 3)) col(pl[0], pl[1], pl[2]); }
+    // Brüstungen auf Brücken: Ecken der Karosserie, die über die Innenseite hinausragen, werden zurückgestoßen
+    if (R.anyBridge) for (let ix = -1; ix <= 1; ix += 2) for (let iz = -1; iz <= 1; iz += 2) {
+      const cx = p.x + fwd.x * L * iz + rx * W * ix, cz = p.z + fwd.z * L * iz + rz * W * ix, q = R.nearest(cx, cz);
+      if (!q || !q.br || Math.abs(p.y - q.y) > 2.2) continue;
+      const pen = Math.abs(q.d) - R.face(q); if (pen <= 0 || pen > 1.6) continue;
+      const sg = Math.sign(q.d) || 1;
+      this.impulse(new THREE.Vector3(cx, p.y, cz), new THREE.Vector3(q.r.x * sg, 0, q.r.z * sg).normalize(), pen);
+    }
+  }
+  // Stoß gegen eine feste Wand/Säule am Punkt cpt, Normale n zeigt vom Auto weg zum Hindernis
+  impulse(cpt, n, pen) {
+      const d = this.def, p = this.p, r0 = cpt.clone().sub(p);
       p.addScaledVector(n, -pen * 0.8);
       const vp = this.w.clone().cross(r0).add(this.v), vn = vp.dot(n);
       if (vn <= 0) return;
@@ -171,14 +189,13 @@ export class Car {
       if (vtl > 1e-3) imp.addScaledVector(vt, -Math.min(0.5 * j, vtl / k) / vtl);
       this.v.addScaledVector(imp, 1 / d.mass); this.w.add(Iinv(r0.clone().cross(imp)));
       this.hit = Math.max(this.hit || 0, vn);
-    });
   }
   brakeOm(om, bt, dt) { if (bt <= 0) return om; const dv = bt / this.def.Iw * dt; return Math.abs(om) <= dv ? 0 : om - Math.sign(om) * dv; }
   bodyContact(F, T, up) {
     const d = this.def, [W, H, L] = d.size, q = this.q, p = this.p, c = this._v[6], g = this.gr, f = this._v[7];
     for (let ix = -1; ix <= 1; ix += 2) for (let iy = -1; iy <= 1; iy += 2) for (let iz = -1; iz <= 1; iz += 2) {
       c.set(ix * W / 2, iy * H / 2 * (iy > 0 ? 1 : 0.5) + 0.1, iz * L / 2).applyQuaternion(q).add(p);
-      this.world.ground(c.x, c.z, g);
+      this.world.ground(c.x, c.z, g, c.y + 0.5);
       const pen = g.h - c.y; if (pen <= 0) continue;
       const r = c.clone().sub(p), vp = this.w.clone().cross(r).add(this.v), vn = vp.dot(g.n);
       const fn = Math.max(0, 120000 * pen - 9000 * vn);

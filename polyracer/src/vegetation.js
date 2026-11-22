@@ -26,6 +26,7 @@ export const TYPES = {
   boulder: { n: L2("Großer Felsbrocken", "Boulder"), sp: 3.2, shadow: true, sway: 0, col: 1.55 },
   cliff: { n: L2("Fels (größer als ein Auto)", "Rock (larger than a car)"), sp: 5.5, shadow: true, sway: 0, col: 2.9 }
 };
+const BIG = 1.2;   // ab diesem Mindestabstand zählt ein Typ als groß
 export const DEFAULT_GROUPS = [
   { id: "g1", n: "Nadelwald", items: [{ t: "pine", p: 55 }, { t: "fir", p: 30 }, { t: "bush", p: 10 }, { t: "rock", p: 5 }], dens: 3, smin: 0.85, smax: 1.25, slopeMin: 0, slope: 38, road: 3 },
   { id: "g2", n: "Laubwald", items: [{ t: "oak", p: 50 }, { t: "birch", p: 25 }, { t: "bush", p: 25 }], dens: 2.5, smin: 0.85, smax: 1.2, slopeMin: 0, slope: 32, road: 3 },
@@ -49,7 +50,10 @@ export class Vegetation {
   matOf(t) {
     if (this.mat[t]) return this.mat[t];
     const bl = TYPES[t].blades, m = new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: !bl, side: bl ? THREE.DoubleSide : THREE.FrontSide }), sway = TYPES[t].sway, U = this;
-    if (sway) m.onBeforeCompile = (sh) => {   // Wind: Höhe × Windstärke × Typ in Windrichtung, Böen mit Phase je Pflanze aus ihrer Lage
+    if (bl) m.emissive = new THREE.Color(0x10180A);   // Gras etwas Eigenleuchten, damit es im Schatten nicht schwarz wird
+    if (sway) m.onBeforeCompile = (sh) => {
+      // Gras: Rückseiten der Halme nicht abdunkeln (sonst kehrt sich die Normale nach unten um → schwarze Flecken)
+      if (bl) sh.fragmentShader = sh.fragmentShader.replace("#include <normal_fragment_begin>", THREE.ShaderChunk.normal_fragment_begin.replace(/gl_FrontFacing \? 1\.0 : - 1\.0/, "1.0"));   // Wind: Höhe × Windstärke × Typ in Windrichtung, Böen mit Phase je Pflanze aus ihrer Lage
       sh.uniforms.uTime = U.time; sh.uniforms.uWind = U.wind; sh.uniforms.uWindDir = U.windDir;
       sh.vertexShader = "uniform float uTime;uniform float uWind;uniform vec2 uWindDir;\n" + sh.vertexShader.replace("#include <begin_vertex>",
         "#include <begin_vertex>\n#ifdef USE_INSTANCING\nfloat wph = instanceMatrix[3].x * 0.17 + instanceMatrix[3].z * 0.13;\nfloat wy = max(0.0, position.y);\nfloat wk = wy * uWind * " + sway.toFixed(2) + ";\n" +
@@ -57,17 +61,27 @@ export class Vegetation {
         "vec2 wo = uWindDir * (0.035 + sin(uTime * 1.9 + wph) * 0.03) * gust + vec2(-uWindDir.y, uWindDir.x) * sin(uTime * 3.1 + wph * 1.7) * 0.012;\n" +
         "vec3 wl = (inverse(mat3(instanceMatrix)) * vec3(wo.x, 0.0, wo.y)) * wk;\ntransformed += wl;\n#endif");
     };
+    m.customProgramCacheKey = () => "veg-" + t;   // je Typ eigenes Programm (Wind-Stärke steht im Shader)
     return (this.mat[t] = m);
   }
   key(x, z) { return Math.floor(x / 2) + "," + Math.floor(z / 2); }
   addGrid(t, k) { const a = this.inst[t], gk = this.key(a[k], a[k + 1]); let l = this.grid.get(gk); if (!l) this.grid.set(gk, (l = [])); l.push(t, a[k], a[k + 1], a[k + 3]); }
   rebuildGrid() { this.grid.clear(); Object.keys(this.inst).forEach((t) => { const a = this.inst[t]; for (let k = 0; k < a.length; k += 4) this.addGrid(t, k); }); }
-  // Platz frei? Abstand je Typ (größerer der beiden)
-  free(x, z, sp) {
-    const r = Math.ceil((sp + 3) / 2), gx = Math.floor(x / 2), gz = Math.floor(z / 2);
+  // Platz frei? Seit v0.12 getrennt nach Größenklasse: Kleines (Gras, Blumen, Kiesel) hält nur Abstand zu Kleinem,
+  // Großes (Bäume, Büsche, Steine) nur zu Großem. So kann man in einen Wald Gras malen und auf eine Wiese Bäume.
+  // Kleines wächst nicht im Stamm bzw. Fels. k = Abstandsfaktor der Gruppe (unter 1 = dichter).
+  free(x, z, sp, k) {
+    k = k == null ? 1 : k;
+    const big = sp >= BIG, r = Math.ceil((sp * Math.max(1, k) + 3) / 2), gx = Math.floor(x / 2), gz = Math.floor(z / 2);
     for (let b = -r; b <= r; b++) for (let a = -r; a <= r; a++) {
       const l = this.grid.get((gx + a) + "," + (gz + b)); if (!l) continue;
-      for (let i = 0; i < l.length; i += 4) { const s = Math.max(sp, TYPES[l[i]].sp), dx = l[i + 1] - x, dz = l[i + 2] - z; if (dx * dx + dz * dz < s * s) return false; }
+      for (let i = 0; i < l.length; i += 4) {
+        const T = TYPES[l[i]], ob = T.sp >= BIG; let s;
+        if (ob === big) s = Math.max(sp, T.sp) * k;
+        else if (ob) s = (T.col ? T.col * l[i + 3] : T.sp * 0.3 * l[i + 3]) + 0.12;
+        else continue;
+        const dx = l[i + 1] - x, dz = l[i + 2] - z; if (dx * dx + dz * dz < s * s) return false;
+      }
     }
     return true;
   }
@@ -96,10 +110,10 @@ export class Vegetation {
   // Pinseln: Anzahl aus Dichte (je 100 m²) × Fläche × Zeit
   paint(g, x, z, r, dt, R) {
     this.acc = (this.acc || 0) + g.dens / 100 * Math.PI * r * r * dt * 1.4;
-    let n = Math.floor(this.acc); this.acc -= n; n = Math.min(n, 400);
+    let n = Math.floor(this.acc); this.acc -= n; n = Math.min(n, 600);
     for (let i = 0; i < n; i++) {
       const a = R() * Math.PI * 2, d = Math.sqrt(R()) * r, px = x + Math.cos(a) * d, pz = z + Math.sin(a) * d, t = this.pick(g, R);
-      if (!t || !this.ok(g, px, pz) || !this.free(px, pz, TYPES[t].sp)) continue;
+      if (!t || !this.ok(g, px, pz) || !this.free(px, pz, TYPES[t].sp, g.sp == null ? 1 : g.sp)) continue;
       this.add(t, px, pz, R() * Math.PI * 2, g.smin + R() * (g.smax - g.smin));
     }
   }

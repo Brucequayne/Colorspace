@@ -13,7 +13,14 @@ addTexts({
   radius: L2("Pinselgröße", "Brush size"), strength: L2("Stärke", "Strength"),
   hTerrain: L2("Linke Maus formt. Umschalt kehrt Anheben/Absenken um. Ebnen nimmt die Höhe beim Klick. Die Straße bleibt immer auf ihrer Höhe, das Gelände wird darunter weggedrückt.", "Left mouse shapes. Shift inverts raise/lower. Flatten takes the height at the click. The road always keeps its height, the terrain is pushed away below it."),
   hPaint: L2("Linke Maus malt die Bodenart. Steile Hänge werden automatisch zu Fels. Die Bodenart bestimmt später die Haftung neben der Strecke.", "Left mouse paints the ground type. Steep slopes turn to rock automatically. The ground type later sets the grip next to the track."),
-  hRoad: L2("Klick aufs Gelände hängt einen Punkt an (nach dem gewählten). Strg+Klick fügt einen Punkt in die Strecke ein. Punkt ziehen verschiebt, Umschalt+Ziehen ändert die Höhe. Entf löscht.", "Click on the terrain appends a point (after the selected one). Ctrl+click inserts a point into the track. Drag moves a point, Shift+drag changes its height. Del deletes."),
+  hRoad: L2("Gerade: jeder Klick setzt ein gerades Stück vom gewählten (bzw. letzten) Punkt aus. Kurve: erster Klick setzt den Bogenpunkt, zweiter das Ende. C/V senkt/hebt die Platzierhöhe (Umschalt = 5 m). Klick auf den ersten Punkt schließt die Runde. Esc bricht ab. Bearbeiten: Punkt ziehen verschiebt, Umschalt+Ziehen ändert die Höhe, C/V hebt/senkt den gewählten Punkt, Strg+Klick fügt einen Punkt ein, Entf löscht.", "Straight: each click places a straight piece from the selected (or last) point. Curve: first click sets the bend point, second click the end. C/V lowers/raises the placement height (Shift = 5 m). Clicking the first point closes the loop. Esc cancels. Edit: drag moves a point, Shift+drag changes its height, C/V raises/lowers the selected point, Ctrl+click inserts a point, Del deletes."),
+  rEdit: L2("Bearbeiten", "Edit"), rStraight: L2("Gerade", "Straight"), rCurve: L2("Kurve", "Curve"),
+  rTerr: L2("Straßen-Terrain", "Road terrain"), rOn: L2("An", "On"), rOff: L2("Aus", "Off"),
+  rTerrOn: L2("An: Die Straße formt das Gelände unter sich (aufschütten und abtragen).", "On: the road shapes the terrain below it (fill and cut)."),
+  rTerrOff: L2("Aus: Die Straße liegt auf dem vorhandenen Gelände, nur Hervorstehendes wird abgetragen. Wo sie höher als 1,4 m über dem Boden liegt, entsteht automatisch eine Betonbrücke.", "Off: the road sits on the existing terrain, only what sticks out is cut away. Where it runs more than 1.4 m above the ground, a concrete bridge is built automatically."),
+  rH: L2("Platzierhöhe über Gelände (C/V)", "Placement height above terrain (C/V)"), pTerr: L2("Gelände anpassen (ab diesem Punkt)", "Shape terrain (from this point)"),
+  rStat: L2("Höhe {h} m · Straßen-Terrain {t} · Länge {l} m", "Height {h} m · road terrain {t} · length {l} m"), rCtrl: L2("Bogenpunkt gesetzt – jetzt das Ende klicken", "Bend point set – now click the end"),
+  rBridge: L2("{n} m Brücke", "{n} m bridge"), vSp: L2("Abstand (klein = dichter)", "Spacing (small = denser)"),
   hVeg: L2("Linke Maus pinselt die gewählte Gruppe. Jede Pflanze wird nach den Wahrscheinlichkeiten gewählt. Abstand zur Straße und maximale Hangneigung gelten je Gruppe.", "Left mouse paints the selected group. Each plant is picked by the probabilities. Distance to the road and maximum slope apply per group."),
   hCam: L2("Kamera: rechte Maus drehen · mittlere Maus oder Umschalt+rechte verschieben · Rad zoomen · WASD bewegen · 1–6 Werkzeuge · Strg+Z/Y", "Camera: right mouse rotate · middle mouse or Shift+right pan · wheel zoom · WASD move · 1–6 tools · Ctrl+Z/Y"),
   pPoint: L2("Punkt {i} von {n}", "Point {i} of {n}"), pNone: L2("Kein Punkt gewählt", "No point selected"), height: L2("Höhe", "Height"), width: L2("Breite", "Width"), bank: L2("Neigung (+ links höher)", "Banking (+ left higher)"),
@@ -40,7 +47,7 @@ export class Editor {
   constructor(app) {
     this.app = app; this.world = app.world; this.eng = app.engine;
     const u = store.get(KEYS.ui, {});
-    this.s = Object.assign({ tool: "terrain", tmode: "raise", tr: 22, ts: 0.5, layer: 0, pr: 12, psmin: 0, psmax: 90, vg: 0, vmode: "paint", vr: 18, vonly: false }, u.ed || {});
+    this.s = Object.assign({ tool: "terrain", tmode: "raise", tr: 22, ts: 0.5, layer: 0, pr: 12, psmin: 0, psmax: 90, vg: 0, vmode: "paint", vr: 18, vonly: false, rmode: "straight", rterr: 1, rh: 0 }, u.ed || {});
     this.cam = Object.assign({ x: 0, y: 0, z: 0, dist: 420, yaw: 0.6, pitch: 0.85 }, u.cam || {});
     this.sel = -1; this.undo = []; this.redo = []; this.mouse = new THREE.Vector2(); this.hit = null; this.btn = -1; this.drag = null;
     this.ray = new THREE.Raycaster();
@@ -48,7 +55,8 @@ export class Editor {
     const lg = new THREE.BufferGeometry(); lg.setAttribute("position", new THREE.BufferAttribute(new Float32Array(65 * 3), 3));
     this.ring = new THREE.Line(lg, new THREE.LineBasicMaterial({ color: 0xFFE08A, depthTest: false, transparent: true })); this.ring.renderOrder = 10; this.eng.scene.add(this.ring);
     this.handles = new THREE.Group(); this.eng.scene.add(this.handles);
-    this.hGeo = new THREE.SphereGeometry(1.4, 10, 6); this.hMat = new THREE.MeshBasicMaterial({ color: 0xFFD34A, depthTest: false }); this.hSel = new THREE.MeshBasicMaterial({ color: 0xFF5A2A, depthTest: false });
+    this.hGeo = new THREE.SphereGeometry(1.4, 10, 6); this.hMat = new THREE.MeshBasicMaterial({ color: 0xFFD34A, depthTest: false }); this.hSel = new THREE.MeshBasicMaterial({ color: 0xFF5A2A, depthTest: false }); this.hOff = new THREE.MeshBasicMaterial({ color: 0x8FD3E0, depthTest: false });
+    this.pv = new THREE.Line(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: 0xFF5A2A, depthTest: false, transparent: true, opacity: 0.95 })); this.pv.renderOrder = 12; this.pv.frustumCulled = false; this.eng.scene.add(this.pv); this.place = null;
     this.lMat = new THREE.LineBasicMaterial({ color: 0xFFD34A, transparent: true, opacity: 0.6, depthTest: false });
     this.buildUI();
     const c = this.eng.renderer.domElement;
@@ -61,7 +69,7 @@ export class Editor {
     const c = this.eng.renderer.domElement;
     c.removeEventListener("pointerdown", this.onDown); window.removeEventListener("pointermove", this.onMove); window.removeEventListener("pointerup", this.onUp);
     c.removeEventListener("wheel", this.onWheel); c.removeEventListener("contextmenu", this.onCtx);
-    this.eng.scene.remove(this.ring); this.eng.scene.remove(this.handles); this.root.remove(); this.saveUI();
+    this.eng.scene.remove(this.ring); this.eng.scene.remove(this.handles); this.eng.scene.remove(this.pv); this.root.remove(); this.saveUI();
   }
   saveUI() { const u = store.get(KEYS.ui, {}); u.ed = this.s; u.cam = this.cam; store.set(KEYS.ui, u); }
   // ---------- Oberfläche ----------
@@ -90,10 +98,14 @@ export class Editor {
       sl("pr", t("radius"), 2, 80, 1, s.pr, " m") + sl("psmin", t("slMin"), 0, 90, 1, s.psmin, "°") + sl("psmax", t("slMax"), 0, 90, 1, s.psmax, "°") + "<p>" + t("hPaint") + " " + t("hSlope") + "</p>";
     else if (s.tool === "road") {
       const R = w.road, p = R.pts[this.sel];
-      h = "<h3>" + t("tRoad") + '</h3><p class="pr-dim">' + fmt(t("roadLen"), { l: Math.round(R.len), n: R.pts.length }) + "</p>";
+      let bl = 0; for (let i = 0; i < R.segCount(); i++) { const a = R.S[i], b = R.S[(i + 1) % R.S.length]; if (a.br && b.br) bl += a.p.distanceTo(b.p); }
+      h = "<h3>" + t("tRoad") + '</h3><p class="pr-dim">' + fmt(t("roadLen"), { l: Math.round(R.len), n: R.pts.length }) + (bl > 0 ? " · " + fmt(t("rBridge"), { n: Math.round(bl) }) : "") + "</p>" +
+        seg("rmode", [["edit", t("rEdit")], ["straight", t("rStraight")], ["curve", t("rCurve")]], s.rmode) +
+        '<div class="pr-row"><span>' + t("rTerr") + "</span></div>" + seg("rterr", [[1, t("rOn")], [0, t("rOff")]], s.rterr) + '<p class="pr-dim">' + t(s.rterr ? "rTerrOn" : "rTerrOff") + "</p>" +
+        sl("rh", t("rH"), -30, 80, 0.5, s.rh, " m");
       if (p) h += '<div class="pr-box"><b>' + fmt(t("pPoint"), { i: this.sel + 1, n: R.pts.length }) + "</b>" + sl("py", t("height"), -150, 250, 0.1, p.y, " m") +
         '<div class="pr-btns"><button data-e="py-5">−5</button><button data-e="py-1">−1</button><button data-e="py+1">+1</button><button data-e="py+5">+5</button></div>' +
-        sl("pw", t("width"), 4, 30, 0.5, p.w, " m") + sl("pb", t("bank"), -30, 30, 0.5, p.bank, "°") + chk("pcl", t("curbL"), p.cl) + chk("pcr", t("curbR"), p.cr) +
+        sl("pw", t("width"), 4, 30, 0.5, p.w, " m") + sl("pb", t("bank"), -30, 30, 0.5, p.bank, "°") + chk("pcl", t("curbL"), p.cl) + chk("pcr", t("curbR"), p.cr) + chk("pt", t("pTerr"), p.t !== 0) +
         '<div class="pr-btns"><button data-e="snap">' + t("snap") + '</button><button data-e="pdel">' + t("del") + "</button></div></div>";
       else h += '<p class="pr-dim">' + t("pNone") + "</p>";
       h += chk("closed", t("closed"), R.closed) + sl("fall", t("fall"), 2, 40, 1, R.fall, " m") + '<div class="pr-btns"><button data-e="snapall">' + t("snapAll") + '</button><button data-e="smoothh">' + t("smoothH") + '</button><button data-e="rdel">' + t("roadDel") + "</button></div><p>" + t("hRoad") + "</p>";
@@ -105,7 +117,7 @@ export class Editor {
         h += '<div class="pr-box"><label class="pr-row"><span>' + t("vName") + '</span><input type="text" data-k="gname" value="' + esc(g.n) + '"></label>' +
           g.items.map((it, i) => '<div class="pr-item"><span>' + (TYPES[it.t] ? tl(TYPES[it.t].n) : it.t) + ' <em id="pv-gi' + i + '">' + it.p + ' %</em></span><input type="range" data-k="gi' + i + '" min="0" max="100" step="1" value="' + it.p + '"><button data-e="gix' + i + '" title="×">×</button></div>').join("") +
           '<select data-k="gadd"><option value="">' + t("vAdd") + "</option>" + Object.keys(TYPES).filter((k) => !g.items.some((it) => it.t === k)).map((k) => '<option value="' + k + '">' + tl(TYPES[k].n) + "</option>").join("") + "</select>" +
-          sl("gdens", t("vDens"), 0.2, 60, 0.1, g.dens) + sl("gsmin", t("vSmin"), 0.3, 3, 0.05, g.smin) + sl("gsmax", t("vSmax"), 0.3, 3, 0.05, g.smax) + sl("gslopeMin", t("vSlopeMin"), 0, 80, 1, g.slopeMin || 0, "°") + sl("gslope", t("vSlope"), 5, 90, 1, g.slope, "°") + sl("groad", t("vRoad"), 0, 30, 0.5, g.road, " m") +
+          sl("gdens", t("vDens"), 0.2, 150, 0.1, g.dens) + sl("gsp", t("vSp"), 0.25, 1.5, 0.05, g.sp == null ? 1 : g.sp) + sl("gsmin", t("vSmin"), 0.3, 3, 0.05, g.smin) + sl("gsmax", t("vSmax"), 0.3, 3, 0.05, g.smax) + sl("gslopeMin", t("vSlopeMin"), 0, 80, 1, g.slopeMin || 0, "°") + sl("gslope", t("vSlope"), 5, 90, 1, g.slope, "°") + sl("groad", t("vRoad"), 0, 30, 0.5, g.road, " m") +
           '<div class="pr-btns"><button data-e="gdel">' + t("vDelG") + "</button></div></div>";
       }
       h += '<p class="pr-dim">' + fmt(t("vCount"), { n: V.count() }) + "</p><p>" + t("hVeg") + "</p>";
@@ -126,7 +138,7 @@ export class Editor {
   click(e) {
     const tb = e.target.closest("[data-tool]"); if (tb) { this.setTool(tb.getAttribute("data-tool")); return; }
     const sg = e.target.closest("[data-seg]");
-    if (sg) { const k = sg.getAttribute("data-seg"), v = sg.getAttribute("data-v"); this.s[k] = /^(layer|vg)$/.test(k) ? +v : v; this.panel(); return; }
+    if (sg) { const k = sg.getAttribute("data-seg"), v = sg.getAttribute("data-v"); this.s[k] = /^(layer|vg|rterr)$/.test(k) ? +v : v; if (k === "rmode") this.place = null; this.panel(); this.preview(); return; }
     const b = e.target.closest("[data-e]"); if (!b) return;
     const a = b.getAttribute("data-e"), w = this.world, R = w.road, p = R.pts[this.sel];
     if (a === "undo") this.doUndo(); else if (a === "redo") this.doRedo();
@@ -149,12 +161,12 @@ export class Editor {
     const k = e.target.getAttribute("data-k"); if (!k) return;
     const w = this.world, R = w.road, p = R.pts[this.sel], v = e.target.type === "checkbox" ? e.target.checked : e.target.type === "range" ? +e.target.value : e.target.value, g = w.veg.groups[this.s.vg];
     const lab = this.root.querySelector("#pv-" + k); if (lab && e.target.type === "range") lab.textContent = (e.target.step < 1 ? (+v).toFixed(e.target.step < 0.1 ? 2 : 1) : v) + (e.target.getAttribute("data-u") || "");
-    if (k in this.s) { this.s[k] = v; return; }
+    if (k in this.s) { this.s[k] = v; if (k === "rh") this.preview(); return; }
     if (k === "py" || k === "pw" || k === "pb") { if (!p) return; if (!this.sliding) { this.push(); this.sliding = true; } p[k === "py" ? "y" : k === "pw" ? "w" : "bank"] = v; this.roadEdit(false); return; }
     if (k === "fall") { if (!this.sliding) { this.push(); this.sliding = true; } R.fall = v; return; }
     if (k === "gname" && g) { g.n = v; return; }
     if (/^gi\d+$/.test(k) && g) { g.items[+k.slice(2)].p = v; lab.textContent = v + " %"; return; }
-    if (g && /^g(dens|smin|smax|slope|slopeMin|road)$/.test(k)) { g[k.slice(1)] = v; return; }
+    if (g && /^g(dens|sp|smin|smax|slope|slopeMin|road)$/.test(k)) { g[k.slice(1)] = v; return; }
     if (k === "wlines") { this.app.settings.windLines = v; this.world.windFx.visible = v; store.set(KEYS.settings, this.app.settings); return; }
     if (/^e(time|fog|view|wind|wdir)$/.test(k)) { const m = { etime: "time", efog: "fog", eview: "view", ewind: "wind", ewdir: "windDir" }; w.setEnv({ [m[k]]: v }); return; }
     if (k === "fname") { w.name = v; this.root.querySelector("#pr-ename").textContent = v; }
@@ -166,7 +178,7 @@ export class Editor {
       f.text().then((txt) => { this.push(); if (loadText(w, txt)) { this.sel = -1; this.rebuildHandles(); this.panel(); autosave(w); this.app.toast(fmt(t("fLoaded"), { n: w.name })); } else { this.undo.pop(); this.app.toast(t("fBad")); } });
       return;
     }
-    if (k === "pcl" || k === "pcr" || k === "closed") { this.push(); const p = w.road.pts[this.sel]; if (k === "closed") w.road.closed = e.target.checked; else if (p) p[k === "pcl" ? "cl" : "cr"] = e.target.checked; this.roadEdit(true); return; }
+    if (k === "pcl" || k === "pcr" || k === "pt" || k === "closed") { this.push(); const p = w.road.pts[this.sel]; if (k === "closed") w.road.closed = e.target.checked; else if (k === "pt" && p) p.t = e.target.checked ? 1 : 0; else if (p) p[k === "pcl" ? "cl" : "cr"] = e.target.checked; this.roadEdit(true); return; }
     if (k === "gadd" && e.target.value) { const g = w.veg.groups[this.s.vg]; g.items.push({ t: e.target.value, p: 50 }); this.panel(); autosave(w); return; }
     if (this.sliding) { this.sliding = false; if (k === "py" || k === "pw" || k === "pb" || k === "fall") this.roadEdit(true); }
     if (k === "fname" || /^g/.test(k || "") || /^e/.test(k || "")) autosave(w);
@@ -186,18 +198,79 @@ export class Editor {
   }
   rebuildHandles() {
     const H = this.handles; while (H.children.length) { const c = H.children.pop(); if (c.isLine) c.geometry.dispose(); }
-    const T = this.world.terrain;
+    const T = this.world.terrain; this.hm = [];
     this.world.road.pts.forEach((p, i) => {
-      const m = new THREE.Mesh(this.hGeo, i === this.sel ? this.hSel : this.hMat); m.position.set(p.x, p.y + 1.2, p.z); m.renderOrder = 11; H.add(m);
+      const m = new THREE.Mesh(this.hGeo, i === this.sel ? this.hSel : p.t === 0 ? this.hOff : this.hMat); m.position.set(p.x, p.y + 1.2, p.z); m.renderOrder = 11; m.userData.k = p.a && i !== this.sel ? 0.6 : 1; H.add(m); this.hm.push(m);
       const gy = T.heightAt(p.x, p.z, true), lg = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(p.x, p.y, p.z), new THREE.Vector3(p.x, gy, p.z)]);
       const l = new THREE.Line(lg, this.lMat); l.renderOrder = 11; H.add(l);
     });
   }
   delPoint() { const R = this.world.road; if (this.sel < 0 || !R.pts[this.sel]) return; this.push(); R.pts.splice(this.sel, 1); this.sel = Math.min(this.sel, R.pts.length - 1); this.roadEdit(true); }
+  // Griff unter der Maus: Fangradius = Größe des Griffs auf dem Bildschirm + 10 px (seit v0.12; vorher fest 16 px,
+  // deshalb griff ein nah herangezoomter, großer Punkt am Rand nicht). Gewählter Punkt gewinnt bei Gleichstand.
   pickHandle(cx, cy) {
-    const r = this.eng.renderer.domElement.getBoundingClientRect(), cam = this.eng.camera, v = new THREE.Vector3(); let best = -1, bd = 16;
-    this.world.road.pts.forEach((p, i) => { v.set(p.x, p.y + 1.2, p.z).project(cam); if (v.z > 1) return; const sx = (v.x + 1) / 2 * r.width + r.left, sy = (1 - v.y) / 2 * r.height + r.top, d = Math.hypot(sx - cx, sy - cy); if (d < bd) { bd = d; best = i; } });
+    const r = this.eng.renderer.domElement.getBoundingClientRect(), cam = this.eng.camera, v = new THREE.Vector3(), th = Math.tan(cam.fov * Math.PI / 360) * 2; let best = -1, bd = 1e9;
+    this.world.road.pts.forEach((p, i) => {
+      v.set(p.x, p.y + 1.2, p.z); const dist = v.distanceTo(cam.position); v.project(cam); if (v.z > 1) return;
+      const sx = (v.x + 1) / 2 * r.width + r.left, sy = (1 - v.y) / 2 * r.height + r.top, d = Math.hypot(sx - cx, sy - cy);
+      const m = this.hm && this.hm[i], rad = 1.4 * (m ? m.scale.x : 1) / (dist * th) * r.height, lim = Math.max(14, rad + 10), sc = d - (i === this.sel ? 4 : 0);
+      if (d < lim && sc < bd) { bd = sc; best = i; }
+    });
     return best;
+  }
+  // ---------- Straße platzieren (Gerade / Kurve) ----------
+  anchor() { const R = this.world.road, n = R.pts.length; if (!n) return -1; return this.sel >= 0 && this.sel < n ? this.sel : n - 1; }
+  endAt(g) { return { x: g.x, z: g.z, y: this.world.terrain.heightAt(g.x, g.z, true) + 0.15 + this.s.rh }; }
+  // Punkte für ein neues Stück vom Anker bis E (Gerade oder Bogen über C), etwa alle 11 m ein Hilfspunkt
+  plan(E, C) {
+    const R = this.world.road, ai = this.anchor(), A = R.pts[ai], T = this.world.terrain, s = this.s;
+    if (!A) return [Object.assign({ w: 12, bank: 0, cl: false, cr: false, t: s.rterr, a: 0 }, E)];
+    const pos = (f) => C ? { x: (1 - f) * (1 - f) * A.x + 2 * f * (1 - f) * C.x + f * f * E.x, z: (1 - f) * (1 - f) * A.z + 2 * f * (1 - f) * C.z + f * f * E.z } : { x: lerp(A.x, E.x, f), z: lerp(A.z, E.z, f) };
+    let L = 0, q = pos(0); for (let k = 1; k <= 24; k++) { const r2 = pos(k / 24); L += Math.hypot(r2.x - q.x, r2.z - q.z); q = r2; }
+    const base = (x, z) => T.heightAt(x, z, true);
+    const follow = s.rh === 0 && Math.abs(A.y - (base(A.x, A.z) + 0.15)) < 0.6;   // auf Bodenhöhe: dem Gelände entlang der Linie folgen (dichtere Punkte)
+    const n = Math.max(1, Math.ceil(L / (follow ? 5 : 11)));
+    const out = [];
+    for (let k = 1; k <= n; k++) {
+      const f = k / n, c = pos(f); let y;
+      if (k === n) y = E.y;
+      else if (follow) { const p0 = pos(Math.max(0, f - 1.5 / L)), p1 = pos(Math.min(1, f + 1.5 / L)); y = (base(c.x, c.z) * 2 + base(p0.x, p0.z) + base(p1.x, p1.z)) / 4 + 0.15; }
+      else y = lerp(A.y, E.y, f);
+      out.push({ x: c.x, z: c.z, y: y, w: A.w, bank: 0, cl: false, cr: false, t: s.rterr, a: k < n ? 1 : 0 });
+    }
+    return out;
+  }
+  closing(hi) { const R = this.world.road, n = R.pts.length; return hi === 0 && !R.closed && n >= 3 && this.anchor() === n - 1; }
+  commitPlace(E, close) {
+    const R = this.world.road, ai = this.anchor(), C = this.s.rmode === "curve" && this.place ? this.place.ctrl : null;
+    this.push();
+    const pts = this.plan(E, C);
+    if (ai < 0) { R.pts.push(pts[0]); R.closed = false; this.sel = 0; }   // neue Straße beginnt offen, Klick auf den ersten Punkt schließt sie
+    else {
+      R.pts[ai].t = this.s.rterr;
+      if (close) { pts.pop(); R.pts.splice(ai + 1, 0, ...pts); R.closed = true; this.sel = 0; }
+      else if (ai === 0 && R.pts.length > 1 && !R.closed) { R.pts.unshift(...pts.reverse()); this.sel = 0; }   // am Anfang weiterbauen
+      else { R.pts.splice(ai + 1, 0, ...pts); this.sel = ai + pts.length; }
+    }
+    this.place = null; this.roadEdit(true); this.preview();
+  }
+  // Vorschau-Linie zur Maus
+  preview() {
+    const s = this.s, R = this.world.road, g = s.tool === "road" && s.rmode !== "edit" && this.btn < 0 ? this.groundHit(this.cx || 0, this.cy || 0) : null;
+    if (!g || R.pts.length === 0 && !this.place) { this.pv.visible = false; if (g && s.tool === "road" && s.rmode !== "edit") this.rStatus(0); return; }
+    const E = this.endAt(g), ai = this.anchor(), A = R.pts[ai], C = s.rmode === "curve" && this.place ? this.place.ctrl : null;
+    let P;
+    if (s.rmode === "curve" && !C) P = [A, E];   // Bogenpunkt noch nicht gesetzt: gerade Hilfslinie
+    else P = [A].concat(this.plan(E, C));
+    const v = []; for (let i = 0; i < P.length; i++) v.push(new THREE.Vector3(P[i].x, P[i].y + 0.6, P[i].z));
+    if (C) { v.push(new THREE.Vector3(E.x, E.y + 0.6, E.z)); }
+    this.pv.geometry.dispose(); this.pv.geometry = new THREE.BufferGeometry().setFromPoints(v); this.pv.visible = true;
+    let L = 0; for (let i = 1; i < P.length; i++) L += Math.hypot(P[i].x - P[i - 1].x, P[i].z - P[i - 1].z);
+    this.rStatus(L);
+  }
+  rStatus(L) {
+    const s = this.s, h = (s.rh > 0 ? "+" : "") + s.rh.toFixed(1);
+    this.status(s.rmode === "curve" && this.place ? t("rCtrl") + " · " + fmt(t("rStat"), { h: h, t: t(s.rterr ? "rOn" : "rOff"), l: Math.round(L) }) : fmt(t("rStat"), { h: h, t: t(s.rterr ? "rOn" : "rOff"), l: Math.round(L) }));
   }
   // ---------- Maus ----------
   rayAt(cx, cy) {
@@ -212,14 +285,20 @@ export class Editor {
     if (e.button !== 0) return;
     const s = this.s, w = this.world;
     if (s.tool === "road") {
-      const hi = this.pickHandle(e.clientX, e.clientY);
-      if (hi >= 0) { this.sel = hi; this.push(); this.drag = { i: hi, y0: e.clientY, py: w.road.pts[hi].y, moved: false }; this.rebuildHandles(); this.panel(); return; }
+      const hi = this.pickHandle(e.clientX, e.clientY), R = w.road;
+      if (hi >= 0) {
+        if (s.rmode !== "edit" && this.closing(hi)) { const q = R.pts[0]; this.commitPlace({ x: q.x, z: q.z, y: q.y }, true); return; }
+        const was = this.sel; this.sel = hi; this.push(); this.drag = { i: hi, y0: e.clientY, py: R.pts[hi].y, moved: false, was: was }; this.rebuildHandles(); this.panel(); return;
+      }
       const g = this.groundHit(e.clientX, e.clientY); if (!g) return;
-      this.push();
-      const R = w.road, base = w.terrain.heightAt(g.x, g.z, true) + 0.15, src = R.pts[this.sel] || R.pts[R.pts.length - 1], np = { x: g.x, z: g.z, y: base, w: src ? src.w : 12, bank: 0, cl: false, cr: false };
-      if (e.ctrlKey || e.metaKey) { const sa = R.segAt(g.x, g.z); const at = sa ? sa.seg + 1 : R.pts.length; R.pts.splice(at, 0, np); this.sel = at; }
-      else { const at = this.sel >= 0 ? this.sel + 1 : R.pts.length; R.pts.splice(at, 0, np); this.sel = at; }
-      this.roadEdit(true); return;
+      if (e.ctrlKey || e.metaKey) {   // Punkt in die Strecke einfügen (alle Modi)
+        this.push();
+        const src = R.pts[this.sel] || R.pts[R.pts.length - 1], np = { x: g.x, z: g.z, y: w.terrain.heightAt(g.x, g.z, true) + 0.15 + s.rh, w: src ? src.w : 12, bank: 0, cl: false, cr: false, t: s.rterr, a: 0 };
+        const sa = R.segAt(g.x, g.z); const at = sa ? sa.seg + 1 : R.pts.length; R.pts.splice(at, 0, np); this.sel = at; this.roadEdit(true); return;
+      }
+      if (s.rmode === "edit") { if (this.sel >= 0) { this.sel = -1; this.rebuildHandles(); this.panel(); } return; }
+      if (s.rmode === "curve" && R.pts.length && !this.place) { this.place = { ctrl: { x: g.x, z: g.z } }; this.preview(); return; }
+      this.commitPlace(this.endAt(g), false); return;
     }
     if (s.tool === "terrain" || s.tool === "paint" || s.tool === "veg") {
       this.push(); this.painting = true; this.hit = this.groundHit(e.clientX, e.clientY);
@@ -241,12 +320,14 @@ export class Editor {
       this.roadEdit(false); this.panelPoint(); return;
     }
     if (this.painting) this.hit = this.groundHit(e.clientX, e.clientY);
+    if (this.s.tool === "road" && this.btn < 0) this.preview();
   }
   panelPoint() { const p = this.world.road.pts[this.sel], i = this.root.querySelector('[data-k="py"]'), v = this.root.querySelector("#pv-py"); if (p && i) { i.value = p.y; v.textContent = p.y.toFixed(1) + " m"; } }
   up(e) {
-    if (this.drag) { if (this.drag.moved) this.roadEdit(true); else this.undo.pop(); this.drag = null; }
+    if (this.drag) { if (this.drag.moved) this.roadEdit(true); else this.undo.pop(); this.drag = null; this.place = null; }
     if (this.painting) { this.painting = false; const w = this.world; if (this.s.tool === "terrain") { w.veg.refresh(true); } autosave(w); }
     this.btn = -1; this.saveUI();
+    if (this.s.tool === "road") this.preview();
   }
   wheel(e) { e.preventDefault(); this.cam.dist = clamp(this.cam.dist * Math.exp(e.deltaY * 0.0012), 8, 1600); }
   key(e) {
@@ -255,12 +336,19 @@ export class Editor {
     if ((e.ctrlKey || e.metaKey) && e.code === "KeyY") { this.doRedo(); return true; }
     const n = parseInt(e.key, 10); if (n >= 1 && n <= TOOLS.length && !e.ctrlKey) { this.setTool(TOOLS[n - 1][0]); return true; }
     if ((e.code === "Delete" || e.code === "Backspace") && this.s.tool === "road") { this.delPoint(); return true; }
-    if (e.code === "Escape" && this.sel >= 0) { this.sel = -1; this.rebuildHandles(); this.panel(); return true; }
+    if (this.s.tool === "road" && (e.code === "KeyC" || e.code === "KeyV") && !e.ctrlKey && !e.metaKey) {
+      const st = (e.shiftKey ? 5 : 1) * (e.code === "KeyV" ? 1 : -1), R = this.world.road, p = R.pts[this.sel];
+      if (this.s.rmode === "edit") { if (p) { this.push(); p.y += st; this.roadEdit(true); this.status(t("height") + " " + p.y.toFixed(1) + " m"); } }
+      else { this.s.rh = clamp(this.s.rh + st, -30, 80); const i = this.root.querySelector('[data-k="rh"]'), v = this.root.querySelector("#pv-rh"); if (i) { i.value = this.s.rh; v.textContent = this.s.rh.toFixed(1) + " m"; } this.preview(); this.saveUI(); }
+      return true;
+    }
+    if (e.code === "Escape" && this.place) { this.place = null; this.preview(); return true; }
+    if (e.code === "Escape" && this.sel >= 0) { this.sel = -1; this.rebuildHandles(); this.panel(); this.preview(); return true; }
     return false;
   }
   // ---------- jedes Bild ----------
   update(dt) {
-    const c = this.cam, inp = this.app.input, sp = (inp.k("ShiftLeft", "ShiftRight") ? 3 : 1) * c.dist * 0.9 * dt;
+    const s0 = this.s, c = this.cam, inp = this.app.input, sp = (inp.k("ShiftLeft", "ShiftRight") ? 3 : 1) * c.dist * 0.9 * dt;
     const ae = document.activeElement;
     if (!ae || !/INPUT|TEXTAREA|SELECT/.test(ae.tagName) || ae.type === "range" || ae.type === "checkbox") {
       const f = (inp.k("KeyW") ? 1 : 0) - (inp.k("KeyS") ? 1 : 0), s = (inp.k("KeyD") ? 1 : 0) - (inp.k("KeyA") ? 1 : 0);
@@ -273,6 +361,8 @@ export class Editor {
     const gy = T.heightAt(cam.position.x, cam.position.z) + 2; if (cam.position.y < gy) cam.position.y = gy;
     cam.lookAt(c.x, c.y, c.z); if (cam.fov !== 55) { cam.fov = 55; cam.updateProjectionMatrix(); }
     this.eng.focus(new THREE.Vector3(c.x, c.y, c.z));
+    if (this.handles.visible && this.hm) for (const m of this.hm) { const k = clamp(m.position.distanceTo(cam.position) * 0.011, 0.5, 30) * m.userData.k; m.scale.setScalar(k); }
+    this.pv.visible = this.pv.visible && s0.tool === "road" && s0.rmode !== "edit";
     // Pinsel-Kreis
     const s = this.s, rad = s.tool === "terrain" ? s.tr : s.tool === "paint" ? s.pr : s.vr, h = this.btn < 0 || this.btn === 0 ? this.groundHit(this.cx || 0, this.cy || 0) : null;
     if (this.ring.visible && h) {
