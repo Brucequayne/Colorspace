@@ -1,7 +1,7 @@
 // ===== terrain.js · Gelände: Höhenraster, Low-Poly-Netz in Kacheln, Formen, Malen, Abfragen =====
-// Raster RES × RES Zellen über SIZE Meter, Mitte bei (0, 0). Jede Zelle = 2 Dreiecke mit abwechselnder Diagonale (Low-Poly-Look).
+// Raster RES × RES Zellen über SIZE Meter (seit v0.11: 360 × 360 Zellen à 4 m = 1440 m, doppelte Fläche), Mitte bei (0, 0). Jede Zelle = 2 Dreiecke mit abwechselnder Diagonale (Low-Poly-Look).
 // h = Grundhöhe (was du formst), hr = gezeichnete Höhe = Grundhöhe mit eingebetteter Straße (die Straße drückt das Gelände weg).
-// Gezeichnet wird in 8 × 8 Kacheln, damit beim Pinseln nur die betroffenen Kacheln neu gebaut werden.
+// Gezeichnet wird in 10 × 10 Kacheln, damit beim Pinseln nur die betroffenen Kacheln neu gebaut werden.
 import * as THREE from "three";
 import { clamp, lerp, hash2, b64, unb64, L2, tl } from "pr/core.js";
 
@@ -19,10 +19,10 @@ export const LAYER_COL = LAYERS.map((l) => new THREE.Color(l.c));
 const ROCK = new THREE.Color("#7D7A73");
 
 export class Terrain {
-  constructor(size = 1024, res = 256) {
+  constructor(size = 1440, res = 360) {
     this.size = size; this.res = res; this.cell = size / res; this.n = res + 1; this.org = -size / 2;
     this.h = new Float32Array(this.n * this.n); this.hr = new Float32Array(this.n * this.n); this.paint = new Uint8Array(this.n * this.n);
-    this.CH = 32; this.nch = res / this.CH;
+    this.CH = 36; this.nch = res / this.CH;
     this.group = new THREE.Group(); this.chunks = [];
     this.mat = new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true });
     this.carve = null;   // (x, z) => { h, w } von der Straße (w = 0 … 1), oder null
@@ -130,11 +130,14 @@ export class Terrain {
     }
     return [i0 - 1, j0 - 1, i1 + 1, j1 + 1];
   }
-  paintAt(layer, x, z, r) {
-    const c = this.cell, i0 = Math.floor((x - r - this.org) / c), i1 = Math.ceil((x + r - this.org) / c), j0 = Math.floor((z - r - this.org) / c), j1 = Math.ceil((z + r - this.org) / c);
+  // Bodenart malen; smin/smax: nur wo die Hangneigung (Grad) dazwischen liegt
+  paintAt(layer, x, z, r, smin = 0, smax = 90) {
+    const c = this.cell, cmin = Math.cos(smax * Math.PI / 180) - 1e-6, cmax = Math.cos(smin * Math.PI / 180) + 1e-6, nv = new THREE.Vector3(), filt = smin > 0 || smax < 90, i0 = Math.floor((x - r - this.org) / c), i1 = Math.ceil((x + r - this.org) / c), j0 = Math.floor((z - r - this.org) / c), j1 = Math.ceil((z + r - this.org) / c);
     for (let j = Math.max(0, j0); j <= Math.min(this.res, j1); j++) for (let i = Math.max(0, i0); i <= Math.min(this.res, i1); i++) {
       const dx = this.org + i * c - x, dz = this.org + j * c - z, d = Math.sqrt(dx * dx + dz * dz) / r;
-      if (d < 0.75 + hash2(i, j, 3) * 0.25) this.paint[j * this.n + i] = layer;
+      if (d >= 0.75 + hash2(i, j, 3) * 0.25) continue;
+      if (filt) { this.normalAt(this.org + i * c, this.org + j * c, nv); if (nv.y < cmin || nv.y > cmax) continue; }
+      this.paint[j * this.n + i] = layer;
     }
     return [i0 - 1, j0 - 1, i1 + 1, j1 + 1];
   }
@@ -144,10 +147,19 @@ export class Terrain {
     return { size: this.size, res: this.res, h: b64(new Uint8Array(q.buffer)), p: b64(this.paint) };
   }
   fromJSON(o) {
-    if (!o || o.res !== this.res || o.size !== this.size) return false;
-    const u = unb64(o.h), q = new Int16Array(u.buffer, u.byteOffset, u.byteLength >> 1);
-    for (let i = 0; i < this.h.length; i++) this.h[i] = (q[i] || 0) / 100;
-    const p = unb64(o.p); this.paint.set(p.subarray(0, this.paint.length));
+    if (!o || !o.res || !o.size) return false;
+    const u = unb64(o.h), q = new Int16Array(u.buffer, u.byteOffset, u.byteLength >> 1), pp = unb64(o.p);
+    if (o.res === this.res && o.size === this.size) {
+      for (let i = 0; i < this.h.length; i++) this.h[i] = (q[i] || 0) / 100;
+      this.paint.set(pp.subarray(0, this.paint.length)); return true;
+    }
+    // Ältere, kleinere Szene (z. B. 1024 m aus v0.1): gleiche Zellgröße → mittig einsetzen, Rand nach außen fortsetzen
+    const off = (this.res - o.res) / 2, sn = o.res + 1;
+    if (Math.abs(o.size / o.res - this.cell) > 1e-6 || off < 0 || off !== Math.floor(off)) return false;
+    for (let j = 0; j < this.n; j++) for (let i = 0; i < this.n; i++) {
+      const si = clamp(i - off, 0, o.res), sj = clamp(j - off, 0, o.res), k = sj * sn + si;
+      this.h[j * this.n + i] = (q[k] || 0) / 100; this.paint[j * this.n + i] = pp[k] || 0;
+    }
     return true;
   }
   layerName(i) { return tl(LAYERS[i].n); }

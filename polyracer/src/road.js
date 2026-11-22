@@ -50,7 +50,7 @@ export class Road {
   }
   segCount() { return this.closed ? this.S.length : this.S.length - 1; }
   buildGrid() {
-    const g = this.grid = new Map(), S = this.S, m = S.length, ext = this.maxHalf() + CW + 1 + this.fall + 2;
+    const g = this.grid = new Map(), S = this.S, m = S.length, ext = this.maxHalf() + CW + 2.5 + this.fall + 2;
     for (let i = 0; i < this.segCount(); i++) {
       const a = S[i].p, b = S[(i + 1) % m].p;
       const x0 = Math.floor((Math.min(a.x, b.x) - ext) / GRID), x1 = Math.floor((Math.max(a.x, b.x) + ext) / GRID), z0 = Math.floor((Math.min(a.z, b.z) - ext) / GRID), z1 = Math.floor((Math.max(a.z, b.z) + ext) / GRID);
@@ -84,14 +84,16 @@ export class Road {
     if (n.y < 0) n.negate();
     return { h: h, n: n, kind: kind, dist: q.dist, d: q.d };
   }
-  // Gelände-Einbettung: unter der Straße 0,4 m tiefer, daneben Böschung über fall Meter zurück zur Grundhöhe
+  // Gelände-Einbettung (seit v0.11 bündig): unter der Fahrbahn knapp darunter versteckt, neben der Straße ein 2,5 m breiter
+  // Randstreifen genau auf Kantenhöhe (man kommt leicht wieder auf die Straße), danach Böschung über fall Meter zur Grundhöhe
   carve(x, z) {
     if (!this.S.length) return null;
     const q = this.nearest(x, z); if (!q) return null;
-    const hw = q.w / 2, inner = hw + CW + 1, ad = Math.abs(q.d);
-    if (ad > inner + this.fall) return null;
-    const dc = clamp(q.d, -(hw + CW), hw + CW), h = q.y - dc * q.tan - 0.45;
-    return { h: h, w: ad <= inner ? 1 : 1 - smooth((ad - inner) / this.fall) };
+    const hw = q.w / 2, edge = hw + (q.curb ? CW : 0), shoulder = edge + 2.5, ad = Math.abs(q.d);
+    if (ad > shoulder + this.fall) return null;
+    if (ad <= edge) return { h: q.y - q.d * q.tan - 0.15, w: 1 };
+    const he = q.y - Math.sign(q.d) * edge * q.tan - 0.03;
+    return { h: he, w: ad <= shoulder ? 1 : 1 - smooth((ad - shoulder) / this.fall) };
   }
   // Netz bauen (Fahrbahn, weiße Randlinien, rot-weiße Kerbs, Seitenwände, Start/Ziel)
   build() {
@@ -117,8 +119,8 @@ export class Road {
       if (a.cl) { lo = at(a, -ha - CW, 0.06); lob = at(b, -hb - CW, 0.06); quad(lo, at(a, -ha, 0.01), at(b, -hb, 0.01), lob, kc); }
       if (a.cr) { ro = at(a, ha + CW, 0.06); rob = at(b, hb + CW, 0.06); quad(at(a, ha, 0.01), ro, rob, at(b, hb, 0.01), kc); }
       // Seitenwände nach unten, damit die Straße nie in der Luft hängt
-      quad(lo, lob, lift(lob, -2.2), lift(lo, -2.2), COL.skirt);
-      quad(ro, lift(ro, -2.2), lift(rob, -2.2), rob, COL.skirt);
+      quad(lo, lob, lift(lob, -1.2), lift(lo, -1.2), COL.skirt);
+      quad(ro, lift(ro, -1.2), lift(rob, -1.2), rob, COL.skirt);
     }
     // Start/Ziel: Schachbrett am ersten Querschnitt
     const s0 = S[0], s1 = S[1], cols = 10, rows = 2;

@@ -7,7 +7,7 @@ addTexts({
   mSet: L2("Einstellungen", "Settings"), mBack: L2("Zurück zu Color Space", "Back to Color Space"),
   mCode: L2("Code für das Developer Tool", "Code for the developer tool"), mWrong: L2("Falscher Code", "Wrong code"), mOk: L2("Öffnen", "Open"),
   sShadow: L2("Schatten", "Shadows"), sScale: L2("Auflösung", "Resolution"), sDrive: L2("Antrieb des Testwagens", "Test car drivetrain"),
-  sOn: L2("An", "On"), sOff: L2("Aus", "Off"), dRwd: L2("Heck", "RWD"), dFwd: L2("Front", "FWD"), dAwd: L2("Allrad", "AWD"),
+  sWind: L2("Wind als Linien zeigen", "Show wind as lines"), sOn: L2("An", "On"), sOff: L2("Aus", "Off"), dRwd: L2("Heck", "RWD"), dFwd: L2("Front", "FWD"), dAwd: L2("Allrad", "AWD"),
   mPad: L2("Controller erkannt", "Controller detected"),
   mFoot: L2("Version {v} · Grundgerüst: Developer Tool mit Gelände, Straße und Vegetation, Testfahrt mit Fahrphysik", "Version {v} · Foundation: developer tool with terrain, road and vegetation, test drive with driving physics")
 });
@@ -26,7 +26,8 @@ export class Menu {
       '<details class="pr-set"><summary>' + t("mSet") + "</summary>" +
       '<label>' + t("sShadow") + "</label>" + seg("shadows", [[true, "sOn"], [false, "sOff"]]) +
       '<label>' + t("sScale") + "</label>" + seg("scale", [[0.6, "60 %"], [0.8, "80 %"], [1, "100 %"]]) +
-      '<label>' + t("sDrive") + "</label>" + seg("drive", [["rwd", "dRwd"], ["fwd", "dFwd"], ["awd", "dAwd"]]) + "</details>" +
+      '<label>' + t("sDrive") + "</label>" + seg("drive", [["rwd", "dRwd"], ["fwd", "dFwd"], ["awd", "dAwd"]]) +
+      '<label>' + t("sWind") + "</label>" + seg("windLines", [[true, "sOn"], [false, "sOff"]]) + "</details>" +
       '<a class="pr-mlink" href="#">← ' + t("mBack") + "</a></div>" +
       '<div class="pr-mfoot"><span id="pr-pad"></span><span>' + t("mFoot").replace("{v}", PR.VERSION) + "</span></div>");
     app.ui.appendChild(this.root);
@@ -38,7 +39,7 @@ export class Menu {
     const s = this.app.settings;
     if (b.hasAttribute("data-set")) {
       const k = b.getAttribute("data-set"), raw = b.getAttribute("data-v"), v = raw === "true" ? true : raw === "false" ? false : isNaN(+raw) ? raw : +raw;
-      s[k] = v; store.set(KEYS.settings, s); this.app.engine.quality({ shadows: s.shadows, scale: s.scale });
+      s[k] = v; store.set(KEYS.settings, s); this.app.engine.quality({ shadows: s.shadows, scale: s.scale }); this.app.world.windFx.visible = s.windLines !== false;
       b.parentNode.querySelectorAll("button").forEach((o) => o.setAttribute("aria-pressed", String(o === b))); return;
     }
     const m = b.getAttribute("data-m");

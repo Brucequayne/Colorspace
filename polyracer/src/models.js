@@ -29,6 +29,28 @@ export function merge(parts) {
 }
 const M = (x, y, z, sx, sy, sz, ry) => new THREE.Matrix4().compose(new THREE.Vector3(x, y, z), new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), ry || 0), new THREE.Vector3(sx, sy == null ? sx : sy, sz == null ? sx : sz));
 
+// Gras aus Halmen (seit v0.11): jeder Halm eine schmale, leicht gebogene Fläche, die oben spitz zuläuft (3 Dreiecke).
+// Unten dunkler, oben heller. Normalen zeigen nach oben, damit das Gras von allen Seiten gleich hell wirkt.
+function blades(o) {
+  const P = [], C = [], N = [], c0 = new THREE.Color(o.c0), c1 = new THREE.Color(o.c1), seed = o.seed;
+  let k = 0; const R = () => hash2(k++, 5, seed);
+  for (let b = 0; b < o.n; b++) {
+    const a = R() * Math.PI * 2, rr = Math.sqrt(R()) * o.spread, bx = Math.cos(a) * rr, bz = Math.sin(a) * rr;
+    const h = o.h0 + R() * (o.h1 - o.h0), w = o.w * (0.7 + R() * 0.6), ang = R() * Math.PI, ca = Math.cos(ang), sa = Math.sin(ang);
+    const la = a + (R() - 0.5) * 1.2, lean = (0.15 + R() * 0.35) * h, lx = Math.cos(la) * lean, lz = Math.sin(la) * lean;
+    const v = (f, y, s2) => [bx + ca * f * w * s2 + lx * y * y, y * h, bz + sa * f * w * s2 + lz * y * y];
+    const b1 = v(-0.5, 0, 1), b2 = v(0.5, 0, 1), m1 = v(-0.5, 0.55, 0.62), m2 = v(0.5, 0.55, 0.62), tp = v(0, 1, 0);
+    const shade = 0.85 + R() * 0.3, col = (y) => { const c = c0.clone().lerp(c1, y).multiplyScalar(shade); return [c.r, c.g, c.b]; };
+    const tri = (A, ya, B, yb, Cc, yc) => { P.push(...A, ...B, ...Cc); C.push(...col(ya), ...col(yb), ...col(yc)); for (let q = 0; q < 3; q++) N.push(0, 1, 0); };
+    tri(b1, 0, b2, 0, m2, 0.55); tri(b1, 0, m2, 0.55, m1, 0.55); tri(m1, 0.55, m2, 0.55, tp, 1);
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute("position", new THREE.Float32BufferAttribute(P, 3)); g.setAttribute("color", new THREE.Float32BufferAttribute(C, 3)); g.setAttribute("normal", new THREE.Float32BufferAttribute(N, 3));
+  g.computeBoundingSphere(); g.computeBoundingBox(); return g;
+}
+// Steine: unregelmäßige Grundkörper, mehrere Formen je Größe
+function stone(r, col, sx, sy, sz, seed, detail) { return part(new THREE.IcosahedronGeometry(r, detail || 0), col, M(0, r * sy * 0.55, 0, sx, sy, sz), r * 0.35, seed); }
+
 export const MODELS = {
   pine: () => merge([part(new THREE.CylinderGeometry(0.18, 0.28, 2, 5), "#5A3E28", M(0, 1, 0, 1)),
     part(new THREE.ConeGeometry(2.3, 3, 7), "#2F5A32", M(0, 2.9, 0, 1), 0.25, 1), part(new THREE.ConeGeometry(1.8, 2.6, 7), "#356538", M(0, 4.4, 0, 1, 1, 1, 0.4), 0.2, 2),
@@ -44,8 +66,22 @@ export const MODELS = {
     part(new THREE.IcosahedronGeometry(0.6, 0), "#37602B", M(-0.5, 0.45, -0.3, 1), 0.2, 13)]),
   rock: () => merge([part(new THREE.DodecahedronGeometry(1.2, 0), "#8A867E", M(0, 0.55, 0, 1, 0.7, 1.1), 0.4, 14)]),
   slab: () => merge([part(new THREE.DodecahedronGeometry(1.6, 0), "#77736C", M(0, 0.35, 0, 1.3, 0.35, 1), 0.35, 15), part(new THREE.DodecahedronGeometry(0.6, 0), "#8C887F", M(1.1, 0.3, 0.6, 1, 0.8, 1), 0.2, 16)]),
-  grass: () => { const L = []; for (let i = 0; i < 5; i++) { const a = i * 1.26, r = 0.12 + (i % 2) * 0.1; L.push(part(new THREE.ConeGeometry(0.07, 0.55 + (i % 3) * 0.15, 3), i % 2 ? "#6E9A45" : "#7FAA4E", M(Math.cos(a) * r, 0.3, Math.sin(a) * r, 1))); } return merge(L); },
-  flowers: () => { const L = [], cols = ["#E8D24A", "#E07AA0", "#F1F0EA"]; for (let i = 0; i < 4; i++) { const a = i * 1.6, r = 0.18; L.push(part(new THREE.CylinderGeometry(0.02, 0.02, 0.45, 3), "#5E8A3A", M(Math.cos(a) * r, 0.22, Math.sin(a) * r, 1))); L.push(part(new THREE.OctahedronGeometry(0.09, 0), cols[i % 3], M(Math.cos(a) * r, 0.47, Math.sin(a) * r, 1))); } return merge(L); }
+  grass: () => blades({ n: 16, h0: 0.35, h1: 0.62, w: 0.06, spread: 0.32, c0: "#55823A", c1: "#93B85A", seed: 21 }),
+  grasslong: () => blades({ n: 18, h0: 0.6, h1: 1.1, w: 0.065, spread: 0.38, c0: "#4E7A34", c1: "#A3BF66", seed: 22 }),
+  grassdry: () => blades({ n: 14, h0: 0.4, h1: 0.78, w: 0.06, spread: 0.34, c0: "#8A8242", c1: "#D3C77A", seed: 23 }),
+  grassshort: () => blades({ n: 20, h0: 0.14, h1: 0.3, w: 0.055, spread: 0.3, c0: "#5E8E38", c1: "#A8CF68", seed: 24 }),
+  grassdark: () => blades({ n: 16, h0: 0.4, h1: 0.72, w: 0.065, spread: 0.34, c0: "#355E27", c1: "#68964A", seed: 25 }),
+  flowers: () => { const g = blades({ n: 10, h0: 0.3, h1: 0.5, w: 0.05, spread: 0.3, c0: "#3F6A26", c1: "#86AE52", seed: 26 }), L = [], cols = ["#E8D24A", "#E07AA0", "#F1F0EA", "#8A7CE0"];
+    for (let i = 0; i < 5; i++) { const a = i * 1.3, r = 0.08 + (i % 3) * 0.08; L.push(part(new THREE.CylinderGeometry(0.012, 0.012, 0.5, 3), "#5E8A3A", M(Math.cos(a) * r, 0.25, Math.sin(a) * r, 1))); L.push(part(new THREE.OctahedronGeometry(0.06, 0), cols[i % 4], M(Math.cos(a) * r, 0.52, Math.sin(a) * r, 1))); }
+    const f = merge(L), out = new THREE.BufferGeometry();
+    ["position", "color", "normal"].forEach((k) => { const a = g.attributes[k].array, b = f.attributes[k].array, c = new Float32Array(a.length + b.length); c.set(a); c.set(b, a.length); out.setAttribute(k, new THREE.BufferAttribute(c, 3)); });
+    out.computeBoundingSphere(); out.computeBoundingBox(); return out; },
+  // Steine vom Kiesel (Fußballgröße) bis zum Felsen größer als ein Auto
+  pebbles: () => { const L = []; for (let i = 0; i < 7; i++) { const a = i * 2.4, r = 0.1 + (i % 3) * 0.16, sz = 0.09 + hash2(i, 1, 30) * 0.13; L.push(part(new THREE.DodecahedronGeometry(sz, 0), i % 2 ? "#8E8A82" : "#76726B", M(Math.cos(a) * r, sz * 0.45, Math.sin(a) * r, 1, 0.65, 1), sz * 0.3, 31 + i)); } return merge(L); },
+  stones: () => merge([stone(0.26, "#85817A", 1.2, 0.7, 1, 32), stone(0.16, "#6F6B65", 1, 0.8, 1.1, 33).translate(0.38, 0, 0.15), stone(0.12, "#918C84", 1, 0.7, 1, 34).translate(-0.3, 0, -0.22)]),
+  stonem: () => merge([stone(0.65, "#7E7A73", 1.2, 0.75, 1, 35), stone(0.3, "#8B877F", 1, 0.8, 1, 36).translate(0.8, 0, 0.3)]),
+  boulder: () => merge([stone(1.5, "#77736C", 1.15, 0.8, 1, 37), stone(0.7, "#827E77", 1, 0.9, 1.1, 38).translate(1.5, 0, -0.6)]),
+  cliff: () => merge([stone(2.6, "#6E6A64", 1.1, 1.25, 0.95, 39), stone(1.8, "#7A766F", 1, 1.4, 1.1, 40).translate(1.9, 0, 1.0), stone(1.4, "#66625C", 1.2, 0.9, 1, 41).translate(-2.1, 0, -0.8)])
 };
 
 // Testauto: Karosserie (ein Netz) + 4 Räder (eigene Netze, drehen sich). Vorne = +z, Mitte der Karosserie im Ursprung.

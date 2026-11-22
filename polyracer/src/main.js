@@ -66,9 +66,10 @@ export function mount(host, lang, stamp) {
   host.innerHTML = "";
   const root = el("div", "pr-root"); host.appendChild(root);
   const engine = new Engine(root), ui = el("div", "pr-ui"); root.appendChild(ui);
-  const settings = Object.assign({ shadows: true, scale: 1, drive: "rwd" }, store.get(KEYS.settings, {}));
+  const settings = Object.assign({ shadows: true, scale: 1, drive: "rwd", windLines: true }, store.get(KEYS.settings, {}));
   engine.quality({ shadows: settings.shadows, scale: settings.scale });
   const world = new World(engine);
+  world.windFx.visible = settings.windLines !== false;
   if (!loadSaved(world)) { world.standard(); autosave(world, true); }
   const app = A = { engine: engine, world: world, ui: ui, root: root, input: new Input(), settings: settings, lang: PR.lang, mode: null, modeName: "", raf: 0, last: performance.now() };
   app.go = (name, opts) => {

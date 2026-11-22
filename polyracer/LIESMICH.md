@@ -20,14 +20,15 @@ den Cache-Stempel der Startseite bekommt, und lädt dann `src/main.js`.
 |---|---|
 | `core.js` | Namensraum `PR`, Texte (`L2`, `t`), Speicherschlüssel, Mathe, Zufall, Rauschen |
 | `engine.js` | Renderer, Kamera, Himmel, Sonne/Mond nach Uhrzeit, Nebel, Schatten, Qualität |
-| `terrain.js` | Gelände: Höhenraster 256 × 256 Zellen auf 1024 m, Kacheln, Pinsel, Bodenarten |
+| `terrain.js` | Gelände: Höhenraster 360 × 360 Zellen auf 1440 m (ältere 1024-m-Szenen werden mittig übernommen), Kacheln, Pinsel, Bodenarten |
 | `road.js` | Straße: Spline-Punkte (Höhe, Breite, Neigung, Kerbs), Netz, Abfrage, Gelände-Einbettung |
 | `models.js` | Prozedurale Platzhalter-Modelle (Bäume, Steine, Gras, Testauto) |
-| `vegetation.js` | Pflanzentypen, Pinsel-Gruppen mit Wahrscheinlichkeiten, Instanzen, Wind |
+| `vegetation.js` | Pflanzentypen (Bäume, Gras aus Halmen, Steine, Kollisionsradien), Pinsel-Gruppen mit Wahrscheinlichkeiten und Hangneigung von/bis, Instanzen, Wind |
+| `wind.js` | Wind als feine Linien (Stärke, Richtung) |
 | `world.js` | Welt aus Gelände + Straße + Vegetation + Umgebung, Boden-Abfrage für die Physik, Standard-Strecke |
 | `sceneio.js` | Szenen-Export/-Import (.txt), automatisches Speichern |
 | `input.js` | Tastatur, Controller |
-| `car.js` | Fahrphysik: Starrkörper, 4 Räder, Reifen, Motor, Getriebe, Antrieb (240 Hz) |
+| `car.js` | Fahrphysik: Starrkörper, 4 Räder, Stabilisatoren, Reifen (Kräfte auf Rollzentrum-Höhe), Motor, Getriebe, Antrieb (240 Hz), Kollision mit Stämmen/Felsen |
 | `drive.js` | Testfahrt mit Verfolgerkamera und Anzeige |
 | `editor.js` | Developer Tool |
 | `menu.js` | Hauptmenü (später Werkstatt) |

@@ -12,12 +12,13 @@ export const CAR_DEF = {
   mass: 1180, size: [1.8, 1.2, 4.2],                       // Breite, Höhe, Länge (für Trägheit und Karosserie-Kontakt)
   cgY: -0.12,                                              // Schwerpunkt unter Karosserie-Mitte
   wheels: [[0.8, 1.32], [-0.8, 1.32], [0.82, -1.3], [-0.82, -1.3]],   // [x, z] (vorne links/rechts, hinten links/rechts)
-  mountY: -0.05, R: 0.33, rest: 0.34, k: 42000, c: 3600, Iw: 1.4,
+  mountY: -0.05, R: 0.33, rest: 0.32, k: 48000, c: 4200, Iw: 1.4, arb: [20000, 12000], rollC: 0.72,   // arb: Stabilisatoren vorne/hinten (N/m), rollC: Reifenkräfte greifen um diesen Anteil höher an (Rollzentrum)
   drive: "rwd", awdFront: 0.4,
-  engine: { idle: 950, red: 7400, torque: [[0, 120], [1000, 160], [2500, 215], [4000, 255], [5500, 265], [6500, 248], [7400, 220], [8000, 150]], brakeTq: 45 },
+  // v0.11: Drehmoment +35 % (Leistung +35 %), Bremse +40 %, Asphalt-Haftung +35 % (world.js), straffere Reifen und Stabilisatoren
+  engine: { idle: 950, red: 7400, torque: [[0, 162], [1000, 216], [2500, 290], [4000, 344], [5500, 358], [6500, 335], [7400, 297], [8000, 203]], brakeTq: 55 },
   gears: [3.35, 2.25, 1.65, 1.3, 1.06, 0.88], rev: 3.1, final: 3.8, eff: 0.88, shiftTime: 0.22,
-  brake: 2600, bias: 0.62, hand: 2400,
-  tire: { mu: 1.08, B: 9.5, C: 1.75, Bx: 11, Cx: 1.6 },
+  brake: 3640, bias: 0.62, hand: 2400,
+  tire: { mu: 1.08, B: 11.5, C: 1.7, Bx: 12, Cx: 1.6 },
   steer: 31, cd: 0.33, area: 2.05, down: 0.35
 };
 const G = 9.81, DT = 1 / 240;
@@ -66,7 +67,7 @@ export class Car {
     const vf = this.v.dot(fwd), spd = this.v.length();
     // Lenkung: geschwindigkeitsabhängig, + = rechts
     const maxA = d.steer * DEG / (1 + Math.max(0, Math.abs(vf) - 8) / 22), tgt = -ctl.steer * maxA;
-    this.steerA += clamp(tgt - this.steerA, -2.2 * dt, 2.2 * dt);
+    this.steerA += clamp(tgt - this.steerA, -3.2 * dt, 3.2 * dt);
     // Gangwahl und Rückwärts
     this.autoShift(dt, vf, ctl);
     const rev = this.gear === -1, thr = rev ? ctl.brake : ctl.throttle, brk = rev ? ctl.throttle : ctl.brake;
@@ -102,6 +103,7 @@ export class Car {
       if (comp > d.rest) comp = d.rest + (comp - d.rest) * 0.3;
       const cv = (comp - w.prevComp) / dt; w.prevComp = comp; w.comp = comp;
       let fs = d.k * comp + d.c * cv; if (comp >= d.rest) fs += (comp - d.rest) * d.k * 6;
+      const pair = this.wh[i ^ 1]; fs += d.arb[w.front ? 0 : 1] * (comp - (pair.contact ? pair.comp : 0));   // Stabilisator gegen Wanken
       fs = Math.max(0, fs); w.load = fs;
       contact.copy(mount).addScaledVector(up, -s);
       // Radrichtung auf der Bodenebene
@@ -123,14 +125,18 @@ export class Car {
       // Rollwiderstand
       fx -= Math.sign(vl) * Math.min(1, Math.abs(vl) / 0.5) * g.rr * Fz;
       w.sr = sr; w.slip = Math.hypot(sr, sa);
-      tmp.copy(up).multiplyScalar(fs).addScaledVector(wf, fx).addScaledVector(lat, fy);
-      F.add(tmp); T.add(rel.subVectors(contact, p).cross(tmp));
+      // Federkraft am Aufstandspunkt, Reifenkräfte etwas höher (Rollzentrum) – sonst kippt ein griffiges Auto in der Kurve um
+      tmp.copy(up).multiplyScalar(fs); F.add(tmp); T.add(rel.subVectors(contact, p).cross(tmp));
+      tmp.set(0, 0, 0).addScaledVector(wf, fx).addScaledVector(lat, fy); F.add(tmp);
+      rel.subVectors(contact, p).addScaledVector(up, s * d.rollC); T.add(rel.cross(tmp));
     });
     // Luftwiderstand und Abtrieb
     const drag = 0.5 * 1.2 * d.cd * d.area * spd;
     F.addScaledVector(this.v, -drag); F.addScaledVector(up, -0.5 * 1.2 * d.down * d.area * vf * vf);
     // Karosserie-Kontakt (Unfall, Überschlag): Ecken, die im Boden stecken, werden herausgedrückt
     this.bodyContact(F, T, up);
+    // Hindernisse (Baumstämme, Felsen): Stoß wie gegen eine feste Säule
+    this.obstacles(fwd, up);
     // Integration
     this.v.addScaledVector(F, dt / d.mass);
     const qinv = this._qi || (this._qi = new THREE.Quaternion());
@@ -142,6 +148,30 @@ export class Car {
     p.addScaledVector(this.v, dt);
     const wq = new THREE.Quaternion(this.w.x * dt * 0.5, this.w.y * dt * 0.5, this.w.z * dt * 0.5, 0).multiply(q);
     q.set(q.x + wq.x, q.y + wq.y, q.z + wq.z, q.w + wq.w).normalize();
+  }
+  // Kollision der Karosserie (Rechteck von oben) mit runden Hindernissen: Rauslösen + Stoß mit wenig Rückprall und Reibung
+  obstacles(fwd) {
+    const d = this.def, W = d.size[0] / 2 + 0.05, L = d.size[2] / 2 + 0.05, p = this.p, rx = fwd.z, rz = -fwd.x;   // r = Seitenrichtung in der Ebene
+    this.world.veg.near(p.x, p.z, 4 + L, (cx, cz, r) => {
+      const ox = cx - p.x, oz = cz - p.z, lf = ox * fwd.x + oz * fwd.z, ls = ox * rx + oz * rz;
+      const qf = clamp(lf, -L, L), qs = clamp(ls, -W, W), ex = lf - qf, es = ls - qs, dd = Math.hypot(ex, es);
+      let nf, ns, pen;
+      if (dd > 1e-4) { if (dd >= r) return; nf = ex / dd; ns = es / dd; pen = r - dd; }
+      else { const a = L - Math.abs(lf), b = W - Math.abs(ls); if (a < b) { nf = Math.sign(lf) || 1; ns = 0; pen = a + r; } else { nf = 0; ns = Math.sign(ls) || 1; pen = b + r; } }
+      // Normale zeigt vom Auto zum Hindernis (Weltkoordinaten, waagrecht)
+      const n = new THREE.Vector3(fwd.x * nf + rx * ns, 0, fwd.z * nf + rz * ns).normalize();
+      const cpt = new THREE.Vector3(p.x + fwd.x * qf + rx * qs, p.y, p.z + fwd.z * qf + rz * qs), r0 = cpt.clone().sub(p);
+      p.addScaledVector(n, -pen * 0.8);
+      const vp = this.w.clone().cross(r0).add(this.v), vn = vp.dot(n);
+      if (vn <= 0) return;
+      const qinv = this.q.clone().invert(), Iinv = (v3) => { const b = v3.clone().applyQuaternion(qinv); b.x /= this.I.x; b.y /= this.I.y; b.z /= this.I.z; return b.applyQuaternion(this.q); };
+      const rn = r0.clone().cross(n), k = 1 / d.mass + n.dot(Iinv(rn).cross(r0)), j = (1 + 0.15) * vn / k;
+      const imp = n.clone().multiplyScalar(-j);
+      const vt = vp.clone().addScaledVector(n, -vn), vtl = vt.length();
+      if (vtl > 1e-3) imp.addScaledVector(vt, -Math.min(0.5 * j, vtl / k) / vtl);
+      this.v.addScaledVector(imp, 1 / d.mass); this.w.add(Iinv(r0.clone().cross(imp)));
+      this.hit = Math.max(this.hit || 0, vn);
+    });
   }
   brakeOm(om, bt, dt) { if (bt <= 0) return om; const dv = bt / this.def.Iw * dt; return Math.abs(om) <= dv ? 0 : om - Math.sign(om) * dv; }
   bodyContact(F, T, up) {

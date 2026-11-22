@@ -22,6 +22,9 @@ addTexts({
   roadDel: L2("Straße löschen", "Delete road"), roadLen: L2("Länge {l} m · {n} Punkte", "Length {l} m · {n} points"),
   vPaint: L2("Pinseln", "Paint"), vErase: L2("Radieren", "Erase"), vOnly: L2("Radierer nur für diese Gruppe", "Eraser only for this group"), vGroups: L2("Pinsel-Gruppen", "Brush groups"),
   vNew: L2("Neue Gruppe", "New group"), vDelG: L2("Gruppe löschen", "Delete group"), vAdd: L2("+ Typ hinzufügen", "+ Add type"), vDens: L2("Dichte (je 100 m²)", "Density (per 100 m²)"),
+  slMin: L2("Hangneigung von", "Slope from"), slMax: L2("Hangneigung bis", "Slope to"), vSlopeMin: L2("Min. Hangneigung", "Min. slope"),
+  hSlope: L2("Mit „Hangneigung von/bis“ malst du nur Gelände in diesem Neigungsbereich, z. B. 25–90° für alle Hänge.", "With “slope from/to” you only paint terrain within that slope range, e.g. 25–90° for all slopes."),
+  envLines: L2("Wind als Linien zeigen", "Show wind as lines"),
   vSmin: L2("Größe min", "Size min"), vSmax: L2("Größe max", "Size max"), vSlope: L2("Max. Hangneigung", "Max. slope"), vRoad: L2("Abstand zur Straße", "Distance to road"), vCount: L2("{n} Pflanzen in der Szene", "{n} plants in the scene"),
   vName: L2("Name", "Name"), vProb: L2("Wahrscheinlichkeit", "Probability"),
   envTime: L2("Uhrzeit", "Time of day"), envFog: L2("Dunst/Nebel", "Haze/fog"), envView: L2("Sichtweite", "View distance"), envWind: L2("Wind", "Wind"), envWindDir: L2("Windrichtung", "Wind direction"),
@@ -37,7 +40,7 @@ export class Editor {
   constructor(app) {
     this.app = app; this.world = app.world; this.eng = app.engine;
     const u = store.get(KEYS.ui, {});
-    this.s = Object.assign({ tool: "terrain", tmode: "raise", tr: 22, ts: 0.5, layer: 0, pr: 12, vg: 0, vmode: "paint", vr: 18, vonly: false }, u.ed || {});
+    this.s = Object.assign({ tool: "terrain", tmode: "raise", tr: 22, ts: 0.5, layer: 0, pr: 12, psmin: 0, psmax: 90, vg: 0, vmode: "paint", vr: 18, vonly: false }, u.ed || {});
     this.cam = Object.assign({ x: 0, y: 0, z: 0, dist: 420, yaw: 0.6, pitch: 0.85 }, u.cam || {});
     this.sel = -1; this.undo = []; this.redo = []; this.mouse = new THREE.Vector2(); this.hit = null; this.btn = -1; this.drag = null;
     this.ray = new THREE.Raycaster();
@@ -84,7 +87,7 @@ export class Editor {
     if (s.tool === "terrain") h = "<h3>" + t("tTerrain") + "</h3>" + seg("tmode", [["raise", t("mRaise")], ["lower", t("mLower")], ["smooth", t("mSmooth")], ["flatten", t("mFlatten")], ["noise", t("mNoise")]], s.tmode) +
       sl("tr", t("radius"), 3, 120, 1, s.tr, " m") + sl("ts", t("strength"), 0.05, 1, 0.05, s.ts) + "<p>" + t("hTerrain") + "</p>";
     else if (s.tool === "paint") h = "<h3>" + t("tPaint") + '</h3><div class="pr-layers">' + LAYERS.map((L, i) => '<button data-seg="layer" data-v="' + i + '" aria-pressed="' + (s.layer === i) + '"><i style="background:' + L.c + '"></i>' + tl(L.n) + "</button>").join("") + "</div>" +
-      sl("pr", t("radius"), 2, 80, 1, s.pr, " m") + "<p>" + t("hPaint") + "</p>";
+      sl("pr", t("radius"), 2, 80, 1, s.pr, " m") + sl("psmin", t("slMin"), 0, 90, 1, s.psmin, "°") + sl("psmax", t("slMax"), 0, 90, 1, s.psmax, "°") + "<p>" + t("hPaint") + " " + t("hSlope") + "</p>";
     else if (s.tool === "road") {
       const R = w.road, p = R.pts[this.sel];
       h = "<h3>" + t("tRoad") + '</h3><p class="pr-dim">' + fmt(t("roadLen"), { l: Math.round(R.len), n: R.pts.length }) + "</p>";
@@ -102,14 +105,14 @@ export class Editor {
         h += '<div class="pr-box"><label class="pr-row"><span>' + t("vName") + '</span><input type="text" data-k="gname" value="' + esc(g.n) + '"></label>' +
           g.items.map((it, i) => '<div class="pr-item"><span>' + (TYPES[it.t] ? tl(TYPES[it.t].n) : it.t) + ' <em id="pv-gi' + i + '">' + it.p + ' %</em></span><input type="range" data-k="gi' + i + '" min="0" max="100" step="1" value="' + it.p + '"><button data-e="gix' + i + '" title="×">×</button></div>').join("") +
           '<select data-k="gadd"><option value="">' + t("vAdd") + "</option>" + Object.keys(TYPES).filter((k) => !g.items.some((it) => it.t === k)).map((k) => '<option value="' + k + '">' + tl(TYPES[k].n) + "</option>").join("") + "</select>" +
-          sl("gdens", t("vDens"), 0.2, 60, 0.1, g.dens) + sl("gsmin", t("vSmin"), 0.3, 3, 0.05, g.smin) + sl("gsmax", t("vSmax"), 0.3, 3, 0.05, g.smax) + sl("gslope", t("vSlope"), 5, 80, 1, g.slope, "°") + sl("groad", t("vRoad"), 0, 30, 0.5, g.road, " m") +
+          sl("gdens", t("vDens"), 0.2, 60, 0.1, g.dens) + sl("gsmin", t("vSmin"), 0.3, 3, 0.05, g.smin) + sl("gsmax", t("vSmax"), 0.3, 3, 0.05, g.smax) + sl("gslopeMin", t("vSlopeMin"), 0, 80, 1, g.slopeMin || 0, "°") + sl("gslope", t("vSlope"), 5, 90, 1, g.slope, "°") + sl("groad", t("vRoad"), 0, 30, 0.5, g.road, " m") +
           '<div class="pr-btns"><button data-e="gdel">' + t("vDelG") + "</button></div></div>";
       }
       h += '<p class="pr-dim">' + fmt(t("vCount"), { n: V.count() }) + "</p><p>" + t("hVeg") + "</p>";
     } else if (s.tool === "env") {
       const E = w.env;
       h = "<h3>" + t("tEnv") + "</h3>" + sl("etime", t("envTime"), 0, 24, 0.25, E.time, " h") + sl("efog", t("envFog"), 0, 100, 1, E.fog, " %") + sl("eview", t("envView"), 400, 3000, 50, E.view, " m") +
-        sl("ewind", t("envWind"), 0, 100, 1, E.wind, " %") + sl("ewdir", t("envWindDir"), 0, 359, 1, E.windDir, "°") + '<p class="pr-dim">' + t("envNote") + "</p>";
+        sl("ewind", t("envWind"), 0, 100, 1, E.wind, " %") + sl("ewdir", t("envWindDir"), 0, 359, 1, E.windDir, "°") + chk("wlines", t("envLines"), this.app.settings.windLines !== false) + '<p class="pr-dim">' + t("envNote") + "</p>";
     } else if (s.tool === "file") {
       h = "<h3>" + t("tFile") + '</h3><label class="pr-row"><span>' + t("fName") + '</span><input type="text" data-k="fname" value="' + esc(w.name) + '"></label>' +
         '<div class="pr-btns pr-col"><button data-e="export" class="pr-pri">' + t("fExport") + '</button><button data-e="import">' + t("fImport") + '</button><button data-e="std">' + t("fStd") + '</button><button data-e="blank">' + t("fNew") + "</button></div><p>" + t("fNote") + "</p>";
@@ -130,9 +133,9 @@ export class Editor {
     else if (a === "drive") { autosave(w, true); this.app.go("drive", { fromEditor: true }); }
     else if (a === "menu") { autosave(w, true); this.app.go("menu"); }
     else if (/^py[+-]\d$/.test(a) && p) { this.push(); p.y += +a.slice(2); this.roadEdit(true); }
-    else if (a === "snap" && p) { this.push(); p.y = w.terrain.heightAt(p.x, p.z, true) + 0.3; this.roadEdit(true); }
+    else if (a === "snap" && p) { this.push(); p.y = w.terrain.heightAt(p.x, p.z, true) + 0.15; this.roadEdit(true); }
     else if (a === "pdel" && p) this.delPoint();
-    else if (a === "snapall") { this.push(); R.pts.forEach((q) => { q.y = w.terrain.heightAt(q.x, q.z, true) + 0.3; }); this.roadEdit(true); }
+    else if (a === "snapall") { this.push(); R.pts.forEach((q) => { q.y = w.terrain.heightAt(q.x, q.z, true) + 0.15; }); this.roadEdit(true); }
     else if (a === "smoothh") { this.push(); const n = R.pts.length, y = R.pts.map((q) => q.y); R.pts.forEach((q, i) => { const pa = R.closed ? y[(i - 1 + n) % n] : y[Math.max(0, i - 1)], pb = R.closed ? y[(i + 1) % n] : y[Math.min(n - 1, i + 1)]; q.y = (y[i] * 2 + pa + pb) / 4; }); this.roadEdit(true); }
     else if (a === "rdel") { this.push(); R.pts = []; this.sel = -1; this.roadEdit(true); }
     else if (a === "gnew") { const G = w.veg.groups; G.push({ id: "g" + Date.now(), n: t("vNew") + " " + (G.length + 1), items: [{ t: "bush", p: 100 }], dens: 3, smin: 0.8, smax: 1.2, slope: 35, road: 2 }); this.s.vg = G.length - 1; this.panel(); autosave(w); }
@@ -151,7 +154,8 @@ export class Editor {
     if (k === "fall") { if (!this.sliding) { this.push(); this.sliding = true; } R.fall = v; return; }
     if (k === "gname" && g) { g.n = v; return; }
     if (/^gi\d+$/.test(k) && g) { g.items[+k.slice(2)].p = v; lab.textContent = v + " %"; return; }
-    if (g && /^g(dens|smin|smax|slope|road)$/.test(k)) { g[k.slice(1)] = v; return; }
+    if (g && /^g(dens|smin|smax|slope|slopeMin|road)$/.test(k)) { g[k.slice(1)] = v; return; }
+    if (k === "wlines") { this.app.settings.windLines = v; this.world.windFx.visible = v; store.set(KEYS.settings, this.app.settings); return; }
     if (/^e(time|fog|view|wind|wdir)$/.test(k)) { const m = { etime: "time", efog: "fog", eview: "view", ewind: "wind", ewdir: "windDir" }; w.setEnv({ [m[k]]: v }); return; }
     if (k === "fname") { w.name = v; this.root.querySelector("#pr-ename").textContent = v; }
   }
@@ -212,7 +216,7 @@ export class Editor {
       if (hi >= 0) { this.sel = hi; this.push(); this.drag = { i: hi, y0: e.clientY, py: w.road.pts[hi].y, moved: false }; this.rebuildHandles(); this.panel(); return; }
       const g = this.groundHit(e.clientX, e.clientY); if (!g) return;
       this.push();
-      const R = w.road, base = w.terrain.heightAt(g.x, g.z, true) + 0.3, src = R.pts[this.sel] || R.pts[R.pts.length - 1], np = { x: g.x, z: g.z, y: base, w: src ? src.w : 12, bank: 0, cl: false, cr: false };
+      const R = w.road, base = w.terrain.heightAt(g.x, g.z, true) + 0.15, src = R.pts[this.sel] || R.pts[R.pts.length - 1], np = { x: g.x, z: g.z, y: base, w: src ? src.w : 12, bank: 0, cl: false, cr: false };
       if (e.ctrlKey || e.metaKey) { const sa = R.segAt(g.x, g.z); const at = sa ? sa.seg + 1 : R.pts.length; R.pts.splice(at, 0, np); this.sel = at; }
       else { const at = this.sel >= 0 ? this.sel + 1 : R.pts.length; R.pts.splice(at, 0, np); this.sel = at; }
       this.roadEdit(true); return;
@@ -262,7 +266,7 @@ export class Editor {
       const f = (inp.k("KeyW") ? 1 : 0) - (inp.k("KeyS") ? 1 : 0), s = (inp.k("KeyD") ? 1 : 0) - (inp.k("KeyA") ? 1 : 0);
       if (f || s) { const sx = Math.sin(c.yaw), sz = Math.cos(c.yaw); c.x += (-sx * f + sz * s) * sp; c.z += (-sz * f - sx * s) * sp; }
     }
-    c.x = clamp(c.x, -520, 520); c.z = clamp(c.z, -520, 520);
+    const lim = this.world.terrain.size / 2 + 20; c.x = clamp(c.x, -lim, lim); c.z = clamp(c.z, -lim, lim);
     const T = this.world.terrain; c.y = lerp(c.y, T.heightAt(c.x, c.z), 1 - Math.exp(-dt * 4));
     const cam = this.eng.camera, cp = Math.cos(c.pitch);
     cam.position.set(c.x + Math.sin(c.yaw) * cp * c.dist, c.y + Math.sin(c.pitch) * c.dist, c.z + Math.cos(c.yaw) * cp * c.dist);
@@ -282,7 +286,7 @@ export class Editor {
       if (s.tool === "terrain") {
         let mode = s.tmode; if (inp.k("ShiftLeft", "ShiftRight")) mode = mode === "raise" ? "lower" : mode === "lower" ? "raise" : mode;
         const box = T.sculpt(mode, hp.x, hp.z, s.tr, s.ts, Math.min(dt, 0.05), this.flatY); w.terrainChanged(box);
-      } else if (s.tool === "paint") { const box = T.paintAt(s.layer, hp.x, hp.z, s.pr); T.rebuild(box[0], box[1], box[2], box[3]); }
+      } else if (s.tool === "paint") { const box = T.paintAt(s.layer, hp.x, hp.z, s.pr, Math.min(s.psmin, s.psmax), Math.max(s.psmin, s.psmax)); T.rebuild(box[0], box[1], box[2], box[3]); }
       else if (s.tool === "veg") {
         const g = w.veg.groups[s.vg]; if (!g) return;
         if (s.vmode === "erase") w.veg.erase(hp.x, hp.z, s.vr, s.vonly ? g.items.map((it) => it.t) : null);
