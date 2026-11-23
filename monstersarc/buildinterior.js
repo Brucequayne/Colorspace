@@ -25,16 +25,16 @@
   var MODERN = [[188, 190, 192], [160, 162, 165], [132, 134, 138]];   // minimalistisch: drei Grautöne
 
   // Farbe des Bodens am Pixel (x, y) (px ab Ecke oben links des Bodens)
-  function floorCol(kind, x, y, sd) {
+  function floorCol(kind, x, y, sd, W, H) {
     var c, k;
     switch (kind) {
       case "tiles": {   // Fliesen: große helle Platten, 16 px, feine Fuge
-        var tx = Math.floor(x / 16), ty = Math.floor(y / 16), lx = x % 16, ly = y % 16;
+        var tx = Math.floor(x / 8), ty = Math.floor(y / 8), lx = x % 8, ly = y % 8;
         if (lx === 0 || ly === 0) return [150, 144, 134];
         k = 0.95 + hash(tx, ty, sd) * 0.1 + (fbm(x / 10, y / 10, sd + 2, 2) - 0.5) * 0.06;
         c = mul([218, 212, 198], k);
         if (lx === 1 || ly === 1) c = mul(c, 1.05);
-        if (lx === 15 || ly === 15) c = mul(c, 0.94);
+        if (lx === 7 || ly === 7) c = mul(c, 0.94);
         return c;
       }
       case "mosaic": {   // Kacheln: kleine Mosaikkacheln 8 px im Schachbrett
@@ -46,32 +46,31 @@
         return c;
       }
       case "stone": {   // Stein: unregelmäßige Platten (Voronoi), dunkle Fugen
-        var S = 15, cx = Math.floor(x / S), cy = Math.floor(y / S), d1 = 1e9, d2 = 1e9, bi = 0, bj = 0;
+        var S = 8, cx = Math.floor(x / S), cy = Math.floor(y / S), d1 = 1e9, d2 = 1e9, bi = 0, bj = 0;
         for (var j = -1; j <= 1; j++) for (var i = -1; i <= 1; i++) {
           var gx = cx + i, gy = cy + j, px = (gx + 0.15 + hash(gx, gy, sd) * 0.7) * S, py = (gy + 0.15 + hash(gx, gy, sd + 5) * 0.7) * S;
           var dd = Math.sqrt((x - px) * (x - px) + (y - py) * (y - py));
           if (dd < d1) { d2 = d1; d1 = dd; bi = gx; bj = gy; } else if (dd < d2) d2 = dd;
         }
-        if (d2 - d1 < 1.5) return [78, 74, 70];
-        k = 0.82 + hash(bi, bj, sd + 9) * 0.3 + (fbm(x / 5, y / 5, sd + 4, 2) - 0.5) * 0.18;
+        if (d2 - d1 < 1.1) return [78, 74, 70];
+        k = 0.82 + hash(bi, bj, sd + 9) * 0.3 + (fbm(x / 3, y / 3, sd + 4, 2) - 0.5) * 0.18;
         c = mul([120, 116, 108], k);
-        if (d2 - d1 < 2.6) c = mul(c, 1.1);
+        if (d2 - d1 < 1.9) c = mul(c, 1.1);
         return c;
       }
       case "marble": {   // Marmor: helle Platten 32 px mit grauen Adern
-        var px2 = Math.floor(x / 32), py2 = Math.floor(y / 32);
-        if (x % 32 === 0 || y % 32 === 0) return [176, 174, 170];
-        var n = fbm(x / 22 + px2 * 7, y / 22 + py2 * 5, sd + 1, 3), vein = Math.abs(n - 0.5);
+        var px2 = Math.floor(x / 16), py2 = Math.floor(y / 16);
+        if (x % 16 === 0 || y % 16 === 0) return [176, 174, 170];
+        var n = fbm(x / 12 + px2 * 7, y / 12 + py2 * 5, sd + 1, 3), vein = Math.abs(n - 0.5);
         c = mul([234, 232, 228], 0.97 + hash(px2, py2, sd) * 0.05);
-        if (vein < 0.006) c = [150, 152, 162];
-        else if (vein < 0.016) c = mul(c, 0.93);
-        if (((x + y) % 64) < 3) c = mul(c, 1.04);
+        if (vein < 0.011) c = [150, 152, 162];
+        else if (vein < 0.022) c = mul(c, 0.93);
+        if (((x + y) % 32) < 2) c = mul(c, 1.04);
         return c;
       }
-      case "modern": {   // Modern: große glatte Felder in drei Grautönen
-        var qx = Math.floor(x / 32), qy = Math.floor(y / 32);
-        if (x % 32 === 0 || y % 32 === 0) return mul(MODERN[2], 0.9);
-        return MODERN[Math.floor(hash(qx, qy, sd) * 3)];
+      case "modern": {   // Modern: eine ruhige Fläche im mittleren Grau, zu den Raumrändern hin in Stufen dunkler
+        var m = Math.min(x, y, (W || 9999) - 1 - x, (H || 9999) - 1 - y), st = m < 8 ? 3 : m < 16 ? 2 : m < 24 ? 1 : 0;
+        return mul(MODERN[1], 1 - st * 0.07);
       }
     }
     // Holz: Dielen 4 px hoch, versetzte Stöße
@@ -187,7 +186,7 @@
     // Boden
     var img = g.createImageData(W, H), b = img.data, x, y;
     for (y = 0; y < H; y++) for (x = 0; x < W; x++) {
-      var c = floorCol(kind, x, y, sd), ao = y < 6 ? 0.78 + y * 0.037 : 1, ax = (x < 3 || x >= W - 3) ? 0.9 : 1, i = (y * W + x) * 4;
+      var c = floorCol(kind, x, y, sd, W, H), ao = y < 6 ? 0.78 + y * 0.037 : 1, ax = (x < 3 || x >= W - 3) ? 0.9 : 1, i = (y * W + x) * 4;
       b[i] = c[0] * ao * ax; b[i + 1] = c[1] * ao * ax; b[i + 2] = c[2] * ao * ax; b[i + 3] = 255;
     }
     g.putImageData(img, X0, Y0);

@@ -3,6 +3,11 @@
    Die Versionsnummer auf den Kacheln kommt aus dem obersten Eintrag. */
 window.PATCHNOTES = {
   monstersarc: [
+    { v: "0.22", t: "2026-11-24T00:01:00+01:00",
+      de: ["Innenböden im Gebäude-Editor feiner skaliert: Fliesen (8 px statt 16), Stein (kleinere Platten) und Marmor (16 px statt 32).",
+        "Moderner Boden ohne Muster: eine ruhige Fläche im mittleren Grau, zu den Raumrändern hin in drei Stufen dunkler."],
+      en: ["Interior floors in the building editor scaled finer: tiles (8 px instead of 16), stone (smaller slabs) and marble (16 px instead of 32).",
+        "Modern floor without a pattern: one calm surface in the mid grey, getting darker in three steps towards the room edges."] },
     { v: "0.21", t: "2026-11-23T23:45:00+01:00",
       de: ["Gebäude-Editor: neuer Schalter Außen / Innen. Innen bearbeitest du den Innenraum jedes Geschosses; zwischen den Stockwerken wechselst du per Knopf oder Taste 1–3.",
         "Böden (je Geschoss, auf Wunsch für alle): Holz, Fliesen, Kacheln (Mosaik), Stein, Marmor und Modern (minimalistisch, drei Grautöne).",
