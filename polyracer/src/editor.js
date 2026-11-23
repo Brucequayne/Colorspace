@@ -24,6 +24,8 @@ addTexts({
   rH: L2("Platzierhöhe über Gelände (C/V)", "Placement height above terrain (C/V)"), pTerr: L2("Gelände anpassen (ab diesem Punkt)", "Shape terrain (from this point)"),
   rStat: L2("Höhe {h} m · Straßen-Terrain {t} · Länge {l} m", "Height {h} m · road terrain {t} · length {l} m"), rCtrl: L2("Bogenpunkt gesetzt – jetzt das Ende klicken", "Bend point set – now click the end"),
   rBridge: L2("{n} m Brücke", "{n} m bridge"), rRoads: L2("{n} Straßen · {l} m", "{n} roads · {l} m"), rRoad: L2("Straße {i} von {n}", "Road {i} of {n}"),
+  rHard: L2("Härte (Neigung, Höhe, Anschluss)", "Hardness (banking, height, joins)"),
+  hHard: L2("100 % = Änderungen an Neigung und Höhe wirken nur auf den gewählten Punkt, neue Stücke schließen nur knickfrei an. Weniger = die Nachbarpunkte werden weich mitgenommen (bis ca. 120 m) und neue Stücke werden über einen längeren Bereich geglättet.", "100% = banking and height changes only affect the selected point, new pieces only join without a kink. Less = neighbouring points follow softly (up to about 120 m) and new pieces are smoothed over a longer stretch."),
   pCp: L2("Checkpoint (Taste K)", "Checkpoint (key K)"), pCpMain: L2("Checkpoints zählen nur auf der Hauptstrecke (erster Rundkurs).", "Checkpoints only count on the main road (first circuit)."),
   rDelRoad: L2("Diese Straße löschen", "Delete this road"), pBr: L2("Brücke erzwingen (ab diesem Punkt)", "Force bridge (from this point)"),
   rFree: L2("Keine Straße gewählt – der nächste Klick beginnt eine neue.", "No road selected – the next click starts a new one."),
@@ -58,7 +60,7 @@ export class Editor {
   constructor(app) {
     this.app = app; this.world = app.world; this.eng = app.engine;
     const u = store.get(KEYS.ui, {});
-    this.s = Object.assign({ tool: "terrain", tmode: "raise", tr: 22, ts: 0.5, layer: 0, pr: 12, psmin: 0, psmax: 90, vg: 0, vmode: "paint", vr: 18, vonly: false, rmode: "straight", rterr: 1, rh: 0 }, u.ed || {});
+    this.s = Object.assign({ tool: "terrain", tmode: "raise", tr: 22, ts: 0.5, layer: 0, pr: 12, psmin: 0, psmax: 90, vg: 0, vmode: "paint", vr: 18, vonly: false, rmode: "straight", rterr: 1, rh: 0, rhard: 60 }, u.ed || {});
     this.cam = Object.assign({ x: 0, y: 0, z: 0, dist: 420, yaw: 0.6, pitch: 0.85 }, u.cam || {});
     this.sel = -1; this.sr = -1; this.undo = []; this.redo = []; this.mouse = new THREE.Vector2(); this.hit = null; this.btn = -1; this.drag = null;
     this.ray = new THREE.Raycaster();
@@ -122,7 +124,7 @@ export class Editor {
       h = "<h3>" + t("tRoad") + '</h3><p class="pr-dim">' + fmt(t("rRoads"), { n: RS.length, l: Math.round(tl2) }) + (bl > 0 ? " · " + fmt(t("rBridge"), { n: Math.round(bl) }) : "") + "</p>" +
         seg("rmode", [["edit", t("rEdit")], ["straight", t("rStraight")], ["curve", t("rCurve")]], s.rmode) +
         '<div class="pr-row"><span>' + t("rTerr") + "</span></div>" + seg("rterr", [[1, t("rOn")], [0, t("rOff")]], s.rterr) + '<p class="pr-dim">' + t(s.rterr ? "rTerrOn" : "rTerrOff") + "</p>" +
-        sl("rh", t("rH"), -30, 80, 0.5, s.rh, " m") +
+        sl("rh", t("rH"), -30, 80, 0.5, s.rh, " m") + sl("rhard", t("rHard"), 0, 100, 5, s.rhard, " %") + '<p class="pr-dim">' + t("hHard") + "</p>" +
         '<div class="pr-legend">' + lg(GC.on, "lgOn") + lg(GC.up, "lgUp") + lg(GC.down, "lgDown") + lg(GC.br, "lgBr") + lg(GC.x, "lgX") + "</div>";
       if (R) {
         h += '<div class="pr-box"><b>' + fmt(t("rRoad"), { i: w.roads.indexOf(R) + 1, n: w.roads.length }) + '</b> <span class="pr-dim">' + fmt(t("roadLen"), { l: Math.round(R.len), n: R.pts.length }) + "</span>" +
@@ -169,7 +171,7 @@ export class Editor {
     if (a === "undo") this.doUndo(); else if (a === "redo") this.doRedo();
     else if (a === "drive" || a === "race") { autosave(w, true); this.app.go("drive", { fromEditor: true, race: a === "race" }); }
     else if (a === "menu") { autosave(w, true); this.app.go("menu"); }
-    else if (/^py[+-]\d$/.test(a) && p) { this.push(); p.y += +a.slice(2); this.roadEdit(true); }
+    else if (/^py[+-]\d$/.test(a) && p) { this.push(); this.soft("y", +a.slice(2)); this.roadEdit(true); }
     else if (a === "snap" && p) { this.push(); p.y = w.terrain.heightAt(p.x, p.z, true) + 0.15; this.roadEdit(true); }
     else if (a === "pdel" && p) this.delPoint();
     else if (a === "snapall" && R) { this.push(); R.pts.forEach((q) => { q.y = w.terrain.heightAt(q.x, q.z, true) + 0.15; }); this.roadEdit(true); }
@@ -187,7 +189,11 @@ export class Editor {
     const w = this.world, R = this.rd(), p = this.pt(), v = e.target.type === "checkbox" ? e.target.checked : e.target.type === "range" ? +e.target.value : e.target.value, g = w.veg.groups[this.s.vg];
     const lab = this.root.querySelector("#pv-" + k); if (lab && e.target.type === "range") lab.textContent = (e.target.step < 1 ? (+v).toFixed(e.target.step < 0.1 ? 2 : 1) : v) + (e.target.getAttribute("data-u") || "");
     if (k in this.s) { this.s[k] = v; if (k === "rh") this.preview(); return; }
-    if (k === "py" || k === "pw" || k === "pb") { if (!p) return; if (!this.sliding) { this.push(); this.sliding = true; } p[k === "py" ? "y" : k === "pw" ? "w" : "bank"] = v; this.roadEdit(false); return; }
+    if (k === "py" || k === "pw" || k === "pb") {
+      if (!p) return; if (!this.sliding) { this.push(); this.sliding = true; }
+      if (k === "pw") p.w = v; else { const key = k === "py" ? "y" : "bank"; this.soft(key, v - p[key]); }   // Höhe und Neigung mit Härte
+      this.roadEdit(false); return;
+    }
     if (k === "fall") { if (!R) return; if (!this.sliding) { this.push(); this.sliding = true; } R.fall = v; return; }
     if (k === "gname" && g) { g.n = v; return; }
     if (/^gi\d+$/.test(k) && g) { g.items[+k.slice(2)].p = v; lab.textContent = v + " %"; return; }
@@ -276,6 +282,42 @@ export class Editor {
     return E;
   }
   // Punkte für ein neues Stück von A bis E (Gerade oder Bogen über C), etwa alle 11 m ein Hilfspunkt
+  // Weg entlang der Straße (waagrecht) bis zu jedem Punkt
+  cum(R) { const s = [0]; for (let i = 1; i < R.pts.length; i++) s.push(s[i - 1] + Math.hypot(R.pts[i].x - R.pts[i - 1].x, R.pts[i].z - R.pts[i - 1].z)); const n = R.pts.length; const tot = s[n - 1] + (R.closed && n > 1 ? Math.hypot(R.pts[0].x - R.pts[n - 1].x, R.pts[0].z - R.pts[n - 1].z) : 0); return { s: s, tot: tot }; }
+  // Änderung am gewählten Punkt mit Härte: 100 % = nur dieser Punkt, weniger = Nachbarn weich mit (Kosinus-Abfall bis 120 m)
+  soft(key, delta) {
+    const R = this.rd(), i = this.sel; if (!R || !R.pts[i] || !delta) return;
+    const rad = (1 - this.s.rhard / 100) * 120, c = this.cum(R);
+    R.pts.forEach((p, j) => {
+      let d = Math.abs(c.s[j] - c.s[i]); if (R.closed) d = Math.min(d, c.tot - d);
+      const w = j === i ? 1 : rad <= 0 || d >= rad ? 0 : 0.5 + 0.5 * Math.cos(Math.PI * d / rad);
+      if (w > 0) { p[key] += delta * w; if (key === "bank") p.bank = clamp(p.bank, -30, 30); }
+    });
+  }
+  // Neues Stück mit weichem Höhenverlauf: erst knickfrei (Hermite, Steigung des vorigen Stücks), dann über einen
+  // Bereich vor und hinter dem Anschluss geglättet (Breite nach Härte). Gibt { pts, prev: [[index, y]], ay } zurück.
+  placePlan(A, E, C) {
+    const R = this.rd(), pts = this.plan(A, E, C), out = { pts: pts, prev: [], ay: A.y };
+    if (!R) return out;
+    const back = [], i = this.sel, rev = this.isEnd(R, i) && i === 0 && R.pts.length > 1, along = this.isEnd(R, i);
+    if (along) for (let k = 1; k < R.pts.length && k < 40; k++) { const j = rev ? k : i - k; if (j < 0 || j >= R.pts.length) break; back.push(j); }
+    const rad = 10 + (1 - this.s.rhard / 100) * 60, sig = rad / 2.5;
+    const follow = this.s.rh === 0 && !E.j;   // Ende auf Bodenhöhe darf mitgeglättet werden, eine gewählte Höhe bleibt fest
+    // Kette: ältere Punkte … A, neue Punkte; Lage s entlang der Kette (A = 0)
+    const ch = [], P = R.pts;
+    let sAcc = 0, prv = A;
+    for (const j of back) { sAcc -= Math.hypot(P[j].x - prv.x, P[j].z - prv.z); prv = P[j]; if (-sAcc > rad * 1.6) break; ch.unshift({ y: P[j].y, s: sAcc, j: j, fix: !!P[j].j || -sAcc >= rad, b: Math.max(0, 1 + sAcc / rad) }); }
+    ch.push({ y: A.y, s: 0, a: true, fix: !!A.j || !along, b: 1 });
+    sAcc = 0; prv = A; pts.forEach((q, k) => { sAcc += Math.hypot(q.x - prv.x, q.z - prv.z); prv = q; ch.push({ y: q.y, s: sAcc, q: q, fix: k === pts.length - 1 && (!!E.j || !follow), b: 1 }); });
+    const endFix = ch[ch.length - 1].fix, sEnd = sAcc;
+    if (endFix) ch.forEach((e) => { if (e.q) e.b = clamp((sEnd - e.s) / (rad * 0.8), 0, 1); });   // vor einem festen Ende sanft in den knickfreien Verlauf zurück
+    for (let it = 0; it < 2; it++) {
+      const ny = ch.map((e) => { if (e.fix) return e.y; let sw = 0, sy = 0; for (const f of ch) { const d = f.s - e.s; if (Math.abs(d) > sig * 2.5) continue; const g = Math.exp(-d * d / (2 * sig * sig)); sw += g; sy += g * f.y; } return sy / sw; });
+      ch.forEach((e, k) => { e.y = lerp(e.y, ny[k], e.b); });
+    }
+    ch.forEach((e) => { if (e.q) e.q.y = e.y; else if (e.a) out.ay = e.y; else out.prev.push([e.j, e.y]); });
+    return out;
+  }
   plan(A, E, C) {
     const T = this.world.terrain, s = this.s;
     const pos = (f) => C ? { x: (1 - f) * (1 - f) * A.x + 2 * f * (1 - f) * C.x + f * f * E.x, z: (1 - f) * (1 - f) * A.z + 2 * f * (1 - f) * C.z + f * f * E.z } : { x: lerp(A.x, E.x, f), z: lerp(A.z, E.z, f) };
@@ -283,12 +325,15 @@ export class Editor {
     const base = (x, z) => T.heightAt(x, z, true);
     const follow = s.rh === 0 && !E.j && Math.abs(A.y - (base(A.x, A.z) + 0.15)) < 0.6;   // auf Bodenhöhe: dem Gelände entlang der Linie folgen (dichtere Punkte)
     const n = Math.max(1, Math.ceil(L / (follow ? 5 : 11)));
+    // Steigung am Anschluss = Steigung des vorigen Stücks (wenn am Ende weitergebaut wird), am Ende = mittlere Steigung
+    const R = this.rd(), m1 = (E.y - A.y) / Math.max(1, L); let m0 = m1;
+    if (R && this.isEnd(R, this.sel) && R.pts.length > 1 && R.pts[this.sel] === A) { const P0 = R.pts[this.sel === 0 ? 1 : this.sel - 1], dd = Math.hypot(A.x - P0.x, A.z - P0.z); if (dd > 0.5) m0 = clamp((A.y - P0.y) / dd, -0.35, 0.35); }
     const out = [];
     for (let k = 1; k <= n; k++) {
       const f = k / n, c = pos(f); let y;
       if (k === n) y = E.y;
-      else if (follow) { const p0 = pos(Math.max(0, f - 1.5 / L)), p1 = pos(Math.min(1, f + 1.5 / L)); y = (base(c.x, c.z) * 2 + base(p0.x, p0.z) + base(p1.x, p1.z)) / 4 + 0.15; }
-      else y = lerp(A.y, E.y, f);
+      else if (follow) y = base(c.x, c.z) + 0.15;   // Gelände; geglättet wird danach in placePlan
+      else { const h00 = 2 * f * f * f - 3 * f * f + 1, h10 = f * f * f - 2 * f * f + f, h01 = -2 * f * f * f + 3 * f * f, h11 = f * f * f - f * f; y = h00 * A.y + h10 * L * m0 + h01 * E.y + h11 * L * m1; }   // knickfrei
       out.push({ x: k === n ? E.x : c.x, z: k === n ? E.z : c.z, y: y, w: A.w || 12, bank: 0, cl: false, cr: false, t: s.rterr, a: k < n ? 1 : 0, j: k === n && E.j ? 1 : 0 });
     }
     return out;
@@ -302,7 +347,8 @@ export class Editor {
       const nr = w.addRoad(); nr.pts.push({ x: E.x, z: E.z, y: E.y, w: 12, bank: 0, cl: false, cr: false, t: s.rterr, a: 0, j: E.j ? 1 : 0 });
       this.sr = w.roads.indexOf(nr); this.sel = 0; this.roadEdit(true); this.preview(); return;
     }
-    const pts = this.plan(A, E, C);
+    const pp = this.placePlan(A, E, C), pts = pp.pts;
+    pp.prev.forEach((e) => { R.pts[e[0]].y = e[1]; }); A.y = pp.ay;
     if (close) { pts.pop(); A.t = s.rterr; R.pts.splice(this.sel + 1, 0, ...pts); R.closed = true; this.selNone(); }
     else if (this.isEnd(R, this.sel)) {
       A.t = s.rterr;
@@ -324,7 +370,7 @@ export class Editor {
     this.mk.position.set(E.x, E.y + 0.6, E.z); this.mk.scale.setScalar(Math.max(0.8, this.cam.dist * 0.008)); this.mk.material.color.set(E.j ? 0xFFFFFF : 0xED6A5E); this.mk.visible = true;
     const hgt = (v) => (v > 0 ? "+" : "") + v.toFixed(1);
     if (!A) { this.status((E.j ? t("rsBranch") : t("rsStart")) + " · " + t("rTerr") + " " + t(s.rterr ? "rOn" : "rOff")); return; }
-    const P = [A].concat(this.plan(A, E, C)), G = this.ghost;
+    const pp = this.placePlan(A, E, C), P = [Object.assign({}, A, { y: pp.ay })].concat(pp.pts), G = this.ghost;
     G.pts = P.map((q) => Object.assign({}, q)); G.closed = false; G.sample(); G.markBridges();
     const S = G.S, T = w.terrain, pos = [], col = [], lp = [], lc = []; let cross = false, mBr = 0, mDown = 0;
     const cst = S.map((q, i) => {
@@ -399,7 +445,7 @@ export class Editor {
     }
     if (this.drag && this.btn === 0) {
       const p = this.world.roads[this.drag.r].pts[this.drag.i]; this.drag.moved = true;
-      if (e.shiftKey) p.y = this.drag.py - (e.clientY - this.drag.y0) * 0.12 * Math.max(0.3, this.cam.dist / 300);
+      if (e.shiftKey) { this.sr = this.drag.r; this.sel = this.drag.i; this.soft("y", this.drag.py - (e.clientY - this.drag.y0) * 0.12 * Math.max(0.3, this.cam.dist / 300) - p.y); }
       else { const g = this.groundHit(e.clientX, e.clientY); if (g) { p.x = g.x; p.z = g.z; } }
       this.roadEdit(false); this.panelPoint(); return;
     }
@@ -425,7 +471,7 @@ export class Editor {
     if ((e.code === "Delete" || e.code === "Backspace") && this.s.tool === "road") { this.delPoint(); return true; }
     if (this.s.tool === "road" && (e.code === "KeyC" || e.code === "KeyV") && !e.ctrlKey && !e.metaKey) {
       const st = (e.shiftKey ? 5 : 1) * (e.code === "KeyV" ? 1 : -1), p = this.pt();
-      if (this.s.rmode === "edit") { if (p) { this.push(); p.y += st; this.roadEdit(true); this.status(t("height") + " " + p.y.toFixed(1) + " m"); } }
+      if (this.s.rmode === "edit") { if (p) { this.push(); this.soft("y", st); this.roadEdit(true); this.status(t("height") + " " + p.y.toFixed(1) + " m"); } }
       else { this.s.rh = clamp(this.s.rh + st, -30, 80); const i = this.root.querySelector('[data-k="rh"]'), v = this.root.querySelector("#pv-rh"); if (i) { i.value = this.s.rh; v.textContent = this.s.rh.toFixed(1) + " m"; } this.preview(); this.saveUI(); }
       return true;
     }
