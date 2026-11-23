@@ -338,5 +338,11 @@
     return null;
   }
 
-  MA.houses = { list: HOUSES, interior: interior, doorOf: doorOf, doorNear: doorNear, inRect: inR };
+  // Rauchpunkt des eingebauten Schornsteins (Welt-Pixel, Oberkante; seit v0.17)
+  function smokeAt(o) {
+    var h = MA.OBJECTS[o.t].house, g = geom(h), W = g.W, D = g.D;
+    var cx0 = h.ridge === "x" ? Math.round(W * 0.7) : Math.round(W / 2 + W * 0.2), cy0 = h.ridge === "x" ? Math.round(D / 2 + 1) : Math.round(D * 0.3);
+    return [o.x - W / 2 + cx0 + 4.5, o.y - D + cy0 + 3 - (g.Hw + g.rh + 10)];
+  }
+  MA.houses = { list: HOUSES, interior: interior, doorOf: doorOf, doorNear: doorNear, inRect: inR, smokeAt: smokeAt };
 })();

@@ -65,6 +65,8 @@
     this.add({ type: "orb", x: x, y: y, z: 0, sx: x + (Math.random() - 0.5) * 16, sy: y + (Math.random() - 0.5) * 10, tx: tx, ty: ty, cx: x + (Math.random() - 0.5) * 120, cy: Math.min(y, ty) - 30 - Math.random() * 50, life: 0.7 + Math.random() * 0.5, delay: Math.random() * 0.25 });
   };
   // Gischt am Wasserfall
+  // Rauch aus Schornsteinen (seit v0.17): steigt, treibt mit dem Wind, wird größer und blasser
+  P.smoke = function (x, y, wind) { this.add({ type: "smoke", x: x + (Math.random() - 0.5) * 2, y: y, z: 0, vx: 3 + (wind || 1) * 6 + (Math.random() - 0.5) * 3, vy: 0, vz: 9 + Math.random() * 5, life: 2.4 + Math.random() * 1.4, r: 1 + Math.random(), g: 150 + Math.random() * 40 }); };
   P.mist = function (x, y) { this.add({ type: "mist", x: x, y: y, z: 0, vx: (Math.random() - 0.5) * 6, vy: 6 + Math.random() * 8, vz: 0, life: 1.4 + Math.random(), r: 2 + Math.random() * 3 }); };
 
   P.update = function (dt, world) {
@@ -97,6 +99,8 @@
           p.life = p.age + (wet ? 0.25 : 5 + Math.random() * 4);
           p.streak = !wet && Math.random() < 0.4; p.sang = Math.random() < 0.5;
         }
+      } else if (p.type === "smoke") {
+        p.x += (p.vx + Math.sin(p.age * 2 + p.r * 5)) * dt; p.z += p.vz * dt; p.vz *= Math.pow(0.7, dt);
       } else if (p.type === "ink" || p.type === "mist") {
         p.x += p.vx * dt; p.y += p.vy * dt; p.z += (p.vz || 0) * dt; p.vx *= 0.94; p.vy *= 0.94;
       } else {
@@ -143,7 +147,7 @@
         var kk = (1 - p.age / p.life) * p.a, ex = Math.cos(p.ang), ey = Math.sin(p.ang) * 0.6;
         ctx.fillStyle = "rgba(245,242,232," + kk + ")";
         for (var w2 = 0; w2 < p.len; w2++) if (w2 % 4 !== 3) ctx.fillRect(Math.round(p.x - ex * w2), Math.round(p.y - ey * w2), 1, 1);
-      } else if (p.z > 1.5 && p.type !== "ghost" && p.type !== "ink" && p.type !== "mist") {
+      } else if (p.z > 1.5 && p.type !== "ghost" && p.type !== "ink" && p.type !== "mist" && p.type !== "smoke") {
         ctx.fillStyle = "rgba(0,0,0,0.22)"; ctx.fillRect(Math.round(p.x), Math.round(p.y), 1, 1);
       }
     });
@@ -161,6 +165,7 @@
       else if (p.type === "drop" || p.type === "straw") { ctx.fillStyle = p.col; ctx.fillRect(x, y, 1, p.type === "straw" && !p.small ? 2 : 1); }
       else if (p.type === "orb") { ctx.fillStyle = "rgba(255,214,120,0.35)"; ctx.fillRect(x - 1, y - 1, 3, 3); ctx.fillStyle = "#FFF0C0"; ctx.fillRect(x, y, 1, 1); }
       else if (p.type === "ink") { ctx.fillStyle = "rgba(" + p.col + "," + (0.7 * k) + ")"; var rr = Math.round(p.r * (1 + (1 - k) * 1.2)); ctx.fillRect(x - rr, y - rr, rr * 2, rr * 2); }
+      else if (p.type === "smoke") { var u = p.age / p.life, sr = Math.round(p.r + u * 4), g = p.g | 0; ctx.fillStyle = "rgba(" + g + "," + g + "," + (g + 6) + "," + (0.5 * Math.min(1, p.age * 4) * (1 - u)) + ")"; ctx.fillRect(x - sr, y - sr, sr * 2, sr * 2); }
       else if (p.type === "mist") { ctx.fillStyle = "rgba(220,236,240," + (0.35 * k) + ")"; var r3 = Math.round(p.r * (1 + (1 - k))); ctx.fillRect(x - r3, y - r3, r3 * 2, r3); }
       else if (p.type === "spark") { ctx.globalAlpha = k; ctx.fillStyle = p.col; ctx.fillRect(x, y, 1, 1); ctx.globalAlpha = 1; }
       else if (p.type === "ghost") {

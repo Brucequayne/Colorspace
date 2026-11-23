@@ -502,7 +502,7 @@
     var def = (kind === "veg" ? MA.VEG : MA.OBJECTS)[type];
     var cv = MA.canvas(def.w, def.h);
     def.draw(MA.pen(cv.ctx), cv.ctx, MA.rng(1000 + v * 97 + type.length * 13 + type.charCodeAt(0)), v || 0, fr);
-    if (kind === "obj") MA.outline(cv, "#141012");
+    if (kind === "obj" && !def.noOutline) MA.outline(cv, "#141012");
     var s = { cv: cv, sil: MA.silhouette(cv), def: def };
     cache[key] = s;
     return s;

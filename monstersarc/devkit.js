@@ -45,15 +45,15 @@
 
   // Bereiche des Dev-Kits (weitere Editoren kommen als eigene Bereiche dazu)
   var TABS = [
-    { id: "map", name: function () { return L2("Map-Editor", "Map editor"); }, ver: "v0.16" },
+    { id: "map", name: function () { return L2("Map-Editor", "Map editor"); }, ver: "v0.17" },
     { id: "attacks", name: function () { return L2("Attacken", "Attacks"); }, soon: true },
     { id: "missions", name: function () { return L2("Missionen", "Missions"); }, soon: true },
     { id: "monsters", name: function () { return L2("Monster", "Monsters"); }, soon: true }
   ];
 
-  var TOOLS = ["tile", "brush", "obj", "walls", "move", "erase", "spawn", "zones"];
+  var TOOLS = ["tile", "brush", "obj", "deco", "walls", "move", "erase", "spawn", "zones"];
   function toolName(t) {
-    return { tile: L2("Boden", "Floor"), brush: L2("Pinsel", "Brush"), obj: L2("Objekte", "Objects"), walls: L2("Mauern", "Walls"), move: L2("Verschieben", "Move"), erase: L2("Radierer", "Eraser"), spawn: L2("Startpunkt", "Spawn"), zones: L2("Zonen", "Zones") }[t];
+    return { tile: L2("Boden", "Floor"), brush: L2("Pinsel", "Brush"), obj: L2("Objekte", "Objects"), deco: L2("Hausdeko", "House deco"), walls: L2("Mauern", "Walls"), move: L2("Verschieben", "Move"), erase: L2("Radierer", "Eraser"), spawn: L2("Startpunkt", "Spawn"), zones: L2("Zonen", "Zones") }[t];
   }
   // Farben für neue Zonen (Palette und gut unterscheidbare Töne)
   var ZCOLS = ["#ED6A5E", "#62929E", "#E8C547", "#8BC34A", "#B07CC6", "#4A6D7C", "#F29E4C", "#5CC8B5", "#D96C9C", "#C6C5B9"];
@@ -207,10 +207,17 @@
           '<div class="ma-ed-info">' + L2("Links streuen, rechts entfernen (nur angekreuzte Varianten).", "Left scatters, right removes (only ticked variants).") + '</div>';
       }
     } else if (E.tool === "obj") {
-      h = '<h3>' + L2("Objekt", "Object") + '</h3><div class="ma-ed-list">' + Object.keys(MA.OBJECTS).filter(function (k) { return !MA.OBJECTS[k].inner; }).map(function (k) {
+      h = '<h3>' + L2("Objekt", "Object") + '</h3><div class="ma-ed-list">' + Object.keys(MA.OBJECTS).filter(function (k) { return !MA.OBJECTS[k].inner && !MA.OBJECTS[k].deco; }).map(function (k) {
         return '<button type="button" data-obj="' + k + '" aria-pressed="' + (E.obj === k) + '"><img alt="" src="' + thumb("obj", k, 0) + '">' + MA.OBJECTS[k].name() + '</button>';
       }).join("") + '</div><div class="ma-ed-row"><label>Variante</label><button type="button" data-a="var">' + (E.ov + 1) + ' / ' + MA.OBJECTS[E.obj].variants + '</button></div>' +
         (MA.OBJECTS[E.obj].house ? '<div class="ma-ed-info">' + L2("Häuser rasten am Kachelraster ein, der rote Strich zeigt die Tür. Varianten = leicht andere Farben. Im Testlauf vor der Tür mit E betreten.", "Houses snap to the tile grid, the red mark shows the door. Variants = slightly different colours. In the test walk press E at the door to enter.") + '</div>' : '');
+    } else if (E.tool === "deco") {
+      // Hausdeko (v0.17): eigener Reiter, liegt immer über der Hauswand
+      h = '<h3>' + L2("Hausdeko", "House deco") + '</h3><div class="ma-ed-list">' + Object.keys(MA.OBJECTS).filter(function (k) { return MA.OBJECTS[k].deco; }).map(function (k) {
+        return '<button type="button" data-dobj="' + k + '" aria-pressed="' + (E.dobj === k) + '"><img alt="" src="' + thumb("obj", k, k === "d_ivy" ? 4 : 0) + '">' + MA.OBJECTS[k].name() + '</button>';
+      }).join("") + '</div><div class="ma-ed-row"><label>Variante</label><button type="button" data-a="dvar">' + (E.dv + 1) + ' / ' + MA.OBJECTS[E.dobj].variants + '</button></div>' +
+        '<div class="ma-ed-rocks dv">' + Array.apply(null, Array(MA.OBJECTS[E.dobj].variants)).map(function (_, i) { return '<button type="button" data-dv="' + i + '" aria-pressed="' + (E.dv === i) + '"><img alt="" src="' + thumb("obj", E.dobj, i) + '"><span>' + (i + 1) + '</span></button>'; }).join("") + '</div>' +
+        '<div class="ma-ed-info">' + L2("Auf ein Haus gesetzt, haftet die Deko an der Hauswand und liegt immer darüber (grüner Rahmen = Haus erkannt). Links setzen, rechts entfernen, Mausrad oder R: Variante, Shift: 8-px-Raster. Schornsteine rauchen, die Lampe leuchtet nachts.", "Placed on a house, deco sticks to the wall and always stays on top (green frame = house found). Left places, right removes, mouse wheel or R: variant, Shift: 8 px grid. Chimneys smoke, the lamp glows at night.") + '</div>';
     } else if (E.tool === "walls") {
       // Mauern (v0.13): Art wählen, ziehen = gerade Linie, verbinden sich automatisch
       h = '<h3>' + L2("Art", "Type") + '</h3><div class="ma-ed-list">' + Object.keys(MA.WALLS).map(function (k) {
@@ -294,6 +301,8 @@
     if (d.rock) { var ri = +d.rock; E.rockSel[ri] = !E.rockSel[ri]; renderOpts(); return; }
     if (d.obj) { E.obj = d.obj; E.ov = 0; renderOpts(); return; }
     if (d.wall) { E.wtype = d.wall; renderOpts(); return; }
+    if (d.dobj) { E.dobj = d.dobj; E.dv = 0; renderOpts(); return; }
+    if (d.dv) { E.dv = +d.dv; renderOpts(); return; }
     if (d.time) { E.world.time = +d.time; E.arena.time = E.world.time; syncUI(); return; }
     if (d.zdel) { snapshot(); E.arena.removeZone(d.zdel); E.world.syncZones(true); if (E.zsel === d.zdel) E.zsel = E.arena.zones.length ? E.arena.zones[0].id : null; renderOpts(); return; }
     var a = d.a;
@@ -301,6 +310,7 @@
       for (var k = 0; k < MA.OBJECTS.rock.variants; k++) E.rockSel[k] = a === "rall" || (a === "rsmall" && ROCK_SMALL.indexOf(k) >= 0);
       renderOpts(); return;
     }
+    if (a === "dvar") { E.dv = (E.dv + 1) % MA.OBJECTS[E.dobj].variants; renderOpts(); return; }
     if (a === "wrot") { E.wrot = E.wrot ? 0 : 1; renderOpts(); return; }
     if (a === "zin") zoomBy(1.4);
     else if (a === "zout") zoomBy(1 / 1.4);
@@ -465,7 +475,7 @@
 
   MA.scenes.devkit = {
     enter: function () {
-      if (!E) E = { tab: "map", tool: "brush", tile: "m", brush: "meadow", obj: "toro", ov: 0, bsize: 14, tsize: 1, zsize: 6, dens: 5, wind: 1, grid: false, timeRun: false, timeSpeedV: 0.5, undo: [], acc: 0, racc: 0, wtype: "h", wrot: 0, wline: null, rockSel: [true, true, true, true, true, true, true, true, true, true, true, true, true], drag: null, stroke: false, wx: 0, wy: 0, zsel: null };
+      if (!E) E = { tab: "map", tool: "brush", tile: "m", brush: "meadow", obj: "toro", ov: 0, bsize: 14, tsize: 1, zsize: 6, dens: 5, wind: 1, grid: false, timeRun: false, timeSpeedV: 0.5, undo: [], acc: 0, racc: 0, wtype: "h", wrot: 0, wline: null, dobj: "d_pot", dv: 0, rockSel: [true, true, true, true, true, true, true, true, true, true, true, true, true], drag: null, stroke: false, wx: 0, wy: 0, zsel: null };
       MA.main.setSidebar(PANEL);
       MA.audio.ambience(null);
       MA.audio.musicStop();
@@ -497,9 +507,11 @@
       if (px || py) w.pan(px, py);
       E.wx = w.cam.x + I.mx / z; E.wy = w.cam.y + I.my / z;
       if (I.hit("r") && E.tool === "walls") { E.wrot = E.wrot ? 0 : 1; renderOpts(); }
+      if (I.hit("r") && E.tool === "deco") { E.dv = (E.dv + 1) % MA.OBJECTS[E.dobj].variants; renderOpts(); }
       if (I.hit("r") && E.tool === "obj") { E.ov = (Math.random() * MA.OBJECTS[E.obj].variants) | 0; renderOpts(); }
       if (I.wheel) {
         if (ctrl) zoomBy(I.wheel < 0 ? 1.25 : 0.8, I.mx, I.my);
+        else if (E.tool === "deco") { var nd = MA.OBJECTS[E.dobj].variants; E.dv = ((E.dv + I.wheel) % nd + nd) % nd; renderOpts(); }
         else if (E.tool === "obj") { var n = MA.OBJECTS[E.obj].variants; E.ov = ((E.ov + I.wheel) % n + n) % n; renderOpts(); }
         else if (E.tool === "brush" || E.tool === "erase") { E.bsize = m.clamp(E.bsize - I.wheel * 2, 3, 64); renderOpts(); }
         else if (E.tool === "tile") { E.tsize = m.clamp(E.tsize - I.wheel, 1, 9); renderOpts(); }
@@ -535,13 +547,16 @@
             E.wline = null;
           }
           if (I.rmb && !E.wline) { var etx = Math.floor(X / T), ety = Math.floor(Y / T); if (a.setWall(etx, ety, "0")) wallsChanged(etx, ety, etx, ety); }
+        } else if (E.tool === "deco") {
+          if (I.lmbHit) { var dq = { t: E.dobj, x: snap(X), y: snap(Y), v: E.dv }; MA.deco.attach(a, dq); a.obj.push(dq); }
+          if (I.rmbHit) { var dn = null, dd = 12; a.obj.forEach(function (q) { if (!MA.OBJECTS[q.t].deco) return; var dist = m.dist(X, Y, q.x, q.y - 4); if (dist < dd) { dd = dist; dn = q; } }); if (dn) a.obj.splice(a.obj.indexOf(dn), 1); }
         } else if (E.tool === "obj") {
           if (I.lmbHit) { var pp = place(E.obj, X, Y); a.obj.push({ t: E.obj, x: pp.x, y: pp.y, v: E.ov }); w.refreshSolids(); }
           if (I.rmbHit) { var o = nearestObj(X, Y); if (o) { a.obj.splice(a.obj.indexOf(o), 1); w.refreshSolids(); } }
         } else if (E.tool === "move") {
           if (I.lmbHit) { var hit = nearestObj(X, Y, 18); if (hit) { snapshot(); E.drag = { o: hit, dx: hit.x - X, dy: hit.y - Y }; } }
           if (E.drag && I.lmb) { var pm = place(E.drag.o.t, X + E.drag.dx, Y + E.drag.dy); E.drag.o.x = pm.x; E.drag.o.y = pm.y; }
-          if (E.drag && !I.lmb) { E.drag = null; w.refreshSolids(); }
+          if (E.drag && !I.lmb) { if (MA.OBJECTS[E.drag.o.t].deco) MA.deco.attach(a, E.drag.o); E.drag = null; w.refreshSolids(); }
         } else if (E.tool === "spawn" && I.lmbHit) { snapshot(); a.spawn = [Math.round(X), Math.round(Y)]; }
         var tc = a.tilePx(X, Y), zi = a.zoneInfo(a.zonePx(X, Y));
         E.pos.textContent = Math.round(X) + ", " + Math.round(Y) + "  ·  " + Math.floor(X / T) + "/" + Math.floor(Y / T) + "  ·  " + (MA.TILES[tc] ? MA.TILES[tc].name() : "") + (zi ? "  ·  " + (zi.name || "?") : "") + "  ·  " + fmtTime(w.time) + "  ·  " + Math.round(z * 100) + " %";
@@ -588,6 +603,10 @@
           var pv = place(E.obj, X, Y);
           ctx.globalAlpha = 0.65; ctx.drawImage(s.cv, pv.x - s.def.ax, pv.y - s.def.ay); ctx.globalAlpha = 1;
           if (s.def.house) { var hdd = s.def.house; ctx.strokeRect(pv.x - hdd.w * T / 2 + 0.5, pv.y - hdd.d * T + 0.5, hdd.w * T - 1, hdd.d * T - 1); var dp = MA.houses.doorOf({ t: E.obj, x: pv.x, y: pv.y }); ctx.fillStyle = "#ED6A5E"; ctx.fillRect(dp.x - 4, dp.y, 8, 2 * ps); }
+        } else if (E.tool === "deco") {
+          var sd = MA.sprite("obj", E.dobj, E.dv), hx = MA.deco.houseAt(a, snap(X), snap(Y) - 1);
+          if (hx) { var hd2 = MA.OBJECTS[hx.t]; ctx.save(); ctx.strokeStyle = "#7ACB6A"; ctx.strokeRect(hx.x - hd2.ax + 0.5, hx.y - hd2.ay + 0.5, hd2.w - 1, hd2.ay - 1); ctx.restore(); }
+          ctx.globalAlpha = 0.75; ctx.drawImage(sd.cv, snap(X) - sd.def.ax, snap(Y) - sd.def.ay); ctx.globalAlpha = 1;
         } else if (E.tool === "walls") {
           // Vorschau: geplante Linie halbdurchsichtig, verbunden wie später auf der Map
           var wl2 = E.wline ? wallLine() : [[Math.floor(X / T), Math.floor(Y / T), E.wrot ? E.wtype.toUpperCase() : E.wtype]], set = {};

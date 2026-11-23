@@ -163,10 +163,11 @@
     if (this.zoom >= VEGZ) {
       // Blätter und Blüten nur im sichtbaren Bereich
       a.obj.forEach(function (o) {
-        if (o.x < v.x0 || o.x > v.x1 || o.y < v.y0 || o.y > v.y1 + 60) return;
+        if (o.x < v.x0 - 60 || o.x > v.x1 + 60 || o.y < v.y0 || o.y > v.y1 + 260) return;
         var d = MA.OBJECTS[o.t];
         if (d.leaves && Math.random() < dt * 0.9) self.parts.leaf(o.x + (Math.random() - 0.5) * 38, o.y - 2 + Math.random() * 14, 18 + Math.random() * 18);
         if (d.petals && Math.random() < dt * 1.3) self.parts.petal(o.x, o.y, 22 + Math.random() * 18);
+        if ((d.deco || d.house) && Math.random() < dt * 2.6) { var sm = MA.deco.smokeAt(o); if (sm) sm.forEach(function (q) { self.parts.smoke(q[0], q[1], self.wind); }); }   // Schornsteine rauchen
       });
       var tx0 = Math.max(0, Math.floor(v.x0 / T)), tx1 = Math.min(a.cols - 1, Math.floor(v.x1 / T)), ty0 = Math.max(0, Math.floor(v.y0 / T)), ty1 = Math.min(a.rows - 1, Math.floor(v.y1 / T));
       for (var ty = ty0; ty <= ty1; ty++) for (var tx = tx0; tx <= tx1; tx++) if (a.leaf[ty * a.cols + tx] === "1" && Math.random() < dt * 0.05)
@@ -270,7 +271,7 @@
         }
         this.parts.drawLow(ctx);
       }
-      a.obj.forEach(function (o) { var d = MA.OBJECTS[o.t]; if (o.x + d.w < v.x0 || o.x - d.w > v.x1 || o.y < v.y0 || o.y - d.h > v.y1) return; items.push({ y: o.y, o: o }); });
+      a.obj.forEach(function (o) { var d = MA.OBJECTS[o.t]; if (o.x + d.w < v.x0 || o.x - d.w > v.x1 || o.y < v.y0 || o.y - d.h > v.y1) return; items.push({ y: o.s != null ? o.s : o.y, o: o }); });   // Hausdeko (o.s) direkt nach ihrem Haus
       tall.forEach(function (q2) { items.push({ y: q2.y, v: q2 }); });
       // Mauern (seit v0.13): je Kachel ein Stück, sortiert nach dem Fuß
       var wx0 = Math.max(0, Math.floor(v.x0 / T) - 1), wx1 = Math.min(a.cols - 1, Math.floor(v.x1 / T) + 1), wy0 = Math.max(0, Math.floor(v.y0 / T) - 1), wy1 = Math.min(a.rows - 1, Math.floor((v.y1 + 24) / T));
@@ -292,7 +293,8 @@
           if (it.w) { MA.light.shadowXf(sc, shd, it.wx + it.w.ax - 2, it.wy + it.w.ay - it.w.H - 2, it.w.ax, it.w.ay, 1); sc.drawImage(it.w.sil, 0, 0); return; }
           if (it.e) { if (it.e.drawShadow) it.e.drawShadow(sc, shd); return; }
           var o = it.o, s = MA.sprite("obj", o.t, o.v), d = s.def;
-          if (d.shadow) { d.shadow(sc, shd, o); return; }   // eigener 3D-Schatten (Häuser)
+          if (d.shadow) { d.shadow(sc, shd, o); return; }
+          if (d.deco) return;   // Hausdeko: kein Bodenschatten   // eigener 3D-Schatten (Häuser)
           MA.light.shadowXf(sc, shd, o.x, o.y, d.ax, d.ay, 1);
           sc.drawImage(s.sil, 0, 0);
         });
@@ -302,6 +304,7 @@
       }
 
       var pl = opts.player;
+      var faded = [];
       items.forEach(function (it) {
         if (it.v) { self.drawVeg(ctx, it.v, ents); return; }
         if (it.e) { it.e.draw(ctx); return; }
@@ -311,6 +314,9 @@
         var dx = rt.shake ? Math.round(Math.sin(t * 70) * rt.shake * 1.6) : 0;
         var x0 = Math.round(o.x - d.ax) + dx, y0 = Math.round(o.y - d.ay);
         var fade = d.canopy && pl && pl.y < o.y - 2 && Math.abs(pl.x - o.x) < d.w / 2 && pl.y > o.y - d.canopy - 8;
+        if (fade && d.house) faded.push(o);
+        // Hausdeko blendet mit ihrem Haus aus
+        if (o.s != null && faded.some(function (hq) { return Math.abs(hq.y + 0.5 - o.s) < 0.01 && Math.abs(o.x - hq.x) < MA.OBJECTS[hq.t].w / 2; })) fade = true;
         if (fade) ctx.globalAlpha = 0.55;
         ctx.drawImage(s.cv, x0, y0);
         ctx.globalAlpha = 1;

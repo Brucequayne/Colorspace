@@ -26,6 +26,7 @@ Ordner nacheinander, mit demselben Cache-Stempel `?v=…`. Kein Build-Schritt n�
 | `walls.js` | Mauern (seit v0.13): Hecke `h`, Holzzaun `f`, Mauer `m` in `map.wall` (ein Zeichen je Kachel, Großbuchstabe = senkrecht). Verbinden sich mit den vier Nachbarn, Kollision über die Grundfläche (`MA.walls.hit`, in `map.move`) |
 | `houses.js` | Fachwerkhäuser (seit v0.15) als Objekte `house75` … `house76` (Feld `house`: w, d, Stockwerke, Schornstein, First, Tür-Kachel), Kollision `rect`, Möbel `m_*` (nur innen), Innenraum-Generator `MA.houses.interior(o, stockwerk)` (Map 30 × 17, Boden `d`, außen `x`, Bild `deco` für Wände/Treppe/Matte), Türen `doorOf`/`doorNear`. Betreten/Treppen/Abblende in `scene-walk.js` |
 | Schatten | Seit v0.16 werfen Häuser (`def.shadow`) und Hecken/Mauern (`MA.walls.shadow`) 3D-Schatten: Punkte [x, y, Höhe] entlang der Lichtrichtung auf den Boden, konvexe Hülle (`MA.shadowHull`, `MA.shadowBox` in core.js). Alle anderen Objekte nutzen weiter die Bild-Silhouette (`shadowXf`) |
+| `deco.js` | Hausdeko (seit v0.17): Objekte mit `deco: true` (`d_pot`, `d_ivy`, `d_lamp`, `d_chimney`), eigener Reiter im Editor. Auf einem Haus gesetzt bekommt das Objekt `s` = Vorderkante des Hauses + 0,5 (wird als 5. Wert gespeichert) und wird direkt nach dem Haus gezeichnet. Kein Schatten, keine Kollision. Rauch: `MA.deco.smokeAt`, Teilchen `smoke` in particles.js |
 | `devkit.js` | Dev-Kit: Bereiche Map-Editor (v0.1), Attacken, Missionen, Monster (später) |
 | `main.js` | Hülle: Canvas, Skalierung, Szenen, Schleife |
 

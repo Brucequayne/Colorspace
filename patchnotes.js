@@ -3,6 +3,17 @@
    Die Versionsnummer auf den Kacheln kommt aus dem obersten Eintrag. */
 window.PATCHNOTES = {
   monstersarc: [
+    { v: "0.17", t: "2026-11-23T18:45:00+01:00",
+      de: ["Neuer Reiter „Hausdeko“ im Map-Editor: Deko für Häuser. Wird sie auf ein Haus gesetzt, haftet sie an der Hauswand und liegt immer darüber, verschwindet also nie dahinter. Ein grüner Rahmen zeigt, an welchem Haus sie haftet. Steht die Figur hinter dem Haus, blendet die Deko mit dem Haus aus.",
+        "Blumentopf in 4 Varianten: zwei kleine runde Töpfe, ein Blumenkasten für ein Fenster und ein breiter Pflanzkasten für eine Bank oder zwei Fenster.",
+        "Efeu in 8 Varianten: verschieden groß, von unten kletternd, von oben hängend und seitlich wachsend.",
+        "Wandlampe (nach links oder rechts angebracht), die nachts leuchtet.",
+        "Schornstein in 4 Varianten: Backstein, Naturstein, hoch mit Blechhut und breit mit zwei Tonaufsätzen. Alle Schornsteine rauchen, auch die eingebauten der Häuser, und der Rauch treibt mit dem Wind."],
+      en: ["New tab “House deco” in the map editor: decorations for houses. Placed on a house, deco sticks to the wall and always stays on top of it, so it never disappears behind it. A green frame shows which house it sticks to. When the player is behind the house, the deco fades with it.",
+        "Flower pot in 4 variants: two small round pots, a window box for one window and a wide planter for a bench or two windows.",
+        "Ivy in 8 variants: different sizes, climbing from below, hanging from above and growing sideways.",
+        "Wall lamp (mounted to the left or right) that glows at night.",
+        "Chimney in 4 variants: brick, natural stone, tall with a metal hat and wide with two clay pots. All chimneys smoke, including the houses' built-in ones, and the smoke drifts with the wind."] },
     { v: "0.16", t: "2026-11-23T18:30:00+01:00",
       de: ["Flaches Wasser ist nicht mehr begehbar. Durchlaufen kann man nur noch den Sumpf.",
         "Neue Schatten für die Fachwerkhäuser: Das Haus wirft jetzt den Schatten eines echten Körpers (Wände, Dach mit Überstand und First, Schornstein) statt eines flach umgeklappten Bildes. Morgens und abends werden die Schatten lang und folgen der Dachform.",

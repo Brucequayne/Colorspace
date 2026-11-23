@@ -60,7 +60,7 @@
     this.wall = dec(data.wall, n, "0") || fill(n, "0").split("");   // seit v0.13: Mauern je Kachel (walls.js), "0" = keine
     // Zonen: [{ id, name, col }] – id ist ein Zeichen aus MA.ZONE_IDS
     this.zones = (data.zones || []).map(function (z) { return { id: z.id, name: z.name || "", col: z.col || "#62929E" }; });
-    this.obj = (data.obj || []).filter(function (o) { return MA.OBJECTS[o[0]]; }).map(function (o) { return { t: o[0], x: o[1], y: o[2], v: Math.min(o[3] | 0, MA.OBJECTS[o[0]].variants - 1) }; });
+    this.obj = (data.obj || []).filter(function (o) { return MA.OBJECTS[o[0]]; }).map(function (o) { var q = { t: o[0], x: o[1], y: o[2], v: Math.min(o[3] | 0, MA.OBJECTS[o[0]].variants - 1) }; if (o[4] != null) q.s = o[4]; return q; });   // s = Sortier-y (Hausdeko, seit v0.17)
     this.veg = (data.veg || []).filter(function (o) { return MA.VEG[o[0]]; }).map(function (o) { return { t: o[0], x: o[1], y: o[2], v: Math.min(o[3] | 0, MA.VEG[o[0]].variants - 1) }; });
     this.spawn = data.spawn || [this.cols * T / 2, this.rows * T / 2];
     this.rev = 0; this.vegRev = 0; this.zoneRev = 0; this.wallRev = 0;
@@ -144,7 +144,7 @@
     }
     this.zone = zz; this.wall = wl; this.zoneRev++; this.vegRev++; this.wallRev++;
     var dx = ox * T, dy = oy * T, W2 = cols * T, H2 = rows * T;
-    function keep(o) { o.x += dx; o.y += dy; return o.x >= 0 && o.y >= 0 && o.x < W2 && o.y < H2; }
+    function keep(o) { o.x += dx; o.y += dy; if (o.s != null) o.s += dy; return o.x >= 0 && o.y >= 0 && o.x < W2 && o.y < H2; }
     this.obj = this.obj.filter(keep); this.veg = this.veg.filter(keep);
     this.spawn = [Math.max(8, Math.min(W2 - 8, this.spawn[0] + dx)), Math.max(8, Math.min(H2 - 8, this.spawn[1] + dy))];
     this.cols = cols; this.rows = rows; this.tiles = t; this.leaf = l; this.rev++; this.dirty = null;
@@ -193,7 +193,7 @@
     return {
       v: 1, game: "monstersarc", name: this.name, seed: this.seed, time: Math.round(this.time * 100) / 100, cols: this.cols, rows: this.rows,
       tiles: enc(this.tiles), leaf: enc(this.leaf), zone: enc(this.zone), wall: enc(this.wall), zones: this.zones.map(function (z) { return { id: z.id, name: z.name, col: z.col }; }),
-      obj: this.obj.map(function (o) { return [o.t, Math.round(o.x), Math.round(o.y), o.v]; }),
+      obj: this.obj.map(function (o) { var q = [o.t, Math.round(o.x), Math.round(o.y), o.v]; if (o.s != null) q.push(o.s); return q; }),
       veg: this.veg.map(function (o) { return [o.t, Math.round(o.x), Math.round(o.y), o.v]; }),
       spawn: this.spawn.map(Math.round)
     };
