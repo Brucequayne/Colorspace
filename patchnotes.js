@@ -3,6 +3,17 @@
    Die Versionsnummer auf den Kacheln kommt aus dem obersten Eintrag. */
 window.PATCHNOTES = {
   monstersarc: [
+    { v: "0.19", t: "2026-11-23T19:20:00+01:00",
+      de: ["Steinpinsel: Steine halten nur noch den Abstand ihrer tatsächlichen Grundfläche, und der Pinsel streut viel schneller. Neuer Regler „Abstand“ (Pixel zwischen den Steinen): 0 = sie berühren sich, negativ = sie schieben sich ineinander. So entstehen dichte Steinhaufen.",
+        "Neuer Boden Matsch: nasse, dunkle Erde mit kleinen Pfützen. Darin läuft man deutlich langsamer.",
+        "Neuer Boden Dünensand: geschwungene Windrippel mit heller Kamm- und dunkler Schattenseite.",
+        "Fußabdrücke in Matsch, Dünensand und geharktem Sand. Sie bleiben liegen, bis man eine andere Zone betritt; kommt man zurück, sind sie verschwunden.",
+        "Häuser werden nur noch durchsichtig, wenn die Figur wirklich dahinter steht, nicht mehr beim seitlichen Vorbeilaufen."],
+      en: ["Rock brush: rocks now only keep the distance of their real footprint, and the brush scatters much faster. New slider “Gap” (pixels between rocks): 0 = touching, negative = overlapping. This makes dense rock clusters possible.",
+        "New floor Mud: wet dark soil with small puddles. You walk noticeably slower in it.",
+        "New floor Dune sand: curved wind ripples with a light crest and a dark shadow side.",
+        "Footprints in mud, dune sand and raked sand. They stay until you enter another zone; when you come back they are gone.",
+        "Houses only turn see-through when the player is really behind them, no longer when walking past at the side."] },
     { v: "0.18", t: "2026-11-23T19:00:00+01:00",
       de: ["Umschalt gedrückt halten + linke Maustaste entfernt im Editor wieder den gewählten Typ: beim Pinsel genau die Pflanzen dieses Pinsels, bei Objekten und Hausdeko das gewählte Objekt samt allen Varianten (andere Objekte bleiben stehen). Der Kreis wird dabei rot.",
         "Das 8-px-Raster für Objekte liegt deshalb jetzt auf Alt statt auf Umschalt.",

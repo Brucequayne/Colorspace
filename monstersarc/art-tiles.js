@@ -112,6 +112,27 @@
     if (c.n1 > 0.93) col = [132, 124, 112]; else if (c.n1 < 0.04) col = [52, 38, 30];
     return col;
   };
+  MAT.k = function (x, y, c) {   // Matsch (seit v0.19): nasse dunkle Erde, Pfützen mit Himmelsspiegelung, glänzende Stellen
+    var en = fbm(x / 4, y / 4, c.seed + 401, 2), col = MA.mix([84, 62, 44], [56, 40, 30], en);
+    var pd = fbm(x / 9, y / 7, c.seed + 403, 3);
+    if (pd > 0.66) {   // Pfütze: braunes Wasser, Rand dunkler, ein paar Spiegelungen
+      col = pd > 0.685 ? [66, 56, 44] : [46, 34, 24];
+      if (pd > 0.69 && (y % 3 === 0) && fbm(x / 4, y, c.seed + 405, 2) > 0.6) col = [104, 98, 86];
+    } else if (c.n1 > 0.95) col = [112, 92, 70];      // nasser Glanz
+    else if (c.n1 < 0.05) col = [40, 28, 20];
+    else if (hash(x >> 1, y, c.seed + 407) > 0.9) col = [col[0] + 10, col[1] + 8, col[2] + 6];
+    return col;
+  };
+  MAT.q = function (x, y, c) {   // Dünensand (seit v0.19): Windrippel, geschwungen, Luvseite hell, Lee-Seite schmal und dunkel
+    var ph = y * 0.62 + Math.sin(x * 0.045 + c.seed) * 5 + fbm(x / 48, y / 48, c.seed + 411, 2) * 16 + Math.sin(x * 0.11 + y * 0.03) * 1.2;
+    var f = ((ph / 6.2832) % 1 + 1) % 1, col;
+    if (f < 0.16) col = [184, 154, 108];                  // Schatten hinter dem Kamm
+    else if (f < 0.24) col = [204, 176, 128];
+    else if (f > 0.9) col = [238, 216, 168];             // Kamm
+    else col = MA.mix([214, 186, 136], [228, 204, 154], (f - 0.24) / 0.66);
+    var d = (c.n1 - 0.5) * 8 + (fbm(x / 20, y / 20, c.seed + 413, 2) - 0.5) * 14;
+    return [col[0] + d, col[1] + d, col[2] + d * 0.8];
+  };
   MAT.a = function (x, y, c) {   // Geharkter Sand, Ringe um Felsen
     var best = 1e9;
     c.rocks.forEach(function (r) { var dd = Math.sqrt((x - r.x) * (x - r.x) + (y - r.y + 3) * (y - r.y + 3) * 1.6); if (dd < best) best = dd; });
@@ -243,7 +264,7 @@
           col = (MAT[mat] || MAT.s)(x, y, ctx);
           // Moos als eigene Ebene
           var mf = mossF(x, y);
-          if (mf > 0.03 && mat !== "a" && mat !== "g") {
+          if (mf > 0.03 && mat !== "a" && mat !== "g" && mat !== "k" && mat !== "q") {
             var mv = mf + (ctx.joint ? 0.28 : 0) + (fbm(x / 6, y / 6, seed + 31, 3) - 0.5) * 0.9;
             if (mv > 0.62) {
               var mc = MA.mix([58, 84, 40], [112, 136, 62], fbm(x / 3, y / 3, seed + 33, 2));

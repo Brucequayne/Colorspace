@@ -48,15 +48,22 @@
     this.x = np.x; this.y = np.y;
     if (moved > 0.2) {
       this.walkPh += moved / 22;
+      // Fußabdrücke (seit v0.19): alle 9 px ein Abdruck, abwechselnd links und rechts der Laufrichtung
+      this.printD = (this.printD || 0) + moved;
+      if (this.printD > 9) {
+        this.printD = 0; this.printSide = -(this.printSide || 1);
+        var pt = a.tilePx(this.x, this.y);
+        if (MA.TILES[pt] && MA.TILES[pt].prints && w.addPrint) { var ang = Math.atan2(this.vy, this.vx); w.addPrint(this.x - Math.sin(ang) * 1.6 * this.printSide, this.y + Math.cos(ang) * 1.2 * this.printSide, ang, pt); }
+      }
       this.stepT -= dt;
       if (this.stepT <= 0) {
         this.stepT = 0.32;
         var tile = a.tilePx(this.x, this.y), sx = this.x - w.cam.x;
         if (tile === "w" || tile === "u") { w.parts.ring(this.x, this.y, 7, 0.7); w.parts.splash(this.x, this.y, 2, 0.4); MA.audio.play("step_water", { x: sx }); }
         else {
-          w.parts.dust(this.x, this.y, 2, tile === "a" ? "#D6CCB0" : tile === "e" ? "#7A5E44" : tile === "g" ? "#B8B2A4" : "#A8A096");
+          w.parts.dust(this.x, this.y, 2, tile === "a" ? "#D6CCB0" : tile === "q" ? "#DCC294" : tile === "k" ? "#4A3628" : tile === "e" ? "#7A5E44" : tile === "g" ? "#B8B2A4" : "#A8A096");
           // Moos, Erde oder Pflanzen unter den Füßen → weicher Schritt
-          var px = this.x, py = this.y, soft = tile === "m" || tile === "e" || a.veg.some(function (v) { return Math.abs(v.x - px) < 6 && Math.abs(v.y - py) < 4 && v.t !== "lotus" && v.t !== "leaves" && v.t !== "petals"; });
+          var px = this.x, py = this.y, soft = tile === "m" || tile === "e" || tile === "k" || a.veg.some(function (v) { return Math.abs(v.x - px) < 6 && Math.abs(v.y - py) < 4 && v.t !== "lotus" && v.t !== "leaves" && v.t !== "petals"; });
           MA.audio.play(soft ? "step_grass" : "step", { x: sx });
         }
       }

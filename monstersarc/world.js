@@ -177,6 +177,29 @@
     this.tickObjects(dt);
   };
 
+  // Fußabdrücke (seit v0.19) in Matsch und Sand. Sie bleiben liegen, bis die Figur eine andere Zone betritt
+  // (clearPrints); kommt sie zurück, sind die alten weg. Höchstens 4000, die ältesten fallen zuerst weg.
+  Wd.addPrint = function (x, y, ang, tile) {
+    var d = MA.TILES[tile]; if (!d || !d.prints) return;
+    if (!this.prints) this.prints = [];
+    if (this.prints.length > 4000) this.prints.splice(0, 200);
+    this.prints.push({ x: Math.round(x), y: Math.round(y), a: ang, c: d.prints, z: this.arena.zonePx(x, y) });
+  };
+  Wd.clearPrints = function (keepZone) { if (this.prints) this.prints = this.prints.filter(function (p) { return p.z === keepZone; }); };
+  Wd.drawPrints = function (ctx, v) {
+    var L = this.prints; if (!L || !L.length) return;
+    for (var i = 0; i < L.length; i++) {
+      var p = L[i]; if (p.x < v.x0 - 4 || p.x > v.x1 + 4 || p.y < v.y0 - 4 || p.y > v.y1 + 4) continue;
+      // Abdruck: dunkle Mulde (c[0]) und darüber ein heller Rand (c[1]), wo Erde/Sand hochgedrückt wurde
+      var c = p.c[0], hi = p.c[1], ca = Math.abs(Math.cos(p.a)), sa = Math.abs(Math.sin(p.a));
+      ctx.fillStyle = "rgba(" + hi[0] + "," + hi[1] + "," + hi[2] + "," + hi[3] + ")";
+      if (ca > 0.85) ctx.fillRect(p.x - 1, p.y - 1, 4, 1); else ctx.fillRect(p.x - 1, p.y - 2, 3, 1);
+      ctx.fillStyle = "rgba(" + c[0] + "," + c[1] + "," + c[2] + "," + c[3] + ")";
+      if (ca > 0.85) ctx.fillRect(p.x - 1, p.y, 4, 2);                                     // seitlich: liegend
+      else if (sa > 0.85) ctx.fillRect(p.x - 1, p.y - 1, 2, 4);                            // hoch/runter: stehend
+      else { var sx = Math.cos(p.a) * Math.sin(p.a) > 0 ? 1 : -1; ctx.fillRect(p.x - 1, p.y, 3, 2); ctx.fillRect(p.x + sx, p.y - 1, 1, 1); ctx.fillRect(p.x - sx, p.y + 2, 1, 1); }
+    }
+  };
   Wd.lights = function (S) {
     var out = [], self = this, v = this.view(120), z = this.zoom;
     this.arena.obj.forEach(function (o, i) {
@@ -254,6 +277,7 @@
       if (z >= 1) MA.ground.drawWater(ctx, shown, t, { x: cx, y: cy });
     }
     if (opts.zones) { ctx.globalAlpha = opts.zones; ctx.drawImage(this.zc, 0, 0, a.cols, a.rows, 0, 0, a.pxW(), a.pxH()); ctx.globalAlpha = 1; }
+    if (z >= VEGZ) this.drawPrints(ctx, v);
     if (opts.afterGround) opts.afterGround(ctx);
 
     var ents = (opts.ents || []), items = [];
@@ -314,6 +338,8 @@
         var dx = rt.shake ? Math.round(Math.sin(t * 70) * rt.shake * 1.6) : 0;
         var x0 = Math.round(o.x - d.ax) + dx, y0 = Math.round(o.y - d.ay);
         var fade = d.canopy && pl && pl.y < o.y - 2 && Math.abs(pl.x - o.x) < d.w / 2 && pl.y > o.y - d.canopy - 8;
+        // Häuser (seit v0.19): nur wenn die Figur wirklich dahinter steht (nördlich der Rückwand, innerhalb der Breite)
+        if (d.house) { var hw2 = d.house.w * T / 2 + 3, hd2 = d.house.d * T; fade = !!pl && Math.abs(pl.x - o.x) < hw2 && pl.y < o.y - hd2 + 3 && pl.y > o.y - d.ay + 18; }
         if (fade && d.house) faded.push(o);
         // Hausdeko blendet mit ihrem Haus aus
         if (o.s != null && faded.some(function (hq) { return Math.abs(hq.y + 0.5 - o.s) < 0.01 && Math.abs(o.x - hq.x) < MA.OBJECTS[hq.t].w / 2; })) fade = true;

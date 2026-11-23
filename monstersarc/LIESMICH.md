@@ -28,12 +28,13 @@ Ordner nacheinander, mit demselben Cache-Stempel `?v=…`. Kein Build-Schritt n�
 | Schatten | Seit v0.16 werfen Häuser (`def.shadow`) und Hecken/Mauern (`MA.walls.shadow`) 3D-Schatten: Punkte [x, y, Höhe] entlang der Lichtrichtung auf den Boden, konvexe Hülle (`MA.shadowHull`, `MA.shadowBox` in core.js). Alle anderen Objekte nutzen weiter die Bild-Silhouette (`shadowXf`) |
 | `deco.js` | Hausdeko (seit v0.17): Objekte mit `deco: true` (`d_pot`, `d_ivy`, `d_lamp`, `d_chimney`), eigener Reiter im Editor. Auf einem Haus gesetzt bekommt das Objekt `s` = Vorderkante des Hauses + 0,5 (wird als 5. Wert gespeichert) und wird direkt nach dem Haus gezeichnet. Kein Schatten, keine Kollision. Rauch: `MA.deco.smokeAt`, Teilchen `smoke` in particles.js |
 | Perspektive | Alle Assets (Objekte, Deko, Möbel) in der 3/4-Ansicht der Häuser: Vorderseite senkrecht, Oberseite darüber sichtbar (Tiefe = Höhe im Bild, keine Seitenansicht). Schornsteine, Töpfe, Kästen zeigen ihre Oberseite/Öffnung (seit v0.18) |
+| Fußabdrücke | Seit v0.19: Bodenarten mit `prints` (Farbe Mulde + heller Rand) in map.js. `character.js` setzt alle 9 px einen Abdruck (`world.addPrint`), `world.drawPrints` nach dem Boden; beim Zonenwechsel `world.clearPrints(neueZone)` (scene-walk) |
 | `devkit.js` | Dev-Kit: Bereiche Map-Editor (v0.1), Attacken, Missionen, Monster (später) |
 | `main.js` | Hülle: Canvas, Skalierung, Szenen, Schleife |
 
 ## Bodenarten
 `o` Meer (tief, nicht begehbar, Standard für neue Maps und außerhalb der Map), `w` Wasser (flach, seit v0.16 nicht begehbar),
-`u` Sumpf (seit v0.12: seichtes grünes Wasser mit Entengrütze, begehbar, noch langsamer; eigenes weiches Feld `swampF` in art-tiles),
+`k` Matsch (seit v0.19, langsam, Fußabdrücke), `q` Dünensand (seit v0.19, Fußabdrücke), `u` Sumpf (seit v0.12: seichtes grünes Wasser mit Entengrütze, begehbar, noch langsamer; eigenes weiches Feld `swampF` in art-tiles),
 `s p b h g m e a` wie Shizuku, `#` Mauer. Die Begehbarkeit ist kachelgenau, das Bild der Küste ist organisch.
 
 ## Pinsel (devkit.js `BRUSHES`)

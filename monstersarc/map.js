@@ -20,7 +20,10 @@
     g: { name: function () { return L2("Kies", "Gravel"); }, speed: 0.9, element: "erde", sw: "#A49E92" },
     m: { name: function () { return L2("Moos", "Moss"); }, speed: 0.96, element: "holz", sw: "#5E8040" },
     e: { name: function () { return L2("Erde", "Soil"); }, speed: 0.92, element: "erde", sw: "#6A4E38" },
-    a: { name: function () { return L2("Sand (geharkt)", "Raked sand"); }, speed: 0.84, element: "erde", sw: "#D2C8AC" },
+    a: { name: function () { return L2("Sand (geharkt)", "Raked sand"); }, speed: 0.84, element: "erde", sw: "#D2C8AC", prints: [[150, 136, 108, 0.7], [232, 224, 202, 0.55]] },
+    // seit v0.19: Matsch (langsam) und Dünensand; prints = Farbe/Deckkraft der Fußabdrücke
+    k: { name: function () { return L2("Matsch", "Mud"); }, speed: 0.62, element: "erde", sw: "#4E3A2A", prints: [[26, 16, 10, 0.85], [104, 84, 62, 0.6]] },
+    q: { name: function () { return L2("Sand (Dünen)", "Sand (dunes)"); }, speed: 0.84, element: "erde", sw: "#D6BC8A", prints: [[168, 132, 84, 0.75], [244, 226, 182, 0.6]] },
     "#": { name: function () { return L2("Mauer", "Wall"); }, solid: true, sw: "#3E3B38" },
     // nur in Innenräumen (seit v0.15, nicht im Editor): schwarz außerhalb des Raums, Holzdielen
     x: { name: function () { return L2("Leere", "Void"); }, solid: true, inner: true, sw: "#0C0B0E" },

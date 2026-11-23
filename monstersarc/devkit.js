@@ -45,7 +45,7 @@
 
   // Bereiche des Dev-Kits (weitere Editoren kommen als eigene Bereiche dazu)
   var TABS = [
-    { id: "map", name: function () { return L2("Map-Editor", "Map editor"); }, ver: "v0.18" },
+    { id: "map", name: function () { return L2("Map-Editor", "Map editor"); }, ver: "v0.19" },
     { id: "attacks", name: function () { return L2("Attacken", "Attacks"); }, soon: true },
     { id: "missions", name: function () { return L2("Missionen", "Missions"); }, soon: true },
     { id: "monsters", name: function () { return L2("Monster", "Monsters"); }, soon: true }
@@ -204,7 +204,8 @@
         h += '<h3>' + L2("Steine im Pinsel", "Rocks in brush") + ' <span class="ma-ed-cnt">' + on + ' / ' + nv + '</span></h3><div class="ma-ed-rocks">';
         for (ri = 0; ri < nv; ri++) h += '<button type="button" data-rock="' + ri + '" aria-pressed="' + !!E.rockSel[ri] + '" title="' + L2("Variante ", "Variant ") + (ri + 1) + '"><img alt="" src="' + thumb("obj", "rock", ri) + '"><span>' + (ri + 1) + '</span></button>';
         h += '</div><div class="ma-ed-row rs"><button type="button" data-a="rall">' + L2("Alle", "All") + '</button><button type="button" data-a="rnone">' + L2("Keine", "None") + '</button><button type="button" data-a="rsmall">' + L2("Nur kleine", "Small only") + '</button></div>' +
-          '<div class="ma-ed-info">' + L2("Links streuen, rechts entfernen (nur angekreuzte Varianten).", "Left scatters, right removes (only ticked variants).") + '</div>';
+          '<div class="ma-ed-row"><label>' + L2("Abstand", "Gap") + '</label><input type="range" min="-6" max="12" step="1" data-k="rgap" value="' + E.rgap + '"><output data-o="rgap">' + E.rgap + '</output></div>' +
+          '<div class="ma-ed-info">' + L2("Links streuen, rechts oder Umschalt entfernen (nur angekreuzte Varianten). Abstand = Pixel zwischen den Steinen: 0 = sie berühren sich, negativ = sie schieben sich ineinander (dichte Cluster).", "Left scatters, right or Shift removes (only ticked variants). Gap = pixels between rocks: 0 = touching, negative = overlapping (dense clusters).") + '</div>';
       }
     } else if (E.tool === "obj") {
       h = '<h3>' + L2("Objekt", "Object") + '</h3><div class="ma-ed-list">' + Object.keys(MA.OBJECTS).filter(function (k) { return !MA.OBJECTS[k].inner && !MA.OBJECTS[k].deco; }).map(function (k) {
@@ -354,7 +355,7 @@
     else if (k === "wind") { E.wind = +v; E.world.wind = E.wind; }
     else if (k === "tspeed") { E.timeSpeedV = +v; if (E.timeRun) E.world.timeSpeed = E.timeSpeedV; }
     else if (k === "name") E.arena.name = v;
-    else if (k === "bsize" || k === "tsize" || k === "dens" || k === "zsize") E[k] = +v;
+    else if (k === "bsize" || k === "tsize" || k === "dens" || k === "zsize" || k === "rgap") E[k] = +v;
     var o = E.ui.querySelector('[data-o="' + k + '"]');
     if (o) o.textContent = k === "time" ? fmtTime(+v) : k === "wind" ? (+v).toFixed(1) : v;
   }
@@ -417,17 +418,25 @@
       if (a.obj.length !== n0) { E.rockChg = true; a.touch(Math.floor((X - r) / T) - 3, Math.floor((Y - r) / T) - 3, Math.ceil((X + r) / T) + 3, Math.ceil((Y + r) / T) + 3); }
       return;
     }
-    E.racc += E.dens * dt * (0.5 + r * 0.06);
+    // seit v0.19: Abstand als Ellipse um die Grundfläche (Breite rx, Tiefe ~0,45·rx) plus einstellbarer Lücke E.rgap,
+    // bis zu 10 Versuche je Stein, deutlich mehr Steine pro Sekunde → dichte Cluster mit nur wenigen Pixeln dazwischen
+    if (E.rgap == null) E.rgap = 1;
+    E.racc += E.dens * dt * (1.5 + r * 0.18);
+    var near0 = a.obj.filter(function (o) { return Math.abs(o.x - X) < r + 60 && Math.abs(o.y - Y) < r + 40; });
     for (; E.racc >= 1; E.racc--) {
-      var v = sel[(Math.random() * sel.length) | 0], ang = Math.random() * 6.283, rr = Math.sqrt(Math.random()) * r;
-      var x = Math.round(X + Math.cos(ang) * rr), y = Math.round(Y + Math.sin(ang) * rr * 0.8), c = a.tilePx(x, y);
-      if (c === "#" || c === "o" || c === "w" || x < 8 || y < 8 || x >= a.pxW() - 8 || y >= a.pxH() - 4) continue;
-      var rv = ROCK_R[v] || 8, near = a.obj.some(function (o) {
-        var ro = o.t === "rock" ? ROCK_R[o.v] || 8 : 14;
-        return Math.abs(o.x - x) < rv + ro + 3 && Math.abs(o.y - y) < (rv + ro) * 0.7 + 3;
-      });
-      if (near) continue;
-      a.obj.push({ t: "rock", x: x, y: y, v: v }); E.rockChg = true;
+      for (var tries = 0; tries < 10; tries++) {
+        var v = sel[(Math.random() * sel.length) | 0], ang = Math.random() * 6.283, rr = Math.sqrt(Math.random()) * r;
+        var x = Math.round(X + Math.cos(ang) * rr), y = Math.round(Y + Math.sin(ang) * rr * 0.8), c = a.tilePx(x, y);
+        if (c === "#" || c === "o" || c === "w" || x < 8 || y < 8 || x >= a.pxW() - 8 || y >= a.pxH() - 4) continue;
+        var rv = ROCK_R[v] || 8, near = near0.some(function (o) {
+          var ro = o.t === "rock" ? ROCK_R[o.v] || 8 : 12, ex = Math.max(1, rv + ro + E.rgap), ey = Math.max(1, (rv + ro) * 0.45 + E.rgap);
+          var dx = (o.x - x) / ex, dy = (o.y - y) / ey;
+          return dx * dx + dy * dy < 1;
+        });
+        if (!near) break;
+      }
+      if (tries >= 10) continue;
+      var nr = { t: "rock", x: x, y: y, v: v }; a.obj.push(nr); near0.push(nr); E.rockChg = true;
       if (c === "a") a.touch(Math.floor(x / T) - 3, Math.floor(y / T) - 3, Math.floor(x / T) + 4, Math.floor(y / T) + 4);   // Sandringe
     }
   }
@@ -487,7 +496,7 @@
 
   MA.scenes.devkit = {
     enter: function () {
-      if (!E) E = { tab: "map", tool: "brush", tile: "m", brush: "meadow", obj: "toro", ov: 0, bsize: 14, tsize: 1, zsize: 6, dens: 5, wind: 1, grid: false, timeRun: false, timeSpeedV: 0.5, undo: [], acc: 0, racc: 0, wtype: "h", wrot: 0, wline: null, dobj: "d_pot", dv: 0, rockSel: [true, true, true, true, true, true, true, true, true, true, true, true, true], drag: null, stroke: false, wx: 0, wy: 0, zsel: null };
+      if (!E) E = { tab: "map", tool: "brush", tile: "m", brush: "meadow", obj: "toro", ov: 0, bsize: 14, tsize: 1, zsize: 6, dens: 5, wind: 1, grid: false, timeRun: false, timeSpeedV: 0.5, undo: [], acc: 0, racc: 0, rgap: 1, wtype: "h", wrot: 0, wline: null, dobj: "d_pot", dv: 0, rockSel: [true, true, true, true, true, true, true, true, true, true, true, true, true], drag: null, stroke: false, wx: 0, wy: 0, zsel: null };
       MA.main.setSidebar(PANEL);
       MA.audio.ambience(null);
       MA.audio.musicStop();

@@ -77,7 +77,7 @@
           if (o) { S.door = MA.houses.doorOf(o); if (I.hit("e")) transition(function () { enterHouse(o); }); }
           // Zone betreten: Name kurz einblenden (wie die Ortsschilder in Pokémon). Lücken ohne Zone zählen nicht als Wechsel.
           var zid = w.arena.zonePx(pc.x, pc.y);
-          if (zid !== "0" && zid !== S.zone) { S.zone = zid; var zi = w.arena.zoneInfo(zid); if (zi && zi.name) showZone(zi.name); }
+          if (zid !== "0" && zid !== S.zone) { if (S.zone != null) w.clearPrints(zid); S.zone = zid; var zi = w.arena.zoneInfo(zid); if (zi && zi.name) showZone(zi.name); }
         } else {
           var R = S.room, onSt = MA.houses.inRect(R.stairs, pc.x, pc.y);
           if (R.mat && MA.houses.inRect(R.mat, pc.x, pc.y) && pc.input.y > 0) transition(leaveHouse);
