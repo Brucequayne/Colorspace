@@ -4,12 +4,12 @@
 window.PATCHNOTES = {
   monstersarc: [
     { v: "0.19.9", t: "2026-11-23T22:40:00+01:00",
-      de: ["Neue Böden: Strandsand (hell und feinkörnig, mit Fußabdrücken), Grasboden (saftiger und heller als Moos) und Waldboden (dunkler als Moos, mit Laub, Nadeln und Moosflecken).",
+      de: ["Neue Böden: Strandsand (hell und feinkörnig, mit Fußabdrücken), Grasboden (saftiger und heller als Moos, organisch gefleckt) und Waldboden (dunkler als Moos, mit Laub, Nadeln und Moosflecken).",
         "Neuer Pinsel „Trampelpfad“: wird wie Vegetation frei ohne Raster gemalt, die Breite folgt der Pinselgröße. Der Pfad liegt als ausgetretene Erde im Boden. Rechtsklick oder Umschalt entfernt ihn wieder.",
         "Neue Objekte: Platzuhr auf einem Mast (2 Farben), Straßenlaterne (2 Varianten, leuchtet nachts) und eckige Mülltonne (3 Farben).",
         "Neues Gebäude: Supermarkt (10×7) – ein Fachwerkhaus mit modernem Ladengeschoss: Glasfront, gläserne Schiebetür und Schild „MARKT“. Innen Fliesenboden, Kühlregale, Regalinseln und zwei Kassen.",
         "Flaches Wasser ist heller und klarer als das Meer."],
-      en: ["New floors: beach sand (light and fine, with footprints), grass (juicier and lighter than moss) and forest floor (darker than moss, with leaves, needles and moss patches).",
+      en: ["New floors: beach sand (light and fine, with footprints), grass (juicier and lighter than moss, organically mottled) and forest floor (darker than moss, with leaves, needles and moss patches).",
         "New brush “Footpath”: painted freely without a grid like vegetation, its width follows the brush size. The path is baked into the ground as trodden soil. Right click or Shift removes it again.",
         "New objects: square clock on a pole (2 colours), street lamp (2 variants, glows at night) and square bin (3 colours).",
         "New building: supermarket (10×7) – a timber house with a modern shop floor: glass front, sliding glass door and a “MARKT” sign. Inside: tiled floor, fridges, shelf islands and two checkouts.",

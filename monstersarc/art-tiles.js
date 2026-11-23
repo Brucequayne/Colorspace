@@ -113,14 +113,16 @@
     return col;
   };
   // seit v0.19.9 ---------------------------------------------------------------
-  MAT.r = function (x, y, c) {   // Grasboden: saftiger und heller als Moos, kurze senkrechte Halmstriche
-    var col = MA.mix([110, 166, 66], [86, 140, 52], Math.min(1, c.nf * 1.15));
-    var bl = hash(x, y >> 2, c.seed + 501), b2 = hash(x, (y + 2) >> 2, c.seed + 503);
-    if (bl > 0.78) col = [136, 188, 82]; else if (bl < 0.1) col = [64, 112, 42];
-    else if (b2 > 0.86) col = [122, 176, 72];
-    if (c.n1 > 0.996) col = [236, 220, 110];           // vereinzelt kleine Blüte
-    var d = (fbm(x / 22, y / 22, c.seed + 507, 2) - 0.5) * 16;
-    return [col[0] + d * 0.6, col[1] + d, col[2] + d * 0.4];
+  MAT.r = function (x, y, c) {   // Grasboden: saftiger und heller als Moos, organisch gefleckt wie das Moos (seit v0.19.9 überarbeitet)
+    var f1 = fbm(x / 3, y / 3, c.seed + 501, 2), f2 = fbm(x / 9, y / 8, c.seed + 503, 3), f3 = fbm(x / 26, y / 24, c.seed + 505, 2);
+    var col = MA.mix([74, 116, 46], [130, 172, 74], f1 * 0.65 + f2 * 0.35);          // feine Flecken + Büschel
+    col = MA.mix(col, f3 > 0.5 ? [140, 168, 78] : [66, 104, 44], Math.abs(f3 - 0.5) * 0.7);   // große Hell-/Dunkelzonen
+    if (f2 > 0.68 && f1 > 0.55) col = MA.mix(col, [158, 166, 92], 0.35);              // trockene, gelbliche Stellen
+    if (f2 < 0.26 && f1 < 0.4) col = MA.mix(col, [86, 78, 50], 0.4);                 // Erde schimmert durch
+    if (c.n1 > 0.93) col = MA.mix(col, [164, 198, 96], 0.6);                          // Lichtpunkte
+    else if (c.n1 < 0.07) col = MA.mix(col, [52, 84, 36], 0.6);                       // Schattenpunkte
+    if (c.n1 > 0.997) col = [236, 222, 120];                                          // vereinzelt kleine Blüte
+    return col;
   };
   MAT.l = function (x, y, c) {   // Waldboden: dunkler als Moos, Laub, Nadeln, Zweige
     var col = MA.mix([62, 52, 36], [40, 34, 26], fbm(x / 5, y / 5, c.seed + 511, 2));
