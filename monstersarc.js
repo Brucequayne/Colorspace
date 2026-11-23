@@ -15,6 +15,8 @@
     "walls.js",         // Mauern: Hecke, Holzzaun, Mauer (verbunden, unüberwindbar)
     "houses.js",        // Fachwerkhäuser (Objekte mit Tür) und ihre Innenräume
     "props.js",         // Straßenmöbel: Platzuhr, Straßenlaterne, Mülltonne
+    "furniture.js",     // Möbel und Einrichtung für Innenräume (seit v0.21): Büro, Sitzen, Küchenmodule, Wohnen
+    "buildinterior.js", // Innenräume der Generator-Gebäude: Böden, Wände, Treppen (seit v0.21)
     "deco.js",          // Hausdeko: Blumentöpfe, Efeu, Wandlampe, Schornsteine (immer über der Hauswand)
     "buildgen.js",      // Gebäude-Generator (seit v0.2): Haus aus Parametern, Stil Fachwerk
     "maps/start.js",    // Start-Map des Spiels

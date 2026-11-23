@@ -3,6 +3,21 @@
    Die Versionsnummer auf den Kacheln kommt aus dem obersten Eintrag. */
 window.PATCHNOTES = {
   monstersarc: [
+    { v: "0.21", t: "2026-11-23T23:45:00+01:00",
+      de: ["Gebäude-Editor: neuer Schalter Außen / Innen. Innen bearbeitest du den Innenraum jedes Geschosses; zwischen den Stockwerken wechselst du per Knopf oder Taste 1–3.",
+        "Böden (je Geschoss, auf Wunsch für alle): Holz, Fliesen, Kacheln (Mosaik), Stein, Marmor und Modern (minimalistisch, drei Grautöne).",
+        "Objekte setzen, verschieben und löschen (Rechtsklick), Variante per Mausrad, Rückgängig mit Strg+Z. Dazu alle Objekte der bisherigen Häuser: Tisch, Regal, Bett, Fass, Topfpflanze, Kamin, Regalinsel, Kühlregal, Kasse.",
+        "Neue Möbel: Schreibtisch (mit Computer, mit Laptop, mit Büchern und Zetteln), Bürosessel, Holzstuhl, Klappstuhl (6 Kunststofffarben), Sofa, Sessel, Schrank, Spiegel, Stehlampe, Wandlampe, Flachbildfernseher auf Tisch und Zimmerpflanzen (3 Variationen).",
+        "Modulare Küche: Arbeitszeile (3 Varianten, auch mit Spüle), Herd/Ofen, Kühlschrank (niedrig oder hoch) und Wandschrank (auch mit Dunstabzug). Alle Module sind 16 px breit, rasten auf die Kachel ein und schließen bündig und auf gleicher Höhe aneinander.",
+        "Treppe in drei Drehungen (Eingang von unten, links oder rechts). Sobald ein Gebäude mehr als ein Geschoss hat, wirst du beim Wechsel nach Innen zuerst aufgefordert, die Treppe zu platzieren; im Geschoss darüber erscheint dort die Öffnung mit Geländer. Ohne alle Treppen ist der Export gesperrt.",
+        "Der Export (.json, jetzt Format-Version 2) enthält Außen- und Innenbereich in einer Datei: Böden, Möbel und Treppen mit Position, Einstieg und Auftauchpunkt. Dateien der Version 0.2 lassen sich weiter importieren. Zusätzlich „Innen-PNG“ je Geschoss."],
+      en: ["Building editor: new Outside / Inside switch. Inside you edit the interior of every floor; switch floors with the buttons or keys 1–3.",
+        "Floors (per storey, or for all at once): wood, tiles, mosaic, stone, marble and modern (minimalist, three greys).",
+        "Place, move and delete objects (right click), variant via mouse wheel, undo with Ctrl+Z. Includes all objects of the existing houses: table, shelf, bed, barrel, potted plant, fireplace, shelf island, fridge shelf, checkout.",
+        "New furniture: desk (with computer, with laptop, with books and papers), office chair, wooden chair, folding chair (6 plastic colours), sofa, armchair, cabinet, mirror, floor lamp, wall lamp, flat-screen TV on a table and house plants (3 variations).",
+        "Modular kitchen: counter (3 variants, incl. sink), stove/oven, fridge (low or tall) and wall cabinet (incl. extractor hood). All modules are 16 px wide, snap to the tile and sit flush and level with each other.",
+        "Stairs in three rotations (entered from below, left or right). When a building has more than one floor, switching to Inside first asks you to place the stairs; the floor above shows the opening with a railing. Export is locked until all stairs are placed.",
+        "Export (.json, now format version 2) holds outside and inside in one file: floors, furniture and stairs with position, entrance and arrival point. Version 0.2 files can still be imported. Plus an “Interior PNG” per floor."] },
     { v: "0.2", t: "2026-11-23T23:12:00+01:00",
       de: ["Neuer Reiter im Dev-Kit: der Gebäude-Editor. Hier entwirfst du Häuser mit einem Generator und exportierst sie als .json-Datei. Ein Gebäude lässt sich später in die Bibliothek des Map-Editors übernehmen.",
         "Stil: zunächst nur Fachwerk (der Look der bestehenden Häuser). Weitere Stile folgen.",
