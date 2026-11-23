@@ -1,24 +1,20 @@
-/* Monsters Arc – art-tiles.js  (aus Shizuku übernommen)
-   Änderungen für Monsters Arc: Map-Größe frei (Maße kommen bei jedem Bauen aus der Map), keine schwebende Insel
-   mehr – statt Abgrund gibt es Meer („o“, tiefes Wasser, nicht begehbar), auch außerhalb der Map.
-   Das Wasser-Glitzern wird nur für den sichtbaren Ausschnitt berechnet.
-   ---- ursprüngliche Beschreibung (Shizuku) ----
-   Zeichnet den kompletten Boden einer Arena Pixel für Pixel.
-   Die Arena ist eine schwebende Insel: Abgrund-Kacheln (v) bleiben durchsichtig, darunter liegen
-   Wolken in der Tiefe. Unter der Südkante hängt eine Felsklippe mit Wurzeln.
-   Wasser am Inselrand stürzt als endloser Wasserfall in die Tiefe.
-   Bodenarten gehen organisch ineinander über (Kachelfelder + Rauschen), nur Wasser, Mauer
-   und Abgrund sind kachelgenau.
-   Ergebnis: base (Boden ohne Moos), moss (eigene Ebene, kann wachsen), Wasserfall-Ströme. */
+/* Monsters Arc – art-tiles.js  (Bodenbild aus Shizuku übernommen)
+   Zeichnet den Boden Pixel für Pixel wie Shizuku: Bodenarten gehen organisch ineinander über (Kachelfelder + Rauschen),
+   Moos als eigene Ebene, Wasser mit Uferkante.
+   Änderungen für Monsters Arc:
+   - Die Welt ist sehr groß (bis 1024 × 1024 Kacheln). Gebaut wird deshalb in Stücken („Chunks“) zu 16 × 16 Kacheln,
+     nur dort, wo die Kamera hinschaut (world.js verwaltet die Chunks).
+   - Meer („o“, tief, nicht begehbar) statt Abgrund, auch außerhalb der Map. Die Küste verläuft organisch.
+   - Plattenmuster (Steinplatten) werden je Chunk erzeugt. */
 (function () {
-  var MA = window.MA, T = MA.TILE, C = 1, R = 1, W = T, H = T;   // C/R/W/H werden bei jedem build() aus der Map gesetzt
+  var MA = window.MA, T = MA.TILE, CS = 16;   // Chunk-Größe in Kacheln
   var hash = MA.hash2, fbm = MA.fbm, noise = MA.noise2;
   var EXACT = { w: 1, o: 1, v: 1, "#": 1 };
   function isWater(c) { return c === "w" || c === "o"; }
 
-  // Plattenmuster (Standard-Steinboden): Rechtecke aus 8-px-Zellen
-  function slabs(seed) {
-    var gw = W / 8, gh = H / 8, id = new Int32Array(gw * gh).fill(-1), info = [], rnd = MA.rng(seed * 31 + 5);
+  // Plattenmuster (Standard-Steinboden): Rechtecke aus 8-px-Zellen, je Chunk (lokale Pixel)
+  function slabs(seed, w0, h0) {
+    var gw = w0 / 8, gh = h0 / 8, id = new Int32Array(gw * gh).fill(-1), info = [], rnd = MA.rng(seed);
     for (var y = 0; y < gh; y++) for (var x = 0; x < gw; x++) {
       if (id[y * gw + x] >= 0) continue;
       var w = 1 + ((rnd() * 3) | 0), h = 1 + ((rnd() * 2) | 0);
@@ -30,15 +26,15 @@
     }
     return { id: id, info: info, gw: gw };
   }
-  function crackSet(sl) {
+  function crackSet(sl, w0) {
     var set = {};
     sl.info.forEach(function (s) {
       if (!s.crack) return;
       var r = MA.rng(s.crack), x = s.x + 2 + r() * (s.w - 4), y = s.y + 2 + r() * (s.h - 4), dx = r() < 0.5 ? 1 : -1, n = 4 + r() * (s.w + s.h) * 0.4;
       for (var i = 0; i < n; i++) {
-        set[(y | 0) * W + (x | 0)] = 1;
+        set[(y | 0) * w0 + (x | 0)] = 1;
         if (r() < 0.6) x += dx; else y += r() < 0.5 ? 1 : -1;
-        if (r() < 0.12) set[((y + 1) | 0) * W + (x | 0)] = 1;
+        if (r() < 0.12) set[((y + 1) | 0) * w0 + (x | 0)] = 1;
         if (x < s.x + 1 || x > s.x + s.w - 2 || y < s.y + 1 || y > s.y + s.h - 2) break;
       }
     });
@@ -55,33 +51,10 @@
     }
     return { d1: Math.sqrt(d1), d2: Math.sqrt(d2), id: id, cx: px, cy: py };
   }
-  // Feld 0..1 je Kachel, weich zwischen Kachelmitten interpoliert
-  function field(arena, ch) {
-    var f = new Float32Array(C * R);
-    for (var i = 0; i < C * R; i++) f[i] = arena.tiles[i] === ch ? 1 : 0;
-    return function (x, y) {
-      var fx = x / T - 0.5, fy = y / T - 0.5, x0 = Math.floor(fx), y0 = Math.floor(fy), u = fx - x0, v = fy - y0;
-      function g(a, b) { a = Math.max(0, Math.min(C - 1, a)); b = Math.max(0, Math.min(R - 1, b)); return f[b * C + a]; }
-      u = u * u * (3 - 2 * u); v = v * v * (3 - 2 * v);
-      return (g(x0, y0) * (1 - u) + g(x0 + 1, y0) * u) * (1 - v) + (g(x0, y0 + 1) * (1 - u) + g(x0 + 1, y0 + 1) * u) * v;
-    };
-  }
-
-  function fieldP(arena, pred) {
-    var f = new Float32Array(C * R);
-    for (var i = 0; i < C * R; i++) f[i] = pred(arena.tiles[i]) ? 1 : 0;
-    return function (x, y) {
-      var fx = x / T - 0.5, fy = y / T - 0.5, x0 = Math.floor(fx), y0 = Math.floor(fy), u = fx - x0, v = fy - y0;
-      function g(a, b) { if (a < 0 || b < 0 || a >= C || b >= R) return 0; return f[b * C + a]; }
-      u = u * u * (3 - 2 * u); v = v * v * (3 - 2 * v);
-      return (g(x0, y0) * (1 - u) + g(x0 + 1, y0) * u) * (1 - v) + (g(x0, y0 + 1) * (1 - u) + g(x0 + 1, y0 + 1) * u) * v;
-    };
-  }
-
   // ---------- Bodenarten als Pixelfarbe ----------
   var MAT = {};
   MAT.s = function (x, y, c) {   // Steinplatten
-    var s = c.sl.info[c.sl.id[((y / 8) | 0) * c.sl.gw + ((x / 8) | 0)]], sx = x - s.x, sy = y - s.y;
+    var s = c.sl.info[c.sl.id[((c.ly / 8) | 0) * c.sl.gw + ((c.lx / 8) | 0)]], sx = c.lx - s.x, sy = c.ly - s.y;
     var base = MA.mix([124, 118, 108], [104, 104, 104], s.warm), tone = s.tone + (c.nf - 0.5) * 18 + (c.n1 - 0.5) * 8;
     var col = [base[0] + tone, base[1] + tone, base[2] + tone];
     if (sx === 0 || sy === 0) col = [64, 60, 56];
@@ -89,7 +62,7 @@
     else if (sx === 1) col = [col[0] + 7, col[1] + 7, col[2] + 6];
     else if (sy === s.h - 1) col = [col[0] - 12, col[1] - 12, col[2] - 11];
     else if (sx === s.w - 1) col = [col[0] - 7, col[1] - 7, col[2] - 6];
-    if (c.cracks[y * W + x]) col = [70, 66, 61];
+    if (c.cracks[c.ly * c.cw + c.lx]) col = [70, 66, 61];
     if (c.n1 < 0.025) col = [col[0] - 16, col[1] - 16, col[2] - 15]; else if (c.n1 > 0.988) col = [col[0] + 14, col[1] + 14, col[2] + 13];
     c.joint = sx <= 1 || sy <= 1;
     return col;
@@ -147,40 +120,45 @@
     return [col[0] + (c.n1 - 0.5) * 10, col[1] + (c.n1 - 0.5) * 10, col[2] + (c.n1 - 0.5) * 8];
   };
 
-  // rect (optional, in Kacheln {x0,y0,x1,y1}) zeichnet nur diesen Bereich neu und übernimmt den Rest aus prev
-  function build(arena, prev, rect) {
-    C = arena.cols; R = arena.rows; W = C * T; H = R * T;
-    var part = !!(prev && rect && prev.img && prev.W === W && prev.H === H);
-    var px0 = 0, py0 = 0, px1 = W, py1 = H;
-    if (part) { px0 = Math.max(0, rect.x0 * T); py0 = Math.max(0, rect.y0 * T); px1 = Math.min(W, rect.x1 * T); py1 = Math.min(H, rect.y1 * T); }
-    var seed = arena.seed | 0;
-    var cv = part ? prev.base : MA.canvas(W, H), img = part ? prev.img : cv.ctx.createImageData(W, H), d = img.data;
-    var wmask = part ? prev.wmask : new Uint8Array(W * H);   // 1 = Wasser-Pixel (für das Glitzern)
-    var ctx = { seed: seed, sl: part ? prev.sl : slabs(seed), rocks: arena.obj.filter(function (o) { return o.t === "rock"; }) };
-    ctx.cracks = part ? prev.cracks : crackSet(ctx.sl);
-    var mossF = field(arena, "m");
-    // Organische Küste (Monsters Arc): Land/Wasser-Grenze folgt einem weichen Feld mit Rauschen statt der Kachelkante.
+
+  // Weiches Feld 0..1 aus einer Kachel-Eigenschaft, vorberechnet für den Chunk plus Rand (m Kacheln)
+  function fieldR(arena, tx0, ty0, nw, nh, m, pred) {
+    var fw = nw + 2 * m, fh = nh + 2 * m, f = new Float32Array(fw * fh);
+    for (var y = 0; y < fh; y++) for (var x = 0; x < fw; x++) f[y * fw + x] = pred(arena.tile(tx0 - m + x, ty0 - m + y)) ? 1 : 0;
+    return function (px, py) {
+      var fx = px / T - 0.5 - (tx0 - m), fy = py / T - 0.5 - (ty0 - m), x0 = Math.floor(fx), y0 = Math.floor(fy), u = fx - x0, v = fy - y0;
+      function g(a, b) { a = a < 0 ? 0 : a >= fw ? fw - 1 : a; b = b < 0 ? 0 : b >= fh ? fh - 1 : b; return f[b * fw + a]; }
+      u = u * u * (3 - 2 * u); v = v * v * (3 - 2 * v);
+      return (g(x0, y0) * (1 - u) + g(x0 + 1, y0) * u) * (1 - v) + (g(x0, y0 + 1) * (1 - u) + g(x0 + 1, y0 + 1) * u) * v;
+    };
+  }
+
+  // Einen Chunk bauen (cx, cy in Chunk-Koordinaten). Ergebnis: base, moss (Canvas), wmask (Wasser-Pixel), x0/y0 in Weltpixeln
+  function buildChunk(arena, cx, cy) {
+    var C = arena.cols, R = arena.rows, seed = arena.seed | 0;
+    var tx0 = cx * CS, ty0 = cy * CS, tx1 = Math.min(C, tx0 + CS), ty1 = Math.min(R, ty0 + CS), nw = tx1 - tx0, nh = ty1 - ty0;
+    var px0 = tx0 * T, py0 = ty0 * T, cw = nw * T, chh = nh * T;
+    var cv = MA.canvas(cw, chh), img = cv.ctx.createImageData(cw, chh), d = img.data;
+    var mcv = MA.canvas(cw, chh), mimg = mcv.ctx.createImageData(cw, chh), md = mimg.data;
+    var wmask = new Uint8Array(cw * chh);
+    var sl = slabs(seed * 31 + 5 + cx * 7919 + cy * 104729, cw, chh);
+    var ctx = { seed: seed, sl: sl, cw: cw, rocks: arena.obj.filter(function (o) { return o.t === "rock" && o.x > px0 - 40 && o.x < px0 + cw + 40 && o.y > py0 - 40 && o.y < py0 + chh + 40; }) };
+    ctx.cracks = crackSet(sl, cw);
+    function tl(tx, ty) { return arena.tile(tx, ty); }
+    var mossF = fieldR(arena, tx0, ty0, nw, nh, 2, function (c) { return c === "m"; });
+    // Organische Küste: Land/Wasser-Grenze folgt einem weichen Feld mit Rauschen statt der Kachelkante.
     // Begehbarkeit bleibt kachelgenau; nur das Bild ist um bis zu ~eine halbe Kachel verschoben.
-    var landF = fieldP(arena, function (c) { return !isWater(c); }), seaF = field(arena, "o");
-    var coast = new Uint8Array(C * R), coastLand = [];
-    for (var cty = 0; cty < R; cty++) for (var ctx0 = 0; ctx0 < C; ctx0++) {
-      var cw = isWater(arena.tiles[cty * C + ctx0]), cl = null, cf = 0;
+    var landF = fieldR(arena, tx0, ty0, nw, nh, 2, function (c) { return !isWater(c); }), seaF = fieldR(arena, tx0, ty0, nw, nh, 2, function (c) { return c === "o"; });
+    var coast = new Uint8Array(nw * nh), coastLand = [];
+    for (var cty = 0; cty < nh; cty++) for (var ctx0 = 0; ctx0 < nw; ctx0++) {
+      var gx = tx0 + ctx0, gy = ty0 + cty, cwt = isWater(tl(gx, gy)), cl = null, cf = 0;
       for (var oy = -1; oy <= 1; oy++) for (var ox = -1; ox <= 1; ox++) {
-        var nc = tl(ctx0 + ox, cty + oy);
-        if (isWater(nc) !== cw) cf = 1;
+        var nc = tl(gx + ox, gy + oy);
+        if (isWater(nc) !== cwt) cf = 1;
         if (!isWater(nc) && nc !== "#" && (!cl || (ox === 0 || oy === 0))) cl = nc;
       }
-      coast[cty * C + ctx0] = cf; coastLand[cty * C + ctx0] = cl || "a";
+      coast[cty * nw + ctx0] = cf; coastLand[cty * nw + ctx0] = cl || "a";
     }
-    var mossPix = [], mossCol = [], mossN = [];
-    if (part) for (var q0 = 0; q0 < prev.mossPix.length; q0++) {
-      var qp = prev.mossPix[q0], qx = qp % W, qy = (qp / W) | 0;
-      if (qx >= px0 && qx < px1 && qy >= py0 && qy < py1) continue;
-      mossPix.push(qp); mossCol.push(prev.mossCol[q0]); mossN.push(prev.mossN[q0]);
-    }
-    function tl(tx, ty) { return arena.tile(tx, ty); }
-    function isVoid(tx, ty) { return tl(tx, ty) === "v"; }
-    function surf(ch) { return !(ch in EXACT); }
     var tmpScore = {};
 
     // Bodenart eines Pixels: Nachbarkacheln gewichtet, Grenzen mit Rauschen
@@ -206,17 +184,16 @@
       return best;
     }
 
-    for (var y = py0; y < py1; y++) {
+    for (var y = py0; y < py0 + chh; y++) {
       var ty = (y / T) | 0, ly = y - ty * T;
-      for (var x = px0; x < px1; x++) {
-        var tx = (x / T) | 0, lx = x - tx * T, ch = arena.tiles[ty * C + tx], i = (y * W + x) * 4, col = null, a = 255;
-        ctx.n1 = hash(x, y, seed); ctx.nf = fbm(x / 7, y / 7, seed, 2); ctx.joint = false;
-
-        if (ch === "v") { d[i + 3] = 0; continue; }       // Abgrund bleibt durchsichtig (Klippen später)
+      for (var x = px0; x < px0 + cw; x++) {
+        var tx = (x / T) | 0, lx = x - tx * T, ch = arena.tiles[ty * C + tx], li = (y - py0) * cw + (x - px0), i = li * 4, col = null;
+        ctx.n1 = hash(x, y, seed); ctx.nf = fbm(x / 7, y / 7, seed, 2); ctx.joint = false; ctx.lx = x - px0; ctx.ly = y - py0;
+        var ci = (ty - ty0) * nw + (tx - tx0);
         var waterHere = isWater(ch), sd = null;
-        if (ch !== "#" && coast[ty * C + tx]) { var vv = landF(x, y) + (fbm(x / 6, y / 6, seed + 201, 2) - 0.5) * 0.6; sd = (0.5 - vv) * 30; waterHere = vv < 0.5; }
-        var landCh = isWater(ch) ? coastLand[ty * C + tx] : ch;
-        wmask[y * W + x] = waterHere && ch !== "#" ? 1 : 0;
+        if (ch !== "#" && coast[ci]) { var vv = landF(x, y) + (fbm(x / 6, y / 6, seed + 201, 2) - 0.5) * 0.6; sd = (0.5 - vv) * 30; waterHere = vv < 0.5; }
+        var landCh = isWater(ch) ? coastLand[ci] : ch;
+        wmask[li] = waterHere && ch !== "#" ? 1 : 0;
         if (ch === "#") {
           var belowWall = tl(tx, ty + 1) === "#";
           if (!belowWall && ly >= 5) {
@@ -232,7 +209,7 @@
             if (fbm(x / 6, y / 6, seed + 11, 3) > 0.7) col = MA.mix(col, [74, 96, 52], 0.55);
           }
         } else if (waterHere) {
-          // Wasser: Uferkante (organisch, s. o.), dann flach → tief. Meer (o) wird weiter draußen noch dunkler.
+          // Wasser: Uferkante (organisch), dann flach → tief. Meer (o) wird weiter draußen noch dunkler.
           var dist = sd != null ? Math.max(0, sd) : 99;
           if (dist < 2) col = dist < 1 ? [138, 132, 120] : [96, 92, 84];
           else if (dist < 3) col = [40, 62, 60];
@@ -253,80 +230,51 @@
               var mc = MA.mix([58, 84, 40], [112, 136, 62], fbm(x / 3, y / 3, seed + 33, 2));
               if (ctx.n1 > 0.9) mc = [146, 160, 82];
               if (mv < 0.7) mc = MA.mix(mc, col, 0.45);
-              mossPix.push(y * W + x); mossCol.push(mc); mossN.push(noise(x / 9, y / 9, seed + 41));
+              md[i] = mc[0]; md[i + 1] = mc[1]; md[i + 2] = mc[2]; md[i + 3] = 255;
             }
           }
-        }
-        if (ch !== "#") {
           // Verschattung an Mauern
           var ao = 1;
           if (tl(tx, ty - 1) === "#" && ly < 4) ao *= 0.62 + ly * 0.09;
           if (tl(tx - 1, ty) === "#" && lx < 3) ao *= 0.78 + lx * 0.07;
           if (tl(tx + 1, ty) === "#" && lx > T - 4) ao *= 0.78 + (T - 1 - lx) * 0.07;
-          // Inselkante: unregelmäßig abgebrochen, dunkler Rand
-          if (ch !== "w") {
-            var ev = 99;
-            if (isVoid(tx, ty - 1)) ev = Math.min(ev, ly);
-            if (isVoid(tx - 1, ty)) ev = Math.min(ev, lx);
-            if (isVoid(tx + 1, ty)) ev = Math.min(ev, T - 1 - lx);
-            if (isVoid(tx - 1, ty - 1)) ev = Math.min(ev, Math.max(lx, ly));
-            if (isVoid(tx + 1, ty - 1)) ev = Math.min(ev, Math.max(T - 1 - lx, ly));
-            var es = isVoid(tx, ty + 1) ? T - 1 - ly : 99;
-            if (isVoid(tx - 1, ty + 1)) es = Math.min(es, Math.max(lx, T - 1 - ly));
-            if (isVoid(tx + 1, ty + 1)) es = Math.min(es, Math.max(T - 1 - lx, T - 1 - ly));
-            // Kante bleibt geschlossen (keine Löcher zum Himmel), nur ein dunkler Rand
-            if (ev < 1) ao *= 0.62; else if (ev < 2) ao *= 0.8;
-            if (es < 1) col = [col[0] * 1.15, col[1] * 1.12, col[2] * 1.08];
-          }
           if (ao < 1) col = [col[0] * ao, col[1] * ao, col[2] * ao];
         }
-        d[i] = col[0]; d[i + 1] = col[1]; d[i + 2] = col[2]; d[i + 3] = a;
+        d[i] = col[0]; d[i + 1] = col[1]; d[i + 2] = col[2]; d[i + 3] = 255;
       }
     }
-
-    // (Felskanten und Klippen der schwebenden Insel aus Shizuku entfallen: Monsters Arc hat Meer statt Abgrund)
-    var falls = [];
-    if (part) cv.ctx.putImageData(img, 0, 0, px0, py0, px1 - px0, py1 - py0); else cv.ctx.putImageData(img, 0, 0);
-
-    // Moos-Ebene
-    var mcv, mimg;
-    if (part) { mcv = prev.moss; mimg = prev.mimg; for (var cy3 = py0; cy3 < py1; cy3++) mimg.data.fill(0, (cy3 * W + px0) * 4, (cy3 * W + px1) * 4); }
-    else { mcv = MA.canvas(W, H); mimg = mcv.ctx.createImageData(W, H); }
-    for (var mk = 0; mk < mossPix.length; mk++) {
-      var p = mossPix[mk] * 4; if (d[p + 3] === 0) continue;
-      if (part) { var mx2 = mossPix[mk] % W, my2 = (mossPix[mk] / W) | 0; if (mx2 < px0 || mx2 >= px1 || my2 < py0 || my2 >= py1) continue; }
-      var mcol = mossCol[mk]; mimg.data[p] = mcol[0]; mimg.data[p + 1] = mcol[1]; mimg.data[p + 2] = mcol[2]; mimg.data[p + 3] = 255;
-    }
-    if (part) mcv.ctx.putImageData(mimg, 0, 0, px0, py0, px1 - px0, py1 - py0); else mcv.ctx.putImageData(mimg, 0, 0);
-
-    // Wasserkacheln und Wasserfall-Ströme
-    return { base: cv, img: img, moss: mcv, mimg: mimg, sl: ctx.sl, cracks: ctx.cracks, mossPix: mossPix, mossCol: mossCol, mossN: mossN, falls: falls, rev: arena.rev, W: W, H: H, wmask: wmask };
+    cv.ctx.putImageData(img, 0, 0); mcv.ctx.putImageData(mimg, 0, 0);
+    return { base: cv, moss: mcv, wmask: wmask, x0: px0, y0: py0, w: cw, h: chh, cx: cx, cy: cy };
   }
 
-  // Wasser: wandernde Lichtlinien und Glitzern – nur im sichtbaren Ausschnitt (cam = linke obere Ecke des Bilds in Weltpixeln)
+  // Wasser: wandernde Lichtlinien und Glitzern – nur sichtbare Chunks, nur bei Spielansicht (Zoom 1)
   var wcv = null;
-  function drawWater(ctx, g, t, cam) {
-    var VW = MA.W, VH = MA.H, GW = g.W, GH = g.H, mk = g.wmask;
+  function drawWater(ctx, chunks, t, cam) {
+    var VW = MA.W, VH = MA.H;
     if (!wcv) wcv = MA.canvas(VW, VH);
     var img = wcv.imgData || (wcv.imgData = wcv.ctx.createImageData(VW, VH)), d = img.data;
     d.fill(0);
-    for (var sy = 0; sy < VH; sy++) {
-      var y = sy + cam.y; if (y < 0 || y >= GH) continue;
-      for (var sx = 0; sx < VW; sx++) {
-        var x = sx + cam.x; if (x < 0 || x >= GW || !mk[y * GW + x]) continue;
-        var lx = x % T, ly = y % T; if (ly < 2 || ly > T - 2 || lx < 1 || lx > T - 2) continue;   // Raster wie Shizuku
-        var a = Math.sin(x * 0.42 + t * 1.3 + Math.sin(y * 0.55 + t * 0.9) * 1.6) * Math.sin(y * 0.7 - t * 1.05 + x * 0.12), i = (sy * VW + sx) * 4;
-        if (a > 0.8) { d[i] = 150; d[i + 1] = 196; d[i + 2] = 190; d[i + 3] = 120; }
-        else if (a > 0.66) { d[i] = 110; d[i + 1] = 156; d[i + 2] = 150; d[i + 3] = 70; }
-        if (MA.hash2(x, y, Math.floor(t * 3)) > 0.9975) { d[i] = 235; d[i + 1] = 245; d[i + 2] = 240; d[i + 3] = 220; }
+    chunks.forEach(function (c) {
+      var sx0 = Math.max(0, c.x0 - cam.x), sy0 = Math.max(0, c.y0 - cam.y), sx1 = Math.min(VW, c.x0 + c.w - cam.x), sy1 = Math.min(VH, c.y0 + c.h - cam.y), mk = c.wmask;
+      for (var sy = sy0; sy < sy1; sy++) {
+        var y = sy + cam.y, ly = y % T; if (ly < 2 || ly > T - 2) continue;
+        for (var sx = sx0; sx < sx1; sx++) {
+          var x = sx + cam.x; if (!mk[(y - c.y0) * c.w + (x - c.x0)]) continue;
+          var lx = x % T; if (lx < 1 || lx > T - 2) continue;   // Raster wie Shizuku
+          var a = Math.sin(x * 0.42 + t * 1.3 + Math.sin(y * 0.55 + t * 0.9) * 1.6) * Math.sin(y * 0.7 - t * 1.05 + x * 0.12), i = (sy * VW + sx) * 4;
+          if (a > 0.8) { d[i] = 150; d[i + 1] = 196; d[i + 2] = 190; d[i + 3] = 120; }
+          else if (a > 0.66) { d[i] = 110; d[i + 1] = 156; d[i + 2] = 150; d[i + 3] = 70; }
+          if (MA.hash2(x, y, Math.floor(t * 3)) > 0.9975) { d[i] = 235; d[i + 1] = 245; d[i + 2] = 240; d[i + 3] = 220; }
+        }
       }
-    }
+    });
     wcv.ctx.putImageData(img, 0, 0);
     ctx.drawImage(wcv, cam.x, cam.y);   // ctx ist um die Kamera verschoben
   }
 
-  // Meer außerhalb der Map (Bild-Koordinaten, vor der Kamera-Verschiebung)
-  function drawSea(ctx) { ctx.fillStyle = "rgb(18,38,48)"; ctx.fillRect(0, 0, MA.W, MA.H); }
+  // Meer außerhalb der Map bzw. unter noch nicht gebauten Chunks (Bild-Koordinaten)
+  var SEA = "rgb(19,40,49)";
+  function drawSea(ctx) { ctx.fillStyle = SEA; ctx.fillRect(0, 0, MA.W, MA.H); }
 
-  MA.ground = { build: build, drawWater: drawWater, drawSea: drawSea, isWater: isWater };
+  MA.ground = { buildChunk: buildChunk, CS: CS, drawWater: drawWater, drawSea: drawSea, isWater: isWater };
 })();

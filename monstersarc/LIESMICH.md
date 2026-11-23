@@ -12,17 +12,17 @@ Ordner nacheinander, mit demselben Cache-Stempel `?v=…`. Kein Build-Schritt n�
 | `core.js` | Namensraum `MA`, Bildgröße (480 × 272), `L2`, Mathe, Zufall, Rauschen, Pixel-Helfer (aus Shizuku) |
 | `input.js` | Tastatur und Maus (aus Shizuku, dazu mittlere Maustaste) |
 | `audio.js` | Sounds (Schritte, Wind) aus Shizuku in `audio/`; Musik später |
-| `art-tiles.js` | Boden Pixel für Pixel (aus Shizuku). Neu: Meer statt Abgrund, organische Küste, Map-Größe frei |
+| `art-tiles.js` | Boden Pixel für Pixel (aus Shizuku), gebaut in Chunks zu 16 × 16 Kacheln. Neu: Meer statt Abgrund, organische Küste |
 | `art-objects.js` | Objekte und Vegetation (aus Shizuku, unverändert) |
 | `art-samurai.js` | Figuren-Modell in 8 Richtungen (aus Shizuku), Aussehen über `look` |
-| `map.js` | Map-Daten: Größe (`cols` × `rows`), Bodenarten (`MA.TILES`), Kollision, Größe ändern, Speichern |
+| `map.js` | Map-Daten: Größe (`cols` × `rows`, Standard 800 × 600), Bodenarten (`MA.TILES`), Zonen (`zone`, `zones`), Kollision, Größe ändern, Speichern (Lauflängen-Kodierung, IndexedDB) |
 | `maps/start.js` | Start-Map des Spiels (`MA.MAP_START`, `null` = leeres Meer) |
 | `lighting.js` | Tageszeit, Licht, Schatten (aus Shizuku, Schatten mit Kamera-Versatz) |
 | `particles.js` | Blätter, Staub, Spritzer (aus Shizuku) |
-| `world.js` | Spielwelt mit Kamera (`world.cam`, `follow`, `pan`): zeichnet nur den sichtbaren Ausschnitt |
+| `world.js` | Spielwelt mit Kamera und Zoom (`cam`, `zoom`, `follow`, `pan`, `setZoom`): Boden-Chunks werden bei Bedarf gebaut (Zeitbudget, max. 140 im Speicher), weit draußen Übersichtsbild (`ov`), Zonen-Ebene (`zc`), Pflanzen in Fächern |
 | `character.js` | Figur (`MA.Character`): Laufen, Kollision, Schritte, Haare wie Shizukus Samurai – Grundlage für Spieler und NPCs |
 | `scene-menu.js` | Hauptmenü |
-| `scene-walk.js` | Testlauf mit Kamera (später die Spielszene) |
+| `scene-walk.js` | Testlauf mit Kamera (später die Spielszene); beim Betreten einer Zone erscheint ihr Name |
 | `devkit.js` | Dev-Kit: Bereiche Map-Editor (v0.1), Attacken, Missionen, Monster (später) |
 | `main.js` | Hülle: Canvas, Skalierung, Szenen, Schleife |
 
@@ -33,7 +33,10 @@ Ordner nacheinander, mit demselben Cache-Stempel `?v=…`. Kein Build-Schritt n�
 ## Maps
 Im Dev-Kit „Map exportieren“ → `.json`. Für das Spiel schickt Noah die Datei an Claude; sie kommt nach `maps/`
 (Start-Map: in `maps/start.js` als `window.MA.MAP_START = {…}`). Shizuku-Arenen lassen sich importieren (Abgrund wird Meer).
-Größe: 30 × 17 bis 160 × 120 Kacheln. Browser-Speicher: `monstersarc.map.v1` (Arbeitsstand), `monstersarc.mute`.
+Größe: 30 × 17 bis 1024 × 1024 Kacheln, Standard 800 × 600 (ganze Spielwelt). Arbeitsstand im Browser: IndexedDB `monstersarc` (Schlüssel `monstersarc.map.v1`), dazu `monstersarc.mute` im localStorage.
+
+## Zonen
+Städte und Routen: `map.zone` = je Kachel ein Zeichen (`0` = keine Zone), `map.zones` = `[{ id, name, col }]`. Im Dev-Kit Werkzeug „Zonen“. Im Spiel erscheint der Name oben links, sobald man eine andere Zone betritt (Lücken ohne Zone zählen nicht als Wechsel).
 
 ## Neue Datei hinzufügen
 In `monstersarc.js` in die Liste `FILES` an der passenden Stelle eintragen.

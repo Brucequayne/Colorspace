@@ -2,6 +2,8 @@
    Datenmodell einer Map (aus Shizukus arena.js übernommen): Kacheln Boden, Objekte, Vegetation, Laubfall-Zonen,
    Tageszeit, Startpunkt. Neu: die Größe ist einstellbar (cols × rows Kacheln à 16 px), eine neue Map ist komplett Meer.
    Außerhalb der Map liegt ebenfalls Meer. Bodenarten beeinflussen das Laufen (speed) wie in Shizuku.
+   Seit v0.11: Standardgröße 800 × 600 Kacheln (ganze Spielwelt), Zonen (Städte, Routen – Name erscheint beim Betreten),
+   Speichern platzsparend (Lauflängen-Kodierung) und im Browser über IndexedDB.
    Hinweis: In der Welt heißt die Map aus Kompatibilität mit den übernommenen Modulen weiter „arena“ (world.arena). */
 (function () {
   var MA = window.MA, L2 = MA.L2, T = MA.TILE;
@@ -21,25 +23,44 @@
     "#": { name: function () { return L2("Mauer", "Wall"); }, solid: true, sw: "#3E3B38" }
   };
   MA.SEA = "o";
-  MA.MAP_MIN = [30, 17]; MA.MAP_MAX = [160, 120];   // Kacheln (Breite, Höhe)
+  MA.MAP_MIN = [30, 17]; MA.MAP_MAX = [1024, 1024]; MA.MAP_DEF = [800, 600];   // Kacheln (Breite, Höhe)
+  MA.ZONE_IDS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz123456789";   // "0" = keine Zone
 
   function fill(n, ch) { return new Array(n + 1).join(ch); }
+  // Lauflängen-Kodierung: "rle:" + je Lauf Zeichen + Länge (Basis 36) + "."
+  function enc(arr) {
+    var out = ["rle:"], n = arr.length, i = 0;
+    while (i < n) { var c = arr[i], j = i + 1; while (j < n && arr[j] === c) j++; out.push(c + (j - i).toString(36) + "."); i = j; }
+    return out.join("");
+  }
+  function dec(str, n, def) {
+    if (!str) return null;
+    if (str.slice(0, 4) !== "rle:") return str.length === n ? str.split("") : null;
+    var out = new Array(n), k = 0, i = 4;
+    while (i < str.length && k < n) { var c = str[i], j = str.indexOf(".", i + 1), len = parseInt(str.slice(i + 1, j), 36); for (var q = 0; q < len && k < n; q++) out[k++] = c; i = j + 1; }
+    while (k < n) out[k++] = def;
+    return out;
+  }
 
   function GameMap(data) {
     data = data || {};
     this.name = data.name || L2("Neue Map", "New map");
     this.seed = data.seed || 7;
     this.time = data.time == null ? 12 : data.time;
-    this.cols = Math.max(MA.MAP_MIN[0], Math.min(MA.MAP_MAX[0], data.cols | 0 || 80));
-    this.rows = Math.max(MA.MAP_MIN[1], Math.min(MA.MAP_MAX[1], data.rows | 0 || 60));
+    this.cols = Math.max(MA.MAP_MIN[0], Math.min(MA.MAP_MAX[0], data.cols | 0 || MA.MAP_DEF[0]));
+    this.rows = Math.max(MA.MAP_MIN[1], Math.min(MA.MAP_MAX[1], data.rows | 0 || MA.MAP_DEF[1]));
     var n = this.cols * this.rows;
-    this.tiles = (data.tiles && data.tiles.length === n ? data.tiles : fill(n, MA.SEA)).split("");
-    this.leaf = (data.leaf && data.leaf.length === n ? data.leaf : fill(n, "0")).split("");
+    this.tiles = dec(data.tiles, n, MA.SEA) || fill(n, MA.SEA).split("");
+    this.leaf = dec(data.leaf, n, "0") || fill(n, "0").split("");
+    this.zone = dec(data.zone, n, "0") || fill(n, "0").split("");
+    // Zonen: [{ id, name, col }] – id ist ein Zeichen aus MA.ZONE_IDS
+    this.zones = (data.zones || []).map(function (z) { return { id: z.id, name: z.name || "", col: z.col || "#62929E" }; });
     this.obj = (data.obj || []).filter(function (o) { return MA.OBJECTS[o[0]]; }).map(function (o) { return { t: o[0], x: o[1], y: o[2], v: Math.min(o[3] | 0, MA.OBJECTS[o[0]].variants - 1) }; });
     this.veg = (data.veg || []).filter(function (o) { return MA.VEG[o[0]]; }).map(function (o) { return { t: o[0], x: o[1], y: o[2], v: Math.min(o[3] | 0, MA.VEG[o[0]].variants - 1) }; });
     this.spawn = data.spawn || [this.cols * T / 2, this.rows * T / 2];
-    this.rev = 0;
-    this.dirty = null;   // geänderter Kachelbereich seit dem letzten Neuzeichnen {x0,y0,x1,y1}
+    this.rev = 0; this.vegRev = 0; this.zoneRev = 0;
+    this.dirty = null;    // geänderter Kachelbereich seit dem letzten Neuzeichnen {x0,y0,x1,y1}
+    this.zdirty = null;   // geänderter Zonenbereich
   }
   var A = GameMap.prototype;
   A.pxW = function () { return this.cols * T; };
@@ -56,6 +77,31 @@
     else { d.x0 = Math.min(d.x0, tx); d.y0 = Math.min(d.y0, ty); d.x1 = Math.max(d.x1, tx + 1); d.y1 = Math.max(d.y1, ty + 1); }
     return true;
   };
+  // Zonen
+  A.zoneAt = function (tx, ty) { if (tx < 0 || ty < 0 || tx >= this.cols || ty >= this.rows) return "0"; return this.zone[ty * this.cols + tx]; };
+  A.zonePx = function (x, y) { return this.zoneAt(Math.floor(x / T), Math.floor(y / T)); };
+  A.zoneInfo = function (id) { for (var i = 0; i < this.zones.length; i++) if (this.zones[i].id === id) return this.zones[i]; return null; };
+  A.setZone = function (tx, ty, id) {
+    if (tx < 0 || ty < 0 || tx >= this.cols || ty >= this.rows) return false;
+    var i = ty * this.cols + tx; if (this.zone[i] === id) return false;
+    this.zone[i] = id; this.zoneRev++;
+    var d = this.zdirty;
+    if (!d) this.zdirty = { x0: tx, y0: ty, x1: tx + 1, y1: ty + 1 };
+    else { d.x0 = Math.min(d.x0, tx); d.y0 = Math.min(d.y0, ty); d.x1 = Math.max(d.x1, tx + 1); d.y1 = Math.max(d.y1, ty + 1); }
+    return true;
+  };
+  A.addZone = function (name, col) {
+    var used = {}; this.zones.forEach(function (z) { used[z.id] = 1; });
+    var id = null; for (var k = 0; k < MA.ZONE_IDS.length; k++) if (!used[MA.ZONE_IDS[k]]) { id = MA.ZONE_IDS[k]; break; }
+    if (!id) return null;
+    var z = { id: id, name: name, col: col }; this.zones.push(z); this.zoneRev++; return z;
+  };
+  A.removeZone = function (id) {
+    this.zones = this.zones.filter(function (z) { return z.id !== id; });
+    for (var i = 0; i < this.zone.length; i++) if (this.zone[i] === id) this.zone[i] = "0";
+    this.zoneRev++; this.zdirty = { x0: 0, y0: 0, x1: this.cols, y1: this.rows };
+  };
+  A.touchVeg = function () { this.vegRev++; };
   A.isLeaf = function (tx, ty) { return this.leaf[ty * this.cols + tx] === "1"; };
   A.setLeaf = function (tx, ty, on) { if (tx < 0 || ty < 0 || tx >= this.cols || ty >= this.rows) return; this.leaf[ty * this.cols + tx] = on ? "1" : "0"; };
   A.speedAt = function (x, y) { var d = MA.TILES[this.tilePx(x, y)]; return d ? d.speed || 1 : 1; };
@@ -70,11 +116,12 @@
   A.resize = function (cols, rows) {
     cols = Math.max(MA.MAP_MIN[0], Math.min(MA.MAP_MAX[0], cols | 0)); rows = Math.max(MA.MAP_MIN[1], Math.min(MA.MAP_MAX[1], rows | 0));
     if (cols === this.cols && rows === this.rows) return false;
-    var ox = Math.floor((cols - this.cols) / 2), oy = Math.floor((rows - this.rows) / 2), t = [], l = [];
+    var ox = Math.floor((cols - this.cols) / 2), oy = Math.floor((rows - this.rows) / 2), t = [], l = [], zz = [];
     for (var y = 0; y < rows; y++) for (var x = 0; x < cols; x++) {
-      var sx = x - ox, sy = y - oy, inside = sx >= 0 && sy >= 0 && sx < this.cols && sy < this.rows;
-      t.push(inside ? this.tiles[sy * this.cols + sx] : MA.SEA); l.push(inside ? this.leaf[sy * this.cols + sx] : "0");
+      var sx = x - ox, sy = y - oy, inside = sx >= 0 && sy >= 0 && sx < this.cols && sy < this.rows, k = sy * this.cols + sx;
+      t.push(inside ? this.tiles[k] : MA.SEA); l.push(inside ? this.leaf[k] : "0"); zz.push(inside ? this.zone[k] : "0");
     }
+    this.zone = zz; this.zoneRev++; this.vegRev++;
     var dx = ox * T, dy = oy * T, W2 = cols * T, H2 = rows * T;
     function keep(o) { o.x += dx; o.y += dy; return o.x >= 0 && o.y >= 0 && o.x < W2 && o.y < H2; }
     this.obj = this.obj.filter(keep); this.veg = this.veg.filter(keep);
@@ -117,27 +164,46 @@
   A.serialize = function () {
     return {
       v: 1, game: "monstersarc", name: this.name, seed: this.seed, time: Math.round(this.time * 100) / 100, cols: this.cols, rows: this.rows,
-      tiles: this.tiles.join(""), leaf: this.leaf.join(""),
+      tiles: enc(this.tiles), leaf: enc(this.leaf), zone: enc(this.zone), zones: this.zones.map(function (z) { return { id: z.id, name: z.name, col: z.col }; }),
       obj: this.obj.map(function (o) { return [o.t, Math.round(o.x), Math.round(o.y), o.v]; }),
       veg: this.veg.map(function (o) { return [o.t, Math.round(o.x), Math.round(o.y), o.v]; }),
       spawn: this.spawn.map(Math.round)
     };
   };
 
-  var KEY = "monstersarc.map.v1";
+  // Arbeitsstand im Browser: IndexedDB (viel Platz für große Welten), sonst localStorage
+  var KEY = "monstersarc.map.v1", DB = null;
+  function db(cb) {
+    if (DB) return cb(DB);
+    try {
+      var rq = indexedDB.open("monstersarc", 1);
+      rq.onupgradeneeded = function () { rq.result.createObjectStore("kv"); };
+      rq.onsuccess = function () { DB = rq.result; cb(DB); };
+      rq.onerror = function () { cb(null); };
+    } catch (e) { cb(null); }
+  }
+  function idbGet(k, cb) { db(function (d) { if (!d) return cb(null); try { var r = d.transaction("kv").objectStore("kv").get(k); r.onsuccess = function () { cb(r.result || null); }; r.onerror = function () { cb(null); }; } catch (e) { cb(null); } }); }
+  function idbSet(k, v, cb) { db(function (d) { if (!d) return cb(false); try { var tx = d.transaction("kv", "readwrite"); tx.objectStore("kv").put(v, k); tx.oncomplete = function () { cb(true); }; tx.onerror = function () { cb(false); }; } catch (e) { cb(false); } }); }
+  function idbDel(k) { db(function (d) { if (d) try { d.transaction("kv", "readwrite").objectStore("kv").delete(k); } catch (e) {} }); }
+
   MA.maps = {
     GameMap: GameMap,
     blank: function (cols, rows) { return new GameMap({ cols: cols, rows: rows }); },
-    // Start-Map des Spiels (maps/start.js); ohne Datei: leeres Meer
+    // Start-Map des Spiels (maps/start.js); ohne Datei: leeres Meer in Standardgröße
     start: function () { return MA.MAP_START ? new GameMap(JSON.parse(JSON.stringify(MA.MAP_START))) : this.blank(); },
-    // Arbeitsstand des Dev-Kits (nur in diesem Browser)
-    working: function () {
-      var s = MA.store.get(KEY);
-      if (s) { try { return new GameMap(JSON.parse(s)); } catch (e) {} }
-      return this.start();
+    // Arbeitsstand des Dev-Kits (nur in diesem Browser), asynchron
+    loadWorking: function (cb) {
+      var self = this;
+      idbGet(KEY, function (s) {
+        s = s || MA.store.get(KEY);
+        if (s) { try { return cb(new GameMap(JSON.parse(s))); } catch (e) {} }
+        cb(self.start());
+      });
     },
-    hasLocal: function () { return !!MA.store.get(KEY); },
-    saveLocal: function (a) { return MA.store.set(KEY, JSON.stringify(a.serialize())); },
-    clearLocal: function () { MA.store.del(KEY); }
+    saveLocal: function (a, cb) {
+      var s = JSON.stringify(a.serialize());
+      idbSet(KEY, s, function (ok) { if (ok) MA.store.del(KEY); cb && cb(ok || MA.store.set(KEY, s), s.length); });
+    },
+    clearLocal: function () { idbDel(KEY); MA.store.del(KEY); }
   };
 })();

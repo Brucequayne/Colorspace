@@ -25,6 +25,9 @@
     ".ma-mute{position:absolute;right:14px;top:14px;font-size:.75rem;color:#D8D3C8;background:rgba(10,10,10,.62);border:1px solid rgba(255,255,255,.08);padding:4px 10px;pointer-events:none;animation:maHint 2.4s ease forwards}" +
     ".ma-hint{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);max-width:calc(100% - 40px);text-align:center;font-size:.76rem;color:#D8D3C8;background:rgba(10,10,10,.62);border:1px solid rgba(255,255,255,.08);padding:6px 12px;pointer-events:none;animation:maHint 9s ease forwards}" +
     ".ma-warn{position:absolute;left:50%;top:14px;transform:translateX(-50%);max-width:calc(100% - 40px);text-align:center;font-size:.8rem;color:#1C1D1C;background:#ED6A5E;padding:6px 12px;pointer-events:none}" +
+    ".ma-zone{position:absolute;left:18px;top:16px;min-width:180px;padding:10px 18px;background:#475657;border:2px solid #C6C5B9;box-shadow:0 0 0 2px #2A3233,0 6px 18px rgba(0,0,0,.45);font:700 1.05rem/1.2 var(--f-body,system-ui);color:#F0EEE6;letter-spacing:.04em;pointer-events:none;opacity:0;transform:translateY(-130%)}" +
+    ".ma-zone.on{animation:maZone 3.2s ease forwards}" +
+    "@keyframes maZone{0%{opacity:0;transform:translateY(-130%)}10%,78%{opacity:1;transform:translateY(0)}100%{opacity:0;transform:translateY(-130%)}}" +
     "@keyframes maHint{0%{opacity:0}8%,75%{opacity:1}100%{opacity:0}}";
 
   var M = MA.main = {
