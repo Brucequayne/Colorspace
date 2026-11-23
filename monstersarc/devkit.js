@@ -45,15 +45,15 @@
 
   // Bereiche des Dev-Kits (weitere Editoren kommen als eigene Bereiche dazu)
   var TABS = [
-    { id: "map", name: function () { return L2("Map-Editor", "Map editor"); }, ver: "v0.12" },
+    { id: "map", name: function () { return L2("Map-Editor", "Map editor"); }, ver: "v0.13" },
     { id: "attacks", name: function () { return L2("Attacken", "Attacks"); }, soon: true },
     { id: "missions", name: function () { return L2("Missionen", "Missions"); }, soon: true },
     { id: "monsters", name: function () { return L2("Monster", "Monsters"); }, soon: true }
   ];
 
-  var TOOLS = ["tile", "brush", "obj", "move", "erase", "spawn", "zones"];
+  var TOOLS = ["tile", "brush", "obj", "walls", "move", "erase", "spawn", "zones"];
   function toolName(t) {
-    return { tile: L2("Boden", "Floor"), brush: L2("Pinsel", "Brush"), obj: L2("Objekte", "Objects"), move: L2("Verschieben", "Move"), erase: L2("Radierer", "Eraser"), spawn: L2("Startpunkt", "Spawn"), zones: L2("Zonen", "Zones") }[t];
+    return { tile: L2("Boden", "Floor"), brush: L2("Pinsel", "Brush"), obj: L2("Objekte", "Objects"), walls: L2("Mauern", "Walls"), move: L2("Verschieben", "Move"), erase: L2("Radierer", "Eraser"), spawn: L2("Startpunkt", "Spawn"), zones: L2("Zonen", "Zones") }[t];
   }
   // Farben für neue Zonen (Palette und gut unterscheidbare Töne)
   var ZCOLS = ["#ED6A5E", "#62929E", "#E8C547", "#8BC34A", "#B07CC6", "#4A6D7C", "#F29E4C", "#5CC8B5", "#D96C9C", "#C6C5B9"];
@@ -210,8 +210,14 @@
       h = '<h3>' + L2("Objekt", "Object") + '</h3><div class="ma-ed-list">' + Object.keys(MA.OBJECTS).map(function (k) {
         return '<button type="button" data-obj="' + k + '" aria-pressed="' + (E.obj === k) + '"><img alt="" src="' + thumb("obj", k, 0) + '">' + MA.OBJECTS[k].name() + '</button>';
       }).join("") + '</div><div class="ma-ed-row"><label>Variante</label><button type="button" data-a="var">' + (E.ov + 1) + ' / ' + MA.OBJECTS[E.obj].variants + '</button></div>';
+    } else if (E.tool === "walls") {
+      // Mauern (v0.13): Art wählen, ziehen = gerade Linie, verbinden sich automatisch
+      h = '<h3>' + L2("Art", "Type") + '</h3><div class="ma-ed-list">' + Object.keys(MA.WALLS).map(function (k) {
+        return '<button type="button" data-wall="' + k + '" aria-pressed="' + (E.wtype === k) + '"><img alt="" src="' + wallThumb(k) + '">' + MA.WALLS[k].name() + '</button>';
+      }).join("") + '</div><div class="ma-ed-row"><label>' + L2("Drehung", "Rotation") + '</label><button type="button" data-a="wrot">' + (E.wrot ? "90°" : "0°") + ' (R)</button></div>' +
+        '<div class="ma-ed-info">' + L2("Klick setzt ein Stück, Ziehen zeichnet eine gerade Mauer (waagerecht oder senkrecht). Mauern verbinden sich mit angrenzenden zu Ecken und Kreuzungen. Rechte Maustaste entfernt. Die Spielfigur kommt nicht hindurch.", "Click places one piece, dragging draws a straight wall (horizontal or vertical). Walls join neighbours into corners and crossings. Right mouse button removes. The player cannot pass.") + '</div>';
     } else if (E.tool === "erase") {
-      h = '<h3>' + L2("Radierer", "Eraser") + '</h3>' + sizeRow("bsize", 3, 64, 1) + '<div class="ma-ed-info">' + L2("Entfernt Pflanzen, Objekte und Laubfall im Kreis.", "Removes plants, objects and leaf fall in the circle.") + '</div>';
+      h = '<h3>' + L2("Radierer", "Eraser") + '</h3>' + sizeRow("bsize", 3, 64, 1) + '<div class="ma-ed-info">' + L2("Entfernt Pflanzen, Objekte, Mauern und Laubfall im Kreis.", "Removes plants, objects, walls and leaf fall in the circle.") + '</div>';
     } else if (E.tool === "move") {
       h = '<div class="ma-ed-info">' + L2("Objekt mit gedrückter linker Maustaste ziehen.", "Drag an object with the left mouse button.") + '</div>';
     } else if (E.tool === "spawn") {
@@ -286,6 +292,7 @@
     if (d.brush) { E.brush = d.brush; renderOpts(); return; }
     if (d.rock) { var ri = +d.rock; E.rockSel[ri] = !E.rockSel[ri]; renderOpts(); return; }
     if (d.obj) { E.obj = d.obj; E.ov = 0; renderOpts(); return; }
+    if (d.wall) { E.wtype = d.wall; renderOpts(); return; }
     if (d.time) { E.world.time = +d.time; E.arena.time = E.world.time; syncUI(); return; }
     if (d.zdel) { snapshot(); E.arena.removeZone(d.zdel); E.world.syncZones(true); if (E.zsel === d.zdel) E.zsel = E.arena.zones.length ? E.arena.zones[0].id : null; renderOpts(); return; }
     var a = d.a;
@@ -293,6 +300,7 @@
       for (var k = 0; k < MA.OBJECTS.rock.variants; k++) E.rockSel[k] = a === "rall" || (a === "rsmall" && ROCK_SMALL.indexOf(k) >= 0);
       renderOpts(); return;
     }
+    if (a === "wrot") { E.wrot = E.wrot ? 0 : 1; renderOpts(); return; }
     if (a === "zin") zoomBy(1.4);
     else if (a === "zout") zoomBy(1 / 1.4);
     else if (a === "z1") { E.world.setZoom(1); syncUI(); }
@@ -420,11 +428,34 @@
     E.arena.obj.forEach(function (o) { var d = m.dist(x, y, o.x, o.y - 4); if (d < bd) { bd = d; best = o; } });
     return best;
   }
+  // Mauern (v0.13)
+  var wthumbs = {};
+  function wallThumb(k) {
+    if (wthumbs[k]) return wthumbs[k];
+    // drei Stücke nebeneinander (Ende – Mitte – Ende)
+    var ps = [MA.walls.preview(k, 2, 3, 5), MA.walls.preview(k, 10, 4, 5), MA.walls.preview(k, 8, 5, 5)], h = ps[0].cv.height, c = MA.canvas((T * 3 + 4) * 2, h * 2);
+    c.ctx.imageSmoothingEnabled = false;
+    ps.forEach(function (p, i) { c.ctx.drawImage(p.cv, i * T * 2, 0, p.cv.width * 2, h * 2); });
+    return (wthumbs[k] = c.toDataURL());
+  }
+  // gerade Linie vom Start der Ziehbewegung zur Maus (dominante Achse); einzelnes Stück nach Drehung
+  function wallLine() {
+    var s = E.wline; if (!s) return [];
+    var ex = Math.floor(E.wx / T), ey = Math.floor(E.wy / T), dx = ex - s[0], dy = ey - s[1], out = [];
+    var vert = dx === 0 && dy === 0 ? !!E.wrot : Math.abs(dy) > Math.abs(dx), n = vert ? Math.abs(dy) : Math.abs(dx), st = vert ? Math.sign(dy) : Math.sign(dx);
+    var ch = vert ? E.wtype.toUpperCase() : E.wtype;
+    for (var i = 0; i <= n; i++) {
+      var tx = vert ? s[0] : s[0] + i * st, ty = vert ? s[1] + i * st : s[1];
+      if (tx >= 0 && ty >= 0 && tx < E.arena.cols && ty < E.arena.rows) out.push([tx, ty, ch]);
+    }
+    return out;
+  }
+  function wallsChanged(x0, y0, x1, y1) { E.world.paintOverview({ x0: x0 - 1, y0: y0 - 1, x1: x1 + 2, y1: y1 + 2 }); }
   function snap(v) { return MA.input.down("Shift") ? Math.round(v / 8) * 8 : Math.round(v); }
 
   MA.scenes.devkit = {
     enter: function () {
-      if (!E) E = { tab: "map", tool: "brush", tile: "m", brush: "meadow", obj: "toro", ov: 0, bsize: 14, tsize: 1, zsize: 6, dens: 5, wind: 1, grid: false, timeRun: false, timeSpeedV: 0.5, undo: [], acc: 0, racc: 0, rockSel: [true, true, true, true, true, true, true, true, true, true, true, true, true], drag: null, stroke: false, wx: 0, wy: 0, zsel: null };
+      if (!E) E = { tab: "map", tool: "brush", tile: "m", brush: "meadow", obj: "toro", ov: 0, bsize: 14, tsize: 1, zsize: 6, dens: 5, wind: 1, grid: false, timeRun: false, timeSpeedV: 0.5, undo: [], acc: 0, racc: 0, wtype: "h", wrot: 0, wline: null, rockSel: [true, true, true, true, true, true, true, true, true, true, true, true, true], drag: null, stroke: false, wx: 0, wy: 0, zsel: null };
       MA.main.setSidebar(PANEL);
       MA.audio.ambience(null);
       MA.audio.musicStop();
@@ -455,6 +486,7 @@
       E.lastM = I.mmb ? [I.mx, I.my] : null;
       if (px || py) w.pan(px, py);
       E.wx = w.cam.x + I.mx / z; E.wy = w.cam.y + I.my / z;
+      if (I.hit("r") && E.tool === "walls") { E.wrot = E.wrot ? 0 : 1; renderOpts(); }
       if (I.hit("r") && E.tool === "obj") { E.ov = (Math.random() * MA.OBJECTS[E.obj].variants) | 0; renderOpts(); }
       if (I.wheel) {
         if (ctrl) zoomBy(I.wheel < 0 ? 1.25 : 0.8, I.mx, I.my);
@@ -480,8 +512,19 @@
         else if (E.tool === "erase" && (I.lmb || I.rmb)) {
           removeVeg(X, Y, E.bsize);
           a.obj = a.obj.filter(function (o) { return m.dist(X, Y, o.x, o.y) > E.bsize; });
+          var wch = false; inCircle(X, Y, E.bsize * 0.8, function (tx, ty) { if (a.setWall(tx, ty, "0")) wch = true; });
+          if (wch) wallsChanged(Math.floor((X - E.bsize) / T), Math.floor((Y - E.bsize) / T), Math.ceil((X + E.bsize) / T), Math.ceil((Y + E.bsize) / T));
           inCircle(X, Y, E.bsize * 0.8, function (tx, ty) { a.setLeaf(tx, ty, false); });
           w.refreshSolids();
+        } else if (E.tool === "walls") {
+          if (I.lmbHit) E.wline = [Math.floor(X / T), Math.floor(Y / T)];
+          if (E.wline && !I.lmb) {
+            var wl = wallLine(), mnx = 1e9, mny = 1e9, mxx = -1, mxy = -1;
+            wl.forEach(function (q) { a.setWall(q[0], q[1], q[2]); mnx = Math.min(mnx, q[0]); mny = Math.min(mny, q[1]); mxx = Math.max(mxx, q[0]); mxy = Math.max(mxy, q[1]); });
+            if (wl.length) wallsChanged(mnx, mny, mxx, mxy);
+            E.wline = null;
+          }
+          if (I.rmb && !E.wline) { var etx = Math.floor(X / T), ety = Math.floor(Y / T); if (a.setWall(etx, ety, "0")) wallsChanged(etx, ety, etx, ety); }
         } else if (E.tool === "obj") {
           if (I.lmbHit) { a.obj.push({ t: E.obj, x: snap(X), y: snap(Y), v: E.ov }); w.refreshSolids(); }
           if (I.rmbHit) { var o = nearestObj(X, Y); if (o) { a.obj.splice(a.obj.indexOf(o), 1); w.refreshSolids(); } }
@@ -533,6 +576,20 @@
         } else if (E.tool === "obj") {
           var s = MA.sprite("obj", E.obj, E.ov);
           ctx.globalAlpha = 0.65; ctx.drawImage(s.cv, snap(X) - s.def.ax, snap(Y) - s.def.ay); ctx.globalAlpha = 1;
+        } else if (E.tool === "walls") {
+          // Vorschau: geplante Linie halbdurchsichtig, verbunden wie später auf der Map
+          var wl2 = E.wline ? wallLine() : [[Math.floor(X / T), Math.floor(Y / T), E.wrot ? E.wtype.toUpperCase() : E.wtype]], set = {};
+          wl2.forEach(function (q) { set[q[0] + "," + q[1]] = 1; });
+          function has(tx, ty) { return set[tx + "," + ty] || a.wallAt(tx, ty) !== "0"; }
+          ctx.globalAlpha = 0.7;
+          wl2.forEach(function (q) {
+            var mk = (has(q[0], q[1] - 1) ? 1 : 0) | (has(q[0] + 1, q[1]) ? 2 : 0) | (has(q[0], q[1] + 1) ? 4 : 0) | (has(q[0] - 1, q[1]) ? 8 : 0);
+            var p = MA.walls.preview(q[2], mk, q[0], q[1]);
+            ctx.drawImage(p.cv, q[0] * T - 2, q[1] * T - p.H - 2);
+          });
+          ctx.globalAlpha = 1;
+          ctx.strokeRect(wl2[0][0] * T + 0.5, wl2[0][1] * T + 0.5, T - 1, T - 1);
+          if (wl2.length > 1) { var lq = wl2[wl2.length - 1]; ctx.strokeRect(lq[0] * T + 0.5, lq[1] * T + 0.5, T - 1, T - 1); }
         } else if (E.tool === "move" || E.tool === "spawn") {
           var o = E.tool === "move" && (E.drag ? E.drag.o : nearestObj(X, Y, 18));
           if (o) { var d = MA.OBJECTS[o.t]; ctx.strokeRect(Math.round(o.x - d.ax) - 0.5, Math.round(o.y - d.ay) - 0.5, d.w + 1, d.h + 1); }

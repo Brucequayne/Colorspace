@@ -54,12 +54,13 @@
     this.tiles = dec(data.tiles, n, MA.SEA) || fill(n, MA.SEA).split("");
     this.leaf = dec(data.leaf, n, "0") || fill(n, "0").split("");
     this.zone = dec(data.zone, n, "0") || fill(n, "0").split("");
+    this.wall = dec(data.wall, n, "0") || fill(n, "0").split("");   // seit v0.13: Mauern je Kachel (walls.js), "0" = keine
     // Zonen: [{ id, name, col }] – id ist ein Zeichen aus MA.ZONE_IDS
     this.zones = (data.zones || []).map(function (z) { return { id: z.id, name: z.name || "", col: z.col || "#62929E" }; });
     this.obj = (data.obj || []).filter(function (o) { return MA.OBJECTS[o[0]]; }).map(function (o) { return { t: o[0], x: o[1], y: o[2], v: Math.min(o[3] | 0, MA.OBJECTS[o[0]].variants - 1) }; });
     this.veg = (data.veg || []).filter(function (o) { return MA.VEG[o[0]]; }).map(function (o) { return { t: o[0], x: o[1], y: o[2], v: Math.min(o[3] | 0, MA.VEG[o[0]].variants - 1) }; });
     this.spawn = data.spawn || [this.cols * T / 2, this.rows * T / 2];
-    this.rev = 0; this.vegRev = 0; this.zoneRev = 0;
+    this.rev = 0; this.vegRev = 0; this.zoneRev = 0; this.wallRev = 0;
     this.dirty = null;    // geänderter Kachelbereich seit dem letzten Neuzeichnen {x0,y0,x1,y1}
     this.zdirty = null;   // geänderter Zonenbereich
   }
@@ -112,6 +113,13 @@
     this.zoneRev++; this.zdirty = { x0: 0, y0: 0, x1: this.cols, y1: this.rows };
   };
   A.touchVeg = function () { this.vegRev++; };
+  // Mauern (seit v0.13)
+  A.wallAt = function (tx, ty) { if (tx < 0 || ty < 0 || tx >= this.cols || ty >= this.rows) return "0"; return this.wall[ty * this.cols + tx]; };
+  A.setWall = function (tx, ty, ch) {
+    if (tx < 0 || ty < 0 || tx >= this.cols || ty >= this.rows) return false;
+    var i = ty * this.cols + tx; if (this.wall[i] === ch) return false;
+    this.wall[i] = ch; this.wallRev++; return true;
+  };
   A.isLeaf = function (tx, ty) { return this.leaf[ty * this.cols + tx] === "1"; };
   A.setLeaf = function (tx, ty, on) { if (tx < 0 || ty < 0 || tx >= this.cols || ty >= this.rows) return; this.leaf[ty * this.cols + tx] = on ? "1" : "0"; };
   A.speedAt = function (x, y) { var d = MA.TILES[this.tilePx(x, y)]; return d ? d.speed || 1 : 1; };
@@ -119,19 +127,19 @@
   A.walkable = function (x, y, r) {
     r = r || 0;
     return !this.solidTile(Math.floor((x - r) / T), Math.floor(y / T)) && !this.solidTile(Math.floor((x + r) / T), Math.floor(y / T)) &&
-      !this.solidTile(Math.floor(x / T), Math.floor((y - r) / T)) && !this.solidTile(Math.floor(x / T), Math.floor((y + r) / T));
+      !this.solidTile(Math.floor(x / T), Math.floor((y - r) / T)) && !this.solidTile(Math.floor(x / T), Math.floor((y + r) / T)) && !MA.walls.hit(this, x, y, r);
   };
 
   // Größe ändern: Inhalt bleibt mittig erhalten, neue Fläche ist Meer
   A.resize = function (cols, rows) {
     cols = Math.max(MA.MAP_MIN[0], Math.min(MA.MAP_MAX[0], cols | 0)); rows = Math.max(MA.MAP_MIN[1], Math.min(MA.MAP_MAX[1], rows | 0));
     if (cols === this.cols && rows === this.rows) return false;
-    var ox = Math.floor((cols - this.cols) / 2), oy = Math.floor((rows - this.rows) / 2), t = [], l = [], zz = [];
+    var ox = Math.floor((cols - this.cols) / 2), oy = Math.floor((rows - this.rows) / 2), t = [], l = [], zz = [], wl = [];
     for (var y = 0; y < rows; y++) for (var x = 0; x < cols; x++) {
       var sx = x - ox, sy = y - oy, inside = sx >= 0 && sy >= 0 && sx < this.cols && sy < this.rows, k = sy * this.cols + sx;
-      t.push(inside ? this.tiles[k] : MA.SEA); l.push(inside ? this.leaf[k] : "0"); zz.push(inside ? this.zone[k] : "0");
+      t.push(inside ? this.tiles[k] : MA.SEA); l.push(inside ? this.leaf[k] : "0"); zz.push(inside ? this.zone[k] : "0"); wl.push(inside ? this.wall[k] : "0");
     }
-    this.zone = zz; this.zoneRev++; this.vegRev++;
+    this.zone = zz; this.wall = wl; this.zoneRev++; this.vegRev++; this.wallRev++;
     var dx = ox * T, dy = oy * T, W2 = cols * T, H2 = rows * T;
     function keep(o) { o.x += dx; o.y += dy; return o.x >= 0 && o.y >= 0 && o.x < W2 && o.y < H2; }
     this.obj = this.obj.filter(keep); this.veg = this.veg.filter(keep);
@@ -155,7 +163,7 @@
     function blocked(px, py) {
       var x0 = Math.floor((px - r) / T), x1 = Math.floor((px + r) / T), y0 = Math.floor((py - r) / T), y1 = Math.floor((py + r) / T);
       for (var ty = y0; ty <= y1; ty++) for (var tx = x0; tx <= x1; tx++) if (self.solidTile(tx, ty)) return true;
-      return false;
+      return MA.walls.hit(self, px, py, r);   // Mauern, Hecken, Zäune: unüberwindbar
     }
     if (!blocked(x + dx, y)) x += dx;
     else { var s = Math.sign(dx); for (var i = 0; i < Math.abs(dx) && !blocked(x + s * 0.5, y); i += 0.5) x += s * 0.5; }
@@ -174,7 +182,7 @@
   A.serialize = function () {
     return {
       v: 1, game: "monstersarc", name: this.name, seed: this.seed, time: Math.round(this.time * 100) / 100, cols: this.cols, rows: this.rows,
-      tiles: enc(this.tiles), leaf: enc(this.leaf), zone: enc(this.zone), zones: this.zones.map(function (z) { return { id: z.id, name: z.name, col: z.col }; }),
+      tiles: enc(this.tiles), leaf: enc(this.leaf), zone: enc(this.zone), wall: enc(this.wall), zones: this.zones.map(function (z) { return { id: z.id, name: z.name, col: z.col }; }),
       obj: this.obj.map(function (o) { return [o.t, Math.round(o.x), Math.round(o.y), o.v]; }),
       veg: this.veg.map(function (o) { return [o.t, Math.round(o.x), Math.round(o.y), o.v]; }),
       spawn: this.spawn.map(Math.round)

@@ -23,6 +23,7 @@ Ordner nacheinander, mit demselben Cache-Stempel `?v=…`. Kein Build-Schritt n�
 | `character.js` | Figur (`MA.Character`): Laufen, Kollision, Schritte, Haare wie Shizukus Samurai – Grundlage für Spieler und NPCs |
 | `scene-menu.js` | Hauptmenü |
 | `scene-walk.js` | Testlauf mit Kamera (später die Spielszene); beim Betreten einer Zone erscheint ihr Name |
+| `walls.js` | Mauern (seit v0.13): Hecke `h`, Holzzaun `f`, Mauer `m` in `map.wall` (ein Zeichen je Kachel, Großbuchstabe = senkrecht). Verbinden sich mit den vier Nachbarn, Kollision über die Grundfläche (`MA.walls.hit`, in `map.move`) |
 | `devkit.js` | Dev-Kit: Bereiche Map-Editor (v0.1), Attacken, Missionen, Monster (später) |
 | `main.js` | Hülle: Canvas, Skalierung, Szenen, Schleife |
 

@@ -41,6 +41,7 @@
       w.update(dt);
       MA.audio.ambience({ wind: 0.12 + 0.1 * Math.min(2, w.wind) });
     },
-    render: function (ctx) { S.world.render(ctx, { ents: [S.pc], player: S.pc }); }
+    render: function (ctx) { S.world.render(ctx, { ents: [S.pc], player: S.pc }); },
+    state: S   // für Tests und spätere Skripte (Figur, Welt)
   };
 })();

@@ -3,6 +3,15 @@
    Die Versionsnummer auf den Kacheln kommt aus dem obersten Eintrag. */
 window.PATCHNOTES = {
   monstersarc: [
+    { v: "0.13", t: "2026-11-23T05:50:00+01:00",
+      de: ["Neues Werkzeug „Mauern“ im Map-Editor mit drei Arten: dichte Hecke, Holzzaun in warmem Braun und leicht vermooste Steinmauer.",
+        "Ein Klick setzt ein einzelnes Stück, gedreht um 0° oder 90° (Taste R oder Knopf „Drehung“). Ziehen zeichnet eine gerade Mauer, waagerecht oder senkrecht; eine Vorschau zeigt sie schon beim Ziehen.",
+        "Mauern verbinden sich automatisch mit angrenzenden Mauern zu Ecken, T-Stücken und Kreuzungen, auch zwischen verschiedenen Arten. Rechtsklick und der Radierer entfernen sie.",
+        "Hecken, Zäune und Mauern sind für die Spielfigur unüberwindbar. Sie werfen Schatten und erscheinen in der Übersichtskarte."],
+      en: ["New tool “Walls” in the map editor with three types: dense hedge, wooden fence in a warm brown and a slightly mossy stone wall.",
+        "A click places a single piece, rotated by 0° or 90° (R key or the “Rotation” button). Dragging draws a straight wall, horizontal or vertical; a preview shows it while dragging.",
+        "Walls join neighbouring walls automatically into corners, T pieces and crossings, also between different types. Right click and the eraser remove them.",
+        "Hedges, fences and walls cannot be crossed by the player. They cast shadows and appear on the overview map."] },
     { v: "0.12", t: "2026-11-23T05:45:00+01:00",
       de: ["Vier neue Felsen: drei kleine Steine (rund mit Moos, spitz und bläulich, zwei kleine nebeneinander) und ein großer flacher Fels. Es gibt jetzt 13 Varianten.",
         "Neuer Pinsel „Steine/Felsen“: streut Felsen mit Abstand zueinander. Darunter lassen sich alle 13 Varianten einzeln an- und abwählen (dazu „Alle“, „Keine“, „Nur kleine“). Rechtsklick entfernt die angekreuzten Varianten im Kreis.",

@@ -53,6 +53,7 @@
     var a = this.arena, d = this.ovImg.data, x0 = Math.max(0, r.x0), y0 = Math.max(0, r.y0), x1 = Math.min(a.cols, r.x1), y1 = Math.min(a.rows, r.y1);
     for (var y = y0; y < y1; y++) for (var x = x0; x < x1; x++) {
       var t = MA.TILES[a.tiles[y * a.cols + x]], c = t ? (t.rgb || (t.rgb = MA.hex(t.sw))) : [0, 0, 0], i = (y * a.cols + x) * 4;
+      var wc = a.wall[y * a.cols + x]; if (wc !== "0") { var wd = MA.walls.def(wc); c = wd.rgb || (wd.rgb = MA.hex(wd.ov)); }   // Mauern
       d[i] = c[0]; d[i + 1] = c[1]; d[i + 2] = c[2]; d[i + 3] = 255;
     }
     this.ov.ctx.putImageData(this.ovImg, 0, 0, x0, y0, x1 - x0, y1 - y0);
@@ -271,6 +272,12 @@
       }
       a.obj.forEach(function (o) { var d = MA.OBJECTS[o.t]; if (o.x + d.w < v.x0 || o.x - d.w > v.x1 || o.y < v.y0 || o.y - d.h > v.y1) return; items.push({ y: o.y, o: o }); });
       tall.forEach(function (q2) { items.push({ y: q2.y, v: q2 }); });
+      // Mauern (seit v0.13): je Kachel ein Stück, sortiert nach dem Fuß
+      var wx0 = Math.max(0, Math.floor(v.x0 / T) - 1), wx1 = Math.min(a.cols - 1, Math.floor(v.x1 / T) + 1), wy0 = Math.max(0, Math.floor(v.y0 / T) - 1), wy1 = Math.min(a.rows - 1, Math.floor((v.y1 + 24) / T));
+      for (var wy = wy0; wy <= wy1; wy++) for (var wxx = wx0; wxx <= wx1; wxx++) {
+        if (a.wall[wy * a.cols + wxx] === "0") continue;
+        var wp = MA.walls.piece(a, wxx, wy); items.push({ y: wy * T + wp.ay - wp.H - 2, w: wp, wx: wxx * T, wy: wy * T });
+      }
       ents.forEach(function (e) { items.push({ y: e.y, e: e }); });
       items.sort(function (p, q2) { return p.y - q2.y; });
 
@@ -281,6 +288,7 @@
         MA.light.off.x = cx; MA.light.off.y = cy;
         items.forEach(function (it) {
           if (it.v) return;
+          if (it.w) { MA.light.shadowXf(sc, shd, it.wx + it.w.ax - 2, it.wy + it.w.ay - it.w.H - 2, it.w.ax, it.w.ay, 1); sc.drawImage(it.w.sil, 0, 0); return; }
           if (it.e) { if (it.e.drawShadow) it.e.drawShadow(sc, shd); return; }
           var o = it.o, s = MA.sprite("obj", o.t, o.v), d = s.def;
           MA.light.shadowXf(sc, shd, o.x, o.y, d.ax, d.ay, 1);
@@ -295,6 +303,7 @@
       items.forEach(function (it) {
         if (it.v) { self.drawVeg(ctx, it.v, ents); return; }
         if (it.e) { it.e.draw(ctx); return; }
+        if (it.w) { ctx.drawImage(it.w.cv, it.wx - 2, it.wy - it.w.H - 2); return; }
         var o = it.o, d0 = MA.OBJECTS[o.t], fr = d0.frames ? Math.floor(t * (d0.fps || 6) + o.x * 0.37 + o.y * 0.11) % d0.frames : 0;   // Banner flattern
         var s = MA.sprite("obj", o.t, o.v, fr), d = s.def, rt = o._rt || {};
         var dx = rt.shake ? Math.round(Math.sin(t * 70) * rt.shake * 1.6) : 0;
