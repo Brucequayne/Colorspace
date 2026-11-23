@@ -20,11 +20,12 @@ den Cache-Stempel der Startseite bekommt, und lädt dann `src/main.js`.
 |---|---|
 | `core.js` | Namensraum `PR`, Texte (`L2`, `t`), Speicherschlüssel, Mathe, Zufall, Rauschen |
 | `engine.js` | Renderer, Kamera, Himmel, Sonne/Mond nach Uhrzeit, Nebel, Schatten, Qualität |
-| `terrain.js` | Gelände: Höhenraster 360 × 360 Zellen auf 1440 m (ältere 1024-m-Szenen werden mittig übernommen), Kacheln, Pinsel, Bodenarten |
+| `terrain.js` | Gelände: Höhenraster 360 × 360 Zellen auf 1440 m (ältere 1024-m-Szenen werden mittig übernommen), Kacheln, Pinsel (inkl. Regen-Erosion), Bodenarten |
 | `road.js` | Straße: Spline-Punkte (Höhe, Breite, Neigung, Kerbs, Gelände an/aus `t`, Hilfspunkt `a`), Netz, Abfrage, Gelände-Einbettung, automatische Betonbrücken (Brüstungen, Pfeiler) |
 | `models.js` | Prozedurale Platzhalter-Modelle (Bäume, Steine, Gras, Testauto) |
 | `vegetation.js` | Pflanzentypen (Bäume, Gras aus Halmen, Steine, Kollisionsradien), Pinsel-Gruppen mit Wahrscheinlichkeiten und Hangneigung von/bis, Instanzen, Wind |
 | `wind.js` | Wind-Symbol oben rechts (Richtung relativ zur Kamera, Stärke) |
+| `race.js` | Checkpoints (Punkt-Flag `cp`, Pfosten am Fahrbahnrand), Fortschritt entlang der Hauptstrecke, Rundenzeit, Zwischenzeiten gegen die Bestzeit |
 | `world.js` | Welt aus Gelände + mehreren Straßen (`roads`, Hauptstrecke `road`, Abzweigungen `j`) + Vegetation + Umgebung, Boden-Abfrage für die Physik, Standard-Strecke |
 | `sceneio.js` | Szenen-Export/-Import (.txt), automatisches Speichern |
 | `input.js` | Tastatur, Controller |
@@ -38,9 +39,9 @@ den Cache-Stempel der Startseite bekommt, und lädt dann `src/main.js`.
 
 `assets.js` (FBX-Bibliothek, Vorschaubilder, Asset-Pinsel), `weather.js` (Wetter, Wolken, Wolkenschatten, Nässe),
 `lights.js` (Lichtquellen, Scheinwerfer), `tires.js` (Reifenarten, Verschleiß, Temperatur), `engines.js` (Motoren inkl. Elektro),
-`race.js` (Rennen, Runden, Boxenstopp, Kraftstoff, Schaden/Ausfall), `ai.js` (KI-Fahrer), `season.js` (Saison, Wertung, Geld),
+`race.js` ausbauen (Boxenstopp, Kraftstoff, Schaden/Ausfall), `ai.js` (KI-Fahrer), `season.js` (Saison, Wertung, Geld),
 `garage.js` (Werkstatt: Tuning, Lackiererei, Kauf), `net.js` (Freunde per Einladungslink), `hud.js` (Live-Statistiken).
 
 ## Speicher im Browser
 
-`polyracer-scene-v1` (aktuelle Szene), `polyracer-settings-v1`, `polyracer-ui-v1`, `polyracer-dev` (Developer-Code 424242).
+`polyracer-scene-v1` (aktuelle Szene), `polyracer-settings-v1`, `polyracer-ui-v1`, `polyracer-dev` (Developer-Code 424242), `polyracer-best-v1` (Bestzeiten je Strecke).

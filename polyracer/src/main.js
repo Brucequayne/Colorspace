@@ -53,6 +53,9 @@ const CSS = `
 .pr-spd{position:absolute;right:28px;bottom:54px;text-align:right}.pr-spd b{font:800 64px/1 var(--f-display,system-ui,sans-serif);color:#fff;text-shadow:0 2px 8px rgba(0,0,0,.6)}.pr-spd span{display:block;color:#ddd;font-weight:700}
 .pr-gear{position:absolute;right:28px;bottom:150px;font:800 34px/1 var(--f-display,system-ui,sans-serif);color:#E8A04A;text-shadow:0 2px 6px rgba(0,0,0,.6)}
 .pr-rpm{position:absolute;right:28px;bottom:40px;width:220px;height:8px;background:rgba(0,0,0,.5)}.pr-rpm i{display:block;height:100%;width:0;background:#E8A04A}
+.pr-cpd{position:absolute;left:50%;top:14px;transform:translateX(-50%);color:#C6C5B9;font-weight:700;font-size:13px;background:rgba(22,23,26,.45);padding:3px 9px;min-width:54px;text-align:center}.pr-cpd:empty{display:none}
+.pr-delta{position:absolute;left:50%;top:44px;transform:translateX(-50%);font:800 22px/1 var(--f-display,system-ui,sans-serif);color:#eee;text-shadow:0 2px 6px rgba(0,0,0,.6);transition:opacity .2s;white-space:pre}.pr-delta.pr-good{color:#7FC8D4}.pr-delta.pr-bad{color:#ED6A5E}
+.pr-timer{position:absolute;left:20px;top:16px;color:#eee;font-weight:700;font-size:15px;line-height:1.5;text-shadow:0 1px 4px rgba(0,0,0,.8);font-variant-numeric:tabular-nums}
 .pr-info{position:absolute;left:20px;bottom:44px;color:#eee;font-weight:600;text-shadow:0 1px 4px rgba(0,0,0,.8)}
 .pr-help{position:absolute;left:20px;right:20px;bottom:14px;color:#ccc;font-size:12px;text-shadow:0 1px 4px rgba(0,0,0,.8)}
 .pr-legend{display:flex;flex-wrap:wrap;gap:4px 10px;margin-top:10px;font-size:11px;color:#A9ACB2}.pr-lg{display:flex;align-items:center;gap:5px}.pr-lg i{width:12px;height:12px;display:inline-block}

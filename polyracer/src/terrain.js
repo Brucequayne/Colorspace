@@ -128,6 +128,52 @@ export class Terrain {
     }
     return [i0 - 1, j0 - 1, i1 + 1, j1 + 1];
   }
+  // Regen-Erosion (seit v0.14): Tropfen starten im Pinsel an Hängen (ab ~18°), laufen bergab, tragen Material ab,
+  // solange sie schnell sind, und lagern es ab, wo es flacher wird. So entstehen Rinnen und Schwemmfächer.
+  // R = Zufallsfunktion (0…1). Gibt den geänderten Bereich zurück (Rasterpunkte) oder null.
+  erode(x, z, r, str, dt, R) {
+    const H = this.h, n = this.n, res = this.res, c = this.cell, rc = r / c, cx = (x - this.org) / c, cz = (z - this.org) / c;
+    const drops = Math.min(300, Math.ceil(str * 260 * dt * Math.max(0.3, (rc / 6) * (rc / 6))));
+    let i0 = 1e9, j0 = 1e9, i1 = -1e9, j1 = -1e9, any = false;
+    const hgt = (px, pz, o) => {   // Höhe und Gefälle (m pro Zelle) bilinear
+      const ix = Math.floor(px), iz = Math.floor(pz), u = px - ix, v = pz - iz, k = iz * n + ix;
+      const a = H[k], b = H[k + 1], cc = H[k + n], d = H[k + n + 1];
+      o.h = a * (1 - u) * (1 - v) + b * u * (1 - v) + cc * (1 - u) * v + d * u * v;
+      o.gx = (b - a) * (1 - v) + (d - cc) * v; o.gz = (cc - a) * (1 - u) + (d - b) * u; return o;
+    };
+    const add = (px, pz, amt) => {   // auf die 4 Nachbarpunkte verteilen
+      const ix = Math.floor(px), iz = Math.floor(pz), u = px - ix, v = pz - iz, k = iz * n + ix;
+      H[k] += amt * (1 - u) * (1 - v); H[k + 1] += amt * u * (1 - v); H[k + n] += amt * (1 - u) * v; H[k + n + 1] += amt * u * v;
+      if (ix < i0) i0 = ix; if (iz < j0) j0 = iz; if (ix + 1 > i1) i1 = ix + 1; if (iz + 1 > j1) j1 = iz + 1; any = true;
+    };
+    const o = {}, o2 = {}, slopeMin = 0.32 * c;   // tan(~18°) × Zellgröße
+    for (let q = 0; q < drops; q++) {
+      const an = R() * Math.PI * 2, rr = Math.sqrt(R()) * rc;
+      let px = cx + Math.cos(an) * rr, pz = cz + Math.sin(an) * rr;
+      if (px < 1 || pz < 1 || px >= res - 1 || pz >= res - 1) continue;
+      hgt(px, pz, o); if (Math.hypot(o.gx, o.gz) < slopeMin) continue;   // flaches Gelände bleibt, wie es ist
+      let dx = 0, dz = 0, sp = 1, water = 1, sed = 0;
+      for (let st = 0; st < 60; st++) {
+        hgt(px, pz, o);
+        dx = dx * 0.1 - o.gx * 0.9; dz = dz * 0.1 - o.gz * 0.9;
+        const L = Math.hypot(dx, dz); if (L < 1e-6) break; dx /= L; dz /= L;
+        const nx = px + dx, nz = pz + dz;
+        if (nx < 1 || nz < 1 || nx >= res - 1 || nz >= res - 1) break;
+        const fall = Math.max(0, 1 - Math.hypot(px - cx, pz - cz) / (rc * 1.6)); if (fall <= 0) break;   // nur im (erweiterten) Pinsel
+        const dh = hgt(nx, nz, o2).h - o.h, cap = Math.max(-dh, 0.05) * sp * water * 0.6;
+        if (sed > cap || dh > 0) {   // ablagern (bergauf: Senke auffüllen)
+          const amt = dh > 0 ? Math.min(dh, sed) : (sed - cap) * 0.25; sed -= amt; add(px, pz, amt);
+        } else {                     // abtragen, über 3×3 Punkte verteilt, damit keine Spitzen entstehen
+          const amt = Math.min((cap - sed) * 0.12 * (0.4 + str) * fall, -dh * 0.5, 0.12); sed += amt;
+          for (let b = -1; b <= 1; b++) for (let a = -1; a <= 1; a++) { const w = (a === 0 && b === 0 ? 0.36 : (a && b ? 0.06 : 0.1)); add(px + a, pz + b, -amt * w); }
+        }
+        sp = Math.min(4, Math.sqrt(Math.max(0, sp * sp - dh * 0.5))); water *= 0.97;
+        px = nx; pz = nz;
+      }
+      if (sed > 0) add(px, pz, sed * 0.8);
+    }
+    return any ? [i0 - 1, j0 - 1, i1 + 1, j1 + 1] : null;
+  }
   // Bodenart malen; smin/smax: nur wo die Hangneigung (Grad) dazwischen liegt
   paintAt(layer, x, z, r, smin = 0, smax = 90) {
     const c = this.cell, cmin = Math.cos(smax * Math.PI / 180) - 1e-6, cmax = Math.cos(smin * Math.PI / 180) + 1e-6, nv = new THREE.Vector3(), filt = smin > 0 || smax < 90, i0 = Math.floor((x - r - this.org) / c), i1 = Math.ceil((x + r - this.org) / c), j0 = Math.floor((z - r - this.org) / c), j1 = Math.ceil((z + r - this.org) / c);

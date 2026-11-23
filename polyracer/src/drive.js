@@ -2,12 +2,14 @@
 import * as THREE from "three";
 import { t, addTexts, L2, clamp, el } from "pr/core.js";
 import { Car } from "pr/car.js";
+import { Race, CheckpointMarkers, fmtTime, fmtDelta } from "pr/race.js";
 
 addTexts({
   dHelp: L2("W/↑ Gas · S/↓ Bremse, im Stand rückwärts · A/D lenken · Leertaste Handbremse · C Kamera · R zurück zum Start (nur Testfahrt) · Esc Pause", "W/↑ throttle · S/↓ brake, reverse when stopped · A/D steer · Space handbrake · C camera · R back to start (test drive only) · Esc pause"),
   dPause: L2("Pause", "Paused"), dGo: L2("Weiterfahren", "Continue"), dRestart: L2("Zum Start", "Back to start"), dEditor: L2("Zum Developer Tool", "To developer tool"), dMenu: L2("Hauptmenü", "Main menu"),
   dNoRoad: L2("Keine Straße in der Szene – im Developer Tool erst eine Strecke bauen.", "No road in the scene – build a track in the developer tool first."),
-  dLap: L2("Runde", "Lap"), dDrive: L2("Antrieb", "Drive"), dSurf: { de: "Untergrund", en: "Surface" }
+  dLap: L2("Runde", "Lap"), dBest: L2("Beste", "Best"), dLast: L2("Letzte", "Last"), dGoLine: L2("Über die Startlinie fahren, dann läuft die Zeit", "Cross the start line to start the timer"),
+  dNewBest: L2("Neue Bestzeit", "New best lap"), dRaceNo: L2("Für ein Test-Rennen braucht die Hauptstrecke einen Rundkurs – jetzt Testfahrt.", "A test race needs the main road to be a circuit – starting a test drive."), dDrive: L2("Antrieb", "Drive"), dSurf: { de: "Untergrund", en: "Surface" }
 });
 const DRIVES = { rwd: L2("Heck", "RWD"), fwd: L2("Front", "FWD"), awd: L2("Allrad", "AWD") };
 
@@ -16,7 +18,10 @@ export class Drive {
     this.app = app; this.world = app.world; this.opts = opts || {};
     this.car = new Car(this.world, { drive: app.settings.drive || "rwd" });
     this.camMode = 0; this.camPos = new THREE.Vector3(); this.camLook = new THREE.Vector3(); this.paused = false;
-    this.hud = el("div", "pr-hud", '<div class="pr-spd"><b id="pr-kmh">0</b><span>km/h</span></div><div class="pr-gear" id="pr-gear">1</div>' +
+    const race = !!this.opts.race;
+    if (race && !(this.world.road && this.world.road.closed && this.world.road.S.length > 1)) { this.app.toast(t("dRaceNo")); this.opts.race = false; }
+    this.race = new Race(this.world, this.opts.race); this.cpm = new CheckpointMarkers(this.world, this.opts.race); this.cpm.build();
+    this.hud = el("div", "pr-hud", '<div class="pr-cpd" id="pr-cpd"></div><div class="pr-delta" id="pr-delta"></div>' + (this.opts.race ? '<div class="pr-timer" id="pr-timer"></div>' : "") + '<div class="pr-spd"><b id="pr-kmh">0</b><span>km/h</span></div><div class="pr-gear" id="pr-gear">1</div>' +
       '<div class="pr-rpm"><i id="pr-rpmb"></i></div><div class="pr-info" id="pr-info"></div><div class="pr-help">' + t("dHelp") + "</div>");
     app.ui.appendChild(this.hud);
     this.reset();
@@ -25,6 +30,7 @@ export class Drive {
     const s = this.world.road.start(8);
     if (!s) { this.app.toast(t("dNoRoad")); this.car.place(new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, 1)); }
     else this.car.place(s.p, s.t);
+    if (this.race) this.race.reset();
     this.snapCam();
   }
   snapCam() { const c = this.car; this.camPos.copy(c.p).add(new THREE.Vector3(0, 3, -8).applyQuaternion(c.q)); this.camLook.copy(c.p); }
@@ -67,6 +73,7 @@ export class Drive {
     }
     cam.fov = 55 + clamp(sp * 0.35, 0, 14); cam.updateProjectionMatrix();
     this.app.engine.focus(c.p);
+    this.raceHud(dt);
     // Anzeige
     const kmh = Math.round(Math.abs(c.fwdSpeed()) * 3.6);
     this.set("pr-kmh", kmh); this.set("pr-gear", c.gear === -1 ? "R" : c.gear === 0 ? "N" : c.gear);
@@ -74,6 +81,22 @@ export class Drive {
     const wk = c.wh.map((w) => (w.contact ? (w.kind === "road" ? "■" : w.kind === "curb" ? "▣" : "□") : "·")).join("");
     this.set("pr-info", t("dDrive") + ": " + DRIVES[c.def.drive][this.app.lang] + " · " + Math.round(c.rpm) + " U/min · " + wk);
   }
+  raceHud(dt) {
+    const r = this.race; if (!this.paused) r.update(dt, this.car.p);
+    const tg = r.target(); this.set("pr-cpd", tg ? Math.max(0, Math.round(tg.m)) + " m" : "");
+    if (tg) { if (this.hl !== tg.d) { this.hl = tg.d; this.cpm.highlight(tg.d); } }
+    const de = document.getElementById("pr-delta"), m = r.msg;
+    if (de) {
+      let txt = "", cls = "";
+      if (m) { txt = m.lap ? (m.best && m.delta != null ? t("dNewBest") + " " : "") + fmtTime(m.t) + (m.delta != null ? "  " + fmtDelta(m.delta) : "") : fmtTime(m.t) + (m.delta != null ? "  " + fmtDelta(m.delta) : ""); cls = m.delta == null ? "" : m.delta < 0 ? "pr-good" : "pr-bad"; }
+      if (de.textContent !== txt) de.textContent = txt; de.className = "pr-delta " + cls; de.style.opacity = m ? String(Math.min(1, (3 - m.age) * 2)) : "0";
+    }
+    if (this.opts.race) {
+      const lines = r.running ? [t("dLap") + " " + r.lap + "  " + fmtTime(r.t)] : [t("dGoLine")];
+      lines.push(t("dBest") + " " + fmtTime(r.best && r.best.t)); if (r.last != null) lines.push(t("dLast") + " " + fmtTime(r.last));
+      const tx = document.getElementById("pr-timer"), h = lines.join("<br>"); if (tx && tx.innerHTML !== h) tx.innerHTML = h;
+    }
+  }
   set(id, v) { const e = document.getElementById(id); if (e && e.textContent !== String(v)) e.textContent = v; }
-  dispose() { this.car.dispose(); this.hud.remove(); if (this.pm) this.pm.remove(); }
+  dispose() { this.cpm.dispose(); this.car.dispose(); this.hud.remove(); if (this.pm) this.pm.remove(); }
 }

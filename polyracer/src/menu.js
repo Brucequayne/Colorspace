@@ -3,7 +3,7 @@ import * as THREE from "three";
 import { t, addTexts, L2, el, store, KEYS, DEV_CODE, PR } from "pr/core.js";
 
 addTexts({
-  mTest: L2("Testfahrt", "Test drive"), mDev: L2("Developer Tool", "Developer tool"), mShop: L2("Werkstatt", "Workshop"), mSoon: L2("kommt bald", "coming soon"),
+  mTest: L2("Testfahrt", "Test drive"), mRace: L2("Test-Rennen", "Test race"), mDev: L2("Developer Tool", "Developer tool"), mShop: L2("Werkstatt", "Workshop"), mSoon: L2("kommt bald", "coming soon"),
   mSet: L2("Einstellungen", "Settings"), mBack: L2("Zurück zu Color Space", "Back to Color Space"),
   mCode: L2("Code für das Developer Tool", "Code for the developer tool"), mWrong: L2("Falscher Code", "Wrong code"), mOk: L2("Öffnen", "Open"),
   sShadow: L2("Schatten", "Shadows"), sScale: L2("Auflösung", "Resolution"), sDrive: L2("Antrieb des Testwagens", "Test car drivetrain"),
@@ -20,6 +20,7 @@ export class Menu {
     this.root = el("div", "pr-menu",
       '<div class="pr-mbox"><h1>POLY<span>RACER</span></h1>' +
       '<button class="pr-mb pr-pri" data-m="drive">' + t("mTest") + "</button>" +
+      '<button class="pr-mb" data-m="race">' + t("mRace") + "</button>" +
       '<button class="pr-mb" data-m="dev">' + t("mDev") + "</button>" +
       '<button class="pr-mb" disabled>' + t("mShop") + " <small>" + t("mSoon") + "</small></button>" +
       '<div class="pr-code" id="pr-code" hidden><label>' + t("mCode") + '</label><div><input type="password" inputmode="numeric" id="pr-codein" autocomplete="off"><button data-m="code">' + t("mOk") + '</button></div><span id="pr-codemsg"></span></div>' +
@@ -44,6 +45,7 @@ export class Menu {
     }
     const m = b.getAttribute("data-m");
     if (m === "drive") this.app.go("drive");
+    else if (m === "race") this.app.go("drive", { race: true });
     else if (m === "dev") { if (store.raw(KEYS.dev) === DEV_CODE) this.app.go("editor"); else { const c = this.root.querySelector("#pr-code"); c.hidden = false; c.querySelector("input").focus(); } }
     else if (m === "code") this.tryCode();
   }

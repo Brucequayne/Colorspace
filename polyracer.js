@@ -10,7 +10,8 @@
     "road.js",      // Straße: Spline-Punkte mit Höhe, Breite, Neigung, Kerbs; Netz, Abfrage für Physik, Gelände-Einbettung
     "models.js",    // Prozedurale Low-Poly-Platzhalter (Bäume, Büsche, Steine, Gras, Auto)
     "vegetation.js",// Vegetation: Typen, Pinsel-Gruppen mit Wahrscheinlichkeiten, Instanzen
-    "wind.js",      // Wind sichtbar als feine Linien (Stärke und Richtung)
+    "wind.js",      // Wind-Symbol oben rechts (Richtung, Stärke)
+    "race.js",      // Checkpoints, Rundenzeit, Zwischenzeiten (Test-Rennen)
     "world.js",     // Welt = Gelände + Straße + Vegetation + Umgebung; Boden-Abfrage, Standard-Strecke
     "sceneio.js",   // Szenen als .txt exportieren/importieren, automatisch speichern
     "input.js",     // Tastatur und Controller

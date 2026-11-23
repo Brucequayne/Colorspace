@@ -5,12 +5,14 @@ import { t, addTexts, L2, tl, clamp, lerp, el, esc, fmt, store, KEYS } from "pr/
 import { LAYERS } from "pr/terrain.js";
 import { TYPES } from "pr/vegetation.js";
 import { Road } from "pr/road.js";
+import { CheckpointMarkers } from "pr/race.js";
 import { download, loadText, autosave } from "pr/sceneio.js";
 
 addTexts({
-  eTitle: L2("Developer Tool", "Developer tool"), eDrive: L2("Testfahrt", "Test drive"), eMenu: L2("Hauptmenü", "Main menu"),
+  eTitle: L2("Developer Tool", "Developer tool"), eDrive: L2("Testfahrt", "Test drive"), eRace: L2("Test-Rennen", "Test race"), eMenu: L2("Hauptmenü", "Main menu"),
   tTerrain: L2("Gelände", "Terrain"), tPaint: L2("Boden malen", "Paint ground"), tRoad: L2("Straße", "Road"), tVeg: L2("Vegetation", "Vegetation"), tEnv: L2("Umgebung", "Environment"), tFile: L2("Datei", "File"),
-  mRaise: L2("Anheben", "Raise"), mLower: L2("Absenken", "Lower"), mSmooth: L2("Glätten", "Smooth"), mFlatten: L2("Ebnen", "Flatten"), mNoise: L2("Aufrauen", "Roughen"),
+  mRaise: L2("Anheben", "Raise"), mLower: L2("Absenken", "Lower"), mSmooth: L2("Glätten", "Smooth"), mFlatten: L2("Ebnen", "Flatten"), mNoise: L2("Aufrauen", "Roughen"), mErode: L2("Erosion", "Erosion"),
+  hErode: L2("Erosion: Regen läuft an Hängen ab etwa 18° bergab, gräbt Rinnen und lagert das Material unten wieder ab. Flache Stellen bleiben unverändert. Länger halten = tiefere Rinnen, Stärke regelt das Tempo.", "Erosion: rain runs down slopes from about 18°, carves gullies and deposits the material further down. Flat ground stays as it is. Hold longer for deeper gullies, strength sets the speed."),
   radius: L2("Pinselgröße", "Brush size"), strength: L2("Stärke", "Strength"),
   hTerrain: L2("Linke Maus formt. Umschalt kehrt Anheben/Absenken um. Ebnen nimmt die Höhe beim Klick. Die Straße bleibt immer auf ihrer Höhe, das Gelände wird darunter weggedrückt.", "Left mouse shapes. Shift inverts raise/lower. Flatten takes the height at the click. The road always keeps its height, the terrain is pushed away below it."),
   hPaint: L2("Linke Maus malt die Bodenart. Steile Hänge werden automatisch zu Fels. Die Bodenart bestimmt später die Haftung neben der Strecke.", "Left mouse paints the ground type. Steep slopes turn to rock automatically. The ground type later sets the grip next to the track."),
@@ -22,6 +24,7 @@ addTexts({
   rH: L2("Platzierhöhe über Gelände (C/V)", "Placement height above terrain (C/V)"), pTerr: L2("Gelände anpassen (ab diesem Punkt)", "Shape terrain (from this point)"),
   rStat: L2("Höhe {h} m · Straßen-Terrain {t} · Länge {l} m", "Height {h} m · road terrain {t} · length {l} m"), rCtrl: L2("Bogenpunkt gesetzt – jetzt das Ende klicken", "Bend point set – now click the end"),
   rBridge: L2("{n} m Brücke", "{n} m bridge"), rRoads: L2("{n} Straßen · {l} m", "{n} roads · {l} m"), rRoad: L2("Straße {i} von {n}", "Road {i} of {n}"),
+  pCp: L2("Checkpoint (Taste K)", "Checkpoint (key K)"), pCpMain: L2("Checkpoints zählen nur auf der Hauptstrecke (erster Rundkurs).", "Checkpoints only count on the main road (first circuit)."),
   rDelRoad: L2("Diese Straße löschen", "Delete this road"), pBr: L2("Brücke erzwingen (ab diesem Punkt)", "Force bridge (from this point)"),
   rFree: L2("Keine Straße gewählt – der nächste Klick beginnt eine neue.", "No road selected – the next click starts a new one."),
   lgOn: L2("auf dem Gelände", "on the terrain"), lgUp: L2("aufgeschüttet / schwebt", "raised / floating"), lgDown: L2("im Boden (wird abgetragen)", "in the ground (gets cut)"), lgBr: L2("Brücke", "bridge"), lgX: L2("kreuzt Straße zu niedrig", "crosses a road too low"),
@@ -64,7 +67,8 @@ export class Editor {
     this.ring = new THREE.Line(lg, new THREE.LineBasicMaterial({ color: 0xFFE08A, depthTest: false, transparent: true })); this.ring.renderOrder = 10; this.eng.scene.add(this.ring);
     this.handles = new THREE.Group(); this.eng.scene.add(this.handles);
     this.hGeo = new THREE.SphereGeometry(1.4, 10, 6); this.hMat = new THREE.MeshBasicMaterial({ color: 0xFFD34A, depthTest: false }); this.hSel = new THREE.MeshBasicMaterial({ color: 0xFF5A2A, depthTest: false }); this.hOff = new THREE.MeshBasicMaterial({ color: 0x8FD3E0, depthTest: false });
-    this.hOff2 = this.hOff; this.hBr = new THREE.MeshBasicMaterial({ color: 0x62929E, depthTest: false });
+    this.hOff2 = this.hOff; this.hBr = new THREE.MeshBasicMaterial({ color: 0x62929E, depthTest: false }); this.hCp = new THREE.MeshBasicMaterial({ color: 0xFFFFFF, depthTest: false });
+    this.cpm = new CheckpointMarkers(this.world, false);
     // Vorschau: farbiges Band in Straßenbreite (Farbe = Lage zum Gelände), Lote zum Boden, Endmarke
     this.ghost = new Road(); this.ghost.world = this.world; this.ghost.base = (x, z) => this.world.terrain.heightAt(x, z, true);
     this.gm = new THREE.Mesh(new THREE.BufferGeometry(), new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.6, depthTest: false, side: THREE.DoubleSide })); this.gm.renderOrder = 12; this.gm.frustumCulled = false;
@@ -84,14 +88,14 @@ export class Editor {
     const c = this.eng.renderer.domElement;
     c.removeEventListener("pointerdown", this.onDown); window.removeEventListener("pointermove", this.onMove); window.removeEventListener("pointerup", this.onUp);
     c.removeEventListener("wheel", this.onWheel); c.removeEventListener("contextmenu", this.onCtx);
-    this.eng.scene.remove(this.ring); this.eng.scene.remove(this.handles); this.eng.scene.remove(this.pv); this.eng.scene.remove(this.gm); this.eng.scene.remove(this.gl); this.eng.scene.remove(this.mk); this.root.remove(); this.saveUI();
+    this.eng.scene.remove(this.ring); this.eng.scene.remove(this.handles); this.eng.scene.remove(this.pv); this.eng.scene.remove(this.gm); this.eng.scene.remove(this.gl); this.eng.scene.remove(this.mk); this.cpm.dispose(); this.root.remove(); this.saveUI();
   }
   saveUI() { const u = store.get(KEYS.ui, {}); u.ed = this.s; u.cam = this.cam; store.set(KEYS.ui, u); }
   // ---------- Oberfläche ----------
   buildUI() {
     const r = this.root = el("div", "pr-ed");
     r.innerHTML = '<div class="pr-top"><b>' + t("eTitle") + '</b><span class="pr-name" id="pr-ename"></span><span class="pr-sp"></span>' +
-      '<button data-e="undo" title="Strg+Z">↶</button><button data-e="redo" title="Strg+Y">↷</button><button data-e="drive" class="pr-pri">▶ ' + t("eDrive") + '</button><button data-e="menu">' + t("eMenu") + "</button></div>" +
+      '<button data-e="undo" title="Strg+Z">↶</button><button data-e="redo" title="Strg+Y">↷</button><button data-e="drive" class="pr-pri">▶ ' + t("eDrive") + '</button><button data-e="race">⚑ ' + t("eRace") + '</button><button data-e="menu">' + t("eMenu") + "</button></div>" +
       '<div class="pr-tools">' + TOOLS.map((x, i) => '<button data-tool="' + x[0] + '"><i>' + (i + 1) + "</i>" + t(x[1]) + "</button>").join("") + "</div>" +
       '<div class="pr-panel" id="pr-panel"></div><div class="pr-status"><span id="pr-st"></span><span>' + t("hCam") + "</span></div>" +
       '<input type="file" id="pr-file" accept=".txt,.json,text/plain" hidden>';
@@ -107,8 +111,8 @@ export class Editor {
     const seg = (k, opts, cur) => '<div class="pr-seg">' + opts.map((o) => '<button data-seg="' + k + '" data-v="' + o[0] + '" aria-pressed="' + (String(cur) === String(o[0])) + '">' + o[1] + "</button>").join("") + "</div>";
     const chk = (k, lab, v) => '<label class="pr-chk"><input type="checkbox" data-k="' + k + '"' + (v ? " checked" : "") + "> " + lab + "</label>";
     let h = "";
-    if (s.tool === "terrain") h = "<h3>" + t("tTerrain") + "</h3>" + seg("tmode", [["raise", t("mRaise")], ["lower", t("mLower")], ["smooth", t("mSmooth")], ["flatten", t("mFlatten")], ["noise", t("mNoise")]], s.tmode) +
-      sl("tr", t("radius"), 3, 120, 1, s.tr, " m") + sl("ts", t("strength"), 0.05, 1, 0.05, s.ts) + "<p>" + t("hTerrain") + "</p>";
+    if (s.tool === "terrain") h = "<h3>" + t("tTerrain") + "</h3>" + seg("tmode", [["raise", t("mRaise")], ["lower", t("mLower")], ["smooth", t("mSmooth")], ["flatten", t("mFlatten")], ["noise", t("mNoise")], ["erode", t("mErode")]], s.tmode) +
+      sl("tr", t("radius"), 3, 120, 1, s.tr, " m") + sl("ts", t("strength"), 0.05, 1, 0.05, s.ts) + (s.tmode === "erode" ? "<p>" + t("hErode") + "</p>" : "") + "<p>" + t("hTerrain") + "</p>";
     else if (s.tool === "paint") h = "<h3>" + t("tPaint") + '</h3><div class="pr-layers">' + LAYERS.map((L, i) => '<button data-seg="layer" data-v="' + i + '" aria-pressed="' + (s.layer === i) + '"><i style="background:' + L.c + '"></i>' + tl(L.n) + "</button>").join("") + "</div>" +
       sl("pr", t("radius"), 2, 80, 1, s.pr, " m") + sl("psmin", t("slMin"), 0, 90, 1, s.psmin, "°") + sl("psmax", t("slMax"), 0, 90, 1, s.psmax, "°") + "<p>" + t("hPaint") + " " + t("hSlope") + "</p>";
     else if (s.tool === "road") {
@@ -126,7 +130,7 @@ export class Editor {
           '<div class="pr-btns"><button data-e="snapall">' + t("snapAll") + '</button><button data-e="smoothh">' + t("smoothH") + '</button><button data-e="rdel">' + t("rDelRoad") + "</button></div></div>";
         if (p) h += '<div class="pr-box"><b>' + fmt(t("pPoint"), { i: this.sel + 1, n: R.pts.length }) + "</b>" + sl("py", t("height"), -150, 250, 0.1, p.y, " m") +
           '<div class="pr-btns"><button data-e="py-5">−5</button><button data-e="py-1">−1</button><button data-e="py+1">+1</button><button data-e="py+5">+5</button></div>' +
-          sl("pw", t("width"), 4, 30, 0.5, p.w, " m") + sl("pb", t("bank"), -30, 30, 0.5, p.bank, "°") + chk("pcl", t("curbL"), p.cl) + chk("pcr", t("curbR"), p.cr) + chk("pt", t("pTerr"), p.t !== 0) + chk("pbr", t("pBr"), !!p.b) +
+          sl("pw", t("width"), 4, 30, 0.5, p.w, " m") + sl("pb", t("bank"), -30, 30, 0.5, p.bank, "°") + chk("pcl", t("curbL"), p.cl) + chk("pcr", t("curbR"), p.cr) + chk("pt", t("pTerr"), p.t !== 0) + chk("pbr", t("pBr"), !!p.b) + chk("pcp", t("pCp"), !!p.cp) + (p.cp && R !== w.road ? '<p class="pr-dim">' + t("pCpMain") + "</p>" : "") +
           '<div class="pr-btns"><button data-e="snap">' + t("snap") + '</button><button data-e="pdel">' + t("del") + "</button></div></div>";
       } else h += '<p class="pr-dim">' + t("rFree") + "</p>";
       h += "<p>" + t("hRoad") + "</p>";
@@ -163,7 +167,7 @@ export class Editor {
     const b = e.target.closest("[data-e]"); if (!b) return;
     const a = b.getAttribute("data-e"), w = this.world, R = this.rd(), p = this.pt();
     if (a === "undo") this.doUndo(); else if (a === "redo") this.doRedo();
-    else if (a === "drive") { autosave(w, true); this.app.go("drive", { fromEditor: true }); }
+    else if (a === "drive" || a === "race") { autosave(w, true); this.app.go("drive", { fromEditor: true, race: a === "race" }); }
     else if (a === "menu") { autosave(w, true); this.app.go("menu"); }
     else if (/^py[+-]\d$/.test(a) && p) { this.push(); p.y += +a.slice(2); this.roadEdit(true); }
     else if (a === "snap" && p) { this.push(); p.y = w.terrain.heightAt(p.x, p.z, true) + 0.15; this.roadEdit(true); }
@@ -198,9 +202,9 @@ export class Editor {
       f.text().then((txt) => { this.push(); if (loadText(w, txt)) { this.selNone(); this.rebuildHandles(); this.panel(); autosave(w); this.app.toast(fmt(t("fLoaded"), { n: w.name })); } else { this.undo.pop(); this.app.toast(t("fBad")); } });
       return;
     }
-    if (k === "pcl" || k === "pcr" || k === "pt" || k === "pbr" || k === "closed") {
+    if (k === "pcl" || k === "pcr" || k === "pt" || k === "pbr" || k === "pcp" || k === "closed") {
       const R = this.rd(), p = this.pt(); if (!R) return; this.push();
-      if (k === "closed") R.closed = e.target.checked && R.pts.length >= 3; else if (k === "pt" && p) p.t = e.target.checked ? 1 : 0; else if (k === "pbr" && p) p.b = e.target.checked ? 1 : 0; else if (p) p[k === "pcl" ? "cl" : "cr"] = e.target.checked;
+      if (k === "closed") R.closed = e.target.checked && R.pts.length >= 3; else if (k === "pt" && p) p.t = e.target.checked ? 1 : 0; else if (k === "pbr" && p) p.b = e.target.checked ? 1 : 0; else if (k === "pcp" && p) { p.cp = e.target.checked ? 1 : 0; if (p.cp) p.a = 0; } else if (p) p[k === "pcl" ? "cl" : "cr"] = e.target.checked;
       this.roadEdit(true); return;
     }
     if (k === "gadd" && e.target.value) { const g = w.veg.groups[this.s.vg]; g.items.push({ t: e.target.value, p: 50 }); this.panel(); autosave(w); return; }
@@ -233,10 +237,10 @@ export class Editor {
   }
   rebuildHandles() {
     const H = this.handles; while (H.children.length) { const c = H.children.pop(); if (c.isLine) c.geometry.dispose(); }
-    const T = this.world.terrain; this.hm = [];
+    const T = this.world.terrain; this.hm = []; this.cpm.build();
     this.world.roads.forEach((R, ri) => R.pts.forEach((p, i) => {
       const on = ri === this.sr && i === this.sel, end = !R.closed && (i === 0 || i === R.pts.length - 1);
-      const m = new THREE.Mesh(this.hGeo, on ? this.hSel : p.b ? this.hBr : p.t === 0 ? this.hOff : this.hMat); m.position.set(p.x, p.y + 1.2, p.z); m.renderOrder = 11;
+      const m = new THREE.Mesh(this.hGeo, on ? this.hSel : p.cp ? this.hCp : p.b ? this.hBr : p.t === 0 ? this.hOff : this.hMat); m.position.set(p.x, p.y + 1.2, p.z); m.renderOrder = 11;
       m.userData.k = on ? 1.1 : end ? 1.15 : p.a ? 0.55 : 0.9; H.add(m); this.hm.push({ m: m, r: ri, i: i });
       const gy = T.heightAt(p.x, p.z, true), lg = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(p.x, p.y, p.z), new THREE.Vector3(p.x, gy, p.z)]);
       const l = new THREE.Line(lg, this.lMat); l.renderOrder = 11; H.add(l);
@@ -425,6 +429,7 @@ export class Editor {
       else { this.s.rh = clamp(this.s.rh + st, -30, 80); const i = this.root.querySelector('[data-k="rh"]'), v = this.root.querySelector("#pv-rh"); if (i) { i.value = this.s.rh; v.textContent = this.s.rh.toFixed(1) + " m"; } this.preview(); this.saveUI(); }
       return true;
     }
+    if (e.code === "KeyK" && this.s.tool === "road" && this.pt()) { this.push(); const p = this.pt(); p.cp = p.cp ? 0 : 1; if (p.cp) p.a = 0; this.roadEdit(true); return true; }
     if (e.code === "Escape" && this.place) { this.place = null; this.preview(); return true; }
     if (e.code === "Escape" && this.sr >= 0) { this.endRoad(); return true; }
     return false;
@@ -458,7 +463,8 @@ export class Editor {
       const w = this.world, hp = this.hit;
       if (s.tool === "terrain") {
         let mode = s.tmode; if (inp.k("ShiftLeft", "ShiftRight")) mode = mode === "raise" ? "lower" : mode === "lower" ? "raise" : mode;
-        const box = T.sculpt(mode, hp.x, hp.z, s.tr, s.ts, Math.min(dt, 0.05), this.flatY); w.terrainChanged(box);
+        const box = mode === "erode" ? T.erode(hp.x, hp.z, s.tr, s.ts, Math.min(dt, 0.05), Math.random) : T.sculpt(mode, hp.x, hp.z, s.tr, s.ts, Math.min(dt, 0.05), this.flatY);
+        if (box) w.terrainChanged(box);
       } else if (s.tool === "paint") { const box = T.paintAt(s.layer, hp.x, hp.z, s.pr, Math.min(s.psmin, s.psmax), Math.max(s.psmin, s.psmax)); T.rebuild(box[0], box[1], box[2], box[3]); }
       else if (s.tool === "veg") {
         const g = w.veg.groups[s.vg]; if (!g) return;
