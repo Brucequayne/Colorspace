@@ -14,7 +14,8 @@
   MA.WALLS = {
     h: { name: function () { return L2("Hecke", "Hedge"); }, th: 6, H: 18, ov: "#2C4A22" },
     f: { name: function () { return L2("Holzzaun", "Wooden fence"); }, th: 2, H: 13, ov: "#8A5A32" },
-    m: { name: function () { return L2("Mauer", "Wall"); }, th: 5, H: 16, ov: "#7C776E" }
+    m: { name: function () { return L2("Mauer", "Wall"); }, th: 5, H: 16, ov: "#7C776E" },
+    b: { name: function () { return L2("Hecke mit Blüten", "Flowering hedge"); }, th: 6, H: 18, ov: "#46683A" }   // seit v0.15
   };
   function def(ch) { return MA.WALLS[ch.toLowerCase()]; }
   function vertical(ch) { return ch !== ch.toLowerCase(); }
@@ -48,8 +49,14 @@
     if (!top && k < 0.12) lv -= 1;          // Fuß im Schatten
     return HEDGE[Math.max(0, Math.min(4, Math.round(lv)))];
   }
+  // Blühende Hecke: weiße Blüten in kleinen Gruppen, manche mit gelber Mitte
+  function bloom(k, gx, gy, c, th) {
+    if (k !== "b") return c;
+    if (fbm(gx / 5, gy / 5, 91, 2) > 0.48 && hash(gx, gy, 93) > th) return hash(gx, gy, 95) > 0.85 ? [236, 214, 120] : hash(gx, gy, 97) > 0.4 ? [242, 240, 232] : [214, 214, 206];
+    return c;
+  }
   var STONE = [[104, 100, 92], [118, 113, 104], [132, 127, 117], [146, 140, 129]], MORTAR = [70, 66, 60];
-  var MOSS = [[70, 96, 46], [88, 116, 54], [108, 136, 64]];
+  var MOSS = [[50, 70, 34], [62, 86, 40], [76, 100, 46]];   // seit v0.15 dunkler
   function moss(gx, gy, k) {   // leicht vermoost: oben mehr, unten fast nichts
     var n = fbm(gx / 5, gy / 4, 61, 3) + (k - 0.5) * 0.35 + (hash(gx, gy, 63) - 0.5) * 0.12;
     return n > 0.66 ? MOSS[Math.min(2, ((n - 0.66) * 14) | 0)] : null;
@@ -101,7 +108,7 @@
       R.forEach(function (r) {
         for (var x = r[0]; x < r[2]; x++) for (var y = r[3] - H; y < r[3]; y++) {
           var kk = (r[3] - y) / H, gx = gx0 + x, gy = gy0 + y;
-          if (k === "h") { if ((x === r[0] || x === r[2] - 1) && hash(gx, gy, 81) < 0.3) continue; px(x, y, hedgeCol(gx, gy, kk, false)); }
+          if (k === "h" || k === "b") { if ((x === r[0] || x === r[2] - 1) && hash(gx, gy, 81) < 0.3) continue; px(x, y, bloom(k, gx, gy, hedgeCol(gx, gy, kk, false), 0.88)); }
           else px(x, y, y === r[3] - 1 ? [64, 60, 54] : wallFront(gx, gy, kk, r[3] - y));
         }
       });
@@ -111,11 +118,11 @@
       R.forEach(function (r) {
         for (var x = r[0]; x < r[2]; x++) for (var y = r[1] - H; y < r[3] - H; y++) {
           var gx = gx0 + x, gy = gy0 + y + H, side = !inTop(x - 1, y) || !inTop(x + 1, y), lip = !inTop(x, y - 1), front = !inTop(x, y + 1);
-          if (k === "h") { var hc = hedgeCol(gx, gy, 1, true); px(x, y, side ? HEDGE[Math.max(1, HEDGE.indexOf(hc) - 1)] : hc); }
+          if (k === "h" || k === "b") { var hc = hedgeCol(gx, gy, 1, true); px(x, y, side ? HEDGE[Math.max(1, HEDGE.indexOf(hc) - 1)] : bloom(k, gx, gy, hc, 0.84)); }
           else px(x, y, side ? [78, 74, 68] : lip ? [146, 140, 128] : front ? [150, 144, 132] : wallTop(gx, gy));
         }
       });
-      if (k === "h") {
+      if (k === "h" || k === "b") {
         // lose Blätter über den Rand hinaus (organische Kante)
         R.forEach(function (r) {
           for (var x = r[0] - 1; x <= r[2]; x++) {

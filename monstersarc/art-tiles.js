@@ -9,7 +9,7 @@
 (function () {
   var MA = window.MA, T = MA.TILE, CS = 16;   // Chunk-Größe in Kacheln
   var hash = MA.hash2, fbm = MA.fbm, noise = MA.noise2;
-  var EXACT = { w: 1, o: 1, u: 1, v: 1, "#": 1 };
+  var EXACT = { w: 1, o: 1, u: 1, v: 1, "#": 1, x: 1, d: 1 };
   function isWater(c) { return c === "w" || c === "o" || c === "u"; }
 
   // Plattenmuster (Standard-Steinboden): Rechtecke aus 8-px-Zellen, je Chunk (lokale Pixel)
@@ -195,7 +195,12 @@
         if (ch !== "#" && coast[ci]) { var vv = landF(x, y) + (fbm(x / 6, y / 6, seed + 201, 2) - 0.5) * 0.6; sd = (0.5 - vv) * 30; waterHere = vv < 0.5; }
         var landCh = isWater(ch) ? coastLand[ci] : ch;
         wmask[li] = waterHere && ch !== "#" ? 1 : 0;
-        if (ch === "#") {
+        if (ch === "x") col = [12, 11, 14];   // Innenraum: außerhalb schwarz
+        else if (ch === "d") {                  // Innenraum: Holzdielen (Bretter 4 px breit, versetzte Stöße)
+          var prow = y >> 2, poff = (hash(prow, 3, seed + 41) * 40) | 0, pk = Math.floor((x + poff) / 40), pv = (hash(pk, prow, seed + 43) - 0.5) * 18 + (hash(x, y, seed + 47) - 0.5) * 6;
+          col = (y & 3) === 3 ? [92, 62, 40] : ((x + poff) % 40 === 0 ? [104, 72, 46] : [150 + pv, 108 + pv * 0.8, 70 + pv * 0.6]);
+          if ((y & 3) === 0) col = [col[0] + 8, col[1] + 6, col[2] + 4];
+        } else if (ch === "#") {
           var belowWall = tl(tx, ty + 1) === "#";
           if (!belowWall && ly >= 5) {
             var fy = ly - 5, row = (fy / 4) | 0, off = (row % 2) * 5 + tx * 3, bx = Math.floor((x + off) / 10);

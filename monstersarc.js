@@ -13,6 +13,7 @@
     "art-samurai.js",   // Figuren-Modell in 8 Richtungen
     "map.js",           // Map-Daten: Größe, Kacheln, Kollision, Speichern
     "walls.js",         // Mauern: Hecke, Holzzaun, Mauer (verbunden, unüberwindbar)
+    "houses.js",        // Fachwerkhäuser (Objekte mit Tür) und ihre Innenräume
     "maps/start.js",    // Start-Map des Spiels
     "lighting.js",      // Tageszeit, Licht, Schatten
     "particles.js",     // Blätter, Staub, Spritzer

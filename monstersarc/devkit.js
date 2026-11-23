@@ -45,7 +45,7 @@
 
   // Bereiche des Dev-Kits (weitere Editoren kommen als eigene Bereiche dazu)
   var TABS = [
-    { id: "map", name: function () { return L2("Map-Editor", "Map editor"); }, ver: "v0.13" },
+    { id: "map", name: function () { return L2("Map-Editor", "Map editor"); }, ver: "v0.15" },
     { id: "attacks", name: function () { return L2("Attacken", "Attacks"); }, soon: true },
     { id: "missions", name: function () { return L2("Missionen", "Missions"); }, soon: true },
     { id: "monsters", name: function () { return L2("Monster", "Monsters"); }, soon: true }
@@ -189,7 +189,7 @@
     var o = E.ui.querySelector(".ma-ed-opt"); if (!o) return;
     var h = "";
     if (E.tool === "tile") {
-      h = '<h3>' + L2("Bodenart", "Floor type") + '</h3><div class="ma-ed-list">' + Object.keys(MA.TILES).map(function (k) {
+      h = '<h3>' + L2("Bodenart", "Floor type") + '</h3><div class="ma-ed-list">' + Object.keys(MA.TILES).filter(function (k) { return !MA.TILES[k].inner; }).map(function (k) {
         return '<button type="button" data-tile="' + k + '" aria-pressed="' + (E.tile === k) + '"><span class="sw" style="background:' + TILE_SW[k] + '"></span>' + MA.TILES[k].name() + '</button>';
       }).join("") + '</div>' + sizeRow("tsize", 1, 9, 1);
     } else if (E.tool === "brush") {
@@ -207,9 +207,10 @@
           '<div class="ma-ed-info">' + L2("Links streuen, rechts entfernen (nur angekreuzte Varianten).", "Left scatters, right removes (only ticked variants).") + '</div>';
       }
     } else if (E.tool === "obj") {
-      h = '<h3>' + L2("Objekt", "Object") + '</h3><div class="ma-ed-list">' + Object.keys(MA.OBJECTS).map(function (k) {
+      h = '<h3>' + L2("Objekt", "Object") + '</h3><div class="ma-ed-list">' + Object.keys(MA.OBJECTS).filter(function (k) { return !MA.OBJECTS[k].inner; }).map(function (k) {
         return '<button type="button" data-obj="' + k + '" aria-pressed="' + (E.obj === k) + '"><img alt="" src="' + thumb("obj", k, 0) + '">' + MA.OBJECTS[k].name() + '</button>';
-      }).join("") + '</div><div class="ma-ed-row"><label>Variante</label><button type="button" data-a="var">' + (E.ov + 1) + ' / ' + MA.OBJECTS[E.obj].variants + '</button></div>';
+      }).join("") + '</div><div class="ma-ed-row"><label>Variante</label><button type="button" data-a="var">' + (E.ov + 1) + ' / ' + MA.OBJECTS[E.obj].variants + '</button></div>' +
+        (MA.OBJECTS[E.obj].house ? '<div class="ma-ed-info">' + L2("Häuser rasten am Kachelraster ein, der rote Strich zeigt die Tür. Varianten = leicht andere Farben. Im Testlauf vor der Tür mit E betreten.", "Houses snap to the tile grid, the red mark shows the door. Variants = slightly different colours. In the test walk press E at the door to enter.") + '</div>' : '');
     } else if (E.tool === "walls") {
       // Mauern (v0.13): Art wählen, ziehen = gerade Linie, verbinden sich automatisch
       h = '<h3>' + L2("Art", "Type") + '</h3><div class="ma-ed-list">' + Object.keys(MA.WALLS).map(function (k) {
@@ -424,9 +425,18 @@
     E.arena.veg = E.arena.veg.filter(function (v) { return (types && types.indexOf(v.t) < 0) || m.dist(x, y, v.x, v.y) > r; });
   }
   function nearestObj(x, y, max) {
-    var best = null, bd = max || 14;
-    E.arena.obj.forEach(function (o) { var d = m.dist(x, y, o.x, o.y - 4); if (d < bd) { bd = d; best = o; } });
-    return best;
+    var best = null, bd = max || 14, house = null;
+    E.arena.obj.forEach(function (o) {
+      var d = m.dist(x, y, o.x, o.y - 4); if (d < bd) { bd = d; best = o; }
+      var hd = MA.OBJECTS[o.t]; if (hd.house && x > o.x - hd.ax && x < o.x - hd.ax + hd.w && y > o.y - hd.ay && y < o.y + 2) house = o;   // Klick aufs Haus
+    });
+    return best || house;
+  }
+  // Platzieren: Häuser rasten auf das Kachelraster ein (Vorderkante auf Kachelgrenze), sonst wie bisher
+  function place(t, X, Y) {
+    var d = MA.OBJECTS[t];
+    if (d.grid) { var hw = d.house.w * T / 2; return { x: Math.round((X - hw) / T) * T + hw, y: Math.round(Y / T) * T }; }
+    return { x: snap(X), y: snap(Y) };
   }
   // Mauern (v0.13)
   var wthumbs = {};
@@ -526,11 +536,11 @@
           }
           if (I.rmb && !E.wline) { var etx = Math.floor(X / T), ety = Math.floor(Y / T); if (a.setWall(etx, ety, "0")) wallsChanged(etx, ety, etx, ety); }
         } else if (E.tool === "obj") {
-          if (I.lmbHit) { a.obj.push({ t: E.obj, x: snap(X), y: snap(Y), v: E.ov }); w.refreshSolids(); }
+          if (I.lmbHit) { var pp = place(E.obj, X, Y); a.obj.push({ t: E.obj, x: pp.x, y: pp.y, v: E.ov }); w.refreshSolids(); }
           if (I.rmbHit) { var o = nearestObj(X, Y); if (o) { a.obj.splice(a.obj.indexOf(o), 1); w.refreshSolids(); } }
         } else if (E.tool === "move") {
           if (I.lmbHit) { var hit = nearestObj(X, Y, 18); if (hit) { snapshot(); E.drag = { o: hit, dx: hit.x - X, dy: hit.y - Y }; } }
-          if (E.drag && I.lmb) { E.drag.o.x = snap(X + E.drag.dx); E.drag.o.y = snap(Y + E.drag.dy); }
+          if (E.drag && I.lmb) { var pm = place(E.drag.o.t, X + E.drag.dx, Y + E.drag.dy); E.drag.o.x = pm.x; E.drag.o.y = pm.y; }
           if (E.drag && !I.lmb) { E.drag = null; w.refreshSolids(); }
         } else if (E.tool === "spawn" && I.lmbHit) { snapshot(); a.spawn = [Math.round(X), Math.round(Y)]; }
         var tc = a.tilePx(X, Y), zi = a.zoneInfo(a.zonePx(X, Y));
@@ -575,7 +585,9 @@
           ctx.strokeRect(bx * T + 0.5, by * T + 0.5, n2 * T - 1, n2 * T - 1);
         } else if (E.tool === "obj") {
           var s = MA.sprite("obj", E.obj, E.ov);
-          ctx.globalAlpha = 0.65; ctx.drawImage(s.cv, snap(X) - s.def.ax, snap(Y) - s.def.ay); ctx.globalAlpha = 1;
+          var pv = place(E.obj, X, Y);
+          ctx.globalAlpha = 0.65; ctx.drawImage(s.cv, pv.x - s.def.ax, pv.y - s.def.ay); ctx.globalAlpha = 1;
+          if (s.def.house) { var hdd = s.def.house; ctx.strokeRect(pv.x - hdd.w * T / 2 + 0.5, pv.y - hdd.d * T + 0.5, hdd.w * T - 1, hdd.d * T - 1); var dp = MA.houses.doorOf({ t: E.obj, x: pv.x, y: pv.y }); ctx.fillStyle = "#ED6A5E"; ctx.fillRect(dp.x - 4, dp.y, 8, 2 * ps); }
         } else if (E.tool === "walls") {
           // Vorschau: geplante Linie halbdurchsichtig, verbunden wie später auf der Map
           var wl2 = E.wline ? wallLine() : [[Math.floor(X / T), Math.floor(Y / T), E.wrot ? E.wtype.toUpperCase() : E.wtype]], set = {};

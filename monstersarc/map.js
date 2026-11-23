@@ -21,7 +21,10 @@
     m: { name: function () { return L2("Moos", "Moss"); }, speed: 0.96, element: "holz", sw: "#5E8040" },
     e: { name: function () { return L2("Erde", "Soil"); }, speed: 0.92, element: "erde", sw: "#6A4E38" },
     a: { name: function () { return L2("Sand (geharkt)", "Raked sand"); }, speed: 0.84, element: "erde", sw: "#D2C8AC" },
-    "#": { name: function () { return L2("Mauer", "Wall"); }, solid: true, sw: "#3E3B38" }
+    "#": { name: function () { return L2("Mauer", "Wall"); }, solid: true, sw: "#3E3B38" },
+    // nur in Innenräumen (seit v0.15, nicht im Editor): schwarz außerhalb des Raums, Holzdielen
+    x: { name: function () { return L2("Leere", "Void"); }, solid: true, inner: true, sw: "#0C0B0E" },
+    d: { name: function () { return L2("Holzdielen", "Floorboards"); }, speed: 1, inner: true, sw: "#946A44" }
   };
   MA.SEA = "o";
   MA.MAP_MIN = [30, 17]; MA.MAP_MAX = [1024, 1024]; MA.MAP_DEF = [800, 600];   // Kacheln (Breite, Höhe)
@@ -149,7 +152,9 @@
   };
 
   A.solids = function () {
-    var out = [];
+    var out = [], br = this.brects = [];
+    // Häuser (seit v0.15): Grundfläche als Rechteck
+    this.obj.forEach(function (o) { var d = MA.OBJECTS[o.t]; if (d.rect) br.push([o.x + d.rect[0], o.y + d.rect[1], o.x + d.rect[2], o.y + d.rect[3]]); });
     this.obj.forEach(function (o) {
       var sol = MA.objSolid(o); if (!sol) return;
       var k = o.t === "rock" ? 0.75 : 1;   // Steine: Hitbox 25 % kleiner, damit man seltener hängen bleibt
@@ -163,6 +168,11 @@
     function blocked(px, py) {
       var x0 = Math.floor((px - r) / T), x1 = Math.floor((px + r) / T), y0 = Math.floor((py - r) / T), y1 = Math.floor((py + r) / T);
       for (var ty = y0; ty <= y1; ty++) for (var tx = x0; tx <= x1; tx++) if (self.solidTile(tx, ty)) return true;
+      var b = self.brects || [];
+      for (var bi = 0; bi < b.length; bi++) {
+        var q = b[bi], qx = Math.max(q[0], Math.min(px, q[2])), qy = Math.max(q[1], Math.min(py, q[3]));
+        if ((px - qx) * (px - qx) + (py - qy) * (py - qy) < r * r) return true;
+      }
       return MA.walls.hit(self, px, py, r);   // Mauern, Hecken, Zäune: unüberwindbar
     }
     if (!blocked(x + dx, y)) x += dx;

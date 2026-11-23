@@ -3,6 +3,19 @@
    Die Versionsnummer auf den Kacheln kommt aus dem obersten Eintrag. */
 window.PATCHNOTES = {
   monstersarc: [
+    { v: "0.15", t: "2026-11-23T06:10:00+01:00",
+      de: ["Erstes Gebäude-Update: fünf Fachwerkhäuser für das erste Dorf (7×5, 6×5, 5×7, 5×4 und 7×6 Kacheln) im Objekt-Werkzeug. Die drei großen haben zwei Stockwerke, die zwei kleinen eins; drei Häuser haben einen Schornstein, das 5×7-Haus zeigt den Giebel nach vorn.",
+        "Jedes Haus gibt es in vier Varianten mit leicht anderen Farben an Fassade und Holz und ganz leicht anderen Dächern. Häuser rasten am Kachelraster ein, die Tür ist in der Vorschau markiert.",
+        "Häuser sind fest: Man läuft nicht hindurch. Vor der Tür erscheint ein E. Mit E betritt man das Haus – mit Abblende wie in Feuerrot – und landet im Innenraum.",
+        "Innenräume sind 50 % größer als das Haus von außen (aufgerundet, z. B. 5×4 → 8×6), mit Holzdielen, Fachwerkwänden, Fenstern und Möbeln (Tisch, Regal, Kamin bei Häusern mit Schornstein, Betten, Fass, Pflanze). Hinaus geht es über die Fußmatte nach unten.",
+        "Zweistöckige Häuser haben eine Treppe. Wer sie betritt, kommt ins Obergeschoss, einen eigenen Raum mit Betten und einer Treppe zurück nach unten.",
+        "Neue Mauer-Art: Hecke mit weißen Blüten. Das Moos auf den Mauern ist dunkler."],
+      en: ["First building update: five half-timbered houses for the first village (7×5, 6×5, 5×7, 5×4 and 7×6 tiles) in the object tool. The three big ones have two storeys, the two small ones one; three houses have a chimney, the 5×7 house shows its gable to the front.",
+        "Every house comes in four variants with slightly different colours on facade and timber and very slightly different roofs. Houses snap to the tile grid, the door is marked in the preview.",
+        "Houses are solid: you cannot walk through them. An E appears in front of the door. Press E to enter – with a fade like in FireRed – and you are inside.",
+        "Interiors are 50 % bigger than the house from outside (rounded up, e.g. 5×4 → 8×6), with floorboards, timbered walls, windows and furniture (table, shelf, fireplace in houses with a chimney, beds, barrel, plant). Walk down over the doormat to leave.",
+        "Two-storey houses have stairs. Stepping on them takes you to the upper floor, a separate room with beds and stairs back down.",
+        "New wall type: hedge with white flowers. The moss on stone walls is darker."] },
     { v: "0.13", t: "2026-11-23T05:50:00+01:00",
       de: ["Neues Werkzeug „Mauern“ im Map-Editor mit drei Arten: dichte Hecke, Holzzaun in warmem Braun und leicht vermooste Steinmauer.",
         "Ein Klick setzt ein einzelnes Stück, gedreht um 0° oder 90° (Taste R oder Knopf „Drehung“). Ziehen zeichnet eine gerade Mauer, waagerecht oder senkrecht; eine Vorschau zeigt sie schon beim Ziehen.",
