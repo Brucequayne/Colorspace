@@ -45,7 +45,7 @@
 
   // Bereiche des Dev-Kits (weitere Editoren kommen als eigene Bereiche dazu)
   var TABS = [
-    { id: "map", name: function () { return L2("Map-Editor", "Map editor"); }, ver: "v0.17" },
+    { id: "map", name: function () { return L2("Map-Editor", "Map editor"); }, ver: "v0.18" },
     { id: "attacks", name: function () { return L2("Attacken", "Attacks"); }, soon: true },
     { id: "missions", name: function () { return L2("Missionen", "Missions"); }, soon: true },
     { id: "monsters", name: function () { return L2("Monster", "Monsters"); }, soon: true }
@@ -177,8 +177,8 @@
       '</div><input type="file" accept=".json,.js,application/json" hidden data-k="file">' +
       '<div class="ma-ed-status"></div>' +
       '<div class="ma-ed-info">' + L2(
-        "Ansicht verschieben: WASD/Pfeiltasten (Umschalt = schneller), mittlere Maustaste ziehen oder in die Übersicht klicken. Zoomen: Strg + Mausrad, Tasten + und −, „Spielansicht“ setzt auf die Kamera des Spiels zurück. Weit herausgezoomt zeigt die Karte nur die Bodenfarben. Linke Maustaste malt bzw. setzt, rechte löscht (Boden wird wieder Meer). Mausrad: Variante (Objekte) bzw. Pinselgröße. Umschalt: Objekte am 8-px-Raster. Strg+Z: rückgängig.<br>„Arbeitsstand speichern“ gilt nur in diesem Browser. Für das Spiel: „Map exportieren“ und die .json-Datei an Claude schicken. Shizuku-Maps lassen sich importieren (Abgrund wird Meer).",
-        "Move the view: WASD/arrow keys (Shift = faster), drag with the middle mouse button or click into the overview. Zoom: Ctrl + mouse wheel, keys + and −, “Game view” resets to the game camera. Zoomed far out the map only shows floor colours. Left mouse paints or places, right deletes (floor turns back into sea). Mouse wheel: variant (objects) or brush size. Shift: snap objects to 8 px. Ctrl+Z: undo.<br>“Save work in progress” only applies in this browser. For the game: “Export map” and send the .json file to Claude. Shizuku maps can be imported (abyss becomes sea).") + '</div>';
+        "Ansicht verschieben: WASD/Pfeiltasten (Umschalt = schneller), mittlere Maustaste ziehen oder in die Übersicht klicken. Zoomen: Strg + Mausrad, Tasten + und −, „Spielansicht“ setzt auf die Kamera des Spiels zurück. Weit herausgezoomt zeigt die Karte nur die Bodenfarben. Linke Maustaste malt bzw. setzt, rechte löscht (Boden wird wieder Meer). Mausrad: Variante (Objekte) bzw. Pinselgröße. Umschalt gedrückt halten + linke Maustaste: den gewählten Typ wieder entfernen (Pinsel, Objekte, Hausdeko). Alt: Objekte am 8-px-Raster. Strg+Z: rückgängig.<br>„Arbeitsstand speichern“ gilt nur in diesem Browser. Für das Spiel: „Map exportieren“ und die .json-Datei an Claude schicken. Shizuku-Maps lassen sich importieren (Abgrund wird Meer).",
+        "Move the view: WASD/arrow keys (Shift = faster), drag with the middle mouse button or click into the overview. Zoom: Ctrl + mouse wheel, keys + and −, “Game view” resets to the game camera. Zoomed far out the map only shows floor colours. Left mouse paints or places, right deletes (floor turns back into sea). Mouse wheel: variant (objects) or brush size. Hold Shift + left mouse button: remove the selected type again (brush, objects, house deco). Alt: snap objects to 8 px. Ctrl+Z: undo.<br>“Save work in progress” only applies in this browser. For the game: “Export map” and send the .json file to Claude. Shizuku maps can be imported (abyss becomes sea).") + '</div>';
     b.querySelector("[data-k=file]").addEventListener("change", onFile);
     E.mini = b.querySelector(".ma-ed-mini");
     E.mini.addEventListener("pointerdown", miniDown); E.mini.addEventListener("pointermove", function (e) { if (e.buttons & 1) miniDown(e); });
@@ -217,7 +217,7 @@
         return '<button type="button" data-dobj="' + k + '" aria-pressed="' + (E.dobj === k) + '"><img alt="" src="' + thumb("obj", k, k === "d_ivy" ? 4 : 0) + '">' + MA.OBJECTS[k].name() + '</button>';
       }).join("") + '</div><div class="ma-ed-row"><label>Variante</label><button type="button" data-a="dvar">' + (E.dv + 1) + ' / ' + MA.OBJECTS[E.dobj].variants + '</button></div>' +
         '<div class="ma-ed-rocks dv">' + Array.apply(null, Array(MA.OBJECTS[E.dobj].variants)).map(function (_, i) { return '<button type="button" data-dv="' + i + '" aria-pressed="' + (E.dv === i) + '"><img alt="" src="' + thumb("obj", E.dobj, i) + '"><span>' + (i + 1) + '</span></button>'; }).join("") + '</div>' +
-        '<div class="ma-ed-info">' + L2("Auf ein Haus gesetzt, haftet die Deko an der Hauswand und liegt immer darüber (grüner Rahmen = Haus erkannt). Links setzen, rechts entfernen, Mausrad oder R: Variante, Shift: 8-px-Raster. Schornsteine rauchen, die Lampe leuchtet nachts.", "Placed on a house, deco sticks to the wall and always stays on top (green frame = house found). Left places, right removes, mouse wheel or R: variant, Shift: 8 px grid. Chimneys smoke, the lamp glows at night.") + '</div>';
+        '<div class="ma-ed-info">' + L2("Auf ein Haus gesetzt, haftet die Deko an der Hauswand und liegt immer darüber (grüner Rahmen = Haus erkannt). Links setzen, rechts entfernen, Umschalt + Maus: diesen Typ entfernen, Mausrad oder R: Variante, Alt: 8-px-Raster. Schornsteine rauchen, die Lampe leuchtet nachts.", "Placed on a house, deco sticks to the wall and always stays on top (green frame = house found). Left places, right removes, Shift + mouse: remove this type, mouse wheel or R: variant, Alt: 8 px grid. Chimneys smoke, the lamp glows at night.") + '</div>';
     } else if (E.tool === "walls") {
       // Mauern (v0.13): Art wählen, ziehen = gerade Linie, verbinden sich automatisch
       h = '<h3>' + L2("Art", "Type") + '</h3><div class="ma-ed-list">' + Object.keys(MA.WALLS).map(function (k) {
@@ -471,7 +471,19 @@
     return out;
   }
   function wallsChanged(x0, y0, x1, y1) { E.world.paintOverview({ x0: x0 - 1, y0: y0 - 1, x1: x1 + 2, y1: y1 + 2 }); }
-  function snap(v) { return MA.input.down("Shift") ? Math.round(v / 8) * 8 : Math.round(v); }
+  function snap(v) { return MA.input.down("Alt") ? Math.round(v / 8) * 8 : Math.round(v); }   // seit v0.18 Alt (Umschalt = entfernen)
+  // Umschalt + linke Maustaste (v0.18): Objekte des gewählten Typs (alle Varianten) im Kreis entfernen
+  var SHIFT_R = 16;
+  function removeType(t, X, Y) {
+    var a = E.arena, d = MA.OBJECTS[t], n0 = a.obj.length;
+    a.obj = a.obj.filter(function (o) {
+      if (o.t !== t) return true;
+      if (m.dist(X, Y, o.x, o.y - 4) < SHIFT_R) return false;
+      if (d.house && X > o.x - d.house.w * T / 2 && X < o.x + d.house.w * T / 2 && Y > o.y - d.ay && Y < o.y + 2) return false;   // Haus: Klick aufs Bild
+      return true;
+    });
+    if (a.obj.length !== n0) E.world.refreshSolids();
+  }
 
   MA.scenes.devkit = {
     enter: function () {
@@ -530,7 +542,7 @@
             var zx0 = Math.floor(X / T) - ((E.zsize - 1) >> 1), zy0 = Math.floor(Y / T) - ((E.zsize - 1) >> 1);
             for (var zy = 0; zy < E.zsize; zy++) for (var zx = 0; zx < E.zsize; zx++) a.setZone(zx0 + zx, zy0 + zy, I.lmb ? E.zsel : "0");
           } else if (I.lmbHit) status(L2("Erst eine Zone anlegen oder auswählen.", "Create or select a zone first."));
-        } else if (E.tool === "brush" && (I.lmb || I.rmb)) paintBrush(dt, I.rmb);
+        } else if (E.tool === "brush" && (I.lmb || I.rmb)) paintBrush(dt, I.rmb || I.down("Shift"));   // Umschalt = gewählten Pinsel entfernen
         else if (E.tool === "erase" && (I.lmb || I.rmb)) {
           removeVeg(X, Y, E.bsize);
           a.obj = a.obj.filter(function (o) { return m.dist(X, Y, o.x, o.y) > E.bsize; });
@@ -548,10 +560,12 @@
           }
           if (I.rmb && !E.wline) { var etx = Math.floor(X / T), ety = Math.floor(Y / T); if (a.setWall(etx, ety, "0")) wallsChanged(etx, ety, etx, ety); }
         } else if (E.tool === "deco") {
-          if (I.lmbHit) { var dq = { t: E.dobj, x: snap(X), y: snap(Y), v: E.dv }; MA.deco.attach(a, dq); a.obj.push(dq); }
+          if (I.down("Shift")) { if (I.lmb) removeType(E.dobj, X, Y); }
+          else if (I.lmbHit) { var dq = { t: E.dobj, x: snap(X), y: snap(Y), v: E.dv }; MA.deco.attach(a, dq); a.obj.push(dq); }
           if (I.rmbHit) { var dn = null, dd = 12; a.obj.forEach(function (q) { if (!MA.OBJECTS[q.t].deco) return; var dist = m.dist(X, Y, q.x, q.y - 4); if (dist < dd) { dd = dist; dn = q; } }); if (dn) a.obj.splice(a.obj.indexOf(dn), 1); }
         } else if (E.tool === "obj") {
-          if (I.lmbHit) { var pp = place(E.obj, X, Y); a.obj.push({ t: E.obj, x: pp.x, y: pp.y, v: E.ov }); w.refreshSolids(); }
+          if (I.down("Shift")) { if (I.lmb) removeType(E.obj, X, Y); }
+          else if (I.lmbHit) { var pp = place(E.obj, X, Y); a.obj.push({ t: E.obj, x: pp.x, y: pp.y, v: E.ov }); w.refreshSolids(); }
           if (I.rmbHit) { var o = nearestObj(X, Y); if (o) { a.obj.splice(a.obj.indexOf(o), 1); w.refreshSolids(); } }
         } else if (E.tool === "move") {
           if (I.lmbHit) { var hit = nearestObj(X, Y, 18); if (hit) { snapshot(); E.drag = { o: hit, dx: hit.x - X, dy: hit.y - Y }; } }
@@ -594,7 +608,10 @@
       if (I.inside && E.tab === "map") {
         var X = E.wx, Y = E.wy;
         ctx.strokeStyle = "rgba(255,255,255,0.75)"; ctx.lineWidth = ps;
+        var shiftDel = I.down("Shift") && (E.tool === "brush" || E.tool === "obj" || E.tool === "deco");
+        if (shiftDel) ctx.strokeStyle = "#ED6A5E";
         if (E.tool === "brush" || E.tool === "erase") { ctx.beginPath(); ctx.ellipse(X, Y, E.bsize, E.bsize * 0.8, 0, 0, 6.283); ctx.stroke(); }
+        else if (shiftDel) { ctx.beginPath(); ctx.ellipse(X, Y - 4, SHIFT_R, SHIFT_R, 0, 0, 6.283); ctx.stroke(); ctx.fillStyle = "#ED6A5E"; ctx.fillRect(X - 3, Y - 4, 7, 1); }
         else if (E.tool === "tile" || E.tool === "zones") {
           var n2 = E.tool === "tile" ? E.tsize : E.zsize, bx = Math.floor(X / T) - ((n2 - 1) >> 1), by = Math.floor(Y / T) - ((n2 - 1) >> 1);
           ctx.strokeRect(bx * T + 0.5, by * T + 0.5, n2 * T - 1, n2 * T - 1);

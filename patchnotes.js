@@ -3,6 +3,13 @@
    Die Versionsnummer auf den Kacheln kommt aus dem obersten Eintrag. */
 window.PATCHNOTES = {
   monstersarc: [
+    { v: "0.18", t: "2026-11-23T19:00:00+01:00",
+      de: ["Umschalt gedrückt halten + linke Maustaste entfernt im Editor wieder den gewählten Typ: beim Pinsel genau die Pflanzen dieses Pinsels, bei Objekten und Hausdeko das gewählte Objekt samt allen Varianten (andere Objekte bleiben stehen). Der Kreis wird dabei rot.",
+        "Das 8-px-Raster für Objekte liegt deshalb jetzt auf Alt statt auf Umschalt.",
+        "Die Schornsteine der Hausdeko sind neu gezeichnet, in derselben Perspektive wie die Häuser: Vorderseite plus Oberseite, man schaut leicht von oben in die Öffnung. Auch Blumentöpfe, Blumenkästen und die Wandlampe zeigen jetzt ihre Oberseite."],
+      en: ["Holding Shift + left mouse button in the editor removes the selected type again: with a brush exactly that brush's plants, with objects and house deco the selected object in all its variants (other objects stay). The circle turns red.",
+        "The 8 px grid for objects therefore moved from Shift to Alt.",
+        "The house deco chimneys are redrawn in the same perspective as the houses: front plus top, so you look slightly down into the opening. Flower pots, window boxes and the wall lamp now show their top as well."] },
     { v: "0.17", t: "2026-11-23T18:45:00+01:00",
       de: ["Neuer Reiter „Hausdeko“ im Map-Editor: Deko für Häuser. Wird sie auf ein Haus gesetzt, haftet sie an der Hauswand und liegt immer darüber, verschwindet also nie dahinter. Ein grüner Rahmen zeigt, an welchem Haus sie haftet. Steht die Figur hinter dem Haus, blendet die Deko mit dem Haus aus.",
         "Blumentopf in 4 Varianten: zwei kleine runde Töpfe, ein Blumenkasten für ein Fenster und ein breiter Pflanzkasten für eine Bank oder zwei Fenster.",
