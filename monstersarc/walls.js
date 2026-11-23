@@ -166,5 +166,12 @@
     return false;
   }
 
-  MA.walls = { mask: maskAt, rects: rects, piece: piece, preview: preview, hit: hit, def: def, vertical: vertical };
+  // Schatten (seit v0.16): Hecke und Mauer als Quader je Grundfläche, der Zaun bleibt beim Bild-Schatten (durchsichtig)
+  function shadow(sc, sh, map, tx, ty) {
+    var ch = map.wallAt(tx, ty); if (ch === "0" || ch.toLowerCase() === "f") return false;
+    var d = def(ch), R = rects(ch, maskAt(map, tx, ty)), bx = tx * T, by = ty * T;
+    R.forEach(function (q) { MA.shadowBox(sc, sh, bx + q[0], by + q[1], bx + q[2], by + q[3], d.H); });
+    return true;
+  }
+  MA.walls = { shadow: shadow, mask: maskAt, rects: rects, piece: piece, preview: preview, hit: hit, def: def, vertical: vertical };
 })();

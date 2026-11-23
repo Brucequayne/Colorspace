@@ -151,13 +151,28 @@
     ctx.putImageData(img, 0, 0);
   }
 
+  // Schatten (seit v0.16): Haus als 3D-Körper (Kasten + Dach mit Überstand und First), Schornstein extra.
+  // Ersetzt den flachen Silhouetten-Schatten, der das ganze Bild wie eine Platte auf den Boden gelegt hat.
+  function shadow(sc, sh, o) {
+    var h = MA.OBJECTS[o.t].house, g = geom(h), W = g.W, D = g.D, Hw = g.Hw, X = o.x - W / 2, Y = o.y - D;
+    var pts = [[0, 0, 0], [W, 0, 0], [0, D, 0], [W, D, 0], [0, 0, Hw], [W, 0, Hw], [0, D, Hw], [W, D, Hw]];
+    [[-OV, -OV], [W + OV, -OV], [-OV, D + OV], [W + OV, D + OV]].forEach(function (c) { pts.push([c[0], c[1], Hw + roofZ(h, g, c[0], c[1])]); });
+    if (h.ridge === "x") pts.push([-OV, D / 2, Hw + g.rh], [W + OV, D / 2, Hw + g.rh]);
+    else pts.push([W / 2, -OV, Hw + g.rh], [W / 2, D + OV, Hw + g.rh]);
+    MA.shadowHull(sc, sh, pts.map(function (p) { return [X + p[0], Y + p[1], p[2]]; }));
+    if (h.chim) {
+      var cx0 = h.ridge === "x" ? Math.round(W * 0.7) : Math.round(W / 2 + W * 0.2), cy0 = h.ridge === "x" ? Math.round(D / 2 + 1) : Math.round(D * 0.3);
+      MA.shadowBox(sc, sh, X + cx0, Y + cy0, X + cx0 + 9, Y + cy0 + 7, Hw + g.rh + 10, Hw + roofZ(h, g, cx0 + 4, cy0 + 7));
+    }
+  }
+
   // Als Objekte anmelden (im Objekt-Werkzeug wählbar)
   HOUSES.forEach(function (h) {
     var g = geom(h);
     MA.OBJECTS[h.id] = {
       name: function () { return L2("Fachwerkhaus ", "Timber house ") + h.w + "×" + h.d; },
       w: g.W + PADX * 2, h: g.offY + g.D + OV + 3, ax: PADX + g.W / 2, ay: g.offY + g.D, variants: 4,
-      house: h, grid: true, canopy: g.D + g.Hw - 6, rect: [-g.W / 2, -g.D, g.W / 2, 0], fx: { chips: ["#8A6A4A", "#C9BFA8", "#8E4A36"] },
+      house: h, grid: true, shadow: function (sc, sh, o) { shadow(sc, sh, o); }, canopy: g.D + g.Hw - 6, rect: [-g.W / 2, -g.D, g.W / 2, 0], fx: { chips: ["#8A6A4A", "#C9BFA8", "#8E4A36"] },
       draw: function (p, ctx, rnd, v) { drawHouse(h, ctx, v); }
     };
   });

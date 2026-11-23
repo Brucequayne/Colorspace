@@ -3,6 +3,13 @@
    Die Versionsnummer auf den Kacheln kommt aus dem obersten Eintrag. */
 window.PATCHNOTES = {
   monstersarc: [
+    { v: "0.16", t: "2026-11-23T18:30:00+01:00",
+      de: ["Flaches Wasser ist nicht mehr begehbar. Durchlaufen kann man nur noch den Sumpf.",
+        "Neue Schatten für die Fachwerkhäuser: Das Haus wirft jetzt den Schatten eines echten Körpers (Wände, Dach mit Überstand und First, Schornstein) statt eines flach umgeklappten Bildes. Morgens und abends werden die Schatten lang und folgen der Dachform.",
+        "Hecken und Mauern werfen ihre Schatten ebenfalls als Körper. Der Holzzaun behält den durchbrochenen Schatten seiner Latten."],
+      en: ["Shallow water can no longer be walked through. Only the swamp can.",
+        "New shadows for the timber houses: a house now casts the shadow of a real solid (walls, roof with overhang and ridge, chimney) instead of a flat folded-over picture. In the morning and evening the shadows grow long and follow the roof shape.",
+        "Hedges and stone walls also cast solid shadows. The wooden fence keeps the open shadow of its rails."] },
     { v: "0.15", t: "2026-11-23T06:10:00+01:00",
       de: ["Erstes Gebäude-Update: fünf Fachwerkhäuser für das erste Dorf (7×5, 6×5, 5×7, 5×4 und 7×6 Kacheln) im Objekt-Werkzeug. Die drei großen haben zwei Stockwerke, die zwei kleinen eins; drei Häuser haben einen Schornstein, das 5×7-Haus zeigt den Giebel nach vorn.",
         "Jedes Haus gibt es in vier Varianten mit leicht anderen Farben an Fassade und Holz und ganz leicht anderen Dächern. Häuser rasten am Kachelraster ein, die Tür ist in der Vorschau markiert.",

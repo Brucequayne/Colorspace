@@ -11,7 +11,7 @@
   // Bodenarten. Zeichen = Kürzel im gespeicherten Text. (Aus Shizuku; neu: „o“ Meer, „v“ Abgrund entfällt.)
   MA.TILES = {
     o: { name: function () { return L2("Meer (tief)", "Sea (deep)"); }, solid: true, wet: true, sw: "#163440" },
-    w: { name: function () { return L2("Wasser (flach)", "Water (shallow)"); }, speed: 0.55, element: "wasser", wet: true, sw: "#2E5A60" },
+    w: { name: function () { return L2("Wasser (flach)", "Water (shallow)"); }, solid: true, element: "wasser", wet: true, sw: "#2E5A60" },   // seit v0.16 nicht begehbar (nur Sumpf ist begehbar)
     u: { name: function () { return L2("Sumpf", "Swamp"); }, speed: 0.48, element: "wasser", wet: true, sw: "#5E7A5A" },   // seit v0.12: seicht, grünlich, begehbar
     s: { name: function () { return L2("Steinplatten", "Stone slabs"); }, speed: 1, element: "erde", sw: "#77726A" },
     p: { name: function () { return L2("Große Tempelplatten", "Large temple slabs"); }, speed: 1, element: "erde", sw: "#958E80" },

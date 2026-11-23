@@ -3,7 +3,7 @@
    Anders als in Shizuku ist die Map größer als das Bild: W/H sind das sichtbare Bild (Kamera), die Map hat eigene Maße (map.js). */
 (function () {
   var MA = window.MA = window.MA || {};
-  MA.VERSION = "0.15";
+  MA.VERSION = "0.16";
   MA.NAME = "Monsters Arc";
   MA.scenes = {};   // menu, walk, devkit (je eigene Datei)
 
@@ -120,6 +120,25 @@
     return cv;
   };
   // Schwarze Silhouette (für Schatten)
+  // Schatten eines Körpers aus 3D-Punkten [x, y, z] (z = Höhe in px): jeder Punkt fällt entlang der
+  // Lichtrichtung (sh.x, sh.y pro Höhenpixel) auf den Boden, die konvexe Hülle ist der Schatten (seit v0.16)
+  MA.shadowHull = function (sc, sh, pts) {
+    var o = MA.light.off, P = pts.map(function (p) { return [p[0] + sh.x * p[2] - o.x, p[1] + sh.y * p[2] - o.y]; });
+    P.sort(function (a, b) { return a[0] - b[0] || a[1] - b[1]; });
+    function cr(a, b, c) { return (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]); }
+    var lo = [], up = [], i;
+    for (i = 0; i < P.length; i++) { while (lo.length >= 2 && cr(lo[lo.length - 2], lo[lo.length - 1], P[i]) <= 0) lo.pop(); lo.push(P[i]); }
+    for (i = P.length - 1; i >= 0; i--) { while (up.length >= 2 && cr(up[up.length - 2], up[up.length - 1], P[i]) <= 0) up.pop(); up.push(P[i]); }
+    var H = lo.slice(0, -1).concat(up.slice(0, -1));
+    sc.setTransform(1, 0, 0, 1, 0, 0); sc.fillStyle = "#000"; sc.beginPath();
+    H.forEach(function (p, k) { if (k) sc.lineTo(p[0], p[1]); else sc.moveTo(p[0], p[1]); });
+    sc.closePath(); sc.fill();
+  };
+  // Quader (Grundfläche x0..x1, y0..y1, Höhe 0..h) → Schatten
+  MA.shadowBox = function (sc, sh, x0, y0, x1, y1, h, z0) {
+    z0 = z0 || 0;
+    MA.shadowHull(sc, sh, [[x0, y0, z0], [x1, y0, z0], [x0, y1, z0], [x1, y1, z0], [x0, y0, h], [x1, y0, h], [x0, y1, h], [x1, y1, h]]);
+  };
   MA.silhouette = function (cv) {
     var s = MA.canvas(cv.width, cv.height);
     s.ctx.drawImage(cv, 0, 0);

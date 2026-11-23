@@ -276,7 +276,7 @@
       var wx0 = Math.max(0, Math.floor(v.x0 / T) - 1), wx1 = Math.min(a.cols - 1, Math.floor(v.x1 / T) + 1), wy0 = Math.max(0, Math.floor(v.y0 / T) - 1), wy1 = Math.min(a.rows - 1, Math.floor((v.y1 + 24) / T));
       for (var wy = wy0; wy <= wy1; wy++) for (var wxx = wx0; wxx <= wx1; wxx++) {
         if (a.wall[wy * a.cols + wxx] === "0") continue;
-        var wp = MA.walls.piece(a, wxx, wy); items.push({ y: wy * T + wp.ay - wp.H - 2, w: wp, wx: wxx * T, wy: wy * T });
+        var wp = MA.walls.piece(a, wxx, wy); items.push({ y: wy * T + wp.ay - wp.H - 2, w: wp, wx: wxx * T, wy: wy * T, tx: wxx, ty: wy });
       }
       ents.forEach(function (e) { items.push({ y: e.y, e: e }); });
       items.sort(function (p, q2) { return p.y - q2.y; });
@@ -288,9 +288,11 @@
         MA.light.off.x = cx; MA.light.off.y = cy;
         items.forEach(function (it) {
           if (it.v) return;
+          if (it.w && MA.walls.shadow(sc, shd, a, it.tx, it.ty)) return;
           if (it.w) { MA.light.shadowXf(sc, shd, it.wx + it.w.ax - 2, it.wy + it.w.ay - it.w.H - 2, it.w.ax, it.w.ay, 1); sc.drawImage(it.w.sil, 0, 0); return; }
           if (it.e) { if (it.e.drawShadow) it.e.drawShadow(sc, shd); return; }
           var o = it.o, s = MA.sprite("obj", o.t, o.v), d = s.def;
+          if (d.shadow) { d.shadow(sc, shd, o); return; }   // eigener 3D-Schatten (Häuser)
           MA.light.shadowXf(sc, shd, o.x, o.y, d.ax, d.ay, 1);
           sc.drawImage(s.sil, 0, 0);
         });
