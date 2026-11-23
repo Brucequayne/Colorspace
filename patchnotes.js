@@ -3,6 +3,17 @@
    Die Versionsnummer auf den Kacheln kommt aus dem obersten Eintrag. */
 window.PATCHNOTES = {
   monstersarc: [
+    { v: "0.19.9", t: "2026-11-23T22:40:00+01:00",
+      de: ["Neue Böden: Strandsand (hell und feinkörnig, mit Fußabdrücken), Grasboden (saftiger und heller als Moos) und Waldboden (dunkler als Moos, mit Laub, Nadeln und Moosflecken).",
+        "Neuer Pinsel „Trampelpfad“: wird wie Vegetation frei ohne Raster gemalt, die Breite folgt der Pinselgröße. Der Pfad liegt als ausgetretene Erde im Boden. Rechtsklick oder Umschalt entfernt ihn wieder.",
+        "Neue Objekte: Platzuhr auf einem Mast (2 Farben), Straßenlaterne (2 Varianten, leuchtet nachts) und eckige Mülltonne (3 Farben).",
+        "Neues Gebäude: Supermarkt (10×7) – ein Fachwerkhaus mit modernem Ladengeschoss: Glasfront, gläserne Schiebetür und Schild „MARKT“. Innen Fliesenboden, Kühlregale, Regalinseln und zwei Kassen.",
+        "Flaches Wasser ist heller und klarer als das Meer."],
+      en: ["New floors: beach sand (light and fine, with footprints), grass (juicier and lighter than moss) and forest floor (darker than moss, with leaves, needles and moss patches).",
+        "New brush “Footpath”: painted freely without a grid like vegetation, its width follows the brush size. The path is baked into the ground as trodden soil. Right click or Shift removes it again.",
+        "New objects: square clock on a pole (2 colours), street lamp (2 variants, glows at night) and square bin (3 colours).",
+        "New building: supermarket (10×7) – a timber house with a modern shop floor: glass front, sliding glass door and a “MARKT” sign. Inside: tiled floor, fridges, shelf islands and two checkouts.",
+        "Shallow water is lighter and clearer than the sea."] },
     { v: "0.19", t: "2026-11-23T19:20:00+01:00",
       de: ["Steinpinsel: Steine halten nur noch den Abstand ihrer tatsächlichen Grundfläche, und der Pinsel streut viel schneller. Neuer Regler „Abstand“ (Pixel zwischen den Steinen): 0 = sie berühren sich, negativ = sie schieben sich ineinander. So entstehen dichte Steinhaufen.",
         "Neuer Boden Matsch: nasse, dunkle Erde mit kleinen Pfützen. Darin läuft man deutlich langsamer.",

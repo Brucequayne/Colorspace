@@ -45,7 +45,7 @@
 
   // Bereiche des Dev-Kits (weitere Editoren kommen als eigene Bereiche dazu)
   var TABS = [
-    { id: "map", name: function () { return L2("Map-Editor", "Map editor"); }, ver: "v0.19" },
+    { id: "map", name: function () { return L2("Map-Editor", "Map editor"); }, ver: "v0.19.9" },
     { id: "attacks", name: function () { return L2("Attacken", "Attacks"); }, soon: true },
     { id: "missions", name: function () { return L2("Missionen", "Missions"); }, soon: true },
     { id: "monsters", name: function () { return L2("Monster", "Monsters"); }, soon: true }
@@ -75,6 +75,7 @@
     { id: "leaves", kind: "veg", mix: [["leaves", 1]], name: function () { return MA.VEG.leaves.name(); } },
     { id: "petals", kind: "veg", mix: [["petals", 1]], name: function () { return MA.VEG.petals.name(); } },
     { id: "leaffall", kind: "leaf", name: function () { return L2("Laubfall", "Leaf fall"); } },
+    { id: "path", kind: "path", name: function () { return L2("Trampelpfad", "Footpath"); } },   // seit v0.19.9: ohne Raster, wie Vegetation
     { id: "o", kind: "tile", name: function () { return MA.TILES.o.name(); } },
     { id: "w", kind: "tile", name: function () { return MA.TILES.w.name(); } },
     { id: "u", kind: "tile", name: function () { return MA.TILES.u.name(); } },
@@ -194,7 +195,7 @@
       }).join("") + '</div>' + sizeRow("tsize", 1, 9, 1);
     } else if (E.tool === "brush") {
       h = '<h3>' + L2("Pinsel", "Brush") + '</h3><div class="ma-ed-list">' + BRUSHES.map(function (b) {
-        var pic = b.kind === "veg" ? '<img alt="" src="' + thumb("veg", b.mix[0][0], 0) + '">' : b.kind === "rocks" ? '<img alt="" src="' + thumb("obj", "rock", 6) + '">' : b.kind === "tile" ? '<span class="sw" style="background:' + TILE_SW[b.id] + '"></span>' : '<span class="sw" style="background:#C0502A"></span>';
+        var pic = b.kind === "veg" ? '<img alt="" src="' + thumb("veg", b.mix[0][0], 0) + '">' : b.kind === "rocks" ? '<img alt="" src="' + thumb("obj", "rock", 6) + '">' : b.kind === "tile" ? '<span class="sw" style="background:' + TILE_SW[b.id] + '"></span>' : b.kind === "path" ? '<span class="sw" style="background:#96784F"></span>' : '<span class="sw" style="background:#C0502A"></span>';
         return '<button type="button" data-brush="' + b.id + '" aria-pressed="' + (E.brush === b.id) + '">' + pic + b.name() + '</button>';
       }).join("") + '</div>' + sizeRow("bsize", 3, 64, 1) + '<div class="ma-ed-row"><label>' + L2("Dichte", "Density") + '</label><input type="range" min="1" max="10" step="1" data-k="dens" value="' + E.dens + '"><output data-o="dens">' + E.dens + '</output></div>';
       if (E.brush === "rocks") {
@@ -394,6 +395,7 @@
     if (b.kind === "tile") { inCircle(X, Y, r * 0.8, function (tx, ty) { a.setTile(tx, ty, erase ? ERASE_TILE : b.id); }); return; }
     if (b.kind === "leaf") { inCircle(X, Y, r * 0.8, function (tx, ty) { a.setLeaf(tx, ty, !erase); }); return; }
     if (b.kind === "rocks") { paintRocks(dt, erase, X, Y, r); return; }
+    if (b.kind === "path") { paintPath(erase, X, Y, r); return; }
     if (erase) { removeVeg(X, Y, r, b.mix.map(function (q) { return q[0]; })); return; }
     var n = E.dens * dt * (6 + r * 0.6) * (b.dens || 1), total = 0;
     b.mix.forEach(function (q) { total += q[1]; });
@@ -439,6 +441,22 @@
       var nr = { t: "rock", x: x, y: y, v: v }; a.obj.push(nr); near0.push(nr); E.rockChg = true;
       if (c === "a") a.touch(Math.floor(x / T) - 3, Math.floor(y / T) - 3, Math.floor(x / T) + 4, Math.floor(y / T) + 4);   // Sandringe
     }
+  }
+  // Trampelpfad (v0.19.9): runde Stempel ohne Raster; Breite = halbe Pinselgröße, alle paar Pixel ein Stempel
+  function paintPath(erase, X, Y, r) {
+    var a = E.arena, pr = Math.max(3, r * 0.5);
+    function touch(x, y, rr) { a.touch(Math.floor((x - rr) / T) - 1, Math.floor((y - rr) / T) - 1, Math.ceil((x + rr) / T) + 1, Math.ceil((y + rr) / T) + 1); }
+    if (erase) {
+      var n0 = a.paths.length;
+      a.paths = a.paths.filter(function (q) { return m.dist(X, Y, q[0], q[1]) > r; });
+      if (a.paths.length !== n0) touch(X, Y, r + 12);
+      E.pathLast = null; return;
+    }
+    var c = a.tilePx(X, Y); if (c === "o" || c === "w" || c === "#") return;
+    var L = E.pathLast;
+    if (L && m.dist(L[0], L[1], X, Y) < pr * 0.35) return;
+    var st = [Math.round(X), Math.round(Y), Math.round(pr)];
+    a.paths.push(st); E.pathLast = st; touch(X, Y, pr + 8);
   }
   function removeVeg(x, y, r, types) {
     E.arena.veg = E.arena.veg.filter(function (v) { return (types && types.indexOf(v.t) < 0) || m.dist(x, y, v.x, v.y) > r; });
@@ -540,7 +558,7 @@
       }
       var active = I.inside && (I.lmb || I.rmb) && E.tab === "map";
       if (active && !E.stroke && E.tool !== "move") { snapshot(); E.stroke = true; }
-      if (!I.lmb && !I.rmb && E.stroke) { E.stroke = false; w.lastBuild = -9; w.refreshSolids(); }
+      if (!I.lmb && !I.rmb && E.stroke) { E.stroke = false; E.pathLast = null; w.lastBuild = -9; w.refreshSolids(); }
       if (I.inside && E.tab === "map") {
         var X = E.wx, Y = E.wy;
         if (E.tool === "tile" && (I.lmb || I.rmb)) {

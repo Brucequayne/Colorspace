@@ -18,7 +18,9 @@
     { id: "house65", w: 6, d: 5, fl: 1, chim: 1, ridge: "x", door: 1 },
     { id: "house57", w: 5, d: 7, fl: 2, chim: 0, ridge: "y", door: 2 },
     { id: "house54", w: 5, d: 4, fl: 1, chim: 0, ridge: "x", door: 2 },
-    { id: "house76", w: 7, d: 6, fl: 2, chim: 1, ridge: "x", door: 2 }
+    { id: "house76", w: 7, d: 6, fl: 2, chim: 1, ridge: "x", door: 2 },
+    // seit v0.19.9: Supermarkt – modernes Ladengeschoss (Glasfront, Schiebetür, Schild) in einem Fachwerkhaus
+    { id: "market107", w: 10, d: 7, fl: 2, chim: 0, ridge: "x", door: 4, shop: 1 }
   ];
   var PLASTER = [[230, 221, 199], [221, 214, 201], [229, 213, 180], [216, 207, 188]];
   var TIMBER = [[78, 52, 34], [66, 46, 33], [88, 59, 38], [72, 51, 37]];
@@ -104,6 +106,31 @@
       if ((lx - (z - z0)) === 1 || (lx - (z - z0)) === 2) return [128, 156, 176];
       return glass;
     }
+    // Ladengeschoss (Supermarkt): Glasfront mit Metallrahmen, Schiebetür, Schild „MARKT“
+    var FONT = { M: ["10001", "11011", "10101", "10001", "10001"], A: ["01110", "10001", "11111", "10001", "10001"], R: ["11110", "10001", "11110", "10010", "10001"], K: ["10001", "10010", "11100", "10010", "10001"], T: ["11111", "00100", "00100", "00100", "00100"] };
+    var SIGN = "MARKT", sx0 = Math.round(W / 2 - (SIGN.length * 6 - 1) / 2), MET = [62, 66, 70], METL = [118, 124, 128];
+    function shopFront(x, z, i, lx) {
+      var zs = FH0 - 11;   // Unterkante des Schildes
+      if (z >= zs) {       // Schild über der ganzen Front
+        if (z === zs || z === FH0 - 3) return METL;
+        var r = FH0 - 5 - z, cxl = x - sx0, li = Math.floor(cxl / 6), lc = cxl - li * 6;
+        if (r >= 0 && r < 5 && li >= 0 && li < SIGN.length && lc < 5 && FONT[SIGN[li]][r][lc] === "1") return [246, 244, 236];
+        return x < 3 || x >= W - 3 ? MET : [74, 109, 124];
+      }
+      if (z < 2) return [70, 72, 74];
+      var glass = function () {
+        var c = [96, 138, 156];
+        if (((x + z) % 26) < 3 || ((x + z + 9) % 26) === 0) c = [168, 202, 212];          // Spiegelung
+        else if (z === 7 || z === 13) c = MA.mix(c, [hash(x >> 1, z, sd) > 0.5 ? 196 : 120, 120, 90], 0.35);   // Regale dahinter
+        return c;
+      };
+      if (i === h.door && lx >= 2 && lx < 14) {   // Schiebetür aus Glas
+        if (lx === 2 || lx === 13 || z === zs - 1 || lx === 7 || lx === 8) return MET;
+        return mul(glass(), 1.06);
+      }
+      if (x < 2 || x >= W - 2 || lx < 2 || z === 2 || z === zs - 1) return lx === 1 || x === W - 1 ? METL : MET;   // Rahmen
+      return glass();
+    }
     function facade(x, z) {
       var i = Math.floor(x / T), lx = x - i * T, gz = Hw + (h.ridge === "y" ? roofZ(h, g, x + 0.5, D) : 0);
       if (z >= Hw) {   // Giebel
@@ -114,6 +141,7 @@
         if (z < Hw + 2) return TB;
         return plaster(x, z);
       }
+      if (h.shop && z < FH0 - 2) return shopFront(x, z, i, lx);
       // Tür (ersetzt Sockel)
       if (i === h.door && lx >= 3 && lx < 13 && z < 22) {
         if (z >= 20 || lx === 3 || lx === 12) return TB;
@@ -170,7 +198,7 @@
   HOUSES.forEach(function (h) {
     var g = geom(h);
     MA.OBJECTS[h.id] = {
-      name: function () { return L2("Fachwerkhaus ", "Timber house ") + h.w + "×" + h.d; },
+      name: function () { return h.shop ? L2("Supermarkt ", "Supermarket ") + h.w + "×" + h.d : L2("Fachwerkhaus ", "Timber house ") + h.w + "×" + h.d; },
       w: g.W + PADX * 2, h: g.offY + g.D + OV + 3, ax: PADX + g.W / 2, ay: g.offY + g.D, variants: 4,
       house: h, grid: true, shadow: function (sc, sh, o) { shadow(sc, sh, o); }, canopy: g.D + g.Hw - 6, rect: [-g.W / 2, -g.D, g.W / 2, 0], fx: { chips: ["#8A6A4A", "#C9BFA8", "#8E4A36"] },
       draw: function (p, ctx, rnd, v) { drawHouse(h, ctx, v); }
@@ -237,6 +265,44 @@
     }
   };
 
+  // Ladenmöbel (Supermarkt, seit v0.19.9) – 3/4-Ansicht: Oberseite sichtbar
+  var PROD = ["#C84A3C", "#E8C048", "#4A86B4", "#5E9A4A", "#E07A3A", "#8A5AA8", "#F2EEE2", "#3A3A40"];
+  MA.OBJECTS.m_aisle = {
+    name: function () { return L2("Regalinsel", "Shelf island"); }, inner: true, w: 34, h: 30, ax: 17, ay: 27, variants: 3, solid: [[-9, -5, 7], [9, -5, 7]],
+    draw: function (p, ctx, rnd) {
+      p.rect(1, 4, 32, 7, "#A8ACAE"); p.rect(1, 4, 32, 1, "#C8CCCE");                 // Oberseite (Deckplatte)
+      for (var x = 3; x < 31; x += 3) p.rect(x, 5, 2, 4, PROD[(rnd() * PROD.length) | 0]);   // Waren oben
+      p.rect(1, 11, 32, 16, "#6A6E72"); p.rect(1, 11, 1, 16, "#8A8E92"); p.rect(32, 11, 1, 16, "#4A4E52");
+      [12, 18].forEach(function (y) {
+        for (var x = 2; x < 32;) { var bw = 2 + ((rnd() * 3) | 0), bh = 3 + ((rnd() * 2) | 0), c = PROD[(rnd() * PROD.length) | 0]; p.rect(x, y + 5 - bh, bw, bh, c); p.px(x, y + 5 - bh, "#F6F2EA"); x += bw + (rnd() < 0.2 ? 1 : 0); }
+        p.rect(1, y + 5, 32, 1, "#C8CCCE");
+      });
+      p.rect(1, 24, 32, 3, "#4A4E52"); p.rect(4, 24, 8, 1, "#ED6A5E");                 // Sockel, Preisschild
+    }
+  };
+  MA.OBJECTS.m_fridge = {
+    name: function () { return L2("Kühlregal", "Fridge"); }, inner: true, w: 34, h: 40, ax: 17, ay: 37, variants: 1, solid: [[-8, -3, 7], [8, -3, 7]],
+    draw: function (p, ctx, rnd) {
+      p.rect(1, 2, 32, 4, "#D8DCDE"); p.rect(1, 2, 32, 1, "#F0F2F2");                  // Oberseite
+      p.rect(1, 6, 32, 31, "#E4E6E6"); p.rect(32, 6, 1, 31, "#A8ACAE");
+      [2, 17].forEach(function (dx) {
+        p.rect(dx + 1, 8, 13, 24, "#7AA6BA");
+        for (var y = 10; y < 30; y += 6) { for (var x = dx + 2; x < dx + 13; x += 2) p.rect(x, y, 1, 4, ["#F2EEE2", "#4A86B4", "#C84A3C", "#5E9A4A"][(rnd() * 4) | 0]); p.rect(dx + 1, y + 4, 13, 1, "#C8DCE4"); }
+        p.rect(dx + 2, 9, 1, 22, "#B8D8E4"); p.rect(dx + 12, 18, 1, 5, "#5E6266");      // Glanz, Griff
+      });
+      p.rect(1, 33, 32, 4, "#5E6266"); p.rect(2, 3, 30, 1, "#62929E");
+    }
+  };
+  MA.OBJECTS.m_checkout = {
+    name: function () { return L2("Kasse", "Checkout"); }, inner: true, w: 30, h: 26, ax: 15, ay: 23, variants: 1, solid: [[-6, -3, 6], [6, -3, 6]],
+    draw: function (p) {
+      p.rect(1, 8, 28, 5, "#B8BCBE"); p.rect(3, 9, 18, 3, "#2A2C2E"); p.rect(3, 9, 18, 1, "#4A4C4E");   // Oberseite mit Laufband
+      p.rect(1, 13, 28, 10, "#8A5E3A"); p.rect(1, 13, 28, 1, "#A8784C"); p.rect(28, 13, 1, 10, "#5E3E26"); p.rect(1, 22, 28, 1, "#3A2616");
+      p.rect(22, 3, 6, 6, "#3A3C40"); p.rect(23, 4, 4, 3, "#7ACB6A"); p.rect(22, 2, 6, 1, "#5A5C60");   // Kassenterminal
+      p.rect(6, 9, 3, 2, "#E8C048"); p.rect(11, 9, 2, 2, "#C84A3C");                                   // Waren auf dem Band
+    }
+  };
+
   // ---------- Innenraum ----------
   function rect(x0, y0, x1, y1) { return { x0: x0, y0: y0, x1: x1, y1: y1 }; }
   function inR(r, x, y) { return r && x >= r.x0 && x < r.x1 && y >= r.y0 && y < r.y1; }
@@ -246,14 +312,21 @@
     var map = new MA.maps.GameMap({ cols: C, rows: R, name: "inside" });
     var rx = Math.floor((C - iw) / 2), ry = Math.max(2, Math.floor((R - ih) / 2) + 1);
     for (var i = 0; i < C * R; i++) map.tiles[i] = "x";
-    for (var ty = ry; ty < ry + ih; ty++) for (var tx = rx; tx < rx + iw; tx++) map.tiles[ty * C + tx] = "d";
+    for (var ty = ry; ty < ry + ih; ty++) for (var tx = rx; tx < rx + iw; tx++) map.tiles[ty * C + tx] = h.shop ? "i" : "d";
     var rnd = MA.rng(((o.x * 7 + o.y * 13) | 0) + floor * 101 + 5);
     var mx = rx + Math.min(iw - 1, Math.floor((h.door + 0.5) * 1.5));
-    var stLeft = mx >= rx + iw / 2, st = h.fl === 2 ? { tx: stLeft ? rx : rx + iw - 2, ty: ry } : null;
+    var stLeft = mx >= rx + iw / 2, st = h.fl === 2 && !h.shop ? { tx: stLeft ? rx : rx + iw - 2, ty: ry } : null;
     var X0 = rx * T, Y0 = ry * T, X1 = (rx + iw) * T, Y1 = (ry + ih) * T, cxm = (X0 + X1) / 2, objs = [];
     function add(t, x, y, v) { objs.push({ t: t, x: Math.round(x), y: Math.round(y), v: v || 0 }); }
     var farX = stLeft ? X1 - 22 : X0 + 22, nearX = stLeft ? X0 + 50 : X1 - 50;   // Seite ohne Treppe / Mitte daneben
-    if (floor === 0) {
+    if (h.shop) {
+      // Supermarkt: Kühlregale an der Rückwand, zwei Reihen Regalinseln (Gang zur Tür frei), Kassen neben dem Eingang
+      var dxm = mx * T + 8;
+      for (var fx = X0 + 22; fx <= X1 - 22; fx += 34) add("m_fridge", fx, Y0 + 12);
+      [Y0 + 62, Y0 + 106].forEach(function (ay) { for (var axx = X0 + 30; axx <= X1 - 30; axx += 36) if (Math.abs(axx - dxm) > 34) add("m_aisle", axx, ay, (rnd() * 3) | 0); });
+      add("m_checkout", dxm - 46, Y1 - 26); add("m_checkout", dxm + 46, Y1 - 26);
+      add("m_pot", X0 + 10, Y1 - 6); add("m_pot", X1 - 10, Y1 - 6);
+    } else if (floor === 0) {
       add("m_shelf", st ? farX : X0 + 22, Y0 + 12, (rnd() * 2) | 0);
       if (h.chim) add("m_hearth", st ? (cxm + farX) / 2 : cxm, Y0 + 10);
       add("m_table", cxm, Y0 + ih * T * 0.55);
@@ -305,6 +378,7 @@
     // Teppich
     var rgx = floor === 0 ? cxm : (stLeft ? X1 - 40 : X0 + 40), rgy = floor === 0 ? Y0 + ih * T * 0.55 - 6 : Y0 + 66, rw = Math.min(70, (iw - 4) * T), rhh = 30;
     if (floor === 1) { rw = 40; rhh = 24; }
+    if (h.shop) rhh = 0;   // kein Teppich im Laden
     for (var qy = 0; qy < rhh; qy++) for (var qx = 0; qx < rw; qx++) {
       var bd = qx < 2 || qy < 2 || qx >= rw - 2 || qy >= rhh - 2, bd2 = qx === 4 || qy === 4 || qx === rw - 5 || qy === rhh - 5;
       fill(rgx - rw / 2 + qx, rgy - rhh / 2 + qy, 1, 1, bd ? [170, 130, 76] : bd2 ? [196, 160, 96] : (((qx >> 2) + (qy >> 2)) % 2 ? [140, 58, 50] : [124, 50, 46]));

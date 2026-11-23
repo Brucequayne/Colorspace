@@ -9,7 +9,7 @@
 (function () {
   var MA = window.MA, T = MA.TILE, CS = 16;   // Chunk-Größe in Kacheln
   var hash = MA.hash2, fbm = MA.fbm, noise = MA.noise2;
-  var EXACT = { w: 1, o: 1, u: 1, v: 1, "#": 1, x: 1, d: 1 };
+  var EXACT = { w: 1, o: 1, u: 1, v: 1, "#": 1, x: 1, d: 1, i: 1 };
   function isWater(c) { return c === "w" || c === "o" || c === "u"; }
 
   // Plattenmuster (Standard-Steinboden): Rechtecke aus 8-px-Zellen, je Chunk (lokale Pixel)
@@ -112,6 +112,40 @@
     if (c.n1 > 0.93) col = [132, 124, 112]; else if (c.n1 < 0.04) col = [52, 38, 30];
     return col;
   };
+  // seit v0.19.9 ---------------------------------------------------------------
+  MAT.r = function (x, y, c) {   // Grasboden: saftiger und heller als Moos, kurze senkrechte Halmstriche
+    var col = MA.mix([110, 166, 66], [86, 140, 52], Math.min(1, c.nf * 1.15));
+    var bl = hash(x, y >> 2, c.seed + 501), b2 = hash(x, (y + 2) >> 2, c.seed + 503);
+    if (bl > 0.78) col = [136, 188, 82]; else if (bl < 0.1) col = [64, 112, 42];
+    else if (b2 > 0.86) col = [122, 176, 72];
+    if (c.n1 > 0.996) col = [236, 220, 110];           // vereinzelt kleine Blüte
+    var d = (fbm(x / 22, y / 22, c.seed + 507, 2) - 0.5) * 16;
+    return [col[0] + d * 0.6, col[1] + d, col[2] + d * 0.4];
+  };
+  MAT.l = function (x, y, c) {   // Waldboden: dunkler als Moos, Laub, Nadeln, Zweige
+    var col = MA.mix([62, 52, 36], [40, 34, 26], fbm(x / 5, y / 5, c.seed + 511, 2));
+    var lf = hash(x >> 1, y >> 1, c.seed + 513);
+    if (lf > 0.86) col = [[112, 74, 38], [134, 94, 46], [86, 60, 32], [76, 84, 40]][((lf - 0.86) * 28) | 0];
+    else if (lf < 0.05) col = [28, 22, 16];
+    if (hash(x, y, c.seed + 517) > 0.985) col = [120, 102, 70];                       // Nadel / Zweiglicht
+    if (fbm(x / 9, y / 9, c.seed + 519, 2) > 0.66 && lf < 0.6) col = MA.mix(col, [58, 78, 38], 0.6);   // Moosflecken
+    return col;
+  };
+  MAT.z = function (x, y, c) {   // Strandsand: hell, warm, feinkörnig, ein paar Muschelsplitter
+    var col = MA.mix([234, 218, 176], [218, 200, 156], fbm(x / 9, y / 9, c.seed + 521, 2)), g = (c.n1 - 0.5) * 12;
+    col = [col[0] + g, col[1] + g, col[2] + g * 0.8];
+    if (c.n1 > 0.994) col = [248, 242, 232]; else if (c.n1 < 0.006) col = [176, 160, 128];
+    return col;
+  };
+  // Trampelpfad (seit v0.19.9): frei gemalte Stempel ohne Raster (map.paths), werden ins Bodenbild eingebacken
+  var PATH_A = [150, 124, 88], PATH_B = [126, 102, 72];
+  function pathCol(x, y, seed, e) {
+    var col = MA.mix(PATH_A, PATH_B, fbm(x / 4, y / 4, seed + 531, 2));
+    if (e > 0.88) col = MA.mix(col, [116, 92, 64], 0.5);   // ausgetretene Mitte
+    var h = hash(x, y, seed + 533);
+    if (h > 0.975) col = [178, 168, 148]; else if (h < 0.03) col = [96, 76, 52];
+    return col;
+  }
   MAT.k = function (x, y, c) {   // Matsch (seit v0.19): nasse dunkle Erde, Pfützen mit Himmelsspiegelung, glänzende Stellen
     var en = fbm(x / 4, y / 4, c.seed + 401, 2), col = MA.mix([84, 62, 44], [56, 40, 30], en);
     var pd = fbm(x / 9, y / 7, c.seed + 403, 3);
@@ -171,6 +205,12 @@
     // Begehbarkeit bleibt kachelgenau; nur das Bild ist um bis zu ~eine halbe Kachel verschoben.
     var landF = fieldR(arena, tx0, ty0, nw, nh, 2, function (c) { return !isWater(c); }), seaF = fieldR(arena, tx0, ty0, nw, nh, 2, function (c) { return c === "o"; });
     var swampF = fieldR(arena, tx0, ty0, nw, nh, 2, function (c) { return c === "u"; });
+    var PS = (arena.paths || []).filter(function (q) { return q[0] + q[2] + 6 > px0 && q[0] - q[2] - 6 < px0 + cw && q[1] + q[2] + 6 > py0 && q[1] - q[2] - 6 < py0 + chh; });
+    function pathAt(x, y) {
+      var best = 0;
+      for (var k = 0; k < PS.length; k++) { var q = PS[k], dx = x - q[0], dy = (y - q[1]) * 1.15; if (Math.abs(dx) > q[2] + 6) continue; var v = 1 - Math.sqrt(dx * dx + dy * dy) / (q[2] + 4); if (v > best) best = v; }
+      return best;
+    }
     var coast = new Uint8Array(nw * nh), coastLand = [];
     for (var cty = 0; cty < nh; cty++) for (var ctx0 = 0; ctx0 < nw; ctx0++) {
       var gx = tx0 + ctx0, gy = ty0 + cty, cwt = isWater(tl(gx, gy)), cl = null, cf = 0;
@@ -216,7 +256,8 @@
         if (ch !== "#" && coast[ci]) { var vv = landF(x, y) + (fbm(x / 6, y / 6, seed + 201, 2) - 0.5) * 0.6; sd = (0.5 - vv) * 30; waterHere = vv < 0.5; }
         var landCh = isWater(ch) ? coastLand[ci] : ch;
         wmask[li] = waterHere && ch !== "#" ? 1 : 0;
-        if (ch === "x") col = [12, 11, 14];   // Innenraum: außerhalb schwarz
+        if (ch === "i") { var fx2 = x & 15, fy2 = y & 15, ft = (hash(x >> 4, y >> 4, seed + 541) - 0.5) * 8; col = fx2 === 0 || fy2 === 0 ? [168, 166, 158] : [212 + ft, 210 + ft, 202 + ft]; if (fy2 === 1) col = [222 + ft, 220 + ft, 214 + ft]; }   // Fliesen (Laden)
+        else if (ch === "x") col = [12, 11, 14];   // Innenraum: außerhalb schwarz
         else if (ch === "d") {                  // Innenraum: Holzdielen (Bretter 4 px breit, versetzte Stöße)
           var prow = y >> 2, poff = (hash(prow, 3, seed + 41) * 40) | 0, pk = Math.floor((x + poff) / 40), pv = (hash(pk, prow, seed + 43) - 0.5) * 18 + (hash(x, y, seed + 47) - 0.5) * 6;
           col = (y & 3) === 3 ? [92, 62, 40] : ((x + poff) % 40 === 0 ? [104, 72, 46] : [150 + pv, 108 + pv * 0.8, 70 + pv * 0.6]);
@@ -245,6 +286,8 @@
             var depth = Math.min(1, (dist - 3) / 12) + (ctx.nf - 0.5) * 0.25 + seaF(x, y) * 0.5 * Math.min(1, (dist - 3) / 15);
             col = MA.mix([62, 104, 98], [22, 46, 54], Math.max(0, Math.min(1, depth)));
             if (depth > 1) col = MA.mix([22, 46, 54], [16, 34, 44], Math.min(1, depth - 1));
+            var shw = 1 - seaF(x, y);   // seit v0.19.9: flaches Wasser (w) heller und klarer als das Meer
+            if (shw > 0.02) col = MA.mix(col, MA.mix([92, 146, 138], [74, 124, 120], Math.min(1, (dist - 3) / 14)), shw * 0.7);
             if (ctx.n1 > 0.97) col = MA.mix(col, [90, 120, 90], 0.4);
           }
           if (sk > 0 && dist >= 2) {
@@ -264,13 +307,22 @@
           col = (MAT[mat] || MAT.s)(x, y, ctx);
           // Moos als eigene Ebene
           var mf = mossF(x, y);
-          if (mf > 0.03 && mat !== "a" && mat !== "g" && mat !== "k" && mat !== "q") {
+          if (mf > 0.03 && mat !== "a" && mat !== "g" && mat !== "k" && mat !== "q" && mat !== "z" && mat !== "r" && mat !== "l") {
             var mv = mf + (ctx.joint ? 0.28 : 0) + (fbm(x / 6, y / 6, seed + 31, 3) - 0.5) * 0.9;
             if (mv > 0.62) {
               var mc = MA.mix([58, 84, 40], [112, 136, 62], fbm(x / 3, y / 3, seed + 33, 2));
               if (ctx.n1 > 0.9) mc = [146, 160, 82];
               if (mv < 0.7) mc = MA.mix(mc, col, 0.45);
               md[i] = mc[0]; md[i + 1] = mc[1]; md[i + 2] = mc[2]; md[i + 3] = 255;
+            }
+          }
+          // Trampelpfad über dem Boden (und über dem Moos)
+          if (PS.length) {
+            var pv = pathAt(x, y);
+            if (pv > 0) {
+              var pe = pv + (fbm(x / 3, y / 3, seed + 535, 2) - 0.5) * 0.55;
+              if (pe > 0.42) { col = pathCol(x, y, seed, pe); md[i + 3] = 0; }
+              else if (pe > 0.3 && hash(x, y, seed + 537) > 0.45) { col = MA.mix(col, pathCol(x, y, seed, pe), 0.6); if (md[i + 3] && hash(x, y, seed + 539) > 0.5) md[i + 3] = 0; }
             }
           }
           // Verschattung an Mauern

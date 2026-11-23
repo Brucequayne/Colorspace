@@ -61,9 +61,9 @@
         var tile = a.tilePx(this.x, this.y), sx = this.x - w.cam.x;
         if (tile === "w" || tile === "u") { w.parts.ring(this.x, this.y, 7, 0.7); w.parts.splash(this.x, this.y, 2, 0.4); MA.audio.play("step_water", { x: sx }); }
         else {
-          w.parts.dust(this.x, this.y, 2, tile === "a" ? "#D6CCB0" : tile === "q" ? "#DCC294" : tile === "k" ? "#4A3628" : tile === "e" ? "#7A5E44" : tile === "g" ? "#B8B2A4" : "#A8A096");
+          w.parts.dust(this.x, this.y, 2, tile === "a" ? "#D6CCB0" : tile === "q" ? "#DCC294" : tile === "z" ? "#E6D6AE" : tile === "l" ? "#4A3C2A" : tile === "k" ? "#4A3628" : tile === "e" ? "#7A5E44" : tile === "g" ? "#B8B2A4" : "#A8A096");
           // Moos, Erde oder Pflanzen unter den Füßen → weicher Schritt
-          var px = this.x, py = this.y, soft = tile === "m" || tile === "e" || tile === "k" || a.veg.some(function (v) { return Math.abs(v.x - px) < 6 && Math.abs(v.y - py) < 4 && v.t !== "lotus" && v.t !== "leaves" && v.t !== "petals"; });
+          var px = this.x, py = this.y, soft = tile === "m" || tile === "e" || tile === "k" || tile === "r" || tile === "l" || a.veg.some(function (v) { return Math.abs(v.x - px) < 6 && Math.abs(v.y - py) < 4 && v.t !== "lotus" && v.t !== "leaves" && v.t !== "petals"; });
           MA.audio.play(soft ? "step_grass" : "step", { x: sx });
         }
       }

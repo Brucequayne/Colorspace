@@ -26,7 +26,12 @@
     q: { name: function () { return L2("Sand (Dünen)", "Sand (dunes)"); }, speed: 0.84, element: "erde", sw: "#D6BC8A", prints: [[168, 132, 84, 0.75], [244, 226, 182, 0.6]] },
     "#": { name: function () { return L2("Mauer", "Wall"); }, solid: true, sw: "#3E3B38" },
     // nur in Innenräumen (seit v0.15, nicht im Editor): schwarz außerhalb des Raums, Holzdielen
+    // seit v0.19.9: Grasboden, Waldboden, Strandsand
+    r: { name: function () { return L2("Grasboden", "Grass"); }, speed: 1, element: "holz", sw: "#6EA244" },
+    l: { name: function () { return L2("Waldboden", "Forest floor"); }, speed: 0.95, element: "holz", sw: "#3C3226" },
+    z: { name: function () { return L2("Sand (Strand)", "Sand (beach)"); }, speed: 0.84, element: "erde", sw: "#E2CE9E", prints: [[176, 152, 110, 0.7], [250, 240, 214, 0.6]] },
     x: { name: function () { return L2("Leere", "Void"); }, solid: true, inner: true, sw: "#0C0B0E" },
+    i: { name: function () { return L2("Fliesen", "Floor tiles"); }, speed: 1, inner: true, sw: "#C8C6BE" },
     d: { name: function () { return L2("Holzdielen", "Floorboards"); }, speed: 1, inner: true, sw: "#946A44" }
   };
   MA.SEA = "o";
@@ -60,6 +65,7 @@
     this.tiles = dec(data.tiles, n, MA.SEA) || fill(n, MA.SEA).split("");
     this.leaf = dec(data.leaf, n, "0") || fill(n, "0").split("");
     this.zone = dec(data.zone, n, "0") || fill(n, "0").split("");
+    this.paths = (data.paths || []).map(function (q) { return [q[0], q[1], q[2]]; });   // seit v0.19.9: Trampelpfad-Stempel [x, y, r] (ohne Raster)
     this.wall = dec(data.wall, n, "0") || fill(n, "0").split("");   // seit v0.13: Mauern je Kachel (walls.js), "0" = keine
     // Zonen: [{ id, name, col }] – id ist ein Zeichen aus MA.ZONE_IDS
     this.zones = (data.zones || []).map(function (z) { return { id: z.id, name: z.name || "", col: z.col || "#62929E" }; });
@@ -149,6 +155,7 @@
     var dx = ox * T, dy = oy * T, W2 = cols * T, H2 = rows * T;
     function keep(o) { o.x += dx; o.y += dy; if (o.s != null) o.s += dy; return o.x >= 0 && o.y >= 0 && o.x < W2 && o.y < H2; }
     this.obj = this.obj.filter(keep); this.veg = this.veg.filter(keep);
+    this.paths = this.paths.filter(function (q) { q[0] += dx; q[1] += dy; return q[0] >= 0 && q[1] >= 0 && q[0] < W2 && q[1] < H2; });
     this.spawn = [Math.max(8, Math.min(W2 - 8, this.spawn[0] + dx)), Math.max(8, Math.min(H2 - 8, this.spawn[1] + dy))];
     this.cols = cols; this.rows = rows; this.tiles = t; this.leaf = l; this.rev++; this.dirty = null;
     return true;
@@ -195,7 +202,7 @@
   A.serialize = function () {
     return {
       v: 1, game: "monstersarc", name: this.name, seed: this.seed, time: Math.round(this.time * 100) / 100, cols: this.cols, rows: this.rows,
-      tiles: enc(this.tiles), leaf: enc(this.leaf), zone: enc(this.zone), wall: enc(this.wall), zones: this.zones.map(function (z) { return { id: z.id, name: z.name, col: z.col }; }),
+      tiles: enc(this.tiles), leaf: enc(this.leaf), zone: enc(this.zone), wall: enc(this.wall), paths: this.paths.map(function (q) { return [Math.round(q[0]), Math.round(q[1]), Math.round(q[2])]; }), zones: this.zones.map(function (z) { return { id: z.id, name: z.name, col: z.col }; }),
       obj: this.obj.map(function (o) { var q = [o.t, Math.round(o.x), Math.round(o.y), o.v]; if (o.s != null) q.push(o.s); return q; }),
       veg: this.veg.map(function (o) { return [o.t, Math.round(o.x), Math.round(o.y), o.v]; }),
       spawn: this.spawn.map(Math.round)
