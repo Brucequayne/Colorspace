@@ -6,6 +6,7 @@ import { Input } from "pr/input.js";
 import { Menu } from "pr/menu.js";
 import { Editor } from "pr/editor.js";
 import { Drive } from "pr/drive.js";
+import { WindIcon } from "pr/wind.js";
 import { loadSaved, autosave } from "pr/sceneio.js";
 
 const CSS = `
@@ -54,6 +55,9 @@ const CSS = `
 .pr-rpm{position:absolute;right:28px;bottom:40px;width:220px;height:8px;background:rgba(0,0,0,.5)}.pr-rpm i{display:block;height:100%;width:0;background:#E8A04A}
 .pr-info{position:absolute;left:20px;bottom:44px;color:#eee;font-weight:600;text-shadow:0 1px 4px rgba(0,0,0,.8)}
 .pr-help{position:absolute;left:20px;right:20px;bottom:14px;color:#ccc;font-size:12px;text-shadow:0 1px 4px rgba(0,0,0,.8)}
+.pr-legend{display:flex;flex-wrap:wrap;gap:4px 10px;margin-top:10px;font-size:11px;color:#A9ACB2}.pr-lg{display:flex;align-items:center;gap:5px}.pr-lg i{width:12px;height:12px;display:inline-block}
+.pr-wind{position:absolute;top:14px;right:14px;display:flex;flex-direction:column;align-items:center;gap:2px;pointer-events:none;color:#C6C5B9;font-size:11px;font-weight:700;background:rgba(22,23,26,.55);padding:6px 8px 5px}
+.pr-wind.pr-wed{top:58px;right:332px}
 .pr-pause{position:absolute;inset:0;background:rgba(10,11,13,.6);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px}
 .pr-pause h2{margin:0 0 10px;font-size:28px}.pr-pause button{width:260px;font-size:15px!important;padding:11px!important}
 `;
@@ -66,15 +70,14 @@ export function mount(host, lang, stamp) {
   host.innerHTML = "";
   const root = el("div", "pr-root"); host.appendChild(root);
   const engine = new Engine(root), ui = el("div", "pr-ui"); root.appendChild(ui);
-  const settings = Object.assign({ shadows: true, scale: 1, drive: "rwd", windLines: true }, store.get(KEYS.settings, {}));
+  const settings = Object.assign({ shadows: true, scale: 1, drive: "rwd" }, store.get(KEYS.settings, {}));
   engine.quality({ shadows: settings.shadows, scale: settings.scale });
   const world = new World(engine);
-  world.windFx.visible = settings.windLines !== false;
   if (!loadSaved(world)) { world.standard(); autosave(world, true); }
   const app = A = { engine: engine, world: world, ui: ui, root: root, input: new Input(), settings: settings, lang: PR.lang, mode: null, modeName: "", raf: 0, last: performance.now() };
   app.go = (name, opts) => {
     if (app.mode) app.mode.dispose();
-    app.modeName = name;
+    app.modeName = name; ui.setAttribute("data-mode", name);
     app.mode = name === "editor" ? new Editor(app) : name === "drive" ? new Drive(app, opts) : new Menu(app);
   };
   app.toast = (msg) => { const tEl = el("div", "pr-toast", ""); tEl.textContent = msg; ui.appendChild(tEl); setTimeout(() => tEl.remove(), 2600); };
@@ -84,8 +87,9 @@ export function mount(host, lang, stamp) {
   const loop = (now) => {
     app.raf = requestAnimationFrame(loop);
     const dt = Math.min(0.05, (now - app.last) / 1000); app.last = now;
-    world.update(dt); if (app.mode) app.mode.update(dt); engine.render();
+    world.update(dt); if (app.mode) app.mode.update(dt); app.wind.update(); engine.render();
   };
+  app.wind = new WindIcon(app);
   app.go("menu");
   app.raf = requestAnimationFrame(loop);
   window.PRDBG = app;
@@ -94,5 +98,5 @@ export function unmount() {
   if (!A) return;
   cancelAnimationFrame(A.raf); window.removeEventListener("keydown", A.onKey); window.removeEventListener("resize", A.onResize);
   if (A.modeName === "editor") autosave(A.world, true);
-  if (A.mode) A.mode.dispose(); A.input.dispose(); A.engine.dispose(); A.root.remove(); A = null; window.PRDBG = null;
+  if (A.mode) A.mode.dispose(); A.wind.dispose(); A.input.dispose(); A.engine.dispose(); A.root.remove(); A = null; window.PRDBG = null;
 }

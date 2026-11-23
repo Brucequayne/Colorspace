@@ -27,7 +27,7 @@ export class Menu {
       '<label>' + t("sShadow") + "</label>" + seg("shadows", [[true, "sOn"], [false, "sOff"]]) +
       '<label>' + t("sScale") + "</label>" + seg("scale", [[0.6, "60 %"], [0.8, "80 %"], [1, "100 %"]]) +
       '<label>' + t("sDrive") + "</label>" + seg("drive", [["rwd", "dRwd"], ["fwd", "dFwd"], ["awd", "dAwd"]]) +
-      '<label>' + t("sWind") + "</label>" + seg("windLines", [[true, "sOn"], [false, "sOff"]]) + "</details>" +
+      "</details>" +
       '<a class="pr-mlink" href="#">← ' + t("mBack") + "</a></div>" +
       '<div class="pr-mfoot"><span id="pr-pad"></span><span>' + t("mFoot").replace("{v}", PR.VERSION) + "</span></div>");
     app.ui.appendChild(this.root);
@@ -39,7 +39,7 @@ export class Menu {
     const s = this.app.settings;
     if (b.hasAttribute("data-set")) {
       const k = b.getAttribute("data-set"), raw = b.getAttribute("data-v"), v = raw === "true" ? true : raw === "false" ? false : isNaN(+raw) ? raw : +raw;
-      s[k] = v; store.set(KEYS.settings, s); this.app.engine.quality({ shadows: s.shadows, scale: s.scale }); this.app.world.windFx.visible = s.windLines !== false;
+      s[k] = v; store.set(KEYS.settings, s); this.app.engine.quality({ shadows: s.shadows, scale: s.scale });
       b.parentNode.querySelectorAll("button").forEach((o) => o.setAttribute("aria-pressed", String(o === b))); return;
     }
     const m = b.getAttribute("data-m");

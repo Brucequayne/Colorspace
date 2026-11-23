@@ -1,7 +1,10 @@
 // ===== road.js · Straße: Spline-Punkte, Netz, Abfrage für Physik, Einbettung ins Gelände =====
 // Punkte: { x, z, y (Höhe), w (Breite m), bank (Neigung in Grad, + = linke Seite höher), cl, cr (Kerbs links/rechts ab diesem Punkt) }.
 // t (seit v0.12): 1 = Gelände anpassen ab diesem Punkt, 0 = Straße liegt aufs vorhandene Gelände (nur Hervorstehendes wird abgetragen).
-// a = Hilfspunkt (beim Platzieren erzeugt, kleiner Griff).
+// a = Hilfspunkt (beim Platzieren erzeugt, kleiner Griff). j = Ende mündet in eine andere Straße (Abzweigung/Einmündung,
+// Höhe wird an die andere Straße angeglichen). b = Brücke ab diesem Punkt erzwingen (seit v0.13).
+// Seit v0.13 gibt es mehrere Straßen (world.roads). Kreuzt eine Straße eine andere mindestens 3 m höher, wird sie dort
+// automatisch zur Brücke (Überführung).
 // Die Straße folgt nur ihren eigenen Punkten (Catmull-Rom), nicht dem Gelände. Mit Gelände-Anpassung wird das Gelände unter ihr
 // weggedrückt und läuft mit einer Böschung (fall) wieder in die Grundhöhe über. Ohne Anpassung entsteht über Senken
 // automatisch eine Betonbrücke (Fahrbahnplatte, Brüstungen, Pfeiler).
@@ -30,7 +33,10 @@ export class Road {
     this.base = null;      // (x, z) => Grundhöhe des Geländes (setzt die Welt)
     this.pillars = [];     // [x, z, r] Brückenpfeiler für die Kollision
     this.anyBridge = false;
+    this.world = null;     // Welt (für die anderen Straßen)
+    this.main = false;     // Hauptstrecke: bekommt Start/Ziel
   }
+  others() { return this.world ? this.world.roads.filter((r) => r !== this && r.S.length > 1) : []; }
   P(i) { const n = this.pts.length; return this.closed ? this.pts[((i % n) + n) % n] : this.pts[clamp(i, 0, n - 1)]; }
   // Querschnitte entlang der Spline berechnen
   sample() {
@@ -43,10 +49,10 @@ export class Road {
       for (let s = 0; s < steps; s++) {
         const k = s / steps;
         S.push({ p: new THREE.Vector3(cr(a.x, b.x, c.x, d.x, k), cr(a.y, b.y, c.y, d.y, k), cr(a.z, b.z, c.z, d.z, k)),
-          w: Math.max(3, cr(a.w, b.w, c.w, d.w, k)), bank: cr(a.bank, b.bank, c.bank, d.bank, k), cl: !!b.cl, cr: !!b.cr, seg: i, terr: b.t !== 0 });
+          w: Math.max(3, cr(a.w, b.w, c.w, d.w, k)), bank: cr(a.bank, b.bank, c.bank, d.bank, k), cl: !!b.cl, cr: !!b.cr, seg: i, terr: b.t !== 0 && !b.b, forced: !!b.b });
       }
     }
-    if (!this.closed) { const e = this.pts[n - 1]; S.push({ p: new THREE.Vector3(e.x, e.y, e.z), w: e.w, bank: e.bank, cl: false, cr: false, seg: n - 2, terr: this.pts[n - 2].t !== 0 }); }
+    if (!this.closed) { const e = this.pts[n - 1]; S.push({ p: new THREE.Vector3(e.x, e.y, e.z), w: e.w, bank: e.bank, cl: false, cr: false, seg: n - 2, terr: this.pts[n - 2].t !== 0 && !this.pts[n - 2].b, forced: !!this.pts[n - 2].b }); }
     const m = S.length;
     for (let i = 0; i < m; i++) {
       const pa = S[this.closed ? (i - 1 + m) % m : Math.max(0, i - 1)].p, pb = S[this.closed ? (i + 1) % m : Math.min(m - 1, i + 1)].p;
@@ -58,8 +64,21 @@ export class Road {
       S[i].d = this.len; if (i > 0) this.len += S[i].p.distanceTo(S[i - 1].p), S[i].d = this.len;
     }
     if (this.closed && m > 1) this.len += S[m - 1].p.distanceTo(S[0].p);
-    this.markBridges();
     this.buildGrid();
+  }
+  // Höchste Stelle dieser Straße unter (x, z), die mindestens 3 m tiefer als y liegt (für Überführungen).
+  // excl = Streckenposition, deren Umgebung (±40 m) ignoriert wird (eigene Straße), margin = zusätzlicher seitlicher Abstand
+  lowerAt(x, z, y, margin, excl) {
+    const l = this.grid.get(Math.floor(x / GRID) + "," + Math.floor(z / GRID)); if (!l) return -Infinity;
+    const S = this.S, m = S.length; let best = -Infinity;
+    for (let q = 0; q < l.length; q++) {
+      const i = l[q], a = S[i], b = S[(i + 1) % m];
+      if (excl != null) { let dd = Math.abs(a.d - excl); if (this.closed) dd = Math.min(dd, this.len - dd); if (dd < 40) continue; }
+      const abx = b.p.x - a.p.x, abz = b.p.z - a.p.z, L2 = abx * abx + abz * abz || 1, u = clamp(((x - a.p.x) * abx + (z - a.p.z) * abz) / L2, 0, 1);
+      const dd = Math.hypot(x - a.p.x - abx * u, z - a.p.z - abz * u), yy = lerp(a.p.y, b.p.y, u);
+      if (dd < lerp(a.w, b.w, u) / 2 + margin && yy < y - 3 && yy > best) best = yy;
+    }
+    return best;
   }
   // Brücken: ohne Gelände-Anpassung und mehr als BR über dem Gelände (Mitte oder ein Rand). Kurze Lücken werden geschlossen,
   // einzelne Brückenstücke entfernt, damit keine Mini-Brücken entstehen.
@@ -70,15 +89,19 @@ export class Road {
       if (!B) continue;
       const hc = B(s.p.x, s.p.z), hl = B(s.L.x, s.L.z), hr = B(s.R.x, s.R.z);
       s.gnd = Math.min(hc, hl, hr); s.gap = Math.max(s.p.y - hc, s.L.y - hl, s.R.y - hr);
-      s.br = !s.terr && s.gap > BR;
+      // über einer anderen (oder der eigenen, weiter entfernten) Straße: Überführung
+      s.cross = false;
+      if (this.world) for (const o of this.world.roads) { if (o.S.length < 2) continue; if (o.lowerAt(s.p.x, s.p.z, s.p.y, CW + 6.5 + s.w / 4, o === this ? s.d : null) > -Infinity) { s.cross = true; break; } }
+      s.br = s.forced || s.cross || (!s.terr && s.gap > BR);
     }
     const at = (i) => this.closed ? S[(i + m) % m] : S[clamp(i, 0, m - 1)];
     const f = S.map((s) => s.br);
-    for (let i = 0; i < m; i++) if (!f[i] && !S[i].terr && at(i - 1).br && (at(i + 1).br || at(i + 2).br)) f[i] = true;   // Lücken schließen
+    for (let i = 0; i < m; i++) if (!f[i] && (!S[i].terr || S[i].cross) && at(i - 1).br && (at(i + 1).br || at(i + 2).br)) f[i] = true;   // Lücken schließen
     for (let i = 0; i < m; i++) S[i].br = f[i];
-    for (let i = 0; i < m; i++) { const s = S[i]; if (s.br && !at(i - 1).br && !at(i + 1).br) s.br = false; }               // Einzelstücke weg
+    for (let i = 0; i < m; i++) { const s = S[i]; if (s.br && !s.forced && !s.cross && !at(i - 1).br && !at(i + 1).br) s.br = false; }   // Einzelstücke weg
     for (let i = 0; i < m; i++) if (S[i].br) this.anyBridge = true;
   }
+  roadBelow(x, z, top) { if (!this.world) return false; for (const o of this.world.roads) if (o.S.length > 1 && o.lowerAt(x, z, top + 3, CW + 2, o === this ? -1e9 : null) > -Infinity) return true; return false; }
   // Innenseite der Brüstung (Abstand von der Mittellinie)
   face(q) { return q.w / 2 + CW + PW; }   // auf Brücken immer Platz für Kerbs, damit die Brüstung keinen Versatz hat
   segCount() { return this.closed ? this.S.length : this.S.length - 1; }
@@ -104,7 +127,7 @@ export class Road {
     const a = best.a, b = best.b, u = best.u, r = new THREE.Vector3().lerpVectors(a.r, b.r, u).normalize();
     best.d = (x - best.cx) * r.x + (z - best.cz) * r.z; best.y = lerp(a.p.y, b.p.y, u); best.w = lerp(a.w, b.w, u); best.tan = lerp(a.tan, b.tan, u); best.r = r;
     best.t = new THREE.Vector3().lerpVectors(a.t, b.t, u).normalize(); best.curb = best.d < 0 ? a.cl : a.cr; best.dist = a.d + u * a.p.distanceTo(b.p);
-    best.terr = a.terr; best.br = u < 0.5 ? a.br : b.br;
+    best.br = u < 0.5 ? a.br : b.br; best.terr = a.terr && !best.br;
     return best;
   }
   // Physik: Fahrbahn unter (x, z)? → { h, n, kind: "road" | "curb" }
@@ -124,7 +147,7 @@ export class Road {
     if (!this.S.length) return null;
     const q = this.nearest(x, z); if (!q) return null;
     const hw = q.w / 2, edge = hw + (q.curb ? CW : 0), shoulder = edge + 2.5, ad = Math.abs(q.d);
-    if (!q.terr) {   // ohne Gelände-Anpassung: nur abtragen, was über die Fahrbahn (bzw. Brückenplatte) ragt, mit 45°-Kante
+    if (!q.terr || q.br) {   // ohne Gelände-Anpassung: nur abtragen, was über die Fahrbahn (bzw. Brückenplatte) ragt, mit 45°-Kante
       const e2 = (q.br ? hw + CW + PW + PT : edge) + 0.3; if (ad > e2 + 6) return null;
       const top = q.y - Math.sign(q.d) * Math.min(ad, edge) * q.tan - (q.br ? DECK + 0.3 : 0.15);
       return { h: top + Math.max(0, ad - e2), w: 1, lo: true };
@@ -135,10 +158,12 @@ export class Road {
     return { h: he, w: ad <= shoulder ? 1 : 1 - smooth((ad - shoulder) / this.fall) };
   }
   // Netz bauen (Fahrbahn, weiße Randlinien, rot-weiße Kerbs, Seitenwände, Start/Ziel)
-  build() {
-    this.sample();
+  build() { this.sample(); this.markBridges(); this.buildMesh(); }
+  // Liegt (x, z) auf der Fahrbahn einer anderen Straße auf etwa Höhe y? (Abzweigungen: dort keine Randlinien/Kerbs)
+  covered(x, z, y) { for (const o of this.others()) { const q = o.query(x, z); if (q && Math.abs(q.h - y) < 0.8) return true; } return false; }
+  buildMesh() {
     const S = this.S, m = S.length, P = [], Co = [];
-    const g = this.mesh.geometry;
+    const g = this.mesh.geometry; this.cov = this.others().length > 0;
     if (m < 2) { g.setAttribute("position", new THREE.Float32BufferAttribute([], 3)); g.setAttribute("color", new THREE.Float32BufferAttribute([], 3)); this.anyBridge = false; this.buildBridges(); return; }
     const pushTri = (a, b, c, col) => { P.push(a.x, a.y, a.z, b.x, b.y, b.z, c.x, c.y, c.z); for (let k = 0; k < 3; k++) Co.push(col.r, col.g, col.b); };
     const quad = (a, b, c, d, col) => { pushTri(a, b, d, col); pushTri(b, c, d, col); };
@@ -150,13 +175,14 @@ export class Road {
       col.copy(COL.asphalt).multiplyScalar(0.94 + hash2(i, 0, 5) * 0.1);
       quad(a.L, a.R, b.R, b.L, col);
       // weiße Randlinien (0,35 m vom Rand, 0,25 m breit)
-      quad(at(a, -ha + 0.35, 0.015), at(a, -ha + 0.6, 0.015), at(b, -hb + 0.6, 0.015), at(b, -hb + 0.35, 0.015), COL.line);
-      quad(at(a, ha - 0.6, 0.015), at(a, ha - 0.35, 0.015), at(b, hb - 0.35, 0.015), at(b, hb - 0.6, 0.015), COL.line);
+      const cvL = this.cov && this.covered((a.L.x + b.L.x) / 2, (a.L.z + b.L.z) / 2, (a.L.y + b.L.y) / 2), cvR = this.cov && this.covered((a.R.x + b.R.x) / 2, (a.R.z + b.R.z) / 2, (a.R.y + b.R.y) / 2);
+      if (!cvL) quad(at(a, -ha + 0.35, 0.015), at(a, -ha + 0.6, 0.015), at(b, -hb + 0.6, 0.015), at(b, -hb + 0.35, 0.015), COL.line);
+      if (!cvR) quad(at(a, ha - 0.6, 0.015), at(a, ha - 0.35, 0.015), at(b, hb - 0.35, 0.015), at(b, hb - 0.6, 0.015), COL.line);
       // Kerbs: abwechselnd rot/weiß je Querschnitt (2 m)
       const kc = (Math.floor(a.d / 2.2) & 1) ? COL.white : COL.red;
       let lo = a.L, lob = b.L, ro = a.R, rob = b.R;
-      if (a.cl) { lo = at(a, -ha - CW, 0.06); lob = at(b, -hb - CW, 0.06); quad(lo, at(a, -ha, 0.01), at(b, -hb, 0.01), lob, kc); }
-      if (a.cr) { ro = at(a, ha + CW, 0.06); rob = at(b, hb + CW, 0.06); quad(at(a, ha, 0.01), ro, rob, at(b, hb, 0.01), kc); }
+      if (a.cl && !cvL) { lo = at(a, -ha - CW, 0.06); lob = at(b, -hb - CW, 0.06); quad(lo, at(a, -ha, 0.01), at(b, -hb, 0.01), lob, kc); }
+      if (a.cr && !cvR) { ro = at(a, ha + CW, 0.06); rob = at(b, hb + CW, 0.06); quad(at(a, ha, 0.01), ro, rob, at(b, hb, 0.01), kc); }
       // Seitenwände nach unten, damit die Straße nie in der Luft hängt (auf Brücken übernimmt das die Brückenplatte)
       if (!(a.br && b.br)) {
         const sk = a.terr ? 1.2 : clamp(Math.max(a.gap, b.gap) + 0.4, 1.2, BR + 0.6);
@@ -164,8 +190,8 @@ export class Road {
         quad(ro, lift(ro, -sk), lift(rob, -sk), rob, COL.skirt);
       }
     }
-    // Start/Ziel: Schachbrett am ersten Querschnitt
-    const s0 = S[0], s1 = S[1], cols = 10, rows = 2;
+    // Start/Ziel: Schachbrett am ersten Querschnitt (nur Hauptstrecke)
+    const s0 = S[0], s1 = S[1], cols = 10, rows = this.main ? 2 : 0;
     for (let rr = 0; rr < rows; rr++) for (let c = 0; c < cols; c++) {
       const o0 = -s0.w / 2 + (c / cols) * s0.w, o1 = -s0.w / 2 + ((c + 1) / cols) * s0.w, f0 = rr / rows, f1 = (rr + 1) / rows;
       const A = at(s0, o0, 0.02).lerp(at(s1, o0, 0.02), f0), B = at(s0, o1, 0.02).lerp(at(s1, o1, 0.02), f0), Cc = at(s0, o1, 0.02).lerp(at(s1, o1, 0.02), f1), D = at(s0, o0, 0.02).lerp(at(s1, o0, 0.02), f1);
@@ -206,7 +232,7 @@ export class Road {
           const top = a.p.y - DECK, bot = a.gnd - 1.5, two = a.w > 15, hl = 0.8, hw2 = two ? 0.7 : 1.1;
           if (top - bot > 0.6) {
             const offs = two ? [-a.w * 0.3, a.w * 0.3] : [0];
-            offs.forEach((o) => { const x = a.p.x + a.r.x * o, z = a.p.z + a.r.z * o; box(x, z, a.t.x, a.t.z, hl, hw2, bot, top - o * a.tan); this.pillars.push([x, z, Math.max(hl, hw2) + 0.1, top - 0.5]); });
+            offs.forEach((o) => { const x = a.p.x + a.r.x * o, z = a.p.z + a.r.z * o; if (this.roadBelow(x, z, top)) return; box(x, z, a.t.x, a.t.z, hl, hw2, bot, top - o * a.tan); this.pillars.push([x, z, Math.max(hl, hw2) + 0.1, top - 0.5]); });
           }
         }
       }
@@ -231,6 +257,6 @@ export class Road {
   }
   // Steuerpunkt-Abschnitt, der (x, z) am nächsten liegt (zum Einfügen)
   segAt(x, z) { const q = this.nearest(x, z); return q ? { seg: q.a.seg, d: Math.abs(q.d) } : null; }
-  toJSON() { return { pts: this.pts.map((p) => ({ x: +p.x.toFixed(2), z: +p.z.toFixed(2), y: +p.y.toFixed(2), w: +p.w.toFixed(2), bank: +p.bank.toFixed(1), cl: p.cl ? 1 : 0, cr: p.cr ? 1 : 0, t: p.t === 0 ? 0 : 1, a: p.a ? 1 : 0 })), closed: this.closed, fall: this.fall }; }
-  fromJSON(o) { this.pts = (o && o.pts || []).map((p) => ({ x: p.x, z: p.z, y: p.y, w: p.w || 12, bank: p.bank || 0, cl: !!p.cl, cr: !!p.cr, t: p.t === 0 ? 0 : 1, a: p.a ? 1 : 0 })); this.closed = o ? o.closed !== false : true; this.fall = o && o.fall != null ? o.fall : 10; }
+  toJSON() { return { pts: this.pts.map((p) => ({ x: +p.x.toFixed(2), z: +p.z.toFixed(2), y: +p.y.toFixed(2), w: +p.w.toFixed(2), bank: +p.bank.toFixed(1), cl: p.cl ? 1 : 0, cr: p.cr ? 1 : 0, t: p.t === 0 ? 0 : 1, a: p.a ? 1 : 0, j: p.j ? 1 : 0, b: p.b ? 1 : 0 })), closed: this.closed, fall: this.fall }; }
+  fromJSON(o) { this.pts = (o && o.pts || []).map((p) => ({ x: p.x, z: p.z, y: p.y, w: p.w || 12, bank: p.bank || 0, cl: !!p.cl, cr: !!p.cr, t: p.t === 0 ? 0 : 1, a: p.a ? 1 : 0, j: p.j ? 1 : 0, b: p.b ? 1 : 0 })); this.closed = o ? o.closed !== false : true; this.fall = o && o.fall != null ? o.fall : 10; }
 }

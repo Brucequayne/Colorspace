@@ -104,7 +104,7 @@ export class Vegetation {
     const w = this.world, T = w.terrain;
     if (!T.inside(x, z)) return false;
     const ny = T.normalAt(x, z).y; if (ny < Math.cos(g.slope * DEG) || ny > Math.cos((g.slopeMin || 0) * DEG) + 1e-6) return false;
-    const q = w.road.nearest(x, z); if (q && Math.abs(q.d) < q.w / 2 + 1.3 + g.road) return false;
+    if (w.roadDist(x, z) < 1.3 + g.road) return false;
     return true;
   }
   // Pinseln: Anzahl aus Dichte (je 100 m²) × Fläche × Zeit
@@ -132,7 +132,7 @@ export class Vegetation {
     const w = this.world; let hit = false;
     Object.keys(this.inst).forEach((t) => {
       const a = this.inst[t], o = [];
-      for (let k = 0; k < a.length; k += 4) { const q = w.road.nearest(a[k], a[k + 1]); if (q && Math.abs(q.d) < q.w / 2 + 1.5) continue; o.push(a[k], a[k + 1], a[k + 2], a[k + 3]); }
+      for (let k = 0; k < a.length; k += 4) { if (w.roadDist(a[k], a[k + 1]) < 1.5) continue; o.push(a[k], a[k + 1], a[k + 2], a[k + 3]); }
       if (o.length !== a.length) { this.inst[t] = o; this.dirty[t] = true; hit = true; }
     });
     if (hit) this.rebuildGrid();

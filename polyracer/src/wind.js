@@ -1,47 +1,27 @@
-// ===== wind.js · Wind sichtbar machen: feine Linien, die mit Windstärke und -richtung über das Gelände ziehen =====
-// Die Linien leben in einem Bereich um den Blickpunkt (wächst mit dem Kameraabstand), tauchen weich auf und wieder ab.
+// ===== wind.js · Wind-Anzeige: Symbol oben rechts (seit v0.13 statt animierter Linien) =====
+// Der Pfeil zeigt, wohin der Wind weht, gedreht zur aktuellen Blickrichtung der Kamera. Darunter die Windstärke.
 import * as THREE from "three";
-import { clamp, DEG } from "pr/core.js";
+import { t, addTexts, L2, el, DEG } from "pr/core.js";
 
-const N = 320;
-export class WindLines {
-  constructor(world) {
-    this.world = world;
-    const g = new THREE.BufferGeometry();
-    g.setAttribute("position", new THREE.BufferAttribute(new Float32Array(N * 6), 3));
-    g.setAttribute("color", new THREE.BufferAttribute(new Float32Array(N * 6), 3));
-    this.mesh = new THREE.LineSegments(g, new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, fog: true }));
-    this.mesh.frustumCulled = false; this.mesh.renderOrder = 5;
-    this.p = []; for (let i = 0; i < N; i++) this.p.push({ x: 0, z: 0, h: 1, life: 0, max: 0, sp: 1, ph: 0 });
-    this.visible = true; this.R = 60; this.c = new THREE.Vector3();
+addTexts({ wWind: L2("Wind", "Wind") });
+
+export class WindIcon {
+  constructor(app) {
+    this.app = app;
+    this.el = el("div", "pr-wind", '<svg viewBox="0 0 40 40" width="40" height="40"><circle cx="20" cy="20" r="18" fill="none" stroke="rgba(198,197,185,.35)" stroke-width="1.5"/>' +
+      '<g id="pr-warr"><path d="M20 6 L27 17 L22 17 L22 33 L18 33 L18 17 L13 17 Z" fill="#C6C5B9"/></g></svg><span id="pr-wtxt"></span>');
+    app.ui.appendChild(this.el); this.v = new THREE.Vector3(); this.last = "";
   }
-  spawn(q, fresh) {
-    const R = this.R, a = this.world.env.windDir * DEG, dx = Math.sin(a), dz = Math.cos(a);
-    // neue Linien bevorzugt auf der Luv-Seite, damit sie durch den Bereich ziehen
-    let ox = (Math.random() - 0.5) * 2 * R, oz = (Math.random() - 0.5) * 2 * R;
-    if (!fresh) { const up = -R * (0.3 + Math.random() * 0.7); ox = dx * up + -dz * (Math.random() - 0.5) * 2 * R; oz = dz * up + dx * (Math.random() - 0.5) * 2 * R; }
-    q.x = this.c.x + ox; q.z = this.c.z + oz; q.h = 0.4 + Math.pow(Math.random(), 1.6) * R * 0.12;
-    q.max = 1.6 + Math.random() * 2.4; q.life = fresh ? Math.random() * q.max : 0; q.sp = 0.75 + Math.random() * 0.5; q.ph = Math.random() * 6.28;
+  update() {
+    const m = this.app.modeName, on = m === "drive" || m === "editor"; this.el.style.display = on ? "" : "none"; if (!on) return;
+    const env = this.app.world.env, cam = this.app.engine.camera, a = env.windDir * DEG;
+    cam.getWorldDirection(this.v); const cy = Math.atan2(this.v.x, this.v.z);    // Blickrichtung in der Ebene
+    const rot = -(a - cy) / DEG;                                                  // Bildschirm: oben = Blickrichtung
+    const key = Math.round(rot) + "|" + Math.round(env.wind) + "|" + m;
+    if (key === this.last) return; this.last = key;
+    this.el.querySelector("#pr-warr").setAttribute("transform", "rotate(" + rot.toFixed(0) + " 20 20)");
+    this.el.querySelector("#pr-wtxt").textContent = t("wWind") + " " + Math.round(env.wind) + " %";
+    this.el.classList.toggle("pr-wed", m === "editor"); this.el.style.opacity = env.wind < 1 ? 0.45 : 1;
   }
-  update(dt, cam, focus) {
-    const env = this.world.env, k = env.wind / 100, on = this.visible && k > 0.01;
-    this.mesh.visible = on; if (!on) return;
-    const dist = cam.position.distanceTo(focus), R = clamp(dist * 0.75, 35, 320), first = Math.abs(R - this.R) > this.R * 0.5 || !this.init;
-    this.R = R; this.c.copy(focus);
-    const a = env.windDir * DEG, dx = Math.sin(a), dz = Math.cos(a), v = 3 + k * 16, len = (1.2 + k * 5) * (R / 60), T = this.world.terrain;
-    const P = this.mesh.geometry.attributes.position.array, C = this.mesh.geometry.attributes.color.array, t = performance.now() / 1000;
-    for (let i = 0; i < N; i++) {
-      const q = this.p[i];
-      if (first) this.spawn(q, true);
-      q.life += dt; q.x += dx * v * q.sp * dt * (R / 60); q.z += dz * v * q.sp * dt * (R / 60);
-      if (q.life > q.max || Math.abs(q.x - this.c.x) > R * 1.2 || Math.abs(q.z - this.c.z) > R * 1.2) this.spawn(q, false);
-      const wob = Math.sin(t * 2.3 + q.ph) * 0.25 * len * 0.2, x0 = q.x - dx * len - dz * wob, z0 = q.z - dz * len + dx * wob;
-      const y1 = T.heightAt(q.x, q.z) + q.h, y0 = T.heightAt(x0, z0) + q.h;
-      P.set([x0, y0, z0, q.x, y1, q.z], i * 6);
-      const f = Math.sin(Math.PI * clamp(q.life / q.max, 0, 1)), al = f * 0.022 * (0.6 + 0.8 * k);   // seit v0.12 nur noch ganz leicht sichtbar (~10 % auf dem Bildschirm; Farbe ist linear, daher so klein)
-      C.set([0, 0, 0, al, al, al * 1.05], i * 6);   // hinten unsichtbar, vorne hell: wirkt wie ein Strich in Bewegungsrichtung
-    }
-    this.init = true;
-    this.mesh.geometry.attributes.position.needsUpdate = true; this.mesh.geometry.attributes.color.needsUpdate = true;
-  }
+  dispose() { this.el.remove(); }
 }

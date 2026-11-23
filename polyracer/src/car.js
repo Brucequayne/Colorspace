@@ -152,7 +152,6 @@ export class Car {
   // Kollision der Karosserie (Rechteck von oben) mit runden Hindernissen: Rauslösen + Stoß mit wenig Rückprall und Reibung
   obstacles(fwd) {
     const d = this.def, W = d.size[0] / 2 + 0.05, L = d.size[2] / 2 + 0.05, p = this.p, rx = fwd.z, rz = -fwd.x;   // r = Seitenrichtung in der Ebene
-    const R = this.world.road;
     const col = (cx, cz, r) => {
       const ox = cx - p.x, oz = cz - p.z, lf = ox * fwd.x + oz * fwd.z, ls = ox * rx + oz * rz;
       const qf = clamp(lf, -L, L), qs = clamp(ls, -W, W), ex = lf - qf, es = ls - qs, dd = Math.hypot(ex, es);
@@ -166,6 +165,7 @@ export class Car {
     };
     this.world.veg.near(p.x, p.z, 4 + L, col);
     // Brückenpfeiler (nur wenn das Auto darunter fährt)
+    for (const R of this.world.roads) {
     if (R.pillars.length) for (const pl of R.pillars) { const dx = pl[0] - p.x, dz = pl[1] - p.z; if (p.y < pl[3] && dx * dx + dz * dz < (L + 3) * (L + 3)) col(pl[0], pl[1], pl[2]); }
     // Brüstungen auf Brücken: Ecken der Karosserie, die über die Innenseite hinausragen, werden zurückgestoßen
     if (R.anyBridge) for (let ix = -1; ix <= 1; ix += 2) for (let iz = -1; iz <= 1; iz += 2) {
@@ -174,6 +174,7 @@ export class Car {
       const pen = Math.abs(q.d) - R.face(q); if (pen <= 0 || pen > 1.6) continue;
       const sg = Math.sign(q.d) || 1;
       this.impulse(new THREE.Vector3(cx, p.y, cz), new THREE.Vector3(q.r.x * sg, 0, q.r.z * sg).normalize(), pen);
+    }
     }
   }
   // Stoß gegen eine feste Wand/Säule am Punkt cpt, Normale n zeigt vom Auto weg zum Hindernis

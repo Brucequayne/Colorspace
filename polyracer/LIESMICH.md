@@ -24,13 +24,13 @@ den Cache-Stempel der Startseite bekommt, und lädt dann `src/main.js`.
 | `road.js` | Straße: Spline-Punkte (Höhe, Breite, Neigung, Kerbs, Gelände an/aus `t`, Hilfspunkt `a`), Netz, Abfrage, Gelände-Einbettung, automatische Betonbrücken (Brüstungen, Pfeiler) |
 | `models.js` | Prozedurale Platzhalter-Modelle (Bäume, Steine, Gras, Testauto) |
 | `vegetation.js` | Pflanzentypen (Bäume, Gras aus Halmen, Steine, Kollisionsradien), Pinsel-Gruppen mit Wahrscheinlichkeiten und Hangneigung von/bis, Instanzen, Wind |
-| `wind.js` | Wind als feine Linien (Stärke, Richtung) |
-| `world.js` | Welt aus Gelände + Straße + Vegetation + Umgebung, Boden-Abfrage für die Physik, Standard-Strecke |
+| `wind.js` | Wind-Symbol oben rechts (Richtung relativ zur Kamera, Stärke) |
+| `world.js` | Welt aus Gelände + mehreren Straßen (`roads`, Hauptstrecke `road`, Abzweigungen `j`) + Vegetation + Umgebung, Boden-Abfrage für die Physik, Standard-Strecke |
 | `sceneio.js` | Szenen-Export/-Import (.txt), automatisches Speichern |
 | `input.js` | Tastatur, Controller |
 | `car.js` | Fahrphysik: Starrkörper, 4 Räder, Stabilisatoren, Reifen (Kräfte auf Rollzentrum-Höhe), Motor, Getriebe, Antrieb (240 Hz), Kollision mit Stämmen/Felsen |
 | `drive.js` | Testfahrt mit Verfolgerkamera und Anzeige |
-| `editor.js` | Developer Tool (Straße: Modi Bearbeiten/Gerade/Kurve, Platzierhöhe C/V, Straßen-Terrain an/aus) |
+| `editor.js` | Developer Tool (Straße: mehrere Straßen, Modi Bearbeiten/Gerade/Kurve, Abzweigungen, farbige Bau-Vorschau, Platzierhöhe C/V, Straßen-Terrain an/aus) |
 | `menu.js` | Hauptmenü (später Werkstatt) |
 | `main.js` | Hülle, Zustände, Schleife, CSS |
 

@@ -25,7 +25,7 @@ export class Terrain {
     this.CH = 36; this.nch = res / this.CH;
     this.group = new THREE.Group(); this.chunks = [];
     this.mat = new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true });
-    this.carve = null;   // (x, z) => { h, w, lo } von der Straße (w = 0 … 1, lo = nur abtragen), oder null
+    this.carve = null;   // (x, z, grundhöhe) => gezeichnete Höhe (von der Welt, alle Straßen)
     for (let cz = 0; cz < this.nch; cz++) for (let cx = 0; cx < this.nch; cx++) {
       const g = new THREE.BufferGeometry(), nv = this.CH * this.CH * 6;
       g.setAttribute("position", new THREE.BufferAttribute(new Float32Array(nv * 3), 3));
@@ -41,9 +41,7 @@ export class Terrain {
     i0 = clamp(i0, 0, this.res); j0 = clamp(j0, 0, this.res); i1 = clamp(i1, 0, this.res); j1 = clamp(j1, 0, this.res);
     for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) {
       const k = this.idx(i, j), b = this.h[k];
-      if (!this.carve) { this.hr[k] = b; continue; }
-      const c = this.carve(this.org + i * this.cell, this.org + j * this.cell);
-      this.hr[k] = c && c.lo ? Math.min(b, c.h) : c && c.w > 0 ? (c.w >= 1 ? c.h : lerp(b, c.h, c.w)) : b;   // lo: Straße ohne Gelände-Anpassung schneidet nur ab, was hervorsteht
+      this.hr[k] = this.carve ? this.carve(this.org + i * this.cell, this.org + j * this.cell, b) : b;   // seit v0.13 rechnet die Welt alle Straßen zusammen
     }
   }
   // Kacheln neu bauen (alle oder Bereich in Zellen)
