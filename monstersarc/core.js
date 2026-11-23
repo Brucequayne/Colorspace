@@ -3,7 +3,7 @@
    Anders als in Shizuku ist die Map größer als das Bild: W/H sind das sichtbare Bild (Kamera), die Map hat eigene Maße (map.js). */
 (function () {
   var MA = window.MA = window.MA || {};
-  MA.VERSION = "0.19.9";
+  MA.VERSION = "0.2";
   MA.NAME = "Monsters Arc";
   MA.scenes = {};   // menu, walk, devkit (je eigene Datei)
 

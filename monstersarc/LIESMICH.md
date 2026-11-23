@@ -27,6 +27,8 @@ Ordner nacheinander, mit demselben Cache-Stempel `?v=…`. Kein Build-Schritt n�
 | `houses.js` | Fachwerkhäuser (seit v0.15) als Objekte `house75` … `house76` (Feld `house`: w, d, Stockwerke, Schornstein, First, Tür-Kachel), Kollision `rect`, Möbel `m_*` (nur innen), Innenraum-Generator `MA.houses.interior(o, stockwerk)` (Map 30 × 17, Boden `d`, außen `x`, Bild `deco` für Wände/Treppe/Matte), Türen `doorOf`/`doorNear`. Betreten/Treppen/Abblende in `scene-walk.js` |
 | Schatten | Seit v0.16 werfen Häuser (`def.shadow`) und Hecken/Mauern (`MA.walls.shadow`) 3D-Schatten: Punkte [x, y, Höhe] entlang der Lichtrichtung auf den Boden, konvexe Hülle (`MA.shadowHull`, `MA.shadowBox` in core.js). Alle anderen Objekte nutzen weiter die Bild-Silhouette (`shadowXf`) |
 | `deco.js` | Hausdeko (seit v0.17): Objekte mit `deco: true` (`d_pot`, `d_ivy`, `d_lamp`, `d_chimney`), eigener Reiter im Editor. Auf einem Haus gesetzt bekommt das Objekt `s` = Vorderkante des Hauses + 0,5 (wird als 5. Wert gespeichert) und wird direkt nach dem Haus gezeichnet. Kein Schatten, keine Kollision. Rauch: `MA.deco.smokeAt`, Teilchen `smoke` in particles.js |
+| `buildgen.js` | Gebäude-Generator (seit v0.2): `MA.buildgen.render(params)` zeichnet ein Haus aus einem Parametersatz (Stil Fachwerk). `sanitize` begrenzt alle Werte, `DEFAULTS` = Standard. Liefert Bild `cv`, Anker `ax/ay` (Mitte der Vorderkante), Grundfläche `foot`, Türmitte `doorX`, Rauchpunkte `smoke`. Farben stehen als Paletten `BEAMS`/`FACADES`/`ROOFS`, Füllungen als `FILLS` |
+| `buildeditor.js` | Gebäude-Editor (seit v0.2), Reiter im Dev-Kit (`MA.buildEditor.mount/update/render`, von devkit.js aufgerufen). Parameter links, Vorschau rechts, Export `.json`, Import, Arbeitsstand im localStorage `monstersarc.building.v1` |
 | Perspektive | Alle Assets (Objekte, Deko, Möbel) in der 3/4-Ansicht der Häuser: Vorderseite senkrecht, Oberseite darüber sichtbar (Tiefe = Höhe im Bild, keine Seitenansicht). Schornsteine, Töpfe, Kästen zeigen ihre Oberseite/Öffnung (seit v0.18) |
 | Fußabdrücke | Seit v0.19: Bodenarten mit `prints` (Farbe Mulde + heller Rand) in map.js. `character.js` setzt alle 9 px einen Abdruck (`world.addPrint`), `world.drawPrints` nach dem Boden; beim Zonenwechsel `world.clearPrints(neueZone)` (scene-walk) |
 | `props.js` | Straßenmöbel (seit v0.19.9): `clock` (Platzuhr), `streetlamp` (mit Licht), `bin` (eckige Mülltonne) |
@@ -54,3 +56,10 @@ Städte und Routen: `map.zone` = je Kachel ein Zeichen (`0` = keine Zone), `map.
 
 ## Neue Datei hinzufügen
 In `monstersarc.js` in die Liste `FILES` an der passenden Stelle eintragen.
+
+## Gebäude-Editor und Gebäudedateien (seit v0.2)
+Im Dev-Kit der Reiter „Gebäude-Editor“. Noah stellt ein Haus zusammen, vergibt einen Namen und exportiert `monstersarc-gebaeude-<name>.json`. Die Datei enthält nur die Parameter (Format `monstersarc-building`, Feld `params`), das Bild entsteht daraus immer exakt gleich (`seed` für die Texturen). Die Dateien kommen später in die Bibliothek des Map-Editors (Objekt pro Gebäude, erzeugt mit `MA.buildgen.render`).
+
+Parameter (`params`): `w`, `d` (Blöcke), `floors` (1–3), `door` (Block von links), `wtype` (`square`/`round`), `wins` (Fenster je Geschoss, Erdgeschoss zuerst), `beam`/`facade`/`roof` (Index in den Paletten), `fill` (0 Putz, 1 Bretter waagerecht, 2 senkrecht, 3 fein, 4 Schindeln), `rooftype` (`tiles`/`flat`), `ridge` (`x` First quer, `y` Giebel vorn), `balc`/`balcSlot`/`balcW`/`balcFloor`, `shaft`/`shaftSlot` (Kaminschacht aus Kopfstein), `dormers` (0–3, nur Dachziegel mit First quer), `chim`/`chimPos` (Schornstein, Lage in %), `seed`.
+
+Wichtig für die Übernahme ins Spiel: Der Anker ist die Mitte der Vorderkante der Grundfläche (wie bei `houses.js`); Kaminschacht und Balkon ragen ca. 6–7 px über die Vorderkante hinaus (für Kollision nur die Grundfläche `foot` nehmen). Innenräume gibt es für Generator-Gebäude noch nicht.

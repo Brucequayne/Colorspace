@@ -16,6 +16,7 @@
     "houses.js",        // Fachwerkhäuser (Objekte mit Tür) und ihre Innenräume
     "props.js",         // Straßenmöbel: Platzuhr, Straßenlaterne, Mülltonne
     "deco.js",          // Hausdeko: Blumentöpfe, Efeu, Wandlampe, Schornsteine (immer über der Hauswand)
+    "buildgen.js",      // Gebäude-Generator (seit v0.2): Haus aus Parametern, Stil Fachwerk
     "maps/start.js",    // Start-Map des Spiels
     "lighting.js",      // Tageszeit, Licht, Schatten
     "particles.js",     // Blätter, Staub, Spritzer
@@ -24,6 +25,7 @@
     "scene-menu.js",    // Hauptmenü
     "scene-walk.js",    // Testlauf (später: Spiel)
     "devkit.js",        // Dev-Kit: Map-Editor (weitere Editoren später)
+    "buildeditor.js",   // Gebäude-Editor (seit v0.2), Reiter im Dev-Kit
     "main.js"           // Hülle: Canvas, Skalierung, Szenen, Schleife
   ];
   var stamp = "";

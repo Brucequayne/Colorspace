@@ -45,7 +45,8 @@
 
   // Bereiche des Dev-Kits (weitere Editoren kommen als eigene Bereiche dazu)
   var TABS = [
-    { id: "map", name: function () { return L2("Map-Editor", "Map editor"); }, ver: "v0.19.9" },
+    { id: "map", name: function () { return L2("Map-Editor", "Map editor"); }, ver: "v0.2" },
+    { id: "buildings", name: function () { return L2("Gebäude-Editor", "Building editor"); }, ver: "v0.2" },   // seit v0.2: buildeditor.js
     { id: "attacks", name: function () { return L2("Attacken", "Attacks"); }, soon: true },
     { id: "missions", name: function () { return L2("Missionen", "Missions"); }, soon: true },
     { id: "monsters", name: function () { return L2("Monster", "Monsters"); }, soon: true }
@@ -150,6 +151,7 @@
   }
   function renderBody() {
     var b = E.ui.querySelector(".ma-ed-body");
+    if (E.tab === "buildings") { E.mini = null; E.pos.textContent = ""; MA.buildEditor.mount(b, { status: status }); return; }
     if (E.tab !== "map") { b.innerHTML = '<div class="ma-ed-soon">' + L2("Dieser Editor kommt in einer späteren Version.", "This editor comes in a later version.") + '</div>'; return; }
     b.innerHTML =
       '<h3>' + L2("Übersicht", "Overview") + '</h3><canvas class="ma-ed-mini"></canvas>' +
@@ -528,6 +530,7 @@
     exit: function () { MA.main.setSidebar(0); },
     update: function (dt) {
       if (!E.world || !E.ui || !E.ui.querySelector) return;
+      if (E.tab === "buildings") { MA.buildEditor.update(dt); return; }
       var I = MA.input, a = E.arena, w = E.world, z = w.zoom, ctrl = I.down("Control") || I.down("Meta");
       if (ctrl && I.hit("z")) undo();
       if (I.hit("g")) E.grid = !E.grid;
@@ -609,6 +612,7 @@
       drawMini();
     },
     render: function (ctx) {
+      if (E.tab === "buildings") { MA.buildEditor.render(ctx); return; }
       if (!E.world) { ctx.fillStyle = "#13282F"; ctx.fillRect(0, 0, MA.W, MA.H); return; }
       var w = E.world, a = E.arena, I = MA.input, z = w.zoom, cx = z >= 1 ? Math.round(w.cam.x) : w.cam.x, cy = z >= 1 ? Math.round(w.cam.y) : w.cam.y;
       w.render(ctx, { zones: E.tool === "zones" ? 0.42 : 0, build: 10 });
@@ -675,7 +679,7 @@
     },
     // Zonen-Namen als Text über dem Bild (scharf, unabhängig von der Pixelgröße)
     renderTop: function (c, v) {
-      if (!E.world || E.tool !== "zones") { if (E.lbl) E.lbl.innerHTML = ""; return; }
+      if (!E.world || E.tab !== "map" || E.tool !== "zones") { if (E.lbl) E.lbl.innerHTML = ""; return; }
       var root = MA.main.ui; if (!E.lbl || !E.lbl.isConnected) { E.lbl = document.createElement("div"); E.lbl.style.cssText = "position:absolute;inset:0;pointer-events:none"; root.appendChild(E.lbl); E.lblHtml = ""; }
       var w = E.world, z = w.zoom, out = "";
       zoneLabels().forEach(function (L) {
