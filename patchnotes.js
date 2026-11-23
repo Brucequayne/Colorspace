@@ -3,6 +3,15 @@
    Die Versionsnummer auf den Kacheln kommt aus dem obersten Eintrag. */
 window.PATCHNOTES = {
   monstersarc: [
+    { v: "0.12", t: "2026-11-23T05:45:00+01:00",
+      de: ["Vier neue Felsen: drei kleine Steine (rund mit Moos, spitz und bläulich, zwei kleine nebeneinander) und ein großer flacher Fels. Es gibt jetzt 13 Varianten.",
+        "Neuer Pinsel „Steine/Felsen“: streut Felsen mit Abstand zueinander. Darunter lassen sich alle 13 Varianten einzeln an- und abwählen (dazu „Alle“, „Keine“, „Nur kleine“). Rechtsklick entfernt die angekreuzten Varianten im Kreis.",
+        "Neue Bodenart Sumpf: seichtes, hellgrünes Wasser mit Entengrütze und klareren Stellen, deutlich heller als das Meer. Man kann hindurchlaufen, aber langsamer als im flachen Wasser.",
+        "Neuer Pinsel „Sumpfpflanzen“ (Schilf und Seerosen). Schilf und Seerosen wachsen jetzt auch im Sumpf."],
+      en: ["Four new rocks: three small stones (round and mossy, pointed and bluish, two small ones side by side) and one big flat boulder. There are now 13 variants.",
+        "New brush “Rocks”: scatters rocks with spacing between them. Below it every one of the 13 variants can be ticked on or off (plus “All”, “None”, “Small only”). Right click removes the ticked variants in the circle.",
+        "New floor type Swamp: shallow light-green water with duckweed and clearer patches, clearly lighter than the sea. You can walk through it, but slower than in shallow water.",
+        "New brush “Swamp plants” (reeds and water lilies). Reeds and water lilies now also grow in the swamp."] },
     { v: "0.11", t: "2026-11-23T05:05:00+01:00",
       de: ["Die Map hat jetzt die Größe der ganzen Spielwelt: 800 × 600 Kacheln als Standard (einstellbar bis 1024 × 1024). Der Boden wird dafür in Stücken gebaut, nur dort, wo man hinschaut", "Zoom im Map-Editor: mit Strg + Mausrad, den Tasten + und − oder den Knöpfen unter der Übersicht, bis die ganze Welt ins Bild passt. „Spielansicht“ setzt auf die Kameraentfernung des Spiels zurück. Weit draußen zeigt die Karte die Bodenfarben", "Neues Werkzeug „Zonen“: Städte und Routen mit eigener Farbe und eigenem Namen auf die Kacheln malen. Im Dev-Kit sieht man die Zonen durchsichtig mit Namen, im Spiel erscheint oben links kurz der Name, sobald man eine Zone betritt", "Der Arbeitsstand wird platzsparend und im großen Browser-Speicher (IndexedDB) gesichert, damit auch große Welten hineinpassen"],
       en: ["The map now has the size of the whole game world: 800 × 600 tiles by default (adjustable up to 1024 × 1024). The ground is built in pieces, only where you are looking", "Zoom in the map editor: Ctrl + mouse wheel, the + and − keys or the buttons below the overview, out until the whole world fits. “Game view” resets to the game camera distance. Far out the map shows the floor colours", "New “Zones” tool: paint towns and routes onto the tiles with their own colour and name. In the dev kit the zones show translucent with their names, in the game the name briefly appears top left as soon as you enter a zone", "The work in progress is saved compactly in the larger browser storage (IndexedDB), so big worlds fit"] },

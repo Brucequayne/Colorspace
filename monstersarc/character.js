@@ -52,7 +52,7 @@
       if (this.stepT <= 0) {
         this.stepT = 0.32;
         var tile = a.tilePx(this.x, this.y), sx = this.x - w.cam.x;
-        if (tile === "w") { w.parts.ring(this.x, this.y, 7, 0.7); w.parts.splash(this.x, this.y, 2, 0.4); MA.audio.play("step_water", { x: sx }); }
+        if (tile === "w" || tile === "u") { w.parts.ring(this.x, this.y, 7, 0.7); w.parts.splash(this.x, this.y, 2, 0.4); MA.audio.play("step_water", { x: sx }); }
         else {
           w.parts.dust(this.x, this.y, 2, tile === "a" ? "#D6CCB0" : tile === "e" ? "#7A5E44" : tile === "g" ? "#B8B2A4" : "#A8A096");
           // Moos, Erde oder Pflanzen unter den Füßen → weicher Schritt

@@ -13,7 +13,7 @@ Ordner nacheinander, mit demselben Cache-Stempel `?v=…`. Kein Build-Schritt n�
 | `input.js` | Tastatur und Maus (aus Shizuku, dazu mittlere Maustaste) |
 | `audio.js` | Sounds (Schritte, Wind) aus Shizuku in `audio/`; Musik später |
 | `art-tiles.js` | Boden Pixel für Pixel (aus Shizuku), gebaut in Chunks zu 16 × 16 Kacheln. Neu: Meer statt Abgrund, organische Küste |
-| `art-objects.js` | Objekte und Vegetation (aus Shizuku, unverändert) |
+| `art-objects.js` | Objekte und Vegetation (aus Shizuku). Seit v0.12 Fels mit 13 Varianten (9–12 neu) |
 | `art-samurai.js` | Figuren-Modell in 8 Richtungen (aus Shizuku), Aussehen über `look` |
 | `map.js` | Map-Daten: Größe (`cols` × `rows`, Standard 800 × 600), Bodenarten (`MA.TILES`), Zonen (`zone`, `zones`), Kollision, Größe ändern, Speichern (Lauflängen-Kodierung, IndexedDB) |
 | `maps/start.js` | Start-Map des Spiels (`MA.MAP_START`, `null` = leeres Meer) |
@@ -28,7 +28,12 @@ Ordner nacheinander, mit demselben Cache-Stempel `?v=…`. Kein Build-Schritt n�
 
 ## Bodenarten
 `o` Meer (tief, nicht begehbar, Standard für neue Maps und außerhalb der Map), `w` Wasser (flach, begehbar, langsam),
+`u` Sumpf (seit v0.12: seichtes grünes Wasser mit Entengrütze, begehbar, noch langsamer; eigenes weiches Feld `swampF` in art-tiles),
 `s p b h g m e a` wie Shizuku, `#` Mauer. Die Begehbarkeit ist kachelgenau, das Bild der Küste ist organisch.
+
+## Pinsel (devkit.js `BRUSHES`)
+`veg` streut Pflanzen (Mischung `mix`), `tile` malt Boden rund, `leaf` Laubfall, `rocks` (seit v0.12) streut Fels-Objekte
+der angekreuzten Varianten (`E.rockSel`, Abstand über `ROCK_R`). Wasserpflanzen nur auf `w`/`u`, Schilf auch im Sumpf (`vegOk`).
 
 ## Maps
 Im Dev-Kit „Map exportieren“ → `.json`. Für das Spiel schickt Noah die Datei an Claude; sie kommt nach `maps/`

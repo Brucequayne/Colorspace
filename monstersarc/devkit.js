@@ -24,6 +24,10 @@
     ".ma-ed-list button{display:flex;flex-direction:column;align-items:center;gap:3px;padding:5px 2px;font-size:.68rem;line-height:1.15;text-align:center;min-height:58px;justify-content:flex-end}" +
     ".ma-ed-list img{image-rendering:pixelated;max-width:56px;max-height:38px}" +
     ".ma-ed-list .sw{width:30px;height:18px;border:1px solid #000}" +
+    ".ma-ed-rocks{display:grid;grid-template-columns:repeat(4,1fr);gap:3px}.ma-ed-rocks button{position:relative;padding:3px 1px 2px;min-height:44px;display:flex;align-items:flex-end;justify-content:center;opacity:.45}" +
+    ".ma-ed-rocks button::after{content:'';position:absolute;right:3px;top:3px;width:7px;height:7px;border:1px solid #8E8A82}.ma-ed .ma-ed-rocks button[aria-pressed=true]::after{background:#ED6A5E;border-color:#ED6A5E}" +
+    ".ma-ed .ma-ed-rocks button[aria-pressed=true]{opacity:1;background:#2A2C2B;color:#C6C5B9;border-color:#ED6A5E}.ma-ed-rocks img{image-rendering:pixelated;max-width:52px;max-height:38px}" +
+    ".ma-ed-rocks span{position:absolute;left:3px;top:2px;font-size:.62rem;color:#ACA89F}.ma-ed-cnt{color:#8E8A82;font-weight:400}.ma-ed-row.rs button{flex:1;padding:4px 2px;font-size:.74rem}" +
     ".ma-ed-row{display:flex;align-items:center;gap:8px;margin:6px 0}.ma-ed-row label{flex:0 0 64px;color:#ACA89F}.ma-ed-row input[type=range]{min-width:0}.ma-ed-pre{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin:6px 0}.ma-ed-pre button{padding:5px 2px;font-size:.74rem}.ma-ed-row input[type=range]{flex:1;accent-color:#ED6A5E}.ma-ed-row output{flex:0 0 42px;text-align:right;font-variant-numeric:tabular-nums}" +
     ".ma-ed-size{display:grid;grid-template-columns:1fr auto 1fr;gap:6px;align-items:center;margin:6px 0}.ma-ed-size span{color:#8E8A82}" +
     ".ma-ed-btns{display:grid;grid-template-columns:1fr 1fr;gap:4px}.ma-ed-btns .w{grid-column:1/-1}" +
@@ -41,7 +45,7 @@
 
   // Bereiche des Dev-Kits (weitere Editoren kommen als eigene Bereiche dazu)
   var TABS = [
-    { id: "map", name: function () { return L2("Map-Editor", "Map editor"); }, ver: "v0.11" },
+    { id: "map", name: function () { return L2("Map-Editor", "Map editor"); }, ver: "v0.12" },
     { id: "attacks", name: function () { return L2("Attacken", "Attacks"); }, soon: true },
     { id: "missions", name: function () { return L2("Missionen", "Missions"); }, soon: true },
     { id: "monsters", name: function () { return L2("Monster", "Monsters"); }, soon: true }
@@ -66,11 +70,14 @@
     { id: "flower", kind: "veg", mix: [["flower", 1]], name: function () { return MA.VEG.flower.name(); } },
     { id: "reed", kind: "veg", mix: [["reed", 1]], name: function () { return MA.VEG.reed.name(); } },
     { id: "lotus", kind: "veg", mix: [["lotus", 1]], name: function () { return MA.VEG.lotus.name(); } },
+    { id: "swampveg", kind: "veg", mix: [["reed", 5], ["lotus", 2]], name: function () { return L2("Sumpfpflanzen", "Swamp plants"); } },   // seit v0.12
+    { id: "rocks", kind: "rocks", name: function () { return L2("Steine/Felsen", "Rocks"); } },   // seit v0.12: streut Fels-Objekte, Varianten einzeln an/aus
     { id: "leaves", kind: "veg", mix: [["leaves", 1]], name: function () { return MA.VEG.leaves.name(); } },
     { id: "petals", kind: "veg", mix: [["petals", 1]], name: function () { return MA.VEG.petals.name(); } },
     { id: "leaffall", kind: "leaf", name: function () { return L2("Laubfall", "Leaf fall"); } },
     { id: "o", kind: "tile", name: function () { return MA.TILES.o.name(); } },
     { id: "w", kind: "tile", name: function () { return MA.TILES.w.name(); } },
+    { id: "u", kind: "tile", name: function () { return MA.TILES.u.name(); } },
     { id: "m", kind: "tile", name: function () { return MA.TILES.m.name(); } },
     { id: "e", kind: "tile", name: function () { return MA.TILES.e.name(); } },
     { id: "a", kind: "tile", name: function () { return MA.TILES.a.name(); } },
@@ -81,6 +88,9 @@
     { id: "g", kind: "tile", name: function () { return MA.TILES.g.name(); } }
   ];
   var TILE_SW = {}; Object.keys(MA.TILES).forEach(function (k) { TILE_SW[k] = MA.TILES[k].sw; });
+  // Steinpinsel (v0.12): ungefährer Bodenradius je Fels-Variante (für den Abstand beim Streuen)
+  var ROCK_R = [10, 7, 11, 5, 5, 9, 13, 16, 7, 5, 4, 7, 18];
+  var ROCK_SMALL = [1, 3, 8, 9, 10, 11];   // „Nur kleine“
   var ERASE_TILE = "o";   // Rechtsklick mit Boden-Werkzeug/Bodenpinsel: zurück zu Meer
 
   var E = null;   // Zustand des Dev-Kits (bleibt beim Testen erhalten)
@@ -184,9 +194,18 @@
       }).join("") + '</div>' + sizeRow("tsize", 1, 9, 1);
     } else if (E.tool === "brush") {
       h = '<h3>' + L2("Pinsel", "Brush") + '</h3><div class="ma-ed-list">' + BRUSHES.map(function (b) {
-        var pic = b.kind === "veg" ? '<img alt="" src="' + thumb("veg", b.mix[0][0], 0) + '">' : b.kind === "tile" ? '<span class="sw" style="background:' + TILE_SW[b.id] + '"></span>' : '<span class="sw" style="background:#C0502A"></span>';
+        var pic = b.kind === "veg" ? '<img alt="" src="' + thumb("veg", b.mix[0][0], 0) + '">' : b.kind === "rocks" ? '<img alt="" src="' + thumb("obj", "rock", 6) + '">' : b.kind === "tile" ? '<span class="sw" style="background:' + TILE_SW[b.id] + '"></span>' : '<span class="sw" style="background:#C0502A"></span>';
         return '<button type="button" data-brush="' + b.id + '" aria-pressed="' + (E.brush === b.id) + '">' + pic + b.name() + '</button>';
       }).join("") + '</div>' + sizeRow("bsize", 3, 64, 1) + '<div class="ma-ed-row"><label>' + L2("Dichte", "Density") + '</label><input type="range" min="1" max="10" step="1" data-k="dens" value="' + E.dens + '"><output data-o="dens">' + E.dens + '</output></div>';
+      if (E.brush === "rocks") {
+        // Varianten an-/abwählen: nur angekreuzte Steine werden gestreut (und mit Rechtsklick entfernt)
+        var nv = MA.OBJECTS.rock.variants, on = 0;
+        for (var ri = 0; ri < nv; ri++) if (E.rockSel[ri]) on++;
+        h += '<h3>' + L2("Steine im Pinsel", "Rocks in brush") + ' <span class="ma-ed-cnt">' + on + ' / ' + nv + '</span></h3><div class="ma-ed-rocks">';
+        for (ri = 0; ri < nv; ri++) h += '<button type="button" data-rock="' + ri + '" aria-pressed="' + !!E.rockSel[ri] + '" title="' + L2("Variante ", "Variant ") + (ri + 1) + '"><img alt="" src="' + thumb("obj", "rock", ri) + '"><span>' + (ri + 1) + '</span></button>';
+        h += '</div><div class="ma-ed-row rs"><button type="button" data-a="rall">' + L2("Alle", "All") + '</button><button type="button" data-a="rnone">' + L2("Keine", "None") + '</button><button type="button" data-a="rsmall">' + L2("Nur kleine", "Small only") + '</button></div>' +
+          '<div class="ma-ed-info">' + L2("Links streuen, rechts entfernen (nur angekreuzte Varianten).", "Left scatters, right removes (only ticked variants).") + '</div>';
+      }
     } else if (E.tool === "obj") {
       h = '<h3>' + L2("Objekt", "Object") + '</h3><div class="ma-ed-list">' + Object.keys(MA.OBJECTS).map(function (k) {
         return '<button type="button" data-obj="' + k + '" aria-pressed="' + (E.obj === k) + '"><img alt="" src="' + thumb("obj", k, 0) + '">' + MA.OBJECTS[k].name() + '</button>';
@@ -265,10 +284,15 @@
     if (d.tool) { E.tool = d.tool; renderOpts(); syncUI(); return; }
     if (d.tile) { E.tile = d.tile; renderOpts(); return; }
     if (d.brush) { E.brush = d.brush; renderOpts(); return; }
+    if (d.rock) { var ri = +d.rock; E.rockSel[ri] = !E.rockSel[ri]; renderOpts(); return; }
     if (d.obj) { E.obj = d.obj; E.ov = 0; renderOpts(); return; }
     if (d.time) { E.world.time = +d.time; E.arena.time = E.world.time; syncUI(); return; }
     if (d.zdel) { snapshot(); E.arena.removeZone(d.zdel); E.world.syncZones(true); if (E.zsel === d.zdel) E.zsel = E.arena.zones.length ? E.arena.zones[0].id : null; renderOpts(); return; }
     var a = d.a;
+    if (a === "rall" || a === "rnone" || a === "rsmall") {
+      for (var k = 0; k < MA.OBJECTS.rock.variants; k++) E.rockSel[k] = a === "rall" || (a === "rsmall" && ROCK_SMALL.indexOf(k) >= 0);
+      renderOpts(); return;
+    }
     if (a === "zin") zoomBy(1.4);
     else if (a === "zout") zoomBy(1 / 1.4);
     else if (a === "z1") { E.world.setZoom(1); syncUI(); }
@@ -342,12 +366,14 @@
     var c = E.arena.tilePx(x, y), d = MA.VEG[type];
     if (c === "#" || c === "o") return false;
     if (x < 0 || y < 0 || x >= E.arena.pxW() || y >= E.arena.pxH()) return false;
+    if (c === "u") return d.water || type === "reed";   // Sumpf: Seerosen und Schilf
     return d.water ? c === "w" : c !== "w";
   }
   function paintBrush(dt, erase) {
     var b = BRUSHES.filter(function (q) { return q.id === E.brush; })[0], r = E.bsize, a = E.arena, X = E.wx, Y = E.wy;
     if (b.kind === "tile") { inCircle(X, Y, r * 0.8, function (tx, ty) { a.setTile(tx, ty, erase ? ERASE_TILE : b.id); }); return; }
     if (b.kind === "leaf") { inCircle(X, Y, r * 0.8, function (tx, ty) { a.setLeaf(tx, ty, !erase); }); return; }
+    if (b.kind === "rocks") { paintRocks(dt, erase, X, Y, r); return; }
     if (erase) { removeVeg(X, Y, r, b.mix.map(function (q) { return q[0]; })); return; }
     var n = E.dens * dt * (6 + r * 0.6) * (b.dens || 1), total = 0;
     b.mix.forEach(function (q) { total += q[1]; });
@@ -359,6 +385,31 @@
       var close = a.veg.some(function (v) { return v.t === type && Math.abs(v.x - x) < 3 && Math.abs(v.y - y) < 3; });
       if (close) continue;
       a.veg.push({ t: type, x: Math.round(x), y: Math.round(y), v: (Math.random() * MA.VEG[type].variants) | 0 });
+    }
+  }
+  // Steinpinsel (v0.12): Fels-Objekte der angekreuzten Varianten streuen, mit Abstand zueinander
+  function paintRocks(dt, erase, X, Y, r) {
+    var a = E.arena, sel = [];
+    for (var k = 0; k < MA.OBJECTS.rock.variants; k++) if (E.rockSel[k]) sel.push(k);
+    if (!sel.length) return;
+    if (erase) {
+      var n0 = a.obj.length;
+      a.obj = a.obj.filter(function (o) { return o.t !== "rock" || sel.indexOf(o.v) < 0 || m.dist(X, Y, o.x, o.y) > r; });
+      if (a.obj.length !== n0) { E.rockChg = true; a.touch(Math.floor((X - r) / T) - 3, Math.floor((Y - r) / T) - 3, Math.ceil((X + r) / T) + 3, Math.ceil((Y + r) / T) + 3); }
+      return;
+    }
+    E.racc += E.dens * dt * (0.5 + r * 0.06);
+    for (; E.racc >= 1; E.racc--) {
+      var v = sel[(Math.random() * sel.length) | 0], ang = Math.random() * 6.283, rr = Math.sqrt(Math.random()) * r;
+      var x = Math.round(X + Math.cos(ang) * rr), y = Math.round(Y + Math.sin(ang) * rr * 0.8), c = a.tilePx(x, y);
+      if (c === "#" || c === "o" || c === "w" || x < 8 || y < 8 || x >= a.pxW() - 8 || y >= a.pxH() - 4) continue;
+      var rv = ROCK_R[v] || 8, near = a.obj.some(function (o) {
+        var ro = o.t === "rock" ? ROCK_R[o.v] || 8 : 14;
+        return Math.abs(o.x - x) < rv + ro + 3 && Math.abs(o.y - y) < (rv + ro) * 0.7 + 3;
+      });
+      if (near) continue;
+      a.obj.push({ t: "rock", x: x, y: y, v: v }); E.rockChg = true;
+      if (c === "a") a.touch(Math.floor(x / T) - 3, Math.floor(y / T) - 3, Math.floor(x / T) + 4, Math.floor(y / T) + 4);   // Sandringe
     }
   }
   function removeVeg(x, y, r, types) {
@@ -373,7 +424,7 @@
 
   MA.scenes.devkit = {
     enter: function () {
-      if (!E) E = { tab: "map", tool: "brush", tile: "m", brush: "meadow", obj: "toro", ov: 0, bsize: 14, tsize: 1, zsize: 6, dens: 5, wind: 1, grid: false, timeRun: false, timeSpeedV: 0.5, undo: [], acc: 0, drag: null, stroke: false, wx: 0, wy: 0, zsel: null };
+      if (!E) E = { tab: "map", tool: "brush", tile: "m", brush: "meadow", obj: "toro", ov: 0, bsize: 14, tsize: 1, zsize: 6, dens: 5, wind: 1, grid: false, timeRun: false, timeSpeedV: 0.5, undo: [], acc: 0, racc: 0, rockSel: [true, true, true, true, true, true, true, true, true, true, true, true, true], drag: null, stroke: false, wx: 0, wy: 0, zsel: null };
       MA.main.setSidebar(PANEL);
       MA.audio.ambience(null);
       MA.audio.musicStop();

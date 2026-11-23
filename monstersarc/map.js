@@ -12,6 +12,7 @@
   MA.TILES = {
     o: { name: function () { return L2("Meer (tief)", "Sea (deep)"); }, solid: true, wet: true, sw: "#163440" },
     w: { name: function () { return L2("Wasser (flach)", "Water (shallow)"); }, speed: 0.55, element: "wasser", wet: true, sw: "#2E5A60" },
+    u: { name: function () { return L2("Sumpf", "Swamp"); }, speed: 0.48, element: "wasser", wet: true, sw: "#5E7A5A" },   // seit v0.12: seicht, grünlich, begehbar
     s: { name: function () { return L2("Steinplatten", "Stone slabs"); }, speed: 1, element: "erde", sw: "#77726A" },
     p: { name: function () { return L2("Große Tempelplatten", "Large temple slabs"); }, speed: 1, element: "erde", sw: "#958E80" },
     b: { name: function () { return L2("Kopfsteinpflaster", "Cobblestones"); }, speed: 0.97, element: "erde", sw: "#6E685E" },
@@ -76,6 +77,15 @@
     if (!d) this.dirty = { x0: tx, y0: ty, x1: tx + 1, y1: ty + 1 };
     else { d.x0 = Math.min(d.x0, tx); d.y0 = Math.min(d.y0, ty); d.x1 = Math.max(d.x1, tx + 1); d.y1 = Math.max(d.y1, ty + 1); }
     return true;
+  };
+  // Bereich als geändert melden, ohne Kacheln zu ändern (z. B. neuer Fels → Sandringe neu zeichnen)
+  A.touch = function (tx0, ty0, tx1, ty1) {
+    tx0 = Math.max(0, tx0); ty0 = Math.max(0, ty0); tx1 = Math.min(this.cols, tx1); ty1 = Math.min(this.rows, ty1);
+    if (tx1 <= tx0 || ty1 <= ty0) return;
+    this.rev++;
+    var d = this.dirty;
+    if (!d) this.dirty = { x0: tx0, y0: ty0, x1: tx1, y1: ty1 };
+    else { d.x0 = Math.min(d.x0, tx0); d.y0 = Math.min(d.y0, ty0); d.x1 = Math.max(d.x1, tx1); d.y1 = Math.max(d.y1, ty1); }
   };
   // Zonen
   A.zoneAt = function (tx, ty) { if (tx < 0 || ty < 0 || tx >= this.cols || ty >= this.rows) return "0"; return this.zone[ty * this.cols + tx]; };

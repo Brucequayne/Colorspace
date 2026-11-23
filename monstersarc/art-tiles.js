@@ -9,8 +9,8 @@
 (function () {
   var MA = window.MA, T = MA.TILE, CS = 16;   // Chunk-Größe in Kacheln
   var hash = MA.hash2, fbm = MA.fbm, noise = MA.noise2;
-  var EXACT = { w: 1, o: 1, v: 1, "#": 1 };
-  function isWater(c) { return c === "w" || c === "o"; }
+  var EXACT = { w: 1, o: 1, u: 1, v: 1, "#": 1 };
+  function isWater(c) { return c === "w" || c === "o" || c === "u"; }
 
   // Plattenmuster (Standard-Steinboden): Rechtecke aus 8-px-Zellen, je Chunk (lokale Pixel)
   function slabs(seed, w0, h0) {
@@ -149,6 +149,7 @@
     // Organische Küste: Land/Wasser-Grenze folgt einem weichen Feld mit Rauschen statt der Kachelkante.
     // Begehbarkeit bleibt kachelgenau; nur das Bild ist um bis zu ~eine halbe Kachel verschoben.
     var landF = fieldR(arena, tx0, ty0, nw, nh, 2, function (c) { return !isWater(c); }), seaF = fieldR(arena, tx0, ty0, nw, nh, 2, function (c) { return c === "o"; });
+    var swampF = fieldR(arena, tx0, ty0, nw, nh, 2, function (c) { return c === "u"; });
     var coast = new Uint8Array(nw * nh), coastLand = [];
     for (var cty = 0; cty < nh; cty++) for (var ctx0 = 0; ctx0 < nw; ctx0++) {
       var gx = tx0 + ctx0, gy = ty0 + cty, cwt = isWater(tl(gx, gy)), cl = null, cf = 0;
@@ -211,13 +212,26 @@
         } else if (waterHere) {
           // Wasser: Uferkante (organisch), dann flach → tief. Meer (o) wird weiter draußen noch dunkler.
           var dist = sd != null ? Math.max(0, sd) : 99;
-          if (dist < 2) col = dist < 1 ? [138, 132, 120] : [96, 92, 84];
-          else if (dist < 3) col = [40, 62, 60];
+          var sw = swampF(x, y), sk = sw > 0.01 ? Math.max(0, Math.min(1, (sw + (fbm(x / 5, y / 5, seed + 311, 2) - 0.5) * 0.5 - 0.5) * 4 + 0.5)) : 0;
+          if (dist < 2) col = sk > 0.5 ? (dist < 1 ? [104, 100, 72] : [84, 98, 70]) : dist < 1 ? [138, 132, 120] : [96, 92, 84];
+          else if (dist < 3) col = sk > 0.5 ? [96, 128, 104] : [40, 62, 60];
           else {
             var depth = Math.min(1, (dist - 3) / 12) + (ctx.nf - 0.5) * 0.25 + seaF(x, y) * 0.5 * Math.min(1, (dist - 3) / 15);
             col = MA.mix([62, 104, 98], [22, 46, 54], Math.max(0, Math.min(1, depth)));
             if (depth > 1) col = MA.mix([22, 46, 54], [16, 34, 44], Math.min(1, depth - 1));
             if (ctx.n1 > 0.97) col = MA.mix(col, [90, 120, 90], 0.4);
+          }
+          if (sk > 0 && dist >= 2) {
+            // Sumpf (seit v0.12): seichtes, grünliches Wasser, heller als das Meer, mit Entengrütze und Algen
+            var sc = MA.mix([112, 148, 122], [92, 128, 106], Math.min(1, ctx.nf * 1.2));   // helles, grünliches Flachwasser
+            var duck = fbm(x / 6, y / 6, seed + 301, 3);
+            if (duck > 0.6) sc = MA.mix(sc, [120, 152, 64], Math.min(1, (duck - 0.6) * 7));   // Entengrütze in Flecken
+            if (duck > 0.64 && ctx.n1 > 0.82) sc = [150, 178, 82];
+            else if (duck < 0.6 && ctx.n1 > 0.985) sc = [176, 200, 180];                       // Lichtreflex
+            else if (duck < 0.6 && ctx.n1 < 0.03) sc = [70, 104, 86];
+            if ((y % 3 === 0) && duck < 0.55 && fbm(x / 3, y, seed + 309, 2) > 0.62) sc = MA.mix(sc, [140, 172, 150], 0.5);   // leichte Wellen
+            if (fbm(x / 10, y / 10, seed + 307, 2) < 0.3) sc = MA.mix(sc, [88, 118, 104], 0.35);   // etwas tiefere Stellen
+            col = MA.mix(col, sc, sk);
           }
         } else {
           var mat = matAt(x, y, landCh);

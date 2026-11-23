@@ -239,8 +239,9 @@
     },
     rock: {
       name: function () { return L2("Fels", "Rock"); },
-      w: 38, h: 34, ax: 19, ay: 32, variants: 9, fx: { chips: STONE, sparks: true },
-      solidV: [[[0, -3, 8]], [[0, -2, 6]], [[0, -3, 9]], [[0, -2, 4]], [[0, -2, 4]], null, [[-5, -2, 5], [6, -2, 5]], [[0, -4, 13]], null],
+      w: 38, h: 34, ax: 19, ay: 32, variants: 13, fx: { chips: STONE, sparks: true },
+      solidV: [[[0, -3, 8]], [[0, -2, 6]], [[0, -3, 9]], [[0, -2, 4]], [[0, -2, 4]], null, [[-5, -2, 5], [6, -2, 5]], [[0, -4, 13]], null,
+        [[0, -2, 4]], [[0, -2, 3]], [[-3, -1, 3], [4, -1, 2]], [[0, -4, 15]]],   // 9–12 seit Monsters Arc v0.12
       draw: function (p, ctx, rnd, v) {
         var s = (rnd() * 1e5) | 0;
         if (v === 0) stone(p, 19, 32, 10, 13, s, true);
@@ -251,7 +252,12 @@
         else if (v === 5) stone(p, 19, 32, 9, 4, s, false, ["#5E5A54", "#7C776E", "#9A948A", "#B6B0A4"]);   // flacher Trittstein
         else if (v === 6) { stone(p, 13, 32, 6, 10, s, true); stone(p, 25, 32, 7, 12, s + 1, true); stone(p, 19, 33, 4, 5, s + 2, false); }  // Gruppe
         else if (v === 7) stone(p, 19, 32, 16, 22, s, true);                         // großer Findling
-        else { for (var i = 0; i < 7; i++) stone(p, 12 + rnd() * 14, 30 + rnd() * 3, 2 + rnd() * 2, 2 + rnd() * 2, s + i, false); }  // Kiesel
+        else if (v === 8) { for (var i = 0; i < 7; i++) stone(p, 12 + rnd() * 14, 30 + rnd() * 3, 2 + rnd() * 2, 2 + rnd() * 2, s + i, false); }  // Kiesel
+        // Monsters Arc v0.12: drei kleine Steine und ein großer flacher Fels
+        else if (v === 9) stone(p, 19, 32, 5, 6, s, true);                                                     // kleiner runder Stein mit Moos
+        else if (v === 10) stone(p, 19, 32, 3.5, 8, s, false, ["#4A4A4E", "#66666A", "#84848A", "#A2A2A6"]);   // kleiner spitzer Stein (bläulich grau)
+        else if (v === 11) { stone(p, 16, 32, 4, 5, s, false); stone(p, 23, 32, 3, 4, s + 3, true); }          // zwei kleine Steine
+        else stone(p, 19, 32, 18, 14, s, true, ["#4A4640", "#66615A", "#847E74", "#A39D92"]);                    // großer flacher Fels
       }
     },
     fence: {
