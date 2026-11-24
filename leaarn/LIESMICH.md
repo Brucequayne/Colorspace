@@ -21,7 +21,8 @@ Neue Module: in `MODULES` in `leaarn.js` eintragen.
 | `player.js` | Spielfigur: Low-Poly-Modell mit Lauf-Animation, Laufen/Rennen/Springen, Kollision, Kamera-Strahl gegen Wände (`camHit`) |
 | `play.js` | Spielen: Kamera (3rd Person, drinnen steiler über die Wände), Türen und Schreibtisch mit E, Geld-Anzeige, Pause |
 | `learn.js` | Lernmodus am Laptop: Fächer → Themen → Runde (10 Aufgaben) → Ergebnis mit Belohnung |
-| `save.js` | Spielstand: Geld, Lernstatistik je Fach/Thema |
+| `save.js` | Spielstand: Geld, Zwischenkonto (`offen`, seit v0.12), Lernstatistik je Fach/Thema |
+| `sound.js` | Kassen-Klingel beim Einsammeln (eigene Datei `leaarn/sounds/kasse.mp3` wird bevorzugt, sonst synthetisch), Münz-Tick |
 | `faecher/` | **ein Modul je Schulfach** (siehe unten), `index.js` = Liste, Aufgabenformat, Belohnung, Prüfen |
 | `editor.js` | Map-Editor (Developer Tool aus Poly Racer + Werkzeug **Häuser**) |
 | `houseeditor.js` | Haus-Editor (getrennt vom Map-Editor) |
@@ -65,6 +66,10 @@ Aufgaben: `eingabe` `{ frage, antwort }` (antwort darf eine Liste sein), `mc` `{
 `farbe` (Kunst, seit v0.11: Farbe per Ziehen mischen, Modus `mischen` = A + ? = Ziel, `raten` = A + B = ?; Darstellung in `learn.js` → `renderFarbe`).
 Belohnung je Runde (`belohnung` in `faecher/index.js`): Standard 10/10 = 150 €, 5–9 = 75 €, 1–4 = 25 €, 0 = 5 €.
 Eigene Stufen je Thema mit `lohn: [{ ab: 5, euro: 100 }, { ab: 1, euro: 25 }, { ab: 0, euro: 5 }]` (Farb-Spiele, 5 Durchgänge).
+
+Zwischenkonto (seit v0.12): Belohnungen gehen erst aufs Zwischenkonto im Laptop; „Belohnungen einsammeln“ oder Aufstehen bucht sie aufs Spielerkonto (Kassen-Klingel, fliegende Scheine in `play.js` → `collect`).
+
+Color Guesser (seit v0.12, art `guess`): Farbe 4 s zeigen (`zeigen`), dann HSB-Regler; Bewertung 0–10 aus CIEDE2000-Abstand (`rating` in `farben.js`), 5 Runden, `wertung(scores)` im Thema: Summe aufgerundet in Euro + Bonus, wenn alle Runden über 5/7,5/9 (+25/50/125 €, nur höchste Stufe).
 
 Farbmischen (`faecher/farben.js`): Farbe = Pigment-Anteile [Rot, Gelb, Blau, Weiß, Schwarz], Mischen = gleiche Teile.
 Rot/Gelb/Blau werden über den RYB-Würfel (wie Malfarben, Itten) in RGB umgerechnet, Weiß/Schwarz danach beigemischt. Neue Malfarben in `PAINTS` eintragen.

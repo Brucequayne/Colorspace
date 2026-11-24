@@ -1,9 +1,10 @@
 // ===== play.js · Spielen: Figur im Hub (3rd Person), Türen, Schreibtisch → Lernmodus, Geld-Anzeige =====
 import * as THREE from "three";
-import { t, addTexts, L2, clamp, lerp, el, store, KEYS, DEV_CODE } from "le/core.js";
+import { t, addTexts, L2, clamp, lerp, el, store, KEYS, DEV_CODE, PR } from "le/core.js";
 import { Player, camHit } from "le/player.js";
 import { Learn } from "le/learn.js";
-import { geld, euro } from "le/save.js";
+import { geld, euro, offen, einsammeln } from "le/save.js";
+import { kasse, tick } from "le/sound.js";
 import { LH } from "le/houses.js";
 
 addTexts({
@@ -20,7 +21,7 @@ export class Play {
     this.cam = { yaw: 0, pitch: 0.36, dist: 5.2, inside: 0, pos: new THREE.Vector3(), look: new THREE.Vector3(), snap: true };
     this.act = null; this.learn = null; this.paused = false; this.btn = -1;
     this.hud = el("div", "le-hud", '<div class="le-money"><span>' + t("pHome") + '</span><b id="le-money"></b></div><div class="le-gain" id="le-gain"></div><div class="le-prompt" id="le-prompt"></div><div class="le-where" id="le-where"></div><div class="le-help">' + t("pHelp") + "</div>");
-    app.ui.appendChild(this.hud); this.money();
+    app.ui.appendChild(this.hud); this.shown = geld(); this.money();
     this.spawn();
     const c = app.engine.renderer.domElement;
     this.onDown = (e) => { if (this.learn || this.paused) return; this.btn = e.button; this.last = [e.clientX, e.clientY]; const ae = document.activeElement; if (ae && ae.blur && ae !== document.body) ae.blur(); };
@@ -39,7 +40,30 @@ export class Play {
     this.world.houses.forEach((h) => h.cutAbove(null));
     this.pl.dispose(); this.hud.remove();
   }
-  money() { const m = document.getElementById("le-money"); if (m) m.textContent = euro(geld()); }
+  // Kontostand oben rechts: zeigt "shown" (zählt beim Einsammeln mit den ankommenden Scheinen hoch)
+  money() { const m = document.getElementById("le-money"); if (m) m.textContent = euro(this.shown); }
+  // Einsammeln (seit v0.12): Kassen-Klingel, Geldscheine fliegen von "from" (Bildschirm-Rechteck) nach oben rechts, Konto zählt hoch
+  collect(n, from) {
+    if (!n) return; kasse(PR.stamp);
+    const box = this.hud.querySelector(".le-money"), to = box.getBoundingClientRect(), fr = from || { left: innerWidth / 2 - 40, top: innerHeight / 2 - 20, width: 80, height: 40 };
+    const k = clamp(Math.round(3 + n / 15), 3, 16), share = Math.floor(n / k), target = geld(), start = target - n;
+    this.shown = start; this.money(); this.gain(n);
+    for (let i = 0; i < k; i++) {
+      const b = el("div", "le-bill", "<span>€</span>"); document.body.appendChild(b);
+      const x0 = fr.left + fr.width / 2 - 29 + (Math.random() - 0.5) * fr.width * 0.6, y0 = fr.top + fr.height / 2 - 12, x1 = to.left + to.width / 2 - 29, y1 = to.top + to.height / 2 - 15;
+      const mx = (x0 + x1) / 2 + (Math.random() - 0.5) * 260, my = Math.min(y0, y1) - 40 - Math.random() * 120, r0 = (Math.random() - 0.5) * 60, r1 = (Math.random() - 0.5) * 720;
+      const an = b.animate([
+        { transform: "translate(" + x0 + "px," + y0 + "px) rotate(" + r0 + "deg) scale(.6)", opacity: 0 },
+        { transform: "translate(" + x0 + "px," + (y0 - 30) + "px) rotate(" + r0 + "deg) scale(1.15)", opacity: 1, offset: 0.15 },
+        { transform: "translate(" + mx + "px," + my + "px) rotate(" + (r1 / 2) + "deg) scale(1)", opacity: 1, offset: 0.55 },
+        { transform: "translate(" + x1 + "px," + y1 + "px) rotate(" + r1 + "deg) scale(.45)", opacity: 0.9 }
+      ], { duration: 850 + Math.random() * 250, delay: 120 + i * 85, easing: "cubic-bezier(.45,.05,.55,.95)", fill: "both" });
+      an.onfinish = () => {
+        b.remove(); this.shown = i === k - 1 ? target : Math.min(target, this.shown + share); this.money(); tick(i % 6);
+        box.classList.remove("le-bump"); void box.offsetWidth; box.classList.add("le-bump");
+      };
+    }
+  }
   // Start vor der Tür des Zuhauses, Blick zum Haus
   spawn() {
     const h = this.world.home();
@@ -74,10 +98,16 @@ export class Play {
     this.pl.place(w.x, w.z, Math.atan2(-f.x, -f.z)); this.pl.p.y = h.e.y + a.y; this.pl.frozen = true;
     // Kamera hinter die Figur, Blick auf den Laptop
     const c = h.toWorld(a.cx, a.cz), sd = { x: -f.z, z: f.x }; this.learnCam = { look: new THREE.Vector3(c.x, h.e.y + a.y + 0.8, c.z), pos: new THREE.Vector3(c.x + f.x * 2.0 + sd.x * 0.7, h.e.y + a.y + 2.25, c.z + f.z * 2.0 + sd.z * 0.7) };
-    this.learn = new Learn(this.app, () => this.closeLearn(), (n) => { this.money(); this.gain(n); });
+    this.learn = new Learn(this.app, () => this.closeLearn(), (n, r) => this.collect(n, r));
     this.hud.classList.add("le-dimhud");
   }
-  closeLearn() { if (!this.learn) return; this.learn.dispose(); this.learn = null; this.learnCam = null; this.pl.frozen = false; this.hud.classList.remove("le-dimhud"); this.money(); }
+  // Aufstehen: was noch auf dem Zwischenkonto liegt, wird automatisch eingesammelt
+  closeLearn() {
+    if (!this.learn) return;
+    const lap = this.learn.root.querySelector(".le-scr"), r = lap ? lap.getBoundingClientRect() : null, n = einsammeln();
+    this.learn.dispose(); this.learn = null; this.learnCam = null; this.pl.frozen = false; this.hud.classList.remove("le-dimhud");
+    if (n) this.collect(n, r ? { left: r.left + r.width / 2 - 60, top: r.top + r.height / 2 - 30, width: 120, height: 60 } : null); else { this.shown = geld(); this.money(); }
+  }
   gain(n) { const g = document.getElementById("le-gain"); if (!g) return; g.textContent = "+" + euro(n); g.classList.remove("le-show"); void g.offsetWidth; g.classList.add("le-show"); }
   key(e) {
     if (this.learn) return this.learn.key(e);

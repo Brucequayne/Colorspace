@@ -1,15 +1,15 @@
 // ===== menu.js · Hauptmenü: Spielen, Map-Editor, Haus-Editor (beide mit Code), Einstellungen =====
 import * as THREE from "three";
 import { t, addTexts, L2, el, store, KEYS, DEV_CODE, PR } from "le/core.js";
-import { geld, euro } from "le/save.js";
+import { geld, euro, offen } from "le/save.js";
 
 addTexts({
   mPlay: L2("Spielen", "Play"), mMap: L2("Map-Editor", "Map editor"), mHouse: L2("Haus-Editor", "House editor"),
-  mSet: L2("Einstellungen", "Settings"), mBack: L2("Zurück zu Color Space", "Back to Color Space"), mAcc: L2("Kontostand", "Balance"),
+  mPend: L2("warten im Laptop aufs Einsammeln", "waiting in the laptop to be collected"), mSet: L2("Einstellungen", "Settings"), mBack: L2("Zurück zu Color Space", "Back to Color Space"), mAcc: L2("Kontostand", "Balance"),
   mCode: L2("Code für die Editoren", "Code for the editors"), mWrong: L2("Falscher Code", "Wrong code"), mOk: L2("Öffnen", "Open"),
   sShadow: L2("Schatten", "Shadows"), sScale: L2("Auflösung", "Resolution"), sOn: L2("An", "On"), sOff: L2("Aus", "Off"),
   mSub: L2("Lernen. Geld verdienen. Dein Zuhause ausbauen.", "Learn. Earn money. Build up your home."),
-  mFoot: L2("Version {v} · Hub mit Zuhause, Lernmodus am Schreibtisch (Mathe: kleines 1×1, Kunst: Farbenlehre), Map- und Haus-Editor", "Version {v} · hub with home, learning mode at the desk (maths: times tables, art: colour theory), map and house editor")
+  mFoot: L2("Version {v} · Hub mit Zuhause, Lernmodus am Schreibtisch (Mathe: kleines 1×1, Kunst: Farbenlehre und Color Guesser), Map- und Haus-Editor", "Version {v} · hub with home, learning mode at the desk (maths: times tables, art: colour theory and Color Guesser), map and house editor")
 });
 
 export class Menu {

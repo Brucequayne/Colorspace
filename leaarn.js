@@ -20,7 +20,8 @@
     "input.js",       // Tastatur und Controller
     "car.js",         // Fahrzeug (aus Poly Racer, später: Auto kaufen)
     "drive.js",       // Auto-Test im Map-Editor
-    "save.js",        // Spielstand: Geld, Lernstatistik
+    "save.js",        // Spielstand: Geld, Zwischenkonto, Lernstatistik
+    "sound.js",       // Kassen-Klingel, Münz-Tick
     "faecher/werkzeug.js", "faecher/farben.js", "faecher/mathe.js", "faecher/deutsch.js", "faecher/englisch.js", "faecher/fremdsprache.js", "faecher/biologie.js",
     "faecher/chemie.js", "faecher/physik.js", "faecher/geschichte.js", "faecher/erdkunde.js", "faecher/politik.js", "faecher/wirtschaft.js",
     "faecher/religion.js", "faecher/kunst.js", "faecher/musik.js", "faecher/informatik.js",

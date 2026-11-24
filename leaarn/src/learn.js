@@ -1,7 +1,8 @@
 // ===== learn.js · Lernmodus am Laptop: Fächer → Themen → 10 Aufgaben → Ergebnis mit Belohnung =====
-import { t, addTexts, L2, tl, el, esc, fmt, rng } from "le/core.js";
+import { t, addTexts, L2, tl, el, esc, fmt, rng, PR } from "le/core.js";
 import { FAECHER, fach, spielbar, fachAktiv, belohnung, runde, pruefe, STANDARD_LOHN } from "le/faecher/index.js";
-import { geld, addGeld, addRunde, stat, euro } from "le/save.js";
+import { addOffen, offen, einsammeln, addRunde, stat, euro } from "le/save.js";
+import { hsb, rgbHex, de2000, rating } from "le/faecher/farben.js";
 
 addTexts({
   lHello: L2("Was lernst du heute?", "What are you learning today?"), lSoon: L2("bald", "soon"), lBack: L2("Zurück", "Back"), lClose: L2("Laptop zuklappen", "Close laptop"),
@@ -16,20 +17,39 @@ addTexts({
   lMist: L2("Deine Fehler", "Your mistakes"), lNoMist: L2("Keine Fehler – perfekt!", "No mistakes – perfect!"), lYour: L2("du: {e}", "you: {e}"),
   lTiers: L2("10/10 → 150 € · 5–9 → 75 € · 1–4 → 25 € · 0 → 5 €", "10/10 → €150 · 5–9 → €75 · 1–4 → €25 · 0 → €5"),
   lEsc: L2("Esc schließt den Laptop", "Esc closes the laptop"), lQuit: L2("Runde abbrechen? Es gibt dann kein Geld.", "Quit this round? You won't get any money."),
-  lTopicsN: L2("{n} Themen", "{n} topics"), lReady: L2("{n} bereit", "{n} ready")
+  lTopicsN: L2("{n} Themen", "{n} topics"), lReady: L2("{n} bereit", "{n} ready"),
+  pPend: L2("Zwischenkonto", "Pending"), pCollect: L2("Belohnungen einsammeln", "Collect rewards"), pToPend: L2("aufs Zwischenkonto", "to your pending balance"),
+  pBestPts: L2("Bestes: {b} Punkte · {n}× gespielt", "Best: {b} points · played {n}×"),
+  gLook: L2("Merk dir diese Farbe", "Remember this colour"), gMix: L2("Misch die Farbe nach", "Recreate the colour"), gH: L2("Farbton", "Hue"), gS: L2("Sättigung", "Saturation"), gB: L2("Helligkeit", "Brightness"),
+  gGo: L2("Abgeben", "Submit"), gNext: L2("Nächste Farbe", "Next colour"), gEnd: L2("Zur Auswertung", "See results"), gTarget: L2("Ziel", "Target"), gYours: L2("Deine Farbe", "Your colour"),
+  gRound: L2("Farbe {i} von {n}", "Colour {i} of {n}"), gRating: L2("Bewertung", "Rating"), gSum: L2("Summe {s} → {e}", "Total {s} → {e}"), gBonus: L2("Bonus: alle Runden über {x}", "Bonus: every round above {x}"), gNoBonus: L2("Kein Bonus – dafür müssen alle Runden über 5 liegen", "No bonus – every round has to be above 5"),
+  gRules: L2("Summe der 5 Bewertungen = Euro (aufgerundet). Bonus, wenn alle Runden über 5 (+25 €), 7,5 (+50 €) oder 9 (+125 €) liegen.", "Sum of the 5 ratings = euros (rounded up). Bonus if every round is above 5 (+€25), 7.5 (+€50) or 9 (+€125)."),
+  gKeys: L2("Enter = abgeben · Pfeiltasten verschieben den gewählten Regler", "Enter = submit · arrow keys move the selected slider")
 });
 
 export class Learn {
-  constructor(app, onClose, onMoney) {
-    this.app = app; this.onClose = onClose; this.onMoney = onMoney; this.view = "home"; this.f = null; this.th = null; this.q = null;
-    this.root = el("div", "le-lap", '<div class="le-lapf"><div class="le-scr"><div class="le-bar"><b>LEAARN</b><span class="le-sp"></span><span class="le-acc" id="le-lacc"></span><button data-l="close" title="Esc">×</button></div><div class="le-lbody" id="le-lbody"></div></div><div class="le-lbase"></div><div class="le-lhint">' + t("lEsc") + "</div></div>");
+  constructor(app, onClose, onCollect) {
+    this.app = app; this.onClose = onClose; this.onCollect = onCollect; this.view = "home"; this.f = null; this.th = null; this.q = null;
+    this.root = el("div", "le-lap", '<div class="le-lapf"><div class="le-scr"><div class="le-bar"><b>LEAARN</b><span class="le-sp"></span><span class="le-pend" id="le-lpend"></span><button class="le-col" data-l="collect" id="le-lcol"></button><button data-l="close" title="Esc">×</button></div><div class="le-lbody" id="le-lbody"></div></div><div class="le-lbase"></div><div class="le-lhint">' + t("lEsc") + "</div></div>");
     app.ui.appendChild(this.root);
     this.root.addEventListener("click", (e) => this.click(e));
     this.root.addEventListener("keydown", (e) => { if (e.target.id === "le-ans" && e.key === "Enter") { e.preventDefault(); this.submit(e.target.value); } });
+    this.root.addEventListener("input", (e) => { if (e.target.hasAttribute("data-g")) this.gInput(); });
     this.render();
   }
-  dispose() { clearTimeout(this.tm); this.root.remove(); }
-  acc() { const a = this.root.querySelector("#le-lacc"); if (a) a.textContent = euro(geld()); }
+  dispose() { clearTimeout(this.tm); clearInterval(this.gi); this.root.remove(); }
+  // Zwischenkonto oben in der Leiste + Knopf „Belohnungen einsammeln“
+  acc(pulse) {
+    const a = this.root.querySelector("#le-lpend"), b = this.root.querySelector("#le-lcol"), n = offen(); if (!a) return;
+    a.innerHTML = t("pPend") + " <b>" + euro(n) + "</b>"; b.textContent = t("pCollect"); b.disabled = !n; b.classList.toggle("le-pri", n > 0);
+    if (pulse) { a.classList.remove("le-bump"); void a.offsetWidth; a.classList.add("le-bump"); }
+  }
+  collect(btn) {
+    const n = einsammeln(); if (!n) return;
+    const r = (btn || this.root.querySelector("#le-lcol")).getBoundingClientRect();
+    this.acc(); this.root.querySelectorAll("[data-l=collect2]").forEach((x) => { x.disabled = true; x.textContent = "✓ " + euro(n); });
+    if (this.onCollect) this.onCollect(n, r);
+  }
   body(h) { this.root.querySelector("#le-lbody").innerHTML = h; this.acc(); }
   render() {
     if (this.view === "home") {
@@ -42,7 +62,7 @@ export class Learn {
       this.body('<div class="le-lhead"><button data-l="home">← ' + t("lBack") + '</button><i style="background:' + f.farbe + '">' + esc(f.kurz) + "</i><h2>" + esc(tl(f.name)) + '</h2></div><div class="le-topics">' +
         f.themen.slice().sort((a, b) => (spielbar(b) - spielbar(a)) || a.klasse - b.klasse).map((th) => {
           const ok = spielbar(th), st = stat(f.id, th.id);
-          return '<div class="le-topic' + (ok ? "" : " le-off") + '"><span class="le-kl">' + t("lClass") + " " + th.klasse + "</span><div><b>" + esc(tl(th.name)) + "</b>" + (th.info ? "<small>" + esc(tl(th.info)) + "</small>" : "") + (st ? "<small>" + fmt(t("lBest"), { b: st.best, m: th.anzahl || 10, n: st.n }) + "</small>" : "") + "</div>" +
+          return '<div class="le-topic' + (ok ? "" : " le-off") + '"><span class="le-kl">' + t("lClass") + " " + th.klasse + "</span><div><b>" + esc(tl(th.name)) + "</b>" + (th.info ? "<small>" + esc(tl(th.info)) + "</small>" : "") + (st ? "<small>" + (th.art === "guess" ? fmt(t("pBestPts"), { b: num(st.best), n: st.n }) : fmt(t("lBest"), { b: st.best, m: th.anzahl || 10, n: st.n })) + "</small>" : "") + "</div>" +
             (ok ? '<button class="le-pri" data-t="' + th.id + '">' + t("lStart") + "</button>" : '<em>' + t("lSoon") + "</em>") + "</div>";
         }).join("") + "</div>" + (f.spiele && f.spiele.length ? '<p class="le-dim">' + t("lPlanned") + ": " + f.spiele.map((s) => esc(tl(s.name))).join(" · ") + "</p>" : ""));
     } else if (this.view === "quiz") this.renderQ();
@@ -50,11 +70,12 @@ export class Learn {
   }
   start(th) {
     this.th = th; const R = rng((Date.now() ^ (Math.random() * 1e9)) >>> 0);
-    this.q = { list: runde(th, R), i: 0, res: [], lock: false }; this.view = "quiz"; this.render();
+    this.q = { list: runde(th, R), i: 0, res: [], lock: false, ph: "show" }; this.view = "quiz"; this.render();
   }
   renderQ() {
     const q = this.q, a = q.list[q.i], n = q.list.length, f = this.f;
     if (a.art === "farbe") { this.renderFarbe(); return; }
+    if (a.art === "guess") { this.renderGuess(); return; }
     const dots = q.list.map((x, i) => '<i class="' + (i < q.res.length ? (q.res[i].ok ? "le-ok" : "le-no") : i === q.i ? "le-now" : "") + '"></i>').join("");
     let inp = "";
     if (a.art === "mc") inp = '<div class="le-mc">' + a.optionen.map((o, i) => '<button data-mc="' + i + '"><kbd>' + (i + 1) + "</kbd>" + esc(o) + "</button>").join("") + "</div>";
@@ -76,14 +97,25 @@ export class Learn {
     const wait = a.art === "farbe" ? (ok ? 1500 : 2600) : ok ? 650 : 1500;
     this.tm = setTimeout(() => { q.lock = false; q.i++; if (q.i >= q.list.length) this.finish(); else this.renderQ(); }, wait);
   }
+  // Belohnung kommt aufs Zwischenkonto (erst beim Einsammeln aufs Spielerkonto)
   finish() {
-    const q = this.q, r = q.res.filter((x) => x.ok).length, n = q.list.length, lohn = belohnung(r, n, this.th);
-    addGeld(lohn); addRunde(this.f.id, this.th.id, r, n, lohn); q.r = r; q.lohn = lohn;
-    this.view = "done"; this.render(); if (this.onMoney) this.onMoney(lohn);
+    const q = this.q, n = q.list.length, th = this.th;
+    let r, lohn;
+    if (th.wertung) { q.w = th.wertung(q.res.map((x) => x.score)); r = q.w.summe; lohn = q.w.euro; }
+    else { r = q.res.filter((x) => x.ok).length; lohn = belohnung(r, n, th); }
+    addOffen(lohn); addRunde(this.f.id, th.id, r, th.wertung ? n * 10 : n, lohn); q.r = r; q.lohn = lohn;
+    this.view = "done"; this.render(); this.acc(true);
+  }
+  // Knöpfe unter dem Ergebnis
+  doneBtns() {
+    const n = offen();
+    return '<div class="le-btns"><button class="le-pri" data-l="again">' + t("lAgain") + '</button><button data-l="fach">' + t("lTopics") + "</button>" +
+      '<button class="le-colbig" data-l="collect2"' + (n ? "" : " disabled") + ">" + t("pCollect") + (n ? " (" + euro(n) + ")" : "") + '</button><button data-l="close">' + t("lClose") + "</button></div>";
   }
   renderDone() {
+    if (this.th.wertung) { this.renderGuessDone(); return; }
     const q = this.q, n = q.list.length, wr = q.res.filter((x) => !x.ok), sw = (h) => '<i class="le-msw" style="background:' + h + '"></i>';
-    this.body('<div class="le-done"><h2>' + t("lDone") + '</h2><div class="le-big">' + q.r + "<small>/" + n + '</small></div><p>' + fmt(t("lScore"), { r: q.r, n: n }) + '</p><div class="le-earn">' + t("lEarn") + " <b>+" + euro(q.lohn) + '</b></div><p class="le-dim">' + tiers(this.th.lohn || STANDARD_LOHN, n) + "</p>" +
+    this.body('<div class="le-done"><h2>' + t("lDone") + '</h2><div class="le-big">' + q.r + "<small>/" + n + '</small></div><p>' + fmt(t("lScore"), { r: q.r, n: n }) + '</p><div class="le-earn">' + t("lEarn") + " <b>+" + euro(q.lohn) + "</b> <small>" + t("pToPend") + '</small></div><p class="le-dim">' + tiers(this.th.lohn || STANDARD_LOHN, n) + "</p>" +
       "<h4>" + t("lMist") + "</h4>" + (wr.length ? '<div class="le-mist">' + wr.map((x) => {
         const a = x.a;
         if (a.art === "farbe") {
@@ -93,8 +125,7 @@ export class Learn {
         const right = a.art === "mc" ? a.optionen[a.richtig] : a.art === "wahrfalsch" ? t(a.richtig ? "lTrue" : "lFalse") : [].concat(a.antwort)[0];
         const your = a.art === "mc" ? a.optionen[x.e] : a.art === "wahrfalsch" ? t(x.e ? "lTrue" : "lFalse") : x.e;
         return "<span>" + esc(a.frage) + " = <b>" + esc(right) + "</b> <em>" + fmt(t("lYour"), { e: esc(your) }) + "</em></span>";
-      }).join("") + "</div>" : '<p class="le-good">' + t("lNoMist") + "</p>") +
-      '<div class="le-btns"><button class="le-pri" data-l="again">' + t("lAgain") + '</button><button data-l="fach">' + t("lTopics") + '</button><button data-l="close">' + t("lClose") + "</button></div></div>");
+      }).join("") + "</div>" : '<p class="le-good">' + t("lNoMist") + "</p>") + this.doneBtns() + "</div>");
   }
   // ---------- Farb-Spiel (Kunst: Farbenlehre) ----------
   // mischen: A + ? = Ziel – eine der drei Farben auf A ziehen, A wird zur Mischung, dann Vergleich mit dem Ziel
@@ -151,6 +182,65 @@ export class Learn {
     const h = this.root.querySelector(".le-chint"); if (h) h.remove();
     this.q.lock = false; this.submit(i);
   }
+  // ---------- Color Guesser (Kunst) ----------
+  // Phasen: show (Farbe 4 s sehen) → mix (mit Reglern nachstellen, Vorschau live) → res (Ziel neben deiner Farbe, Bewertung 0–10)
+  renderGuess() {
+    const q = this.q, a = q.list[q.i], n = q.list.length, f = this.f;
+    clearInterval(this.gi); clearTimeout(this.tm);
+    const dots = q.list.map((x, i) => '<i class="' + (i < q.res.length ? (q.res[i].score > 5 ? "le-ok" : "le-no") : i === q.i ? "le-now" : "") + '"></i>').join("");
+    let h = '<div class="le-lhead"><i style="background:' + f.farbe + '">' + esc(f.kurz) + "</i><h2>" + esc(tl(f.name)) + " · " + esc(tl(this.th.name)) + '</h2><span class="le-sp"></span><span class="le-dim">' + fmt(t("gRound"), { i: q.i + 1, n: n }) + "</span></div>" +
+      '<div class="le-dots">' + dots + "</div>";
+    if (q.ph === "show") {
+      const sec = this.th.zeigen || 4;
+      h += '<div class="le-gshow" style="background:' + a.hex + '"><b>' + t("gLook") + '</b><span id="le-gcnt">' + sec + '</span><i class="le-gbar" style="animation-duration:' + sec + 's"></i></div>';
+      this.body(h);
+      const t0 = performance.now(), cnt = this.root.querySelector("#le-gcnt");
+      this.gi = setInterval(() => { const left = sec - (performance.now() - t0) / 1000; if (cnt) cnt.textContent = Math.max(1, Math.ceil(left)); if (left <= 0) { clearInterval(this.gi); q.ph = "mix"; this.renderGuess(); } }, 100);
+      return;
+    }
+    if (q.ph === "mix") {
+      if (!q.g) q.g = { h: Math.floor(Math.random() * 360), s: 50, b: 50 };
+      const sl = (k, max, lab, unit) => '<label class="le-grow"><span>' + lab + ' <em id="le-gv' + k + '">' + q.g[k] + unit + '</em></span><input type="range" class="le-gr" data-g="' + k + '" min="0" max="' + max + '" step="1" value="' + q.g[k] + '"></label>';
+      h += '<div class="le-gmix"><div class="le-gprev" id="le-gprev"><b>' + t("gMix") + '</b></div><div class="le-gsl">' + sl("h", 359, t("gH"), "°") + sl("s", 100, t("gS"), " %") + sl("b", 100, t("gB"), " %") +
+        '<button class="le-pri le-gsub" data-l="gsub">' + t("gGo") + '</button><p class="le-dim">' + t("gKeys") + "</p></div></div>";
+      this.body(h); this.gInput(); const r0 = this.root.querySelector(".le-gr"); if (r0) r0.focus();
+      return;
+    }
+    // Ergebnis
+    const r = q.res[q.res.length - 1], last = q.i >= n - 1, hx = (c) => c.h + "° · " + c.s + " % · " + c.b + " %";
+    h += '<div class="le-gres"><div style="background:' + a.hex + '"><small>' + t("gTarget") + "</small><span>" + hx(a) + '</span></div><div style="background:' + r.hex + '"><small>' + t("gYours") + "</small><span>" + hx(r.g) + "</span></div></div>" +
+      '<div class="le-grate"><small>' + t("gRating") + "</small><b class=\"" + (r.score > 7.5 ? "le-good" : r.score > 5 ? "" : "le-bad") + '">' + num(r.score) + '</b><small>/ 10</small></div>' +
+      '<div class="le-btns le-gnb"><button class="le-pri" data-l="gnext">' + t(last ? "gEnd" : "gNext") + " ↵</button></div>";
+    this.body(h);
+  }
+  // Regler bewegt: Vorschau und Farbverläufe der Regler neu
+  gInput() {
+    const q = this.q; if (!q || q.ph !== "mix") return;
+    this.root.querySelectorAll("[data-g]").forEach((r) => { q.g[r.getAttribute("data-g")] = +r.value; });
+    const g = q.g, c = (h, s, b) => rgbHex(hsb(h, s, b)), set = (k, bg, v) => { const r = this.root.querySelector('[data-g="' + k + '"]'); if (r) r.style.background = bg; const e = this.root.querySelector("#le-gv" + k); if (e) e.textContent = v; };
+    const hues = []; for (let i = 0; i <= 12; i++) hues.push(c(i * 30, g.s, g.b));
+    set("h", "linear-gradient(90deg," + hues.join(",") + ")", g.h + "°");
+    set("s", "linear-gradient(90deg," + c(g.h, 0, g.b) + "," + c(g.h, 100, g.b) + ")", g.s + " %");
+    set("b", "linear-gradient(90deg,#000," + c(g.h, g.s, 100) + ")", g.b + " %");
+    const p = this.root.querySelector("#le-gprev"); if (p) p.style.background = c(g.h, g.s, g.b);
+  }
+  gSubmit() {
+    const q = this.q; if (!q || q.ph !== "mix") return;
+    const a = q.list[q.i], g = q.g, mine = hsb(g.h, g.s, g.b), dE = de2000(hsb(a.h, a.s, a.b), mine), sc = rating(dE);
+    q.res.push({ ok: sc > 5, score: sc, dE: dE, g: { h: g.h, s: g.s, b: g.b }, hex: rgbHex(mine), a: a });
+    q.ph = "res"; q.g = null; this.renderGuess();
+  }
+  gNext() {
+    const q = this.q; if (!q || q.ph !== "res") return;
+    q.i++; if (q.i >= q.list.length) { this.finish(); return; } q.ph = "show"; this.renderGuess();
+  }
+  renderGuessDone() {
+    const q = this.q, w = q.w, rows = q.res.map((r, i) => '<div class="le-grow2"><span>' + (i + 1) + '</span><i style="background:' + r.a.hex + '"></i><i style="background:' + r.hex + '"></i><b class="' + (r.score > 7.5 ? "le-good" : r.score > 5 ? "" : "le-bad") + '">' + num(r.score) + "</b></div>").join("");
+    this.body('<div class="le-done"><h2>' + t("lDone") + '</h2><div class="le-big">' + num(w.summe) + '<small>/50</small></div>' +
+      '<div class="le-gsum">' + rows + "</div><p>" + fmt(t("gSum"), { s: num(w.summe), e: euro(w.basis) }) + "</p>" +
+      (w.bonus ? '<p class="le-good"><b>' + fmt(t("gBonus"), { x: num(w.bonus.ueber, 1) }) + ": +" + euro(w.bonus.euro) + "</b></p>" : '<p class="le-dim">' + t("gNoBonus") + "</p>") +
+      '<div class="le-earn">' + t("lEarn") + " <b>+" + euro(q.lohn) + "</b> <small>" + t("pToPend") + '</small></div><p class="le-dim">' + t("gRules") + "</p>" + this.doneBtns() + "</div>");
+  }
   click(e) {
     const fb = e.target.closest("[data-f]"); if (fb) { const f = fach(fb.getAttribute("data-f")); if (f) { this.f = f; this.view = "fach"; this.render(); } return; }
     const tb = e.target.closest("[data-t]"); if (tb) { const th = this.f.themen.find((x) => x.id === tb.getAttribute("data-t")); if (th) this.start(th); return; }
@@ -158,6 +248,9 @@ export class Learn {
     const kb = e.target.closest("[data-k]"); if (kb) { this.padKey(kb.getAttribute("data-k")); return; }
     const b = e.target.closest("[data-l]"); if (!b) return; const a = b.getAttribute("data-l");
     if (a === "close") this.close();
+    else if (a === "collect" || a === "collect2") this.collect(b);
+    else if (a === "gsub") this.gSubmit();
+    else if (a === "gnext") this.gNext();
     else if (a === "home") { this.view = "home"; this.render(); }
     else if (a === "fach") { this.view = "fach"; this.render(); }
     else if (a === "again") this.start(this.th);
@@ -177,6 +270,7 @@ export class Learn {
     if (e.code === "Escape") { if (this.view === "fach") { this.view = "home"; this.render(); } else this.close(); return true; }
     if (this.view === "quiz") {
       const a = this.q.list[this.q.i];
+      if (a.art === "guess") { if (e.code === "Enter" || e.code === "NumpadEnter") { if (this.q.ph === "mix") this.gSubmit(); else if (this.q.ph === "res") this.gNext(); return true; } return false; }
       if (a.art === "farbe" && /^Digit[1-3]$/.test(e.code)) { this.choose(+e.code.slice(5) - 1); return true; }
       if ((a.art === "mc" || a.art === "wahrfalsch") && /^Digit[1-9]$/.test(e.code)) { const i = +e.code.slice(5) - 1; if (a.art === "wahrfalsch") { if (i < 2) this.submit(i === 0); } else if (i < a.optionen.length) this.submit(i); return true; }
       if (a.art === "eingabe" && e.target.id !== "le-ans") { const ip = this.root.querySelector("#le-ans"); if (ip && !ip.disabled) { ip.focus(); } }
@@ -191,3 +285,5 @@ function tiers(L, n) {
   const l = L.slice().sort((a, b) => b.ab - a.ab);
   return l.map((x, i) => { const hi = i === 0 ? n : l[i - 1].ab - 1, lo = Math.min(x.ab, hi); return (lo === n ? n + "/" + n : lo === hi ? String(lo) : lo + "–" + hi) + " → " + euro(x.euro); }).join(" · ");
 }
+// Zahl mit Komma (deutsch) bzw. Punkt (englisch), 2 Nachkommastellen
+function num(v, d) { const k = d == null ? 2 : d; return (+v).toLocaleString(PR.lang === "en" ? "en-US" : "de-DE", { minimumFractionDigits: k, maximumFractionDigits: k }); }

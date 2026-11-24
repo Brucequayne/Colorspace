@@ -131,6 +131,35 @@ const CSS = `
 .le-ccmp{margin-top:14px;align-items:flex-start}.le-ccmp .le-sw{width:64px;height:64px}.le-ccmp .le-op{line-height:64px;font-size:30px}.le-ccmp.le-good .le-op{color:#7FC8D4}.le-ccmp.le-bad .le-op{color:#ED6A5E}.le-ccmp .le-cbox{min-width:84px}
 .le-chint{text-align:center;margin-top:14px}
 .le-msw{display:inline-block;width:18px;height:18px;vertical-align:-4px;border:1px solid rgba(236,234,228,.3)}.le-mcol em{margin:0 4px 0 8px}
+/* Zwischenkonto, Einsammeln (v0.12) */
+.le-money{z-index:11}.le-money.le-bump{animation:le-bump .25s ease-out}
+@keyframes le-bump{0%{transform:scale(1)}40%{transform:scale(1.12);border-left-color:#7FC8D4}100%{transform:scale(1)}}
+.le-bill{position:fixed;left:0;top:0;width:58px;height:30px;z-index:9999;pointer-events:none;background:linear-gradient(135deg,#7FB0BA,#62929E 60%,#4A6D7C);border:2px solid #C6C5B9;box-shadow:0 3px 8px rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center}
+.le-bill span{display:flex;align-items:center;justify-content:center;width:20px;height:20px;border:1px solid rgba(236,234,228,.75);font:800 11px var(--f-body,system-ui);color:#ECEAE4}
+.le-pend{color:#C6C5B9;font-size:13px;font-weight:600}.le-pend b{color:#fff;font-size:15px;font-variant-numeric:tabular-nums}.le-pend.le-bump{animation:le-bump .5s ease-out}
+.le-bar .le-col{font-size:12px!important;padding:4px 10px!important}.le-bar .le-col:disabled{opacity:.4}
+.le-earn small{font-size:12px;font-weight:600}
+.le-colbig:not(:disabled){background:#62929E!important;border-color:#62929E!important;color:#10191B!important}
+/* Color Guesser */
+.le-gshow{position:relative;height:330px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;border:3px solid rgba(236,234,228,.16)}
+.le-gshow b{background:rgba(20,21,24,.7);padding:5px 12px;font-size:15px}.le-gshow span{font:800 64px var(--f-display,system-ui,sans-serif);color:#fff;text-shadow:0 2px 10px rgba(0,0,0,.45)}
+.le-gbar{position:absolute;left:0;bottom:0;height:8px;width:100%;background:#ECEAE4;transform-origin:left;animation:le-gbar linear forwards}
+@keyframes le-gbar{from{transform:scaleX(1)}to{transform:scaleX(0)}}
+.le-gmix{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:18px;align-items:stretch}
+.le-gprev{min-height:300px;border:3px solid rgba(236,234,228,.16);display:flex;align-items:flex-start;justify-content:flex-start;padding:10px}.le-gprev b{background:rgba(20,21,24,.7);padding:4px 10px;font-size:13px}
+.le-gsl{display:flex;flex-direction:column;gap:14px;justify-content:center}
+.le-grow span{display:flex;justify-content:space-between;font-weight:700;font-size:13px;margin-bottom:6px}.le-grow em{color:#C6C5B9;font-variant-numeric:tabular-nums}
+.le-root input.le-gr{-webkit-appearance:none;appearance:none;width:100%;height:30px;margin:0;border:2px solid rgba(236,234,228,.2);outline:0;cursor:pointer}
+.le-gr:focus{border-color:#ECEAE4!important}
+.le-gr::-webkit-slider-thumb{-webkit-appearance:none;width:12px;height:34px;background:#fff;border:2px solid #141518;box-shadow:0 0 0 1px #fff}
+.le-gr::-moz-range-thumb{width:10px;height:32px;background:#fff;border:2px solid #141518;border-radius:0}
+.le-gsub{font-size:16px!important;padding:11px!important;margin-top:4px}
+.le-gres{display:grid;grid-template-columns:1fr 1fr;height:220px;border:3px solid rgba(236,234,228,.16)}
+.le-gres div{display:flex;flex-direction:column;justify-content:space-between;align-items:flex-start;padding:10px}.le-gres small,.le-gres span{background:rgba(20,21,24,.7);padding:3px 8px;font-weight:700;font-size:12px}
+.le-grate{display:flex;align-items:baseline;justify-content:center;gap:10px;margin-top:12px}.le-grate b{font:800 60px var(--f-display,system-ui,sans-serif);color:#fff}.le-grate b.le-good{color:#7FC8D4}.le-grate b.le-bad{color:#ED6A5E}.le-grate small{color:#A9ACB2;font-weight:700}
+.le-gnb{justify-content:center}
+.le-gsum{display:flex;justify-content:center;gap:8px;margin:10px 0}.le-grow2{display:flex;flex-direction:column;align-items:center;gap:3px;background:#33403F;padding:6px 8px}
+.le-grow2 span{color:#A9ACB2;font-size:11px;font-weight:700}.le-grow2 i{display:block;width:44px;height:22px}.le-grow2 b{font-variant-numeric:tabular-nums}.le-grow2 b.le-bad{color:#ED6A5E}
 `;
 
 let A = null;

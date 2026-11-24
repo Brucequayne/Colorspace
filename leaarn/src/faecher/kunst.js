@@ -1,8 +1,9 @@
 // ===== faecher/kunst.js · Kunst (Klasse 5–10) =====
 // Aufbau eines Fachs: siehe faecher/index.js. Themen ohne Aufgaben (geplant: true) erscheinen auf dem Laptop als „bald“.
 // Seit v0.11: Farbenlehre als Spiel (art "farbe"): Farbe auf Farbe ziehen und mischen. 5 Durchgänge je Runde.
+// Seit v0.12: Color Guesser (art "guess", wie dialed.gg): Farbe 4 s ansehen, dann mit Farbton/Sättigung/Helligkeit nachstellen.
 import { L2 } from "le/core.js";
-import { PAINTS, mix, hex, dist } from "le/faecher/farben.js";
+import { PAINTS, mix, hex, dist, hsb, rgbHex } from "le/faecher/farben.js";
 import { shuffle } from "le/faecher/werkzeug.js";
 
 // Belohnung für die Farb-Spiele (ab = mindestens so viele richtig)
@@ -41,6 +42,23 @@ function aufgabe(modus, R, used) {
   }
   return null;
 }
+// Color Guesser: 5 Zielfarben, Farbtöne gut verteilt, nicht zu grau und nicht zu dunkel (sonst ist der Farbton kaum erkennbar)
+function zielfarben(R) {
+  const h0 = R() * 360, out = [];
+  for (let i = 0; i < 5; i++) {
+    const h = Math.round((h0 + i * 72 + (R() - 0.5) * 50 + 360) % 360), s = Math.round(22 + R() * 78), b = Math.round(30 + R() * 70);
+    out.push({ art: "guess", h: h, s: s, b: b, hex: rgbHex(hsb(h, s, b)), frage: "Color Guesser" });
+  }
+  for (let i = out.length - 1; i > 0; i--) { const j = Math.floor(R() * (i + 1)), t = out[i]; out[i] = out[j]; out[j] = t; }
+  return out;
+}
+// Wertung: Summe der 5 Bewertungen (0–10) = Euro, aufgerundet. Bonus, wenn ALLE Runden über der Schwelle liegen (nur die höchste Stufe zählt)
+export const GUESS_BONUS = [{ ueber: 9, euro: 125 }, { ueber: 7.5, euro: 50 }, { ueber: 5, euro: 25 }];
+function guessWertung(scores) {
+  const summe = Math.round(scores.reduce((a, b) => a + b, 0) * 100) / 100, min = Math.min.apply(null, scores);
+  const bonus = scores.length ? GUESS_BONUS.find((b) => min > b.ueber) || null : null;
+  return { summe: summe, basis: Math.ceil(summe - 1e-9), bonus: bonus, euro: Math.ceil(summe - 1e-9) + (bonus ? bonus.euro : 0) };
+}
 function runde(modus, R) { const used = new Set(), out = []; while (out.length < 5) { const a = aufgabe(modus, R, used); if (!a) break; out.push(a); } return out; }
 
 export default {
@@ -54,6 +72,9 @@ export default {
     { id: "mischergebnis", name: L2("Farbenlehre: Mischergebnis", "Colour theory: mixing result"), klasse: 5, art: "farbe", anzahl: 5, lohn: LOHN5,
       info: L2("Zwei Farben werden gemischt – welche Farbe entsteht? Zieh das richtige Ergebnis ins Feld.", "Two colours are mixed – which colour do you get? Drag the right result into the box."),
       erzeugen(R) { return runde("raten", R); } },
+    { id: "colorguesser", name: L2("Color Guesser", "Color Guesser"), klasse: 5, art: "guess", anzahl: 5, zeigen: 4,
+      info: L2("Merk dir eine Farbe 4 Sekunden lang und misch sie mit Farbton, Sättigung und Helligkeit nach. Je näher, desto mehr Punkte.", "Memorise a colour for 4 seconds and recreate it with hue, saturation and brightness. The closer, the more points."),
+      erzeugen(R) { return zielfarben(R); }, wertung: guessWertung },
     { id: "perspektive", name: L2("Perspektive", "Perspective"), klasse: 7, geplant: true },
     { id: "kunstepochen", name: L2("Kunstepochen", "Art periods"), klasse: 9, geplant: true }
   ]

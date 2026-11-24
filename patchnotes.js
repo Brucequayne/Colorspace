@@ -3,6 +3,17 @@
    Die Versionsnummer auf den Kacheln kommt aus dem obersten Eintrag. */
 window.PATCHNOTES = {
   leaarn: [
+    { v: "0.12", t: "2026-11-25T00:45:00+01:00",
+      de: ["Zwischenkonto im Laptop: Belohnungen aus den Lernspielen sammeln sich jetzt im Laptop. Du kannst mehrere Runden hintereinander spielen und siehst oben in der Leiste, wie das Zwischenkonto wächst.",
+        "Mit „Belohnungen einsammeln“ (oder beim Aufstehen vom Laptop) kommt das Geld auf dein Konto in der Welt – mit Kassen-Klingel, fliegenden Geldscheinen und einem Kontostand, der mitzählt.",
+        "Neues Spiel in Kunst: Color Guesser. Du siehst eine Farbe 4 Sekunden lang, dann verschwindet sie und du mischst sie mit den Reglern Farbton, Sättigung und Helligkeit nach. Die Vorschau ändert sich live.",
+        "Bewertung je Farbe von 0 bis 10, je nachdem wie nah du dran bist (gemessen wie das Auge Farben unterscheidet). Ein Durchlauf hat 5 Farben.",
+        "Belohnung: die Summe der 5 Bewertungen in Euro, aufgerundet. Bonus, wenn alle 5 Runden über 5 liegen (+25 €), über 7,5 (+50 €) oder über 9 (+125 €)."],
+      en: ["Pending balance in the laptop: rewards from the learning games now pile up in the laptop. You can play several rounds in a row and watch the pending balance grow in the top bar.",
+        "With “Collect rewards” (or when you get up from the laptop) the money goes to your account in the world – with a cash register ring, flying banknotes and a balance that counts up.",
+        "New art game: Color Guesser. You see a colour for 4 seconds, then it disappears and you recreate it with the hue, saturation and brightness sliders. The preview changes live.",
+        "Each colour is rated from 0 to 10 depending on how close you get (measured the way the eye tells colours apart). One run has 5 colours.",
+        "Reward: the sum of the 5 ratings in euros, rounded up. Bonus if all 5 rounds are above 5 (+€25), above 7.5 (+€50) or above 9 (+€125)."] },
     { v: "0.11", t: "2026-11-24T23:40:00+01:00",
       de: ["Neues Fach im Lernmodus: Kunst mit dem Thema Farbenlehre, zwei Spiele mit je 5 Durchgängen pro Runde.",
         "Farben mischen: Du siehst eine Farbe und die Ziel-Farbe. Zieh eine von drei Farben auf die erste Farbe – sie wird umgerührt, die Mischung erscheint und wird mit dem Ziel verglichen.",
