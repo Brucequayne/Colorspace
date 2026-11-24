@@ -75,6 +75,8 @@
       if (musWant) A.musicLevel(musLevel);
     },
     ready: function () { return !!ctx; },
+    // Für erzeugte Klänge (Monsterschreie, seit v0.25): Audio-Kontext und Effekt-Ausgang; null, wenn stumm
+    synth: function () { A.unlock(); if (!ctx || muted) return null; return { ctx: ctx, out: sfxBus }; },
     // Sound abspielen. opt: x (Arena-Pixel für Stereo), vol, rate. Rückgabe: Griff mit stop()
     play: function (name, opt) {
       var S = SOUNDS[name]; if (!S || !ctx || muted) return null;

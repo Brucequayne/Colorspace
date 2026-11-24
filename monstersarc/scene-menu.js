@@ -18,12 +18,14 @@
         '<div class="ma-title"><h1>Monsters Arc</h1><p>Pre-Alpha v' + MA.VERSION + '</p></div>' +
         '<div class="ma-mbtns">' +
         '<button type="button" data-m="play" disabled>' + L2("Spielen", "Play") + '<small>' + L2("kommt später", "coming later") + '</small></button>' +
-        '<button type="button" data-m="devkit">Dev-Kit<small>' + L2("Map-Editor und mehr", "Map editor and more") + '</small></button>' +
+        '<button type="button" data-m="dex">' + L2("Monsterliste", "Monster list") + '<small>' + MA.monsters.list().length + ' Monster</small></button>' +
+        '<button type="button" data-m="devkit">Dev-Kit<small>' + L2("Map-, Gebäude- und Monster-Editor", "Map, building and monster editor") + '</small></button>' +
         '</div></div>';
       S.el = ui.firstChild;
       S.el.addEventListener("click", function (e) {
         var b = e.target.closest("button"); if (!b || b.disabled) return;
         if (b.dataset.m === "devkit") MA.main.go("devkit");
+        if (b.dataset.m === "dex") MA.main.go("dex");
       });
     },
     exit: function () { MA.main.ui.innerHTML = ""; },

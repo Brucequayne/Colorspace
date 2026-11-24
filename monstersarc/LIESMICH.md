@@ -37,6 +37,11 @@ Ordner nacheinander, mit demselben Cache-Stempel `?v=…`. Kein Build-Schritt n�
 | Trampelpfad | Seit v0.19.9: `map.paths` = Stempel [x, y, r] ohne Raster (Pinsel `path` in devkit.js), werden in `buildChunk` ins Bodenbild eingebacken (`pathAt`/`pathCol` in art-tiles.js) |
 | Supermarkt | `market107` in houses.js (`shop: 1`): Ladengeschoss `shopFront`, Innenraum mit Fliesen `i`, `m_fridge`, `m_aisle`, `m_checkout`, keine Treppe |
 | `devkit.js` | Dev-Kit: Bereiche Map-Editor (v0.1), Attacken, Missionen, Monster (später) |
+| `monsters.js` | Monster (seit v0.25): Datensatz (`sanitize`, `blank`), Bild-Generator `render(m, "front"\|"back")` (Formen in 0…1, gerastert mit 64 × Größe Pixeln, 5 Tonstufen, Außen- und Innenlinien, Gesicht als Pixel), Schrei `playCry` (8-bit, Seed, Tonhöhe, Länge), Werte `statAt` (Grundwert Lv 1 → Grundwert + Potenzial × 4 auf Lv 100), Monsterliste (localStorage `monstersarc.monsters.v1`, Export/Import der ganzen Liste) |
+| `monstertpl.js` | 25 Grundmonster als Vorlagen (`MA.MONSTER_TEMPLATES`) |
+| `monsters/liste.js` | Feste Monsterliste des Spiels (`MA.MONSTER_LIST`, `null` = nur Browser-Liste). Exportierte Listen von Noah kommen hier hinein |
+| `monstereditor.js` | Monster-Editor (seit v0.25), Reiter im Dev-Kit (`MA.monsterEditor.mount/update/render`). Reiter Allgemein, Aussehen, Farben, Werte, Klang, Attacken (leer). Vorschau wie im Kampf (×2/×1) oder nebeneinander. Arbeitsstand `monstersarc.monster.draft.v1` |
+| `scene-dex.js` | Monsterliste im Spiel (Hauptmenü → Monsterliste) |
 | `main.js` | Hülle: Canvas, Skalierung, Szenen, Schleife |
 
 ## Bodenarten
@@ -66,3 +71,7 @@ Parameter (`params`): `w`, `d` (Blöcke), `floors` (1–3), `door` (Block von li
 
 Wichtig für die Übernahme ins Spiel: Der Anker ist die Mitte der Vorderkante der Grundfläche (wie bei `houses.js`); Kaminschacht und Balkon ragen ca. 6–7 px über die Vorderkante hinaus (für Kollision nur die Grundfläche `foot` nehmen). 
 Innenraum (Format-Version 2, Feld `interior`, seit v0.21): `size` = [Breite, Tiefe] in Kacheln (Außenmaß × 1,5, aufgerundet), `floors` = je Geschoss `{ floor, objs:[{t,x,y,v}] }` (`t` = Objekt-ID aus `MA.OBJECTS`, `x/y` = Fußpunkt in px ab Ecke oben links des Bodens, die Rückwand liegt 32 px darüber), `stairs` = `[{ from, to, rot, tx, ty, rect, entry, arrive }]`. `rot` S/W/E = von unten/links/rechts betreten. Man erscheint im anderen Geschoss am Einstiegsende (`arrive`). Bild: `MA.buildinterior.render(params, inner, geschoss)` plus Objekte nach y sortiert. Version-1-Dateien (ohne `interior`) bleiben gültig. Kollision und Spielerbewegung im Innenraum gibt es noch nicht (kommt mit der Übernahme in den Map-Editor).
+
+## Monster (seit v0.25)
+Datensatz: `id`, `no` (Nr. in der Monsterliste), `name`, `el` [Element 1, Element 2 oder -1], `pre`/`evo` (id), `evoLvl`, `look` (Körperbau und Teile, `seed`), `pal` (main, sec, acc, eye, extra), `size` (Bild: 64 × size Pixel), `h` (m), `kg`, `stats` {hp, atk, def, spa, spd, ini: [Grundwert Lv 1, Potenzial 0–100]}, `cry` {seed, pitch, stretch}. Elemente: Index in `MA.monsters.ELEMENTS`.
+Perspektive: nur vorne und hinten (wie Gen 3), keine Animation. Export-Datei `MonstersArc_Monsterliste.json` (Format `monstersarc-monsters`, Feld `list`).
