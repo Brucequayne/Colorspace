@@ -2,6 +2,25 @@
    Neueste Version jeweils oben. t = Zeitpunkt des Updates (deutsche Zeit).
    Die Versionsnummer auf den Kacheln kommt aus dem obersten Eintrag. */
 window.PATCHNOTES = {
+  leaarn: [
+    { v: "0.1", t: "2026-11-24T22:10:00+01:00",
+      de: ["Neues Spiel Leaarn: ein Lernspiel im Low-Poly-Look von Poly Racer. Lernen bringt Geld, mit dem man sich später Neues kaufen kann.",
+        "Hub: dein Zuhause, ein kleines Starterhaus mit Tür, Schreibtisch, Laptop und Stuhl auf einer eigenen Map mit Straße, Wald und Wiese.",
+        "Spielfigur in 3rd Person: laufen, rennen, springen, Kamera per Maus. Im Haus blendet das Dach aus und die Kamera schaut von oben ins Zimmer.",
+        "Die Tür öffnest und schließt du mit E. Das Haus wird ohne Ladepause betreten.",
+        "Lernmodus am Laptop (E am Schreibtisch): alle Schulfächer von Klasse 5 bis 10, zum Start Mathe mit dem kleinen 1×1. Zehn Aufgaben, Ergebnis eintippen.",
+        "Belohnung je Runde: 10 von 10 = 150 €, 5–9 = 75 €, 1–4 = 25 €, 0 = 5 €. Der Kontostand steht oben rechts und im Hauptmenü.",
+        "Map-Editor mit Gelände, Bodenarten, Straßenbau, Vegetation und Umgebung wie in Poly Racer, dazu das neue Werkzeug Häuser.",
+        "Haus-Editor (getrennt vom Map-Editor) mit Böden, Wänden aus Putz, Ziegel und Holz mit Fenstern und Türen, Dach mit Schrägen und Giebeln sowie Möbeln. Häuser werden als .txt exportiert."],
+      en: ["New game Leaarn: a learning game in Poly Racer's low-poly look. Learning earns money that you can spend on new things later.",
+        "Hub: your home, a small starter house with a door, desk, laptop and chair, on its own map with a road, forest and meadow.",
+        "Third-person character: walk, run, jump, mouse camera. Inside the house the roof fades out and the camera looks down into the room.",
+        "You open and close the door with E. You enter the house without a loading screen.",
+        "Learning mode on the laptop (E at the desk): every school subject from grade 5 to 10, starting with maths and times tables. Ten questions, type the result.",
+        "Reward per round: 10 of 10 = €150, 5–9 = €75, 1–4 = €25, 0 = €5. Your balance is shown top right and in the main menu.",
+        "Map editor with terrain, ground types, road building, vegetation and environment as in Poly Racer, plus the new houses tool.",
+        "House editor (separate from the map editor) with floors, walls in plaster, brick and wood with windows and doors, a roof with slopes and gables, and furniture. Houses are exported as .txt."] }
+  ],
   monstersarc: [
     { v: "0.25", t: "2026-11-24T00:25:00+01:00",
       de: ["Neuer Monster-Editor im Dev-Kit mit den Reitern Allgemein, Aussehen, Farben, Werte, Klang und Attacken (Attacken folgen später).",

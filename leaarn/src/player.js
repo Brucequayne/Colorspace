@@ -1,0 +1,152 @@
+// ===== player.js · Spielfigur: Low-Poly-Modell, Laufen, Springen, Kollision mit Häusern, Möbeln und Bäumen =====
+import * as THREE from "three";
+import { clamp, lerp } from "le/core.js";
+import { part, merge, M } from "le/models.js";
+import { LH, FLOOR, WT } from "le/houses.js";
+
+const SKIN = "#E3B38E", HAIR = "#3A2A20", TOP = "#62929E", PANTS = "#4A6D7C", SHOE = "#2B2E30", ACC = "#ED6A5E";
+export const RADIUS = 0.28, HEIGHT = 1.78;
+
+// Figur aus einzelnen Gliedern (Drehpunkte an Hüfte und Schultern), vorne = +z
+function figure() {
+  const mat = new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true });
+  const mk = (parts) => { const m = new THREE.Mesh(merge(parts), mat); m.castShadow = true; m.receiveShadow = true; return m; };
+  const g = new THREE.Group(), body = new THREE.Group(); g.add(body);
+  const torso = mk([
+    part(new THREE.BoxGeometry(0.4, 0.5, 0.22), TOP, M(0, 1.22, 0, 1)),
+    part(new THREE.BoxGeometry(0.36, 0.1, 0.2), PANTS, M(0, 0.95, 0, 1)),
+    part(new THREE.BoxGeometry(0.22, 0.08, 0.04), ACC, M(0, 1.3, 0.115, 1)),                 // Brust-Streifen
+    part(new THREE.BoxGeometry(0.3, 0.12, 0.12), TOP, M(0, 1.5, -0.08, 1)),                  // Kapuze
+    part(new THREE.BoxGeometry(0.1, 0.08, 0.1), SKIN, M(0, 1.5, 0, 1))                       // Hals
+  ]);
+  body.add(torso);
+  const head = new THREE.Group(); head.position.set(0, 1.55, 0); body.add(head);
+  head.add(mk([
+    part(new THREE.BoxGeometry(0.25, 0.27, 0.25), SKIN, M(0, 0.15, 0, 1)),
+    part(new THREE.BoxGeometry(0.27, 0.1, 0.27), HAIR, M(0, 0.3, -0.01, 1)),
+    part(new THREE.BoxGeometry(0.27, 0.16, 0.06), HAIR, M(0, 0.2, -0.12, 1)),
+    part(new THREE.BoxGeometry(0.04, 0.04, 0.02), SHOE, M(-0.06, 0.17, 0.126, 1)),
+    part(new THREE.BoxGeometry(0.04, 0.04, 0.02), SHOE, M(0.06, 0.17, 0.126, 1)),
+    part(new THREE.BoxGeometry(0.05, 0.05, 0.04), "#D9A07E", M(0, 0.11, 0.135, 1))
+  ]));
+  const limb = (x, y, parts) => { const pv = new THREE.Group(); pv.position.set(x, y, 0); pv.add(mk(parts)); body.add(pv); return pv; };
+  const armL = limb(-0.26, 1.42, [part(new THREE.BoxGeometry(0.11, 0.42, 0.12), TOP, M(0, -0.2, 0, 1)), part(new THREE.BoxGeometry(0.09, 0.2, 0.1), SKIN, M(0, -0.5, 0, 1))]);
+  const armR = limb(0.26, 1.42, [part(new THREE.BoxGeometry(0.11, 0.42, 0.12), TOP, M(0, -0.2, 0, 1)), part(new THREE.BoxGeometry(0.09, 0.2, 0.1), SKIN, M(0, -0.5, 0, 1))]);
+  const legL = limb(-0.1, 0.92, [part(new THREE.BoxGeometry(0.15, 0.82, 0.16), PANTS, M(0, -0.42, 0, 1)), part(new THREE.BoxGeometry(0.15, 0.09, 0.26), SHOE, M(0, -0.875, 0.04, 1))]);
+  const legR = limb(0.1, 0.92, [part(new THREE.BoxGeometry(0.15, 0.82, 0.16), PANTS, M(0, -0.42, 0, 1)), part(new THREE.BoxGeometry(0.15, 0.09, 0.26), SHOE, M(0, -0.875, 0.04, 1))]);
+  return { group: g, body: body, head: head, armL: armL, armR: armR, legL: legL, legR: legR };
+}
+
+export class Player {
+  constructor(world) {
+    this.world = world; this.m = figure(); world.engine.scene.add(this.m.group);
+    this.p = new THREE.Vector3(); this.v = new THREE.Vector3(); this.face = 0; this.vy = 0; this.onGround = true;
+    this.phase = 0; this.speed = 0; this.house = null; this.level = 0; this.frozen = false; this.g = {};
+  }
+  dispose() { this.m.group.traverse((o) => { if (o.geometry) o.geometry.dispose(); }); this.m.group.removeFromParent(); }
+  place(x, z, face) { this.p.set(x, 0, z); this.p.y = this.groundAt(x, z, 1e3); this.face = face || 0; this.v.set(0, 0, 0); this.vy = 0; this.sync(0); }
+  // Boden unter der Figur: Hausboden (wenn auf einer Bodenzelle), sonst Straße/Gelände
+  groundAt(x, z, y) {
+    let h = this.world.ground(x, z, this.g, y).h;
+    for (const hs of this.world.houses) {
+      if (!hs.contains(x, z, 0.5)) continue;
+      for (let l = 0; l < 4; l++) { const fy = hs.e.y + l * LH + FLOOR; if (fy > y + 0.45) break; if (hs.floorAt(x, z, l)) h = Math.max(h, fy); }
+    }
+    return h;
+  }
+  // inp: { x, z } Richtung (Welt, Länge ≤ 1), run, jump
+  update(dt, inp) {
+    const W = this.world, want = new THREE.Vector3(inp.x, 0, inp.z), sp = this.frozen ? 0 : (inp.run ? 6.2 : 3.6);
+    if (want.lengthSq() > 1) want.normalize();
+    const acc = this.onGround ? 14 : 4;
+    this.v.x += clamp(want.x * sp - this.v.x, -acc * dt, acc * dt); this.v.z += clamp(want.z * sp - this.v.z, -acc * dt, acc * dt);
+    if (this.frozen) { this.v.x = 0; this.v.z = 0; }
+    const np = this.p.clone(); np.x += this.v.x * dt; np.z += this.v.z * dt;
+    this.collide(np);
+    // Höhe: am Boden kleben (Stufen bis 0,45 m), sonst fallen
+    const gh = this.groundAt(np.x, np.z, this.p.y);
+    if (gh > this.p.y + 0.45) { np.x = this.p.x; np.z = this.p.z; }   // zu hoch: nicht drübersteigen
+    const g2 = this.groundAt(np.x, np.z, this.p.y);
+    if (inp.jump && this.onGround && !this.frozen) { this.vy = 4.6; this.onGround = false; }
+    this.vy -= 13 * dt; np.y = this.p.y + this.vy * dt;
+    if (np.y <= g2 || (this.onGround && np.y - g2 < 0.3 && this.vy <= 0)) { np.y = this.onGround ? lerp(this.p.y, g2, 1 - Math.exp(-dt * 22)) : g2; if (Math.abs(np.y - g2) < 0.02) np.y = g2; this.vy = 0; this.onGround = true; }
+    else this.onGround = false;
+    // echte Geschwindigkeit (nach Kollision) für die Animation
+    const real = Math.hypot(np.x - this.p.x, np.z - this.p.z) / Math.max(dt, 1e-4);
+    this.p.copy(np);
+    const T = W.terrain, lim = T.size / 2 - 4; this.p.x = clamp(this.p.x, -lim, lim); this.p.z = clamp(this.p.z, -lim, lim);
+    if (want.lengthSq() > 0.01 && !this.frozen) { const a = Math.atan2(want.x, want.z); let d = a - this.face; d = Math.atan2(Math.sin(d), Math.cos(d)); this.face += d * (1 - Math.exp(-dt * 12)); }
+    this.speed = lerp(this.speed, Math.min(real, 7), 1 - Math.exp(-dt * 10));
+    // in welchem Haus, auf welcher Etage
+    this.house = null; this.level = 0;
+    // drinnen = auf einer überdachten Zelle (Terrasse zählt nicht)
+    for (const hs of W.houses) { if (!hs.contains(this.p.x, this.p.z, 0.5)) continue; const l = Math.max(0, Math.floor((this.p.y - hs.e.y + 0.5) / LH)); if (hs.coveredAt(this.p.x, this.p.z, l)) { this.house = hs; this.level = l; break; } }
+    this.sync(dt);
+  }
+  // Kreis gegen Wände (Strecken), Möbel (Kästen) und Baumstämme
+  collide(p) {
+    const W = this.world, r = RADIUS;
+    for (let it = 0; it < 3; it++) {
+      for (const hs of W.houses) {
+        if (!hs.contains(p.x, p.z, 1.5)) continue;
+        const q = hs.toLocal(p.x, p.z), py = p.y - hs.e.y; let moved = false;
+        for (const s of hs.b.segs) {
+          const l0 = s.l * LH; if (py + HEIGHT < l0 || py > s.y1 - 0.3) continue;   // s.y1 ist im Haus gemessen
+          if (s.door && s.door.open > 0.45) continue;
+          if (pushSeg(q, s.ax, s.az, s.bx, s.bz, r + (s.rail ? 0.04 : WT / 2))) moved = true;
+        }
+        for (const b of hs.b.boxes) { const l0 = b.l * LH; if (py + 0.3 < l0 || py > l0 + LH - 0.2) continue; if (pushBox(q, b, r)) moved = true; }
+        if (moved) { const w = hs.toWorld(q.x, q.z); p.x = w.x; p.z = w.z; }
+      }
+      W.veg.near(p.x, p.z, 3, (x, z, cr) => { const dx = p.x - x, dz = p.z - z, d = Math.hypot(dx, dz), R = cr + r; if (d < R && d > 1e-5) { p.x = x + dx / d * R; p.z = z + dz / d * R; } });
+    }
+  }
+  sync(dt) {
+    const m = this.m, k = clamp(this.speed / 3.6, 0, 1.6);
+    m.group.position.copy(this.p); m.group.rotation.y = this.face;
+    this.phase += dt * (2.2 + this.speed * 1.55);
+    const s = Math.sin(this.phase) * 0.62 * Math.min(1, k), air = this.onGround ? 0 : 1;
+    m.legL.rotation.x = air ? -0.5 : s; m.legR.rotation.x = air ? 0.3 : -s;
+    m.armL.rotation.x = air ? -0.9 : -s * 0.85; m.armR.rotation.x = air ? -0.9 : s * 0.85;
+    m.armL.rotation.z = -0.06; m.armR.rotation.z = 0.06;
+    m.body.position.y = this.onGround ? Math.abs(Math.cos(this.phase)) * 0.045 * Math.min(1, k) : 0;
+    m.body.rotation.x = Math.min(0.12, this.speed * 0.018);
+  }
+}
+function pushSeg(q, ax, az, bx, bz, R) {
+  const dx = bx - ax, dz = bz - az, L = dx * dx + dz * dz; let t = L > 0 ? ((q.x - ax) * dx + (q.z - az) * dz) / L : 0; t = clamp(t, 0, 1);
+  const cx = ax + dx * t, cz = az + dz * t; let ox = q.x - cx, oz = q.z - cz, d = Math.hypot(ox, oz);
+  if (d >= R) return false;
+  if (d < 1e-6) { ox = -dz; oz = dx; d = Math.hypot(ox, oz) || 1; }
+  q.x = cx + ox / d * R; q.z = cz + oz / d * R; return true;
+}
+function pushBox(q, b, r) {
+  const cx = clamp(q.x, b.cx - b.hw, b.cx + b.hw), cz = clamp(q.z, b.cz - b.hd, b.cz + b.hd); let ox = q.x - cx, oz = q.z - cz, d = Math.hypot(ox, oz);
+  if (d >= r) return false;
+  if (d < 1e-6) {   // Mitte im Kasten: zur nächsten Seite hinaus
+    const l = q.x - (b.cx - b.hw), rr = b.cx + b.hw - q.x, u = q.z - (b.cz - b.hd), dn = b.cz + b.hd - q.z, mn = Math.min(l, rr, u, dn);
+    if (mn === l) q.x = b.cx - b.hw - r; else if (mn === rr) q.x = b.cx + b.hw + r; else if (mn === u) q.z = b.cz - b.hd - r; else q.z = b.cz + b.hd + r; return true;
+  }
+  q.x = cx + ox / d * r; q.z = cz + oz / d * r; return true;
+}
+// Kamera-Strahl gegen Hauswände: Anteil t (0…1) bis zum ersten Treffer zwischen a und b (Welt), sonst 1
+export function camHit(world, a, b) {
+  let tb = 1;
+  for (const hs of world.houses) {
+    if (!hs.contains(a.x, a.z, 12) && !hs.contains(b.x, b.z, 2)) continue;
+    const qa = hs.toLocal(a.x, a.z), qb = hs.toLocal(b.x, b.z), ya = a.y - hs.e.y, yb = b.y - hs.e.y;
+    for (const s of hs.b.segs) {
+      if (s.door && s.door.open > 0.45) continue;
+      if (!hs.b.levels[s.l] || !hs.b.levels[s.l].visible) continue;
+      const t = segX(qa.x, qa.z, qb.x, qb.z, s.ax, s.az, s.bx, s.bz); if (t < 0 || t >= tb) continue;
+      const y = ya + (yb - ya) * t, top = s.y1 + 0.05, bot = s.l * LH - 0.1; if (y > top || y < bot) continue;
+      tb = t;
+    }
+  }
+  return tb;
+}
+function segX(ax, az, bx, bz, cx, cz, dx, dz) {
+  const rx = bx - ax, rz = bz - az, sx = dx - cx, sz = dz - cz, den = rx * sz - rz * sx; if (Math.abs(den) < 1e-9) return -1;
+  const t = ((cx - ax) * sz - (cz - az) * sx) / den, u = ((cx - ax) * rz - (cz - az) * rx) / den;
+  return t >= 0 && t <= 1 && u >= -0.08 && u <= 1.08 ? t : -1;
+}

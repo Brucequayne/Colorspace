@@ -1,0 +1,264 @@
+// ===== houseeditor.js · Haus-Editor: Häuser aus Bauteilen bauen (getrennt vom Map-Editor) =====
+// Raster 1 m, Etagen à 2,8 m. Böden, Dach und Möbel sitzen in Zellen, Wände/Fenster/Türen/Giebel auf Zellkanten
+// (die Kante unter der Maus wird automatisch gewählt). Häuser werden im Browser gespeichert (Liste) und als
+// "Leaarn_Haus_<Name>.txt" exportiert. Lokale Häuser kann der Map-Editor sofort platzieren.
+import * as THREE from "three";
+import { t, addTexts, L2, tl, clamp, lerp, el, esc, fmt, store, KEYS } from "le/core.js";
+import { PARTS, CATS, buildHouse, edgeKey, cellKey, LH, partName } from "le/houses.js";
+import { HOUSES } from "le/haeuser.js";
+
+addTexts({
+  hTitle: L2("Haus-Editor", "House editor"), hMenu: L2("Hauptmenü", "Main menu"), hMap: L2("Zum Map-Editor", "To map editor"),
+  hName: L2("Name des Hauses", "House name"), hLevel: L2("Etage", "Floor"), hStage: L2("Dachstufe (Höhe der Schräge/des Giebels)", "Roof step (height of slope/gable)"),
+  hAbove: L2("Etagen darüber zeigen", "Show floors above"), hList: L2("Meine Häuser (im Browser)", "My houses (in this browser)"),
+  hNew: L2("Neues Haus", "New house"), hCopy: L2("Kopie", "Copy"), hDel: L2("Löschen", "Delete"), hExport: L2("Exportieren (.txt)", "Export (.txt)"), hImport: L2("Importieren (.txt)", "Import (.txt)"),
+  hStarter: L2("Starterhaus als Vorlage", "Starter house as template"), hSure: L2("Dieses Haus löschen?", "Delete this house?"),
+  hInfo: L2("{n} Bauteile · Grundfläche {w} × {d} m · {l} Etage(n)", "{n} parts · footprint {w} × {d} m · {l} floor(s)"),
+  hHelp: L2("Linke Maus setzt (Ziehen malt), Rechtsklick oder Umschalt+Links entfernt. Wände: die Kante unter der Maus wird gewählt. R dreht (Giebel: spiegeln). Bild↑/↓ Etage, ,/. Dachstufe, 1–4 Kategorie, Strg+Z/Y.", "Left mouse places (drag paints), right click or Shift+left removes. Walls: the edge under the mouse is used. R rotates (gable: mirror). PgUp/PgDn floor, ,/. roof step, 1–4 category, Ctrl+Z/Y."),
+  hCam: L2("Kamera: rechte Maus ziehen drehen · mittlere Maus oder Umschalt+rechte verschieben · Rad zoomen · WASD bewegen", "Camera: right drag rotate · middle mouse or Shift+right pan · wheel zoom · WASD move"),
+  hNote: L2("Für das Spiel: exportieren und mir die .txt schicken – ich mache daraus ein fertiges Haus für den Map-Editor. Häuser aus dieser Liste kannst du im Map-Editor (Werkzeug Häuser) schon jetzt als „lokal“ platzieren und testen.", "For the game: export and send me the .txt – I turn it into a finished house for the map editor. Houses from this list can already be placed in the map editor (houses tool) as “local” for testing."),
+  hDone: L2("Exportiert: {f}", "Exported: {f}"), hBad: L2("Datei konnte nicht gelesen werden.", "The file could not be read."), hLoaded: L2("Geladen: {n}", "Loaded: {n}"),
+  hRot: L2("Drehung", "Rotation"), hMirror: L2("gespiegelt", "mirrored"), hPart: L2("Bauteil", "Part")
+});
+
+const DEF_HOUSE = () => ({ v: 1, name: "Neues Haus", parts: [] });
+// Platz eines Bauteils (ein Teil je Platz, Neues ersetzt Altes)
+function slot(p) {
+  const d = PARTS[p[0]]; if (!d) return "?";
+  if (d.kind === "wall") return "w" + edgeKey(p[1], p[2], p[3], p[4]);
+  if (d.kind === "gable") return "g" + edgeKey(p[1], p[2], p[3], p[4]) + "," + (p[5] | 0);
+  if (d.kind === "roof") return "r" + cellKey(p[1], p[2], p[4]) + "," + (d.flat ? "f" : p[5] | 0);
+  if (d.kind === "floor") return "f" + cellKey(p[1], p[2], p[4]);
+  return "o" + cellKey(p[1], p[2], p[4]);
+}
+
+export class HouseEditor {
+  constructor(app) {
+    this.app = app; this.eng = app.engine; this.world = app.world;
+    const u = store.get(KEYS.ui, {});
+    this.s = Object.assign({ cat: "wall", part: "wand-putz", lv: 0, st: 0, rot: 0, mir: 0, above: false, cur: 0 }, u.he || {});
+    this.cam = Object.assign({ x: 2, y: 0, z: 1.5, dist: 13, yaw: 0.7, pitch: 0.85 }, u.hcam || {});
+    this.list = store.get(KEYS.houses, []); if (!Array.isArray(this.list) || !this.list.length) this.list = [JSON.parse(JSON.stringify(HOUSES.starter.d))];
+    this.s.cur = clamp(this.s.cur, 0, this.list.length - 1);
+    this.undo = []; this.redo = []; this.btn = -1; this.ray = new THREE.Raycaster(); this.mouse = new THREE.Vector2(); this.hov = null;
+    // Welt ausblenden, eigene Bühne
+    this.hid = [this.world.terrain.group, this.world.roadGroup, this.world.veg.group, this.world.houseGroup].map((g) => [g, g.visible]); this.hid.forEach((h) => { h[0].visible = false; });
+    this.stage = new THREE.Group(); this.eng.scene.add(this.stage);
+    const gp = new THREE.Mesh(new THREE.PlaneGeometry(80, 80), new THREE.MeshLambertMaterial({ color: 0x6F7C5C })); gp.rotation.x = -Math.PI / 2; gp.position.y = -0.02; gp.receiveShadow = true; this.stage.add(gp);
+    this.grid = new THREE.GridHelper(40, 40, 0xC6C5B9, 0x8E9A7C); this.grid.material.transparent = true; this.grid.material.opacity = 0.55; this.stage.add(this.grid);
+    this.lvGrid = new THREE.GridHelper(40, 40, 0xED6A5E, 0x62929E); this.lvGrid.material.transparent = true; this.lvGrid.material.opacity = 0.45; this.stage.add(this.lvGrid);
+    this.houseG = new THREE.Group(); this.stage.add(this.houseG);
+    this.gmat = new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true, transparent: true, opacity: 0.55, depthWrite: false });
+    this.ghost = null; this.gkey = "";
+    const sq = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0), new THREE.Vector3(1, 0, 0), new THREE.Vector3(1, 0, 1), new THREE.Vector3(0, 0, 1), new THREE.Vector3(0, 0, 0)]);
+    this.cellM = new THREE.Line(sq, new THREE.LineBasicMaterial({ color: 0xFFE08A, depthTest: false })); this.cellM.renderOrder = 10; this.stage.add(this.cellM);
+    this.edgeM = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3(1, 0, 0)]), new THREE.LineBasicMaterial({ color: 0xED6A5E, depthTest: false })); this.edgeM.renderOrder = 11; this.stage.add(this.edgeM);
+    this.buildUI(); this.rebuild();
+    const c = this.eng.renderer.domElement;
+    this.onDown = (e) => this.down(e); this.onMove = (e) => this.move(e); this.onUp = (e) => this.up(e); this.onWheel = (e) => { e.preventDefault(); this.cam.dist = clamp(this.cam.dist * Math.exp(e.deltaY * 0.0012), 3, 80); }; this.onCtx = (e) => e.preventDefault();
+    c.addEventListener("pointerdown", this.onDown); window.addEventListener("pointermove", this.onMove); window.addEventListener("pointerup", this.onUp);
+    c.addEventListener("wheel", this.onWheel, { passive: false }); c.addEventListener("contextmenu", this.onCtx);
+  }
+  get def() { return this.list[this.s.cur]; }
+  dispose() {
+    const c = this.eng.renderer.domElement;
+    c.removeEventListener("pointerdown", this.onDown); window.removeEventListener("pointermove", this.onMove); window.removeEventListener("pointerup", this.onUp);
+    c.removeEventListener("wheel", this.onWheel); c.removeEventListener("contextmenu", this.onCtx);
+    this.stage.traverse((o) => { if (o.geometry) o.geometry.dispose(); }); this.eng.scene.remove(this.stage);
+    this.hid.forEach((h) => { h[0].visible = h[1]; }); this.root.remove(); this.saveUI(); this.save();
+  }
+  saveUI() { const u = store.get(KEYS.ui, {}); u.he = this.s; u.hcam = this.cam; store.set(KEYS.ui, u); }
+  save() { store.set(KEYS.houses, this.list); }
+  // ---------- Oberfläche ----------
+  buildUI() {
+    const r = this.root = el("div", "le-ed");
+    r.innerHTML = '<div class="le-top"><b>' + t("hTitle") + '</b><span class="le-name" id="le-hname"></span><span class="le-sp"></span>' +
+      '<button data-e="undo" title="Strg+Z">↶</button><button data-e="redo" title="Strg+Y">↷</button><button data-e="map">' + t("hMap") + '</button><button data-e="menu">' + t("hMenu") + "</button></div>" +
+      '<div class="le-hparts" id="le-hparts"></div><div class="le-panel" id="le-panel"></div>' +
+      '<div class="le-status"><span id="le-st"></span><span>' + t("hCam") + "</span></div>" +
+      '<input type="file" id="le-hfile" accept=".txt,.json,text/plain" hidden>';
+    this.app.ui.appendChild(r);
+    r.addEventListener("click", (e) => this.click(e)); r.addEventListener("input", (e) => this.input(e)); r.addEventListener("change", (e) => this.change(e));
+    this.panel();
+  }
+  panel() {
+    const s = this.s, d = this.def, P = this.root.querySelector("#le-panel"), L = this.root.querySelector("#le-hparts");
+    const seg = (k, opts, cur) => '<div class="le-seg">' + opts.map((o) => '<button data-seg="' + k + '" data-v="' + o[0] + '" aria-pressed="' + (String(cur) === String(o[0])) + '">' + o[1] + "</button>").join("") + "</div>";
+    L.innerHTML = '<div class="le-seg le-cats">' + CATS.map((c, i) => '<button data-cat="' + c[0] + '" aria-pressed="' + (s.cat === c[0]) + '"><i>' + (i + 1) + "</i>" + tl(c[1]) + "</button>").join("") + "</div>" +
+      '<div class="le-plist">' + Object.keys(PARTS).filter((k) => PARTS[k].cat === s.cat).map((k) => '<button data-part="' + k + '" aria-pressed="' + (s.part === k) + '"><i style="background:' + swatch(k) + '"></i>' + partName(k) + "</button>").join("") + "</div>";
+    const b = this.bounds(), lv = new Set(d.parts.map((p) => p[4] | 0));
+    let h = "<h3>" + t("hTitle") + '</h3><label class="le-row"><span>' + t("hName") + '</span><input type="text" data-k="name" value="' + esc(d.name || "") + '"></label>' +
+      '<div class="le-row"><span>' + t("hLevel") + "</span></div>" + seg("lv", [[0, "0"], [1, "1"], [2, "2"], [3, "3"]], s.lv) +
+      '<div class="le-row"><span>' + t("hStage") + "</span></div>" + seg("st", [[0, "0"], [1, "1"], [2, "2"], [3, "3"], [4, "4"]], s.st) +
+      '<label class="le-chk"><input type="checkbox" data-k="above"' + (s.above ? " checked" : "") + "> " + t("hAbove") + "</label>" +
+      '<p class="le-dim">' + fmt(t("hInfo"), { n: d.parts.length, w: b ? b.w : 0, d: b ? b.d : 0, l: lv.size || 0 }) + "</p>" +
+      "<h4>" + t("hList") + '</h4><div class="le-hl">' + this.list.map((x, i) => '<button data-house="' + i + '" aria-pressed="' + (i === s.cur) + '">' + esc(x.name || "?") + "</button>").join("") + "</div>" +
+      '<div class="le-btns"><button data-e="new">+ ' + t("hNew") + '</button><button data-e="copy">' + t("hCopy") + '</button><button data-e="del">' + t("hDel") + "</button></div>" +
+      '<div class="le-btns le-col"><button data-e="export" class="le-pri">' + t("hExport") + '</button><button data-e="import">' + t("hImport") + '</button><button data-e="starter">' + t("hStarter") + "</button></div>" +
+      "<p>" + t("hNote") + "</p><p>" + t("hHelp") + "</p>";
+    P.innerHTML = h;
+    this.root.querySelector("#le-hname").textContent = d.name || "";
+    this.lvGrid.position.y = s.lv * LH + 0.01; this.lvGrid.visible = s.lv > 0;
+  }
+  status(m) { const e = this.root.querySelector("#le-st"); if (e) e.textContent = m || ""; }
+  bounds() {
+    const c = this.def.parts.filter((p) => PARTS[p[0]] && PARTS[p[0]].kind === "floor"); if (!c.length) return null;
+    let x0 = 1e9, z0 = 1e9, x1 = -1e9, z1 = -1e9; c.forEach((p) => { x0 = Math.min(x0, p[1]); z0 = Math.min(z0, p[2]); x1 = Math.max(x1, p[1] + 1); z1 = Math.max(z1, p[2] + 1); });
+    return { w: x1 - x0, d: z1 - z0 };
+  }
+  click(e) {
+    const cb = e.target.closest("[data-cat]"); if (cb) { this.setCat(cb.getAttribute("data-cat")); return; }
+    const pb = e.target.closest("[data-part]"); if (pb) { this.s.part = pb.getAttribute("data-part"); this.panel(); this.saveUI(); return; }
+    const hb = e.target.closest("[data-house]"); if (hb) { this.s.cur = +hb.getAttribute("data-house"); this.undo = []; this.redo = []; this.rebuild(); this.panel(); this.saveUI(); return; }
+    const sg = e.target.closest("[data-seg]"); if (sg) { this.s[sg.getAttribute("data-seg")] = +sg.getAttribute("data-v"); this.rebuild(); this.panel(); this.saveUI(); return; }
+    const b = e.target.closest("[data-e]"); if (!b) return; const a = b.getAttribute("data-e");
+    if (a === "undo") this.doUndo(); else if (a === "redo") this.doRedo();
+    else if (a === "menu") this.app.go("menu");
+    else if (a === "map") this.app.go("editor");
+    else if (a === "new") { this.list.push(DEF_HOUSE()); this.s.cur = this.list.length - 1; this.after(); }
+    else if (a === "copy") { const c = JSON.parse(JSON.stringify(this.def)); c.name = (c.name || "Haus") + " 2"; this.list.push(c); this.s.cur = this.list.length - 1; this.after(); }
+    else if (a === "del") { if (!confirmLite(t("hSure"))) return; this.list.splice(this.s.cur, 1); if (!this.list.length) this.list.push(DEF_HOUSE()); this.s.cur = Math.min(this.s.cur, this.list.length - 1); this.after(); }
+    else if (a === "starter") { this.push(); this.def.parts = JSON.parse(JSON.stringify(HOUSES.starter.d.parts)); this.after(); }
+    else if (a === "export") { const f = exportHouse(this.def); this.app.toast(fmt(t("hDone"), { f: f })); }
+    else if (a === "import") this.root.querySelector("#le-hfile").click();
+  }
+  input(e) {
+    const k = e.target.getAttribute("data-k"); if (!k) return;
+    if (k === "name") { this.def.name = e.target.value; this.root.querySelector("#le-hname").textContent = e.target.value; const hb = this.root.querySelector('[data-house="' + this.s.cur + '"]'); if (hb) hb.textContent = e.target.value; this.save(); }
+  }
+  change(e) {
+    const k = e.target.getAttribute("data-k");
+    if (k === "above") { this.s.above = e.target.checked; this.rebuild(); this.saveUI(); return; }
+    if (e.target.id === "le-hfile" && e.target.files[0]) {
+      const f = e.target.files[0]; e.target.value = "";
+      f.text().then((txt) => { const d = parseHouse(txt); if (!d) { this.app.toast(t("hBad")); return; } this.list.push(d); this.s.cur = this.list.length - 1; this.after(); this.app.toast(fmt(t("hLoaded"), { n: d.name })); });
+    }
+  }
+  setCat(c) { this.s.cat = c; if (!PARTS[this.s.part] || PARTS[this.s.part].cat !== c) this.s.part = Object.keys(PARTS).find((k) => PARTS[k].cat === c); this.panel(); this.saveUI(); this.gkey = ""; }
+  after() { this.undo = []; this.redo = []; this.save(); this.rebuild(); this.panel(); this.saveUI(); }
+  // ---------- Rückgängig ----------
+  push() { this.undo.push(JSON.stringify(this.def.parts)); if (this.undo.length > 60) this.undo.shift(); this.redo = []; }
+  doUndo() { if (!this.undo.length) return; this.redo.push(JSON.stringify(this.def.parts)); this.def.parts = JSON.parse(this.undo.pop()); this.save(); this.rebuild(); this.panel(); }
+  doRedo() { if (!this.redo.length) return; this.undo.push(JSON.stringify(this.def.parts)); this.def.parts = JSON.parse(this.redo.pop()); this.save(); this.rebuild(); this.panel(); }
+  // ---------- Haus neu bauen ----------
+  rebuild() {
+    while (this.houseG.children.length) { const c = this.houseG.children.pop(); c.traverse((o) => { if (o.geometry) o.geometry.dispose(); }); }
+    const b = buildHouse(this.def); this.houseG.add(b.group);
+    Object.keys(b.levels).forEach((l) => { b.levels[l].visible = this.s.above || +l <= this.s.lv; });
+    b.doors.forEach((d) => { d.pivot.visible = this.s.above || d.l <= this.s.lv; });
+  }
+  // ---------- Maus ----------
+  hoverAt(cx, cy) {
+    const r = this.eng.renderer.domElement.getBoundingClientRect();
+    this.mouse.set((cx - r.left) / r.width * 2 - 1, -((cy - r.top) / r.height) * 2 + 1); this.ray.setFromCamera(this.mouse, this.eng.camera);
+    const y0 = this.s.lv * LH, o = this.ray.ray.origin, d = this.ray.ray.direction; if (Math.abs(d.y) < 1e-4) return null;
+    const k = (y0 - o.y) / d.y; if (k < 0) return null;
+    const px = o.x + d.x * k, pz = o.z + d.z * k; if (Math.abs(px) > 20 || Math.abs(pz) > 20) return null;
+    const x = Math.floor(px), z = Math.floor(pz), fx = px - x, fz = pz - z, dd = [fz, 1 - fx, 1 - fz, fx], m = Math.min(...dd);
+    return { x: x, z: z, px: px, pz: pz, edge: dd.indexOf(m) };
+  }
+  cand(h) {
+    const s = this.s, d = PARTS[s.part]; if (!h || !d) return null;
+    if (d.kind === "wall") return [s.part, h.x, h.z, h.edge, s.lv];
+    if (d.kind === "gable") return [s.part, h.x, h.z, h.edge, s.lv, s.st, s.mir];
+    if (d.kind === "roof") return d.flat ? [s.part, h.x, h.z, 0, s.lv] : [s.part, h.x, h.z, s.rot & 3, s.lv, s.st];
+    if (d.kind === "floor") return [s.part, h.x, h.z, 0, s.lv];
+    return [s.part, h.x, h.z, s.rot & 3, s.lv];
+  }
+  place(c) {
+    if (!c) return false; const k = slot(c), P = this.def.parts, i = P.findIndex((p) => slot(p) === k);
+    if (i >= 0 && JSON.stringify(P[i]) === JSON.stringify(c)) return false;
+    if (i >= 0) P.splice(i, 1); P.push(c); return true;
+  }
+  remove(h) {
+    if (!h) return false; const s = this.s, P = this.def.parts, cat = s.cat;
+    // in der gewählten Kategorie das Teil an dieser Stelle (Wände: Kante unter der Maus)
+    const ek = edgeKey(h.x, h.z, h.edge, s.lv), ck = cellKey(h.x, h.z, s.lv);
+    for (let i = P.length - 1; i >= 0; i--) {
+      const p = P[i], d = PARTS[p[0]]; if (!d || d.cat !== cat || (p[4] | 0) !== s.lv) continue;
+      const hit = d.kind === "wall" || d.kind === "gable" ? edgeKey(p[1], p[2], p[3], p[4]) === ek : cellKey(p[1], p[2], p[4]) === ck;
+      if (hit) { P.splice(i, 1); return true; }
+    }
+    return false;
+  }
+  down(e) {
+    this.btn = e.button; this.last = [e.clientX, e.clientY]; this.d0 = [e.clientX, e.clientY];
+    const ae = document.activeElement; if (ae && ae !== document.body && ae.blur) ae.blur();
+    if (e.button !== 0) return;
+    const h = this.hoverAt(e.clientX, e.clientY); this.push(); this.painted = false;
+    this.erase = e.shiftKey;
+    if (this.apply(h)) this.painted = true;
+  }
+  apply(h) {
+    const ok = this.erase ? this.remove(h) : this.place(this.cand(h));
+    if (ok) { this.rebuild(); this.dirty = true; }
+    return ok;
+  }
+  move(e) {
+    this.cx = e.clientX; this.cy = e.clientY;
+    if (this.btn === 2 || this.btn === 1) {
+      const dx = e.clientX - this.last[0], dy = e.clientY - this.last[1]; this.last = [e.clientX, e.clientY]; const c = this.cam;
+      if (this.btn === 1 || e.shiftKey) { const k = c.dist * 0.0016, co = Math.cos(c.yaw), si = Math.sin(c.yaw); c.x += (-co * dx - si * dy) * k; c.z += (si * dx - co * dy) * k; }
+      else { c.yaw -= dx * 0.005; c.pitch = clamp(c.pitch + dy * 0.004, 0.08, 1.5); }
+      return;
+    }
+    if (this.btn === 0) { const h = this.hoverAt(e.clientX, e.clientY); if (this.apply(h)) this.painted = true; }
+  }
+  up(e) {
+    if (this.btn === 0) { if (!this.painted) this.undo.pop(); else { this.save(); this.panel(); } }
+    if (this.btn === 2 && this.d0 && Math.hypot(e.clientX - this.d0[0], e.clientY - this.d0[1]) < 5) {   // Rechtsklick ohne Ziehen: entfernen
+      const h = this.hoverAt(e.clientX, e.clientY); this.push(); if (this.remove(h)) { this.rebuild(); this.save(); this.panel(); } else this.undo.pop();
+    }
+    this.btn = -1; this.saveUI();
+  }
+  key(e) {
+    if (/INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) return false;
+    if ((e.ctrlKey || e.metaKey) && e.code === "KeyZ") { e.shiftKey ? this.doRedo() : this.doUndo(); return true; }
+    if ((e.ctrlKey || e.metaKey) && e.code === "KeyY") { this.doRedo(); return true; }
+    const n = parseInt(e.key, 10); if (n >= 1 && n <= CATS.length && !e.ctrlKey) { this.setCat(CATS[n - 1][0]); return true; }
+    if (e.code === "KeyR") { const d = PARTS[this.s.part]; if (d && d.kind === "gable") this.s.mir = this.s.mir ? 0 : 1; else this.s.rot = (this.s.rot + (e.shiftKey ? 3 : 1)) & 3; this.gkey = ""; this.saveUI(); return true; }
+    if (e.code === "PageUp" || e.code === "PageDown") { this.s.lv = clamp(this.s.lv + (e.code === "PageUp" ? 1 : -1), 0, 3); this.rebuild(); this.panel(); this.saveUI(); return true; }
+    if (e.code === "Comma" || e.code === "Period") { this.s.st = clamp(this.s.st + (e.code === "Period" ? 1 : -1), 0, 4); this.panel(); this.gkey = ""; this.saveUI(); return true; }
+    if (e.code === "Escape") { this.app.go("menu"); return true; }
+    return false;
+  }
+  update(dt) {
+    const c = this.cam, inp = this.app.input, sp = (inp.k("ShiftLeft", "ShiftRight") ? 3 : 1) * c.dist * 0.9 * dt, ae = document.activeElement;
+    if (!ae || !/INPUT|TEXTAREA|SELECT/.test(ae.tagName) || ae.type === "range" || ae.type === "checkbox") {
+      const f = (inp.k("KeyW") ? 1 : 0) - (inp.k("KeyS") ? 1 : 0), s = (inp.k("KeyD") ? 1 : 0) - (inp.k("KeyA") ? 1 : 0);
+      if (f || s) { const sx = Math.sin(c.yaw), sz = Math.cos(c.yaw); c.x += (-sx * f + sz * s) * sp; c.z += (-sz * f - sx * s) * sp; }
+    }
+    c.x = clamp(c.x, -20, 20); c.z = clamp(c.z, -20, 20); c.y = lerp(c.y, this.s.lv * LH, 1 - Math.exp(-dt * 6));
+    const cam = this.eng.camera, cp = Math.cos(c.pitch);
+    cam.position.set(c.x + Math.sin(c.yaw) * cp * c.dist, c.y + Math.sin(c.pitch) * c.dist, c.z + Math.cos(c.yaw) * cp * c.dist);
+    if (cam.position.y < 0.3) cam.position.y = 0.3;
+    cam.lookAt(c.x, c.y, c.z); if (cam.fov !== 50) { cam.fov = 50; cam.updateProjectionMatrix(); }
+    this.eng.focus(new THREE.Vector3(c.x, 0, c.z));
+    // Vorschau des Bauteils unter der Maus
+    const h = this.btn < 0 || this.btn === 0 ? this.hoverAt(this.cx || -9999, this.cy || -9999) : null, cd = this.cand(h), y0 = this.s.lv * LH;
+    this.cellM.visible = this.edgeM.visible = !!h;
+    if (h) {
+      this.cellM.position.set(h.x, y0 + 0.02, h.z);
+      const E = [[0, 0, 1, 0], [1, 0, 1, 1], [0, 1, 1, 1], [0, 0, 0, 1]][h.edge], d = PARTS[this.s.part], isE = d && (d.kind === "wall" || d.kind === "gable");
+      this.edgeM.visible = isE; if (isE) { const a = this.edgeM.geometry.attributes.position; a.setXYZ(0, h.x + E[0], y0 + 0.04, h.z + E[1]); a.setXYZ(1, h.x + E[2], y0 + 0.04, h.z + E[3]); a.needsUpdate = true; this.edgeM.geometry.computeBoundingSphere(); }
+    }
+    const key = cd && !this.erase ? JSON.stringify(cd) : "";
+    if (key !== this.gkey) {
+      this.gkey = key; if (this.ghost) { this.ghost.traverse((o) => { if (o.geometry) o.geometry.dispose(); }); this.stage.remove(this.ghost); this.ghost = null; }
+      if (cd) { const b = buildHouse({ parts: [cd] }, { mat: this.gmat }); this.ghost = b.group; this.ghost.traverse((o) => { if (o.isMesh) { o.material = this.gmat; o.castShadow = false; } }); this.stage.add(this.ghost); }
+      if (cd) { const d = PARTS[cd[0]]; this.status(t("hPart") + ": " + partName(cd[0]) + " · " + t("hLevel") + " " + this.s.lv + (d.kind === "roof" && !d.flat || d.kind === "gable" ? " · " + t("hStage").split(" (")[0] + " " + this.s.st : "") + (d.kind === "obj" || (d.kind === "roof" && !d.flat) ? " · " + t("hRot") + " " + (this.s.rot & 3) * 90 + "°" : "") + (d.kind === "gable" && this.s.mir ? " · " + t("hMirror") : "")); }
+    }
+  }
+}
+// Farbmuster für die Bauteil-Liste
+function swatch(k) { const d = PARTS[k]; return d.c || ({ schreibtisch: "#8A6142", stuhl: "#62929E", bett: "#F2F0EA", regal: "#5E4330", schrank: "#8A6142", sofa: "#62929E", tisch: "#8A6142", kuehlschrank: "#F2F0EA", lampe: "#F3E3B4", pflanze: "#5D8A4E", teppich: "#ED6A5E" })[k] || "#888"; }
+export function exportHouse(d) {
+  const fn = (d.name || "Haus").replace(/[^\wäöüÄÖÜß\- ]+/g, "").replace(/\s+/g, "_");
+  const blob = new Blob([JSON.stringify({ v: 1, name: d.name, parts: d.parts })], { type: "text/plain" }), url = URL.createObjectURL(blob), a = document.createElement("a");
+  a.href = url; a.download = "Leaarn_Haus_" + fn + ".txt"; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 15000);
+  return a.download;
+}
+export function parseHouse(txt) {
+  try { const o = JSON.parse(txt); if (!o || !Array.isArray(o.parts)) return null; return { v: 1, name: String(o.name || "Haus"), parts: o.parts.filter((p) => Array.isArray(p) && PARTS[p[0]]) }; } catch (e) { return null; }
+}
+function confirmLite(msg) { try { return window.confirm(msg); } catch (e) { return true; } }

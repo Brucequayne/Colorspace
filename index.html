@@ -325,25 +325,26 @@ body.home .foot{background:transparent;box-shadow:none}
   <footer class="foot"><a id="plink" href="#datenschutz">Datenschutz</a></footer>
 </div>
 
-<script src="patchnotes.js?v=20261124-0025"></script>
-<script src="flughafen.js?v=20261124-0025"></script>
-<script src="gigachess.js?v=20261124-0025"></script>
-<script src="colorspin.js?v=20261124-0025"></script>
-<script src="pixellab.js?v=20261124-0025"></script>
-<script src="ezcrop.js?v=20261124-0025"></script>
-<script src="framepaint.js?v=20261124-0025"></script>
-<script src="drawspace.js?v=20261124-0025"></script>
-<script src="citygen.js?v=20261124-0025"></script>
-<script src="spacerogue.js?v=20261124-0025"></script>
-<script src="channels.js?v=20261124-0025"></script>
-<script src="noaim.js?v=20261124-0025"></script>
-<script src="weltmacht.js?v=20261124-0025"></script>
-<script src="shizuku.js?v=20261124-0025"></script>
-<script src="rapstreets.js?v=20261124-0025"></script>
-<script src="skapeform.js?v=20261124-0025"></script>
-<script src="anarchyfrankfurt.js?v=20261124-0025"></script>
-<script src="polyracer.js?v=20261124-0025"></script>
-<script src="monstersarc.js?v=20261124-0025"></script>
+<script src="patchnotes.js?v=20261124-2210"></script>
+<script src="flughafen.js?v=20261124-2210"></script>
+<script src="gigachess.js?v=20261124-2210"></script>
+<script src="colorspin.js?v=20261124-2210"></script>
+<script src="pixellab.js?v=20261124-2210"></script>
+<script src="ezcrop.js?v=20261124-2210"></script>
+<script src="framepaint.js?v=20261124-2210"></script>
+<script src="drawspace.js?v=20261124-2210"></script>
+<script src="citygen.js?v=20261124-2210"></script>
+<script src="spacerogue.js?v=20261124-2210"></script>
+<script src="channels.js?v=20261124-2210"></script>
+<script src="noaim.js?v=20261124-2210"></script>
+<script src="weltmacht.js?v=20261124-2210"></script>
+<script src="shizuku.js?v=20261124-2210"></script>
+<script src="rapstreets.js?v=20261124-2210"></script>
+<script src="skapeform.js?v=20261124-2210"></script>
+<script src="anarchyfrankfurt.js?v=20261124-2210"></script>
+<script src="polyracer.js?v=20261124-2210"></script>
+<script src="leaarn.js?v=20261124-2210"></script>
+<script src="monstersarc.js?v=20261124-2210"></script>
 <script>
 (function () {
   var T = {
@@ -373,9 +374,11 @@ body.home .foot{background:transparent;box-shadow:none}
     ezcrop: { de: "EZ Crop", en: "EZ Crop" },
     skapeform: { de: "SkapeForm", en: "SkapeForm" },
     framepaint: { de: "Frame Painter", en: "Frame Painter" },
-    drawspace: { de: "Draw Space", en: "Draw Space" }, citygen: { de: "CityGenerator", en: "CityGenerator" }, spacerogue: { de: "Space Rogue", en: "Space Rogue" }, shizuku: { de: "Shizuku", en: "Shizuku" }, rapstreets: { de: "Rap Streets", en: "Rap Streets" }, polyracer: { de: "Poly Racer", en: "Poly Racer" }, monstersarc: { de: "Monsters Arc", en: "Monsters Arc" }, anarchyfrankfurt: { de: "Anarchy Frankfurt", en: "Anarchy Frankfurt" }
+    drawspace: { de: "Draw Space", en: "Draw Space" }, citygen: { de: "CityGenerator", en: "CityGenerator" }, spacerogue: { de: "Space Rogue", en: "Space Rogue" }, shizuku: { de: "Shizuku", en: "Shizuku" }, rapstreets: { de: "Rap Streets", en: "Rap Streets" }, polyracer: { de: "Poly Racer", en: "Poly Racer" }, leaarn: { de: "Leaarn", en: "Leaarn" }, monstersarc: { de: "Monsters Arc", en: "Monsters Arc" }, anarchyfrankfurt: { de: "Anarchy Frankfurt", en: "Anarchy Frankfurt" }
   };
   var APPS = [
+    { id: "leaarn", tone: "#ED6A5E", ver: "v0.1", art: "ICO_leaarn",
+      d: { de: "Lernspiel in Low-Poly-3D: Lauf durch dein Zuhause, lös am Schreibtisch Lernaufgaben und verdien Geld für Neues. Im Bau: Hub, Map- und Haus-Editor, erster Test mit dem kleinen 1×1.", en: "Learning game in low-poly 3D: walk through your home, solve learning tasks at your desk and earn money for new things. Under construction: hub, map and house editor, a first test with times tables." } },
     { id: "monstersarc", tone: "#ED6A5E", ver: "v0.25", art: "ICO_monstersarc",
       d: { de: "Monster-Abenteuer mit offener Welt und linearer Story, im Pixel-Look von Shizuku. Im Bau: das Dev-Kit mit dem Map-Editor.", en: "Monster adventure with an open world and a linear story, in Shizuku's pixel look. Under construction: the dev kit with the map editor." } },
     { id: "polyracer", tone: "#ED6A5E", ver: "v0.15", art: "ICO_polyracer",
@@ -443,7 +446,7 @@ body.home .foot{background:transparent;box-shadow:none}
   function U(k) { return T[k][S.lang]; }
 
   // Kategorien: Spiele und Werkzeuge
-  var GAMES = ["monstersarc", "polyracer", "anarchyfrankfurt", "rapstreets", "shizuku", "spacerogue", "weltmacht", "gigachess", "flughafen", "noaim", "citygen"];
+  var GAMES = ["leaarn", "monstersarc", "polyracer", "anarchyfrankfurt", "rapstreets", "shizuku", "spacerogue", "weltmacht", "gigachess", "flughafen", "noaim", "citygen"];
   function catOf(a) { return GAMES.indexOf(a.id) >= 0 ? "games" : "tools"; }
   var ICON = {
     games: '<svg viewBox="0 0 48 48" aria-hidden="true"><rect x="3" y="13" width="42" height="24" fill="none" stroke="currentColor" stroke-width="3.5"/><path d="M14 19v12M8 25h12" stroke="currentColor" stroke-width="3.5"/><rect x="29" y="18" width="5" height="5" fill="currentColor"/><rect x="36" y="25" width="5" height="5" fill="currentColor"/></svg>',
@@ -460,11 +463,14 @@ body.home .foot{background:transparent;box-shadow:none}
   var ICO = {};
   (function () {
     var F = 'class="fg"', A = 'class="ac"', S = 'class="st"';
-    var SH = { monstersarc: "#DF6256", polyracer: "#E26458", anarchyfrankfurt: "#D95E53", rapstreets: "#ED6A5E", shizuku: "#E8665A", spacerogue: "#DF6256", flughafen: "#F07367", gigachess: "#E5675B", weltmacht: "#D95E53", noaim: "#F07367", citygen: "#E26458",
+    var SH = { leaarn: "#E8665A", monstersarc: "#DF6256", polyracer: "#E26458", anarchyfrankfurt: "#D95E53", rapstreets: "#ED6A5E", shizuku: "#E8665A", spacerogue: "#DF6256", flughafen: "#F07367", gigachess: "#E5675B", weltmacht: "#D95E53", noaim: "#F07367", citygen: "#E26458",
       pixellab: "#4A6D7C", colorspin: "#62929E", ezcrop: "#55808C", skapeform: "#4A6D7C", drawspace: "#62929E", framepaint: "#55808C", channels: "#5B8A96" };
     function wrap(cat, body, id) { return '<svg class="ico ico-' + cat + '" style="--ib:' + SH[id] + '" viewBox="0 0 320 200" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><rect class="bg" width="320" height="200"/><g class="grid">' + grid() + '</g>' + body + '</svg>'; }
     function grid() { var o = ""; for (var x = 20; x < 320; x += 40) for (var y = 20; y < 200; y += 40) o += '<rect x="' + (x - 1.5) + '" y="' + (y - 1.5) + '" width="3" height="3"/>'; return o; }
     var I = {
+      leaarn: ['g', '<path ' + S + ' d="M76 168V100l84-58 84 58v68"/><path class="bgs" d="M60 168h200" stroke-width="6"/>' +
+        '<g class="a-bob" style="transform-origin:160px 150px"><path ' + F + ' d="M122 152v-40h76v40z"/><path ' + S + ' d="M108 160h104"/><path class="bgs" d="M136 126l12 12 24-24" stroke-width="7" fill="none"/></g>' +
+        '<circle ' + A + ' cx="218" cy="84" r="13"/>'],
       monstersarc: ['g', '<path ' + S + ' d="M64 168a96 96 0 0 1 192 0"/>' +
         '<g class="a-bob" style="transform-origin:160px 168px"><path ' + F + ' d="M126 168v-34a34 34 0 0 1 68 0v34l-11-9-12 9-11-9-12 9-11-9z"/>' +
         '<circle ' + A + ' cx="148" cy="136" r="6"/><circle ' + A + ' cx="172" cy="136" r="6"/></g>'],
@@ -511,7 +517,7 @@ body.home .foot{background:transparent;box-shadow:none}
   })();
   // Startseite: Spiele und Tools als animierte Icon-Kacheln (nur Icon + Name). Klick klappt darunter ein Feld über die ganze Zeile auf
   // (Beschreibung, Version, Patchnotes, Spielen). Unfertige Spiele stehen unauffällig unten in der Pre-Alpha-Liste.
-  var PRE = ["monstersarc", "polyracer", "anarchyfrankfurt", "rapstreets", "gigachess", "weltmacht", "citygen", "noaim"];
+  var PRE = ["leaarn", "monstersarc", "polyracer", "anarchyfrankfurt", "rapstreets", "gigachess", "weltmacht", "citygen", "noaim"];
   var OPEN = null;
   function appOf(id) { return APPS.filter(function (x) { return x.id === id; })[0]; }
   function artOf(a) { return ICO[a.art] || ART[a.art] || ""; }
@@ -699,7 +705,7 @@ body.home .foot{background:transparent;box-shadow:none}
 
   // ---------- Bewertung (1 bis 5 Sterne) und Aufrufzähler über den Zähldienst Abacus ----------
   // Pro Anwendung: <id>-views und <id>-r1 … <id>-r5. Ein Aufruf zählt einmal pro Seitenbesuch und Anwendung.
-  var RATE_API = "https://abacus.jasoncameron.dev", RATE_NS = "colorspace-brucequayne", FULL = ["monstersarc", "polyracer", "anarchyfrankfurt", "flughafen", "noaim", "weltmacht", "drawspace", "citygen", "spacerogue", "shizuku", "rapstreets", "skapeform"];
+  var RATE_API = "https://abacus.jasoncameron.dev", RATE_NS = "colorspace-brucequayne", FULL = ["leaarn", "monstersarc", "polyracer", "anarchyfrankfurt", "flughafen", "noaim", "weltmacht", "drawspace", "citygen", "spacerogue", "shizuku", "rapstreets", "skapeform"];
   var viewed = {}, rateTok = 0;
   var STAR = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5l2.9 6.2 6.8.8-5 4.7 1.3 6.7L12 17.6l-6 3.3 1.3-6.7-5-4.7 6.8-.8z" fill="currentColor"/></svg>';
   var EYE = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12z" fill="none" stroke="currentColor" stroke-width="2"/><rect x="9.5" y="9.5" width="5" height="5" fill="currentColor"/></svg>';
@@ -768,13 +774,14 @@ body.home .foot{background:transparent;box-shadow:none}
     if (window.SkapeForm) window.SkapeForm.unmount();
     if (window.AnarchyFrankfurt) window.AnarchyFrankfurt.unmount();
     if (window.PolyRacer) window.PolyRacer.unmount();
+    if (window.Leaarn) window.Leaarn.unmount();
     var v = S.view;
     document.body.classList.toggle("home", v === "home" || v === "privacy");
-    if (v === "flughafen" || v === "gigachess" || v === "colorspin" || v === "pixellab" || v === "ezcrop" || v === "framepaint" || v === "drawspace" || v === "citygen" || v === "spacerogue" || v === "channels" || v === "noaim" || v === "weltmacht" || v === "shizuku" || v === "rapstreets" || v === "skapeform" || v === "anarchyfrankfurt" || v === "polyracer" || v === "monstersarc") {
+    if (v === "flughafen" || v === "gigachess" || v === "colorspin" || v === "pixellab" || v === "ezcrop" || v === "framepaint" || v === "drawspace" || v === "citygen" || v === "spacerogue" || v === "channels" || v === "noaim" || v === "weltmacht" || v === "shizuku" || v === "rapstreets" || v === "skapeform" || v === "anarchyfrankfurt" || v === "polyracer" || v === "monstersarc" || v === "leaarn") {
       var full = FULL.indexOf(v) >= 0;
       app.innerHTML = '<div class="appbar"><a class="back" href="#">' + U("back") + '</a>' + (full ? "" : '<div class="abr">' + pnButton(v) + '<div class="rate" id="rate" hidden></div></div>') + '</div><div id="approot"></div>';
       if (full) { var d = document.createElement("div"); d.className = "fbar"; d.innerHTML = pnButton(v) + '<div class="rate" id="rate" hidden></div>'; document.body.appendChild(d); }
-      var mod = { flughafen: window.Flughafen, gigachess: window.Gigachess, colorspin: window.Colorspin, pixellab: window.Pixellab, ezcrop: window.EzCrop, framepaint: window.FramePainter, drawspace: window.DrawSpace, citygen: window.CityGen, spacerogue: window.SpaceRogue, channels: window.Channels, noaim: window.NoAim, weltmacht: window.Weltmacht, shizuku: window.Shizuku, rapstreets: window.RapStreets, skapeform: window.SkapeForm, anarchyfrankfurt: window.AnarchyFrankfurt, polyracer: window.PolyRacer, monstersarc: window.MonstersArc }[v];
+      var mod = { flughafen: window.Flughafen, gigachess: window.Gigachess, colorspin: window.Colorspin, pixellab: window.Pixellab, ezcrop: window.EzCrop, framepaint: window.FramePainter, drawspace: window.DrawSpace, citygen: window.CityGen, spacerogue: window.SpaceRogue, channels: window.Channels, noaim: window.NoAim, weltmacht: window.Weltmacht, shizuku: window.Shizuku, rapstreets: window.RapStreets, skapeform: window.SkapeForm, anarchyfrankfurt: window.AnarchyFrankfurt, polyracer: window.PolyRacer, monstersarc: window.MonstersArc, leaarn: window.Leaarn }[v];
       if (mod) mod.mount(document.getElementById("approot"), S.lang);
       loadRating(v);
     } else if (v === "privacy") app.innerHTML = privacyHTML();
@@ -796,7 +803,7 @@ body.home .foot{background:transparent;box-shadow:none}
   function setView() {
     var id = location.hash.replace("#", "");
     if (id === "fotoprojekt") { id = "channels"; history.replaceState(null, "", "#channels"); }
-    S.view = id === "datenschutz" ? "privacy" : ["flughafen", "gigachess", "pixellab", "colorspin", "ezcrop", "framepaint", "drawspace", "citygen", "spacerogue", "channels", "noaim", "weltmacht", "shizuku", "rapstreets", "skapeform", "anarchyfrankfurt", "polyracer", "monstersarc"].indexOf(id) >= 0 ? id : "home";
+    S.view = id === "datenschutz" ? "privacy" : ["flughafen", "gigachess", "pixellab", "colorspin", "ezcrop", "framepaint", "drawspace", "citygen", "spacerogue", "channels", "noaim", "weltmacht", "shizuku", "rapstreets", "skapeform", "anarchyfrankfurt", "polyracer", "monstersarc", "leaarn"].indexOf(id) >= 0 ? id : "home";
   }
   function route() { setView(); render(); window.scrollTo(0, 0); }
 

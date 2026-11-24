@@ -23,14 +23,18 @@
   ];
   var stamp = "";
   try { var m = /[?&]v=([^&]+)/.exec(document.currentScript.src); if (m) stamp = m[1]; } catch (e) {}
-  var q = stamp ? "?v=" + stamp : "", mapped = false, host = null, mod = null, token = 0;
-  function importMap() {
-    if (mapped) return; mapped = true;
+  var q = stamp ? "?v=" + stamp : "", host = null, mod = null, token = 0;
+  // Gemeinsame Import-Map für alle Three.js-Spiele (Poly Racer, Leaarn): ein Browser erlaubt meist nur eine.
+  // Jeder Lader meldet seine Einträge beim Laden der Seite an, die Map entsteht beim ersten Öffnen eines der Spiele.
+  var CS = window.CSImport || (window.CSImport = { map: {}, done: false,
+    add: function (o) { for (var k in o) if (!(k in this.map)) this.map[k] = o[k]; },
+    ensure: function () { if (this.done) return; this.done = true; var s = document.createElement("script"); s.type = "importmap"; s.textContent = JSON.stringify({ imports: this.map }); document.head.appendChild(s); } });
+  (function () {
     var imp = { "three": "./polyracer/lib/three.module.min.js" + q, "three/addons/": "./polyracer/lib/addons/" };
     MODULES.forEach(function (f) { imp["pr/" + f] = "./polyracer/src/" + f + q; });
-    var s = document.createElement("script"); s.type = "importmap"; s.textContent = JSON.stringify({ imports: imp });
-    document.head.appendChild(s);
-  }
+    CS.add(imp);
+  })();
+  function importMap() { CS.ensure(); }
   function fail(el, e) {
     el.innerHTML = '<div style="position:fixed;inset:0;z-index:30;background:#111214;color:#bbb;display:flex;align-items:center;justify-content:center;font:600 15px system-ui;padding:24px;text-align:center">' +
       "Poly Racer konnte nicht geladen werden. / Poly Racer could not be loaded.<br>" + String((e && e.message) || e) + "</div>";
