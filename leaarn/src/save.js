@@ -18,5 +18,10 @@ export function addRunde(fach, thema, richtig, gesamt, lohn) {
   const s = save(), k = fach + "/" + thema, o = s.lern[k] || (s.lern[k] = { n: 0, best: 0, ok: 0, all: 0, geld: 0 });
   o.n++; o.best = Math.max(o.best, richtig); o.ok += richtig; o.all += gesamt; o.geld += lohn; s.runden++; persist(); return o;
 }
+// Charakter (seit v0.13): { name, alter, top, pants, shoes, hair } – fehlt er, startet der Charakter-Editor
+export function charakter() { return save().char || null; }
+export function setCharakter(c) { save().char = c; persist(); }
+// Ganzen Spielstand löschen (Geld, Zwischenkonto, Lernstatistik, Charakter). Maps und Häuser aus den Editoren bleiben.
+export function reset() { try { localStorage.removeItem(KEYS.save); } catch (e) {} S = null; }
 export function stat(fach, thema) { return save().lern[fach + "/" + thema] || null; }
 export const euro = (n) => Math.round(n).toLocaleString("de-DE") + " €";

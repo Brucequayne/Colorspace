@@ -3,6 +3,19 @@
    Die Versionsnummer auf den Kacheln kommt aus dem obersten Eintrag. */
 window.PATCHNOTES = {
   leaarn: [
+    { v: "0.13", t: "2026-11-25T01:30:00+01:00",
+      de: ["Charakter-Editor: Beim ersten Spielstart wählst du Name, Alter und die Farben von Oberteil, Hose, Schuhen und Haaren (Vorschläge oder eigene Farbe). Später erreichbar über „Charakter“ im Hauptmenü. Dein Name steht über dem Kontostand.",
+        "Haus-Editor: Bulldozer (Knopf oder Taste B) – das Teil unter der Maus wird rot markiert und per Klick abgerissen, Ziehen reißt mehrere ab.",
+        "Haus-Editor: Kamera mit gedrückt gehaltenem Q und E drehen.",
+        "Fenster lassen jetzt Sonnenlicht ins Haus: Das Glas ist durchsichtig und wirft keinen Schatten mehr.",
+        "Die Lücke zwischen Hals und Kopf der Spielfigur ist geschlossen.",
+        "Hauptmenü oben rechts: „Spielstand zurücksetzen“ mit Sicherheitsabfrage. Gelöscht werden Geld, Lernstatistik und Charakter, Maps und Häuser aus den Editoren bleiben."],
+      en: ["Character editor: on first start you choose name, age and the colours of top, trousers, shoes and hair (presets or a custom colour). Later available via “Character” in the main menu. Your name is shown above your balance.",
+        "House editor: bulldozer (button or key B) – the part under the mouse is highlighted red and demolished with a click, drag to demolish several.",
+        "House editor: hold Q and E to turn the camera.",
+        "Windows now let sunlight into the house: the glass is transparent and no longer casts a shadow.",
+        "The gap between the character's neck and head is closed.",
+        "Main menu top right: “Reset progress” with a confirmation. Money, learning stats and character are deleted, maps and houses from the editors are kept."] },
     { v: "0.12", t: "2026-11-25T00:45:00+01:00",
       de: ["Zwischenkonto im Laptop: Belohnungen aus den Lernspielen sammeln sich jetzt im Laptop. Du kannst mehrere Runden hintereinander spielen und siehst oben in der Leiste, wie das Zwischenkonto wächst.",
         "Mit „Belohnungen einsammeln“ (oder beim Aufstehen vom Laptop) kommt das Geld auf dein Konto in der Welt – mit Kassen-Klingel, fliegenden Geldscheinen und einem Kontostand, der mitzählt.",

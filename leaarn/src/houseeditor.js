@@ -4,7 +4,7 @@
 // "Leaarn_Haus_<Name>.txt" exportiert. Lokale Häuser kann der Map-Editor sofort platzieren.
 import * as THREE from "three";
 import { t, addTexts, L2, tl, clamp, lerp, el, esc, fmt, store, KEYS } from "le/core.js";
-import { PARTS, CATS, buildHouse, edgeKey, cellKey, LH, partName } from "le/houses.js";
+import { PARTS, CATS, buildHouse, edgeKey, cellKey, LH, partName, partAt } from "le/houses.js";
 import { HOUSES } from "le/haeuser.js";
 
 addTexts({
@@ -15,7 +15,8 @@ addTexts({
   hStarter: L2("Starterhaus als Vorlage", "Starter house as template"), hSure: L2("Dieses Haus löschen?", "Delete this house?"),
   hInfo: L2("{n} Bauteile · Grundfläche {w} × {d} m · {l} Etage(n)", "{n} parts · footprint {w} × {d} m · {l} floor(s)"),
   hHelp: L2("Linke Maus setzt (Ziehen malt), Rechtsklick oder Umschalt+Links entfernt. Wände: die Kante unter der Maus wird gewählt. R dreht (Giebel: spiegeln). Bild↑/↓ Etage, ,/. Dachstufe, 1–4 Kategorie, Strg+Z/Y.", "Left mouse places (drag paints), right click or Shift+left removes. Walls: the edge under the mouse is used. R rotates (gable: mirror). PgUp/PgDn floor, ,/. roof step, 1–4 category, Ctrl+Z/Y."),
-  hCam: L2("Kamera: rechte Maus ziehen drehen · mittlere Maus oder Umschalt+rechte verschieben · Rad zoomen · WASD bewegen", "Camera: right drag rotate · middle mouse or Shift+right pan · wheel zoom · WASD move"),
+  hCam: L2("Kamera: Q/E halten oder rechte Maus ziehen drehen · mittlere Maus oder Umschalt+rechte verschieben · Rad zoomen · WASD bewegen", "Camera: hold Q/E or right drag rotate · middle mouse or Shift+right pan · wheel zoom · WASD move"),
+  hBull: L2("Bulldozer", "Bulldozer"), hBullOn: L2("Bulldozer: angeklicktes Teil wird abgerissen (Ziehen reißt mehrere ab) · B oder Esc zum Bauen", "Bulldozer: the clicked part is demolished (drag to demolish several) · B or Esc to build"),
   hNote: L2("Für das Spiel: exportieren und mir die .txt schicken – ich mache daraus ein fertiges Haus für den Map-Editor. Häuser aus dieser Liste kannst du im Map-Editor (Werkzeug Häuser) schon jetzt als „lokal“ platzieren und testen.", "For the game: export and send me the .txt – I turn it into a finished house for the map editor. Houses from this list can already be placed in the map editor (houses tool) as “local” for testing."),
   hDone: L2("Exportiert: {f}", "Exported: {f}"), hBad: L2("Datei konnte nicht gelesen werden.", "The file could not be read."), hLoaded: L2("Geladen: {n}", "Loaded: {n}"),
   hRot: L2("Drehung", "Rotation"), hMirror: L2("gespiegelt", "mirrored"), hPart: L2("Bauteil", "Part")
@@ -36,7 +37,7 @@ export class HouseEditor {
   constructor(app) {
     this.app = app; this.eng = app.engine; this.world = app.world;
     const u = store.get(KEYS.ui, {});
-    this.s = Object.assign({ cat: "wall", part: "wand-putz", lv: 0, st: 0, rot: 0, mir: 0, above: false, cur: 0 }, u.he || {});
+    this.s = Object.assign({ cat: "wall", part: "wand-putz", lv: 0, st: 0, rot: 0, mir: 0, above: false, cur: 0, bull: false }, u.he || {});
     this.cam = Object.assign({ x: 2, y: 0, z: 1.5, dist: 13, yaw: 0.7, pitch: 0.85 }, u.hcam || {});
     this.list = store.get(KEYS.houses, []); if (!Array.isArray(this.list) || !this.list.length) this.list = [JSON.parse(JSON.stringify(HOUSES.starter.d))];
     this.s.cur = clamp(this.s.cur, 0, this.list.length - 1);
@@ -84,7 +85,7 @@ export class HouseEditor {
   panel() {
     const s = this.s, d = this.def, P = this.root.querySelector("#le-panel"), L = this.root.querySelector("#le-hparts");
     const seg = (k, opts, cur) => '<div class="le-seg">' + opts.map((o) => '<button data-seg="' + k + '" data-v="' + o[0] + '" aria-pressed="' + (String(cur) === String(o[0])) + '">' + o[1] + "</button>").join("") + "</div>";
-    L.innerHTML = '<div class="le-seg le-cats">' + CATS.map((c, i) => '<button data-cat="' + c[0] + '" aria-pressed="' + (s.cat === c[0]) + '"><i>' + (i + 1) + "</i>" + tl(c[1]) + "</button>").join("") + "</div>" +
+    L.innerHTML = '<button class="le-bull" data-e="bull" aria-pressed="' + !!s.bull + '"><i>B</i>' + t("hBull") + "</button>" + '<div class="le-seg le-cats">' + CATS.map((c, i) => '<button data-cat="' + c[0] + '" aria-pressed="' + (s.cat === c[0]) + '"><i>' + (i + 1) + "</i>" + tl(c[1]) + "</button>").join("") + "</div>" +
       '<div class="le-plist">' + Object.keys(PARTS).filter((k) => PARTS[k].cat === s.cat).map((k) => '<button data-part="' + k + '" aria-pressed="' + (s.part === k) + '"><i style="background:' + swatch(k) + '"></i>' + partName(k) + "</button>").join("") + "</div>";
     const b = this.bounds(), lv = new Set(d.parts.map((p) => p[4] | 0));
     let h = "<h3>" + t("hTitle") + '</h3><label class="le-row"><span>' + t("hName") + '</span><input type="text" data-k="name" value="' + esc(d.name || "") + '"></label>' +
@@ -108,10 +109,11 @@ export class HouseEditor {
   }
   click(e) {
     const cb = e.target.closest("[data-cat]"); if (cb) { this.setCat(cb.getAttribute("data-cat")); return; }
-    const pb = e.target.closest("[data-part]"); if (pb) { this.s.part = pb.getAttribute("data-part"); this.panel(); this.saveUI(); return; }
+    const pb = e.target.closest("[data-part]"); if (pb) { this.s.part = pb.getAttribute("data-part"); this.s.bull = false; this.root.classList.remove("le-bullon"); this.panel(); this.saveUI(); return; }
     const hb = e.target.closest("[data-house]"); if (hb) { this.s.cur = +hb.getAttribute("data-house"); this.undo = []; this.redo = []; this.rebuild(); this.panel(); this.saveUI(); return; }
     const sg = e.target.closest("[data-seg]"); if (sg) { this.s[sg.getAttribute("data-seg")] = +sg.getAttribute("data-v"); this.rebuild(); this.panel(); this.saveUI(); return; }
     const b = e.target.closest("[data-e]"); if (!b) return; const a = b.getAttribute("data-e");
+    if (a === "bull") { this.setBull(!this.s.bull); return; }
     if (a === "undo") this.doUndo(); else if (a === "redo") this.doRedo();
     else if (a === "menu") this.app.go("menu");
     else if (a === "map") this.app.go("editor");
@@ -134,7 +136,7 @@ export class HouseEditor {
       f.text().then((txt) => { const d = parseHouse(txt); if (!d) { this.app.toast(t("hBad")); return; } this.list.push(d); this.s.cur = this.list.length - 1; this.after(); this.app.toast(fmt(t("hLoaded"), { n: d.name })); });
     }
   }
-  setCat(c) { this.s.cat = c; if (!PARTS[this.s.part] || PARTS[this.s.part].cat !== c) this.s.part = Object.keys(PARTS).find((k) => PARTS[k].cat === c); this.panel(); this.saveUI(); this.gkey = ""; }
+  setCat(c) { this.s.cat = c; this.s.bull = false; this.root.classList.remove("le-bullon"); if (!PARTS[this.s.part] || PARTS[this.s.part].cat !== c) this.s.part = Object.keys(PARTS).find((k) => PARTS[k].cat === c); this.panel(); this.saveUI(); this.gkey = ""; }
   after() { this.undo = []; this.redo = []; this.save(); this.rebuild(); this.panel(); this.saveUI(); }
   // ---------- Rückgängig ----------
   push() { this.undo.push(JSON.stringify(this.def.parts)); if (this.undo.length > 60) this.undo.shift(); this.redo = []; }
@@ -181,10 +183,24 @@ export class HouseEditor {
     }
     return false;
   }
+  // ---------- Bulldozer: Teil unter der Maus finden (echte Treffer auf den Netzen) und abreißen ----------
+  setBull(on) { this.s.bull = on; this.gkey = ""; this.panel(); this.saveUI(); this.root.classList.toggle("le-bullon", on); if (on) this.status(t("hBullOn")); }
+  pick(cx, cy) {
+    const r = this.eng.renderer.domElement.getBoundingClientRect();
+    this.mouse.set((cx - r.left) / r.width * 2 - 1, -((cy - r.top) / r.height) * 2 + 1); this.ray.setFromCamera(this.mouse, this.eng.camera);
+    const meshes = []; this.houseG.traverseVisible((o) => { if (o.isMesh) meshes.push(o); });
+    for (const hit of this.ray.intersectObjects(meshes, false)) {
+      const pi = hit.object.userData.pi != null ? hit.object.userData.pi : partAt(hit.object, hit.faceIndex);
+      if (pi >= 0 && this.def.parts[pi]) return pi;
+    }
+    return -1;
+  }
+  bulldoze(cx, cy) { const pi = this.pick(cx, cy); if (pi < 0) return false; this.def.parts.splice(pi, 1); this.rebuild(); this.gkey = ""; return true; }
   down(e) {
     this.btn = e.button; this.last = [e.clientX, e.clientY]; this.d0 = [e.clientX, e.clientY];
     const ae = document.activeElement; if (ae && ae !== document.body && ae.blur) ae.blur();
     if (e.button !== 0) return;
+    if (this.s.bull) { this.push(); this.painted = this.bulldoze(e.clientX, e.clientY); return; }
     const h = this.hoverAt(e.clientX, e.clientY); this.push(); this.painted = false;
     this.erase = e.shiftKey;
     if (this.apply(h)) this.painted = true;
@@ -202,6 +218,7 @@ export class HouseEditor {
       else { c.yaw -= dx * 0.005; c.pitch = clamp(c.pitch + dy * 0.004, 0.08, 1.5); }
       return;
     }
+    if (this.btn === 0 && this.s.bull) { if (this.bulldoze(e.clientX, e.clientY)) this.painted = true; return; }
     if (this.btn === 0) { const h = this.hoverAt(e.clientX, e.clientY); if (this.apply(h)) this.painted = true; }
   }
   up(e) {
@@ -216,6 +233,9 @@ export class HouseEditor {
     if ((e.ctrlKey || e.metaKey) && e.code === "KeyZ") { e.shiftKey ? this.doRedo() : this.doUndo(); return true; }
     if ((e.ctrlKey || e.metaKey) && e.code === "KeyY") { this.doRedo(); return true; }
     const n = parseInt(e.key, 10); if (n >= 1 && n <= CATS.length && !e.ctrlKey) { this.setCat(CATS[n - 1][0]); return true; }
+    if (e.code === "KeyB" && !e.ctrlKey) { this.setBull(!this.s.bull); return true; }
+    if (e.code === "Escape" && this.s.bull) { this.setBull(false); return true; }
+    if (e.code === "KeyQ" || e.code === "KeyE") return true;   // Kamera drehen (gehalten, siehe update)
     if (e.code === "KeyR") { const d = PARTS[this.s.part]; if (d && d.kind === "gable") this.s.mir = this.s.mir ? 0 : 1; else this.s.rot = (this.s.rot + (e.shiftKey ? 3 : 1)) & 3; this.gkey = ""; this.saveUI(); return true; }
     if (e.code === "PageUp" || e.code === "PageDown") { this.s.lv = clamp(this.s.lv + (e.code === "PageUp" ? 1 : -1), 0, 3); this.rebuild(); this.panel(); this.saveUI(); return true; }
     if (e.code === "Comma" || e.code === "Period") { this.s.st = clamp(this.s.st + (e.code === "Period" ? 1 : -1), 0, 4); this.panel(); this.gkey = ""; this.saveUI(); return true; }
@@ -227,6 +247,7 @@ export class HouseEditor {
     if (!ae || !/INPUT|TEXTAREA|SELECT/.test(ae.tagName) || ae.type === "range" || ae.type === "checkbox") {
       const f = (inp.k("KeyW") ? 1 : 0) - (inp.k("KeyS") ? 1 : 0), s = (inp.k("KeyD") ? 1 : 0) - (inp.k("KeyA") ? 1 : 0);
       if (f || s) { const sx = Math.sin(c.yaw), sz = Math.cos(c.yaw); c.x += (-sx * f + sz * s) * sp; c.z += (-sz * f - sx * s) * sp; }
+      const rot = (inp.k("KeyQ") ? 1 : 0) - (inp.k("KeyE") ? 1 : 0); if (rot) c.yaw += rot * 1.9 * dt;   // Q/E halten: Kamera um den Blickpunkt drehen
     }
     c.x = clamp(c.x, -20, 20); c.z = clamp(c.z, -20, 20); c.y = lerp(c.y, this.s.lv * LH, 1 - Math.exp(-dt * 6));
     const cam = this.eng.camera, cp = Math.cos(c.pitch);
@@ -234,6 +255,7 @@ export class HouseEditor {
     if (cam.position.y < 0.3) cam.position.y = 0.3;
     cam.lookAt(c.x, c.y, c.z); if (cam.fov !== 50) { cam.fov = 50; cam.updateProjectionMatrix(); }
     this.eng.focus(new THREE.Vector3(c.x, 0, c.z));
+    if (this.s.bull) { this.bullHover(); return; }
     // Vorschau des Bauteils unter der Maus
     const h = this.btn < 0 || this.btn === 0 ? this.hoverAt(this.cx || -9999, this.cy || -9999) : null, cd = this.cand(h), y0 = this.s.lv * LH;
     this.cellM.visible = this.edgeM.visible = !!h;
@@ -250,6 +272,18 @@ export class HouseEditor {
     }
   }
 }
+// Bulldozer-Vorschau: das Teil unter der Maus rot hervorheben
+HouseEditor.prototype.bullHover = function () {
+  this.cellM.visible = this.edgeM.visible = false;
+  const pi = this.btn <= 0 && this.cx != null ? this.pick(this.cx, this.cy) : -1, p = this.def.parts[pi], key = p ? "bull" + pi + JSON.stringify(p) + this.def.parts.length : "bull";
+  if (key === this.gkey) return; this.gkey = key;
+  if (this.ghost) { this.ghost.traverse((o) => { if (o.geometry) o.geometry.dispose(); }); this.stage.remove(this.ghost); this.ghost = null; }
+  if (!this.rmat) this.rmat = new THREE.MeshBasicMaterial({ color: 0xED6A5E, transparent: true, opacity: 0.55, depthTest: false });
+  if (p) {
+    const b = buildHouse({ parts: [p] }); this.ghost = b.group; this.ghost.traverse((o) => { if (o.isMesh) { o.material = this.rmat; o.renderOrder = 20; o.castShadow = false; } }); this.stage.add(this.ghost);
+    this.status(t("hBull") + ": " + partName(p[0]) + " · " + t("hLevel") + " " + (p[4] | 0));
+  } else this.status(t("hBullOn"));
+};
 // Farbmuster für die Bauteil-Liste
 function swatch(k) { const d = PARTS[k]; return d.c || ({ schreibtisch: "#8A6142", stuhl: "#62929E", bett: "#F2F0EA", regal: "#5E4330", schrank: "#8A6142", sofa: "#62929E", tisch: "#8A6142", kuehlschrank: "#F2F0EA", lampe: "#F3E3B4", pflanze: "#5D8A4E", teppich: "#ED6A5E" })[k] || "#888"; }
 export function exportHouse(d) {

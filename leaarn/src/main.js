@@ -8,6 +8,8 @@ import { Editor } from "le/editor.js";
 import { Drive } from "le/drive.js";
 import { Play } from "le/play.js";
 import { HouseEditor } from "le/houseeditor.js";
+import { CharEditor } from "le/charedit.js";
+import { charakter } from "le/save.js";
 import { WindIcon } from "le/wind.js";
 import { loadSaved, autosave } from "le/sceneio.js";
 
@@ -70,7 +72,7 @@ const CSS = `
 .le-macc{display:flex;justify-content:space-between;align-items:baseline;background:rgba(27,28,31,.85);border:1px solid #44474D;padding:9px 12px;margin-bottom:6px}.le-macc span{color:#A9ACB2;font-weight:600}.le-macc b{font:800 20px var(--f-display,system-ui,sans-serif);color:#fff}
 /* Spielen */
 .le-money{position:absolute;right:16px;top:14px;display:flex;flex-direction:column;align-items:flex-end;background:rgba(22,23,26,.72);border-left:4px solid #ED6A5E;padding:6px 12px 7px;pointer-events:none}
-.le-money span{display:none}.le-money b{font:800 24px/1.1 var(--f-display,system-ui,sans-serif);color:#fff;font-variant-numeric:tabular-nums}
+.le-money b{font:800 24px/1.1 var(--f-display,system-ui,sans-serif);color:#fff;font-variant-numeric:tabular-nums}
 .le-gain{position:absolute;right:16px;top:60px;font:800 22px var(--f-display,system-ui,sans-serif);color:#7FC8D4;opacity:0;pointer-events:none;text-shadow:0 2px 6px rgba(0,0,0,.6)}
 .le-gain.le-show{animation:le-gain 2.4s ease-out}
 @keyframes le-gain{0%{opacity:0;transform:translateY(10px)}12%{opacity:1;transform:none}75%{opacity:1}100%{opacity:0;transform:translateY(-14px)}}
@@ -160,6 +162,23 @@ const CSS = `
 .le-gnb{justify-content:center}
 .le-gsum{display:flex;justify-content:center;gap:8px;margin:10px 0}.le-grow2{display:flex;flex-direction:column;align-items:center;gap:3px;background:#33403F;padding:6px 8px}
 .le-grow2 span{color:#A9ACB2;font-size:11px;font-weight:700}.le-grow2 i{display:block;width:44px;height:22px}.le-grow2 b{font-variant-numeric:tabular-nums}.le-grow2 b.le-bad{color:#ED6A5E}
+/* v0.13: Bulldozer, Charakter-Editor, Zurücksetzen */
+.le-bull{width:100%;text-align:left;margin-bottom:2px}.le-bull i{display:inline-block;width:16px;color:#8A8E96}.le-bull[aria-pressed=true]{background:#ED6A5E!important;border-color:#ED6A5E!important;color:#141518!important}.le-bull[aria-pressed=true] i{color:#141518}
+.le-bullon .le-plist{opacity:.45}
+.le-char{position:absolute;inset:0;display:flex;align-items:center;padding:0 6vw;background:linear-gradient(90deg,rgba(14,15,17,.9),rgba(14,15,17,.55) 40%,rgba(14,15,17,0) 62%)}
+.le-cbox2{width:min(400px,90vw);display:flex;flex-direction:column;gap:10px}.le-cbox2 h2{margin:0;font:800 34px var(--f-display,system-ui,sans-serif);color:#fff}.le-cbox2 p{margin:0;color:#C6C5B9;font-weight:600;line-height:1.4}
+.le-cfield{display:grid;grid-template-columns:1fr 90px;gap:8px}.le-cfield label{display:flex;flex-direction:column;gap:4px;color:#A9ACB2;font-weight:700;font-size:12px}
+.le-cfield input{width:100%;background:#1B1C1F;color:#ECEAE4;border:1px solid #44474D;padding:8px;font:600 15px var(--f-body,system-ui,sans-serif)}
+.le-crow span{display:block;color:#A9ACB2;font-weight:700;font-size:12px;margin-bottom:4px}.le-csw{display:flex;flex-wrap:wrap;gap:5px}
+.le-csw button{width:28px;height:28px;padding:0!important;border:2px solid rgba(236,234,228,.18)!important}.le-csw button[aria-pressed=true]{border-color:#fff!important;outline:2px solid #ED6A5E;outline-offset:1px}
+.le-cown{position:relative;width:28px;height:28px;display:flex;align-items:center;justify-content:center;border:2px dashed #8A8E96;color:#C6C5B9;font-weight:800;cursor:pointer}.le-cown input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.le-cmsg{color:#ED6A5E!important;min-height:18px}.le-chint2{position:absolute;right:20px;bottom:14px;color:#A9ACB2;font-size:12px;pointer-events:none}
+.le-mb small{opacity:.8;font-weight:600;margin-left:6px}
+.le-reset{position:absolute;top:14px;right:16px;background:transparent!important;border:1px solid transparent!important;color:#8A8E96!important;font-size:12px!important;padding:5px 9px!important}.le-reset:hover{border-color:#ED6A5E!important;color:#ED6A5E!important}
+.le-dlg{position:absolute;inset:0;background:rgba(10,11,13,.7);display:flex;align-items:center;justify-content:center;z-index:30}
+.le-dlg>div{width:min(460px,90vw);background:#1B1C1F;border:1px solid #ED6A5E;padding:20px}.le-dlg h3{margin:0 0 8px;font-size:18px}.le-dlg p{color:#A9ACB2;margin:0 0 12px;font-size:13px;line-height:1.45}
+.le-danger{background:#ED6A5E!important;border-color:#ED6A5E!important;color:#141518!important}
+.le-money span{display:block;color:#C6C5B9;font-weight:700;font-size:11px}
 `;
 
 let A = null;
@@ -178,7 +197,7 @@ export function mount(host, lang, stamp) {
   app.go = (name, opts) => {
     if (app.mode) app.mode.dispose();
     app.modeName = name; ui.setAttribute("data-mode", name);
-    app.mode = name === "editor" ? new Editor(app) : name === "drive" ? new Drive(app, opts) : name === "play" ? new Play(app, opts) : name === "house" ? new HouseEditor(app) : new Menu(app);
+    app.mode = name === "editor" ? new Editor(app) : name === "drive" ? new Drive(app, opts) : name === "play" ? new Play(app, opts) : name === "house" ? new HouseEditor(app) : name === "char" ? new CharEditor(app, opts) : new Menu(app);
   };
   app.toast = (msg) => { const tEl = el("div", "le-toast", ""); tEl.textContent = msg; ui.appendChild(tEl); setTimeout(() => tEl.remove(), 2600); };
   app.onKey = (e) => { if (app.mode && app.mode.key && app.mode.key(e)) e.preventDefault(); else if (app.modeName === "drive" && /^(Space|ArrowUp|ArrowDown|ArrowLeft|ArrowRight)$/.test(e.code)) e.preventDefault(); };
@@ -190,7 +209,7 @@ export function mount(host, lang, stamp) {
     world.update(dt); if (app.mode) app.mode.update(dt); app.wind.update(); engine.render();
   };
   app.wind = new WindIcon(app);
-  app.go("menu");
+  app.go(charakter() ? "menu" : "char", { first: true });   // erster Start: Charakter-Editor
   app.raf = requestAnimationFrame(loop);
   window.LEDBG = app;
 }

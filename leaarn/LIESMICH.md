@@ -25,7 +25,8 @@ Neue Module: in `MODULES` in `leaarn.js` eintragen.
 | `sound.js` | Kassen-Klingel beim Einsammeln (eigene Datei `leaarn/sounds/kasse.mp3` wird bevorzugt, sonst synthetisch), Münz-Tick |
 | `faecher/` | **ein Modul je Schulfach** (siehe unten), `index.js` = Liste, Aufgabenformat, Belohnung, Prüfen |
 | `editor.js` | Map-Editor (Developer Tool aus Poly Racer + Werkzeug **Häuser**) |
-| `houseeditor.js` | Haus-Editor (getrennt vom Map-Editor) |
+| `houseeditor.js` | Haus-Editor (getrennt vom Map-Editor), Bulldozer (B, Treffer über `partAt` → Bauteil-Nummer je Netzstück), Kamera Q/E |
+| `charedit.js` | Charakter-Editor (seit v0.13): Name, Alter, Farben Oberteil/Hose/Schuhe/Haare, startet beim ersten Spielstart; Daten in `save.char` |
 | `menu.js`, `main.js` | Hauptmenü, Hülle, Zustände (`menu`, `play`, `editor`, `house`, `drive`), CSS |
 
 ## Häuser
@@ -37,6 +38,7 @@ Ein Haus = Liste von Bauteilen auf einem 1-m-Raster, Etagen à 2,8 m:
 - Kanten-Teile (Wände, Fenster, Türen, Geländer, Giebel) liegen auf einer Zellkante: `r` 0 = Norden (z klein), 1 = Osten, 2 = Süden, 3 = Westen. Türen schwingen in die Zelle, an der sie gesetzt wurden.
 - Dachschrägen steigen in Richtung `r` um 1 m je Zelle, `stufe` hebt sie (und Giebel) um je 1 m. Giebel `spiegeln` = steigt andersherum.
 - Teile auf Etage 1 liegen auf den Wänden der Etage 0 (Decke/Dach). Wer im Haus auf einer überdachten Zelle steht, sieht alles darüber nicht.
+- Fensterglas ist ein eigenes, halb durchsichtiges Netz ohne Schatten (Sonnenlicht fällt ins Zimmer). Ausgeblendete Etagen (drinnen) werfen weiter Schatten (unsichtbares Material, `cutAbove`).
 - Interaktionen: `act: "lernen"` (Schreibtisch), Türen automatisch. Kollision: Wände als Strecken, Möbel mit `box`.
 
 Ablauf: Noah baut im Haus-Editor, exportiert `Leaarn_Haus_<Name>.txt` und schickt sie. Claude trägt das Haus in `haeuser.js` ein

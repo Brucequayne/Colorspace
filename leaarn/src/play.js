@@ -1,9 +1,9 @@
 // ===== play.js · Spielen: Figur im Hub (3rd Person), Türen, Schreibtisch → Lernmodus, Geld-Anzeige =====
 import * as THREE from "three";
-import { t, addTexts, L2, clamp, lerp, el, store, KEYS, DEV_CODE, PR } from "le/core.js";
+import { t, addTexts, L2, clamp, lerp, el, esc, store, KEYS, DEV_CODE, PR } from "le/core.js";
 import { Player, camHit } from "le/player.js";
 import { Learn } from "le/learn.js";
-import { geld, euro, offen, einsammeln } from "le/save.js";
+import { geld, euro, offen, einsammeln, charakter } from "le/save.js";
 import { kasse, tick } from "le/sound.js";
 import { LH } from "le/houses.js";
 
@@ -17,10 +17,10 @@ addTexts({
 export class Play {
   constructor(app, opts) {
     this.app = app; this.world = app.world; this.opts = opts || {};
-    this.pl = new Player(this.world);
+    const ch = charakter(); this.pl = new Player(this.world, ch);
     this.cam = { yaw: 0, pitch: 0.36, dist: 5.2, inside: 0, pos: new THREE.Vector3(), look: new THREE.Vector3(), snap: true };
     this.act = null; this.learn = null; this.paused = false; this.btn = -1;
-    this.hud = el("div", "le-hud", '<div class="le-money"><span>' + t("pHome") + '</span><b id="le-money"></b></div><div class="le-gain" id="le-gain"></div><div class="le-prompt" id="le-prompt"></div><div class="le-where" id="le-where"></div><div class="le-help">' + t("pHelp") + "</div>");
+    this.hud = el("div", "le-hud", '<div class="le-money"><span>' + esc(ch && ch.name ? ch.name : "") + '</span><b id="le-money"></b></div><div class="le-gain" id="le-gain"></div><div class="le-prompt" id="le-prompt"></div><div class="le-where" id="le-where"></div><div class="le-help">' + t("pHelp") + "</div>");
     app.ui.appendChild(this.hud); this.shown = geld(); this.money();
     this.spawn();
     const c = app.engine.renderer.domElement;

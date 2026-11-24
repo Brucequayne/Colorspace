@@ -4,11 +4,14 @@ import { clamp, lerp } from "le/core.js";
 import { part, merge, M } from "le/models.js";
 import { LH, FLOOR, WT } from "le/houses.js";
 
-const SKIN = "#E3B38E", HAIR = "#3A2A20", TOP = "#62929E", PANTS = "#4A6D7C", SHOE = "#2B2E30", ACC = "#ED6A5E";
+// Aussehen (seit v0.13 aus dem Charakter-Editor): Oberteil, Hose, Schuhe, Haare
+export const LOOK = { top: "#62929E", pants: "#4A6D7C", shoes: "#2B2E30", hair: "#3A2A20" };
+const SKIN = "#E3B38E", ACC = "#ED6A5E", EYE = "#2B2E30";
 export const RADIUS = 0.28, HEIGHT = 1.78;
 
 // Figur aus einzelnen Gliedern (Drehpunkte an Hüfte und Schultern), vorne = +z
-function figure() {
+export function figure(look) {
+  const L = Object.assign({}, LOOK, look || {}), TOP = L.top, PANTS = L.pants, SHOE = L.shoes, HAIR = L.hair;
   const mat = new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true });
   const mk = (parts) => { const m = new THREE.Mesh(merge(parts), mat); m.castShadow = true; m.receiveShadow = true; return m; };
   const g = new THREE.Group(), body = new THREE.Group(); g.add(body);
@@ -17,7 +20,7 @@ function figure() {
     part(new THREE.BoxGeometry(0.36, 0.1, 0.2), PANTS, M(0, 0.95, 0, 1)),
     part(new THREE.BoxGeometry(0.22, 0.08, 0.04), ACC, M(0, 1.3, 0.115, 1)),                 // Brust-Streifen
     part(new THREE.BoxGeometry(0.3, 0.12, 0.12), TOP, M(0, 1.5, -0.08, 1)),                  // Kapuze
-    part(new THREE.BoxGeometry(0.1, 0.08, 0.1), SKIN, M(0, 1.5, 0, 1))                       // Hals
+    part(new THREE.BoxGeometry(0.11, 0.16, 0.11), SKIN, M(0, 1.53, 0, 1))                    // Hals (reicht bis in den Kopf, keine Lücke)
   ]);
   body.add(torso);
   const head = new THREE.Group(); head.position.set(0, 1.55, 0); body.add(head);
@@ -25,8 +28,8 @@ function figure() {
     part(new THREE.BoxGeometry(0.25, 0.27, 0.25), SKIN, M(0, 0.15, 0, 1)),
     part(new THREE.BoxGeometry(0.27, 0.1, 0.27), HAIR, M(0, 0.3, -0.01, 1)),
     part(new THREE.BoxGeometry(0.27, 0.16, 0.06), HAIR, M(0, 0.2, -0.12, 1)),
-    part(new THREE.BoxGeometry(0.04, 0.04, 0.02), SHOE, M(-0.06, 0.17, 0.126, 1)),
-    part(new THREE.BoxGeometry(0.04, 0.04, 0.02), SHOE, M(0.06, 0.17, 0.126, 1)),
+    part(new THREE.BoxGeometry(0.04, 0.04, 0.02), EYE, M(-0.06, 0.17, 0.126, 1)),
+    part(new THREE.BoxGeometry(0.04, 0.04, 0.02), EYE, M(0.06, 0.17, 0.126, 1)),
     part(new THREE.BoxGeometry(0.05, 0.05, 0.04), "#D9A07E", M(0, 0.11, 0.135, 1))
   ]));
   const limb = (x, y, parts) => { const pv = new THREE.Group(); pv.position.set(x, y, 0); pv.add(mk(parts)); body.add(pv); return pv; };
@@ -38,8 +41,8 @@ function figure() {
 }
 
 export class Player {
-  constructor(world) {
-    this.world = world; this.m = figure(); world.engine.scene.add(this.m.group);
+  constructor(world, look) {
+    this.world = world; this.m = figure(look); world.engine.scene.add(this.m.group);
     this.p = new THREE.Vector3(); this.v = new THREE.Vector3(); this.face = 0; this.vy = 0; this.onGround = true;
     this.phase = 0; this.speed = 0; this.house = null; this.level = 0; this.frozen = false; this.g = {};
   }
@@ -137,7 +140,7 @@ export function camHit(world, a, b) {
     const qa = hs.toLocal(a.x, a.z), qb = hs.toLocal(b.x, b.z), ya = a.y - hs.e.y, yb = b.y - hs.e.y;
     for (const s of hs.b.segs) {
       if (s.door && s.door.open > 0.45) continue;
-      if (!hs.b.levels[s.l] || !hs.b.levels[s.l].visible) continue;
+      if (!hs.b.levels[s.l] || hs.b.levels[s.l].userData.cut) continue;
       const t = segX(qa.x, qa.z, qb.x, qb.z, s.ax, s.az, s.bx, s.bz); if (t < 0 || t >= tb) continue;
       const y = ya + (yb - ya) * t, top = s.y1 + 0.05, bot = s.l * LH - 0.1; if (y > top || y < bot) continue;
       tb = t;

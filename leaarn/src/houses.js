@@ -102,7 +102,7 @@ function wallParts(def, E, y0, seed, out) {
     bx(out, E, w0, w1, y0 + lo - 0.05, y0 + lo, t + 0.1, COL.rahmen, 0, seed + 4);   // Fensterbank
     bx(out, E, w0, w0 + 0.04, y0 + lo, y0 + hi, t * 0.6, COL.rahmen, 0, seed + 5); bx(out, E, w1 - 0.04, w1, y0 + lo, y0 + hi, t * 0.6, COL.rahmen, 0, seed + 6);
     bx(out, E, w0, w1, y0 + hi - 0.04, y0 + hi, t * 0.6, COL.rahmen, 0, seed + 7); bx(out, E, 0.48, 0.52, y0 + lo, y0 + hi, t * 0.5, COL.rahmen, 0, seed + 8);
-    bx(out, E, w0 + 0.04, w1 - 0.04, y0 + lo, y0 + hi - 0.04, 0.02, COL.glas, 0, seed + 9);
+    bx(out, E, w0 + 0.04, w1 - 0.04, y0 + lo, y0 + hi - 0.04, 0.02, COL.glas, 0, seed + 9); out[out.length - 1].userData.glass = true;   // Glas: eigenes Netz, lässt Sonnenlicht durch
     return;
   }
   bx(out, E, a, b, y0, y0 + H, t, c, 0, seed);
@@ -203,7 +203,7 @@ export function buildHouse(def, opts) {
   const ext = (x, z) => { out.min[0] = Math.min(out.min[0], x); out.min[1] = Math.min(out.min[1], z); out.max[0] = Math.max(out.max[0], x); out.max[1] = Math.max(out.max[1], z); };
   parts.forEach((p, i) => {
     const id = p[0], def2 = PARTS[id]; if (!def2) return;
-    const x = p[1] | 0, z = p[2] | 0, r = (p[3] | 0) & 3, l = p[4] | 0, s = p[5] | 0, f = p[6] | 0, y0 = l * LH, seed = (x * 73 + z * 151 + l * 37 + i) | 0, list = L(l);
+    const x = p[1] | 0, z = p[2] | 0, r = (p[3] | 0) & 3, l = p[4] | 0, s = p[5] | 0, f = p[6] | 0, y0 = l * LH, seed = (x * 73 + z * 151 + l * 37 + i) | 0, list = L(l), n0 = list.length;
     if (def2.kind === "floor") { floorParts(def2, x, z, y0, seed, list); out.cells.add(cellKey(x, z, l)); for (let k = 0; k < l; k++) out.cover.add(cellKey(x, z, k)); ext(x, z); ext(x + 1, z + 1); }
     else if (def2.kind === "wall") {
       const E = edgeOf(x, z, r); wallParts(def2, E, y0, seed, list); ext(E.ax, E.az); ext(E.ax + E.ux, E.az + E.uz);
@@ -212,7 +212,7 @@ export function buildHouse(def, opts) {
         const pv = new THREE.Group(); pv.position.set(E.ax + E.ux * 0.12, y0, E.az + E.uz * 0.12); pv.rotation.y = Math.atan2(-E.uz, E.ux);
         const leaf = merge([part(new THREE.BoxGeometry(0.76, 2.08, 0.045), def2.plank ? COL.holzd : COL.holz, M(0.38, 1.04, 0, 1), 0, seed + 7),
           part(new THREE.BoxGeometry(0.03, 0.03, 0.12), COL.metall, M(0.66, 1.0, 0, 1), 0, seed + 8)]);
-        const lm = new THREE.Mesh(leaf, MAT); lm.castShadow = true; lm.receiveShadow = true; pv.add(lm); out.group.add(pv);
+        const lm = new THREE.Mesh(leaf, MAT); lm.userData.pi = i; lm.castShadow = true; lm.receiveShadow = true; pv.add(lm); out.group.add(pv);
         const door = { pivot: pv, open: 0, want: 0, l: l, ax: E.ax + E.ux * 0.12, az: E.az + E.uz * 0.12, bx: E.ax + E.ux * 0.88, bz: E.az + E.uz * 0.88, ux: E.ux, uz: E.uz, nx: E.nx, nz: E.nz, cx: E.ax + E.ux * 0.5, cz: E.az + E.uz * 0.5 };
         out.doors.push(door); out.acts.push({ type: "tuer", x: door.cx, z: door.cz, l: l, door: door });
         out.segs.push({ ax: E.ax, az: E.az, bx: E.ax + E.ux * 0.12, bz: E.az + E.uz * 0.12, l: l, y1: y0 + LH });
@@ -228,17 +228,26 @@ export function buildHouse(def, opts) {
       if (def2.act) { const fx = [0, -1, 0, 1][r], fz = [1, 0, -1, 0][r]; out.acts.push({ type: def2.act, x: x + 0.5 + fx * 0.75, z: z + 0.5 + fz * 0.75, l: l, cx: x + 0.5, cz: z + 0.5, fx: fx, fz: fz, y: y0 + FLOOR }); }   // Stelle vor dem Möbel (vorne = Seite des Nutzers)
     }
     out.top = Math.max(out.top, y0 + LH);
+    for (let k = n0; k < list.length; k++) list[k].userData.pi = i;   // Bauteil-Nummer je Netzstück (Bulldozer im Haus-Editor)
   });
   // Eckpfosten
   Object.keys(posts).forEach((k) => { const v = k.split(",").map(Number); L(v[2]).push(part(new THREE.BoxGeometry(WT, LH, WT), posts[k], M(v[0], v[2] * LH + LH / 2, v[1], 1), 0, v[0] * 7 + v[1] * 3)); });
   Object.keys(per).forEach((l) => {
-    const arr = per[l]; if (!arr.length) return;
-    const g = mergeAny(arr), mesh = new THREE.Mesh(g, o.mat || MAT); mesh.castShadow = true; mesh.receiveShadow = true;
-    const grp = new THREE.Group(); grp.add(mesh); grp.userData.l = +l; out.levels[l] = grp; out.group.add(grp);
+    const all = per[l], arr = all.filter((g) => !g.userData.glass), gl = all.filter((g) => g.userData.glass); if (!all.length) return;
+    const grp = new THREE.Group(); grp.userData.l = +l;
+    if (arr.length) { const mesh = new THREE.Mesh(mergeAny(arr), o.mat || MAT); mesh.castShadow = true; mesh.receiveShadow = true; mesh.userData.ranges = ranges(arr); grp.add(mesh); }
+    // Fensterglas: halb durchsichtig, wirft keinen Schatten → Sonnenlicht fällt durchs Fenster ins Zimmer
+    if (gl.length) { const gm = new THREE.Mesh(mergeAny(gl), o.mat || GLASS); gm.castShadow = false; gm.receiveShadow = false; gm.renderOrder = 2; gm.userData.ranges = ranges(gl); grp.add(gm); }
+    out.levels[l] = grp; out.group.add(grp);
   });
   if (out.min[0] > out.max[0]) { out.min = [0, 0]; out.max = [1, 1]; }
   return out;
 }
+// Welche Ecken (Vertex-Bereiche) zu welchem Bauteil gehören: [[erster Vertex, Bauteil-Nummer], …]
+function ranges(arr) { const r = []; let v = 0; arr.forEach((g) => { r.push([v, g.userData.pi == null ? -1 : g.userData.pi]); v += g.attributes.position.count; }); return r; }
+export function partAt(mesh, face) { const R = mesh.userData.ranges; if (!R) return -1; const v = face * 3; let pi = -1; for (const q of R) { if (q[0] <= v) pi = q[1]; else break; } return pi; }
+const INVIS = new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false }), INVIS_GLASS = new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false });
+export const GLASS = new THREE.MeshLambertMaterial({ vertexColors: true, transparent: true, opacity: 0.32, depthWrite: false, side: THREE.DoubleSide });
 // merge() aus models.js erwartet Teile ohne Normalen; vorbereitete Möbel-Netze haben schon Position + Farbe
 function mergeAny(arr) { return merge(arr.map((g) => { if (g.attributes.normal) g.deleteAttribute("normal"); return g; })); }
 
@@ -271,7 +280,14 @@ export class HouseInst {
     if (d >= 7) return null; const k = d / 7; return { h: this.e.y - 0.04, w: 1 - k * k * (3 - 2 * k) };
   }
   // Etagen ab l+1 ausblenden (wer drin steht, sieht ins Haus)
-  cutAbove(l) { Object.keys(this.b.levels).forEach((k) => { this.b.levels[k].visible = l == null || +k <= l; }); this.b.doors.forEach((d) => { d.pivot.visible = l == null || d.l <= l; }); }
+  // Ausgeblendete Etagen bleiben als „Schattenwerfer“ da (unsichtbares Material, wirft aber Schatten):
+  // so liegt das Zimmer im Schatten des Dachs und nur durch die Fenster fällt Sonnenlicht (seit v0.13)
+  cutAbove(l) {
+    if (this.cutL === l) return; this.cutL = l;
+    const set = (o, cut) => o.traverse((m) => { if (!m.isMesh) return; if (!m.userData.mat0) m.userData.mat0 = m.material; m.material = cut ? (m.userData.mat0 === GLASS ? INVIS_GLASS : INVIS) : m.userData.mat0; });
+    Object.keys(this.b.levels).forEach((k) => { const cut = l != null && +k > l; this.b.levels[k].userData.cut = cut; set(this.b.levels[k], cut); });
+    this.b.doors.forEach((d) => set(d.pivot, l != null && d.l > l));
+  }
   update(dt) {
     // Tür schwingt in die Zelle hinein, an der sie gesetzt wurde (weg von der Normalen n)
     this.b.doors.forEach((d) => { d.open += Math.max(-dt * 2.6, Math.min(dt * 2.6, d.want - d.open)); const ph = d.open * 1.75, c = Math.cos(ph), s = Math.sin(ph), dx = d.ux * c - d.nx * s, dz = d.uz * c - d.nz * s; d.pivot.rotation.y = Math.atan2(-dz, dx); });

@@ -30,7 +30,8 @@
     "player.js",      // Spielfigur: Modell, Laufen, Kollision
     "play.js",        // Spielen: Hub, Kamera, Türen, Schreibtisch
     "editor.js",      // Map-Editor (Gelände, Straße, Vegetation, Häuser, Umgebung, Datei)
-    "houseeditor.js", // Haus-Editor
+    "houseeditor.js", // Haus-Editor (mit Bulldozer)
+    "charedit.js",    // Charakter-Editor (erster Start)
     "menu.js",        // Hauptmenü
     "main.js"         // Hülle: Start, Zustände, Schleife, Gestaltung
   ];
