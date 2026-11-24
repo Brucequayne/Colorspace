@@ -11,6 +11,8 @@
 //   "eingabe"    { frage, antwort }                       Zahl oder Text eintippen (antwort darf eine Liste erlaubter Antworten sein)
 //   "mc"         { frage, optionen: [ … ], richtig: 0 }   Multiple Choice, richtig = Index der richtigen Option
 //   "wahrfalsch" { frage, richtig: true/false }           Aussage stimmt / stimmt nicht
+//   "farbe"      Farb-Spiel aus kunst.js (Farbe auf Farbe ziehen), richtig = Index der richtigen Option
+// Eigene Belohnung je Thema: lohn: [{ ab: 5, euro: 100 }, { ab: 1, euro: 25 }, { ab: 0, euro: 5 }] (ab = mindestens so viele richtig)
 // Geplant: "zuordnen" (Paare), "lueckentext", "reihenfolge" und je Fach eigene Spiele (siehe spiele in den Fach-Dateien).
 // Noah liefert Themen als Text (Fach, Klasse, Inhalt) – Claude macht daraus Aufgaben in diesem Format.
 import mathe from "le/faecher/mathe.js";
@@ -35,8 +37,10 @@ export const fach = (id) => FAECHER.find((f) => f.id === id) || null;
 export const spielbar = (th) => !th.geplant && (typeof th.erzeugen === "function" || (th.aufgaben && th.aufgaben.length > 0));
 export const fachAktiv = (f) => f.themen.some(spielbar);
 
-// Belohnung je Runde (10 Aufgaben): 10 richtig = 150 €, 5–9 = 75 €, 1–4 = 25 €, 0 = 5 €
-export function belohnung(richtig, gesamt) {
+export const STANDARD_LOHN = [{ ab: 10, euro: 150 }, { ab: 5, euro: 75 }, { ab: 1, euro: 25 }, { ab: 0, euro: 5 }];
+// Belohnung je Runde (Standard, 10 Aufgaben): 10 richtig = 150 €, 5–9 = 75 €, 1–4 = 25 €, 0 = 5 €. Themen mit lohn: eigene Stufen
+export function belohnung(richtig, gesamt, th) {
+  if (th && th.lohn) { for (const l of th.lohn) if (richtig >= l.ab) return l.euro; return 0; }
   const q = gesamt ? richtig / gesamt : 0;
   if (richtig >= gesamt && gesamt > 0) return 150;
   if (q >= 0.5) return 75;
@@ -51,7 +55,7 @@ export function runde(th, R) {
 }
 // Antwort prüfen (Text: ohne Groß/Klein, Leerzeichen; Zahlen: Komma oder Punkt)
 export function pruefe(a, eingabe) {
-  if (a.art === "mc") return eingabe === a.richtig;
+  if (a.art === "mc" || a.art === "farbe") return eingabe === a.richtig;
   if (a.art === "wahrfalsch") return eingabe === a.richtig;
   const norm = (v) => String(v).trim().toLowerCase().replace(/\s+/g, " ").replace(",", ".");
   const ok = [].concat(a.antwort).map(norm), e = norm(eingabe);

@@ -3,6 +3,17 @@
    Die Versionsnummer auf den Kacheln kommt aus dem obersten Eintrag. */
 window.PATCHNOTES = {
   leaarn: [
+    { v: "0.11", t: "2026-11-24T23:40:00+01:00",
+      de: ["Neues Fach im Lernmodus: Kunst mit dem Thema Farbenlehre, zwei Spiele mit je 5 Durchgängen pro Runde.",
+        "Farben mischen: Du siehst eine Farbe und die Ziel-Farbe. Zieh eine von drei Farben auf die erste Farbe – sie wird umgerührt, die Mischung erscheint und wird mit dem Ziel verglichen.",
+        "Mischergebnis: Du siehst zwei Farben und ziehst eines von drei Ergebnissen ins Feld. Danach wird die echte Mischung daneben gezeigt.",
+        "Gemischt wird wie mit Malfarben (Grundfarben Rot, Gelb, Blau, dazu Weiß, Schwarz und Mischfarben wie Orange, Grün, Violett, Rosa, Hellblau, Grau, Braun) – jede Runde mit neuen Kombinationen.",
+        "Belohnung bei den Farb-Spielen: 5 von 5 = 100 €, 1–4 = 25 €, 0 = 5 €. Jedes Thema kann jetzt eigene Belohnungsstufen haben."],
+      en: ["New subject in learning mode: art with the topic colour theory, two games with 5 rounds each.",
+        "Mixing colours: you see a colour and the target colour. Drag one of three colours onto the first colour – it gets stirred, the mix appears and is compared with the target.",
+        "Mixing result: you see two colours and drag one of three results into the box. Then the real mix is shown next to it.",
+        "Colours mix like paint (primary colours red, yellow, blue, plus white, black and mixed colours such as orange, green, violet, pink, light blue, grey, brown) – new combinations every round.",
+        "Reward in the colour games: 5 of 5 = €100, 1–4 = €25, 0 = €5. Each topic can now have its own reward tiers."] },
     { v: "0.1", t: "2026-11-24T22:10:00+01:00",
       de: ["Neues Spiel Leaarn: ein Lernspiel im Low-Poly-Look von Poly Racer. Lernen bringt Geld, mit dem man sich später Neues kaufen kann.",
         "Hub: dein Zuhause, ein kleines Starterhaus mit Tür, Schreibtisch, Laptop und Stuhl auf einer eigenen Map mit Straße, Wald und Wiese.",

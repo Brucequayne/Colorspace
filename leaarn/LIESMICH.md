@@ -61,8 +61,13 @@ export default {
   ]
 };
 ```
-Aufgaben: `eingabe` `{ frage, antwort }` (antwort darf eine Liste sein), `mc` `{ frage, optionen, richtig }`, `wahrfalsch` `{ frage, richtig }`.
-Belohnung je Runde (`belohnung` in `faecher/index.js`): 10/10 = 150 €, 5–9 = 75 €, 1–4 = 25 €, 0 = 5 €.
+Aufgaben: `eingabe` `{ frage, antwort }` (antwort darf eine Liste sein), `mc` `{ frage, optionen, richtig }`, `wahrfalsch` `{ frage, richtig }`,
+`farbe` (Kunst, seit v0.11: Farbe per Ziehen mischen, Modus `mischen` = A + ? = Ziel, `raten` = A + B = ?; Darstellung in `learn.js` → `renderFarbe`).
+Belohnung je Runde (`belohnung` in `faecher/index.js`): Standard 10/10 = 150 €, 5–9 = 75 €, 1–4 = 25 €, 0 = 5 €.
+Eigene Stufen je Thema mit `lohn: [{ ab: 5, euro: 100 }, { ab: 1, euro: 25 }, { ab: 0, euro: 5 }]` (Farb-Spiele, 5 Durchgänge).
+
+Farbmischen (`faecher/farben.js`): Farbe = Pigment-Anteile [Rot, Gelb, Blau, Weiß, Schwarz], Mischen = gleiche Teile.
+Rot/Gelb/Blau werden über den RYB-Würfel (wie Malfarben, Itten) in RGB umgerechnet, Weiß/Schwarz danach beigemischt. Neue Malfarben in `PAINTS` eintragen.
 Noah liefert Themen (Fach, Klasse, Inhalt), Claude macht daraus Aufgaben und – je nach Fach – eigene Spiele.
 
 ## Speicher im Browser

@@ -115,6 +115,22 @@ const CSS = `
 .le-plist{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:3px;background:rgba(22,23,26,.9);border:1px solid #2E3035;padding:6px;scrollbar-width:thin}
 .le-plist button{display:flex;align-items:center;gap:8px;text-align:left;font-size:12px!important;padding:6px 8px!important}.le-plist i{width:14px;height:14px;flex:none;border:1px solid rgba(0,0,0,.35)}
 .le-hl{display:flex;flex-direction:column;gap:3px}.le-hl button{text-align:left}
+/* Farb-Spiel (Kunst) */
+.le-cg,.le-copts,.le-ccmp{display:flex;justify-content:center;align-items:flex-start;gap:14px}
+.le-cbox{display:flex;flex-direction:column;align-items:center;gap:5px;min-width:104px}.le-cbox small{color:#C6C5B9;font-weight:700;font-size:12px;min-height:15px}
+.le-sw{position:relative;overflow:hidden;width:104px;height:104px;border:3px solid rgba(236,234,228,.16);display:flex;align-items:center;justify-content:center;font:800 44px var(--f-display,system-ui,sans-serif);color:#C6C5B9;transition:background-color .5s,border-color .2s}
+.le-slot{border:3px dashed #62929E;background:#25302F}.le-drop.le-hot{border-color:#ED6A5E;border-style:solid}
+.le-op{font:800 38px/104px var(--f-display,system-ui,sans-serif);color:#fff}
+.le-fx{position:absolute;inset:-40%;opacity:0;pointer-events:none}
+.le-stir{animation:le-stir .9s ease-in-out forwards}
+@keyframes le-stir{0%{opacity:0;transform:rotate(0)}15%{opacity:.95}75%{opacity:.95;transform:rotate(520deg)}100%{opacity:0;transform:rotate(620deg)}}
+.le-copts{margin-top:20px;gap:26px}.le-copts .le-sw{width:84px;height:84px;cursor:grab;touch-action:none}
+.le-copts kbd{position:absolute;left:4px;top:3px;font:700 12px var(--f-body,system-ui);color:rgba(20,21,24,.65);text-shadow:0 0 3px rgba(255,255,255,.6)}
+.le-drag:hover{border-color:#ED6A5E}.le-lift{opacity:.35}.le-used{opacity:.3}.le-dim2{opacity:.55}.le-copts .le-right{opacity:1;border-color:#7FC8D4;outline:3px solid #7FC8D4}
+.le-ghost{position:fixed;z-index:9999;pointer-events:none;border:3px solid #ECEAE4;box-shadow:0 10px 26px rgba(0,0,0,.5)}
+.le-ccmp{margin-top:14px;align-items:flex-start}.le-ccmp .le-sw{width:64px;height:64px}.le-ccmp .le-op{line-height:64px;font-size:30px}.le-ccmp.le-good .le-op{color:#7FC8D4}.le-ccmp.le-bad .le-op{color:#ED6A5E}.le-ccmp .le-cbox{min-width:84px}
+.le-chint{text-align:center;margin-top:14px}
+.le-msw{display:inline-block;width:18px;height:18px;vertical-align:-4px;border:1px solid rgba(236,234,228,.3)}.le-mcol em{margin:0 4px 0 8px}
 `;
 
 let A = null;

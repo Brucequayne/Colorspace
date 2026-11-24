@@ -21,7 +21,7 @@
     "car.js",         // Fahrzeug (aus Poly Racer, später: Auto kaufen)
     "drive.js",       // Auto-Test im Map-Editor
     "save.js",        // Spielstand: Geld, Lernstatistik
-    "faecher/werkzeug.js", "faecher/mathe.js", "faecher/deutsch.js", "faecher/englisch.js", "faecher/fremdsprache.js", "faecher/biologie.js",
+    "faecher/werkzeug.js", "faecher/farben.js", "faecher/mathe.js", "faecher/deutsch.js", "faecher/englisch.js", "faecher/fremdsprache.js", "faecher/biologie.js",
     "faecher/chemie.js", "faecher/physik.js", "faecher/geschichte.js", "faecher/erdkunde.js", "faecher/politik.js", "faecher/wirtschaft.js",
     "faecher/religion.js", "faecher/kunst.js", "faecher/musik.js", "faecher/informatik.js",
     "faecher/index.js", // alle Fächer, Aufgabenformat, Belohnung

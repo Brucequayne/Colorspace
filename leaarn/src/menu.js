@@ -9,7 +9,7 @@ addTexts({
   mCode: L2("Code für die Editoren", "Code for the editors"), mWrong: L2("Falscher Code", "Wrong code"), mOk: L2("Öffnen", "Open"),
   sShadow: L2("Schatten", "Shadows"), sScale: L2("Auflösung", "Resolution"), sOn: L2("An", "On"), sOff: L2("Aus", "Off"),
   mSub: L2("Lernen. Geld verdienen. Dein Zuhause ausbauen.", "Learn. Earn money. Build up your home."),
-  mFoot: L2("Version {v} · Hub mit Zuhause, Lernmodus am Schreibtisch (Mathe: kleines 1×1), Map- und Haus-Editor", "Version {v} · hub with home, learning mode at the desk (maths: times tables), map and house editor")
+  mFoot: L2("Version {v} · Hub mit Zuhause, Lernmodus am Schreibtisch (Mathe: kleines 1×1, Kunst: Farbenlehre), Map- und Haus-Editor", "Version {v} · hub with home, learning mode at the desk (maths: times tables, art: colour theory), map and house editor")
 });
 
 export class Menu {
