@@ -3,6 +3,17 @@
    Die Versionsnummer auf den Kacheln kommt aus dem obersten Eintrag. */
 window.PATCHNOTES = {
   leaarn: [
+    { v: "0.19.7", t: "2026-11-25T23:00:00+01:00",
+      de: ["Haus-Editor, neue Bauteile für Läden: drei Schaufenster (Supermarkt mit Angebots-Folien, Boutique mit Schaufensterpuppe und Podest, Laden mit Regalbrett und gestreiftem Fries). Sie liegen bei den Wänden.",
+        "Neue Automatik-Schiebetür (Kategorie Wände, bei den Türen): zwei Glasflügel, die nach beiden Seiten auseinanderlaufen, sobald man davor oder dahinter steht, und sich wieder schließen, wenn man weggeht. Kein E nötig, sie lässt sich nicht von Hand bedienen.",
+        "Neue Kategorie „Objekte“ (Taste 6): drei Markisen (gestreift Koralle/Weiß, Stahlblau mit Seitenteilen, Kassettenmarkise Stein/Schiefer), gestapelte Einkaufswagen und eine Kasse mit Laufband, Scanner, Display und Kassenlicht.",
+        "Markisen hängen an der Wand: die Kante wählen wie bei Wänden, die Markise ragt in die angeklickte Zelle, R wechselt die Seite. Sie ersetzen die Wand nicht, man kann sie über Fenster, Schaufenster und Türen setzen.",
+        "Gefriertruhe, Obst- und Gemüseregal und Supermarktregal sind in die Kategorie „Objekte“ umgezogen, die Kategorie „Supermarkt“ gibt es nicht mehr. Bestehende Häuser bleiben unverändert."],
+      en: ["House editor, new parts for shops: three shop windows (supermarket with offer stickers, boutique with mannequin and plinth, store with shelf board and striped fascia). They are with the walls.",
+        "New automatic sliding door (category walls, with the doors): two glass leaves that slide apart to both sides as soon as you stand in front of or behind it, and close again when you walk away. No E needed, it cannot be operated by hand.",
+        "New category “Objects” (key 6): three awnings (striped coral/white, steel blue with side panels, cassette awning stone/slate), nested shopping carts and a checkout with conveyor belt, scanner, display and checkout light.",
+        "Awnings hang on the wall: pick the edge like for walls, the awning extends into the clicked cell, R switches the side. They do not replace the wall, so you can put them above windows, shop windows and doors.",
+        "Chest freezer, fruit & veg stand and supermarket shelf moved into the category “Objects”, the category “Supermarket” is gone. Existing houses stay unchanged."] },
     { v: "0.19.6", t: "2026-11-25T22:00:00+01:00",
       de: ["Chemie-Spiele: Das Fenster mit den Element-Infos lässt sich jetzt an seiner Kopfzeile verschieben (ziehen und loslassen). Hat man es einmal verschoben, öffnet es beim nächsten Element wieder an dieser Stelle.",
         "Es öffnet automatisch an der freiesten Stelle und verdeckt möglichst keine Eingabefelder, Knöpfe oder das angeklickte Element.",

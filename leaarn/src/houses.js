@@ -22,7 +22,7 @@ const COL = { putz: "#D9D6CC", ziegel: "#A9533F", holz: "#8A6142", holzd: "#5E43
   boden: "#9C7552", fliese: "#C6C5B9", beton: "#8E918F", teppich: "#4A6D7C", platten: "#A3A49C", metall: "#5A5F63", dunkel: "#2B2E30", stoff: "#62929E", koralle: "#ED6A5E", weiss: "#F2F0EA", gruen: "#5D8A4E",
   hecke: "#4E7A3E", eis: "#BFE3EC", stahl: "#A9AEB1", kiste: "#9C7552" };
 
-// Bauteil-Katalog. kind: floor (Zelle), wall (Kante), roof (Zelle, Stufe), gable (Kante, Stufe), obj (Zelle, Drehung)
+// Bauteil-Katalog. kind: floor (Zelle), wall (Kante), roof (Zelle, Stufe), gable (Kante, Stufe), obj (Zelle, Drehung), deco (Kante, Anbau an der Wand wie eine Markise; Platz neben der Wand, ersetzt sie nicht)
 // box: Kollision [Breite, Tiefe] in m (lokal, vor der Drehung), act: Interaktion
 // sit (seit v0.16): Sitzplätze [x, z, Blickrichtung x, Blickrichtung z, Sitzhöhe] lokal um die Zellmitte (Taste E)
 // lager (seit v0.16): Möbel mit Inventar (8 × 8), Art siehe LAGER in items.js
@@ -68,12 +68,24 @@ export const PARTS = {
   // Garten (seit v0.17): Grundstücksgrenze, auf Zellkanten wie Wände
   "zaun": { kind: "wall", cat: "garden", n: L2("Holzzaun", "Wooden fence"), c: COL.holz, fence: true },
   "hecke": { kind: "wall", cat: "garden", n: L2("Hecke", "Hedge"), c: COL.hecke, hedge: true },
-  // Supermarkt (seit v0.17): Regale, an denen man später Waren kauft (E)
-  "kuehltruhe": { kind: "obj", cat: "shop", n: L2("Gefriertruhe (Einkaufen, E)", "Chest freezer (shop, E)"), c: COL.eis, box: [1.8, 0.85], act: "laden", laden: "tiefkuehl" },
-  "obstregal": { kind: "obj", cat: "shop", n: L2("Obst- und Gemüseregal (Einkaufen, E)", "Fruit & veg stand (shop, E)"), c: "#C9483C", box: [1.8, 0.9], act: "laden", laden: "obst" },
-  "warenregal": { kind: "obj", cat: "shop", n: L2("Supermarktregal (Einkaufen, E)", "Supermarket shelf (shop, E)"), c: COL.stahl, box: [1.8, 0.6], act: "laden", laden: "allg" }
+  // Schaufenster (seit v0.19.7): Wandteile mit großer Glasfläche, drei Varianten
+  "schaufenster-markt": { kind: "wall", cat: "wall", n: L2("Schaufenster Supermarkt", "Shop window supermarket"), c: COL.stahl, shopwin: 1 },
+  "schaufenster-boutique": { kind: "wall", cat: "wall", n: L2("Schaufenster Boutique", "Shop window boutique"), c: COL.schiefer, shopwin: 2 },
+  "schaufenster-laden": { kind: "wall", cat: "wall", n: L2("Schaufenster Laden", "Shop window store"), c: COL.fliese, shopwin: 3 },
+  // Automatik-Schiebetür (seit v0.19.7): zwei Glasflügel, öffnet nach beiden Seiten, sobald der Spieler vor der Tür steht
+  "tuer-schiebe": { kind: "wall", cat: "wall", n: L2("Automatik-Schiebetür (Supermarkt)", "Automatic sliding door (supermarket)"), c: COL.stahl, door: true, auto: true },
+  // Objekte (seit v0.19.7): Markisen hängen an der Hauswand (Kante, wie Wände; ragen in die angeklickte Zelle), dazu Supermarkt-Ausstattung
+  "markise-streifen": { kind: "deco", cat: "objekte", n: L2("Markise gestreift (Koralle/Weiß)", "Awning striped (coral/white)"), c: COL.koralle, awn: 1 },
+  "markise-blau": { kind: "deco", cat: "objekte", n: L2("Markise Stahlblau mit Seitenteilen", "Awning steel blue with side panels"), c: "#4A6D7C", awn: 2 },
+  "markise-kassette": { kind: "deco", cat: "objekte", n: L2("Kassettenmarkise (Stein/Schiefer)", "Cassette awning (stone/slate)"), c: COL.fliese, awn: 3 },
+  "einkaufswagen": { kind: "obj", cat: "objekte", n: L2("Einkaufswagen (gestapelt)", "Shopping carts (nested)"), c: COL.stahl, box: [0.5, 1.15] },
+  "kasse": { kind: "obj", cat: "objekte", n: L2("Kasse mit Laufband", "Checkout with conveyor belt"), c: "#4A6D7C", box: [1.8, 0.9] },
+  // Supermarkt (seit v0.17): Regale, an denen man später Waren kauft (E); seit v0.19.7 in der Kategorie Objekte
+  "kuehltruhe": { kind: "obj", cat: "objekte", n: L2("Gefriertruhe (Einkaufen, E)", "Chest freezer (shop, E)"), c: COL.eis, box: [1.8, 0.85], act: "laden", laden: "tiefkuehl" },
+  "obstregal": { kind: "obj", cat: "objekte", n: L2("Obst- und Gemüseregal (Einkaufen, E)", "Fruit & veg stand (shop, E)"), c: "#C9483C", box: [1.8, 0.9], act: "laden", laden: "obst" },
+  "warenregal": { kind: "obj", cat: "objekte", n: L2("Supermarktregal (Einkaufen, E)", "Supermarket shelf (shop, E)"), c: COL.stahl, box: [1.8, 0.6], act: "laden", laden: "allg" }
 };
-export const CATS = [["floor", L2("Böden", "Floors")], ["wall", L2("Wände", "Walls")], ["roof", L2("Dach", "Roof")], ["obj", L2("Möbel", "Furniture")], ["garden", L2("Garten", "Garden")], ["shop", L2("Supermarkt", "Supermarket")]];
+export const CATS = [["floor", L2("Böden", "Floors")], ["wall", L2("Wände", "Walls")], ["roof", L2("Dach", "Roof")], ["obj", L2("Möbel", "Furniture")], ["garden", L2("Garten", "Garden")], ["objekte", L2("Objekte", "Objects")]];
 export const partName = (id) => (PARTS[id] ? tl(PARTS[id].n) : id);
 
 // Kante als Strecke: Startpunkt a, Richtung u, Normale n (nach außen aus der Zelle)
@@ -116,6 +128,50 @@ function wallParts(def, E, y0, seed, out) {
   if (def.rail) {
     bx(out, E, a, b, y0 + 0.92, y0 + 1.0, 0.07, c, 0, seed);
     for (let k = 0; k < 4; k++) { const u = a + 0.08 + k * (b - a - 0.16) / 3; bx(out, E, u - 0.025, u + 0.025, y0, y0 + 0.92, 0.05, c, 0, seed + k); }
+    return;
+  }
+  if (def.auto) {   // Automatik-Schiebetür (seit v0.19.7): feste Teile; die zwei Glasflügel baut buildHouse (beweglich)
+    const d0 = 0.1, d1 = 0.9, top = 2.2;
+    bx(out, E, a, d0, y0, y0 + H, t, c, 0, seed); bx(out, E, d1, b, y0, y0 + H, t, c, 0, seed + 1); bx(out, E, d0, d1, y0 + top, y0 + H, t, c, 0, seed + 2);
+    bx(out, E, d0, d0 + 0.04, y0, y0 + top, t + 0.03, COL.stahl, 0, seed + 3); bx(out, E, d1 - 0.04, d1, y0, y0 + top, t + 0.03, COL.stahl, 0, seed + 4);
+    bx(out, E, -0.3, 1.3, y0 + top - 0.14, y0 + top, 0.26, COL.stahl, 0, seed + 5);   // Laufschiene über der Tür, ragt zu beiden Seiten, damit die offenen Flügel darunter laufen
+    bx(out, E, 0.44, 0.56, y0 + top + 0.02, y0 + top + 0.1, 0.1, COL.dunkel, 0, seed + 6);   // Bewegungsmelder
+    return;
+  }
+  if (def.shopwin) {   // Schaufenster (seit v0.19.7)
+    const kind = def.shopwin, sc = shade(c, 0.8), hh = (k) => hash2(k, seed, 11);
+    const glass = (u0, u1, ya, yb) => { bx(out, E, u0, u1, y0 + ya, y0 + yb, 0.02, COL.glas, 0, seed + 30); out[out.length - 1].userData.glass = true; };
+    const stick = (u0, u1, ya, yb, col) => { bx(out, E, u0, u1, y0 + ya, y0 + yb, 0.004, col, 0.013, seed + 40); bx(out, E, u0, u1, y0 + ya, y0 + yb, 0.004, col, -0.013, seed + 41); };
+    const cx = E.ax + E.ux * 0.5, cz = E.az + E.uz * 0.5, cyl = (r0, r1, h, yc, col, n) => out.push(part(new THREE.CylinderGeometry(r0, r1, h, n || 6), col, M(cx, y0 + yc, cz, 1), 0, seed + 50));
+    if (kind === 1) {   // Supermarkt: Sockel, große Scheibe mit Aluminiumrahmen, Angebots-Folien, Schild oben
+      bx(out, E, a, 0.05, y0, y0 + H, t, c, 0, seed); bx(out, E, 0.95, b, y0, y0 + H, t, c, 0, seed + 1);
+      bx(out, E, 0.05, 0.95, y0, y0 + 0.4, t, COL.schiefer, 0, seed + 2); bx(out, E, 0.05, 0.95, y0 + 2.3, y0 + H, t, COL.schiefer, 0, seed + 3);
+      glass(0.07, 0.93, 0.45, 2.25);
+      bx(out, E, 0.05, 0.95, y0 + 0.4, y0 + 0.45, t + 0.02, COL.stahl, 0, seed + 4); bx(out, E, 0.05, 0.95, y0 + 2.25, y0 + 2.3, t + 0.02, COL.stahl, 0, seed + 5);
+      bx(out, E, 0.05, 0.07, y0 + 0.45, y0 + 2.25, t + 0.02, COL.stahl, 0, seed + 6); bx(out, E, 0.93, 0.95, y0 + 0.45, y0 + 2.25, t + 0.02, COL.stahl, 0, seed + 7); bx(out, E, 0.485, 0.515, y0 + 0.45, y0 + 2.25, t + 0.02, COL.stahl, 0, seed + 8);
+      bx(out, E, 0.08, 0.92, y0 + 2.38, y0 + 2.72, t + 0.04, COL.koralle, 0, seed + 9); bx(out, E, 0.08, 0.92, y0 + 2.5, y0 + 2.6, t + 0.05, COL.weiss, 0, seed + 10);
+      stick(0.1, 0.45, 1.0, 1.32, COL.weiss); stick(0.55, 0.9, 0.62, 0.95, COL.koralle); stick(0.55, 0.9, 1.5, 1.72, COL.weiss); stick(0.12, 0.3, 1.55, 1.8, COL.koralle);
+    } else if (kind === 2) {   // Boutique: dunkler Sockel, schlanker Rahmen, Podest mit Schaufensterpuppe und Geschenkboxen
+      bx(out, E, a, 0.06, y0, y0 + H, t, c, 0, seed); bx(out, E, 0.94, b, y0, y0 + H, t, c, 0, seed + 1);
+      bx(out, E, 0.06, 0.94, y0, y0 + 0.5, t, c, 0, seed + 2); bx(out, E, 0.06, 0.94, y0 + 2.3, y0 + H, t, c, 0, seed + 3);
+      bx(out, E, 0.06, 0.94, y0 + 0.5, y0 + 0.54, t + 0.03, COL.fliese, 0, seed + 4); bx(out, E, 0.06, 0.94, y0 + 2.3, y0 + 2.34, t + 0.03, COL.fliese, 0, seed + 5);
+      glass(0.08, 0.92, 0.54, 2.3);
+      bx(out, E, 0.06, 0.08, y0 + 0.54, y0 + 2.3, t + 0.02, COL.dunkel, 0, seed + 6); bx(out, E, 0.92, 0.94, y0 + 0.54, y0 + 2.3, t + 0.02, COL.dunkel, 0, seed + 7);
+      bx(out, E, 0.2, 0.8, y0 + 0.54, y0 + 0.62, 0.38, COL.fliese, 0, seed + 8);   // Podest
+      cyl(0.05, 0.15, 0.55, 0.62 + 0.275, COL.koralle, 8); cyl(0.12, 0.06, 0.34, 1.17 + 0.17, shade(COL.koralle, 0.88), 8); cyl(0.03, 0.03, 0.1, 1.56, COL.fliese, 6); cyl(0.06, 0.05, 0.14, 1.68, COL.fliese, 6);
+      bx(out, E, 0.22, 0.34, y0 + 0.62, y0 + 0.8, 0.14, COL.stoff, 0, seed + 11); bx(out, E, 0.68, 0.78, y0 + 0.62, y0 + 0.74, 0.12, COL.teppich, 0, seed + 12); bx(out, E, 0.7, 0.76, y0 + 0.74, y0 + 0.78, 0.13, COL.koralle, 0, seed + 13);
+    } else {   // Laden: Holz-/Farbsockel, Sprossen, Regalbrett mit Waren, bunt gestreifter Fries
+      bx(out, E, a, 0.05, y0, y0 + H, t, c, 0, seed); bx(out, E, 0.95, b, y0, y0 + H, t, c, 0, seed + 1);
+      bx(out, E, 0.05, 0.95, y0, y0 + 0.85, t, COL.stoff, 0, seed + 2); bx(out, E, 0.05, 0.95, y0 + 2.3, y0 + H, t, c, 0, seed + 3);
+      for (let k = 1; k < 3; k++) bx(out, E, 0.05, 0.95, y0 + k * 0.28 - 0.01, y0 + k * 0.28 + 0.01, t + 0.012, shade(COL.stoff, 0.8), 0, seed + 20 + k);
+      bx(out, E, 0.05, 0.95, y0 + 0.85, y0 + 0.9, t + 0.04, COL.weiss, 0, seed + 4);
+      glass(0.07, 0.93, 0.9, 2.3);
+      bx(out, E, 0.485, 0.515, y0 + 0.9, y0 + 2.3, t + 0.02, COL.schiefer, 0, seed + 5); bx(out, E, 0.07, 0.93, y0 + 1.57, y0 + 1.61, t + 0.02, COL.schiefer, 0, seed + 6);
+      bx(out, E, 0.07, 0.93, y0 + 1.2, y0 + 1.24, 0.3, COL.holz, 0, seed + 7);   // Regalbrett
+      const wc = [COL.koralle, "#E8C66A", COL.teppich, COL.weiss, "#5D8A4E", "#E8873C"];
+      for (let k = 0; k < 6; k++) { const u = 0.1 + k * 0.13; bx(out, E, u, u + 0.09, y0 + 1.24, y0 + 1.24 + 0.08 + hh(k) * 0.12, 0.12, wc[k], 0, seed + 60 + k); }
+      for (let k = 0; k < 6; k++) bx(out, E, 0.05 + k * 0.15, 0.05 + (k + 1) * 0.15, y0 + 2.42, y0 + 2.7, t + 0.04, k & 1 ? COL.weiss : COL.koralle, 0, seed + 70 + k);
+    }
     return;
   }
   if (def.door) {
@@ -174,6 +230,27 @@ function gableParts(def, E, y0, s, f, seed, out) {
   g.translate(0, 0, -WT / 2);
   const ang = Math.atan2(-E.uz, E.ux), m = M(E.ax, y0, E.az, 1, 1, 1, ang);
   out.push(part(g, def.c, m, 0, seed));
+}
+// Markise (seit v0.19.7): hängt an der Wand-Kante, lokal x entlang der Kante (0…1), z von der Wand weg in die angeklickte Zelle (f = 1: auf die andere Seite)
+function awningParts(def, E, y0, f, seed, out) {
+  const k = def.awn, ang = Math.atan2(-E.uz, E.ux), W = 0.9, T = 2.3, F = 2.0, L = Math.hypot(W, T - F), sl = Math.atan2(T - F, W);
+  let base = M(E.ax, y0, E.az, 1, 1, 1, ang);
+  if (f) base = base.multiply(new THREE.Matrix4().makeTranslation(0.5, 0, 0)).multiply(new THREE.Matrix4().makeRotationY(Math.PI)).multiply(new THREE.Matrix4().makeTranslation(-0.5, 0, 0));
+  const B = (w, h, d, x, y, z, col, rx) => { let m = new THREE.Matrix4().makeTranslation(x, y, z); if (rx) m = m.multiply(new THREE.Matrix4().makeRotationX(rx)); out.push(part(new THREE.BoxGeometry(w, h, d), col, base.clone().multiply(m), 0, seed + out.length)); };
+  const cloth = (x0, x1, col) => B(x1 - x0, 0.025, L, (x0 + x1) / 2, (T + F) / 2, W / 2, col, sl);
+  if (k === 1) {   // gestreift: vier Streifen Koralle/Weiß, Volant mit Zacken
+    const cs = [COL.koralle, COL.weiss, COL.koralle, COL.weiss];
+    for (let i = 0; i < 4; i++) { cloth(i * 0.25, (i + 1) * 0.25, cs[i]); const hh = i & 1 ? 0.11 : 0.17; B(0.25, hh, 0.02, i * 0.25 + 0.125, F - hh / 2, W, cs[i]); }
+    B(1, 0.1, 0.1, 0.5, T, 0.05, COL.metall);
+  } else if (k === 2) {   // Stahlblau mit Petrol-Volant und dreieckigen Seitenteilen
+    cloth(0, 1, "#4A6D7C"); B(1, 0.15, 0.02, 0.5, F - 0.075, W, COL.stoff); B(1, 0.1, 0.1, 0.5, T, 0.05, COL.metall);
+    const sh = new THREE.Shape(); sh.moveTo(0, T); sh.lineTo(W, F); sh.lineTo(W, F - 0.16); sh.lineTo(0, F - 0.16); sh.closePath();
+    [0.02, 1.0].forEach((x) => out.push(part(new THREE.ExtrudeGeometry(sh, { depth: 0.02, bevelEnabled: false }), shade("#4A6D7C", 0.88), base.clone().multiply(new THREE.Matrix4().makeTranslation(x, 0, 0)).multiply(new THREE.Matrix4().makeRotationY(-Math.PI / 2)), 0, seed + 90 + out.length)));
+  } else {   // Kassettenmarkise: Stein mit Schiefer-Mittelstreifen, Rollbalken vorn, zwei Gelenkarme darunter
+    cloth(0, 0.34, COL.fliese); cloth(0.34, 0.66, COL.schiefer); cloth(0.66, 1, COL.fliese);
+    B(1, 0.14, 0.14, 0.5, T, 0.07, shade(COL.fliese, 0.8)); B(1, 0.06, 0.06, 0.5, F - 0.02, W + 0.01, COL.metall);
+    [0.2, 0.8].forEach((x) => B(0.025, 0.025, L, x, (T + F) / 2 - 0.035, W / 2, COL.metall, sl));
+  }
 }
 // Möbel (lokal um die Zellmitte, vorne = +z)
 function objParts(id, seed) {
@@ -254,6 +331,41 @@ function objParts(id, seed) {
       let x = -0.82; let k = 0;
       while (x < 0.78) { const w = 0.1 + hash2(sh, k, seed) * 0.12, h = 0.14 + hash2(k, sh, seed + 1) * 0.18; if (x + w > 0.84) break; B(w - 0.015, h, 0.34, x + w / 2, y + 0.015 + h / 2, 0.04, pc[Math.floor(hash2(k, sh, seed + 2) * pc.length)]); x += w; k++; }
     }
+  } else if (id === "einkaufswagen") {
+    // fünf ineinander geschobene Einkaufswagen (Drahtkorb, Koralle-Griff, Rollen): jeder hängt 10 cm weiter hinten und etwas höher auf der Rampe des Vordermanns
+    const wire = COL.stahl, wireD = shade(COL.stahl, 0.8);
+    for (let i = 0; i < 5; i++) {
+      const oz = 0.2 - i * 0.1, oy = i * 0.035, b = (w, h, d, x, y, z, c) => B(w, h, d, x, y + oy, z + oz, c);
+      // Fahrgestell: zwei Längsstreben, zwei Querstreben, vier Rollen
+      b(0.025, 0.025, 0.7, -0.17, 0.12, 0, wireD); b(0.025, 0.025, 0.7, 0.17, 0.12, 0, wireD); b(0.36, 0.025, 0.025, 0, 0.12, 0.33, wireD); b(0.36, 0.025, 0.025, 0, 0.12, -0.3, wireD);
+      [[-0.17, 0.3], [0.17, 0.3], [-0.17, -0.28], [0.17, -0.28]].forEach((q) => P.push(part(new THREE.CylinderGeometry(0.04, 0.04, 0.025, 8), COL.dunkel, new THREE.Matrix4().makeTranslation(q[0], 0.04 + oy, q[1] + oz).multiply(new THREE.Matrix4().makeRotationZ(Math.PI / 2)), 0, seed + P.length)));
+      b(0.02, 0.1, 0.02, -0.17, 0.075, 0.3, wireD); b(0.02, 0.1, 0.02, 0.17, 0.075, 0.3, wireD); b(0.02, 0.1, 0.02, -0.17, 0.075, -0.28, wireD); b(0.02, 0.1, 0.02, 0.17, 0.075, -0.28, wireD);
+      // Korb: Boden, oberer Rand rundum, Mittelstreben, senkrechte Stäbe an den Seiten
+      b(0.36, 0.012, 0.62, 0, 0.27, 0.02, wire);
+      b(0.015, 0.015, 0.7, -0.215, 0.52, 0, wire); b(0.015, 0.015, 0.7, 0.215, 0.52, 0, wire); b(0.43, 0.015, 0.015, 0, 0.52, 0.34, wire); b(0.43, 0.015, 0.015, 0, 0.52, -0.34, wire);
+      b(0.012, 0.012, 0.66, -0.19, 0.4, 0, wireD); b(0.012, 0.012, 0.66, 0.19, 0.4, 0, wireD);
+      for (let k = 0; k < 5; k++) { const z = -0.3 + k * 0.15; b(0.012, 0.25, 0.012, -0.2, 0.395, z, wire); b(0.012, 0.25, 0.012, 0.2, 0.395, z, wire); }
+      b(0.012, 0.25, 0.012, -0.1, 0.395, 0.34, wire); b(0.012, 0.25, 0.012, 0.1, 0.395, 0.34, wire);
+      // Griff hinten (Koralle) und Kassenmünz-Schloss
+      b(0.02, 0.42, 0.02, -0.2, 0.7, -0.34, wire); b(0.02, 0.42, 0.02, 0.2, 0.7, -0.34, wire); b(0.46, 0.035, 0.035, 0, 0.92, -0.35, COL.koralle);
+    }
+  } else if (id === "kasse") {
+    // Kassenplatz (vorne = +z ist die Seite der Kassiererin): Laufband-Korpus, Scanner-Theke, Kassenblock mit Display, Kassenlicht
+    const kb = "#4A6D7C";
+    B(1.25, 0.72, 0.46, -0.275, 0.36, -0.22, kb); B(1.25, 0.05, 0.03, -0.275, 0.745, -0.435, COL.stahl); B(1.25, 0.05, 0.03, -0.275, 0.745, -0.005, COL.stahl);
+    B(1.2, 0.03, 0.4, -0.275, 0.755, -0.22, "#1B1C1F");   // Laufband
+    for (let k = 0; k < 12; k++) B(0.014, 0.004, 0.4, -0.82 + k * 0.1, 0.772, -0.22, "#33373A");
+    B(0.04, 0.05, 0.42, -0.9, 0.76, -0.22, COL.metall); B(0.04, 0.05, 0.42, 0.33, 0.76, -0.22, COL.metall);   // Umlenkrollen
+    B(0.05, 0.07, 0.36, -0.1, 0.8, -0.22, COL.koralle);   // Warentrenner
+    B(1.25, 0.9, 0.45, -0.275, 0.45, 0.225, kb); B(1.27, 0.035, 0.47, -0.275, 0.9175, 0.225, COL.fliese);   // Scan-Theke
+    B(0.32, 0.012, 0.22, -0.2, 0.942, 0.22, COL.dunkel); B(0.28, 0.008, 0.18, -0.2, 0.95, 0.22, "#9FD6E2");   // Scanner-Glas
+    B(0.02, 0.38, 0.02, 0.22, 1.12, 0.38, COL.metall); B(0.24, 0.2, 0.01, 0.22, 1.32, 0.385, COL.koralle);   // Tütenhalter mit Tüten
+    B(0.52, 0.95, 0.9, 0.64, 0.475, 0, kb); B(0.54, 0.035, 0.92, 0.64, 0.9675, 0, COL.fliese);   // Kassenblock
+    B(0.04, 0.2, 0.04, 0.62, 1.085, 0.12, COL.metall); B(0.3, 0.2, 0.03, 0.62, 1.3, 0.12, COL.dunkel); B(0.26, 0.16, 0.012, 0.62, 1.3, 0.136, "#9FD6E2");   // Display
+    B(0.1, 0.04, 0.14, 0.5, 1.005, -0.12, COL.dunkel); B(0.07, 0.01, 0.06, 0.5, 1.028, -0.13, "#9FD6E2");   // Kartenleser
+    B(0.14, 0.1, 0.14, 0.78, 1.04, 0.15, COL.weiss);   // Bondrucker
+    B(0.4, 0.1, 0.01, 0.64, 0.8, 0.455, COL.stahl);   // Geldschublade
+    B(0.04, 0.8, 0.04, 0.86, 1.4, -0.4, COL.metall); B(0.34, 0.26, 0.05, 0.86, 1.95, -0.4, COL.koralle); B(0.22, 0.16, 0.052, 0.86, 1.95, -0.4, COL.weiss); B(0.04, 0.11, 0.054, 0.86, 1.95, -0.4, COL.dunkel);   // Kassenlicht mit Nummer
   } else if (id === "teppich") {
     B(1.6, 0.012, 1.1, 0, 0.006, 0, COL.koralle); B(1.4, 0.014, 0.9, 0, 0.007, 0, shade(COL.koralle, 0.82));
   }
@@ -279,7 +391,26 @@ export function buildHouse(def, opts) {
       if (!gard) { ext(E.ax, E.az); ext(E.ax + E.ux, E.az + E.uz); }   // Zaun/Hecke zählen nicht zur Grundfläche des Hauses (Drehpunkt bleibt gleich)
       ext2(E.ax, E.az); ext2(E.ax + E.ux, E.az + E.uz);
       if (!def2.rail && !gard) { [[E.ax, E.az], [E.ax + E.ux, E.az + E.uz]].forEach((v) => { const k = v[0] + "," + v[1] + "," + l; if (!posts[k]) posts[k] = def2.c; }); }
-      if (def2.door) {
+      if (def2.auto) {
+        // Automatik-Schiebetür (seit v0.19.7): zwei Glasflügel auf einer Schiene, laufen nach außen auseinander (weg von der Mitte, vor der Nachbarwand)
+        const pv = new THREE.Group(); pv.position.set(E.ax, y0, E.az); pv.rotation.y = Math.atan2(-E.uz, E.ux);
+        const fr = [], gl = [], zc = 0.09, lw = 0.395, h = 2.04;
+        [[0.1, 0.495], [0.505, 0.9]].forEach((q, j) => {
+          const u0 = q[0], u1 = q[1], w = u1 - u0, fb = (ww, hh, xx, yy) => fr.push(part(new THREE.BoxGeometry(ww, hh, 0.045), COL.stahl, M(xx, yy, zc, 1), 0, seed + 20 + j * 8 + fr.length));
+          fb(w, 0.05, (u0 + u1) / 2, 0.045); fb(w, 0.05, (u0 + u1) / 2, h + 0.015); fb(0.04, h, u0 + 0.02, h / 2 + 0.02); fb(0.04, h, u1 - 0.02, h / 2 + 0.02);
+          fb(w - 0.08, 0.03, (u0 + u1) / 2, 1.0);   // Querholm in Griffhöhe
+          const g = part(new THREE.BoxGeometry(w - 0.08, h - 0.08, 0.012), COL.glas, M((u0 + u1) / 2, h / 2 + 0.02, zc, 1), 0, seed + 40 + j); gl.push(g);
+        });
+        const mk = (arr, mat, j, glass) => { const m = new THREE.Mesh(merge(arr), mat); m.userData.pi = i; m.castShadow = !glass; m.receiveShadow = !glass; if (glass) m.renderOrder = 2; return m; };
+        // je Flügel eine Gruppe (Rahmen + Glas), damit sie sich getrennt verschieben lassen
+        const leaves = [0, 1].map((j) => { const grp = new THREE.Group(), n = fr.length / 2; grp.add(mk(fr.slice(j * n, (j + 1) * n), MAT, j, false)); grp.add(mk([gl[j]], GLASS, j, true)); pv.add(grp); return grp; });
+        out.group.add(pv);
+        const door = { pivot: pv, auto: true, leaves: leaves, open: 0, want: 0, l: l, ax: E.ax + E.ux * 0.1, az: E.az + E.uz * 0.1, bx: E.ax + E.ux * 0.9, bz: E.az + E.uz * 0.9, ux: E.ux, uz: E.uz, nx: E.nx, nz: E.nz, cx: E.ax + E.ux * 0.5, cz: E.az + E.uz * 0.5 };
+        out.doors.push(door);
+        out.segs.push({ ax: E.ax, az: E.az, bx: E.ax + E.ux * 0.1, bz: E.az + E.uz * 0.1, l: l, y1: y0 + LH });
+        out.segs.push({ ax: E.ax + E.ux * 0.9, az: E.az + E.uz * 0.9, bx: E.ax + E.ux, bz: E.az + E.uz, l: l, y1: y0 + LH });
+        out.segs.push({ ax: door.ax, az: door.az, bx: door.bx, bz: door.bz, l: l, y1: y0 + LH, door: door });
+      } else if (def2.door) {
         const pv = new THREE.Group(); pv.position.set(E.ax + E.ux * 0.12, y0, E.az + E.uz * 0.12); pv.rotation.y = Math.atan2(-E.uz, E.ux);
         const leaf = merge([part(new THREE.BoxGeometry(0.76, 2.08, 0.045), def2.plank ? COL.holzd : COL.holz, M(0.38, 1.04, 0, 1), 0, seed + 7),
           part(new THREE.BoxGeometry(0.03, 0.03, 0.12), COL.metall, M(0.66, 1.0, 0, 1), 0, seed + 8)]);
@@ -291,6 +422,7 @@ export function buildHouse(def, opts) {
         out.segs.push({ ax: door.ax, az: door.az, bx: door.bx, bz: door.bz, l: l, y1: y0 + LH, door: door });
       } else out.segs.push({ ax: E.ax, az: E.az, bx: E.ax + E.ux, bz: E.az + E.uz, l: l, y1: y0 + (def2.rail || def2.fence ? 1 : def2.hedge ? 1.3 : LH), rail: !!(def2.rail || def2.fence), th: def2.hedge ? 0.28 : def2.fence ? 0.05 : undefined, win: !!def2.win, garden: !!gard });
     } else if (def2.kind === "roof") { roofParts(def2, x, z, y0, r, s, seed, list); for (let k = 0; k < l; k++) out.cover.add(cellKey(x, z, k)); ext(x, z); ext(x + 1, z + 1); out.top = Math.max(out.top, y0 + s + 1.2); if (def2.flat) out.cells.add(cellKey(x, z, l)); }
+    else if (def2.kind === "deco") { awningParts(def2, edgeOf(x, z, r), y0, f, seed, list); }
     else if (def2.kind === "gable") { const E = edgeOf(x, z, r); gableParts(def2, E, y0, s, f, seed, list); out.top = Math.max(out.top, y0 + s + 1); }
     else if (def2.kind === "obj") {
       const ps = objParts(id, seed), g = merge(ps), m = new THREE.Matrix4().makeTranslation(x + 0.5, y0 + FLOOR, z + 0.5).multiply(new THREE.Matrix4().makeRotationY(-r * Math.PI / 2));
@@ -419,9 +551,17 @@ export class HouseInst {
     Object.keys(this.b.levels).forEach((k) => { const cut = l != null && +k > l; this.b.levels[k].userData.cut = cut; set(this.b.levels[k], cut); });
     this.b.doors.forEach((d) => set(d.pivot, l != null && d.l > l));
   }
-  update(dt) {
+  update(dt, pl) {
+    // Automatik-Schiebetür (seit v0.19.7): öffnet, wenn der Spieler (pl, Welt-Position) in 1,7 m vor oder hinter der Tür und auf gleicher Etage steht; zwei Flügel laufen auseinander
+    this.b.doors.forEach((d) => {
+      if (!d.auto) return;
+      let want = 0;
+      if (pl && this.reach(pl.x, pl.z, 3)) { const q = this.toLocal(pl.x, pl.z), dx = q.x - d.cx, dz = q.z - d.cz, py = pl.y - this.e.y; if (Math.abs(dx * d.ux + dz * d.uz) < 0.95 && Math.abs(dx * d.nx + dz * d.nz) < 1.7 && py > d.l * LH - 0.7 && py < d.l * LH + LH - 0.6) want = 1; }
+      d.want = want; d.open += Math.max(-dt * 1.8, Math.min(dt * 1.8, want - d.open));
+      d.leaves[0].position.x = -0.4 * d.open; d.leaves[1].position.x = 0.4 * d.open;
+    });
     // Tür schwingt in die Zelle hinein, an der sie gesetzt wurde (weg von der Normalen n)
-    this.b.doors.forEach((d) => { d.open += Math.max(-dt * 2.6, Math.min(dt * 2.6, d.want - d.open)); const ph = d.open * 1.75, c = Math.cos(ph), s = Math.sin(ph), dx = d.ux * c - d.nx * s, dz = d.uz * c - d.nz * s; d.pivot.rotation.y = Math.atan2(-dz, dx); });
+    this.b.doors.forEach((d) => { if (d.auto) return; d.open += Math.max(-dt * 2.6, Math.min(dt * 2.6, d.want - d.open)); const ph = d.open * 1.75, c = Math.cos(ph), s = Math.sin(ph), dx = d.ux * c - d.nx * s, dz = d.uz * c - d.nz * s; d.pivot.rotation.y = Math.atan2(-dz, dx); });
   }
   dispose() { this.root.traverse((o) => { if (o.geometry) o.geometry.dispose(); }); if (this.root.parent) this.root.parent.remove(this.root); }
 }

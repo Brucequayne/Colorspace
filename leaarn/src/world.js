@@ -110,7 +110,7 @@ export class World {
     else { this.terrain.recalc(); this.terrain.rebuild(); }
   }
   rebuildAll() { this.buildRoads(); this.terrain.recalc(); this.terrain.rebuild(); this.veg.rebuildGrid(); this.veg.refresh(true); this.setEnv(); }
-  update(dt) { this.veg.update(dt, this.env.wind / 100, this.env.windDir); this.veg.cull(this.engine.camera.position); this.houses.forEach((h) => h.update(dt)); }
+  update(dt) { this.veg.update(dt, this.env.wind / 100, this.env.windDir); this.veg.cull(this.engine.camera.position); this.houses.forEach((h) => h.update(dt, this.sensor)); }
   // road = Hauptstrecke (für ältere Versionen), roads = alle Straßen
   toJSON() { const rs = this.roads.filter((r) => r.pts.length > 1); return { v: 1, name: this.name, env: this.env, terrain: this.terrain.toJSON(), road: this.road.toJSON(), roads: rs.map((r) => r.toJSON()), veg: this.veg.toJSON(), objs: this.objs.toJSON(), houses: this.houses.map((h) => houseOut(h.e)) }; }
   fromJSON(o) {

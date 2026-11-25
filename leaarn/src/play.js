@@ -23,7 +23,7 @@ addTexts({
 export class Play {
   constructor(app, opts) {
     this.app = app; this.world = app.world; this.opts = opts || {};
-    const ch = charakter(); this.pl = new Player(this.world, ch);
+    const ch = charakter(); this.pl = new Player(this.world, ch); this.world.sensor = this.pl.p;   // Automatiktüren reagieren auf den Spieler (seit v0.19.7)
     this.cam = { yaw: 0, pitch: 0.36, dist: 5.2, inside: 0, pos: new THREE.Vector3(), look: new THREE.Vector3(), snap: true };
     this.act = null; this.learn = null; this.paused = false; this.btn = -1;
     this.hud = el("div", "le-hud", '<div class="le-money"><span>' + esc(ch && ch.name ? ch.name : "") + '</span><b id="le-money"></b></div><div class="le-gain" id="le-gain"></div><div class="le-prompt" id="le-prompt"></div><div class="le-focus" id="le-focus"><span>' + t("pFocus") + '</span><i><b id="le-fbar"></b></i><em id="le-fpct"></em></div><div class="le-where" id="le-where"></div><div class="le-help">' + t("pHelp") + "</div>");
@@ -47,7 +47,7 @@ export class Play {
     c.removeEventListener("pointerdown", this.onDown); window.removeEventListener("pointermove", this.onMove); window.removeEventListener("pointerup", this.onUp);
     c.removeEventListener("wheel", this.onWheel); c.removeEventListener("contextmenu", this.onCtx);
     if (this.learn) this.learn.dispose(); if (this.pm) this.pm.remove();
-    this.world.houses.forEach((h) => h.cutAbove(null));
+    this.world.houses.forEach((h) => h.cutAbove(null)); this.world.sensor = null;
     this.pl.dispose(); this.hud.remove();
   }
   // Kontostand oben rechts: zeigt "shown" (zählt beim Einsammeln mit den ankommenden Scheinen hoch)

@@ -170,6 +170,11 @@ Zaun (`zaun`) und Hecke (`hecke`) sind Kanten-Teile (`fence`/`hedge`), zählen n
 (`HouseInst.reach`, Grenzen `min2`/`max2`). `HouseEditor.autoGarden(id)`: Rand des Grundstücks (Etage 0), ohne Kanten mit Hauswand, Eingang 2 m vor der ersten Tür.
 Supermarkt-Teile mit `act: "laden"` und `laden: "tiefkuehl" | "obst" | "allg"` (Gefriertruhe, Obstregal, Warenregal) öffnen `Shop` (shop.js).
 
+Läden (seit v0.19.7): Wandteile `shopwin: 1|2|3` (Schaufenster, Glas als eigenes Netz), `door: true, auto: true` = Automatik-Schiebetür (zwei Flügelgruppen `door.leaves`,
+öffnet in `HouseInst.update(dt, pl)`, wenn der Spieler (`world.sensor`, gesetzt von Play) vor oder hinter der Tür steht; Kollision wie bei Türen über `s.door.open > 0.45`, keine E-Interaktion).
+Neue Bauteil-Art `kind: "deco"` (Markisen, `awn: 1|2|3`): liegt auf einer Kante, eigener Platz (`slot` "a…"), ersetzt die Wand nicht, ragt in die angeklickte Zelle, `p[6]` = 1 spiegelt die Seite.
+Kategorie `objekte` ersetzt `shop` (Teile-IDs unverändert); `HouseEditor` biegt eine gespeicherte Kategorie `shop` auf `objekte` um.
+
 ## Speicher im Browser
 
 `leaarn-scene-v1` (Map), `leaarn-save-v1` (Geld, Lernstatistik), `leaarn-houses-v1` (Häuser aus dem Haus-Editor),
