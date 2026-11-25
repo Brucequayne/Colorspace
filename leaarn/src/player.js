@@ -101,12 +101,12 @@ export class Player {
     const W = this.world, r = RADIUS;
     for (let it = 0; it < 3; it++) {
       for (const hs of W.houses) {
-        if (!hs.contains(p.x, p.z, 1.5)) continue;
+        if (!hs.reach(p.x, p.z, 1.5)) continue;
         const q = hs.toLocal(p.x, p.z), py = p.y - hs.e.y; let moved = false;
         for (const s of hs.b.segs) {
           const l0 = s.l * LH; if (py + HEIGHT < l0 || py > s.y1 - 0.3) continue;   // s.y1 ist im Haus gemessen
           if (s.door && s.door.open > 0.45) continue;
-          if (pushSeg(q, s.ax, s.az, s.bx, s.bz, r + (s.rail ? 0.04 : WT / 2))) moved = true;
+          if (pushSeg(q, s.ax, s.az, s.bx, s.bz, r + (s.th != null ? s.th : s.rail ? 0.04 : WT / 2))) moved = true;   // th: halbe Dicke (Hecke)
         }
         for (const b of hs.b.boxes) { const l0 = b.l * LH; if (py + 0.3 < l0 || py > l0 + LH - 0.2) continue; if (pushBox(q, b, r)) moved = true; }
         if (moved) { const w = hs.toWorld(q.x, q.z); p.x = w.x; p.z = w.z; }
@@ -157,7 +157,7 @@ function pushBox(q, b, r) {
 export function camHit(world, a, b) {
   let tb = 1;
   for (const hs of world.houses) {
-    if (!hs.contains(a.x, a.z, 12) && !hs.contains(b.x, b.z, 2)) continue;
+    if (!hs.reach(a.x, a.z, 12) && !hs.reach(b.x, b.z, 2)) continue;
     const qa = hs.toLocal(a.x, a.z), qb = hs.toLocal(b.x, b.z), ya = a.y - hs.e.y, yb = b.y - hs.e.y;
     for (const s of hs.b.segs) {
       if (s.door && s.door.open > 0.45) continue;

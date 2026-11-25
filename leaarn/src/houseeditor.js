@@ -14,13 +14,16 @@ addTexts({
   hNew: L2("Neues Haus", "New house"), hCopy: L2("Kopie", "Copy"), hDel: L2("Löschen", "Delete"), hExport: L2("Exportieren (.txt)", "Export (.txt)"), hImport: L2("Importieren (.txt)", "Import (.txt)"),
   hStarter: L2("Starterhaus als Vorlage", "Starter house as template"), hSure: L2("Dieses Haus löschen?", "Delete this house?"),
   hInfo: L2("{n} Bauteile · Grundfläche {w} × {d} m · {l} Etage(n)", "{n} parts · footprint {w} × {d} m · {l} floor(s)"),
-  hHelp: L2("Linke Maus setzt (Ziehen malt), Rechtsklick oder Umschalt+Links entfernt. Wände: die Kante unter der Maus wird gewählt. R dreht (Giebel: spiegeln). Bild↑/↓ Etage, ,/. Dachstufe, 1–4 Kategorie, Strg+Z/Y.", "Left mouse places (drag paints), right click or Shift+left removes. Walls: the edge under the mouse is used. R rotates (gable: mirror). PgUp/PgDn floor, ,/. roof step, 1–4 category, Ctrl+Z/Y."),
+  hHelp: L2("Linke Maus setzt (Ziehen malt), Rechtsklick oder Umschalt+Links entfernt. Wände: die Kante unter der Maus wird gewählt. R dreht (Giebel: spiegeln). Bild↑/↓ Etage, ,/. Dachstufe, 1–6 Kategorie, 7 Grundstück, Strg+Z/Y.", "Left mouse places (drag paints), right click or Shift+left removes. Walls: the edge under the mouse is used. R rotates (gable: mirror). PgUp/PgDn floor, ,/. roof step, 1–6 category, 7 plot, Ctrl+Z/Y."),
   hCam: L2("Kamera: Q/E halten oder rechte Maus ziehen drehen · mittlere Maus oder Umschalt+rechte verschieben · Rad zoomen · WASD bewegen", "Camera: hold Q/E or right drag rotate · middle mouse or Shift+right pan · wheel zoom · WASD move"),
   hBull: L2("Bulldozer", "Bulldozer"), hPlot: L2("Grundstück", "Plot"),
   hPlotHelp: L2("Linke Maus ziehen: Rechteck zum Grundstück hinzufügen · Umschalt+Ziehen oder Rechtsklick: entfernen. Auf der Map wird das ganze Grundstück flach gemacht, dort wachsen keine Pflanzen.", "Left drag: add a rectangle to the plot · Shift+drag or right click: remove. On the map the whole plot is levelled and no plants grow there."),
   hPlotAuto: L2("Grundstück ums Haus (+2 m)", "Plot around the house (+2 m)"), hPlotClear: L2("Grundstück löschen", "Clear plot"), hPlotSize: L2("{n} m² Grundstück", "{n} m² plot"), hBullOn: L2("Bulldozer: angeklicktes Teil wird abgerissen (Ziehen reißt mehrere ab) · B oder Esc zum Bauen", "Bulldozer: the clicked part is demolished (drag to demolish several) · B or Esc to build"),
   hNote: L2("Für das Spiel: exportieren und mir die .txt schicken – ich mache daraus ein fertiges Haus für den Map-Editor. Häuser aus dieser Liste kannst du im Map-Editor (Werkzeug Häuser) schon jetzt als „lokal“ platzieren und testen.", "For the game: export and send me the .txt – I turn it into a finished house for the map editor. Houses from this list can already be placed in the map editor (houses tool) as “local” for testing."),
   hDone: L2("Exportiert: {f}", "Exported: {f}"), hBad: L2("Datei konnte nicht gelesen werden.", "The file could not be read."), hLoaded: L2("Geladen: {n}", "Loaded: {n}"),
+  hFence: L2("Zaun ums Grundstück", "Fence around the plot"), hHedge: L2("Hecke ums Grundstück", "Hedge around the plot"), hGClear: L2("Zaun und Hecke entfernen", "Remove fence and hedge"),
+  hGNote: L2("Baut Zaun oder Hecke automatisch auf den Rand des Grundstücks (ohne Grundstück: erst ums Haus +2 m). Vor der Haustür bleiben 2 m als Eingang frei.", "Builds a fence or hedge along the plot edge (no plot yet: around the house +2 m first). 2 m in front of the front door stay open as an entrance."),
+  hGDone: L2("{n} m gebaut, Eingang vor der Tür frei", "{n} m built, entrance in front of the door left open"),
   hRot: L2("Drehung", "Rotation"), hMirror: L2("gespiegelt", "mirrored"), hPart: L2("Bauteil", "Part")
 });
 
@@ -87,8 +90,8 @@ export class HouseEditor {
   panel() {
     const s = this.s, d = this.def, P = this.root.querySelector("#le-panel"), L = this.root.querySelector("#le-hparts");
     const seg = (k, opts, cur) => '<div class="le-seg">' + opts.map((o) => '<button data-seg="' + k + '" data-v="' + o[0] + '" aria-pressed="' + (String(cur) === String(o[0])) + '">' + o[1] + "</button>").join("") + "</div>";
-    L.innerHTML = '<button class="le-bull" data-e="bull" aria-pressed="' + !!s.bull + '"><i>B</i>' + t("hBull") + "</button>" + '<div class="le-seg le-cats">' + CATS.map((c, i) => '<button data-cat="' + c[0] + '" aria-pressed="' + (s.cat === c[0]) + '"><i>' + (i + 1) + "</i>" + tl(c[1]) + "</button>").join("") + '<button data-cat="plot" class="le-plotb" aria-pressed="' + (s.cat === "plot") + '"><i>5</i>' + t("hPlot") + "</button></div>" +
-      (s.cat === "plot" ? '<div class="le-plist le-plotp"><p>' + t("hPlotHelp") + '</p><p class="le-dim">' + fmt(t("hPlotSize"), { n: (this.def.plot || []).length }) + '</p><button data-e="plotauto">' + t("hPlotAuto") + '</button><button data-e="plotclear">' + t("hPlotClear") + "</button></div>" :
+    L.innerHTML = '<button class="le-bull" data-e="bull" aria-pressed="' + !!s.bull + '"><i>B</i>' + t("hBull") + "</button>" + '<div class="le-seg le-cats">' + CATS.map((c, i) => '<button data-cat="' + c[0] + '" aria-pressed="' + (s.cat === c[0]) + '"><i>' + (i + 1) + "</i>" + tl(c[1]) + "</button>").join("") + '<button data-cat="plot" class="le-plotb" aria-pressed="' + (s.cat === "plot") + '"><i>' + (CATS.length + 1) + "</i>" + t("hPlot") + "</button></div>" +
+      (s.cat === "plot" ? '<div class="le-plist le-plotp"><p>' + t("hPlotHelp") + '</p><p class="le-dim">' + fmt(t("hPlotSize"), { n: (this.def.plot || []).length }) + '</p><button data-e="plotauto">' + t("hPlotAuto") + '</button><button data-e="plotclear">' + t("hPlotClear") + '</button><h4>' + tl(CATS.find((c) => c[0] === "garden")[1]) + '</h4><p class="le-dim">' + t("hGNote") + '</p><button data-e="plotfence">' + t("hFence") + '</button><button data-e="plothedge">' + t("hHedge") + '</button><button data-e="plotgclear">' + t("hGClear") + "</button></div>" :
       '<div class="le-plist">' + Object.keys(PARTS).filter((k) => PARTS[k].cat === s.cat).map((k) => '<button data-part="' + k + '" aria-pressed="' + (s.part === k) + '"><i style="background:' + swatch(k) + '"></i>' + partName(k) + "</button>").join("") + "</div>");
     const b = this.bounds(), lv = new Set(d.parts.map((p) => p[4] | 0));
     let h = "<h3>" + t("hTitle") + '</h3><label class="le-row"><span>' + t("hName") + '</span><input type="text" data-k="name" value="' + esc(d.name || "") + '"></label>' +
@@ -117,6 +120,8 @@ export class HouseEditor {
     const sg = e.target.closest("[data-seg]"); if (sg) { this.s[sg.getAttribute("data-seg")] = +sg.getAttribute("data-v"); this.rebuild(); this.panel(); this.saveUI(); return; }
     const b = e.target.closest("[data-e]"); if (!b) return; const a = b.getAttribute("data-e");
     if (a === "bull") { this.setBull(!this.s.bull); return; }
+    if (a === "plotfence" || a === "plothedge") { this.push(); const n = this.autoGarden(a === "plotfence" ? "zaun" : "hecke"); this.after2(); this.app.toast(fmt(t("hGDone"), { n: n })); return; }
+    if (a === "plotgclear") { this.push(); this.def.parts = this.def.parts.filter((p) => !(PARTS[p[0]] && (PARTS[p[0]].fence || PARTS[p[0]].hedge))); this.after2(); return; }
     if (a === "plotclear") { this.push(); this.def.plot = []; this.plotMesh(); this.save(); this.panel(); return; }
     if (a === "plotauto") { const b = buildHouse(this.def); this.push(); this.def.plot = []; this.plotApply([Math.floor(b.min[0]) - 2, Math.floor(b.min[1]) - 2, Math.ceil(b.max[0]) + 1, Math.ceil(b.max[1]) + 1], false); return; }
     if (a === "undo") this.doUndo(); else if (a === "redo") this.doRedo();
@@ -140,6 +145,32 @@ export class HouseEditor {
       const f = e.target.files[0]; e.target.value = "";
       f.text().then((txt) => { const d = parseHouse(txt); if (!d) { this.app.toast(t("hBad")); return; } this.list.push(d); this.s.cur = this.list.length - 1; this.after(); this.app.toast(fmt(t("hLoaded"), { n: d.name })); });
     }
+  }
+  // nach automatischen Änderungen: neu bauen, speichern, Liste aktualisieren
+  after2() { this.rebuild(); this.plotMesh(); this.save(); this.panel(); }
+  // Zaun/Hecke automatisch auf den Grundstücksrand (Etage 0). Kanten mit Hauswand werden ausgelassen,
+  // vor der Haustür bleibt ein 2 m breiter Eingang frei. Gibt die gebauten Meter zurück.
+  autoGarden(id) {
+    const d = this.def, PS = d.parts;
+    if (!(d.plot || []).length) { const b = buildHouse(d), R = [Math.floor(b.min[0]) - 2, Math.floor(b.min[1]) - 2, Math.ceil(b.max[0]) + 1, Math.ceil(b.max[1]) + 1]; d.plot = []; for (let x = R[0]; x <= R[2]; x++) for (let z = R[1]; z <= R[3]; z++) d.plot.push([x, z]); }
+    d.parts = PS.filter((p) => !(PARTS[p[0]] && (PARTS[p[0]].fence || PARTS[p[0]].hedge)));
+    const plot = new Set(d.plot.map((c) => c[0] + "," + c[1])), walls = new Set(), floors = new Set();
+    d.parts.forEach((p) => { const k = PARTS[p[0]]; if (!k || (p[4] | 0) !== 0) return; if (k.kind === "wall") walls.add(edgeKey(p[1], p[2], p[3], 0)); if (k.kind === "floor") floors.add(p[1] + "," + p[2]); });
+    const NB = [[0, -1], [1, 0], [0, 1], [-1, 0]], edges = [];
+    d.plot.forEach((c) => { for (let r = 0; r < 4; r++) { if (plot.has((c[0] + NB[r][0]) + "," + (c[1] + NB[r][1]))) continue; const k = edgeKey(c[0], c[1], r, 0); if (!walls.has(k)) edges.push([c[0], c[1], r]); } });
+    // Eingang: Haustür (erste Tür auf Etage 0) → nach außen zeigende Seite, dort die Randkante(n) direkt davor freilassen
+    const door = d.parts.find((p) => PARTS[p[0]] && PARTS[p[0]].door && (p[4] | 0) === 0);
+    let r0 = 2, cx = null;
+    if (door) { const inC = floors.has(door[1] + "," + door[2]); r0 = inC ? door[3] & 3 : (door[3] + 2) & 3; const E = [[0.5, 0], [1, 0.5], [0.5, 1], [0, 0.5]][door[3] & 3]; cx = [door[1] + E[0], door[2] + E[1]]; }
+    const side = edges.filter((e) => e[2] === r0);
+    if (side.length) {
+      if (!cx) { const xs = side.map((e) => (r0 & 1 ? e[1] : e[0])); const mid = (Math.min(...xs) + Math.max(...xs) + 1) / 2; cx = r0 & 1 ? [0, mid] : [mid, 0]; }
+      const lat = (e) => (r0 & 1 ? Math.abs(e[1] + 0.5 - cx[1]) : Math.abs(e[0] + 0.5 - cx[0])), dist = (e) => (r0 & 1 ? Math.abs(e[0] - cx[0]) : Math.abs(e[2] === 0 ? e[1] - cx[1] : e[1] + 1 - cx[1]));
+      const front = side.filter((e) => lat(e) < 1.6).sort((a, b) => dist(a) - dist(b) || lat(a) - lat(b));
+      const g1 = front[0]; if (g1) { const line = side.filter((e) => (r0 & 1 ? e[0] === g1[0] : e[1] === g1[1])).sort((a, b) => lat(a) - lat(b)); const gap = new Set(line.slice(0, 2).map((e) => e.join(","))); for (let i = edges.length - 1; i >= 0; i--) if (gap.has(edges[i].join(","))) edges.splice(i, 1); }
+    }
+    edges.forEach((e) => d.parts.push([id, e[0], e[1], e[2], 0]));
+    return edges.length;
   }
   setCat(c) { this.s.cat = c; this.s.bull = false; this.root.classList.remove("le-bullon"); if (c !== "plot" && (!PARTS[this.s.part] || PARTS[this.s.part].cat !== c)) this.s.part = Object.keys(PARTS).find((k) => PARTS[k].cat === c); this.panel(); this.saveUI(); this.gkey = ""; }
   after() { this.undo = []; this.redo = []; this.save(); this.rebuild(); this.panel(); this.saveUI(); }
@@ -265,7 +296,7 @@ export class HouseEditor {
     if ((e.ctrlKey || e.metaKey) && e.code === "KeyZ") { e.shiftKey ? this.doRedo() : this.doUndo(); return true; }
     if ((e.ctrlKey || e.metaKey) && e.code === "KeyY") { this.doRedo(); return true; }
     const n = parseInt(e.key, 10); if (n >= 1 && n <= CATS.length && !e.ctrlKey) { this.setCat(CATS[n - 1][0]); return true; }
-    if (n === 5 && !e.ctrlKey) { this.setCat("plot"); return true; }
+    if (n === CATS.length + 1 && !e.ctrlKey) { this.setCat("plot"); return true; }
     if (e.code === "KeyB" && !e.ctrlKey) { this.setBull(!this.s.bull); return true; }
     if (e.code === "Escape" && this.s.bull) { this.setBull(false); return true; }
     if (e.code === "KeyQ" || e.code === "KeyE") return true;   // Kamera drehen (gehalten, siehe update)

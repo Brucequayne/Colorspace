@@ -3,6 +3,17 @@
    Die Versionsnummer auf den Kacheln kommt aus dem obersten Eintrag. */
 window.PATCHNOTES = {
   leaarn: [
+    { v: "0.17", t: "2026-11-25T03:20:00+01:00",
+      de: ["Neu: Fokus. Die Leiste oben links lädt sich, während du eine Lern-Challenge spielst – von leer auf voll in 5 Minuten. Nur das Laptop-Menü offen zu haben reicht nicht. Läufst du in der Welt herum, ohne zu lernen, sinkt der Fokus langsam: von voll auf leer in 10 Minuten.",
+        "Voller Fokus lohnt sich: Ist die Leiste voll, bekommst du auf jedes abgeschlossene Lernspiel 15 % mehr Belohnung. Der Bonus steht auf dem Ergebnis-Bildschirm, im Laptop siehst du den Fokus oben in der Leiste.",
+        "Supermarkt, erste Regale: Gefriertruhe, Obst- und Gemüseregal und Supermarktregal im Haus-Editor (neue Kategorie „Supermarkt“). Mit E kaufst du dort ein, bezahlt wird vom Kontostand, die Ware landet im Inventar. Als erste Ware gibt es Äpfel am Obstregal, weitere Waren folgen.",
+        "Garten: Holzzaun und Hecke als neue Kategorie im Haus-Editor, gesetzt wie Wände auf die Zellkanten. Im Reiter „Grundstück“ baut ein Knopf Zaun oder Hecke automatisch rund ums Grundstück, vor der Haustür bleibt ein 2 m breiter Eingang frei. Zaun und Hecke halten die Figur auf.",
+        "Map-Editor: Die Kamera dreht sich jetzt auch, solange du Q oder E gedrückt hältst."],
+      en: ["New: focus. The bar at the top left charges while you play a learning challenge – from empty to full in 5 minutes. Just having the laptop menu open doesn't count. Walking around the world without learning slowly drains it: from full to empty in 10 minutes.",
+        "Full focus pays off: when the bar is full you get 15 % more reward for every finished learning game. The bonus is shown on the results screen, the laptop shows your focus in its top bar.",
+        "Supermarket, first shelves: chest freezer, fruit & veg stand and supermarket shelf in the house editor (new category “Supermarket”). Press E to shop there, you pay from your balance and the goods go into your inventory. Apples at the fruit stand are the first item, more goods will follow.",
+        "Garden: wooden fence and hedge as a new house editor category, placed on cell edges like walls. In the “Plot” tab one button builds a fence or hedge around the whole plot, leaving a 2 m entrance in front of the front door. Fences and hedges block the character.",
+        "Map editor: the camera now also rotates while you hold Q or E."] },
     { v: "0.16", t: "2026-11-25T02:55:00+01:00",
       de: ["Hinsetzen: Auf Stuhl, Sofa (zwei Plätze) und Bettkante setzt du dich mit E. Aufstehen mit E oder einfach loslaufen. Die Figur hat dafür jetzt Kniegelenke – auch beim Laufen beugen sich die Knie.",
         "Der Stuhl am Schreibtisch gehört zum Laptop: Öffnest du den Laptop, setzt du dich automatisch hin und tippst, beim Zuklappen stehst du wieder auf.",

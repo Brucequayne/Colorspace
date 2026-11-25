@@ -19,12 +19,14 @@ export const CELL = 1, LH = 2.8, FLOOR = 0.12, WT = 0.14;   // Zelle, Etagenhöh
 
 // Farben (Palette: Stein, Petrol, Stahlblau, Koralle, Schiefer + Holz/Ziegel)
 const COL = { putz: "#D9D6CC", ziegel: "#A9533F", holz: "#8A6142", holzd: "#5E4330", rahmen: "#ECEAE4", glas: "#7FB4C4", schiefer: "#475657", terra: "#B4583F",
-  boden: "#9C7552", fliese: "#C6C5B9", beton: "#8E918F", teppich: "#4A6D7C", platten: "#A3A49C", metall: "#5A5F63", dunkel: "#2B2E30", stoff: "#62929E", koralle: "#ED6A5E", weiss: "#F2F0EA", gruen: "#5D8A4E" };
+  boden: "#9C7552", fliese: "#C6C5B9", beton: "#8E918F", teppich: "#4A6D7C", platten: "#A3A49C", metall: "#5A5F63", dunkel: "#2B2E30", stoff: "#62929E", koralle: "#ED6A5E", weiss: "#F2F0EA", gruen: "#5D8A4E",
+  hecke: "#4E7A3E", eis: "#BFE3EC", stahl: "#A9AEB1", kiste: "#9C7552" };
 
 // Bauteil-Katalog. kind: floor (Zelle), wall (Kante), roof (Zelle, Stufe), gable (Kante, Stufe), obj (Zelle, Drehung)
 // box: Kollision [Breite, Tiefe] in m (lokal, vor der Drehung), act: Interaktion
 // sit (seit v0.16): Sitzplätze [x, z, Blickrichtung x, Blickrichtung z, Sitzhöhe] lokal um die Zellmitte (Taste E)
 // lager (seit v0.16): Möbel mit Inventar (8 × 8), Art siehe LAGER in items.js
+// fence / hedge (seit v0.17): Zaun und Hecke auf Zellkanten (Grundstücksgrenze), laden (seit v0.17): Supermarkt-Regal, Art siehe LADEN in shop.js
 export const PARTS = {
   // Böden
   "boden-holz": { kind: "floor", cat: "floor", n: L2("Holzboden", "Wooden floor"), c: COL.boden, plank: true },
@@ -62,9 +64,16 @@ export const PARTS = {
   "lampe": { kind: "obj", cat: "obj", n: L2("Stehlampe", "Floor lamp"), box: null },
   "pflanze": { kind: "obj", cat: "obj", n: L2("Zimmerpflanze", "House plant"), box: null },
   "teppich": { kind: "obj", cat: "obj", n: L2("Teppich", "Rug"), box: null },
-  "ghettoblaster": { kind: "obj", cat: "obj", n: L2("Ghettoblaster (Musik, E)", "Boombox (music, E)"), box: [0.66, 0.26], act: "musik" }
+  "ghettoblaster": { kind: "obj", cat: "obj", n: L2("Ghettoblaster (Musik, E)", "Boombox (music, E)"), box: [0.66, 0.26], act: "musik" },
+  // Garten (seit v0.17): Grundstücksgrenze, auf Zellkanten wie Wände
+  "zaun": { kind: "wall", cat: "garden", n: L2("Holzzaun", "Wooden fence"), c: COL.holz, fence: true },
+  "hecke": { kind: "wall", cat: "garden", n: L2("Hecke", "Hedge"), c: COL.hecke, hedge: true },
+  // Supermarkt (seit v0.17): Regale, an denen man später Waren kauft (E)
+  "kuehltruhe": { kind: "obj", cat: "shop", n: L2("Gefriertruhe (Einkaufen, E)", "Chest freezer (shop, E)"), c: COL.eis, box: [1.8, 0.85], act: "laden", laden: "tiefkuehl" },
+  "obstregal": { kind: "obj", cat: "shop", n: L2("Obst- und Gemüseregal (Einkaufen, E)", "Fruit & veg stand (shop, E)"), c: "#C9483C", box: [1.8, 0.9], act: "laden", laden: "obst" },
+  "warenregal": { kind: "obj", cat: "shop", n: L2("Supermarktregal (Einkaufen, E)", "Supermarket shelf (shop, E)"), c: COL.stahl, box: [1.8, 0.6], act: "laden", laden: "allg" }
 };
-export const CATS = [["floor", L2("Böden", "Floors")], ["wall", L2("Wände", "Walls")], ["roof", L2("Dach", "Roof")], ["obj", L2("Möbel", "Furniture")]];
+export const CATS = [["floor", L2("Böden", "Floors")], ["wall", L2("Wände", "Walls")], ["roof", L2("Dach", "Roof")], ["obj", L2("Möbel", "Furniture")], ["garden", L2("Garten", "Garden")], ["shop", L2("Supermarkt", "Supermarket")]];
 export const partName = (id) => (PARTS[id] ? tl(PARTS[id].n) : id);
 
 // Kante als Strecke: Startpunkt a, Richtung u, Normale n (nach außen aus der Zelle)
@@ -92,6 +101,18 @@ function shade(c, k) { const x = new THREE.Color(c); x.multiplyScalar(k); return
 // Wand mit Fenster/Tür/Geländer. Wandstücke laufen von t/2 bis 1 - t/2, die Ecken füllen Pfosten.
 function wallParts(def, E, y0, seed, out) {
   const t = WT, H = LH, a = t / 2, b = 1 - t / 2, c = def.c;
+  if (def.fence) {   // Holzzaun: zwei Pfosten, zwei Querlatten, senkrechte Latten (1 m hoch)
+    bx(out, E, 0, 0.09, y0, y0 + 1.05, 0.09, shade(c, 0.85), 0, seed); bx(out, E, 0.91, 1, y0, y0 + 1.05, 0.09, shade(c, 0.85), 0, seed + 1);
+    bx(out, E, 0, 1, y0 + 0.28, y0 + 0.34, 0.04, shade(c, 0.78), -0.035, seed + 2); bx(out, E, 0, 1, y0 + 0.72, y0 + 0.78, 0.04, shade(c, 0.78), -0.035, seed + 3);
+    for (let k = 0; k < 7; k++) { const u = 0.12 + k * 0.127; bx(out, E, u, u + 0.08, y0 + 0.04, y0 + 0.92 + (k & 1 ? 0.03 : 0), 0.02, c, 0.01, seed + 4 + k); }
+    return;
+  }
+  if (def.hedge) {   // Hecke: dichter Block mit unregelmäßiger Oberkante, zwei Grüntöne
+    bx(out, E, -0.03, 1.03, y0, y0 + 1.15, 0.55, c, 0, seed);
+    for (let k = 0; k < 3; k++) { const u = k / 3, hh = 1.15 + 0.06 + hash2(seed, k, 3) * 0.1; bx(out, E, u + 0.02, u + 0.31, y0 + 1.0, y0 + hh, 0.46 + hash2(k, seed, 5) * 0.06, shade(c, 1.06 + hash2(seed, k, 9) * 0.1), 0, seed + 1 + k); }
+    bx(out, E, 0.1, 0.9, y0 + 0.35, y0 + 0.75, 0.58, shade(c, 0.9), 0, seed + 5);
+    return;
+  }
   if (def.rail) {
     bx(out, E, a, b, y0 + 0.92, y0 + 1.0, 0.07, c, 0, seed);
     for (let k = 0; k < 4; k++) { const u = a + 0.08 + k * (b - a - 0.16) / 3; bx(out, E, u - 0.025, u + 0.025, y0, y0 + 0.92, 0.05, c, 0, seed + k); }
@@ -205,6 +226,34 @@ function objParts(id, seed) {
     for (let k = 0; k < 4; k++) B(0.025, 0.02, 0.03, -0.045 + k * 0.03, 0.29, 0.08, k === 0 ? COL.koralle : "#8E918F");
     B(0.04, 0.12, 0.04, -0.2, 0.44, 0, "#5A5F63"); B(0.04, 0.12, 0.04, 0.2, 0.44, 0, "#5A5F63"); B(0.44, 0.03, 0.05, 0, 0.5, 0, "#5A5F63");
     P.push(part(new THREE.CylinderGeometry(0.006, 0.008, 0.55, 5), "#B8B6AE", new THREE.Matrix4().makeTranslation(0.27, 0.6, -0.05).multiply(new THREE.Matrix4().makeRotationZ(-0.45)), 0, seed + 80));
+  } else if (id === "kuehltruhe") {
+    // offene Gefriertruhe: weiße Wanne, eisblauer Innenraum, Tiefkühl-Packungen, blaue Blende, Glasschiebedeckel-Rahmen
+    B(1.8, 0.1, 0.85, 0, 0.05, 0, COL.dunkel); B(1.8, 0.78, 0.07, 0, 0.47, 0.39, COL.weiss); B(1.8, 0.78, 0.07, 0, 0.47, -0.39, COL.weiss);
+    B(0.07, 0.78, 0.85, -0.865, 0.47, 0, COL.weiss); B(0.07, 0.78, 0.85, 0.865, 0.47, 0, COL.weiss); B(1.66, 0.04, 0.71, 0, 0.55, 0, COL.eis);
+    B(1.8, 0.1, 0.02, 0, 0.72, 0.43, COL.teppich); B(1.8, 0.03, 0.09, 0, 0.87, 0.39, COL.stahl); B(1.8, 0.03, 0.09, 0, 0.87, -0.39, COL.stahl); B(0.03, 0.03, 0.7, 0, 0.87, 0, COL.stahl);
+    const tk = [COL.koralle, "#E8C66A", COL.teppich, "#7FB4C4", COL.weiss, "#5D8A4E"];
+    for (let k = 0; k < 14; k++) { const x = -0.74 + (k % 7) * 0.245, z = k < 7 ? -0.17 : 0.17, h = 0.08 + hash2(k, 2, seed) * 0.1; B(0.2, h, 0.26, x, 0.57 + h / 2, z, tk[Math.floor(hash2(k, 5, seed) * tk.length)], (hash2(k, 7, seed) - 0.5) * 0.4); }
+  } else if (id === "obstregal") {
+    // Obst- und Gemüsestand: Unterschrank, drei schräge Kistenreihen mit Obst/Gemüse, grüne Rückwand
+    B(1.8, 0.32, 0.9, 0, 0.16, 0, COL.holzd); B(1.8, 1.0, 0.05, 0, 0.95, -0.43, COL.gruen); B(1.8, 0.14, 0.06, 0, 1.38, -0.42, COL.weiss);
+    const fc = ["#C9483C", "#E8C66A", "#E8873C", "#6FA84E", "#7A4E8C", "#8A6142", "#F0D85A", "#4E8A3E"];
+    for (let row = 0; row < 3; row++) for (let k = 0; k < 4; k++) {
+      const x = -0.66 + k * 0.44, z = 0.24 - row * 0.25, y = 0.42 + row * 0.22, tilt = 0.25;
+      const M2 = (w, h, d, ox, oy, oz, col) => P.push(part(new THREE.BoxGeometry(w, h, d), col, new THREE.Matrix4().makeTranslation(x, y, z).multiply(new THREE.Matrix4().makeRotationX(tilt)).multiply(new THREE.Matrix4().makeTranslation(ox, oy, oz)), 0, seed + P.length));
+      const col = fc[Math.floor(hash2(row, k, seed + 3) * fc.length)];
+      M2(0.42, 0.12, 0.26, 0, 0, 0, COL.kiste); M2(0.38, 0.05, 0.22, 0, 0.07, 0, col);
+      for (let f = 0; f < 4; f++) M2(0.07, 0.06, 0.07, -0.13 + f * 0.085, 0.11, -0.04 + (f & 1) * 0.08, shade(col, 0.9 + hash2(f, k, row) * 0.25));
+    }
+    for (let k = 0; k < 4; k++) B(0.16, 0.05, 0.01, -0.66 + k * 0.44, 0.42, 0.37, COL.weiss);   // Preisschilder
+  } else if (id === "warenregal") {
+    // Supermarktregal: Sockel, Rückwand, Seitenteile, vier Böden mit bunten Packungen, Preisleisten
+    B(1.8, 0.12, 0.6, 0, 0.06, 0, COL.dunkel); B(1.8, 1.8, 0.05, 0, 0.95, -0.27, COL.stahl); B(0.04, 1.85, 0.6, -0.88, 0.925, 0, shade(COL.stahl, 0.85)); B(0.04, 1.85, 0.6, 0.88, 0.925, 0, shade(COL.stahl, 0.85));
+    const pc = [COL.koralle, "#E8C66A", COL.teppich, "#7FB4C4", COL.weiss, "#5D8A4E", "#E8873C", COL.schiefer, "#C9483C"];
+    for (let sh = 0; sh < 4; sh++) {
+      const y = 0.14 + sh * 0.42; B(1.72, 0.03, 0.52, 0, y, 0.02, shade(COL.stahl, 1.08)); B(1.72, 0.05, 0.015, 0, y - 0.005, 0.285, COL.koralle);
+      let x = -0.82; let k = 0;
+      while (x < 0.78) { const w = 0.1 + hash2(sh, k, seed) * 0.12, h = 0.14 + hash2(k, sh, seed + 1) * 0.18; if (x + w > 0.84) break; B(w - 0.015, h, 0.34, x + w / 2, y + 0.015 + h / 2, 0.04, pc[Math.floor(hash2(k, sh, seed + 2) * pc.length)]); x += w; k++; }
+    }
   } else if (id === "teppich") {
     B(1.6, 0.012, 1.1, 0, 0.006, 0, COL.koralle); B(1.4, 0.014, 0.9, 0, 0.007, 0, shade(COL.koralle, 0.82));
   }
@@ -218,14 +267,18 @@ export function buildHouse(def, opts) {
   const o = opts || {}, parts = (def && def.parts) || [];
   const per = {}, posts = {}, out = { group: new THREE.Group(), levels: {}, doors: [], segs: [], boxes: [], acts: [], cells: new Set(), cover: new Set(), min: [1e9, 1e9], max: [-1e9, -1e9], top: 0 };
   const L = (l) => per[l] || (per[l] = []);
-  const ext = (x, z) => { out.min[0] = Math.min(out.min[0], x); out.min[1] = Math.min(out.min[1], z); out.max[0] = Math.max(out.max[0], x); out.max[1] = Math.max(out.max[1], z); };
+  const ext = (x, z) => { out.min[0] = Math.min(out.min[0], x); out.min[1] = Math.min(out.min[1], z); out.max[0] = Math.max(out.max[0], x); out.max[1] = Math.max(out.max[1], z); ext2(x, z); };
+  out.min2 = [1e9, 1e9]; out.max2 = [-1e9, -1e9];   // alles inkl. Zaun/Hecke (Kollision)
+  const ext2 = (x, z) => { out.min2[0] = Math.min(out.min2[0], x); out.min2[1] = Math.min(out.min2[1], z); out.max2[0] = Math.max(out.max2[0], x); out.max2[1] = Math.max(out.max2[1], z); };
   parts.forEach((p, i) => {
     const id = p[0], def2 = PARTS[id]; if (!def2) return;
     const x = p[1] | 0, z = p[2] | 0, r = (p[3] | 0) & 3, l = p[4] | 0, s = p[5] | 0, f = p[6] | 0, y0 = l * LH, seed = (x * 73 + z * 151 + l * 37 + i) | 0, list = L(l), n0 = list.length;
     if (def2.kind === "floor") { floorParts(def2, x, z, y0, seed, list); out.cells.add(cellKey(x, z, l)); for (let k = 0; k < l; k++) out.cover.add(cellKey(x, z, k)); ext(x, z); ext(x + 1, z + 1); }
     else if (def2.kind === "wall") {
-      const E = edgeOf(x, z, r); wallParts(def2, E, y0, seed, list); ext(E.ax, E.az); ext(E.ax + E.ux, E.az + E.uz);
-      if (!def2.rail) { [[E.ax, E.az], [E.ax + E.ux, E.az + E.uz]].forEach((v) => { const k = v[0] + "," + v[1] + "," + l; if (!posts[k]) posts[k] = def2.c; }); }
+      const E = edgeOf(x, z, r), gard = def2.fence || def2.hedge; wallParts(def2, E, y0, seed, list);
+      if (!gard) { ext(E.ax, E.az); ext(E.ax + E.ux, E.az + E.uz); }   // Zaun/Hecke zählen nicht zur Grundfläche des Hauses (Drehpunkt bleibt gleich)
+      ext2(E.ax, E.az); ext2(E.ax + E.ux, E.az + E.uz);
+      if (!def2.rail && !gard) { [[E.ax, E.az], [E.ax + E.ux, E.az + E.uz]].forEach((v) => { const k = v[0] + "," + v[1] + "," + l; if (!posts[k]) posts[k] = def2.c; }); }
       if (def2.door) {
         const pv = new THREE.Group(); pv.position.set(E.ax + E.ux * 0.12, y0, E.az + E.uz * 0.12); pv.rotation.y = Math.atan2(-E.uz, E.ux);
         const leaf = merge([part(new THREE.BoxGeometry(0.76, 2.08, 0.045), def2.plank ? COL.holzd : COL.holz, M(0.38, 1.04, 0, 1), 0, seed + 7),
@@ -236,14 +289,14 @@ export function buildHouse(def, opts) {
         out.segs.push({ ax: E.ax, az: E.az, bx: E.ax + E.ux * 0.12, bz: E.az + E.uz * 0.12, l: l, y1: y0 + LH });
         out.segs.push({ ax: E.ax + E.ux * 0.88, az: E.az + E.uz * 0.88, bx: E.ax + E.ux, bz: E.az + E.uz, l: l, y1: y0 + LH });
         out.segs.push({ ax: door.ax, az: door.az, bx: door.bx, bz: door.bz, l: l, y1: y0 + LH, door: door });
-      } else out.segs.push({ ax: E.ax, az: E.az, bx: E.ax + E.ux, bz: E.az + E.uz, l: l, y1: y0 + (def2.rail ? 1 : LH), rail: !!def2.rail, win: !!def2.win });
+      } else out.segs.push({ ax: E.ax, az: E.az, bx: E.ax + E.ux, bz: E.az + E.uz, l: l, y1: y0 + (def2.rail || def2.fence ? 1 : def2.hedge ? 1.3 : LH), rail: !!(def2.rail || def2.fence), th: def2.hedge ? 0.28 : def2.fence ? 0.05 : undefined, win: !!def2.win, garden: !!gard });
     } else if (def2.kind === "roof") { roofParts(def2, x, z, y0, r, s, seed, list); for (let k = 0; k < l; k++) out.cover.add(cellKey(x, z, k)); ext(x, z); ext(x + 1, z + 1); out.top = Math.max(out.top, y0 + s + 1.2); if (def2.flat) out.cells.add(cellKey(x, z, l)); }
     else if (def2.kind === "gable") { const E = edgeOf(x, z, r); gableParts(def2, E, y0, s, f, seed, list); out.top = Math.max(out.top, y0 + s + 1); }
     else if (def2.kind === "obj") {
       const ps = objParts(id, seed), g = merge(ps), m = new THREE.Matrix4().makeTranslation(x + 0.5, y0 + FLOOR, z + 0.5).multiply(new THREE.Matrix4().makeRotationY(-r * Math.PI / 2));
       g.applyMatrix4(m); g.deleteAttribute("normal"); list.push(g);
       if (def2.box) { const w = r & 1 ? def2.box[1] : def2.box[0], d = r & 1 ? def2.box[0] : def2.box[1]; out.boxes.push({ cx: x + 0.5, cz: z + 0.5, hw: w / 2, hd: d / 2, l: l, y1: y0 + 1 }); }
-      if (def2.act) { const fx = [0, -1, 0, 1][r], fz = [1, 0, -1, 0][r]; out.acts.push({ type: def2.act, x: x + 0.5 + fx * 0.75, z: z + 0.5 + fz * 0.75, l: l, cx: x + 0.5, cz: z + 0.5, fx: fx, fz: fz, y: y0 + FLOOR, pi: i, lager: def2.lager || null, id: id }); }   // Stelle vor dem Möbel (vorne = Seite des Nutzers)
+      if (def2.act) { const fx = [0, -1, 0, 1][r], fz = [1, 0, -1, 0][r]; out.acts.push({ type: def2.act, x: x + 0.5 + fx * 0.75, z: z + 0.5 + fz * 0.75, l: l, cx: x + 0.5, cz: z + 0.5, fx: fx, fz: fz, y: y0 + FLOOR, pi: i, lager: def2.lager || null, laden: def2.laden || null, id: id }); }   // Stelle vor dem Möbel (vorne = Seite des Nutzers)
       // Sitzplätze (seit v0.16): Platz (sx, sz), Blickrichtung (fx, fz), Sitzhöhe h (im Haus). Ansprechen etwas vor dem Platz
       if (def2.sit) def2.sit.forEach((q) => {
         const ro = (vx, vz) => { const a = -r * Math.PI / 2, c = Math.cos(a), sn = Math.sin(a); return [vx * c + vz * sn, -vx * sn + vz * c]; };
@@ -271,6 +324,7 @@ export function buildHouse(def, opts) {
     out.levels[l] = grp; out.group.add(grp);
   });
   if (out.min[0] > out.max[0]) { out.min = [0, 0]; out.max = [1, 1]; }
+  if (out.min2[0] > out.max2[0]) { out.min2 = out.min.slice(); out.max2 = out.max.slice(); }
   return out;
 }
 // Grundstück als Rechteck [x0, z0, x1, z1] (lokal): alle Grundstücks-Zellen + das Haus; ohne Grundstück: Haus + 2 m
@@ -313,6 +367,8 @@ export class HouseInst {
   onPlot(x, z, m) { const p = this.toLocal(x, z), R = this.pr, r = m || 0; return p.x > R[0] - r && p.x < R[2] + r && p.z > R[1] - r && p.z < R[3] + r; }
   // überdachte Zelle (drinnen) auf Etage l?
   coveredAt(x, z, l) { const p = this.toLocal(x, z); return this.b.cover.has(cellKey(Math.floor(p.x), Math.floor(p.z), l || 0)); }
+  // Haus inkl. Zaun und Hecke (+ Rand) enthält Punkt? (Kollision, Kamera)
+  reach(x, z, m) { const p = this.toLocal(x, z), r = m || 0, b = this.b; return p.x > b.min2[0] - r && p.x < b.max2[0] + r && p.z > b.min2[1] - r && p.z < b.max2[1] + r; }
   // Grundfläche (+ Rand) enthält Punkt?
   contains(x, z, m) { const p = this.toLocal(x, z), r = m || 0; return p.x > this.b.min[0] - r && p.x < this.b.max[0] + r && p.z > this.b.min[1] - r && p.z < this.b.max[1] + r; }
   // Gelände-Einbettung: in der Grundfläche + 1,5 m flach auf Haushöhe, danach 7 m weicher Übergang

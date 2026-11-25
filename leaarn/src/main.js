@@ -249,6 +249,18 @@ const CSS = `
 .le-slot2.le-nope{animation:le-nope .45s ease-out}@keyframes le-nope{0%,60%{border-color:#ED6A5E;background:rgba(237,106,94,.35)}100%{}}
 @media (max-width:1000px){.le-sbox{grid-template-columns:auto}}
 .le-ui:has(.le-inv) .le-prompt,.le-ui:has(.le-music) .le-prompt{display:none}
+/* v0.17: Fokus-Leiste, Fokus im Laptop, Einkaufen */
+.le-focus{position:absolute;left:16px;top:14px;display:grid;grid-template-columns:auto 170px auto;align-items:center;gap:9px;background:rgba(22,23,26,.72);border-left:4px solid #62929E;padding:7px 12px;pointer-events:none;z-index:11}
+.le-focus span{font-weight:800;font-size:13px;color:#ECEAE4;letter-spacing:.04em}
+.le-focus i{display:block;height:10px;background:#2A2C30;border:1px solid #44474D;overflow:hidden}.le-focus i b{display:block;height:100%;width:0;background:#62929E;transition:width .4s linear}
+.le-focus em{font-style:normal;font-weight:800;font-size:12px;color:#C6C5B9;min-width:42px;font-variant-numeric:tabular-nums}
+.le-focus.le-up i b{background:#7FC8D4}.le-focus.le-full{border-left-color:#ED6A5E}.le-focus.le-full i b{background:#ED6A5E;animation:le-fglow 1.6s ease-in-out infinite}.le-focus.le-full em{color:#ED6A5E}
+@keyframes le-fglow{50%{filter:brightness(1.35)}}
+.le-where{top:52px!important}
+.le-lfok{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:#C6C5B9;margin-right:6px}.le-lfok i{display:block;width:70px;height:8px;background:#2A2C30;border:1px solid #62929E;overflow:hidden}.le-lfok i b{display:block;height:100%;width:0;background:#62929E}
+.le-lfok em{font-style:normal;color:#fff;font-variant-numeric:tabular-nums;min-width:44px}.le-lfok.le-up i b{background:#7FC8D4}.le-lfok.le-full i b{background:#ED6A5E}.le-lfok.le-full em{color:#ED6A5E}
+.le-fboost{display:inline-block;margin:4px 0 0;padding:3px 10px;background:rgba(237,106,94,.16);border:1px solid #ED6A5E;color:#ED6A5E;font-weight:800}
+.le-shop .le-cd button{white-space:nowrap}.le-shop .le-cd small{max-width:220px}
 `;
 
 let A = null;

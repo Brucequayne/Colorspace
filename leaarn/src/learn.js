@@ -2,7 +2,7 @@
 import { t, addTexts, L2, tl, el, esc, fmt, rng, PR, store, KEYS } from "le/core.js";
 import { Stats } from "le/stats.js";
 import { FAECHER, fach, spielbar, fachAktiv, belohnung, runde, pruefe, STANDARD_LOHN } from "le/faecher/index.js";
-import { addOffen, offen, einsammeln, addRunde, stat, euro, save, persist } from "le/save.js";
+import { addOffen, offen, einsammeln, addRunde, stat, euro, save, persist, fokusVoll, FOKUS } from "le/save.js";
 import { hsb, rgbHex, de2000, rating } from "le/faecher/farben.js";
 import { KAT, WORTARTEN, ART_KURZ, STUFEN, VOK_LOHN, bereich, stufenPool, bewerte } from "le/faecher/vokabeln.js";
 
@@ -28,6 +28,7 @@ addTexts({
   gRules: L2("Summe der 5 Bewertungen = Euro (aufgerundet). Bonus, wenn alle Runden über 5 (+25 €), 7,5 (+50 €) oder 9 (+125 €) liegen.", "Sum of the 5 ratings = euros (rounded up). Bonus if every round is above 5 (+€25), 7.5 (+€50) or 9 (+€125)."),
   gKeys: L2("Enter = abgeben · Pfeiltasten verschieben den gewählten Regler", "Enter = submit · arrow keys move the selected slider"),
   // Stufen statt Jahrgänge (v0.15)
+  fLap: L2("Fokus", "Focus"), fBoost: L2("Fokus-Bonus +15 %: +{e}", "Focus bonus +15 %: +{e}"), fCharge: L2("lädt", "charging"),
   sBas: L2("Basics", "Basics"), sAdv: L2("Fortgeschritten", "Advanced"), sExp: L2("Experte", "Expert"), sAll: L2("Alle Stufen", "All levels"),
   // Vokabeltest (v0.15)
   vArea: L2("Themengebiet", "Topic area"), vAll: L2("Alle Wörter", "All words"), vTypes: L2("Wortarten", "Word types"), vLevel: L2("Schwierigkeit", "Difficulty"),
@@ -51,7 +52,7 @@ function stufe(th) {
 export class Learn {
   constructor(app, onClose, onCollect) {
     this.app = app; this.onClose = onClose; this.onCollect = onCollect; this.view = "home"; this.f = null; this.th = null; this.q = null;
-    this.root = el("div", "le-lap", '<div class="le-lapf"><div class="le-scr"><div class="le-bar"><b>LEAARN</b><span class="le-sp"></span><span class="le-pend" id="le-lpend"></span><button class="le-col" data-l="collect" id="le-lcol"></button><button class="le-fullb" data-l="full" id="le-lfull"></button><button data-l="close" title="Esc">×</button></div>' +
+    this.root = el("div", "le-lap", '<div class="le-lapf"><div class="le-scr"><div class="le-bar"><b>LEAARN</b><span class="le-sp"></span><span class="le-lfok" id="le-lfok" title="' + t("fLap") + '"><span>' + t("fLap") + '</span><i><b></b></i><em></em></span><span class="le-pend" id="le-lpend"></span><button class="le-col" data-l="collect" id="le-lcol"></button><button class="le-fullb" data-l="full" id="le-lfull"></button><button data-l="close" title="Esc">×</button></div>' +
       '<div class="le-lmain"><nav class="le-nav"><button data-nav="home">' + t("nSubj") + '</button><button data-nav="stats">' + t("nStats") + '</button><span class="le-sp"></span><button data-nav="close">' + t("nClose") + '</button></nav><div class="le-lbody" id="le-lbody"></div></div></div><div class="le-lbase"></div><div class="le-lhint">' + t("lEsc") + "</div></div>");
     app.ui.appendChild(this.root); this.stats = new Stats();
     this.full(!!(store.get(KEYS.ui, {}).lapFull));
@@ -141,12 +142,23 @@ export class Learn {
     const wait = a.art === "farbe" ? (ok ? 1500 : 2600) : ok ? 650 : 1500;
     this.tm = setTimeout(() => { q.lock = false; q.i++; if (q.i >= q.list.length) this.finish(); else this.renderQ(); }, wait);
   }
+  // Fokus-Anzeige oben in der Laptop-Leiste (kommt jedes Bild aus play.js)
+  setFokus(f, up) {
+    const k = Math.floor(f * 100) + (up ? "u" : ""); if (k === this.fkKey) return; this.fkKey = k;
+    const e = this.root.querySelector("#le-lfok"); if (!e) return;
+    e.querySelector("b").style.width = (f * 100).toFixed(1) + "%"; e.querySelector("em").textContent = f >= 0.999 ? "+15 %" : Math.floor(f * 100) + " %" + (up ? " ▲" : "");
+    e.classList.toggle("le-full", f >= 0.999); e.classList.toggle("le-up", !!up);
+  }
+  // Fokus-Bonus auf dem Ergebnis-Bildschirm
+  boostHtml() { const q = this.q; return q && q.boost ? '<p class="le-fboost">' + fmt(t("fBoost"), { e: euro(q.boost) }) + "</p>" : ""; }
   // Belohnung kommt aufs Zwischenkonto (erst beim Einsammeln aufs Spielerkonto)
   finish() {
     const q = this.q, n = q.list.length, th = this.th;
     let r, lohn;
     if (th.wertung) { q.w = th.wertung(q.res.map((x) => x.score), q.opt); r = q.w.summe; lohn = q.w.euro; }
     else { r = q.res.filter((x) => x.ok).length; lohn = belohnung(r, n, th); }
+    // voller Fokus (seit v0.17): +15 % auf die Belohnung (aufgerundet)
+    q.boost = 0; if (fokusVoll()) { const b = Math.ceil(lohn * (1 + FOKUS.bonus) - 1e-9); q.boost = b - lohn; lohn = b; }
     addOffen(lohn); addRunde(this.f.id, th.id, r, th.wertung ? (th.maxPunkte || n * 10) : n, lohn); q.r = r; q.lohn = lohn;
     // Lern-Protokoll für die Statistik: Zeitpunkt, Fach, Thema, Dauer (max. 30 Min. je Runde), Euro
     const S = save(); S.log = S.log || []; S.log.push({ t: Date.now(), f: this.f.id, th: th.id, s: Math.round(Math.min(1800, (performance.now() - (q.t0 || performance.now())) / 1000)), e: lohn });
@@ -163,7 +175,7 @@ export class Learn {
     if (this.th.art === "vokabel") { this.renderVokDone(); return; }
     if (this.th.wertung) { this.renderGuessDone(); return; }
     const q = this.q, n = q.list.length, wr = q.res.filter((x) => !x.ok), sw = (h) => '<i class="le-msw" style="background:' + h + '"></i>';
-    this.body('<div class="le-done"><h2>' + t("lDone") + '</h2><div class="le-big">' + q.r + "<small>/" + n + '</small></div><p>' + fmt(t("lScore"), { r: q.r, n: n }) + '</p><div class="le-earn">' + t("lEarn") + " <b>+" + euro(q.lohn) + "</b> <small>" + t("pToPend") + '</small></div><p class="le-dim">' + tiers(this.th.lohn || STANDARD_LOHN, n) + "</p>" +
+    this.body('<div class="le-done"><h2>' + t("lDone") + '</h2><div class="le-big">' + q.r + "<small>/" + n + '</small></div><p>' + fmt(t("lScore"), { r: q.r, n: n }) + '</p><div class="le-earn">' + t("lEarn") + " <b>+" + euro(q.lohn) + "</b> <small>" + t("pToPend") + '</small></div>' + this.boostHtml() + '<p class="le-dim">' + tiers(this.th.lohn || STANDARD_LOHN, n) + "</p>" +
       "<h4>" + t("lMist") + "</h4>" + (wr.length ? '<div class="le-mist">' + wr.map((x) => {
         const a = x.a;
         if (a.art === "farbe") {
@@ -287,7 +299,7 @@ export class Learn {
     this.body('<div class="le-done"><h2>' + t("lDone") + '</h2><div class="le-big">' + num(w.summe) + '<small>/50</small></div>' +
       '<div class="le-gsum">' + rows + "</div><p>" + fmt(t("gSum"), { s: num(w.summe), e: euro(w.basis) }) + "</p>" +
       (w.bonus ? '<p class="le-good"><b>' + fmt(t("gBonus"), { x: num(w.bonus.ueber, 1) }) + ": +" + euro(w.bonus.euro) + "</b></p>" : '<p class="le-dim">' + t("gNoBonus") + "</p>") +
-      '<div class="le-earn">' + t("lEarn") + " <b>+" + euro(q.lohn) + "</b> <small>" + t("pToPend") + '</small></div><p class="le-dim">' + t("gRules") + "</p>" + this.doneBtns() + "</div>");
+      '<div class="le-earn">' + t("lEarn") + " <b>+" + euro(q.lohn) + "</b> <small>" + t("pToPend") + '</small></div>' + this.boostHtml() + '<p class="le-dim">' + t("gRules") + "</p>" + this.doneBtns() + "</div>");
   }
   // ---------- Vokabeltest (Englisch, seit v0.15) ----------
   // Einstellungen (Themengebiet, Schwierigkeit) – gemerkt in leaarn-ui-v1 → vok
@@ -358,7 +370,7 @@ export class Learn {
     const rows = q.vr.map((r) => '<div class="le-vres ' + (r.haupt ? (r.haupt.p === 2 ? "le-vg" : "le-vh") : "le-vb") + '"><b>' + esc(r.a.frage) + "</b><span>" + (r.teile.length ? esc(r.teile.join(", ")) : "<em>" + t("vSkip") + "</em>") + "</span><span>" + vSol(r.a, r) + "</span>" + vPts(r) + "</div>").join("");
     this.body('<div class="le-done"><h2>' + t("lDone") + '</h2><div class="le-big">' + w.summe + '<small>/10</small></div>' +
       '<p>' + fmt(t("vPts"), { p: w.summe }) + (st.faktor > 1 ? ' · <span class="le-dim">' + fmt(t("vMult"), { s: tl(st.name), b: euro(w.basis), f: String(st.faktor).replace(".", PR.lang === "en" ? "." : ","), e: euro(w.euro) }) + "</span>" : "") + "</p>" +
-      '<div class="le-earn">' + t("lEarn") + " <b>+" + euro(q.lohn) + "</b> <small>" + t("pToPend") + '</small></div><p class="le-dim">' + vokTiers(st.faktor, w.summe) + "</p>" +
+      '<div class="le-earn">' + t("lEarn") + " <b>+" + euro(q.lohn) + "</b> <small>" + t("pToPend") + '</small></div>' + this.boostHtml() + '<p class="le-dim">' + vokTiers(st.faktor, w.summe) + "</p>" +
       '<div class="le-vresl">' + rows + "</div>" + this.doneBtns() + "</div>");
   }
   click(e) {

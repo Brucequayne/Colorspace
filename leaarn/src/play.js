@@ -5,7 +5,8 @@ import { Player, camHit } from "le/player.js";
 import { Learn } from "le/learn.js";
 import { Inventory } from "le/inventory.js";
 import { Musik } from "le/musik.js";
-import { geld, euro, offen, einsammeln, charakter } from "le/save.js";
+import { geld, euro, offen, einsammeln, charakter, fokus, setFokus, FOKUS } from "le/save.js";
+import { Shop, LADEN } from "le/shop.js";
 import { kasse, tick } from "le/sound.js";
 import { LH } from "le/houses.js";
 import { LAGER } from "le/items.js";
@@ -15,6 +16,7 @@ addTexts({
   pOpen: L2("Tür öffnen", "Open door"), pShut: L2("Tür schließen", "Close door"), pLearn: L2("Am Laptop lernen", "Learn on the laptop"), pMusic: L2("Ghettoblaster benutzen", "Use the boombox"),
   pHome: L2("Zuhause", "Home"), pPause: L2("Pause", "Paused"), pGo: L2("Weiter", "Continue"), pMenu: L2("Hauptmenü", "Main menu"), pEditor: L2("Zum Map-Editor", "To map editor"),
   pNoHome: L2("Kein Haus in der Map – im Map-Editor ein Haus setzen.", "No house in the map – place one in the map editor."), pEarned: L2("+{n}", "+{n}"),
+  pShop: L2("Einkaufen: {n}", "Shop: {n}"), pFocus: L2("Fokus", "Focus"), pFocusFull: L2("+15 % Belohnung", "+15 % reward"),
   pSit: L2("Hinsetzen", "Sit down"), pStand: L2("Aufstehen (E oder Laufen)", "Stand up (E or walk)"), pStore: L2("{n} öffnen", "Open {n}")
 });
 
@@ -24,9 +26,11 @@ export class Play {
     const ch = charakter(); this.pl = new Player(this.world, ch);
     this.cam = { yaw: 0, pitch: 0.36, dist: 5.2, inside: 0, pos: new THREE.Vector3(), look: new THREE.Vector3(), snap: true };
     this.act = null; this.learn = null; this.paused = false; this.btn = -1;
-    this.hud = el("div", "le-hud", '<div class="le-money"><span>' + esc(ch && ch.name ? ch.name : "") + '</span><b id="le-money"></b></div><div class="le-gain" id="le-gain"></div><div class="le-prompt" id="le-prompt"></div><div class="le-where" id="le-where"></div><div class="le-help">' + t("pHelp") + "</div>");
+    this.hud = el("div", "le-hud", '<div class="le-money"><span>' + esc(ch && ch.name ? ch.name : "") + '</span><b id="le-money"></b></div><div class="le-gain" id="le-gain"></div><div class="le-prompt" id="le-prompt"></div><div class="le-focus" id="le-focus"><span>' + t("pFocus") + '</span><i><b id="le-fbar"></b></i><em id="le-fpct"></em></div><div class="le-where" id="le-where"></div><div class="le-help">' + t("pHelp") + "</div>");
     app.ui.appendChild(this.hud); this.shown = geld(); this.money();
     this.inv = new Inventory(app); this.musik = new Musik(app);
+    this.shop = new Shop(app, () => { this.inv.draw(); this.shown = geld(); this.money(); const box = this.hud.querySelector(".le-money"); box.classList.remove("le-bump"); void box.offsetWidth; box.classList.add("le-bump"); });
+    this.fk = fokus(); this.fkSave = 0; this.focusUi(true);
     this.spawn();
     const c = app.engine.renderer.domElement;
     this.onDown = (e) => { if (this.learn || this.paused) return; this.btn = e.button; this.last = [e.clientX, e.clientY]; const ae = document.activeElement; if (ae && ae.blur && ae !== document.body) ae.blur(); };
@@ -38,7 +42,7 @@ export class Play {
     c.addEventListener("wheel", this.onWheel, { passive: false }); c.addEventListener("contextmenu", this.onCtx);
   }
   dispose() {
-    this.inv.dispose(); this.musik.dispose();
+    this.inv.dispose(); this.musik.dispose(); this.shop.dispose(); setFokus(this.fk);
     const c = this.app.engine.renderer.domElement;
     c.removeEventListener("pointerdown", this.onDown); window.removeEventListener("pointermove", this.onMove); window.removeEventListener("pointerup", this.onUp);
     c.removeEventListener("wheel", this.onWheel); c.removeEventListener("contextmenu", this.onCtx);
@@ -102,6 +106,7 @@ export class Play {
     else if (A.a.type === "musik") { const w = A.h.toWorld(A.a.cx, A.a.cz); this.musik.show({ x: w.x, z: w.z }); }
     else if (A.a.type === "sitzen") this.sit(A.h, A.a, "rest");
     else if (A.a.type === "lager") this.inv.openStore(this.storeKey(A.h, A.a), A.a.lager);
+    else if (A.a.type === "laden") this.shop.show(A.a.laden);
   }
   // Speicherplatz eines Möbel-Lagers: Zuhause (bleibt erhalten, wenn das Haus verschoben wird) oder Haus nach Art und Lage + Bauteil-Nummer
   storeKey(h, a) { const e = h.e; return (e.home ? "home" : e.k + "@" + Math.round(e.x) + "," + Math.round(e.z)) + ":" + a.pi; }
@@ -143,6 +148,7 @@ export class Play {
   gain(n) { const g = document.getElementById("le-gain"); if (!g) return; g.textContent = "+" + euro(n); g.classList.remove("le-show"); void g.offsetWidth; g.classList.add("le-show"); }
   key(e) {
     if (this.inv.open) { if (e.code === "KeyI" || e.code === "Escape" || (e.code === "KeyE" && this.inv.store && !e.repeat)) { this.inv.toggle(false); return true; } return false; }
+    if (this.shop.open) { if ((e.code === "KeyE" && !e.repeat) || e.code === "Escape") { this.shop.hide(); return true; } return false; }
     if (this.musik.open && !this.learn) { if (e.code === "KeyE" || e.code === "Escape") { this.musik.hide(); return true; } return false; }
     if (this.learn) return this.learn.key(e);
     if (e.code === "Escape") { this.pause(!this.paused); return true; }
@@ -164,7 +170,7 @@ export class Play {
     const inp = this.app.input, c = this.cam, p = this.pl, pad = inp.poll();
     // Steuerung relativ zur Kamera
     let f = 0, s = 0, run = inp.k("ShiftLeft", "ShiftRight"), jump = false;
-    const busy = this.inv.open || this.musik.open;
+    const busy = this.inv.open || this.musik.open || this.shop.open;
     if (!this.paused && !this.learn && !busy) {
       f = (inp.k("KeyW", "ArrowUp") ? 1 : 0) - (inp.k("KeyS", "ArrowDown") ? 1 : 0); s = (inp.k("KeyD", "ArrowRight") ? 1 : 0) - (inp.k("KeyA", "ArrowLeft") ? 1 : 0);
       jump = inp.k("Space");
@@ -187,13 +193,30 @@ export class Play {
       this.act = this.findAct();
       const pr = document.getElementById("le-prompt");
       const A = this.act ? this.act.a : null;
-      const txt = this.seat ? "E  " + t("pStand") : A ? "E  " + (A.type === "tuer" ? t(A.door.want > 0.5 ? "pShut" : "pOpen") : A.type === "musik" ? t("pMusic") : A.type === "sitzen" ? t("pSit") : A.type === "lager" ? fmtN(t("pStore"), tl(LAGER[A.lager].n)) : t("pLearn")) : "";
+      const txt = this.seat ? "E  " + t("pStand") : A ? "E  " + (A.type === "tuer" ? t(A.door.want > 0.5 ? "pShut" : "pOpen") : A.type === "musik" ? t("pMusic") : A.type === "sitzen" ? t("pSit") : A.type === "lager" ? fmtN(t("pStore"), tl(LAGER[A.lager].n)) : A.type === "laden" ? fmtN(t("pShop"), tl((LADEN[A.laden] || LADEN.allg).n)) : t("pLearn")) : "";
       if (pr && pr.textContent !== txt) { pr.textContent = txt; pr.style.display = txt ? "" : "none"; }
       const wh = document.getElementById("le-where"), home = this.world.home(), wt = p.house && p.house === home ? t("pHome") : "";
       if (wh && wh.textContent !== wt) wh.textContent = wt;
     }
     this.musik.update(this.pl.p);
+    this.focusTick(dt);
     this.camera(dt);
+  }
+  // ---------- Fokus (seit v0.17) ----------
+  // lädt nur während einer Lern-Challenge (nicht im Laptop-Menü), sinkt in der offenen Welt, steht in Pause und Laptop-Menü
+  focusTick(dt) {
+    const L = this.learn, active = !!(L && L.view === "quiz"), roam = !L && !this.paused, f0 = this.fk;
+    if (active) this.fk = Math.min(1, this.fk + dt / FOKUS.laden); else if (roam) this.fk = Math.max(0, this.fk - dt / FOKUS.entladen);
+    if (this.fk !== f0) { setFokus(this.fk, true); this.fkSave += dt; if (this.fkSave > 5 || (this.fk >= 1) !== (f0 >= 1) || this.fk === 0) { this.fkSave = 0; setFokus(this.fk); } }
+    this.focusUi(false, active);
+    if (L && L.setFokus) L.setFokus(this.fk, active);
+  }
+  focusUi(force, up) {
+    const pct = Math.floor(this.fk * 100 + 1e-6), key = pct + (up ? "u" : "");
+    if (!force && key === this.fkKey) return; this.fkKey = key;
+    const b = document.getElementById("le-fbar"), p = document.getElementById("le-fpct"), box = document.getElementById("le-focus"); if (!b) return;
+    b.style.width = (this.fk * 100).toFixed(1) + "%"; const full = this.fk >= 0.999;
+    p.textContent = full ? t("pFocusFull") : pct + " %"; box.classList.toggle("le-full", full); box.classList.toggle("le-up", !!up);
   }
   camera(dt) {
     const c = this.cam, p = this.pl, cam = this.app.engine.camera;

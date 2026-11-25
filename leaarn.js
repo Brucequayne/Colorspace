@@ -32,6 +32,7 @@
     "stats.js",       // Statistiken im Laptop
     "learn.js",       // Lernmodus am Laptop
     "player.js",      // Spielfigur: Modell, Laufen, Kollision
+    "shop.js",        // Supermarkt-Regale: Einkaufen (seit v0.17)
     "play.js",        // Spielen: Hub, Kamera, Türen, Schreibtisch
     "editor.js",      // Map-Editor (Gelände, Straße, Vegetation, Häuser, Umgebung, Datei)
     "houseeditor.js", // Haus-Editor (mit Bulldozer)

@@ -32,6 +32,7 @@ Neue Module: in `MODULES` in `leaarn.js` eintragen.
 | `faecher/vokabeln.js` | Vokabeltest (seit v0.15): Themengebiete, Schwierigkeit, Prüfen mit Synonymen und Tippfehlern, Belohnung |
 | `editor.js` | Map-Editor (Developer Tool aus Poly Racer + Werkzeug **Häuser**) |
 | `houseeditor.js` | Haus-Editor (getrennt vom Map-Editor), Bulldozer (B, Treffer über `partAt` → Bauteil-Nummer je Netzstück), Kamera Q/E |
+| `shop.js` | Supermarkt-Regale (seit v0.17): Einkaufen mit E, Waren = Gegenstände mit `laden` und `preis` in items.js |
 | `charedit.js` | Charakter-Editor (seit v0.13): Name, Alter, Farben Oberteil/Hose/Schuhe/Haare, startet beim ersten Spielstart; Daten in `save.char` |
 | `menu.js`, `main.js` | Hauptmenü, Hülle, Zustände (`menu`, `play`, `editor`, `house`, `drive`), CSS |
 
@@ -109,6 +110,18 @@ Stufen statt Jahrgänge (seit v0.15): `klasse` 5–6 = Basics, 7–8 = Fortgesch
 Farbmischen (`faecher/farben.js`): Farbe = Pigment-Anteile [Rot, Gelb, Blau, Weiß, Schwarz], Mischen = gleiche Teile.
 Rot/Gelb/Blau werden über den RYB-Würfel (wie Malfarben, Itten) in RGB umgerechnet, Weiß/Schwarz danach beigemischt. Neue Malfarben in `PAINTS` eintragen.
 Noah liefert Themen (Fach, Klasse, Inhalt), Claude macht daraus Aufgaben und – je nach Fach – eigene Spiele.
+
+## Fokus (seit v0.17)
+
+`leaarn-save-v1` → `fokus` (0…1). `Play.focusTick`: lädt nur, solange im Laptop eine Lern-Challenge läuft (`learn.view === "quiz"`), mit `1/300` je Sekunde
+(leer → voll in 5 Min.), sinkt in der offenen Welt mit `1/600` je Sekunde (voll → leer in 10 Min.), steht im Laptop-Menü und in der Pause. Gespeichert etwa alle 5 s.
+Voller Fokus beim Abschluss einer Runde: Belohnung × 1,15 aufgerundet (`Learn.finish`, `q.boost`). Werte in `FOKUS` (save.js).
+
+## Garten und Supermarkt (seit v0.17)
+
+Zaun (`zaun`) und Hecke (`hecke`) sind Kanten-Teile (`fence`/`hedge`), zählen nicht zur Grundfläche (Drehpunkt des Hauses bleibt gleich), aber zur Kollision
+(`HouseInst.reach`, Grenzen `min2`/`max2`). `HouseEditor.autoGarden(id)`: Rand des Grundstücks (Etage 0), ohne Kanten mit Hauswand, Eingang 2 m vor der ersten Tür.
+Supermarkt-Teile mit `act: "laden"` und `laden: "tiefkuehl" | "obst" | "allg"` (Gefriertruhe, Obstregal, Warenregal) öffnen `Shop` (shop.js).
 
 ## Speicher im Browser
 

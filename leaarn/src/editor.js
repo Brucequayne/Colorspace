@@ -35,7 +35,7 @@ addTexts({
   rsStart: L2("Klick setzt den Startpunkt einer neuen Straße", "Click sets the start of a new road"), rsBranch: L2("Abzweigung von dieser Straße", "Branch from this road"), rsJoin: L2("mündet in die Straße", "joins the road"),
   rsEnd: L2("Ende {h} m über Gelände", "End {h} m above terrain"), rsCross: L2("Achtung: kreuzt eine Straße zu niedrig – mit V höher bauen (Brücke) oder auf ihr enden (Einmündung)", "Note: crosses a road too low – build higher with V (bridge) or end on it (junction)"), vSp: L2("Abstand (klein = dichter)", "Spacing (small = denser)"),
   hVeg: L2("Linke Maus pinselt die gewählte Gruppe. Jede Pflanze wird nach den Wahrscheinlichkeiten gewählt. Abstand zur Straße und maximale Hangneigung gelten je Gruppe.", "Left mouse paints the selected group. Each plant is picked by the probabilities. Distance to the road and maximum slope apply per group."),
-  hCam: L2("Kamera: rechte Maus drehen · mittlere Maus oder Umschalt+rechte verschieben · Rad zoomen · WASD bewegen · 1–6 Werkzeuge · Strg+Z/Y", "Camera: right mouse rotate · middle mouse or Shift+right pan · wheel zoom · WASD move · 1–6 tools · Ctrl+Z/Y"),
+  hCam: L2("Kamera: rechte Maus oder Q/E halten drehen · mittlere Maus oder Umschalt+rechte verschieben · Rad zoomen · WASD bewegen · 1–6 Werkzeuge · Strg+Z/Y", "Camera: right mouse or hold Q/E rotate · middle mouse or Shift+right pan · wheel zoom · WASD move · 1–6 tools · Ctrl+Z/Y"),
   pPoint: L2("Punkt {i} von {n}", "Point {i} of {n}"), pNone: L2("Kein Punkt gewählt", "No point selected"), height: L2("Höhe", "Height"), width: L2("Breite", "Width"), bank: L2("Neigung (+ links höher)", "Banking (+ left higher)"),
   curbL: L2("Kerbs links", "Curbs left"), curbR: L2("Kerbs rechts", "Curbs right"),
   walkL: L2("Gehweg links", "Sidewalk left"), walkR: L2("Gehweg rechts", "Sidewalk right"), walkSt: L2("Gehweg-Stil", "Sidewalk style"),
@@ -516,6 +516,7 @@ export class Editor {
     if ((e.ctrlKey || e.metaKey) && e.code === "KeyZ") { e.shiftKey ? this.doRedo() : this.doUndo(); return true; }
     if ((e.ctrlKey || e.metaKey) && e.code === "KeyY") { this.doRedo(); return true; }
     const n = parseInt(e.key, 10); if (n >= 1 && n <= TOOLS.length && !e.ctrlKey) { this.setTool(TOOLS[n - 1][0]); return true; }
+    if ((e.code === "KeyQ" || e.code === "KeyE") && !e.ctrlKey && !e.metaKey) return true;   // Kamera drehen (gehalten, siehe update)
     if ((e.code === "Delete" || e.code === "Backspace") && this.s.tool === "road") { this.delPoint(); return true; }
     if (this.s.tool === "house") {
       if ((e.code === "Delete" || e.code === "Backspace") && this.hsel) { this.push(); this.world.removeHouse(this.hsel); this.hsel = null; this.world.housesChanged(); this.panel(); autosave(this.world); return true; }
@@ -545,6 +546,7 @@ export class Editor {
     if (!ae || !/INPUT|TEXTAREA|SELECT/.test(ae.tagName) || ae.type === "range" || ae.type === "checkbox") {
       const f = (inp.k("KeyW") ? 1 : 0) - (inp.k("KeyS") ? 1 : 0), s = (inp.k("KeyD") ? 1 : 0) - (inp.k("KeyA") ? 1 : 0);
       if (f || s) { const sx = Math.sin(c.yaw), sz = Math.cos(c.yaw); c.x += (-sx * f + sz * s) * sp; c.z += (-sz * f - sx * s) * sp; }
+      const rot = (inp.k("KeyQ") ? 1 : 0) - (inp.k("KeyE") ? 1 : 0); if (rot) c.yaw += rot * 1.9 * dt;   // Q/E halten: Kamera drehen (seit v0.17)
     }
     const lim = this.world.terrain.size / 2 + 20; c.x = clamp(c.x, -lim, lim); c.z = clamp(c.z, -lim, lim);
     const T = this.world.terrain; c.y = lerp(c.y, T.heightAt(c.x, c.z), 1 - Math.exp(-dt * 4));

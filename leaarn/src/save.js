@@ -24,4 +24,10 @@ export function setCharakter(c) { save().char = c; persist(); }
 // Ganzen Spielstand löschen (Geld, Zwischenkonto, Lernstatistik, Charakter). Maps und Häuser aus den Editoren bleiben.
 export function reset() { try { localStorage.removeItem(KEYS.save); } catch (e) {} S = null; }
 export function stat(fach, thema) { return save().lern[fach + "/" + thema] || null; }
+// Fokus (seit v0.17): 0…1. Lädt beim aktiven Lernen (leer → voll in 5 Min.), sinkt in der offenen Welt (voll → leer in 10 Min.).
+// Voller Fokus: +15 % auf die Belohnung jedes abgeschlossenen Lernspiels.
+export const FOKUS = { laden: 300, entladen: 600, bonus: 0.15 };
+export function fokus() { const v = save().fokus; return typeof v === "number" ? Math.max(0, Math.min(1, v)) : 0; }
+export function setFokus(v, keep) { save().fokus = Math.max(0, Math.min(1, v)); if (!keep) persist(); }
+export const fokusVoll = () => fokus() >= 0.999;
 export const euro = (n) => Math.round(n).toLocaleString("de-DE") + " €";

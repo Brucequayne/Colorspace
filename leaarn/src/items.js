@@ -2,6 +2,7 @@
 // Inventar = 36 Plätze: 0–8 Schnellauswahl (Tasten 1–9), 9–35 Rucksack (Taste I). Platz = null oder { id, n }.
 // Musik kommt später als CDs (kind: "cd", src: Datei, artist): im Supermarkt kaufen, im Ghettoblaster abspielen.
 // Arten (kind, seit v0.16): "kleidung" (Kleiderschrank), "essen" (Kühlschrank), "cd", "buch" – ohne kind = sonstiger Gegenstand.
+// Supermarkt (seit v0.17): preis (€) und laden ("tiefkuehl" | "obst" | "allg") machen einen Gegenstand am passenden Regal kaufbar (shop.js).
 // Möbel-Lager (seit v0.16): Kleiderschrank, Regal und Kühlschrank haben je 64 Plätze (8 × 8), gespeichert in save.lager[Schlüssel].
 import { L2, tl } from "le/core.js";
 import { save, persist } from "le/save.js";
@@ -13,7 +14,7 @@ export const ITEMS = {
   // Muster für die kommenden Kleidungsstücke und Lebensmittel (noch nirgends erhältlich, zeigen die Lager-Regeln)
   muetze: { kind: "kleidung", n: L2("Mütze", "Beanie"), d: L2("Kleidungsstück – gehört in den Kleiderschrank.", "Clothing – belongs in the wardrobe."), max: 1,
     ico: svg('<path d="M6 22a10 10 0 0 1 20 0z" fill="#ED6A5E"/><rect x="5" y="21" width="22" height="5" fill="#C6C5B9"/><circle cx="16" cy="9" r="3" fill="#C6C5B9"/>') },
-  apfel: { kind: "essen", n: L2("Apfel", "Apple"), d: L2("Lebensmittel – gehört in den Kühlschrank.", "Food – belongs in the fridge."), max: 20,
+  apfel: { kind: "essen", n: L2("Apfel", "Apple"), d: L2("Lebensmittel – gehört in den Kühlschrank.", "Food – belongs in the fridge."), max: 20, preis: 2, laden: "obst",
     ico: svg('<path d="M16 10c-5-3-11 0-10 7 1 6 5 10 10 8 5 2 9-2 10-8 1-7-5-10-10-7z" fill="#C9483C"/><path d="M16 10c0-3 1-5 3-6" stroke="#5E4330" stroke-width="2" fill="none"/><path d="M17 7c2-2 5-2 6 0-2 1-4 1-6 0z" fill="#5D8A4E"/>') }
   // Beispiel für später:
   // cd_beispiel: { kind: "cd", n: L2("Titel", "Title"), artist: "Noah", src: "leaarn/musik/titel.mp3", max: 1, ico: CD_ICO("#ED6A5E") }
