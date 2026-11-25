@@ -271,3 +271,22 @@ export function pseWertung(scores, opt) {
   let basis = 5; for (const l of PSE_LOHN) if (summe >= l.ab) { basis = l.euro; break; }
   return { summe: summe, basis: basis, faktor: st.faktor, euro: Math.ceil(basis * st.faktor - 1e-9) };
 }
+
+// ---------- Spiel 2: Schalenmodelle bauen (seit v0.19.2) ----------
+// Je Element 5 Punkte: Protonen · Neutronen (gerundete Atommasse − Ordnungszahl) · Anzahl Schalen (= Periode) · Elektronen gesamt (= Protonen)
+// · Verteilung auf die Schalen (jede Schale richtig). 2 Elemente je Durchgang = 10 Punkte, Belohnung wie pseWertung.
+export const STUFEN_SCHALE = [
+  { id: 0, name: L2("Leicht", "Easy"), faktor: 1, hilfe: true, info: L2("Elemente 1–10, mit Hilfe (max. Elektronen pro Schale)", "Elements 1–10, with help (max electrons per shell)") },
+  { id: 1, name: L2("Mittel", "Medium"), faktor: 1.3, hilfe: true, info: L2("Elemente 1–20, mit Hilfe", "Elements 1–20, with help") },
+  { id: 2, name: L2("Schwer", "Hard"), faktor: 1.6, hilfe: false, info: L2("Elemente 1–20, ohne Hilfe", "Elements 1–20, no help") }
+];
+export const SCHALE_MAX = [2, 8, 8, 2];   // Schulregel bis Calcium (M-Schale fasst eigentlich 18)
+export const neutronen = (e) => Math.max(0, Math.round(e.m) - e.z);
+export function schalePool(lvl) { return ELEMENTE.filter((e) => e.z <= (lvl === 0 ? 10 : 20)); }
+export function schaleZiehen(R, opt, n) { return shuffle(schalePool((opt && opt.lvl) | 0), R).slice(0, n || 2).map((e) => ({ art: "schale", el: e })); }
+// b = gebautes Modell { p, n, sh: [Elektronen je Schale] } → Teilpunkte [Protonen, Neutronen, Schalen, Elektronen gesamt, Verteilung]
+export function schaleBewerte(e, b) {
+  const sh = b.sh || [], tot = sh.reduce((s, x) => s + x, 0), soll = e.sch;
+  const parts = [b.p === e.z, b.n === neutronen(e), sh.length === soll.length, tot === e.z, sh.length === soll.length && sh.every((x, i) => x === soll[i])];
+  return { parts: parts, score: parts.filter(Boolean).length };
+}

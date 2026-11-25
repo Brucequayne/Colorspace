@@ -1,5 +1,5 @@
 // ===== core.js · Namensraum, Texte, Speicher, Mathe, Zufall, Rauschen (aus Poly Racer übernommen) =====
-export const PR = { lang: "de", VERSION: "0.19.1", stamp: "" };
+export const PR = { lang: "de", VERSION: "0.19.2", stamp: "" };
 export const KEYS = { scene: "leaarn-scene-v1", settings: "leaarn-settings-v1", dev: "leaarn-dev", ui: "leaarn-ui-v1", save: "leaarn-save-v1", houses: "leaarn-houses-v1", house: "leaarn-house-edit-v1" };
 export const DEV_CODE = "616161";
 

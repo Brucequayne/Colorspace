@@ -290,6 +290,28 @@ const CSS = `
 .le-dots i.le-half{background:#C6C5B9}
 .le-pmini{display:inline-flex;align-items:center;justify-content:center;width:34px;height:28px;background:var(--c);color:#fff;font-weight:800}
 @media (max-width:980px){.le-pctl{grid-template-columns:1fr}}
+/* v0.19.2: Schalenmodelle bauen (Chemie) */
+.le-sset{display:grid;grid-template-columns:220px minmax(0,1fr);gap:18px;align-items:start}.le-slist{margin:4px 0 12px;padding-left:18px;line-height:1.7}
+.le-sbuild{position:relative;display:flex;gap:12px;align-items:flex-start}.le-swork{flex:1;min-width:0}.le-swork h3{margin:2px 0 8px}
+.le-sarea{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;align-items:start}
+.le-ssvg{background:#2A3534;border:1px solid #44514F;display:flex;justify-content:center;padding:6px}
+.le-shit{stroke:transparent;cursor:pointer;pointer-events:stroke}.le-shit:hover{stroke:rgba(237,106,94,.18)}
+.le-sctl h4{margin:4px 0 4px}.le-srow{display:grid;grid-template-columns:1fr 30px 38px 30px;align-items:center;gap:4px;margin-bottom:4px;font-size:13px}
+.le-srow b{text-align:center;font-size:16px}.le-root .le-srow button{padding:2px 0!important;font-size:16px!important;font-weight:800}.le-shelp{font-size:12px;margin:8px 0 4px}
+.le-spse{flex:none;width:44px;align-self:stretch}.le-spse.le-sopen{position:absolute;right:0;top:0;z-index:6;width:min(390px,70%);max-height:100%;overflow:auto;background:#2E3A39;border:1px solid #62929E;box-shadow:-10px 0 26px rgba(0,0,0,.5);padding:8px;animation:le-sdraw .2s ease-out}
+@keyframes le-sdraw{from{opacity:0;transform:translateX(30px)}to{opacity:1;transform:none}}
+.le-root .le-stab{writing-mode:vertical-rl;height:100%;min-height:200px;width:40px;padding:10px 0!important;font-weight:800}
+.le-shead{display:flex;justify-content:space-between;align-items:center;gap:6px;margin-bottom:4px}.le-root .le-shead button{padding:2px 9px!important}
+.le-smini{grid-template-columns:repeat(18,minmax(0,1fr));grid-template-rows:repeat(7,24px) 4px repeat(2,24px);gap:1px}
+.le-smini .le-pe small{display:none}.le-smini .le-pe b{font-size:10px}.le-root .le-smini .le-pe:hover{transform:scale(1.6)}
+.le-sfact{font-size:13px;margin-top:8px;line-height:1.45}
+.le-sfb{display:grid;grid-template-columns:minmax(0,1fr) 170px;gap:14px;margin-top:10px;background:#33403F;padding:10px;border:1px solid #44514F}
+.le-sfl>div{display:grid;grid-template-columns:20px minmax(0,1fr) auto;gap:8px;align-items:center;padding:3px 0;font-size:13px}.le-sfl b{white-space:nowrap}.le-sfl i{font-style:normal;font-weight:800}
+.le-sfl .le-vg i{color:#7FC8D4}.le-sfl .le-vb i,.le-sfl .le-vb small{color:#ED6A5E}.le-sgot{margin:6px 0 0;font-weight:800}.le-scmp{text-align:center}.le-scmp small{color:#A9ACB2;font-weight:700}
+.le-sdone{display:grid;grid-template-columns:40px 1fr auto 50px;gap:10px;align-items:center;background:#33403F;border-left:4px solid #4A5A5B;padding:6px 10px}
+.le-sdone.le-vg{border-left-color:#7FC8D4}.le-sdone.le-vh{border-left-color:#C6C5B9}.le-sdone.le-vb{border-left-color:#ED6A5E}.le-sdone b{color:#fff}
+.le-sicons{display:flex;gap:4px}.le-sicons i{font-style:normal;font-weight:800;width:20px;text-align:center}.le-sicons .le-ok{color:#7FC8D4}.le-sicons .le-no{color:#ED6A5E}.le-sdone .le-vp{text-align:right}
+@media (max-width:700px){.le-sfb{grid-template-columns:1fr}}
 `;
 
 let A = null;

@@ -3,6 +3,15 @@
    Die Versionsnummer auf den Kacheln kommt aus dem obersten Eintrag. */
 window.PATCHNOTES = {
   leaarn: [
+    { v: "0.19.2", t: "2026-11-25T19:50:00+01:00",
+      de: ["Zweites Chemie-Spiel: „Atombau: Schalenmodelle bauen“. Du bekommst nacheinander 2 Elemente und baust jeweils ihr Schalenmodell: Protonen und Neutronen im Kern mit + und −, Schalen hinzufügen oder wegnehmen, Elektronen mit einem Klick auf die Schale setzen (Rechtsklick nimmt eins weg).",
+        "Pro Element gibt es bis zu 5 Punkte, jeder Bestandteil zählt einzeln: Protonen, Neutronen, Anzahl der Schalen, Elektronen insgesamt und die Verteilung auf die Schalen. Nach dem Prüfen siehst du, was gestimmt hat, und das richtige Modell daneben.",
+        "Daneben lässt sich das Periodensystem ausklappen. Ein Klick auf ein Element zeigt dessen Infos (Ordnungszahl, Atommasse, Periode, Gruppe) und blendet den Rest aus.",
+        "Drei Stufen: Leicht = Elemente 1–10 mit Hilfe (an jeder Schale steht, wie viele Elektronen hineinpassen), Mittel = Elemente 1–20 mit Hilfe (+30 % Geld), Schwer = Elemente 1–20 ohne Hilfe (+60 % Geld). Belohnung wie bei den anderen Spielen: 0 = 5 €, 1–5 = 25 €, 6–9 = 75 €, 10 = 150 €."],
+      en: ["Second chemistry game: “Atomic structure: build shell models”. You get 2 elements, one after another, and build each one's shell model: protons and neutrons in the nucleus with + and −, add or remove shells, place electrons by clicking a shell (right click removes one).",
+        "Each element is worth up to 5 points, every part counts on its own: protons, neutrons, number of shells, total electrons and the distribution over the shells. After checking you see what was right and the correct model next to it.",
+        "A periodic table can be unfolded next to it. Clicking an element shows its details (atomic number, mass, period, group) and hides the rest.",
+        "Three levels: easy = elements 1–10 with help (each shell shows how many electrons fit), medium = elements 1–20 with help (+30 % money), hard = elements 1–20 without help (+60 % money). Reward as in the other games: 0 = €5, 1–5 = €25, 6–9 = €75, 10 = €150."] },
     { v: "0.19.1", t: "2026-11-25T19:15:00+01:00",
       de: ["Erstes Lernspiel in Chemie: „Periodensystem: Elemente erkennen“. Zuerst erkundest du das komplette Periodensystem mit allen 118 Elementen – Maus drüber hebt ein Element hervor, ein Klick klappt alle wichtigen Infos auf: Ordnungszahl, Atommasse, Neutronen, Periode und Gruppe, Metall oder Nichtmetall, Zustand bei 20 °C, Außenelektronen, Schalenmodell mit Bild und ein Satz Wissenswertes.",
         "Dann Start: 5 Runden, in jeder siehst du ein Elementsymbol und schreibst den Namen. Richtig = 2 Punkte, kleiner Tippfehler = 1 Punkt. Bekannte Schreibweisen wie Jod, Kalzium oder Cäsium zählen auch.",

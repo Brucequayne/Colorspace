@@ -1,11 +1,12 @@
 // ===== learn.js · Lernmodus am Laptop: Fächer → Themen → 10 Aufgaben → Ergebnis mit Belohnung =====
 import { t, addTexts, L2, tl, el, esc, fmt, rng, PR, store, KEYS } from "le/core.js";
 import { Stats } from "le/stats.js";
+import { tick } from "le/sound.js";
 import { FAECHER, fach, spielbar, fachAktiv, belohnung, runde, pruefe, STANDARD_LOHN } from "le/faecher/index.js";
 import { addOffen, offen, einsammeln, addRunde, stat, euro, save, persist, fokusVoll, FOKUS } from "le/save.js";
 import { hsb, rgbHex, de2000, rating } from "le/faecher/farben.js";
 import { KAT, WORTARTEN, ART_KURZ, STUFEN, VOK_LOHN, bereich, stufenPool, bewerte } from "le/faecher/vokabeln.js";
-import { ELEMENTE, KATEG, ZUSTAND, STUFEN_PSE, PSE_LOHN, psePool, pseBewerte, valenz } from "le/faecher/elemente.js";
+import { ELEMENTE, KATEG, ZUSTAND, STUFEN_PSE, PSE_LOHN, psePool, pseBewerte, valenz, STUFEN_SCHALE, SCHALE_MAX, neutronen, schalePool, schaleBewerte } from "le/faecher/elemente.js";
 
 addTexts({
   lHello: L2("Fächer", "Subjects"), nSubj: L2("Fächer", "Subjects"), nStats: L2("Statistiken", "Statistics"), nClose: L2("Schließen", "Close"), lFull: L2("Vollbild", "Fullscreen"), lWin: L2("Fenster", "Window"), lSoon: L2("bald", "soon"), lBack: L2("Zurück", "Back"), lClose: L2("Laptop zuklappen", "Close laptop"),
@@ -39,6 +40,17 @@ addTexts({
   peNext: L2("Weiter", "Next"), peEnd: L2("Zur Auswertung", "See results"), peRight: L2("Richtig! +2", "Correct! +2"), peTypo: L2("Fast – kleiner Tippfehler. +1", "Almost – small typo. +1"),
   peWrong: L2("Leider falsch. 0 Punkte", "Wrong. 0 points"), peIs: L2("{s} ist {n}", "{s} is {n}"), pePool: L2("Hell markiert: Elemente, die auf dieser Stufe abgefragt werden", "Highlighted: elements asked at this level"),
   peRules: L2("5 Elemente, eins nach dem anderen: Symbol sehen, Namen auf Deutsch schreiben. Richtig = 2 Punkte, kleiner Tippfehler = 1 Punkt. Umlaute darfst du als ae/oe/ue schreiben.", "5 elements, one after another: see the symbol, write the German name. Correct = 2 points, small typo = 1 point."),
+  // Schalenmodelle bauen (Chemie, v0.19.2)
+  scIntro: L2("Du bekommst nacheinander 2 Elemente und baust jeweils ihr Schalenmodell: Kern mit Protonen und Neutronen, die Schalen und die Elektronen darauf. Daneben kannst du das Periodensystem ausklappen.", "You get 2 elements, one after another, and build each one's shell model: nucleus with protons and neutrons, the shells and the electrons on them. You can unfold the periodic table next to it."),
+  scPts: L2("Punkte je Element (max. 5)", "Points per element (max 5)"), scP: L2("Protonen", "Protons"), scN: L2("Neutronen", "Neutrons"), scSh: L2("Anzahl Schalen", "Number of shells"),
+  scTot: L2("Elektronen gesamt", "Total electrons"), scDist: L2("Verteilung auf die Schalen", "Distribution over the shells"),
+  scPx: L2("= Ordnungszahl", "= atomic number"), scNx: L2("= gerundete Atommasse − Ordnungszahl", "= rounded atomic mass − atomic number"), scShx: L2("= Periode", "= period"),
+  scTotx: L2("= Protonen (Atom ist neutral)", "= protons (atom is neutral)"), scDistx: L2("jede Schale richtig besetzt", "every shell filled correctly"),
+  scTask: L2("Baue das Schalenmodell von {n}", "Build the shell model of {n}"), scRound: L2("Element {i} von {n}", "Element {i} of {n}"), scCore: L2("Kern", "Nucleus"),
+  scShells: L2("Schalen", "Shells"), scAdd: L2("+ Schale", "+ shell"), scDel: L2("− Schale", "− shell"), scEl: L2("Elektronen", "Electrons"), scMax: L2("max. {n}", "max {n}"),
+  scHow: L2("Klick auf eine Schale setzt ein Elektron, Rechtsklick nimmt eins weg · Umschalt + Klick bei Protonen/Neutronen: ±5 · Enter prüft", "Click a shell to add an electron, right click removes one · Shift + click on protons/neutrons: ±5 · Enter checks"),
+  scCheck: L2("Prüfen", "Check"), scYours: L2("Dein Modell", "Your model"), scRight: L2("Richtig", "Correct"), scGot: L2("{p} von 5 Punkten", "{p} of 5 points"), scNoSh: L2("Noch keine Schale – füge eine hinzu.", "No shell yet – add one."),
+  spOpen: L2("Periodensystem", "Periodic table"), spBack: L2("← Periodensystem", "← Periodic table"), spHint: L2("Element anklicken für die Infos", "Click an element for details"),
   fLap: L2("Fokus", "Focus"), fBoost: L2("Fokus-Bonus +15 %: +{e}", "Focus bonus +15 %: +{e}"), fCharge: L2("lädt", "charging"),
   sBas: L2("Basics", "Basics"), sAdv: L2("Fortgeschritten", "Advanced"), sExp: L2("Experte", "Expert"), sAll: L2("Alle Stufen", "All levels"),
   // Vokabeltest (v0.15)
@@ -73,7 +85,9 @@ export class Learn {
       else if (e.target.id === "le-pans" && e.key === "Enter") { e.preventDefault(); e.stopPropagation(); this.pCheck(false); }
       else if (e.target.hasAttribute && e.target.hasAttribute("data-vi") && e.key === "Enter") { e.preventDefault(); e.stopPropagation(); this.vConfirm(+e.target.getAttribute("data-vi"), false); }
     });
-    this.root.addEventListener("input", (e) => { if (e.target.hasAttribute("data-g")) this.gInput(); else if (e.target.hasAttribute("data-vl")) { this.vopt({ lvl: +e.target.value }); this.vLvlInfo(); } else if (e.target.hasAttribute("data-pl")) { this.popt({ lvl: +e.target.value }); this.pLvlInfo(); } });
+    this.root.addEventListener("input", (e) => { if (e.target.hasAttribute("data-g")) this.gInput(); else if (e.target.hasAttribute("data-vl")) { this.vopt({ lvl: +e.target.value }); this.vLvlInfo(); } else if (e.target.hasAttribute("data-pl")) { this.popt({ lvl: +e.target.value }); this.pLvlInfo(); } else if (e.target.hasAttribute("data-sl")) { this.sopt({ lvl: +e.target.value }); this.sLvlInfo(); } });
+    // Schalenmodell: Rechtsklick auf eine Schale nimmt ein Elektron weg
+    this.root.addEventListener("contextmenu", (e) => { const r = e.target.closest && e.target.closest("[data-ring]"); if (r) { e.preventDefault(); this.sEl(+r.getAttribute("data-ring"), -1); } });
     this.render();
   }
   dispose() { clearTimeout(this.tm); clearInterval(this.gi); this.root.remove(); }
@@ -119,13 +133,13 @@ export class Learn {
           return '<div class="le-topic' + (ok ? "" : " le-off") + '">' + stufe(th) + "<div><b>" + esc(tl(th.name)) + "</b>" + (th.info ? "<small>" + esc(tl(th.info)) + "</small>" : "") + (st ? "<small>" + (th.art === "guess" ? fmt(t("pBestPts"), { b: num(st.best), n: st.n }) : th.wertung ? fmt(t("pBestPts"), { b: st.best, n: st.n }) : fmt(t("lBest"), { b: st.best, m: th.anzahl || 10, n: st.n })) + "</small>" : "") + "</div>" +
             (ok ? '<button class="le-pri" data-t="' + th.id + '">' + t("lStart") + "</button>" : '<em>' + t("lSoon") + "</em>") + "</div>";
         }).join("") + "</div>" + (f.spiele && f.spiele.length ? '<p class="le-dim">' + t("lPlanned") + ": " + f.spiele.map((s) => esc(tl(s.name))).join(" · ") + "</p>" : ""));
-    } else if (this.view === "setup") { if (this.th && this.th.art === "pse") this.renderPseSetup(); else this.renderSetup(); }
+    } else if (this.view === "setup") { if (this.th && this.th.art === "pse") this.renderPseSetup(); else if (this.th && this.th.art === "schale") this.renderSchaleSetup(); else this.renderSetup(); }
     else if (this.view === "quiz") this.renderQ();
     else if (this.view === "done") this.renderDone();
   }
   start(th) {
     this.th = th; const R = rng((Date.now() ^ (Math.random() * 1e9)) >>> 0);
-    const opt = th.setup ? Object.assign({}, th.art === "pse" ? this.popt() : this.vopt()) : null;
+    const opt = th.setup ? Object.assign({}, th.art === "pse" ? this.popt() : th.art === "schale" ? this.sopt() : this.vopt()) : null;
     this.q = { list: runde(th, R, opt), i: 0, res: [], lock: false, ph: "show", t0: performance.now(), opt: opt }; this.view = "quiz"; this.render();
   }
   renderQ() {
@@ -134,6 +148,7 @@ export class Learn {
     if (a.art === "guess") { this.renderGuess(); return; }
     if (a.art === "vokabel") { this.renderVok(); return; }
     if (a.art === "pse") { this.renderPseQ(); return; }
+    if (a.art === "schale") { this.renderSchaleQ(); return; }
     const dots = q.list.map((x, i) => '<i class="' + (i < q.res.length ? (q.res[i].ok ? "le-ok" : "le-no") : i === q.i ? "le-now" : "") + '"></i>').join("");
     let inp = "";
     if (a.art === "mc") inp = '<div class="le-mc">' + a.optionen.map((o, i) => '<button data-mc="' + i + '"><kbd>' + (i + 1) + "</kbd>" + esc(o) + "</button>").join("") + "</div>";
@@ -187,6 +202,7 @@ export class Learn {
   renderDone() {
     if (this.th.art === "vokabel") { this.renderVokDone(); return; }
     if (this.th.art === "pse") { this.renderPseDone(); return; }
+    if (this.th.art === "schale") { this.renderSchaleDone(); return; }
     if (this.th.wertung) { this.renderGuessDone(); return; }
     const q = this.q, n = q.list.length, wr = q.res.filter((x) => !x.ok), sw = (h) => '<i class="le-msw" style="background:' + h + '"></i>';
     this.body('<div class="le-done"><h2>' + t("lDone") + '</h2><div class="le-big">' + q.r + "<small>/" + n + '</small></div><p>' + fmt(t("lScore"), { r: q.r, n: n }) + '</p><div class="le-earn">' + t("lEarn") + " <b>+" + euro(q.lohn) + "</b> <small>" + t("pToPend") + '</small></div>' + this.boostHtml() + '<p class="le-dim">' + tiers(this.th.lohn || STANDARD_LOHN, n) + "</p>" +
@@ -314,6 +330,92 @@ export class Learn {
       '<div class="le-gsum">' + rows + "</div><p>" + fmt(t("gSum"), { s: num(w.summe), e: euro(w.basis) }) + "</p>" +
       (w.bonus ? '<p class="le-good"><b>' + fmt(t("gBonus"), { x: num(w.bonus.ueber, 1) }) + ": +" + euro(w.bonus.euro) + "</b></p>" : '<p class="le-dim">' + t("gNoBonus") + "</p>") +
       '<div class="le-earn">' + t("lEarn") + " <b>+" + euro(q.lohn) + "</b> <small>" + t("pToPend") + '</small></div>' + this.boostHtml() + '<p class="le-dim">' + t("gRules") + "</p>" + this.doneBtns() + "</div>");
+  }
+  // ---------- Schalenmodelle bauen (Chemie, seit v0.19.2) ----------
+  sopt(set) {
+    const u = store.get(KEYS.ui, {}), o = Object.assign({ lvl: 0 }, u.schale || {});
+    if (set) { Object.assign(o, set); u.schale = o; store.set(KEYS.ui, u); }
+    if (!(o.lvl >= 0 && o.lvl <= 2)) o.lvl = 0; return o;
+  }
+  renderSchaleSetup() {
+    const f = this.f, th = this.th, o = this.sopt(), demo = { p: 6, n: 6, sh: [2, 4] };
+    const row = (k, x) => "<li><b>" + t(k) + "</b> <span class=\"le-dim\">" + t(x) + "</span></li>";
+    this.body('<div class="le-lhead"><button data-l="fach">← ' + t("lBack") + '</button><i style="background:' + f.farbe + '">' + esc(f.kurz) + "</i><h2>" + esc(tl(th.name)) + "</h2></div>" +
+      '<div class="le-sset"><div>' + schaleSvg(demo, { help: true, small: true }) + '</div><div><p>' + t("scIntro") + "</p><h4>" + t("scPts") + '</h4><ul class="le-slist">' +
+      row("scP", "scPx") + row("scN", "scNx") + row("scSh", "scShx") + row("scTot", "scTotx") + row("scDist", "scDistx") + "</ul>" +
+      '<div class="le-vlvl"><b>' + t("vLevel") + '</b><input type="range" data-sl min="0" max="2" step="1" value="' + o.lvl + '"><div class="le-vlab">' + STUFEN_SCHALE.map((x) => '<span data-sls="' + x.id + '">' + esc(tl(x.name)) + "</span>").join("") + '</div><p id="le-slinfo"></p></div>' +
+      '<p class="le-dim" id="le-stiers"></p><div class="le-btns"><button class="le-pri le-vgo" data-l="vgo">Start ↵</button></div></div></div>');
+    this.sLvlInfo();
+  }
+  sLvlInfo() {
+    const o = this.sopt(), st = STUFEN_SCHALE[o.lvl];
+    this.root.querySelectorAll("[data-sls]").forEach((x) => x.classList.toggle("le-vsel", +x.getAttribute("data-sls") === o.lvl));
+    const inf = this.root.querySelector("#le-slinfo"); if (inf) inf.innerHTML = "<b>" + esc(tl(st.info)) + "</b> · " + (st.faktor > 1 ? '<em class="le-good">' + fmt(t("vBonusPct"), { p: Math.round((st.faktor - 1) * 100) }) + "</em>" : t("vBase"));
+    const ti = this.root.querySelector("#le-stiers"); if (ti) ti.innerHTML = "<b>" + t("vRewards") + ":</b> " + pseTiers(st.faktor);
+  }
+  renderSchaleQ() {
+    const q = this.q, f = this.f, a = q.list[q.i], e = a.el, st = STUFEN_SCHALE[(q.opt && q.opt.lvl) | 0]; clearTimeout(this.tm);
+    if (!q.b) q.b = { p: 0, n: 0, sh: [] };
+    if (!this.spse) this.spse = { open: false, el: null };
+    const sum = q.res.reduce((s, x) => s + x.score, 0), dots = q.list.map((x, k) => '<i class="' + (k < q.res.length ? (q.res[k].score === 5 ? "le-ok" : q.res[k].score ? "le-half" : "le-no") : k === q.i ? "le-now" : "") + '"></i>').join("");
+    this.body('<div class="le-lhead"><i style="background:' + f.farbe + '">' + esc(f.kurz) + "</i><h2>" + esc(tl(this.th.name)) + '</h2><span class="le-sp"></span><span class="le-dim">' + esc(tl(st.name)) + " · <b>" + sum + "</b> / 10</span></div>" +
+      '<div class="le-dots">' + dots + '</div><div class="le-sbuild"><div class="le-swork"><p class="le-dim">' + fmt(t("scRound"), { i: q.i + 1, n: q.list.length }) + "</p><h3>" + fmt(t("scTask"), { n: "<b>" + esc(e.name) + " (" + e.sym + ")</b>" }) + "</h3>" +
+      '<div class="le-sarea"><div class="le-ssvg" id="le-ssvg"></div><div class="le-sctl" id="le-sctl"></div></div><div id="le-sres"></div></div><div class="le-spse" id="le-spse"></div></div>');
+    this.sDraw(); this.sPanel();
+  }
+  // Baukasten neu zeichnen (Modell + Regler), ohne das Periodensystem anzufassen
+  sDraw() {
+    const q = this.q, b = q.b, st = STUFEN_SCHALE[(q.opt && q.opt.lvl) | 0], shown = q.ph === "shown", sv = this.root.querySelector("#le-ssvg"), ct = this.root.querySelector("#le-sctl"); if (!sv || !ct) return;
+    sv.innerHTML = schaleSvg(b, { help: st.hilfe, edit: !shown });
+    const pm = (k, v, lab) => '<div class="le-srow"><span>' + lab + '</span><button data-sb="' + k + '-"' + (shown ? " disabled" : "") + ">−</button><b>" + v + '</b><button data-sb="' + k + '+"' + (shown ? " disabled" : "") + ">+</button></div>";
+    const names = ["K", "L", "M", "N"];
+    let h = "<h4>" + t("scCore") + "</h4>" + pm("p", b.p, "p⁺ " + t("scP")) + pm("n", b.n, "n " + t("scN")) + "<h4>" + t("scShells") + '</h4><div class="le-btns"><button data-sb="s+"' + (shown || b.sh.length >= 4 ? " disabled" : "") + ">" + t("scAdd") + '</button><button data-sb="s-"' + (shown || !b.sh.length ? " disabled" : "") + ">" + t("scDel") + "</button></div>";
+    h += b.sh.length ? b.sh.map((x, k) => pm("e" + k, x, names[k] + "-" + t("scEl") + (st.hilfe ? ' <small class="le-dim">' + fmt(t("scMax"), { n: SCHALE_MAX[k] }) + "</small>" : ""))).join("") : '<p class="le-dim">' + t("scNoSh") + "</p>";
+    if (!shown) h += '<p class="le-dim le-shelp">' + t("scHow") + '</p><div class="le-btns"><button class="le-pri le-vgo" data-l="scheck">' + t("scCheck") + " ↵</button></div>";
+    ct.innerHTML = h;
+  }
+  sBtn(k, big) {
+    const q = this.q; if (!q || q.ph === "shown" || !q.b) return; const b = q.b, d = (k.slice(-1) === "+" ? 1 : -1) * (big ? 5 : 1), w = k.slice(0, -1);
+    if (w === "p") b.p = Math.max(0, Math.min(60, b.p + d)); else if (w === "n") b.n = Math.max(0, Math.min(80, b.n + d));
+    else if (w === "s") { if (d > 0 && b.sh.length < 4) b.sh.push(0); else if (d < 0) b.sh.pop(); }
+    else if (w[0] === "e") return this.sEl(+w.slice(1), d > 0 ? 1 : -1);
+    tick(1); this.sDraw();
+  }
+  sEl(k, d) { const q = this.q; if (!q || q.ph === "shown" || !q.b || k >= q.b.sh.length) return; q.b.sh[k] = Math.max(0, Math.min(18, q.b.sh[k] + d)); tick(d > 0 ? 2 : 0); this.sDraw(); }
+  sCheck() {
+    const q = this.q; if (!q || this.view !== "quiz" || q.ph === "shown") return;
+    const e = q.list[q.i].el, r = schaleBewerte(e, q.b); q.res.push({ ok: r.score === 5, score: r.score, parts: r.parts, el: e, b: { p: q.b.p, n: q.b.n, sh: q.b.sh.slice() } }); q.ph = "shown";
+    const L = ["scP", "scN", "scSh", "scTot", "scDist"], soll = [e.z, neutronen(e), e.sch.length, e.z, e.sch.join(" · ")], ist = [q.b.p, q.b.n, q.b.sh.length, q.b.sh.reduce((s, x) => s + x, 0), q.b.sh.join(" · ") || "–"];
+    const box = this.root.querySelector("#le-sres");
+    box.innerHTML = '<div class="le-sfb"><div class="le-sfl">' + L.map((k, i) => '<div class="' + (r.parts[i] ? "le-vg" : "le-vb") + '"><i>' + (r.parts[i] ? "✓" : "✗") + "</i><span>" + t(k) + "</span><b>" + ist[i] + (r.parts[i] ? "" : ' <small>→ ' + soll[i] + "</small>") + "</b></div>").join("") +
+      '<p class="le-sgot">' + fmt(t("scGot"), { p: r.score }) + '</p></div><div class="le-scmp"><small>' + t("scRight") + "</small>" + schaleSvg({ p: e.z, n: neutronen(e), sh: e.sch }, { small: true }) + "</div></div>" +
+      '<div class="le-btns"><button class="le-pri le-vgo" data-l="snext">' + t(q.i + 1 >= q.list.length ? "peEnd" : "peNext") + " ↵</button></div>";
+    this.sDraw(); const sm = this.root.querySelector(".le-lhead b"); if (sm) sm.textContent = q.res.reduce((s, x) => s + x.score, 0);
+    const bt = box.querySelector("button"); if (bt) { bt.focus(); bt.scrollIntoView({ block: "nearest" }); }
+  }
+  sNext() { const q = this.q; if (!q || q.ph !== "shown") return; q.i++; q.ph = "build"; q.b = null; if (q.i >= q.list.length) this.finish(); else this.renderSchaleQ(); }
+  // ausklappbares Periodensystem: zu → Leiste; offen → ganzes System; Element gewählt → nur dessen Infos (ohne die Lösung)
+  sPanel() {
+    const P = this.root.querySelector("#le-spse"), S = this.spse; if (!P || !S) return;
+    P.classList.toggle("le-sopen", S.open);
+    if (!S.open) { P.innerHTML = '<button class="le-stab" data-l="spopen">▸ ' + t("spOpen") + "</button>"; return; }
+    if (!S.el) {
+      P.innerHTML = '<div class="le-shead"><b>' + t("spOpen") + '</b><button data-l="spclose">×</button></div><p class="le-dim">' + t("spHint") + '</p><div class="le-ptab le-smini">' +
+        ELEMENTE.map((e) => '<button class="le-pe" data-sp="' + e.z + '" style="grid-row:' + e.row + ";grid-column:" + e.col + ";--c:" + KATEG[e.kat].c + '" title="' + esc(e.name) + '"><small>' + e.z + "</small><b>" + e.sym + "</b></button>").join("") + "</div>";
+      return;
+    }
+    const e = ELEMENTE[S.el - 1], K = KATEG[e.kat], row = (k, v) => "<div><span>" + k + "</span><b>" + v + "</b></div>", mass = e.m % 1 ? String(e.m).replace(".", PR.lang === "en" ? "." : ",") : e.m;
+    const gr = e.gr ? (e.haupt ? fmt(t("peHG"), { n: e.haupt }) : fmt(t("peNG"), { n: e.gr })) : tl(K.n);
+    P.innerHTML = '<div class="le-shead"><button data-l="spback">' + t("spBack") + '</button><button data-l="spclose">×</button></div><div class="le-pcard le-popen"><div class="le-ptile" style="--c:' + K.c + '"><small>' + e.z + "</small><b>" + e.sym + "</b><i>" + mass + "</i></div><div><h3>" + esc(e.name) + '</h3><p class="le-dim">' + esc(tl(K.n)) + " · " + tl(ZUSTAND[e.zu]) + " " + t("peZu") + "</p></div></div>" +
+      '<div class="le-prows">' + row(t("peZ"), e.z) + row(t("peM"), mass + " u") + row(t("pePer"), e.per) + row(t("peGr"), esc(gr)) + '</div><p class="le-dim le-sfact">' + esc(e.fakt) + "</p>";
+  }
+  renderSchaleDone() {
+    const q = this.q, w = q.w, st = STUFEN_SCHALE[(q.opt && q.opt.lvl) | 0], L = ["scP", "scN", "scSh", "scTot", "scDist"];
+    const rows = q.res.map((r) => '<div class="le-sdone ' + (r.score === 5 ? "le-vg" : r.score ? "le-vh" : "le-vb") + '"><span class="le-pmini" style="--c:' + KATEG[r.el.kat].c + '">' + r.el.sym + "</span><b>" + esc(r.el.name) + '</b><span class="le-sicons">' + r.parts.map((ok, i) => '<i class="' + (ok ? "le-ok" : "le-no") + '" title="' + t(L[i]) + '">' + (ok ? "✓" : "✗") + "</i>").join("") + '</span><span class="le-vp">+' + r.score + "</span></div>").join("");
+    this.body('<div class="le-done"><h2>' + t("lDone") + '</h2><div class="le-big">' + w.summe + "<small>/10</small></div>" +
+      "<p>" + fmt(t("vPts"), { p: w.summe }) + (st.faktor > 1 ? ' · <span class="le-dim">' + fmt(t("vMult"), { s: tl(st.name), b: euro(w.basis), f: String(st.faktor).replace(".", PR.lang === "en" ? "." : ","), e: euro(w.euro) }) + "</span>" : "") + "</p>" +
+      '<div class="le-earn">' + t("lEarn") + " <b>+" + euro(q.lohn) + "</b> <small>" + t("pToPend") + "</small></div>" + this.boostHtml() + '<p class="le-dim">' + pseTiers(st.faktor, w.summe) + "</p>" +
+      '<div class="le-vresl">' + rows + '</div><p class="le-dim">' + L.map((k) => t(k)).join(" · ") + "</p>" + this.doneBtns() + "</div>");
   }
   // ---------- Periodensystem (Chemie, seit v0.19.1) ----------
   popt(set) {
@@ -465,6 +567,9 @@ export class Learn {
     const st = e.target.closest("[data-st]"); if (st) { if (this.stats.click(st)) this.render(); return; }
     const fb = e.target.closest("[data-f]"); if (fb) { const f = fach(fb.getAttribute("data-f")); if (f) { this.f = f; this.view = "fach"; this.render(); } return; }
     const tb = e.target.closest("[data-t]"); if (tb) { const th = this.f.themen.find((x) => x.id === tb.getAttribute("data-t")); if (th) { if (th.setup) { this.th = th; this.view = "setup"; this.render(); } else this.start(th); } return; }
+    const sb = e.target.closest("[data-sb]"); if (sb) { this.sBtn(sb.getAttribute("data-sb"), e.shiftKey); return; }
+    const rg = e.target.closest("[data-ring]"); if (rg) { this.sEl(+rg.getAttribute("data-ring"), 1); return; }
+    const spe = e.target.closest("[data-sp]"); if (spe) { this.spse.el = +spe.getAttribute("data-sp"); this.sPanel(); return; }
     const pe = e.target.closest("[data-pe]"); if (pe) { const z = +pe.getAttribute("data-pe"); this.popt({ el: z }); this.pShow(z); return; }
     const vk = e.target.closest("[data-vk]"); if (vk) { this.vopt({ kat: vk.getAttribute("data-vk") }); this.renderSetup(); return; }
     const vb = e.target.closest("[data-vok]"); if (vb) { this.vConfirm(+vb.getAttribute("data-vok"), true); return; }
@@ -481,6 +586,11 @@ export class Learn {
     else if (a === "pchk") this.pCheck(true);
     else if (a === "pnext") this.pNext();
     else if (a === "pclose") this.pClose();
+    else if (a === "scheck") this.sCheck();
+    else if (a === "snext") this.sNext();
+    else if (a === "spopen") { this.spse.open = true; this.spse.el = null; this.sPanel(); }
+    else if (a === "spclose") { this.spse.open = false; this.sPanel(); }
+    else if (a === "spback") { this.spse.el = null; this.sPanel(); }
     else if (a === "vset") { this.view = "setup"; this.render(); }
     else if (a === "home") { this.view = "home"; this.render(); }
     else if (a === "fach") { this.view = "fach"; this.render(); }
@@ -502,6 +612,7 @@ export class Learn {
     if (this.view === "setup") { if ((e.code === "Enter" || e.code === "NumpadEnter") && e.target.tagName !== "BUTTON") { this.start(this.th); return true; } return false; }
     if (this.view === "quiz") {
       const a = this.q.list[this.q.i];
+      if (a.art === "schale") { if ((e.code === "Enter" || e.code === "NumpadEnter") && e.target.tagName !== "BUTTON") { if (this.q.ph === "shown") this.sNext(); else this.sCheck(); return true; } return false; }
       if (a.art === "pse") { if ((e.code === "Enter" || e.code === "NumpadEnter") && this.q.ph === "shown" && e.target.tagName !== "BUTTON") { this.pNext(); return true; } return false; }
       if (a.art === "vokabel") { if ((e.code === "Enter" || e.code === "NumpadEnter") && this.q.vr && this.q.vr.every(Boolean) && e.target.tagName !== "BUTTON") { this.vEnd(); return true; } return false; }
       if (a.art === "guess") { if (e.code === "Enter" || e.code === "NumpadEnter") { if (this.q.ph === "mix") this.gSubmit(); else if (this.q.ph === "res") this.gNext(); return true; } return false; }
@@ -551,5 +662,20 @@ function bohr(e) {
     const r = R0 + dr * i; g += '<circle cx="' + c + '" cy="' + c + '" r="' + r + '" fill="none" stroke="#62929E" stroke-width="1"/>';
     for (let j = 0; j < k; j++) { const a = -Math.PI / 2 + (j / k) * Math.PI * 2; g += '<circle cx="' + (c + Math.cos(a) * r).toFixed(1) + '" cy="' + (c + Math.sin(a) * r).toFixed(1) + '" r="' + (k > 18 ? 1.5 : 2.3) + '" fill="#ECEAE4"/>'; }
   });
+  return g + "</svg>";
+}
+// Schalenmodell als Grafik: Kern (p⁺ / n), Schalen K–N als Ringe, Elektronen gleichmäßig verteilt. edit = Ringe anklickbar, help = max. Elektronen
+function schaleSvg(b, o) {
+  o = o || {}; const sh = b.sh || [], size = o.small ? 200 : 320, c = size / 2, R0 = o.small ? 34 : 54, dr = o.small ? 20 : 30, names = ["K", "L", "M", "N"];
+  const nr = Math.min(o.small ? 22 : 34, 18 + Math.sqrt(b.p + b.n) * (o.small ? 1.4 : 2));
+  let g = '<svg class="le-schsvg" viewBox="0 0 ' + size + " " + size + '" width="100%" style="max-width:' + size + 'px">';
+  sh.forEach((k, i) => {
+    const r = R0 + dr * i;
+    g += '<circle cx="' + c + '" cy="' + c + '" r="' + r + '" fill="none" stroke="#62929E" stroke-width="1.6"/>';
+    if (o.edit) g += '<circle class="le-shit" data-ring="' + i + '" cx="' + c + '" cy="' + c + '" r="' + r + '" fill="none" stroke-width="' + (dr - 4) + '"/>';
+    g += '<text x="' + (c + r * 0.72 + 4) + '" y="' + (c - r * 0.72 - 2) + '" font-size="' + (o.small ? 10 : 12) + '" font-weight="800" fill="#7FC8D4" pointer-events="none">' + names[i] + (o.help ? " " + k + "/" + SCHALE_MAX[i] : "") + "</text>";
+    for (let j = 0; j < k; j++) { const a = -Math.PI / 2 + (j / k) * Math.PI * 2; g += '<circle cx="' + (c + Math.cos(a) * r).toFixed(1) + '" cy="' + (c + Math.sin(a) * r).toFixed(1) + '" r="' + (o.small ? 3.4 : 5.5) + '" fill="#ECEAE4" stroke="#141518" stroke-width="1" pointer-events="none"/>'; }
+  });
+  g += '<circle cx="' + c + '" cy="' + c + '" r="' + nr + '" fill="#ED6A5E"/><text x="' + c + '" y="' + (c - 2) + '" text-anchor="middle" font-size="' + (o.small ? 10 : 13) + '" font-weight="800" fill="#141518">' + b.p + ' p⁺</text><text x="' + c + '" y="' + (c + (o.small ? 10 : 13)) + '" text-anchor="middle" font-size="' + (o.small ? 10 : 13) + '" font-weight="700" fill="#141518">' + b.n + " n</text>";
   return g + "</svg>";
 }

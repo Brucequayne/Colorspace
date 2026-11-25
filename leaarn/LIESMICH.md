@@ -128,6 +128,11 @@ Alternativnamen, Masse, Kategorie, Zustand; Periode/Gruppe/Platz und Elektronen 
 Setup-Seite = erkundbares Periodensystem (`renderPseSetup`, Klick klappt die Infokarte neben dem Element auf), dann 5 Runden Symbol → Name
 (`renderPseQ`/`pCheck`/`pNext`), Punkte 2/1/0 wie beim Vokabeltest, Schwierigkeit in `STUFEN_PSE` (gemerkt in `leaarn-ui-v1` → `pse`).
 
+Schalenmodelle bauen (Chemie, seit v0.19.2, art `schale`, Thema `schalenmodell`): 2 Elemente, Modell `{ p, n, sh }` bauen
+(`renderSchaleQ`, `sDraw`, `sBtn`, `sEl`; Rechtsklick auf eine Schale = Elektron weg), Wertung `schaleBewerte` in elemente.js
+(je 1 Punkt: Protonen, Neutronen = gerundete Masse − Z, Schalen = Periode, Elektronen gesamt, Verteilung). Ausklappbares Periodensystem `sPanel`
+(Element gewählt → nur dessen Infos, ohne Schalenverteilung). Stufen `STUFEN_SCHALE`, gemerkt in `leaarn-ui-v1` → `schale`.
+
 Stufen statt Jahrgänge (seit v0.15): `klasse` 5–6 = Basics, 7–8 = Fortgeschritten, 9–10 = Experte, `stufe: "alle"` = Alle Stufen.
 
 Farbmischen (`faecher/farben.js`): Farbe = Pigment-Anteile [Rot, Gelb, Blau, Weiß, Schwarz], Mischen = gleiche Teile.
