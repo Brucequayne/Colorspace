@@ -271,11 +271,12 @@ export function mount(host, lang, stamp) {
   host.innerHTML = "";
   const root = el("div", "le-root"); host.appendChild(root);
   const engine = new Engine(root), ui = el("div", "le-ui"); root.appendChild(ui);
-  const settings = Object.assign({ shadows: true, scale: 1, drive: "rwd" }, store.get(KEYS.settings, {}));
+  const settings = Object.assign({ shadows: true, scale: 1, drive: "rwd", grass: 200 }, store.get(KEYS.settings, {}));
   engine.quality({ shadows: settings.shadows, scale: settings.scale });
   const world = new World(engine);
   if (!loadSaved(world)) { world.standard(); autosave(world, true); }
   const app = A = { engine: engine, world: world, ui: ui, root: root, input: new Input(), settings: settings, lang: PR.lang, mode: null, modeName: "", raf: 0, last: performance.now() };
+  world.veg.setDist(settings.grass);   // Gras-Sichtweite (seit v0.19)
   app.go = (name, opts) => {
     if (app.mode) app.mode.dispose();
     app.modeName = name; ui.setAttribute("data-mode", name);

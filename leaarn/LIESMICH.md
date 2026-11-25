@@ -68,6 +68,20 @@ Starterhaus (v0.18): Noahs Export, Hecke per `gardenParts` (houses.js, auch vom 
 
 Map-Eintrag: `{ k: "starter" | "lokal", d: Hausdaten (nur lokal), x, z, y, a (Grad), home }`. `home` = Zuhause (Spielstart vor der ersten Tür).
 
+## Straßen (seit v0.19)
+
+Straßentypen in `TYPEN` (road.js): `zwei`, `zwei-gw`, `ein`, `ein-gw`, `rad` – Fahrbahnbreite (2,6 m je Spur), Gehweg beidseitig, Markierungen.
+Eine Straße mit `typ` ignoriert Breite/Kerbs/Gehweg der Punkte (alte Straßen ohne `typ` bleiben wie gebaut). Kreuzungen: `prio()` (breiter, dann älter)
+gewinnt, die andere lässt dort ihren Belag weg; Markierungen und Gehwege entfallen auf fremder Fahrbahn (`onRoad`). Editor: Einrasten in `endAt`
+(Straßenende → Verbinden, gleicher Typ wird eine Straße; Straße → Einmündung `j`), `matchCross` gleicht Kreuzungen in der Höhe an, Griffe nur an offenen Enden.
+
+## Objekte und Gras-Sichtweite (seit v0.19)
+
+`objekte.js`: Assets in `OBJEKTE` (bisher `laterne`), Map-Feld `objs: [{ k, x, z, y, a }]`, Kollision über `Objekte.near`. Für FBX-Modelle liegt
+`FBXLoader.js` in `polyracer/lib/addons/loaders/`. Gras/Kleinkram (`sp < 1,2`) liegt in 64-m-Kacheln (`buildTiles`), `cull` blendet Kacheln
+außerhalb der Gras-Sichtweite aus (Einstellung `grass` in `leaarn-settings-v1`, 0 = unbegrenzt), der Shader lässt die Halme davor wegschrumpfen.
+Im Map-Editor gilt keine Grenze (`veg.limit = false`).
+
 ## Straßen: Gehweg (seit v0.16)
 
 Punkte haben zusätzlich `sl`, `sr` (Gehweg links/rechts ab diesem Punkt) und `gs` (0 europäisch = kleine Backsteine, 1 amerikanisch = Betonplatten 1,5 m).

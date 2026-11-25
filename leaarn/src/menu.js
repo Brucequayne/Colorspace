@@ -4,6 +4,7 @@ import { t, addTexts, L2, el, esc, store, KEYS, DEV_CODE, PR } from "le/core.js"
 import { geld, euro, offen, charakter, reset } from "le/save.js";
 
 addTexts({
+  sGrass: L2("Gras-Sichtweite", "Grass view distance"), sFar: L2("Unbegrenzt", "Unlimited"), sGrassH: L2("Weniger Gras = schneller auf langsamen Rechnern", "Less grass = faster on slow computers"),
   mPlay: L2("Spielen", "Play"), mMap: L2("Map-Editor", "Map editor"), mHouse: L2("Haus-Editor", "House editor"),
   mChar: L2("Charakter", "Character"), mReset: L2("Spielstand zurücksetzen", "Reset progress"),
   mSure: L2("Bist du dir sicher? Dein gesamter Spielfortschritt geht verloren.", "Are you sure? All your progress will be lost."),
@@ -32,6 +33,7 @@ export class Menu {
       '<details class="le-set"><summary>' + t("mSet") + "</summary>" +
       '<label>' + t("sShadow") + "</label>" + seg("shadows", [[true, "sOn"], [false, "sOff"]]) +
       '<label>' + t("sScale") + "</label>" + seg("scale", [[0.6, "60 %"], [0.8, "80 %"], [1, "100 %"]]) +
+      '<label>' + t("sGrass") + "</label>" + seg("grass", [[50, "50 m"], [100, "100 m"], [200, "200 m"], [0, "sFar"]]) + '<p class="le-dim le-shint2">' + t("sGrassH") + "</p>" +
       "</details>" +
       '<a class="le-mlink" href="#">← ' + t("mBack") + "</a></div>" +
       '<button class="le-reset" data-m="reset">' + t("mReset") + "</button>" +
@@ -45,7 +47,7 @@ export class Menu {
     const s = this.app.settings;
     if (b.hasAttribute("data-set")) {
       const k = b.getAttribute("data-set"), raw = b.getAttribute("data-v"), v = raw === "true" ? true : raw === "false" ? false : isNaN(+raw) ? raw : +raw;
-      s[k] = v; store.set(KEYS.settings, s); this.app.engine.quality({ shadows: s.shadows, scale: s.scale });
+      s[k] = v; store.set(KEYS.settings, s); this.app.engine.quality({ shadows: s.shadows, scale: s.scale }); this.app.world.veg.setDist(s.grass);
       b.parentNode.querySelectorAll("button").forEach((o) => o.setAttribute("aria-pressed", String(o === b))); return;
     }
     const m = b.getAttribute("data-m");

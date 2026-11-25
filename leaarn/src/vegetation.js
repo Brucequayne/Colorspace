@@ -27,6 +27,7 @@ export const TYPES = {
   cliff: { n: L2("Fels (größer als ein Auto)", "Rock (larger than a car)"), sp: 5.5, shadow: true, sway: 0, col: 2.9 }
 };
 const BIG = 1.2;   // ab diesem Mindestabstand zählt ein Typ als groß
+const TILE = 64;   // Kachelgröße für Gras & Kleinkram (Sichtweite)
 export const DEFAULT_GROUPS = [
   { id: "g1", n: "Nadelwald", items: [{ t: "pine", p: 55 }, { t: "fir", p: 30 }, { t: "bush", p: 10 }, { t: "rock", p: 5 }], dens: 3, smin: 0.85, smax: 1.25, slopeMin: 0, slope: 38, road: 3 },
   { id: "g2", n: "Laubwald", items: [{ t: "oak", p: 50 }, { t: "birch", p: 25 }, { t: "bush", p: 25 }], dens: 2.5, smin: 0.85, smax: 1.2, slopeMin: 0, slope: 32, road: 3 },
@@ -43,6 +44,9 @@ export class Vegetation {
     this.groups = JSON.parse(JSON.stringify(DEFAULT_GROUPS));
     this.time = { value: 0 }; this.wind = { value: 0.4 }; this.windDir = { value: new THREE.Vector2(0, 1) };
     this.geo = {}; this.mat = {};
+    // Gras-Sichtweite (seit v0.19): Gras, Blumen und Kleinkram liegen in Kacheln (TILE m), weiter entfernte Kacheln werden nicht gezeichnet,
+    // davor schrumpfen die Halme weich weg. limit = false (Map-Editor): alles sichtbar
+    this.dist = { value: 200 }; this.limit = true;
     Object.keys(TYPES).forEach((t) => { this.inst[t] = []; });
   }
   name(t) { return tl(TYPES[t].n); }
@@ -51,10 +55,14 @@ export class Vegetation {
     if (this.mat[t]) return this.mat[t];
     const bl = TYPES[t].blades, m = new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: !bl, side: bl ? THREE.DoubleSide : THREE.FrontSide }), sway = TYPES[t].sway, U = this;
     if (bl) m.emissive = new THREE.Color(0x10180A);   // Gras etwas Eigenleuchten, damit es im Schatten nicht schwarz wird
-    if (sway) m.onBeforeCompile = (sh) => {
+    const small = TYPES[t].sp < BIG;
+    if (sway || small) m.onBeforeCompile = (sh) => {
       // Gras: Rückseiten der Halme nicht abdunkeln (sonst kehrt sich die Normale nach unten um → schwarze Flecken)
       if (bl) sh.fragmentShader = sh.fragmentShader.replace("#include <normal_fragment_begin>", THREE.ShaderChunk.normal_fragment_begin.replace(/gl_FrontFacing \? 1\.0 : - 1\.0/, "1.0"));   // Wind: Höhe × Windstärke × Typ in Windrichtung, Böen mit Phase je Pflanze aus ihrer Lage
-      sh.uniforms.uTime = U.time; sh.uniforms.uWind = U.wind; sh.uniforms.uWindDir = U.windDir;
+      sh.uniforms.uTime = U.time; sh.uniforms.uWind = U.wind; sh.uniforms.uWindDir = U.windDir; sh.uniforms.uDist = U.dist;
+      // Kleinkram: ab 80 % der Sichtweite weich wegschrumpfen
+      if (small) sh.vertexShader = "uniform float uDist;\n" + sh.vertexShader.replace("#include <begin_vertex>", "#include <begin_vertex>\n#ifdef USE_INSTANCING\n{ float gd = distance(cameraPosition.xz, (modelMatrix * instanceMatrix[3]).xz); transformed *= 1.0 - smoothstep(uDist * 0.8, uDist, gd); }\n#endif");
+      if (!sway) return;
       sh.vertexShader = "uniform float uTime;uniform float uWind;uniform vec2 uWindDir;\n" + sh.vertexShader.replace("#include <begin_vertex>",
         "#include <begin_vertex>\n#ifdef USE_INSTANCING\nfloat wph = instanceMatrix[3].x * 0.17 + instanceMatrix[3].z * 0.13;\nfloat wy = max(0.0, position.y);\nfloat wk = wy * uWind * " + sway.toFixed(2) + ";\n" +
         "float gust = 0.6 + 0.4 * sin(uTime * 0.7 + dot(instanceMatrix[3].xz, uWindDir) * 0.05);\n" +
@@ -143,8 +151,9 @@ export class Vegetation {
   build(t) {
     this.dirty[t] = false;
     const a = this.inst[t], n = a.length / 4, old = this.meshes[t];
-    if (old) { this.group.remove(old); old.dispose(); }
+    if (old) { [].concat(old).forEach((o) => { this.group.remove(o); o.dispose(); }); }
     if (!n) { this.meshes[t] = null; return; }
+    if (TYPES[t].sp < BIG) { this.buildTiles(t); return; }
     const m = new THREE.InstancedMesh(this.geoOf(t), this.matOf(t), n), T = this.world.terrain, mx = new THREE.Matrix4(), q = new THREE.Quaternion(), up = new THREE.Vector3(0, 1, 0), sc = new THREE.Vector3(), p = new THREE.Vector3();
     for (let i = 0; i < n; i++) {
       const k = i * 4; q.setFromAxisAngle(up, a[k + 2]); sc.setScalar(a[k + 3]);
@@ -152,6 +161,27 @@ export class Vegetation {
     }
     m.castShadow = TYPES[t].shadow; m.receiveShadow = true; m.computeBoundingSphere();
     this.group.add(m); this.meshes[t] = m;
+  }
+  // Kleinkram in Kacheln (TILE × TILE m) bauen
+  buildTiles(t) {
+    const a = this.inst[t], T = this.world.terrain, B = new Map(), out = [];
+    for (let k = 0; k < a.length; k += 4) { const key = Math.floor(a[k] / TILE) + "," + Math.floor(a[k + 1] / TILE); let l = B.get(key); if (!l) B.set(key, (l = [])); l.push(k); }
+    const mx = new THREE.Matrix4(), q = new THREE.Quaternion(), up = new THREE.Vector3(0, 1, 0), sc = new THREE.Vector3(), p = new THREE.Vector3();
+    B.forEach((l, key) => {
+      const m = new THREE.InstancedMesh(this.geoOf(t), this.matOf(t), l.length), kk = key.split(",").map(Number);
+      l.forEach((k, i) => { q.setFromAxisAngle(up, a[k + 2]); sc.setScalar(a[k + 3]); p.set(a[k], T.heightAt(a[k], a[k + 1]) - 0.08 * a[k + 3], a[k + 1]); mx.compose(p, q, sc); m.setMatrixAt(i, mx); });
+      m.castShadow = TYPES[t].shadow; m.receiveShadow = true; m.computeBoundingSphere(); m.userData.cx = (kk[0] + 0.5) * TILE; m.userData.cz = (kk[1] + 0.5) * TILE;
+      this.group.add(m); out.push(m);
+    });
+    this.meshes[t] = out; this.culled = null;
+  }
+  setDist(d) { this.dist.value = d > 0 ? d : 1e6; this.culled = null; }
+  // Kacheln außerhalb der Sichtweite ausblenden (jedes Bild, nur wenn sich die Kamera eine Kachel weit bewegt hat)
+  cull(cam) {
+    const lim = this.limit ? this.dist.value : 1e6, key = Math.round(cam.x / 8) + "," + Math.round(cam.z / 8) + "," + lim;
+    if (key === this.culled) return; this.culled = key;
+    const r = lim + TILE * 0.75;
+    Object.keys(this.meshes).forEach((t) => { const M2 = this.meshes[t]; if (!Array.isArray(M2)) return; M2.forEach((m) => { m.visible = Math.hypot(m.userData.cx - cam.x, m.userData.cz - cam.z) < r; }); });
   }
   update(dt, wind, dirDeg) { this.time.value += dt; this.wind.value = wind; const a = (dirDeg || 0) * DEG; this.windDir.value.set(Math.sin(a), Math.cos(a)); this.refresh(false); }
   toJSON() { const o = {}; Object.keys(this.inst).forEach((t) => { if (this.inst[t].length) o[t] = this.inst[t].map((v, i) => (i % 4 < 2 ? Math.round(v * 10) / 10 : Math.round(v * 100) / 100)); }); return { inst: o, groups: this.groups }; }

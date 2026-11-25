@@ -7,6 +7,7 @@ import { Road } from "le/road.js";
 import { Vegetation, TYPES } from "le/vegetation.js";
 import { HouseInst } from "le/houses.js";
 import { houseDef } from "le/haeuser.js";
+import { Objekte } from "le/objekte.js";
 
 // Haftung (mu) und Rollwiderstand je Untergrund. Reihenfolge wie LAYERS in terrain.js
 const SURF = [[0.62, 0.05], [0.58, 0.05], [0.55, 0.06], [0.58, 0.06], [0.6, 0.04], [0.45, 0.09], [0.85, 0.02], [0.35, 0.05]];
@@ -20,9 +21,10 @@ export class World {
     this.env = { time: 14, fog: 30, view: 1400, wind: 35, windDir: 40 };
     this.name = "Hub";
     this.houses = []; this.houseGroup = new THREE.Group();
+    this.objs = new Objekte(this);   // Objekte (seit v0.19): Straßenlaternen …
     this.terrain.carve = (x, z, b) => this.carve(x, z, b);
     this.addRoad();
-    engine.scene.add(this.terrain.group); engine.scene.add(this.roadGroup); engine.scene.add(this.veg.group); engine.scene.add(this.houseGroup);
+    engine.scene.add(this.terrain.group); engine.scene.add(this.roadGroup); engine.scene.add(this.veg.group); engine.scene.add(this.houseGroup); engine.scene.add(this.objs.group);
     this.n = new THREE.Vector3();
   }
   // ---------- Häuser (Leaarn) ----------
@@ -108,24 +110,25 @@ export class World {
     else { this.terrain.recalc(); this.terrain.rebuild(); }
   }
   rebuildAll() { this.buildRoads(); this.terrain.recalc(); this.terrain.rebuild(); this.veg.rebuildGrid(); this.veg.refresh(true); this.setEnv(); }
-  update(dt) { this.veg.update(dt, this.env.wind / 100, this.env.windDir); this.houses.forEach((h) => h.update(dt)); }
+  update(dt) { this.veg.update(dt, this.env.wind / 100, this.env.windDir); this.veg.cull(this.engine.camera.position); this.houses.forEach((h) => h.update(dt)); }
   // road = Hauptstrecke (für ältere Versionen), roads = alle Straßen
-  toJSON() { const rs = this.roads.filter((r) => r.pts.length > 1); return { v: 1, name: this.name, env: this.env, terrain: this.terrain.toJSON(), road: this.road.toJSON(), roads: rs.map((r) => r.toJSON()), veg: this.veg.toJSON(), houses: this.houses.map((h) => houseOut(h.e)) }; }
+  toJSON() { const rs = this.roads.filter((r) => r.pts.length > 1); return { v: 1, name: this.name, env: this.env, terrain: this.terrain.toJSON(), road: this.road.toJSON(), roads: rs.map((r) => r.toJSON()), veg: this.veg.toJSON(), objs: this.objs.toJSON(), houses: this.houses.map((h) => houseOut(h.e)) }; }
   fromJSON(o) {
     if (!o || !o.terrain) return false;
     if (!this.terrain.fromJSON(o.terrain)) return false;
     this.name = o.name || "Map"; Object.assign(this.env, o.env || {});
     this.setHouses(o.houses || []);
     this.setRoads(o.roads && o.roads.length ? o.roads : [o.road || { pts: [] }]);
-    this.veg.fromJSON(o.veg); this.rebuildAll(); return true;
+    this.veg.fromJSON(o.veg); this.objs.fromJSON(o.objs); this.rebuildAll(); return true;
   }
   // Leere Fläche
   blank() {
-    this.terrain.h.fill(0); this.terrain.paint.fill(0); this.setRoads([]); this.setHouses([]); this.veg.fromJSON({}); this.name = "Neue Map"; this.rebuildAll();
+    this.terrain.h.fill(0); this.terrain.paint.fill(0); this.setRoads([]); this.setHouses([]); this.objs.clear(); this.veg.fromJSON({}); this.name = "Neue Map"; this.rebuildAll();
   }
   // Standard-Hub (Leaarn): sanfte Hügel, Rundstraße, Zuhause (Starterhaus) mit Zufahrt auf einer kleinen Ebene, Wald und Wiese
   standard() {
     const T = this.terrain, n = T.n, R = rng(4242), HX = 0, HZ = 92;
+    this.objs.clear();
     for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) {
       const x = T.org + i * T.cell, z = T.org + j * T.cell, d = Math.hypot(x, z) / (T.size / 2);
       let h = (fbm(x / 260, z / 260, 11, 4) - 0.5) * 30 + (fbm(x / 70, z / 70, 21, 3) - 0.5) * 4 + Math.max(0, d - 0.8) * 220;

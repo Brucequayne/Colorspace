@@ -111,6 +111,7 @@ export class Player {
         for (const b of hs.b.boxes) { const l0 = b.l * LH; if (py + 0.3 < l0 || py > l0 + LH - 0.2) continue; if (pushBox(q, b, r)) moved = true; }
         if (moved) { const w = hs.toWorld(q.x, q.z); p.x = w.x; p.z = w.z; }
       }
+      if (W.objs) W.objs.near(p.x, p.z, 2, (x, z, cr) => { const dx = p.x - x, dz = p.z - z, d = Math.hypot(dx, dz), R = cr + r; if (d < R && d > 1e-5) { p.x = x + dx / d * R; p.z = z + dz / d * R; } });   // Laternen usw. (seit v0.19)
       W.veg.near(p.x, p.z, 3, (x, z, cr) => { const dx = p.x - x, dz = p.z - z, d = Math.hypot(dx, dz), R = cr + r; if (d < R && d > 1e-5) { p.x = x + dx / d * R; p.z = z + dz / d * R; } });
     }
   }

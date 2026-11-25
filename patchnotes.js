@@ -3,6 +3,19 @@
    Die Versionsnummer auf den Kacheln kommt aus dem obersten Eintrag. */
 window.PATCHNOTES = {
   leaarn: [
+    { v: "0.19", t: "2026-11-25T04:15:00+01:00",
+      de: ["Straßenwerkzeug komplett überarbeitet: Du wählst einen fertigen Straßentyp – 2-spurig, Einbahnstraße (beide mit oder ohne Gehweg) oder Radweg – und baust mit Gerade oder Kurve wie bisher. Keine Ankerpunkte und Punkt-Einstellungen mehr, nur noch die offenen Enden der Straßen sind als Griffe sichtbar.",
+        "Spurbreite passend zum Auto (2,6 m pro Spur). 2-spurig mit gestrichelter Mittellinie, Einbahnstraße mit Richtungspfeilen (Fahrtrichtung lässt sich umdrehen), Radweg schmal mit rötlichem Belag. Gehwege gibt es nur noch im amerikanischen Stil.",
+        "Verbinden: Am Ende einer Straße anfangen oder aufhören rastet ein, gleiche Straßentypen werden dabei zu einer Straße. Abzweigung: auf einer Straße anfangen oder aufhören. Kreuzung: einfach über eine Straße bauen – die Höhe wird angeglichen, Markierungen und Gehwege werden im Kreuzungsbereich weggelassen.",
+        "Modus „Auswählen“: Straße anklicken, dann Typ ändern, Richtung umdrehen oder mit Entf löschen.",
+        "Map-Editor: neues Werkzeug „Objekte“ mit dem ersten Asset, der Straßenlaterne. Setzen, ziehen, mit R drehen, mit Entf löschen; der Ausleger dreht sich automatisch zur nächsten Straße. Laternen halten die Figur auf. Die Werkzeug-Tasten sind jetzt 1–8.",
+        "Grafik-Einstellungen: neue Option Gras-Sichtweite (50 m, 100 m, 200 m, unbegrenzt). Weiter entferntes Gras wird gar nicht mehr gezeichnet – das hilft auf langsamen Rechnern."],
+      en: ["Road tool completely reworked: pick a ready-made road type – two-lane, one-way (both with or without sidewalk) or bike path – and build with straight or curve as before. No more anchor points or per-point settings, only the open road ends are shown as handles.",
+        "Lane width fits the car (2.6 m per lane). Two-lane with a dashed centre line, one-way with direction arrows (direction can be reversed), bike path narrow with a reddish surface. Sidewalks now only come in the American style.",
+        "Connect: starting or stopping at the end of a road snaps to it, roads of the same type become one road. Junction: start or stop on a road. Crossing: just build across a road – the height gets matched, markings and sidewalks are left out in the crossing area.",
+        "“Select” mode: click a road, then change its type, reverse its direction or delete it with Del.",
+        "Map editor: new “Objects” tool with the first asset, the street lamp. Place, drag, rotate with R, delete with Del; the arm turns towards the nearest road automatically. Lamps block the character. Tool keys are now 1–8.",
+        "Graphics settings: new grass view distance option (50 m, 100 m, 200 m, unlimited). Grass further away is not drawn at all – helps on slow computers."] },
     { v: "0.18", t: "2026-11-25T03:45:00+01:00",
       de: ["Hotfix: Gedrehte Häuser haben jetzt die richtige Kollision. Bisher lagen Wände, Möbel, Türen und E-Aktionen bei jedem Winkel außer 0° und 180° spiegelverkehrt zum sichtbaren Haus. Deshalb ließen sich gedrehte Häuser im Map-Editor auch schlecht anklicken.",
         "Neues Starterhaus: mit Regal, Bett, Teppich und Stehlampe und einem 10 × 9 m großen Grundstück, rundherum eine Hecke mit Eingang vor der Haustür.",

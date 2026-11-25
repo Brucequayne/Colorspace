@@ -13,6 +13,7 @@
     "vegetation.js",  // Vegetation (aus Poly Racer, wächst nicht in Häusern)
     "wind.js",        // Wind-Symbol (aus Poly Racer)
     "race.js",        // Checkpoints (aus Poly Racer, für spätere Fahr-Aufgaben)
+    "objekte.js",     // Objekte auf der Map: Straßenlaterne … (seit v0.19)
     "houses.js",      // Haus-Bauteile, Hausbau, Kollision, Türen, Interaktionen
     "haeuser.js",     // fertige Häuser für den Map-Editor (Starterhaus)
     "world.js",       // Welt = Gelände + Straßen + Vegetation + Häuser; Standard-Hub

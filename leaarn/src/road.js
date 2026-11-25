@@ -20,7 +20,14 @@ const GRID = 16;   // Raster für die Abfrage
 const BR = 1.4;    // ab dieser Höhe über dem Gelände wird (ohne Gelände-Anpassung) eine Brücke gebaut
 const DECK = 1.0;  // Dicke der Brückenplatte
 const PW = 0.4, PT = 0.35, PH = 0.9;   // Brücke: Randstreifen bis zur Brüstung, Brüstungsdicke, Brüstungshöhe
-const GW = 2.4, KH = 0.15, KB = 0.18;   // Gehweg: Breite (mit Bordstein), Bordstein-Höhe, Bordstein-Breite oben
+const GW = 2.2, KH = 0.15, KB = 0.18;   // Gehweg: Breite (mit Bordstein), Bordstein-Höhe, Bordstein-Breite oben
+// Straßentypen (seit v0.19): fertige Straßen, Spur = 2,6 m (Auto 1,8 m breit). w = Fahrbahnbreite, gw = Gehweg auf beiden Seiten (amerikanisch)
+export const TYPEN = {
+  zwei: { w: 5.8, lanes: 2, gw: false }, "zwei-gw": { w: 5.8, lanes: 2, gw: true },
+  ein: { w: 3.4, lanes: 1, one: true, gw: false }, "ein-gw": { w: 3.4, lanes: 1, one: true, gw: true },
+  rad: { w: 1.8, bike: true, gw: false }
+};
+const BIKE = new THREE.Color("#8E4C44");
 const CURB = new THREE.Color("#9C9A93"), CURB2 = new THREE.Color("#B4B2AB");
 const CON = { a: new THREE.Color("#A3A19B"), b: new THREE.Color("#8A8882"), c: new THREE.Color("#B9B7B0"), d: new THREE.Color("#74726D") };
 
@@ -65,6 +72,7 @@ export class Road {
     this.anyBridge = false;
     this.world = null;     // Welt (für die anderen Straßen)
     this.main = false;     // Hauptstrecke: bekommt Start/Ziel
+    this.typ = null;       // Straßentyp (seit v0.19, TYPEN), null = alte, frei eingestellte Straße
   }
   others() { return this.world ? this.world.roads.filter((r) => r !== this && r.S.length > 1) : []; }
   P(i) { const n = this.pts.length; return this.closed ? this.pts[((i % n) + n) % n] : this.pts[clamp(i, 0, n - 1)]; }
@@ -72,17 +80,17 @@ export class Road {
   sample() {
     const S = this.S = [], n = this.pts.length; this.len = 0;
     if (n < 2) return;
-    const segs = this.closed ? n : n - 1, up = new THREE.Vector3(0, 1, 0);
+    const segs = this.closed ? n : n - 1, up = new THREE.Vector3(0, 1, 0), TY = this.typ ? TYPEN[this.typ] : null;
     for (let i = 0; i < segs; i++) {
       const a = this.P(i - 1), b = this.P(i), c = this.P(i + 1), d = this.P(i + 2);
       const L = Math.hypot(c.x - b.x, c.z - b.z, c.y - b.y), steps = Math.max(2, Math.ceil(L / STEP));
       for (let s = 0; s < steps; s++) {
         const k = s / steps;
         S.push({ p: new THREE.Vector3(cr(a.x, b.x, c.x, d.x, k), cr(a.y, b.y, c.y, d.y, k), cr(a.z, b.z, c.z, d.z, k)),
-          w: Math.max(3, cr(a.w, b.w, c.w, d.w, k)), bank: cr(a.bank, b.bank, c.bank, d.bank, k), cl: !!b.cl, cr: !!b.cr, sl: !!b.sl, sr: !!b.sr, gs: b.gs | 0, seg: i, terr: b.t !== 0 && !b.b, forced: !!b.b });
+          w: TY ? TY.w : Math.max(3, cr(a.w, b.w, c.w, d.w, k)), bank: cr(a.bank, b.bank, c.bank, d.bank, k), cl: TY ? false : !!b.cl, cr: TY ? false : !!b.cr, sl: TY ? TY.gw : !!b.sl, sr: TY ? TY.gw : !!b.sr, gs: 1, seg: i, terr: b.t !== 0 && !b.b, forced: !!b.b });
       }
     }
-    if (!this.closed) { const e = this.pts[n - 1]; S.push({ p: new THREE.Vector3(e.x, e.y, e.z), w: e.w, bank: e.bank, cl: false, cr: false, sl: false, sr: false, gs: 0, seg: n - 2, terr: this.pts[n - 2].t !== 0 && !this.pts[n - 2].b, forced: !!this.pts[n - 2].b }); }
+    if (!this.closed) { const e = this.pts[n - 1]; S.push({ p: new THREE.Vector3(e.x, e.y, e.z), w: TY ? TY.w : e.w, bank: e.bank, cl: false, cr: false, sl: TY ? TY.gw : false, sr: TY ? TY.gw : false, gs: 1, seg: n - 2, terr: this.pts[n - 2].t !== 0 && !this.pts[n - 2].b, forced: !!this.pts[n - 2].b }); }
     const m = S.length;
     for (let i = 0; i < m; i++) {
       const pa = S[this.closed ? (i - 1 + m) % m : Math.max(0, i - 1)].p, pb = S[this.closed ? (i + 1) % m : Math.min(m - 1, i + 1)].p;
@@ -145,7 +153,9 @@ export class Road {
       for (let z = z0; z <= z1; z++) for (let x = x0; x <= x1; x++) { const k = x + "," + z; let l = g.get(k); if (!l) g.set(k, (l = [])); l.push(i); }
     }
   }
-  maxHalf() { let w = 3; this.pts.forEach((p) => { w = Math.max(w, p.w / 2 + (p.sl || p.sr ? GW : 0)); }); return w; }
+  maxHalf() { const TY = this.typ && TYPEN[this.typ]; if (TY) return Math.max(3, TY.w / 2 + (TY.gw ? GW : 0)); let w = 3; this.pts.forEach((p) => { w = Math.max(w, p.w / 2 + (p.sl || p.sr ? GW : 0)); }); return w; }
+  // Vorrang an Kreuzungen: breitere Straße (mit Gehweg) gewinnt, bei Gleichstand die ältere. Die andere lässt dort ihren Belag weg (kein Flackern)
+  prio() { const TY = this.typ && TYPEN[this.typ], w = TY ? TY.w + (TY.gw ? 1 : 0) : this.maxHalf() * 2; return w * 1000 - (this.world ? this.world.roads.indexOf(this) : 0); }
   // Nächster Straßenabschnitt zu (x, z): Lage entlang (i, u), seitlicher Abstand d (+ = rechts), Höhe der Mittellinie usw.
   nearest(x, z) {
     const l = this.grid.get(Math.floor(x / GRID) + "," + Math.floor(z / GRID)); if (!l) return null;
@@ -195,6 +205,8 @@ export class Road {
   build() { this.sample(); this.markBridges(); this.buildMesh(); }
   // Liegt (x, z) auf der Fahrbahn einer anderen Straße auf etwa Höhe y? (Abzweigungen: dort keine Randlinien/Kerbs)
   covered(x, z, y) { for (const o of this.others()) { const q = o.query(x, z); if (q && Math.abs(q.h - y) < 0.8) return true; } return false; }
+  // liegt (x, z) auf der Fahrbahn (nicht dem Gehweg) einer anderen Straße? hi = nur Straßen mit Vorrang
+  onRoad(x, z, y, hi) { const me = hi ? this.prio() : 0; for (const o of this.others()) { if (hi && o.prio() <= me) continue; const q = o.query(x, z); if (q && q.kind !== "walk" && Math.abs(q.h - y) < 0.9) return true; } return false; }
   buildMesh() {
     const S = this.S, m = S.length, P = [], Co = [], WP = [[], []], WU = [[], []];
     const g = this.mesh.geometry; this.cov = this.others().length > 0;
@@ -203,24 +215,39 @@ export class Road {
     const quad = (a, b, c, d, col) => { pushTri(a, b, d, col); pushTri(b, c, d, col); };
     const lift = (v, y) => new THREE.Vector3(v.x, v.y + y, v.z);
     const at = (s, off, y) => new THREE.Vector3(s.p.x + s.r.x * off, s.p.y - off * s.tan + (y || 0), s.p.z + s.r.z * off);   // Punkt quer zur Fahrbahn
-    const col = new THREE.Color();
+    const col = new THREE.Color(), TY = this.typ ? TYPEN[this.typ] : null;
+    // Gehweg je Abschnitt und Seite: weglassen, wo er auf der Fahrbahn einer anderen Straße läge (Kreuzung, Einmündung)
+    const wcut = S.map((a, i) => { const b = S[(i + 1) % m]; return [-1, 1].map((sd) => { if (!(sd < 0 ? a.sl : a.sr) || !this.cov) return false; const e = a.w / 2 + ((sd < 0 ? a.cl : a.cr) ? CW : 0); return [e + 0.3, e + GW * 0.5, e + GW - 0.2].some((o) => { const pa = at(a, sd * o, KH), pb = at(b, sd * o, KH), p2 = pa.lerp(pb, 0.5); return this.onRoad(p2.x, p2.z, p2.y - KH); }); }); });
     for (let i = 0; i < this.segCount(); i++) {
-      const a = S[i], b = S[(i + 1) % m], ha = a.w / 2, hb = b.w / 2;
-      col.copy(COL.asphalt).multiplyScalar(0.94 + hash2(i, 0, 5) * 0.1);
-      quad(a.L, a.R, b.R, b.L, col);
-      // weiße Randlinien (0,35 m vom Rand, 0,25 m breit)
+      const a = S[i], b = S[(i + 1) % m], ha = a.w / 2, hb = b.w / 2, db0 = a.d + a.p.distanceTo(b.p);
+      col.copy(TY && TY.bike ? BIKE : COL.asphalt).multiplyScalar(0.94 + hash2(i, 0, 5) * 0.1);
+      // Kreuzung (seit v0.19): ganz auf der Fahrbahn einer Straße mit Vorrang → eigenen Belag weglassen
+      const under = this.cov && [a.L, a.R, b.R, b.L].every((v) => this.onRoad(v.x, v.z, v.y, true));
+      if (!under) quad(a.L, a.R, b.R, b.L, col);
       const cvL = this.cov && this.covered((a.L.x + b.L.x) / 2, (a.L.z + b.L.z) / 2, (a.L.y + b.L.y) / 2), cvR = this.cov && this.covered((a.R.x + b.R.x) / 2, (a.R.z + b.R.z) / 2, (a.R.y + b.R.y) / 2);
-      if (!cvL) quad(at(a, -ha + 0.35, 0.015), at(a, -ha + 0.6, 0.015), at(b, -hb + 0.6, 0.015), at(b, -hb + 0.35, 0.015), COL.line);
-      if (!cvR) quad(at(a, ha - 0.6, 0.015), at(a, ha - 0.35, 0.015), at(b, hb - 0.35, 0.015), at(b, hb - 0.6, 0.015), COL.line);
+      const mid = (o) => { const p = at(a, o, 0).lerp(at(b, o, 0), 0.5); return !(this.cov && this.onRoad(p.x, p.z, p.y)); };
+      if (!TY) {   // alte Straßen: weiße Randlinien (0,35 m vom Rand, 0,25 m breit)
+        if (!cvL) quad(at(a, -ha + 0.35, 0.015), at(a, -ha + 0.6, 0.015), at(b, -hb + 0.6, 0.015), at(b, -hb + 0.35, 0.015), COL.line);
+        if (!cvR) quad(at(a, ha - 0.6, 0.015), at(a, ha - 0.35, 0.015), at(b, hb - 0.35, 0.015), at(b, hb - 0.6, 0.015), COL.line);
+      } else if (!TY.bike) {
+        // Randlinien (12 cm, 20 cm vom Rand), Mittellinie gestrichelt (2-spurig), Pfeile (Einbahnstraße, alle 30 m in Fahrtrichtung)
+        if (!cvL && mid(-ha + 0.26)) quad(at(a, -ha + 0.2, 0.015), at(a, -ha + 0.32, 0.015), at(b, -hb + 0.32, 0.015), at(b, -hb + 0.2, 0.015), COL.line);
+        if (!cvR && mid(ha - 0.26)) quad(at(a, ha - 0.32, 0.015), at(a, ha - 0.2, 0.015), at(b, hb - 0.2, 0.015), at(b, hb - 0.32, 0.015), COL.line);
+        if (TY.lanes === 2 && Math.floor(a.d / 3) % 2 === 0 && mid(0)) quad(at(a, -0.06, 0.016), at(a, 0.06, 0.016), at(b, 0.06, 0.016), at(b, -0.06, 0.016), COL.line);
+        if (TY.one && Math.floor(db0 / 30) > Math.floor(a.d / 30) && mid(0)) {
+          const c = a.p.clone().lerp(b.p, 0.5), tt = a.t, rr = a.r, y = c.y + 0.017, V = (f, sd) => new THREE.Vector3(c.x + tt.x * f + rr.x * sd, y, c.z + tt.z * f + rr.z * sd);
+          quad(V(-1.1, -0.09), V(-1.1, 0.09), V(0.25, 0.09), V(0.25, -0.09), COL.line); pushTri(V(0.25, -0.38), V(0.25, 0.38), V(1.0, 0), COL.line); pushTri(V(0.25, 0.38), V(0.25, -0.38), V(1.0, 0), COL.line);
+        }
+      }
       // Kerbs: abwechselnd rot/weiß je Querschnitt (2 m)
       const kc = (Math.floor(a.d / 2.2) & 1) ? COL.white : COL.red;
       let lo = a.L, lob = b.L, ro = a.R, rob = b.R;
       if (a.cl && !cvL) { lo = at(a, -ha - CW, 0.06); lob = at(b, -hb - CW, 0.06); quad(lo, at(a, -ha, 0.01), at(b, -hb, 0.01), lob, kc); }
       if (a.cr && !cvR) { ro = at(a, ha + CW, 0.06); rob = at(b, hb + CW, 0.06); quad(at(a, ha, 0.01), ro, rob, at(b, hb, 0.01), kc); }
       // Gehweg (seit v0.16): Bordstein (Kante + Oberseite), Pflaster bis zur Außenkante, Abschluss an Anfang und Ende
-      const db = a.d + a.p.distanceTo(b.p), pv = this.closed ? S[(i - 1 + m) % m] : S[i - 1], nx = S[(i + 1) % m];
+      const db = db0, pv = this.closed ? S[(i - 1 + m) % m] : S[i - 1], nx = S[(i + 1) % m];
       for (const sd of [-1, 1]) {
-        const on = sd < 0 ? a.sl && !cvL : a.sr && !cvR; if (!on) continue;
+        const on = (sd < 0 ? a.sl && !cvL : a.sr && !cvR) && !wcut[i][sd < 0 ? 0 : 1]; if (!on) continue;
         const kerb = (sd < 0 ? a.cl && !cvL : a.cr && !cvR), y0 = kerb ? 0.06 : 0.01, ea = ha + (kerb ? CW : 0), eb = hb + (kerb ? CW : 0);
         const A = (o, y) => at(a, sd * o, y), B2 = (o, y) => at(b, sd * o, y);
         quad(A(ea, y0), A(ea, KH), B2(eb, KH), B2(eb, y0), CURB);                       // Bordstein-Kante
@@ -231,7 +258,7 @@ export class Road {
         vtx(a0, ua, 0); vtx(a1, ua, v1); vtx(b0, ub, 0); vtx(a1, ua, v1); vtx(b1, ub, v1); vtx(b0, ub, 0);
         if (sd < 0) { lo = a1; lob = b1; } else { ro = a1; rob = b1; }
         // Stirnseiten, wo der Gehweg beginnt oder endet
-        const has = (s2) => !!s2 && (sd < 0 ? s2.sl : s2.sr);
+        const has = (s2) => { if (!s2) return false; const k = S.indexOf(s2); return (sd < 0 ? s2.sl : s2.sr) && !(k >= 0 && wcut[k] && wcut[k][sd < 0 ? 0 : 1]); };
         if (!has(pv)) quad(A(ea, y0), A(ea + GW, y0 - 0.2), A(ea + GW, KH), A(ea, KH), CURB);
         if (!has(nx) || (!this.closed && i === this.segCount() - 1)) quad(B2(eb, y0), B2(eb, KH), B2(eb + GW, KH), B2(eb + GW, y0 - 0.2), CURB);
       }
@@ -318,6 +345,6 @@ export class Road {
   }
   // Steuerpunkt-Abschnitt, der (x, z) am nächsten liegt (zum Einfügen)
   segAt(x, z) { const q = this.nearest(x, z); return q ? { seg: q.a.seg, d: Math.abs(q.d) } : null; }
-  toJSON() { return { pts: this.pts.map((p) => ({ x: +p.x.toFixed(2), z: +p.z.toFixed(2), y: +p.y.toFixed(2), w: +p.w.toFixed(2), bank: +p.bank.toFixed(1), cl: p.cl ? 1 : 0, cr: p.cr ? 1 : 0, sl: p.sl ? 1 : 0, sr: p.sr ? 1 : 0, gs: p.gs ? 1 : 0, t: p.t === 0 ? 0 : 1, a: p.a ? 1 : 0, j: p.j ? 1 : 0, b: p.b ? 1 : 0, cp: p.cp ? 1 : 0 })), closed: this.closed, fall: this.fall }; }
-  fromJSON(o) { this.pts = (o && o.pts || []).map((p) => ({ x: p.x, z: p.z, y: p.y, w: p.w || 12, bank: p.bank || 0, cl: !!p.cl, cr: !!p.cr, sl: !!p.sl, sr: !!p.sr, gs: p.gs ? 1 : 0, t: p.t === 0 ? 0 : 1, a: p.a ? 1 : 0, j: p.j ? 1 : 0, b: p.b ? 1 : 0, cp: p.cp ? 1 : 0 })); this.closed = o ? o.closed !== false : true; this.fall = o && o.fall != null ? o.fall : 10; }
+  toJSON() { return { pts: this.pts.map((p) => ({ x: +p.x.toFixed(2), z: +p.z.toFixed(2), y: +p.y.toFixed(2), w: +p.w.toFixed(2), bank: +p.bank.toFixed(1), cl: p.cl ? 1 : 0, cr: p.cr ? 1 : 0, sl: p.sl ? 1 : 0, sr: p.sr ? 1 : 0, gs: p.gs ? 1 : 0, t: p.t === 0 ? 0 : 1, a: p.a ? 1 : 0, j: p.j ? 1 : 0, b: p.b ? 1 : 0, cp: p.cp ? 1 : 0 })), closed: this.closed, fall: this.fall, typ: this.typ || undefined }; }
+  fromJSON(o) { this.pts = (o && o.pts || []).map((p) => ({ x: p.x, z: p.z, y: p.y, w: p.w || 12, bank: p.bank || 0, cl: !!p.cl, cr: !!p.cr, sl: !!p.sl, sr: !!p.sr, gs: p.gs ? 1 : 0, t: p.t === 0 ? 0 : 1, a: p.a ? 1 : 0, j: p.j ? 1 : 0, b: p.b ? 1 : 0, cp: p.cp ? 1 : 0 })); this.closed = o ? o.closed !== false : true; this.fall = o && o.fall != null ? o.fall : 10; this.typ = o && TYPEN[o.typ] ? o.typ : null; }
 }
