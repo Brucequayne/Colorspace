@@ -291,3 +291,34 @@ export function schaleBewerte(e, b) {
   const parts = [b.p === e.z, b.n === neutronen(e), sh.length === soll.length, tot === e.z, sh.length === soll.length && sh.every((x, i) => x === soll[i])];
   return { parts: parts, score: parts.filter(Boolean).length };
 }
+
+// ---------- Spiel 3: Element-Steckbrief (seit v0.19.4) ----------
+// Ein Element je Durchgang. 9 Angaben je 1 Punkt: Symbol · Hauptgruppe (römisch) · Periode · Ordnungszahl · Elektronen gesamt · Valenzelektronen
+// · Protonen · Neutronen · Atommasse (gerundet). Alle 9 richtig = 1 Bonuspunkt → max. 10. Nur Hauptgruppen-Elemente (Gruppe 1, 2, 13–18) bis Radon.
+// Belohnung wie die anderen Chemie-Spiele (PSE_LOHN), Stufen-Faktor 1 / 1,3 / 1,6.
+export const STUFEN_STECK = [
+  { id: 0, name: L2("Leicht", "Easy"), faktor: 1, voll: true, max: 20, info: L2("Elemente 1–20, das Periodensystem zeigt alle Infos", "Elements 1–20, the periodic table shows all details") },
+  { id: 1, name: L2("Mittel", "Medium"), faktor: 1.3, voll: true, max: 54, info: L2("Hauptgruppen-Elemente bis Xenon, das Periodensystem zeigt alle Infos", "Main-group elements up to xenon, the periodic table shows all details") },
+  { id: 2, name: L2("Schwer", "Hard"), faktor: 1.6, voll: false, max: 86, info: L2("Hauptgruppen-Elemente bis Radon, das Periodensystem zeigt nur Ordnungszahl und Atommasse", "Main-group elements up to radon, the periodic table only shows atomic number and mass") }
+];
+export const ROEM = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII"];
+export const STECK_FELDER = ["sym", "hg", "per", "z", "el", "val", "p", "n", "m"];
+export function steckPool(lvl) { const st = STUFEN_STECK[lvl] || STUFEN_STECK[0]; return ELEMENTE.filter((e) => e.haupt && e.z <= st.max); }
+export function steckZiehen(R, opt) { return shuffle(steckPool((opt && opt.lvl) | 0), R).slice(0, 1).map((e) => ({ art: "steck", el: e })); }
+// richtige Werte (Hauptgruppe als Nummer 1–8, Helium = VIII)
+export function steckSoll(e) { return { sym: e.sym, hg: e.z === 2 ? 8 : e.haupt, per: e.per, z: e.z, el: e.z, val: valenz(e), p: e.z, n: neutronen(e), m: Math.round(e.m) }; }
+// Symbol: Groß-/Kleinschreibung egal; Zahlen: ganze Zahl; Hauptgruppe: 1–8 (gewählt über die römischen Knöpfe)
+export function steckBewerte(e, inp) {
+  const s = steckSoll(e), parts = STECK_FELDER.map((k) => {
+    const v = inp[k];
+    if (k === "sym") return String(v || "").trim().toLowerCase() === s.sym.toLowerCase();
+    return v !== "" && v != null && +v === s[k];
+  });
+  const alle = parts.every(Boolean);
+  return { parts: parts, alle: alle, score: parts.filter(Boolean).length + (alle ? 1 : 0) };
+}
+export function steckWertung(scores, opt) {
+  const summe = scores.reduce((s, x) => s + (x || 0), 0), st = STUFEN_STECK[(opt && opt.lvl) | 0] || STUFEN_STECK[0];
+  let basis = 5; for (const l of PSE_LOHN) if (summe >= l.ab) { basis = l.euro; break; }
+  return { summe: summe, basis: basis, faktor: st.faktor, euro: Math.ceil(basis * st.faktor - 1e-9) };
+}

@@ -6,9 +6,22 @@ import { FAECHER, fach, spielbar, fachAktiv, belohnung, runde, pruefe, STANDARD_
 import { addOffen, offen, einsammeln, addRunde, stat, euro, save, persist, fokusVoll, FOKUS } from "le/save.js";
 import { hsb, rgbHex, de2000, rating } from "le/faecher/farben.js";
 import { KAT, WORTARTEN, ART_KURZ, STUFEN, VOK_LOHN, bereich, stufenPool, bewerte } from "le/faecher/vokabeln.js";
-import { ELEMENTE, KATEG, ZUSTAND, STUFEN_PSE, PSE_LOHN, psePool, pseBewerte, valenz, STUFEN_SCHALE, SCHALE_MAX, neutronen, schalePool, schaleBewerte } from "le/faecher/elemente.js";
+import { ELEMENTE, KATEG, ZUSTAND, STUFEN_PSE, PSE_LOHN, psePool, pseBewerte, valenz, STUFEN_SCHALE, SCHALE_MAX, neutronen, schalePool, schaleBewerte, STUFEN_STECK, ROEM, STECK_FELDER, steckSoll, steckBewerte } from "le/faecher/elemente.js";
+import { fachBonus, restzeit } from "le/faecher/boni.js";
 
 addTexts({
+  // Element-Steckbrief (Chemie, v0.19.4) und Fach-Bonus
+  stIntro: L2("Du bekommst ein Element und füllst seinen Steckbrief aus. Alles steht im Periodensystem, das du rechts ausklappen kannst – oder lässt sich daraus ausrechnen.", "You get one element and fill in its profile. Everything can be found in the periodic table, which you can unfold on the right, or worked out from it."),
+  stPts: L2("Je 1 Punkt (max. 10)", "1 point each (max 10)"), stBonus: L2("Alles richtig: +1 Bonuspunkt", "All correct: +1 bonus point"),
+  st_sym: L2("Symbol", "Symbol"), st_hg: L2("Hauptgruppe", "Main group"), st_per: L2("Periode", "Period"), st_z: L2("Ordnungszahl", "Atomic number"), st_el: L2("Elektronen gesamt", "Total electrons"),
+  st_val: L2("Valenzelektronen", "Valence electrons"), st_p: L2("Protonen", "Protons"), st_n: L2("Neutronen", "Neutrons"), st_m: L2("Atommasse (gerundet)", "Atomic mass (rounded)"),
+  stx_sym: L2("z. B. Na", "e.g. Na"), stx_hg: L2("römisch I–VIII (Edelgase VIII)", "Roman I–VIII (noble gases VIII)"), stx_per: L2("Zeile im Periodensystem", "row in the periodic table"),
+  stx_z: L2("steht über dem Symbol", "shown above the symbol"), stx_el: L2("= Ordnungszahl", "= atomic number"), stx_val: L2("Elektronen auf der äußersten Schale", "electrons on the outer shell"),
+  stx_p: L2("= Ordnungszahl", "= atomic number"), stx_n: L2("= gerundete Atommasse − Ordnungszahl", "= rounded atomic mass − atomic number"), stx_m: L2("auf ganze Zahl runden", "round to a whole number"),
+  stTask: L2("Steckbrief von {n}", "Profile of {n}"), stCheck: L2("Prüfen", "Check"), stGot: L2("{p} von 10 Punkten", "{p} of 10 points"), stAll: L2("Alles richtig – Bonuspunkt!", "All correct – bonus point!"),
+  stHow: L2("Enter springt zum nächsten Feld, im letzten Feld prüft Enter", "Enter jumps to the next field, in the last field Enter checks"), stEnd: L2("Zur Auswertung", "See results"),
+  bBanner: L2("+{p} % Bonus", "+{p} % bonus"), bLeft: L2("noch {t}", "{t} left"), bBar: L2("{f}-Bonus: +{p} % Geld auf alle Aufgaben", "{f} bonus: +{p} % money on every task"),
+  bUntil: L2("bis {d}", "until {d}"), bEarn: L2("{f}-Bonus +{p} %: +{e}", "{f} bonus +{p} %: +{e}"),
   lHello: L2("Fächer", "Subjects"), nSubj: L2("Fächer", "Subjects"), nStats: L2("Statistiken", "Statistics"), nClose: L2("Schließen", "Close"), lFull: L2("Vollbild", "Fullscreen"), lWin: L2("Fenster", "Window"), lSoon: L2("bald", "soon"), lBack: L2("Zurück", "Back"), lClose: L2("Laptop zuklappen", "Close laptop"),
   lClass: L2("Klasse", "Grade"), lStart: L2("Starten", "Start"), lBest: L2("Bestes: {b}/{m} · {n}× gespielt", "Best: {b}/{m} · played {n}×"),
   cDrop: L2("Zieh eine Farbe auf die erste Farbe (oder klick sie an, Tasten 1–3)", "Drag a colour onto the first colour (or click it, keys 1–3)"),
@@ -83,14 +96,16 @@ export class Learn {
     this.root.addEventListener("keydown", (e) => {
       if (e.target.id === "le-ans" && e.key === "Enter") { e.preventDefault(); this.submit(e.target.value); }
       else if (e.target.id === "le-pans" && e.key === "Enter") { e.preventDefault(); e.stopPropagation(); this.pCheck(false); }
+      else if (e.target.hasAttribute && e.target.hasAttribute("data-si") && e.key === "Enter") { e.preventDefault(); e.stopPropagation(); this.tNextField(e.target.getAttribute("data-si")); }
       else if (e.target.hasAttribute && e.target.hasAttribute("data-vi") && e.key === "Enter") { e.preventDefault(); e.stopPropagation(); this.vConfirm(+e.target.getAttribute("data-vi"), false); }
     });
-    this.root.addEventListener("input", (e) => { if (e.target.hasAttribute("data-g")) this.gInput(); else if (e.target.hasAttribute("data-vl")) { this.vopt({ lvl: +e.target.value }); this.vLvlInfo(); } else if (e.target.hasAttribute("data-pl")) { this.popt({ lvl: +e.target.value }); this.pLvlInfo(); } else if (e.target.hasAttribute("data-sl")) { this.sopt({ lvl: +e.target.value }); this.sLvlInfo(); } });
+    this.root.addEventListener("input", (e) => { if (e.target.hasAttribute("data-si")) { if (this.q && this.q.inp) this.q.inp[e.target.getAttribute("data-si")] = e.target.value.trim(); return; } if (e.target.hasAttribute("data-tl")) { this.topt({ lvl: +e.target.value }); this.tLvlInfo(); return; } if (e.target.hasAttribute("data-g")) this.gInput(); else if (e.target.hasAttribute("data-vl")) { this.vopt({ lvl: +e.target.value }); this.vLvlInfo(); } else if (e.target.hasAttribute("data-pl")) { this.popt({ lvl: +e.target.value }); this.pLvlInfo(); } else if (e.target.hasAttribute("data-sl")) { this.sopt({ lvl: +e.target.value }); this.sLvlInfo(); } });
     // Schalenmodell: Rechtsklick auf eine Schale nimmt ein Elektron weg
     this.root.addEventListener("contextmenu", (e) => { const r = e.target.closest && e.target.closest("[data-ring]"); if (r) { e.preventDefault(); this.sEl(+r.getAttribute("data-ring"), -1); } });
+    this.bi = setInterval(() => this.bTick(), 1000);
     this.render();
   }
-  dispose() { clearTimeout(this.tm); clearInterval(this.gi); this.root.remove(); }
+  dispose() { clearTimeout(this.tm); clearInterval(this.gi); clearInterval(this.bi); this.root.remove(); }
   // Vollbild: der Bildschirm des Laptops füllt das ganze Fenster (Einstellung wird gemerkt)
   full(on) {
     this.isFull = on; this.root.classList.toggle("le-full", on);
@@ -123,23 +138,23 @@ export class Learn {
     if (this.view === "home") {
       this.body('<h2>' + t("lHello") + '</h2><div class="le-subj">' + FAECHER.map((f) => {
         const on = fachAktiv(f), nr = f.themen.filter(spielbar).length;
-        return '<button data-f="' + f.id + '"' + (on ? "" : ' class="le-off"') + '><i style="background:' + f.farbe + '">' + esc(f.kurz) + "</i><b>" + esc(tl(f.name)) + "</b><small>" + (on ? fmt(t("lReady"), { n: nr }) : t("lSoon")) + "</small></button>";
+        return '<button data-f="' + f.id + '"' + (on ? "" : ' class="le-off"') + '><i style="background:' + f.farbe + '">' + esc(f.kurz) + "</i><b>" + esc(tl(f.name)) + "</b><small>" + (on ? fmt(t("lReady"), { n: nr }) : t("lSoon")) + "</small>" + (on ? this.bonusTag(f) : "") + "</button>";
       }).join("") + "</div>");
     } else if (this.view === "fach") {
       const f = this.f;
-      this.body('<div class="le-lhead"><button data-l="home">← ' + t("lBack") + '</button><i style="background:' + f.farbe + '">' + esc(f.kurz) + "</i><h2>" + esc(tl(f.name)) + '</h2></div><div class="le-topics">' +
+      this.body('<div class="le-lhead"><button data-l="home">← ' + t("lBack") + '</button><i style="background:' + f.farbe + '">' + esc(f.kurz) + "</i><h2>" + esc(tl(f.name)) + "</h2></div>" + this.bonusBar(f) + '<div class="le-topics">' +
         f.themen.slice().sort((a, b) => (spielbar(b) - spielbar(a)) || a.klasse - b.klasse).map((th) => {
           const ok = spielbar(th), st = stat(f.id, th.id);
           return '<div class="le-topic' + (ok ? "" : " le-off") + '">' + stufe(th) + "<div><b>" + esc(tl(th.name)) + "</b>" + (th.info ? "<small>" + esc(tl(th.info)) + "</small>" : "") + (st ? "<small>" + (th.art === "guess" ? fmt(t("pBestPts"), { b: num(st.best), n: st.n }) : th.wertung ? fmt(t("pBestPts"), { b: st.best, n: st.n }) : fmt(t("lBest"), { b: st.best, m: th.anzahl || 10, n: st.n })) + "</small>" : "") + "</div>" +
             (ok ? '<button class="le-pri" data-t="' + th.id + '">' + t("lStart") + "</button>" : '<em>' + t("lSoon") + "</em>") + "</div>";
         }).join("") + "</div>" + (f.spiele && f.spiele.length ? '<p class="le-dim">' + t("lPlanned") + ": " + f.spiele.map((s) => esc(tl(s.name))).join(" · ") + "</p>" : ""));
-    } else if (this.view === "setup") { if (this.th && this.th.art === "pse") this.renderPseSetup(); else if (this.th && this.th.art === "schale") this.renderSchaleSetup(); else this.renderSetup(); }
+    } else if (this.view === "setup") { if (this.th && this.th.art === "pse") this.renderPseSetup(); else if (this.th && this.th.art === "schale") this.renderSchaleSetup(); else if (this.th && this.th.art === "steck") this.renderSteckSetup(); else this.renderSetup(); }
     else if (this.view === "quiz") this.renderQ();
     else if (this.view === "done") this.renderDone();
   }
   start(th) {
     this.th = th; const R = rng((Date.now() ^ (Math.random() * 1e9)) >>> 0);
-    const opt = th.setup ? Object.assign({}, th.art === "pse" ? this.popt() : th.art === "schale" ? this.sopt() : this.vopt()) : null;
+    const opt = th.setup ? Object.assign({}, th.art === "pse" ? this.popt() : th.art === "schale" ? this.sopt() : th.art === "steck" ? this.topt() : this.vopt()) : null;
     this.q = { list: runde(th, R, opt), i: 0, res: [], lock: false, ph: "show", t0: performance.now(), opt: opt }; this.view = "quiz"; this.render();
   }
   renderQ() {
@@ -149,6 +164,7 @@ export class Learn {
     if (a.art === "vokabel") { this.renderVok(); return; }
     if (a.art === "pse") { this.renderPseQ(); return; }
     if (a.art === "schale") { this.renderSchaleQ(); return; }
+    if (a.art === "steck") { this.renderSteckQ(); return; }
     const dots = q.list.map((x, i) => '<i class="' + (i < q.res.length ? (q.res[i].ok ? "le-ok" : "le-no") : i === q.i ? "le-now" : "") + '"></i>').join("");
     let inp = "";
     if (a.art === "mc") inp = '<div class="le-mc">' + a.optionen.map((o, i) => '<button data-mc="' + i + '"><kbd>' + (i + 1) + "</kbd>" + esc(o) + "</button>").join("") + "</div>";
@@ -178,13 +194,30 @@ export class Learn {
     e.classList.toggle("le-full", f >= 0.999); e.classList.toggle("le-up", !!up);
   }
   // Fokus-Bonus auf dem Ergebnis-Bildschirm
-  boostHtml() { const q = this.q; return q && q.boost ? '<p class="le-fboost">' + fmt(t("fBoost"), { e: euro(q.boost) }) + "</p>" : ""; }
+  boostHtml() {
+    const q = this.q; if (!q) return "";
+    return (q.ebon && q.ebon.e ? '<p class="le-fboost le-ebon">' + fmt(t("bEarn"), { f: esc(tl(this.f.name)), p: q.ebon.pct, e: euro(q.ebon.e) }) + "</p>" : "") + (q.boost ? '<p class="le-fboost">' + fmt(t("fBoost"), { e: euro(q.boost) }) + "</p>" : "");
+  }
+  // Fach-Bonus: Banner auf der Fach-Kachel, Leiste in der Themenliste, Timer läuft jede Sekunde (seit v0.19.4)
+  bonusTag(f) { const b = fachBonus(f.id); return b ? '<span class="le-bban"><b>' + fmt(t("bBanner"), { p: b.pct }) + '</b><em data-bcd="' + b.end + '">' + fmt(t("bLeft"), { t: restzeit(b.end) }) + "</em></span>" : ""; }
+  bonusBar(f) {
+    const b = fachBonus(f.id); if (!b) return "";
+    let d = ""; try { d = new Date(b.end).toLocaleString(PR.lang === "en" ? "en-GB" : "de-DE", { timeZone: "Europe/Berlin", weekday: "short", day: "numeric", month: "numeric", hour: "2-digit", minute: "2-digit" }); } catch (e) { d = ""; }
+    return '<div class="le-bbar"><b>' + fmt(t("bBar"), { f: esc(tl(f.name)), p: b.pct }) + "</b><span>" + (d ? fmt(t("bUntil"), { d: d }) + " · " : "") + '<em data-bcd="' + b.end + '">' + fmt(t("bLeft"), { t: restzeit(b.end) }) + "</em></span></div>";
+  }
+  bTick() {
+    const els = this.root.querySelectorAll("[data-bcd]"); if (!els.length) return; const now = Date.now(); let over = false;
+    els.forEach((x) => { const end = +x.getAttribute("data-bcd"); if (now >= end) over = true; else x.textContent = fmt(t("bLeft"), { t: restzeit(end, now) }); });
+    if (over && (this.view === "home" || this.view === "fach")) this.render();   // abgelaufen: Banner verschwindet
+  }
   // Belohnung kommt aufs Zwischenkonto (erst beim Einsammeln aufs Spielerkonto)
   finish() {
     const q = this.q, n = q.list.length, th = this.th;
     let r, lohn;
     if (th.wertung) { q.w = th.wertung(q.res.map((x) => x.score), q.opt); r = q.w.summe; lohn = q.w.euro; }
     else { r = q.res.filter((x) => x.ok).length; lohn = belohnung(r, n, th); }
+    // Fach-Bonus (seit v0.19.4, faecher/boni.js): auf die Belohnung nach der Schwierigkeit, vor dem Fokus-Bonus
+    q.ebon = null; const fbo = fachBonus(this.f.id); if (fbo) { const b = Math.ceil(lohn * (1 + fbo.pct / 100) - 1e-9); q.ebon = { pct: fbo.pct, e: b - lohn }; lohn = b; }
     // voller Fokus (seit v0.17): +15 % auf die Belohnung (aufgerundet)
     q.boost = 0; if (fokusVoll()) { const b = Math.ceil(lohn * (1 + FOKUS.bonus) - 1e-9); q.boost = b - lohn; lohn = b; }
     addOffen(lohn); addRunde(this.f.id, th.id, r, th.wertung ? (th.maxPunkte || n * 10) : n, lohn); q.r = r; q.lohn = lohn;
@@ -203,6 +236,7 @@ export class Learn {
     if (this.th.art === "vokabel") { this.renderVokDone(); return; }
     if (this.th.art === "pse") { this.renderPseDone(); return; }
     if (this.th.art === "schale") { this.renderSchaleDone(); return; }
+    if (this.th.art === "steck") { this.renderSteckDone(); return; }
     if (this.th.wertung) { this.renderGuessDone(); return; }
     const q = this.q, n = q.list.length, wr = q.res.filter((x) => !x.ok), sw = (h) => '<i class="le-msw" style="background:' + h + '"></i>';
     this.body('<div class="le-done"><h2>' + t("lDone") + '</h2><div class="le-big">' + q.r + "<small>/" + n + '</small></div><p>' + fmt(t("lScore"), { r: q.r, n: n }) + '</p><div class="le-earn">' + t("lEarn") + " <b>+" + euro(q.lohn) + "</b> <small>" + t("pToPend") + '</small></div>' + this.boostHtml() + '<p class="le-dim">' + tiers(this.th.lohn || STANDARD_LOHN, n) + "</p>" +
@@ -406,6 +440,11 @@ export class Learn {
     }
     const e = ELEMENTE[S.el - 1], K = KATEG[e.kat], row = (k, v) => "<div><span>" + k + "</span><b>" + v + "</b></div>", mass = e.m % 1 ? String(e.m).replace(".", PR.lang === "en" ? "." : ",") : e.m;
     const gr = e.gr ? (e.haupt ? fmt(t("peHG"), { n: e.haupt }) : fmt(t("peNG"), { n: e.gr })) : tl(K.n);
+    if (S.lite) {   // Steckbrief auf Schwer: nur was auf einem gedruckten Periodensystem steht
+      P.innerHTML = '<div class="le-shead"><button data-l="spback">' + t("spBack") + '</button><button data-l="spclose">×</button></div><div class="le-pcard le-popen"><div class="le-ptile" style="--c:' + K.c + '"><small>' + e.z + "</small><b>" + e.sym + "</b><i>" + mass + "</i></div><div><h3>" + esc(e.name) + '</h3><p class="le-dim">' + esc(tl(K.n)) + "</p></div></div>" +
+        '<div class="le-prows">' + row(t("peZ"), e.z) + row(t("peM"), mass + " u") + "</div>";
+      return;
+    }
     P.innerHTML = '<div class="le-shead"><button data-l="spback">' + t("spBack") + '</button><button data-l="spclose">×</button></div><div class="le-pcard le-popen"><div class="le-ptile" style="--c:' + K.c + '"><small>' + e.z + "</small><b>" + e.sym + "</b><i>" + mass + "</i></div><div><h3>" + esc(e.name) + '</h3><p class="le-dim">' + esc(tl(K.n)) + " · " + tl(ZUSTAND[e.zu]) + " " + t("peZu") + "</p></div></div>" +
       '<div class="le-prows">' + row(t("peZ"), e.z) + row(t("peM"), mass + " u") + row(t("pePer"), e.per) + row(t("peGr"), esc(gr)) + '</div><p class="le-dim le-sfact">' + esc(e.fakt) + "</p>";
   }
@@ -416,6 +455,78 @@ export class Learn {
       "<p>" + fmt(t("vPts"), { p: w.summe }) + (st.faktor > 1 ? ' · <span class="le-dim">' + fmt(t("vMult"), { s: tl(st.name), b: euro(w.basis), f: String(st.faktor).replace(".", PR.lang === "en" ? "." : ","), e: euro(w.euro) }) + "</span>" : "") + "</p>" +
       '<div class="le-earn">' + t("lEarn") + " <b>+" + euro(q.lohn) + "</b> <small>" + t("pToPend") + "</small></div>" + this.boostHtml() + '<p class="le-dim">' + pseTiers(st.faktor, w.summe) + "</p>" +
       '<div class="le-vresl">' + rows + '</div><p class="le-dim">' + L.map((k) => t(k)).join(" · ") + "</p>" + this.doneBtns() + "</div>");
+  }
+  // ---------- Element-Steckbrief (Chemie, seit v0.19.4) ----------
+  topt(set) {
+    const u = store.get(KEYS.ui, {}), o = Object.assign({ lvl: 0 }, u.steck || {});
+    if (set) { Object.assign(o, set); u.steck = o; store.set(KEYS.ui, u); }
+    if (!(o.lvl >= 0 && o.lvl <= 2)) o.lvl = 0; return o;
+  }
+  renderSteckSetup() {
+    const f = this.f, th = this.th, o = this.topt();
+    this.body('<div class="le-lhead"><button data-l="fach">← ' + t("lBack") + '</button><i style="background:' + f.farbe + '">' + esc(f.kurz) + "</i><h2>" + esc(tl(th.name)) + "</h2></div>" + this.bonusBar(f) +
+      '<div class="le-tset"><p>' + t("stIntro") + "</p><h4>" + t("stPts") + '</h4><ul class="le-slist">' + STECK_FELDER.map((k) => "<li><b>" + t("st_" + k) + '</b> <span class="le-dim">' + t("stx_" + k) + "</span></li>").join("") +
+      '<li><b class="le-good">' + t("stBonus") + "</b></li></ul>" +
+      '<div class="le-vlvl"><b>' + t("vLevel") + '</b><input type="range" data-tl min="0" max="2" step="1" value="' + o.lvl + '"><div class="le-vlab">' + STUFEN_STECK.map((x) => '<span data-tls="' + x.id + '">' + esc(tl(x.name)) + "</span>").join("") + '</div><p id="le-tlinfo"></p></div>' +
+      '<p class="le-dim" id="le-ttiers"></p><div class="le-btns"><button class="le-pri le-vgo" data-l="vgo">Start ↵</button></div></div>');
+    this.tLvlInfo();
+  }
+  tLvlInfo() {
+    const o = this.topt(), st = STUFEN_STECK[o.lvl];
+    this.root.querySelectorAll("[data-tls]").forEach((x) => x.classList.toggle("le-vsel", +x.getAttribute("data-tls") === o.lvl));
+    const inf = this.root.querySelector("#le-tlinfo"); if (inf) inf.innerHTML = "<b>" + esc(tl(st.info)) + "</b> · " + (st.faktor > 1 ? '<em class="le-good">' + fmt(t("vBonusPct"), { p: Math.round((st.faktor - 1) * 100) }) + "</em>" : t("vBase"));
+    const ti = this.root.querySelector("#le-ttiers"); if (ti) ti.innerHTML = "<b>" + t("vRewards") + ":</b> " + pseTiers(st.faktor);
+  }
+  renderSteckQ() {
+    const q = this.q, f = this.f, e = q.list[q.i].el, st = STUFEN_STECK[(q.opt && q.opt.lvl) | 0]; clearTimeout(this.tm);
+    if (!q.inp) { q.inp = {}; STECK_FELDER.forEach((k) => { q.inp[k] = ""; }); q.ph = "ask"; }
+    this.spse = { open: false, el: null, lite: !st.voll };
+    const fld = (k) => '<div class="le-tf" data-tfk="' + k + '"><label for="le-si-' + k + '">' + t("st_" + k) + "</label>" + (k === "hg"
+      ? '<div class="le-thg">' + ROEM.map((r, i) => '<button data-hg="' + (i + 1) + '"' + (+q.inp.hg === i + 1 ? ' class="le-vsel"' : "") + ">" + r + "</button>").join("") + "</div>"
+      : '<input id="le-si-' + k + '" data-si="' + k + '" type="text" autocomplete="off" spellcheck="false" maxlength="' + (k === "sym" ? 3 : 4) + '"' + (k === "sym" ? "" : ' inputmode="numeric"') + ' value="' + esc(q.inp[k]) + '">') + '<small class="le-tfr"></small></div>';
+    this.body('<div class="le-lhead"><i style="background:' + f.farbe + '">' + esc(f.kurz) + "</i><h2>" + esc(tl(this.th.name)) + '</h2><span class="le-sp"></span><span class="le-dim">' + esc(tl(st.name)) + " · max. 10</span></div>" +
+      '<div class="le-sbuild"><div class="le-swork"><h3>' + fmt(t("stTask"), { n: "<b>" + esc(e.name) + "</b>" }) + '</h3><div class="le-tgrid">' + STECK_FELDER.map(fld).join("") + "</div>" +
+      '<div id="le-tres"></div><p class="le-dim le-shelp" id="le-thow">' + t("stHow") + '</p><div class="le-btns" id="le-tbtn"><button class="le-pri le-vgo" data-l="tcheck">' + t("stCheck") + " ↵</button></div></div>" +
+      '<div class="le-spse" id="le-spse"></div></div>');
+    this.sPanel(); const ip = this.root.querySelector("[data-si=sym]"); if (ip) setTimeout(() => ip.focus(), 0);
+  }
+  tHg(n) {
+    const q = this.q; if (!q || !q.inp || q.ph === "shown") return; q.inp.hg = +q.inp.hg === n ? "" : n; tick(1);
+    this.root.querySelectorAll("[data-hg]").forEach((b) => b.classList.toggle("le-vsel", +b.getAttribute("data-hg") === +q.inp.hg));
+    if (q.inp.hg) this.tNextField("hg");
+  }
+  // Enter / Hauptgruppe gewählt → nächstes Eingabefeld; nach dem letzten wird geprüft
+  tNextField(k) {
+    const i = STECK_FELDER.indexOf(k), nx = STECK_FELDER.slice(i + 1).find((x) => x !== "hg");
+    if (!nx) { this.tCheck(); return; }
+    const ip = this.root.querySelector('[data-si="' + nx + '"]'); if (ip) ip.focus();
+  }
+  tCheck() {
+    const q = this.q; if (!q || this.view !== "quiz" || !q.inp || q.ph === "shown") return;
+    this.root.querySelectorAll("[data-si]").forEach((x) => { q.inp[x.getAttribute("data-si")] = x.value.trim(); });
+    const e = q.list[q.i].el, r = steckBewerte(e, q.inp), soll = steckSoll(e); q.ph = "shown";
+    if (r.parts[0]) q.inp.sym = soll.sym;   // richtiges Symbol in richtiger Schreibweise anzeigen
+    q.res.push({ ok: r.alle, score: r.score, parts: r.parts, alle: r.alle, el: e, inp: Object.assign({}, q.inp) });
+    STECK_FELDER.forEach((k, i) => {
+      const box = this.root.querySelector('[data-tfk="' + k + '"]'); if (!box) return; box.classList.add(r.parts[i] ? "le-vg" : "le-vb");
+      box.querySelectorAll("input,button").forEach((x) => { x.disabled = true; });
+      if (k === "sym" && r.parts[i]) { const ip = box.querySelector("input"); if (ip) ip.value = soll.sym; }
+      const sv = k === "hg" ? ROEM[soll.hg - 1] : soll[k]; box.querySelector(".le-tfr").textContent = r.parts[i] ? "✓" : "✗ → " + sv;
+    });
+    this.root.querySelector("#le-tres").innerHTML = '<p class="le-sgot">' + fmt(t("stGot"), { p: r.score }) + (r.alle ? ' · <span class="le-good">' + t("stAll") + "</span>" : "") + "</p>";
+    const how = this.root.querySelector("#le-thow"); if (how) how.remove();
+    this.root.querySelector("#le-tbtn").innerHTML = '<button class="le-pri le-vgo" data-l="tend">' + t("stEnd") + " ↵</button>";
+    const bt = this.root.querySelector("[data-l=tend]"); if (bt) { bt.focus(); bt.scrollIntoView({ block: "nearest" }); }
+  }
+  renderSteckDone() {
+    const q = this.q, w = q.w, st = STUFEN_STECK[(q.opt && q.opt.lvl) | 0], r = q.res[0], soll = steckSoll(r.el);
+    const rows = STECK_FELDER.map((k, i) => { const ist = k === "hg" ? (r.inp.hg ? ROEM[r.inp.hg - 1] : "–") : (r.inp[k] || "–"), sv = k === "hg" ? ROEM[soll.hg - 1] : soll[k];
+      return '<div class="' + (r.parts[i] ? "le-vg" : "le-vb") + '"><i>' + (r.parts[i] ? "✓" : "✗") + "</i><span>" + t("st_" + k) + "</span><b>" + esc(String(ist)) + (r.parts[i] ? "" : " <small>→ " + sv + "</small>") + "</b></div>"; }).join("") +
+      '<div class="' + (r.alle ? "le-vg" : "le-vb") + '"><i>' + (r.alle ? "✓" : "✗") + "</i><span>" + t("stBonus") + "</span><b>" + (r.alle ? "+1" : "0") + "</b></div>";
+    this.body('<div class="le-done"><h2>' + t("lDone") + '</h2><div class="le-big">' + w.summe + "<small>/10</small></div>" +
+      '<p><span class="le-pmini" style="--c:' + KATEG[r.el.kat].c + '">' + r.el.sym + "</span> <b>" + esc(r.el.name) + "</b> · " + fmt(t("vPts"), { p: w.summe }) + (st.faktor > 1 ? ' · <span class="le-dim">' + fmt(t("vMult"), { s: tl(st.name), b: euro(w.basis), f: String(st.faktor).replace(".", PR.lang === "en" ? "." : ","), e: euro(w.euro) }) + "</span>" : "") + "</p>" +
+      '<div class="le-earn">' + t("lEarn") + " <b>+" + euro(q.lohn) + "</b> <small>" + t("pToPend") + "</small></div>" + this.boostHtml() + '<p class="le-dim">' + pseTiers(st.faktor, w.summe) + "</p>" +
+      '<div class="le-sfl le-tdone">' + rows + "</div>" + this.doneBtns() + "</div>");
   }
   // ---------- Periodensystem (Chemie, seit v0.19.1) ----------
   popt(set) {
@@ -569,6 +680,7 @@ export class Learn {
     const tb = e.target.closest("[data-t]"); if (tb) { const th = this.f.themen.find((x) => x.id === tb.getAttribute("data-t")); if (th) { if (th.setup) { this.th = th; this.view = "setup"; this.render(); } else this.start(th); } return; }
     const sb = e.target.closest("[data-sb]"); if (sb) { this.sBtn(sb.getAttribute("data-sb"), e.shiftKey); return; }
     const rg = e.target.closest("[data-ring]"); if (rg) { this.sEl(+rg.getAttribute("data-ring"), 1); return; }
+    const hg = e.target.closest("[data-hg]"); if (hg) { this.tHg(+hg.getAttribute("data-hg")); return; }
     const spe = e.target.closest("[data-sp]"); if (spe) { this.spse.el = +spe.getAttribute("data-sp"); this.sPanel(); return; }
     const pe = e.target.closest("[data-pe]"); if (pe) { const z = +pe.getAttribute("data-pe"); this.popt({ el: z }); this.pShow(z); return; }
     const vk = e.target.closest("[data-vk]"); if (vk) { this.vopt({ kat: vk.getAttribute("data-vk") }); this.renderSetup(); return; }
@@ -587,6 +699,8 @@ export class Learn {
     else if (a === "pnext") this.pNext();
     else if (a === "pclose") this.pClose();
     else if (a === "scheck") this.sCheck();
+    else if (a === "tcheck") this.tCheck();
+    else if (a === "tend") this.finish();
     else if (a === "snext") this.sNext();
     else if (a === "spopen") { this.spse.open = true; this.spse.el = null; this.sPanel(); }
     else if (a === "spclose") { this.spse.open = false; this.sPanel(); }
@@ -612,6 +726,7 @@ export class Learn {
     if (this.view === "setup") { if ((e.code === "Enter" || e.code === "NumpadEnter") && e.target.tagName !== "BUTTON") { this.start(this.th); return true; } return false; }
     if (this.view === "quiz") {
       const a = this.q.list[this.q.i];
+      if (a.art === "steck") { if ((e.code === "Enter" || e.code === "NumpadEnter") && e.target.tagName !== "BUTTON" && e.target.tagName !== "INPUT") { if (this.q.ph === "shown") this.finish(); else this.tCheck(); return true; } return false; }
       if (a.art === "schale") { if ((e.code === "Enter" || e.code === "NumpadEnter") && e.target.tagName !== "BUTTON") { if (this.q.ph === "shown") this.sNext(); else this.sCheck(); return true; } return false; }
       if (a.art === "pse") { if ((e.code === "Enter" || e.code === "NumpadEnter") && this.q.ph === "shown" && e.target.tagName !== "BUTTON") { this.pNext(); return true; } return false; }
       if (a.art === "vokabel") { if ((e.code === "Enter" || e.code === "NumpadEnter") && this.q.vr && this.q.vr.every(Boolean) && e.target.tagName !== "BUTTON") { this.vEnd(); return true; } return false; }

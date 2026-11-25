@@ -133,6 +133,15 @@ Schalenmodelle bauen (Chemie, seit v0.19.2, art `schale`, Thema `schalenmodell`)
 (je 1 Punkt: Protonen, Neutronen = gerundete Masse − Z, Schalen = Periode, Elektronen gesamt, Verteilung; auf Leicht/Mittel sind die Neutronen vorgegeben und gesperrt – Flag `nfix` in `STUFEN_SCHALE`, seit v0.19.3). Ausklappbares Periodensystem `sPanel`
 (Element gewählt → nur dessen Infos, ohne Schalenverteilung). Stufen `STUFEN_SCHALE`, gemerkt in `leaarn-ui-v1` → `schale`.
 
+Element-Steckbrief (Chemie, seit v0.19.4, art `steck`, Thema `steckbrief`): 1 Element (nur Hauptgruppen bis Radon), 9 Felder `STECK_FELDER`
+(Symbol, Hauptgruppe über römische Knöpfe, Periode, Ordnungszahl, Elektronen, Valenzelektronen, Protonen, Neutronen, Atommasse gerundet), je 1 Punkt,
+alle 9 richtig = +1 Bonuspunkt (`steckBewerte`/`steckSoll` in elemente.js). UI `renderSteckQ`/`tCheck`/`renderSteckDone`, Periodensystem wieder `sPanel`
+(auf Schwer `spse.lite`: Karte zeigt nur Ordnungszahl und Masse). Stufen `STUFEN_STECK`, gemerkt in `leaarn-ui-v1` → `steck`.
+
+Fach-Boni (seit v0.19.4, `faecher/boni.js`): Liste `BONI` mit Fach, Prozent und Ende (deutsche Zeit). Wirkt in `finish()` nach dem Stufen-Faktor,
+vor dem Fokus-Bonus; Banner mit Timer auf der Fach-Kachel (`bonusTag`) und über den Themen (`bonusBar`), Timer `bTick` jede Sekunde.
+Abgelaufene Einträge wirken nicht mehr; für den nächsten Bonus einfach einen Eintrag ergänzen.
+
 Stufen statt Jahrgänge (seit v0.15): `klasse` 5–6 = Basics, 7–8 = Fortgeschritten, 9–10 = Experte, `stufe: "alle"` = Alle Stufen.
 
 Farbmischen (`faecher/farben.js`): Farbe = Pigment-Anteile [Rot, Gelb, Blau, Weiß, Schwarz], Mischen = gleiche Teile.

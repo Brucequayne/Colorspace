@@ -3,6 +3,15 @@
    Die Versionsnummer auf den Kacheln kommt aus dem obersten Eintrag. */
 window.PATCHNOTES = {
   leaarn: [
+    { v: "0.19.4", t: "2026-11-25T20:45:00+01:00",
+      de: ["Drittes Chemie-Spiel: „Element-Steckbrief“. Du bekommst ein Element und füllst seinen Steckbrief aus: Symbol, Hauptgruppe (römisch I–VIII), Periode, Ordnungszahl, Elektronen gesamt, Valenzelektronen, Protonen, Neutronen und Atommasse (gerundet). Rechts lässt sich wieder das Periodensystem ausklappen.",
+        "Jede richtige Angabe gibt 1 Punkt, sind alle 9 richtig, gibt es 1 Bonuspunkt dazu (max. 10). Belohnung wie bei den anderen Chemie-Spielen: 0 = 5 €, 1–5 = 25 €, 6–9 = 75 €, 10 = 150 €.",
+        "Drei Stufen: Leicht = Elemente 1–20, Mittel = Hauptgruppen-Elemente bis Xenon (+30 % Geld), Schwer = bis Radon, und das Periodensystem zeigt nur Ordnungszahl und Atommasse (+60 % Geld).",
+        "Chemie-Bonus: Bis Donnerstag, 26.11., 23:59 Uhr gibt es +50 % Geld auf alle Chemie-Aufgaben. Ein Banner mit Ablauf-Timer hängt an der Chemie-Kachel und über den Chemie-Themen."],
+      en: ["Third chemistry game: “Element profile”. You get one element and fill in its profile: symbol, main group (Roman I–VIII), period, atomic number, total electrons, valence electrons, protons, neutrons and atomic mass (rounded). The periodic table can be unfolded on the right again.",
+        "Each correct entry is worth 1 point, and if all 9 are correct you get 1 bonus point (max 10). Reward as in the other chemistry games: 0 = €5, 1–5 = €25, 6–9 = €75, 10 = €150.",
+        "Three levels: easy = elements 1–20, medium = main-group elements up to xenon (+30 % money), hard = up to radon, and the periodic table only shows atomic number and atomic mass (+60 % money).",
+        "Chemistry bonus: until Thursday, 26 Nov, 23:59 there is +50 % money on every chemistry task. A banner with a countdown sits on the chemistry tile and above the chemistry topics."] },
     { v: "0.19.3", t: "2026-11-25T20:00:00+01:00",
       de: ["Hotfix Schalenmodell-Spiel: Auf Leicht und Mittel ist die Neutronenzahl jetzt schon richtig eingetragen und lässt sich nicht verändern. Du baust nur noch Protonen, Schalen und Elektronen, der Neutronen-Punkt zählt automatisch.",
         "Nur auf Schwer musst du die Neutronen weiterhin selbst bestimmen."],

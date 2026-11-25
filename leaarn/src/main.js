@@ -313,6 +313,22 @@ const CSS = `
 .le-sicons{display:flex;gap:4px}.le-sicons i{font-style:normal;font-weight:800;width:20px;text-align:center}.le-sicons .le-ok{color:#7FC8D4}.le-sicons .le-no{color:#ED6A5E}.le-sdone .le-vp{text-align:right}
 @media (max-width:700px){.le-sfb{grid-template-columns:1fr}}
 .le-srow.le-slock b{color:#A9ACB2}.le-srow.le-slock button{opacity:.35}
+.le-subj button .le-bban{grid-column:1/-1;display:flex;justify-content:space-between;gap:6px;margin-top:7px;padding:3px 6px;background:#ED6A5E;color:#1B1C1F;font-size:11px;font-weight:800}
+.le-subj button .le-bban{flex-wrap:wrap}.le-bban b,.le-bban em{white-space:nowrap}.le-bban b{font-size:11px!important}.le-bban em{font-style:normal;font-variant-numeric:tabular-nums}
+.le-bbar{display:flex;flex-wrap:wrap;justify-content:space-between;gap:4px 12px;margin:0 0 10px;padding:7px 10px;background:#ED6A5E;color:#1B1C1F;font-size:13px}
+.le-bbar em{font-style:normal;font-weight:800;font-variant-numeric:tabular-nums}
+.le-ebon{color:#ED6A5E!important}
+.le-tset{max-width:640px}
+.le-tgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:8px}
+.le-tf{display:flex;flex-direction:column;gap:3px;background:#33403F;border:1px solid #44514F;padding:7px 8px}
+.le-tf label{font-size:12px;font-weight:700;color:#C6C5B9}
+.le-tf input{width:100%;box-sizing:border-box;font-size:17px;font-weight:800;padding:4px 6px}
+.le-tf.le-vg{border-color:#62929E}.le-tf.le-vb{border-color:#ED6A5E}
+.le-tfr{min-height:14px;font-size:12px;font-weight:800}.le-tf.le-vg .le-tfr{color:#7FC8D4}.le-tf.le-vb .le-tfr{color:#ED6A5E}
+.le-thg{display:grid;grid-template-columns:repeat(4,1fr);gap:3px}
+.le-thg button{padding:3px 0!important;font-size:12px!important;font-weight:800}
+.le-thg button.le-vsel{background:#62929E;border-color:#62929E;color:#1B1C1F}
+.le-tdone{max-width:460px;margin:10px auto;text-align:left}
 `;
 
 let A = null;
