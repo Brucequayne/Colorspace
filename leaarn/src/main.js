@@ -11,7 +11,7 @@ import { HouseEditor } from "le/houseeditor.js";
 import { CharEditor } from "le/charedit.js";
 import { charakter } from "le/save.js";
 import { WindIcon } from "le/wind.js";
-import { loadSaved, autosave } from "le/sceneio.js";
+import { autosave, savedIsCurrent, loadStandard } from "le/sceneio.js";
 
 const CSS = `
 .le-root{position:fixed;inset:0;z-index:30;background:#111214;color:#ECEAE4;font:500 14px var(--f-body,system-ui,sans-serif);overflow:hidden;user-select:none}
@@ -364,6 +364,17 @@ const CSS = `
 .le-wbar button+button{margin-left:auto}
 #le-sfloat{width:300px}
 #le-sfloat .le-pcard{padding-right:0}
+.le-hunger{position:absolute;left:16px;top:52px;display:grid;grid-template-columns:auto 170px auto;align-items:center;gap:9px;background:rgba(22,23,26,.72);border-left:4px solid #E8C66A;padding:7px 12px;pointer-events:none;z-index:11}
+.le-hunger span{font-weight:800;font-size:13px;color:#ECEAE4;letter-spacing:.04em;min-width:42px}
+.le-hunger i{display:block;height:10px;background:#2A2C30;border:1px solid #44474D;overflow:hidden}.le-hunger i b{display:block;height:100%;width:0;background:#E8C66A;transition:width .4s linear}
+.le-hunger em{font-style:normal;font-weight:800;font-size:12px;color:#C6C5B9;min-width:42px;font-variant-numeric:tabular-nums}
+.le-hunger.le-low{border-left-color:#ED6A5E}.le-hunger.le-low i b{background:#ED6A5E;animation:le-fglow 1.2s ease-in-out infinite}.le-hunger.le-low em{color:#ED6A5E}
+.le-hud .le-where{top:90px!important}
+.le-dimhud .le-hunger{opacity:.9}
+.le-faint{position:absolute;inset:0;background:#000;opacity:0;transition:opacity 1.2s ease;z-index:30;display:flex;align-items:center;justify-content:center;pointer-events:none}
+.le-faint.le-on{opacity:1;pointer-events:auto}.le-faint p{color:#C6C5B9;font-size:18px;font-weight:700}
+.le-makler button[disabled]{opacity:.45;cursor:default}
+.le-loadmap{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:#111214;color:#C6C5B9;font-size:15px;z-index:40}
 `;
 
 let A = null;
@@ -377,7 +388,8 @@ export function mount(host, lang, stamp) {
   const settings = Object.assign({ shadows: true, scale: 1, drive: "rwd", grass: 200 }, store.get(KEYS.settings, {}));
   engine.quality({ shadows: settings.shadows, scale: settings.scale });
   const world = new World(engine);
-  if (!loadSaved(world)) { world.standard(); autosave(world, true); }
+  // gespeicherte Szene, wenn sie zur aktuellen Standardkarte gehört; sonst Standardkarte laden (seit v0.20 aus leaarn/maps/hub.txt)
+  const cur = savedIsCurrent(), ok = cur && world.fromJSON(cur);
   const app = A = { engine: engine, world: world, ui: ui, root: root, input: new Input(), settings: settings, lang: PR.lang, mode: null, modeName: "", raf: 0, last: performance.now() };
   world.veg.setDist(settings.grass);   // Gras-Sichtweite (seit v0.19)
   app.go = (name, opts) => {
@@ -395,7 +407,12 @@ export function mount(host, lang, stamp) {
     world.update(dt); if (app.mode) app.mode.update(dt); app.wind.update(); engine.render();
   };
   app.wind = new WindIcon(app);
-  app.go(charakter() ? "menu" : "char", { first: true });   // erster Start: Charakter-Editor
+  const start = () => { world.veg.setDist(settings.grass); app.go(charakter() ? "menu" : "char", { first: true }); };   // erster Start: Charakter-Editor
+  if (ok) { start(); app.ready = Promise.resolve(); }
+  else {
+    const wait = el("div", "le-loadmap", "<b>" + (PR.lang === "en" ? "Loading map…" : "Karte wird geladen …") + "</b>"); ui.appendChild(wait);
+    app.ready = loadStandard(world, stamp).then((good) => { if (A !== app) return; if (!good) world.standard(); autosave(world, true); wait.remove(); start(); });
+  }
   app.raf = requestAnimationFrame(loop);
   window.LEDBG = app;
 }

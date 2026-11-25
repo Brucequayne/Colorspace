@@ -5,14 +5,18 @@ import { Player, camHit } from "le/player.js";
 import { Learn } from "le/learn.js";
 import { Inventory } from "le/inventory.js";
 import { Musik } from "le/musik.js";
-import { geld, euro, offen, einsammeln, charakter, fokus, setFokus, FOKUS } from "le/save.js";
+import { geld, euro, offen, einsammeln, charakter, fokus, setFokus, FOKUS, hunger, setHunger, HUNGER } from "le/save.js";
+import { Makler, kaufbar, frei, hausName, abrechnen, gemietet } from "le/besitz.js";
 import { Shop, LADEN } from "le/shop.js";
 import { kasse, tick } from "le/sound.js";
 import { LH } from "le/houses.js";
-import { LAGER } from "le/items.js";
+import { LAGER, ITEMS, inv, sel, take } from "le/items.js";
 
 addTexts({
-  pHelp: L2("WASD/Pfeile laufen · Umschalt rennen · Leertaste springen · E benutzen · I Inventar · 1–9 Schnellauswahl · Maus ziehen dreht die Kamera · Rad zoomt · Esc Pause", "WASD/arrows walk · Shift run · Space jump · E use · I inventory · 1–9 hotbar · drag the mouse to turn the camera · wheel zooms · Esc pause"),
+  pHelp: L2("WASD/Pfeile laufen · Umschalt rennen · Leertaste springen · E benutzen · F essen · I Inventar · 1–9 Schnellauswahl · Maus ziehen dreht die Kamera · Rad zoomt · Esc Pause", "WASD/arrows walk · Shift run · Space jump · E use · F eat · I inventory · 1–9 hotbar · drag the mouse to turn the camera · wheel zooms · Esc pause"),
+  pHunger: L2("Hunger", "Hunger"), pEat: L2("{n} essen (+{p} %)", "Eat {n} (+{p} %)"), pAte: L2("{n} gegessen · Hunger {p} %", "Ate {n} · hunger {p} %"), pFull: L2("Du bist satt.", "You're full."),
+  pHungry: L2("Du hast Hunger! Iss etwas (Essen in die Schnellauswahl legen, dann F).", "You're hungry! Eat something (put food in the hotbar, then press F)."),
+  pFaint: L2("Du bist vor Hunger ohnmächtig geworden …", "You fainted from hunger …"), pWake: L2("Du bist in deinem Bett aufgewacht. Iss etwas!", "You woke up in your bed. Eat something!"),
   pOpen: L2("Tür öffnen", "Open door"), pShut: L2("Tür schließen", "Close door"), pLearn: L2("Am Laptop lernen", "Learn on the laptop"), pMusic: L2("Ghettoblaster benutzen", "Use the boombox"),
   pHome: L2("Zuhause", "Home"), pPause: L2("Pause", "Paused"), pGo: L2("Weiter", "Continue"), pMenu: L2("Hauptmenü", "Main menu"), pEditor: L2("Zum Map-Editor", "To map editor"),
   pNoHome: L2("Kein Haus in der Map – im Map-Editor ein Haus setzen.", "No house in the map – place one in the map editor."), pEarned: L2("+{n}", "+{n}"),
@@ -26,11 +30,15 @@ export class Play {
     const ch = charakter(); this.pl = new Player(this.world, ch); this.world.sensor = this.pl.p;   // Automatiktüren reagieren auf den Spieler (seit v0.19.7)
     this.cam = { yaw: 0, pitch: 0.36, dist: 5.2, inside: 0, pos: new THREE.Vector3(), look: new THREE.Vector3(), snap: true };
     this.act = null; this.learn = null; this.paused = false; this.btn = -1;
-    this.hud = el("div", "le-hud", '<div class="le-money"><span>' + esc(ch && ch.name ? ch.name : "") + '</span><b id="le-money"></b></div><div class="le-gain" id="le-gain"></div><div class="le-prompt" id="le-prompt"></div><div class="le-focus" id="le-focus"><span>' + t("pFocus") + '</span><i><b id="le-fbar"></b></i><em id="le-fpct"></em></div><div class="le-where" id="le-where"></div><div class="le-help">' + t("pHelp") + "</div>");
+    this.hud = el("div", "le-hud", '<div class="le-money"><span>' + esc(ch && ch.name ? ch.name : "") + '</span><b id="le-money"></b></div><div class="le-gain" id="le-gain"></div><div class="le-prompt" id="le-prompt"></div><div class="le-focus" id="le-focus"><span>' + t("pFocus") + '</span><i><b id="le-fbar"></b></i><em id="le-fpct"></em></div><div class="le-hunger" id="le-hunger"><span>' + t("pHunger") + '</span><i><b id="le-hbar"></b></i><em id="le-hpct"></em></div><div class="le-where" id="le-where"></div><div class="le-help">' + t("pHelp") + "</div>");
     app.ui.appendChild(this.hud); this.shown = geld(); this.money();
     this.inv = new Inventory(app); this.musik = new Musik(app);
     this.shop = new Shop(app, () => { this.inv.draw(); this.shown = geld(); this.money(); const box = this.hud.querySelector(".le-money"); box.classList.remove("le-bump"); void box.offsetWidth; box.classList.add("le-bump"); });
     this.fk = fokus(); this.fkSave = 0; this.focusUi(true);
+    // Hunger und Häuser (seit v0.20)
+    this.hu = hunger(); this.huSave = 0; this.huUi(true); this.rentT = 0;
+    this.mk = new Makler(app, (k, a) => { this.shown = geld(); this.money(); if (a === "cancel") this.lockDoors(k); });
+    this.rent();
     this.spawn();
     const c = app.engine.renderer.domElement;
     this.onDown = (e) => { if (this.learn || this.paused) return; this.btn = e.button; this.last = [e.clientX, e.clientY]; const ae = document.activeElement; if (ae && ae.blur && ae !== document.body) ae.blur(); };
@@ -42,7 +50,7 @@ export class Play {
     c.addEventListener("wheel", this.onWheel, { passive: false }); c.addEventListener("contextmenu", this.onCtx);
   }
   dispose() {
-    this.inv.dispose(); this.musik.dispose(); this.shop.dispose(); setFokus(this.fk);
+    this.inv.dispose(); this.musik.dispose(); this.shop.dispose(); this.mk.dispose(); setFokus(this.fk); setHunger(this.hu); if (this.fadeEl) this.fadeEl.remove();
     const c = this.app.engine.renderer.domElement;
     c.removeEventListener("pointerdown", this.onDown); window.removeEventListener("pointermove", this.onMove); window.removeEventListener("pointerup", this.onUp);
     c.removeEventListener("wheel", this.onWheel); c.removeEventListener("contextmenu", this.onCtx);
@@ -96,12 +104,17 @@ export class Play {
         if (d < lim && d < bd) { bd = d; best = { a: a, h: h }; }
       }
     }
+    // abgeschlossenes Haus (seit v0.20): von außen öffnet die Tür den Makler-Dialog (von innen geht sie immer auf)
+    if (best && best.a.type === "tuer" && !frei(best.h.e.k) && !this.inSide(best.h, best.a.door) && best.a.door.want < 0.5) best = { a: { type: "kauf", k: best.h.e.k }, h: best.h };
     return best;
   }
+  // steht die Figur auf der Innenseite der Tür? (Seite mit Boden auf derselben Etage; unter einem Balkon zählt als draußen)
+  inSide(h, d) { const q = h.toLocal(this.pl.p.x, this.pl.p.z), sd = (q.x - d.cx) * d.nx + (q.z - d.cz) * d.nz < 0 ? -1 : 1; return h.b.cells.has(Math.floor(d.cx + d.nx * 0.5 * sd) + "," + Math.floor(d.cz + d.nz * 0.5 * sd) + "," + d.l); }
   use() {
     if (this.seat) { this.stand(); return; }
     const A = this.act; if (!A) return;
     if (A.a.type === "tuer") { const d = A.a.door; d.want = d.want > 0.5 ? 0 : 1; }
+    else if (A.a.type === "kauf") this.mk.show(A.a.k);
     else if (A.a.type === "lernen") this.openLearn(A);
     else if (A.a.type === "musik") { const w = A.h.toWorld(A.a.cx, A.a.cz); this.musik.show({ x: w.x, z: w.z }); }
     else if (A.a.type === "sitzen") this.sit(A.h, A.a, "rest");
@@ -149,12 +162,15 @@ export class Play {
   key(e) {
     if (this.inv.open) { if (e.code === "KeyI" || e.code === "Escape" || (e.code === "KeyE" && this.inv.store && !e.repeat)) { this.inv.toggle(false); return true; } return false; }
     if (this.shop.open) { if ((e.code === "KeyE" && !e.repeat) || e.code === "Escape") { this.shop.hide(); return true; } return false; }
+    if (this.mk.open) { if ((e.code === "KeyE" && !e.repeat) || e.code === "Escape") { this.mk.hide(); return true; } return false; }
+    if (this.faint) return true;
     if (this.musik.open && !this.learn) { if (e.code === "KeyE" || e.code === "Escape") { this.musik.hide(); return true; } return false; }
     if (this.learn) return this.learn.key(e);
     if (e.code === "Escape") { this.pause(!this.paused); return true; }
     if (this.paused) return false;
     if (e.code === "KeyE" && !e.repeat) { this.use(); return true; }
     if (e.code === "KeyI" && !e.repeat) { this.inv.toggle(true); return true; }
+    if (e.code === "KeyF" && !e.repeat) { this.eat(); return true; }
     if (/^Digit[1-9]$/.test(e.code)) { this.inv.select(+e.code.slice(5) - 1); return true; }
     if (/^(Space|ArrowUp|ArrowDown|ArrowLeft|ArrowRight)$/.test(e.code)) return true;
     return false;
@@ -162,15 +178,15 @@ export class Play {
   pause(on) {
     this.paused = on; if (this.pm) { this.pm.remove(); this.pm = null; } if (!on) return;
     const dev = store.raw(KEYS.dev) === DEV_CODE;
-    this.pm = el("div", "le-pause", "<h2>" + t("pPause") + '</h2><button data-d="go">' + t("pGo") + "</button>" + (dev || this.opts.fromEditor ? '<button data-d="editor">' + t("pEditor") + "</button>" : "") + '<button data-d="menu">' + t("pMenu") + "</button>");
-    this.pm.addEventListener("click", (e) => { const b = e.target.closest("[data-d]"); if (!b) return; const a = b.getAttribute("data-d"); if (a === "go") this.pause(false); else if (a === "editor") this.app.go("editor"); else this.app.go("menu"); });
+    this.pm = el("div", "le-pause", "<h2>" + t("pPause") + '</h2><button data-d="go">' + t("pGo") + "</button>" + gemietet().map((k) => '<button data-d="lease" data-k="' + k + '">' + t("bLease").replace("{n}", esc(hausName(k))) + "</button>").join("") + (dev || this.opts.fromEditor ? '<button data-d="editor">' + t("pEditor") + "</button>" : "") + '<button data-d="menu">' + t("pMenu") + "</button>");
+    this.pm.addEventListener("click", (e) => { const b = e.target.closest("[data-d]"); if (!b) return; const a = b.getAttribute("data-d"); if (a === "go") this.pause(false); else if (a === "lease") { this.pause(false); this.mk.show(b.getAttribute("data-k")); } else if (a === "editor") this.app.go("editor"); else this.app.go("menu"); });
     this.app.ui.appendChild(this.pm);
   }
   update(dt) {
     const inp = this.app.input, c = this.cam, p = this.pl, pad = inp.poll();
     // Steuerung relativ zur Kamera
     let f = 0, s = 0, run = inp.k("ShiftLeft", "ShiftRight"), jump = false;
-    const busy = this.inv.open || this.musik.open || this.shop.open;
+    const busy = this.inv.open || this.musik.open || this.shop.open || this.mk.open || this.faint;
     if (!this.paused && !this.learn && !busy) {
       f = (inp.k("KeyW", "ArrowUp") ? 1 : 0) - (inp.k("KeyS", "ArrowDown") ? 1 : 0); s = (inp.k("KeyD", "ArrowRight") ? 1 : 0) - (inp.k("KeyA", "ArrowLeft") ? 1 : 0);
       jump = inp.k("Space");
@@ -193,15 +209,63 @@ export class Play {
       this.act = this.findAct();
       const pr = document.getElementById("le-prompt");
       const A = this.act ? this.act.a : null;
-      const txt = this.seat ? "E  " + t("pStand") : A ? "E  " + (A.type === "tuer" ? t(A.door.want > 0.5 ? "pShut" : "pOpen") : A.type === "musik" ? t("pMusic") : A.type === "sitzen" ? t("pSit") : A.type === "lager" ? fmtN(t("pStore"), tl(LAGER[A.lager].n)) : A.type === "laden" ? fmtN(t("pShop"), tl((LADEN[A.laden] || LADEN.allg).n)) : t("pLearn")) : "";
+      const it = this.food(), txt = this.seat ? "E  " + t("pStand") : A ? "E  " + (A.type === "kauf" ? t("bPrompt").replace("{n}", hausName(A.k)) : A.type === "tuer" ? t(A.door.want > 0.5 ? "pShut" : "pOpen") : A.type === "musik" ? t("pMusic") : A.type === "sitzen" ? t("pSit") : A.type === "lager" ? fmtN(t("pStore"), tl(LAGER[A.lager].n)) : A.type === "laden" ? fmtN(t("pShop"), tl((LADEN[A.laden] || LADEN.allg).n)) : t("pLearn")) : it ? "F  " + t("pEat").replace("{n}", tl(it.n)).replace("{p}", Math.round(it.satt * 100)) : "";
       if (pr && pr.textContent !== txt) { pr.textContent = txt; pr.style.display = txt ? "" : "none"; }
       const wh = document.getElementById("le-where"), home = this.world.home(), wt = p.house && p.house === home ? t("pHome") : "";
       if (wh && wh.textContent !== wt) wh.textContent = wt;
     }
     this.musik.update(this.pl.p);
     this.focusTick(dt);
+    this.hungerTick(dt);
+    if ((this.rentT += dt) > 30) { this.rentT = 0; this.rent(); }
     this.camera(dt);
   }
+  // ---------- Hunger (seit v0.20) ----------
+  hungerTick(dt) {
+    if (this.paused || this.faint) return;
+    const h0 = this.hu; this.hu = Math.max(0, this.hu - dt / HUNGER.leer);
+    if (h0 > HUNGER.warn && this.hu <= HUNGER.warn) this.app.toast(t("pHungry"));
+    setHunger(this.hu, true); if ((this.huSave += dt) > 5) { this.huSave = 0; setHunger(this.hu); }
+    this.huUi(false);
+    if (this.hu <= 0) this.faintNow();
+  }
+  huUi(force) {
+    const pct = Math.ceil(this.hu * 100 - 1e-6); if (!force && pct === this.huKey) return; this.huKey = pct;
+    const b = document.getElementById("le-hbar"), p = document.getElementById("le-hpct"), box = document.getElementById("le-hunger"); if (!b) return;
+    b.style.width = (this.hu * 100).toFixed(1) + "%"; p.textContent = pct + " %"; box.classList.toggle("le-low", this.hu <= HUNGER.warn);
+  }
+  // Essen in der Schnellauswahl (gewählter Platz)
+  food() { const s = inv()[sel()], it = s && ITEMS[s.id]; return it && it.satt ? it : null; }
+  eat() {
+    const it = this.food(); if (!it) return;
+    if (this.hu >= 0.995) { this.app.toast(t("pFull")); return; }
+    if (!take(sel(), 1)) return;
+    this.hu = Math.min(1, this.hu + it.satt); setHunger(this.hu); this.huUi(true); this.inv.draw(); tick(1);
+    this.app.toast(t("pAte").replace("{n}", tl(it.n)).replace("{p}", Math.ceil(this.hu * 100 - 1e-6)));
+  }
+  // Ohnmacht: Bild wird schwarz, alles schließt, man wacht im Bett des Zuhauses sitzend auf (25 % Hunger)
+  faintNow() {
+    if (this.faint) return; this.faint = true;
+    if (this.learn) this.closeLearn(); this.shop.hide(); this.mk.hide(); if (this.inv.open) this.inv.toggle(false); this.musik.hide(); if (this.seat) this.stand();
+    const f = this.fadeEl = el("div", "le-faint", "<p>" + t("pFaint") + "</p>"); this.app.ui.appendChild(f);
+    requestAnimationFrame(() => f.classList.add("le-on"));
+    setTimeout(() => {
+      if (!this.fadeEl) return;
+      this.hu = HUNGER.wach; setHunger(this.hu); this.huUi(true);
+      const bed = this.bed(); if (bed) this.sit(bed.h, bed.a, "rest"); else this.spawn();
+      this.cam.snap = true; f.querySelector("p").textContent = t("pWake");
+      setTimeout(() => { f.classList.remove("le-on"); setTimeout(() => { f.remove(); if (this.fadeEl === f) this.fadeEl = null; this.faint = false; }, 1300); }, 1400);
+    }, 2200);
+  }
+  // Bett im Zuhause (sonst in einem Haus, das einem gehört)
+  bed() {
+    const hs = this.world.houses, home = this.world.home(), list = [home].concat(hs.filter((h) => h !== home && kaufbar(h.e.k) && frei(h.e.k))).filter(Boolean);
+    for (const h of list) { const a = h.b.acts.find((x) => x.type === "sitzen" && x.id === "bett"); if (a) return { h: h, a: a }; }
+    return null;
+  }
+  // ---------- Miete (seit v0.20) ----------
+  rent() { const r = abrechnen(); r.msg.forEach((m) => this.app.toast(m)); r.ended.forEach((k) => this.lockDoors(k)); if (r.msg.length) { this.shown = geld(); this.money(); } }
+  lockDoors(k) { this.world.houses.forEach((h) => { if (h.e.k === k && this.pl.house !== h) h.b.doors.forEach((d) => { if (!d.auto) d.want = 0; }); }); }   // wer drin ist, kommt über die Innenseite raus
   // ---------- Fokus (seit v0.17) ----------
   // lädt nur während einer Lern-Challenge (nicht im Laptop-Menü), sinkt in der offenen Welt, steht in Pause und Laptop-Menü
   focusTick(dt) {

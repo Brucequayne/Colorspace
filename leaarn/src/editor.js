@@ -1,13 +1,13 @@
 // ===== editor.js · Map-Editor (aus dem Developer Tool von Poly Racer): Gelände, Malen, Straße, Vegetation, Häuser, Umgebung, Datei =====
 // Kamera: rechte Maustaste drehen, mittlere Maustaste (oder Umschalt + rechte) verschieben, Mausrad zoomen, WASD bewegen.
 import * as THREE from "three";
-import { t, addTexts, L2, tl, clamp, lerp, el, esc, fmt, store, KEYS } from "le/core.js";
+import { t, addTexts, L2, tl, clamp, lerp, el, esc, fmt, store, KEYS, PR } from "le/core.js";
 import { LAYERS } from "le/terrain.js";
 import { TYPES } from "le/vegetation.js";
 import { Road, TYPEN } from "le/road.js";
 import { OBJEKTE, objName } from "le/objekte.js";
 import { CheckpointMarkers } from "le/race.js";
-import { download, loadText, autosave } from "le/sceneio.js";
+import { download, loadText, autosave, loadStandard } from "le/sceneio.js";
 import { HOUSES } from "le/haeuser.js";
 import { HouseInst, MAT } from "le/houses.js";
 
@@ -57,7 +57,7 @@ addTexts({
   vName: L2("Name", "Name"), vProb: L2("Wahrscheinlichkeit", "Probability"),
   envTime: L2("Uhrzeit", "Time of day"), envFog: L2("Dunst/Nebel", "Haze/fog"), envView: L2("Sichtweite", "View distance"), envWind: L2("Wind", "Wind"), envWindDir: L2("Windrichtung", "Wind direction"),
   envNote: L2("Wetter, Wolken mit Wolkenschatten und Lichtquellen folgen in den nächsten Updates.", "Weather, clouds with cloud shadows and light sources follow in the next updates."),
-  fName: L2("Streckenname", "Track name"), fExport: L2("Exportieren (.txt)", "Export (.txt)"), fImport: L2("Importieren (.txt)", "Import (.txt)"), fNew: L2("Neue leere Fläche", "New blank area"), fStd: L2("Standard-Teststrecke", "Standard test track"),
+  fName: L2("Streckenname", "Track name"), fExport: L2("Exportieren (.txt)", "Export (.txt)"), fImport: L2("Importieren (.txt)", "Import (.txt)"), fNew: L2("Neue leere Fläche", "New blank area"), fStd: L2("Standardkarte (Hub) laden", "Load standard map (hub)"),
   fNote: L2("Die Map wird automatisch im Browser gespeichert. Für das Spiel: exportieren und mir die .txt schicken.", "The map is saved automatically in the browser. For the game: export and send me the .txt."),
   hsFix: L2("Fertige Häuser", "Finished houses"), hsLocal: L2("Aus dem Haus-Editor (lokal)", "From the house editor (local)"), hsNoLocal: L2("Noch keine – im Haus-Editor bauen.", "None yet – build some in the house editor."),
   tObj: L2("Objekte", "Objects"), oAssets: L2("Assets", "Assets"), oRot: L2("Drehung (R)", "Rotation (R)"), oAuto: L2("Zur Straße ausrichten", "Face the road"),
@@ -238,7 +238,11 @@ export class Editor {
     else if (/^gix\d+$/.test(a)) { const g = w.veg.groups[this.s.vg]; g.items.splice(+a.slice(3), 1); this.panel(); autosave(w); }
     else if (a === "export") { const f = download(w, w.name); this.app.toast(fmt(t("fDone"), { f: f })); }
     else if (a === "import") this.root.querySelector("#le-file").click();
-    else if (a === "std" || a === "blank") { if (!confirmLite(t("fSure"))) return; this.push(); if (a === "std") w.standard(); else w.blank(); this.selNone(); this.rebuildHandles(); this.panel(); autosave(w); }
+    else if (a === "std" || a === "blank") {
+      if (!confirmLite(t("fSure"))) return; this.push();
+      const done = () => { this.selNone(); this.rebuildHandles(); this.panel(); autosave(w); };
+      if (a === "std") loadStandard(w, PR.stamp).then((ok) => { if (!ok) w.standard(); done(); }); else { w.blank(); done(); }   // Standardkarte aus leaarn/maps/hub.txt (seit v0.20)
+    }
   }
   input(e) {
     const k = e.target.getAttribute("data-k"); if (!k) return;

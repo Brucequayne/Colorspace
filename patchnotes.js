@@ -3,6 +3,21 @@
    Die Versionsnummer auf den Kacheln kommt aus dem obersten Eintrag. */
 window.PATCHNOTES = {
   leaarn: [
+    { v: "0.20", t: "2026-11-25T23:25:00+01:00",
+      de: ["Neue Standardkarte „Hub“ von Noah mit Zuhause, Supermarkt und der Villa Sensei. Wer schon gespielt hat, bekommt sie beim nächsten Start einmal automatisch.",
+        "Neues Haus: Villa Sensei (zwei Etagen, Balkon, Satteldach, Garten mit Hecke). Sie ist abgeschlossen: An der Tür kann man sie für 75.000 € kaufen oder für 900 € pro echtem Tag mieten.",
+        "Miete verlängert sich automatisch jeden Tag, solange das Geld reicht, auch an Tagen, an denen man nicht spielt. Reicht es nicht, endet der Mietvertrag. Kündigen oder doch noch kaufen geht über das Pause-Menü (Esc).",
+        "Hungerleiste unter dem Fokus: 100 % = satt, sie sinkt beim Spielen in 60 Minuten auf 0 %. Ab 20 % kommt eine Warnung.",
+        "Essen: Lebensmittel in die Schnellauswahl legen, auswählen und F drücken. Im Supermarkt steht bei jeder Ware, wie viel Hunger sie stillt (z. B. Pizza +45 %, Nudeln +35 %, Apfel +8 %).",
+        "Bei 0 % wird man ohnmächtig: Der Bildschirm wird schwarz und man wacht auf dem eigenen Bett sitzend wieder auf (mit 25 %).",
+        "Alle Preise im Supermarkt sind jetzt fünfmal so hoch."],
+      en: ["New standard map “Hub” by Noah with home, supermarket and Villa Sensei. Anyone who has played before gets it automatically once on the next start.",
+        "New house: Villa Sensei (two floors, balcony, gable roof, garden with hedge). It is locked: at its door you can buy it for €75,000 or rent it for €900 per real day.",
+        "Rent renews automatically every day as long as you have the money, even on days you don't play. If you can't afford it, the lease ends. Cancel or buy after all via the pause menu (Esc).",
+        "Hunger bar below focus: 100 % = full, it drops to 0 % in 60 minutes of play. A warning comes at 20 %.",
+        "Eating: put food in the hotbar, select it and press F. The supermarket shows how much hunger each item satisfies (e.g. pizza +45 %, pasta +35 %, apple +8 %).",
+        "At 0 % you faint: the screen goes black and you wake up sitting on your own bed (with 25 %).",
+        "All supermarket prices are now five times as high."] },
     { v: "0.19.9", t: "2026-11-25T22:50:00+01:00",
       de: ["Neues fertiges Gebäude: Supermarkt (12 × 8 m, ein Stockwerk). Im Map-Editor unter Häuser → Fertige Häuser auswählen und platzieren.",
         "Vorne große Schaufenster mit gestreiften Markisen, links Eingang und rechts Ausgang als Automatik-Schiebetüren, davor ein gepflasterter Vorplatz mit Einkaufswagen.",

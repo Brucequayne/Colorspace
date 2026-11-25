@@ -30,4 +30,9 @@ export const FOKUS = { laden: 300, entladen: 600, bonus: 0.15 };
 export function fokus() { const v = save().fokus; return typeof v === "number" ? Math.max(0, Math.min(1, v)) : 0; }
 export function setFokus(v, keep) { save().fokus = Math.max(0, Math.min(1, v)); if (!keep) persist(); }
 export const fokusVoll = () => fokus() >= 0.999;
+// Hunger (seit v0.20): 1 = satt, 0 = verhungert. Sinkt beim Spielen (nicht in der Pause) von voll auf leer in 60 Minuten.
+// Bei 0 wird man ohnmächtig und wacht mit 25 % im eigenen Bett auf. Ab 20 % kommt eine Warnung.
+export const HUNGER = { leer: 3600, wach: 0.25, warn: 0.2 };
+export function hunger() { const v = save().hunger; return typeof v === "number" ? Math.max(0, Math.min(1, v)) : 1; }
+export function setHunger(v, keep) { save().hunger = Math.max(0, Math.min(1, v)); if (!keep) persist(); }
 export const euro = (n) => Math.round(n).toLocaleString("de-DE") + " €";

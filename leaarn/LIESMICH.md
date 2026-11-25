@@ -18,6 +18,7 @@ Neue Module: in `MODULES` in `leaarn.js` eintragen.
 | `houses.js` | **Haus-Bauteile** (`PARTS`), Hausbau aus Bauteilen (`buildHouse`), Kollision (Wand-Strecken, Möbel-Kästen), Türen, Interaktionen, `HouseInst` (Haus in der Welt) |
 | `haeuser.js` | **fertige Häuser** für den Map-Editor (`HOUSES`, bisher `starter`) |
 | `junction.js` | Kreuzungen und Einmündungen (seit v0.19.8) |
+| `besitz.js` | Häuser kaufen und mieten (seit v0.20) |
 | `world.js` | Welt = Gelände + Straßen + Vegetation + Häuser (`houses`, Gelände wird unter Häusern geebnet), Standard-Hub |
 | `player.js` | Spielfigur: Low-Poly-Modell mit Lauf-Animation, Laufen/Rennen/Springen, Kollision, Kamera-Strahl gegen Wände (`camHit`) |
 | `play.js` | Spielen: Kamera (3rd Person, drinnen steiler über die Wände), Türen und Schreibtisch mit E, Geld-Anzeige, Pause |
@@ -191,6 +192,14 @@ Kategorie `objekte` ersetzt `shop` (Teile-IDs unverändert); `HouseEditor` biegt
 
 Supermarkt (seit v0.19.9): fertiges Haus `supermarkt` in haeuser.js (per Code gebaut, 12 × 8 m, Grundstück +1 m, vorne +3 m), im Haus-Editor
 „Supermarkt als Vorlage“ (neues Haus in der Liste). Sortiment in items.js (`preis`, `laden`).
+
+## Standardkarte, Häuser kaufen, Hunger (seit v0.20)
+
+Standardkarte: `leaarn/maps/hub.txt` (Export aus dem Map-Editor, Feld `std: "hub-1"`). sceneio.js: `STD_MAP`, `savedIsCurrent`, `loadStandard`.
+Beim Start wird eine gespeicherte Szene nur übernommen, wenn ihre Kennung `std` gleich `STD_MAP` ist, sonst einmal die Standardkarte geladen
+(`app.ready`). Neue Karte: Datei ersetzen und `STD_MAP` hochzählen. Fertige Häuser mit `preis`/`miete` (haeuser.js, `villa`) sind abgeschlossen:
+besitz.js (`save.besitz`, `kaufen`, `mieten`, `abrechnen` je echtem Tag, Dialog `Makler`), play.js `inSide` (Innenseite der Tür = Seite mit Boden).
+Hunger: save.js `HUNGER` (60 Min. voll → leer, Aufwachen mit 25 %), `save.hunger`, Items mit `satt`, essen mit F (`take`), Ohnmacht `faintNow`, Bett `bed()`.
 
 ## Speicher im Browser
 

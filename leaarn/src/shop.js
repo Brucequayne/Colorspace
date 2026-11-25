@@ -1,7 +1,7 @@
 // ===== shop.js · Supermarkt-Regale (seit v0.17): an Gefriertruhe, Obst-/Gemüseregal und Warenregal mit E einkaufen =====
 // Welche Ware wo liegt, steht beim Gegenstand in items.js: laden ("tiefkuehl" | "obst" | "allg") und preis (€).
 // Bezahlt wird vom Spielerkonto (geld), die Ware kommt ins Inventar. Umschalt + Klick kauft 5 Stück.
-import { t, addTexts, L2, tl, el, esc } from "le/core.js";
+import { t, addTexts, L2, tl, el, esc, PR } from "le/core.js";
 import { ITEMS, give } from "le/items.js";
 import { geld, addGeld, euro } from "le/save.js";
 import { tick } from "le/sound.js";
@@ -32,7 +32,7 @@ export class Shop {
   draw() {
     const L = LADEN[this.tag], W = waren(this.tag), g = geld();
     this.panel.innerHTML = '<div class="le-mbox2"><h3>' + esc(tl(L.n)) + '</h3><p class="le-now">' + t("sMoney").replace("{e}", euro(g)) + "</p>" +
-      (W.length ? '<div class="le-cds">' + W.map((k) => { const it = ITEMS[k]; return '<div class="le-cd">' + it.ico + "<span><b>" + esc(tl(it.n)) + "</b><small>" + esc(it.d ? tl(it.d) : "") + '</small></span><button class="le-pri" data-buy="' + k + '"' + (g < it.preis ? " disabled" : "") + ">" + t("sBuy") + " · " + euro(it.preis) + "</button></div>"; }).join("") + '</div><p class="le-dim">' + t("sHint") + "</p>" : '<p class="le-dim">' + esc(tl(L.leer)) + "</p>") +
+      (W.length ? '<div class="le-cds">' + W.map((k) => { const it = ITEMS[k]; return '<div class="le-cd">' + it.ico + "<span><b>" + esc(tl(it.n)) + "</b><small>" + esc(it.d ? tl(it.d) : "") + (it.satt ? " · " + (PR.lang === "en" ? "+" + Math.round(it.satt * 100) + " % against hunger" : "+" + Math.round(it.satt * 100) + " % gegen Hunger") : "") + '</small></span><button class="le-pri" data-buy="' + k + '"' + (g < it.preis ? " disabled" : "") + ">" + t("sBuy") + " · " + euro(it.preis) + "</button></div>"; }).join("") + '</div><p class="le-dim">' + t("sHint") + "</p>" : '<p class="le-dim">' + esc(tl(L.leer)) + "</p>") +
       '<div class="le-btns"><button data-sx="1">' + t("sClose") + "</button></div></div>";
   }
   buy(id, n) {

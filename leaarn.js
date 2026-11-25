@@ -17,6 +17,7 @@
     "objekte.js",     // Objekte auf der Map: Straßenlaterne … (seit v0.19)
     "houses.js",      // Haus-Bauteile, Hausbau, Kollision, Türen, Interaktionen
     "haeuser.js",     // fertige Häuser für den Map-Editor (Starterhaus)
+    "besitz.js",      // Häuser kaufen und mieten (seit v0.20)
     "world.js",       // Welt = Gelände + Straßen + Vegetation + Häuser; Standard-Hub
     "sceneio.js",     // Map als .txt exportieren/importieren, automatisch speichern
     "input.js",       // Tastatur und Controller

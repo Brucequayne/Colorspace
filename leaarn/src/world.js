@@ -125,11 +125,11 @@ export class World {
   rebuildAll() { this.buildRoads(); this.terrain.recalc(); this.terrain.rebuild(); this.veg.rebuildGrid(); this.veg.refresh(true); this.setEnv(); }
   update(dt) { this.veg.update(dt, this.env.wind / 100, this.env.windDir); this.veg.cull(this.engine.camera.position); this.houses.forEach((h) => h.update(dt, this.sensor)); }
   // road = Hauptstrecke (für ältere Versionen), roads = alle Straßen
-  toJSON() { const rs = this.roads.filter((r) => r.pts.length > 1); return { v: 1, name: this.name, env: this.env, terrain: this.terrain.toJSON(), road: this.road.toJSON(), roads: rs.map((r) => r.toJSON()), veg: this.veg.toJSON(), objs: this.objs.toJSON(), houses: this.houses.map((h) => houseOut(h.e)) }; }
+  toJSON() { const rs = this.roads.filter((r) => r.pts.length > 1); return { v: 1, std: this.std || undefined, name: this.name, env: this.env, terrain: this.terrain.toJSON(), road: this.road.toJSON(), roads: rs.map((r) => r.toJSON()), veg: this.veg.toJSON(), objs: this.objs.toJSON(), houses: this.houses.map((h) => houseOut(h.e)) }; }
   fromJSON(o) {
     if (!o || !o.terrain) return false;
     if (!this.terrain.fromJSON(o.terrain)) return false;
-    this.name = o.name || "Map"; Object.assign(this.env, o.env || {});
+    this.name = o.name || "Map"; this.std = o.std || null; Object.assign(this.env, o.env || {});   // std (seit v0.20): Kennung der Standardkarte
     this.setHouses(o.houses || []);
     this.setRoads(o.roads && o.roads.length ? o.roads : [o.road || { pts: [] }]);
     this.veg.fromJSON(o.veg); this.objs.fromJSON(o.objs); this.rebuildAll(); return true;
