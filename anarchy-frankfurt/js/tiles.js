@@ -6,19 +6,23 @@ import { SHADOW_RGBA } from './renderer.js';
 import { vegSprite } from './veg.js';
 
 const T = CFG.TILE_PX;
+// Darf in diesem Bild noch eine Kachel gebaut werden? Immer mindestens eine (sonst bliebe nichts je fertig), danach nur bis zur Zeitgrenze b.t
+const ok = b => b.n > 0 && (!b.k || performance.now() < b.t);
 // Wie weit Objekte über ihre Kachel hinausragen können (native px)
 const M_TOP = 220, M_BOTTOM = 340, M_SIDE = 240;
 
 export class Tiles {
   constructor(app) { this.app = app; this.G = new Map(); this.O = new Map(); this.Rd = new Map(); this.Pt = new Map(); this.cap = CFG.TILE_CACHE; }
+  // Zwischenspeicher wächst mit dem Sichtbereich: mehrere Bildschirme voll, damit Hin- und Herfahren nichts verwirft
+  fit(visible) { this.cap = Math.max(CFG.TILE_CACHE, Math.min(900, Math.ceil(visible * 3))); }
   _get(map, k) { if (!map.has(k)) return undefined; const v = map.get(k); map.delete(k); map.set(k, v); return v; }
   _put(map, k, v) { map.set(k, v); while (map.size > this.cap) map.delete(map.keys().next().value); return v; }
   // budget = Objekt mit .n (wie viele neue Kacheln dürfen in diesem Frame gebaut werden)
   // Boden-Kachel; f = Maßstab (1 = nativ, 1/2, 1/4 … für die Übersicht)
   ground(tx, ty, budget, f = 1) {
     const k = f + '|' + tx + ',' + ty; let c = this._get(this.G, k);
-    if (c !== undefined || budget.n <= 0) return c;
-    budget.n--;
+    if (c !== undefined || !ok(budget)) return c;
+    budget.n--; budget.k = (budget.k || 0) + 1;
     c = document.createElement('canvas'); c.width = c.height = T;
     const S = T / f, x0 = tx * S, y0 = ty * S;
     drawRef(c.getContext('2d'), this.app.osm, groundBBox(x0, y0, x0 + S, y0 + S), [GM[0] * f, GM[1] * f, GM[2] * f, GM[3] * f, -tx * T, -ty * T], 1 / (PPM * f), this.app.layers);
@@ -26,8 +30,8 @@ export class Tiles {
   }
   roads(tx, ty, budget) {
     const k = tx + ',' + ty; let c = this._get(this.Rd, k);
-    if (c !== undefined || budget.n <= 0) return c;
-    budget.n--;
+    if (c !== undefined || !ok(budget)) return c;
+    budget.n--; budget.k = (budget.k || 0) + 1;
     const img = this.app.roads.renderTile(tx * T, ty * T, T);
     if (img) { c = document.createElement('canvas'); c.width = c.height = T; c.getContext('2d').putImageData(img, 0, 0); } else c = null;
     return this._put(this.Rd, k, c);
@@ -35,8 +39,8 @@ export class Tiles {
   // gemalter Boden (Bodenpinsel), auch verkleinert für die Übersicht
   paint(tx, ty, budget, f = 1) {
     const k = f + '|' + tx + ',' + ty; let c = this._get(this.Pt, k);
-    if (c !== undefined || budget.n <= 0) return c;
-    budget.n--;
+    if (c !== undefined || !ok(budget)) return c;
+    budget.n--; budget.k = (budget.k || 0) + 1;
     const img = this.app.paint.renderTile(tx, ty, T, f);
     if (img) { c = document.createElement('canvas'); c.width = c.height = T; c.getContext('2d').putImageData(img, 0, 0); } else c = null;
     return this._put(this.Pt, k, c);
@@ -45,8 +49,8 @@ export class Tiles {
   dropRoads(bb) { if (!bb) { this.Rd.clear(); return; } this._drop(this.Rd, bb); }
   objects(tx, ty, budget) {
     const k = tx + ',' + ty; let c = this._get(this.O, k);
-    if (c !== undefined || budget.n <= 0) return c;
-    budget.n--;
+    if (c !== undefined || !ok(budget)) return c;
+    budget.n--; budget.k = (budget.k || 0) + 1;
     c = this.composite(tx, ty, budget);
     if (c === undefined) return undefined; // Hausbilder noch nicht fertig -> nächstes Bild weiter
     return this._put(this.O, k, c);

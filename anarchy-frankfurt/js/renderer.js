@@ -44,7 +44,7 @@ export function renderSprite(mesh, ang, opt = {}) {
   }
   const ox = Math.floor(-x0) + 2, oy = Math.floor(-y0) + 2, W = Math.ceil(x1) + ox + 3, H = Math.ceil(y1) + oy + 3;
   // Schattenkarte (aus Sonnenrichtung)
-  const se = Math.max(u1 - u0, v1 - v0, 0.1), SMS = Math.min(1024, Math.ceil(se / 0.035) + 4), sc = (SMS - 2) / se;
+  const se = Math.max(u1 - u0, v1 - v0, 0.1), SMS = Math.min(1024, Math.ceil(se / (opt.sres || 0.035)) + 4), sc = (SMS - 2) / se;
   const SM = new Float32Array(SMS * SMS).fill(-1e9);
   const lp = p => [(dot(p, LU) - u0) * sc + 1, (dot(p, LV) - v0) * sc + 1, dot(p, L)];
   for (const T of tris) {
@@ -96,13 +96,14 @@ export function renderSprite(mesh, ang, opt = {}) {
       continue;
     }
     let k = 1;
-    for (const j of [x > 0 ? i - 1 : -1, x < W - 1 ? i + 1 : -1, y > 0 ? i - W : -1, y < H - 1 ? i + W : -1]) {
-      if (j < 0 || zb[j] < -1e8 || (idb[j] !== idb[i] && zb[i] - zb[j] > 0.35)) { k = 0.55; break; }
-    }
+    if (x === 0 || zb[i - 1] < -1e8 || (idb[i - 1] !== idb[i] && zb[i] - zb[i - 1] > 0.35)) k = 0.55;
+    else if (x === W - 1 || zb[i + 1] < -1e8 || (idb[i + 1] !== idb[i] && zb[i] - zb[i + 1] > 0.35)) k = 0.55;
+    else if (y === 0 || zb[i - W] < -1e8 || (idb[i - W] !== idb[i] && zb[i] - zb[i - W] > 0.35)) k = 0.55;
+    else if (y === H - 1 || zb[i + W] < -1e8 || (idb[i + W] !== idb[i] && zb[i] - zb[i + W] > 0.35)) k = 0.55;
     for (let ch = 0; ch < 3; ch++) rgba[i * 4 + ch] = Math.round(col[i * 3 + ch] * k / 6) * 6;
     rgba[i * 4 + 3] = 255;
   }
-  return { w: W, h: H, ox, oy, rgba, depth: zb, sh, canvas: spriteCanvas(W, H, rgba, sh) };
+  return { w: W, h: H, ox, oy, rgba, depth: zb, sh, canvas: opt.noCanvas ? null : spriteCanvas(W, H, rgba, sh) };
 }
 // Vorschau-Canvas (Schatten + Farbe)
 function spriteCanvas(W, H, rgba, sh) {

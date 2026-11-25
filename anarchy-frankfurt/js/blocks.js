@@ -4,8 +4,11 @@
 import { proj, groundDepth } from './camera.js';
 import { Mesh, rng, nrm, cross, sub, dot } from './geometry.js';
 import { renderSprite, spriteToBlob, blobToSprite } from './renderer.js';
-import { dbGet, dbSet } from './world.js';
+import { dbGet, dbSet, dbCount } from './world.js';
+import { CFG } from './camera.js';
 
+// Häuser: Schattenkarte gröber (50 statt 35 mm je Pixel), kein Vorschau-Canvas nötig
+const HOUSE_OPT = { sres: 0.05, noCanvas: true };
 export const BLOCK_DEFAULT = { style: 'altbau', fmin: 4, fmax: 5, dens: 0.5, width: 15, pal: 'mix', roof: 'slate', gates: 1, mix: 0, seed: 1 };
 export const STYLES = { altbau: { name: 'Gründerzeit-Altbau', fmin: 4, fmax: 5, width: 15 }, fachwerk: { name: 'Fachwerk (Altstadt)', fmin: 2, fmax: 4, width: 8 } };
 // Fachwerk: Gefachfarben (Putz) und Balkenfarben
@@ -63,7 +66,7 @@ function insetOk(P, Q) {
   }
   return true;
 }
-export function normPoly(pts) { const P = pts.map(p => [p[0], p[1]]); return area(P) < 0 ? P.reverse() : P; }
+export function normPoly(pts) { const P = pts.map(p => [Math.round(p[0] * 100) / 100, Math.round(p[1] * 100) / 100]);  /* auf cm gerundet: stabiler Haus-Schlüssel auch nach Speichern und Laden */ return area(P) < 0 ? P.reverse() : P; }
 
 // ---------- Parzellen ----------
 export function generate(b) {
@@ -121,7 +124,7 @@ export function generate(b) {
     } else par.gate = { type: 'arch', c: L / 2, w: 3.2 };
     par.key += ':g' + g;
   }
-  // Tür (Hauseingang) je Parzelle – für das spätere Betreten
+  // Tür (Hauseingang) je Parzelle: nur die Lage (door) als Angebot für das Türen-Werkzeug; betretbar wird ein Haus erst, wenn dort eine Tür markiert ist
   for (const par of out) {
     const [q0, q1] = par.q, L = Math.hypot(q1[0] - q0[0], q1[1] - q0[1]), fw = par.style === 'fachwerk';
     par.axes = fw ? Math.max(1, Math.round(L / 2.4)) : Math.max(2, Math.round(L / 2.9));
@@ -270,7 +273,8 @@ export class Blocks {
     for (const b of this.list.values()) { const x = this.bbox(b); if (x[2] < bb[0] || x[0] > bb[2] || x[3] < bb[1] || x[1] > bb[3]) continue; for (const par of this.gen(b).parcels) out.push(par); }
     return out;
   }
-  // Sprite einer Parzelle (begrenzter Zwischenspeicher); budget.n = wie viele neu gerendert werden dürfen
+  // Sprite einer Parzelle (begrenzter Zwischenspeicher). Mit budget: Haus wird im Hintergrund (Worker-Pool) gerendert,
+  // bis dahin null. Ohne budget (z. B. Spieltest): sofort, im Hauptstrang.
   // Eingebrannte Blöcke: fertige Hausbilder kommen als PNG aus dem Speicher (schnell entpackt statt neu gerendert)
   sprite(par, budget) {
     let s = this.spr.get(par.key);
@@ -281,9 +285,98 @@ export class Blocks {
       if (!this.dec.has(par.key)) { this.dec.add(par.key); blobToSprite(bl).then(sp => { this.dec.delete(par.key); this._put(par.key, sp); this.onSprite && this.onSprite(); }, () => { this.dec.delete(par.key); this.blobs.delete(par.key); }); }
       return null;
     }
+    if (budget && this.hcOn()) {                                // Haus-Speicher im Browser: erst nachsehen, ob es schon einmal gerendert wurde
+      if (!this.miss.has(par.key)) { this.probeHouse(par); return null; }
+    }
+    if (budget && this.pool()) { this.want(par); return null; }
     if (budget && budget.n <= 0) return null;
     if (budget) budget.n--;
-    return this._put(par.key, renderSprite(buildParcel(par, par.cx, par.cy), 0));
+    const sp = this._put(par.key, renderSprite(buildParcel(par, par.cx, par.cy), 0, HOUSE_OPT));
+    if (budget) this.saveHouse(par.key, sp);
+    return sp;
+  }
+  // ---------- Dauerhafter Haus-Speicher (IndexedDB): einmal gerendert, beim nächsten Öffnen sofort da ----------
+  hcOn() {
+    if (this._hc === undefined) {
+      this._hc = !/[?&]nocache/.test(location.search) && typeof indexedDB !== 'undefined';
+      this.miss = new Set(); this.probing = new Set(); this.saveQ = []; this.saving = false; this.stored = 0;
+      if (this._hc) dbCount('bake').then(n => { this.stored = n; }, () => {});
+    }
+    return this._hc;
+  }
+  hkey(par) { return 'h' + CFG.HOUSE_V + '|' + par.key; }
+  probeHouse(par) {
+    if (this.probing.has(par.key)) return; this.probing.add(par.key);
+    dbGet('bake', this.hkey(par)).then(rec => {
+      if (rec && rec.blob) return blobToSprite(rec).then(sp => { this.probing.delete(par.key); sp.canvas = null; this._put(par.key, sp); }, () => { this.probing.delete(par.key); this.miss.add(par.key); });
+      this.probing.delete(par.key); this.miss.add(par.key);
+    }, () => { this.probing.delete(par.key); this._hc = false; }).finally(() => { this.onSprite && this.onSprite(); });
+  }
+  saveHouse(key, s) {
+    if (!this.hcOn() || this.stored >= CFG.HOUSE_MAX) return;
+    this.saveQ.push([key, s]); if (this.saveQ.length > 300) this.saveQ.shift();
+    if (!this.saving) { this.saving = true; setTimeout(() => this._saveStep(), 60); }
+  }
+  async _saveStep() {
+    const it = this.saveQ.shift(); if (!it) { this.saving = false; return; }
+    try {
+      const r = await spriteToBlob(it[1]);
+      await dbSet('bake', 'h' + CFG.HOUSE_V + '|' + it[0], r); this.stored++;
+    } catch (e) { /* Speicher voll oder gesperrt: egal, dann wird eben neu gerendert */ }
+    setTimeout(() => this._saveStep(), 15);
+  }
+  // ---------- Worker-Pool: Häuser parallel auf mehreren Kernen rendern ----------
+  pool() {
+    if (this._pool !== undefined) return this._pool;
+    this._pool = null;
+    try {
+      if (typeof Worker === 'undefined' || /[?&]noworker/.test(location.search)) return null;
+      const base = new URL('./', import.meta.url).href;
+      const src = `import { buildParcel } from '${base}blocks.js'; import { renderSprite } from '${base}renderer.js';
+        onmessage = e => { const { id, par } = e.data; try { const s = renderSprite(buildParcel(par, par.cx, par.cy), 0, ${JSON.stringify(HOUSE_OPT)});
+          postMessage({ id, s: { w: s.w, h: s.h, ox: s.ox, oy: s.oy, rgba: s.rgba, depth: s.depth, sh: s.sh } }, [s.rgba.buffer, s.depth.buffer, s.sh.buffer]); } catch (err) { postMessage({ id, err: String(err) }); } };
+        postMessage({ ready: 1 });`;
+      const url = URL.createObjectURL(new Blob([src], { type: 'text/javascript' }));
+      const n = Math.max(2, Math.min(8, (navigator.hardwareConcurrency || 4) - 1)), ws = [];
+      for (let i = 0; i < n; i++) {
+        const w = new Worker(url, { type: 'module' }); w.busy = null; w.ok = false;
+        w.onmessage = e => this._done(w, e.data);
+        w.onerror = () => { if (!w.ok) this._poolFail(); else this._jobFail(w); };
+        ws.push(w);
+      }
+      this._pool = ws; this.need = new Map(); this.focus = [0, 0];
+    } catch (e) { this._pool = null; }
+    return this._pool;
+  }
+  _poolFail() { if (!this._pool) return; for (const w of this._pool) w.terminate(); this._pool = null; this.need = null; this.onSprite && this.onSprite(); }
+  _jobFail(w) { w.busy = null; this._pump(); }
+  // Haus anfordern: wer zuletzt angefragt wurde (= gerade sichtbar) und nah an der Bildmitte liegt, kommt zuerst dran
+  want(par) {
+    const j = this.need.get(par.key), t = performance.now();
+    if (j) j.t = t; else if (!this.inflight(par.key)) this.need.set(par.key, { par, t });
+    this._pump();
+  }
+  inflight(k) { return this._pool.some(w => w.busy && w.busy.key === k); }
+  _pump() {
+    if (!this._pool) return;
+    const now = performance.now(), [fx, fy] = this.focus;
+    for (const w of this._pool) {
+      if (w.busy || !this.need.size) continue;
+      let best = null, bd = 1e18;
+      for (const [k, j] of this.need) {
+        if (now - j.t > 1500) { this.need.delete(k); continue; }     // nicht mehr sichtbar -> vergessen
+        const d = (j.par.cx - fx) ** 2 + (j.par.cy - fy) ** 2; if (d < bd) { bd = d; best = j; }
+      }
+      if (!best) break;
+      this.need.delete(best.par.key); w.busy = { key: best.par.key, bid: best.par.bid };
+      w.postMessage({ id: best.par.key, par: best.par });
+    }
+  }
+  _done(w, m) {
+    if (m.ready) { w.ok = true; this._pump(); return; }
+    const job = w.busy; w.busy = null;
+    if (m.s && job) { const s = m.s; s.canvas = null; this._put(job.key, s); this.saveHouse(job.key, s); this.onSprite && this.onSprite(); }
+    this._pump();
   }
   _put(k, s) { this.spr.set(k, s); while (this.spr.size > this.cap) this.spr.delete(this.spr.keys().next().value); return s; }
   // Block bestätigen: alle Häuser einmal rendern und als Bilder speichern; danach nur noch auswählen/löschen
@@ -294,7 +387,7 @@ export class Blocks {
     try {
       const recs = [];
       for (const par of this.gen(b).parcels) {
-        const s = this.spr.get(par.key) || this._put(par.key, renderSprite(buildParcel(par, par.cx, par.cy), 0));
+        const s = this.spr.get(par.key) || this._put(par.key, renderSprite(buildParcel(par, par.cx, par.cy), 0, HOUSE_OPT));
         const r = await spriteToBlob(s); recs.push(r); this.blobs.set(par.key, r);
         await new Promise(res => setTimeout(res, 0));
       }
@@ -316,7 +409,7 @@ export class Blocks {
   async _rebake(b) {
     const recs = [];
     for (const par of this.gen(b).parcels) {
-      const s = this.spr.get(par.key) || this._put(par.key, renderSprite(buildParcel(par, par.cx, par.cy), 0));
+      const s = this.spr.get(par.key) || this._put(par.key, renderSprite(buildParcel(par, par.cx, par.cy), 0, HOUSE_OPT));
       const r = await spriteToBlob(s); recs.push(r); this.blobs.set(par.key, r); await new Promise(res => setTimeout(res, 0));
     }
     dbSet('bake', b.bakeId, recs).catch(() => {});

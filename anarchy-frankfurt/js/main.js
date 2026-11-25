@@ -15,7 +15,7 @@ import { Play } from './player.js';
 import { Tools } from './tools.js';
 import { UI } from './ui.js';
 import { ASSETS } from './assets.js';
-import { dbGet, dbSet, downloadJSON, pickFile } from './world.js';
+import { dbGet, dbSet, downloadJSON, pickFile, Doors } from './world.js';
 
 const T = CFG.TILE_PX, H = CFG.WORLD_HALF;
 
@@ -24,7 +24,7 @@ class App {
     this.cv = document.getElementById('view'); this.ctx = this.cv.getContext('2d');
     this.cam = new Camera(); this.layers = { ...LAYERS }; this.mapAlpha = 1; this.autoLoad = true;
     this.grid = { angle: 0, step: 1, snap: true, show: true };
-    this.sprites = new Sprites(); this.world = new World(); this.roads = new Roads(); this.veg = new VegLayer(); this.blocks = new Blocks(); this.paint = new Paint(); this.hist = []; this.redoH = []; this.tiles = new Tiles(this);
+    this.sprites = new Sprites(); this.world = new World(); this.roads = new Roads(); this.veg = new VegLayer(); this.blocks = new Blocks(); this.paint = new Paint(); this.doors = new Doors(); this.hist = []; this.redoH = []; this.tiles = new Tiles(this);
     this.osm = new OSM(feats => this.onOsm(feats));
     this.tools = new Tools(this); this.ui = new UI(this); this.play = new Play(this);
     this._dirty = true; this.keys = new Set(); this.pointers = new Map(); this.pan = null;
@@ -40,6 +40,8 @@ class App {
       const ps = [proj(bb[0], bb[1], 0), proj(bb[2], bb[1], 0), proj(bb[0], bb[3], 0), proj(bb[2], bb[3], 0)], xs = ps.map(p => p[0]), ys = ps.map(p => p[1]);
       this.tiles.dropObjects(Math.min(...xs) - 16, Math.min(...ys) - 16, Math.max(...xs) + 16, Math.max(...ys) + 8); this.dirty(); this.saveSoon();
     };
+    this.doors.onLog = () => { this.hist.push('d'); this.redoH = []; };
+    this.doors.onChange = () => { this.dirty(); this.saveSoon(); this.ui.sync(); };
     this.paint.onLog = () => { this.hist.push('g'); this.redoH = []; };
     this.paint.onChange = bb => { this.tiles.dropPaint(bb); this.dirty(); this.saveSoon(); };
     this.blocks.onSprite = () => this.dirty();
@@ -54,7 +56,7 @@ class App {
     };
     this.roads.onChange = bb => { this.tiles.dropRoads(bb); this.dirty(); this.saveSoon(); this.ui.sync(); };
     const p = CFG.PLACES[0]; [this.cam.x, this.cam.y] = toWorld(p[1], p[2]);
-    try { const m = await dbGet('maps', 'current'); if (m) { this.world.load(m, ASSETS); this.roads.load(m.roads); this.veg.load(m.veg); this.blocks.load(m.blocks); this.blocks.loadBakes(); this.paint.load(m.ground); this.tiles.clearAll(); } } catch (e) { /* neu */ }
+    try { const m = await dbGet('maps', 'current'); if (m) { this.world.load(m, ASSETS); this.roads.load(m.roads); this.veg.load(m.veg); this.blocks.load(m.blocks); this.blocks.loadBakes(); this.paint.load(m.ground); this.doors.load(m.doors); this.tiles.clearAll(); } } catch (e) { /* neu */ }
     this.ui.sync(); this.bindInput(); this.osm.init(); this.loadVisible();
     const loop = () => { this.frame(); requestAnimationFrame(loop); }; loop();
   }
@@ -77,24 +79,24 @@ class App {
     if (!s) this.tiles.dropObjects(p[0] - 160, p[1] - 220, p[0] + 160, p[1] + 60); // Modell lädt noch: großzügig neu zeichnen
     else { const x = Math.round(p[0]) - s.ox, y = Math.round(p[1]) - s.oy; this.tiles.dropObjects(x, y, x + s.w, y + s.h); } this.dirty(); this.saveSoon();
   }
-  serialize() { return { ...this.world.serialize(), format: 6, roads: this.roads.serialize(), veg: this.veg.serialize(), blocks: this.blocks.serialize(), ground: this.paint.serialize() }; }
+  serialize() { return { ...this.world.serialize(), format: 6, roads: this.roads.serialize(), veg: this.veg.serialize(), blocks: this.blocks.serialize(), ground: this.paint.serialize(), doors: this.doors.serialize() }; }
   saveSoon() { clearTimeout(this._st); this._st = setTimeout(() => dbSet('maps', 'current', this.serialize()).catch(() => {}), 1200); }
-  undo() { const k = this.hist.pop(); if (!k) return; ({ w: this.world, r: this.roads, v: this.veg, b: this.blocks, g: this.paint })[k].undo(); this.tools.selBlock = null; this.redoH.push(k); this.tools.sel = null; this.tools.selRoad = null; this.ui.sync(); this.dirty(); }
-  redo() { const k = this.redoH.pop(); if (!k) return; ({ w: this.world, r: this.roads, v: this.veg, b: this.blocks, g: this.paint })[k].redo(); this.hist.push(k); this.ui.sync(); this.dirty(); }
+  undo() { const k = this.hist.pop(); if (!k) return; ({ w: this.world, r: this.roads, v: this.veg, b: this.blocks, g: this.paint, d: this.doors })[k].undo(); this.tools.selBlock = null; this.redoH.push(k); this.tools.sel = null; this.tools.selRoad = null; this.ui.sync(); this.dirty(); }
+  redo() { const k = this.redoH.pop(); if (!k) return; ({ w: this.world, r: this.roads, v: this.veg, b: this.blocks, g: this.paint, d: this.doors })[k].redo(); this.hist.push(k); this.ui.sync(); this.dirty(); }
   exportMap() { downloadJSON(this.serialize(), 'anarchy_frankfurt_map.json'); }
   async importMap() {
     const f = await pickFile('.json,application/json'); if (!f) return;
-    try { const d = JSON.parse(await f.text()); if (d.game !== 'anarchy-frankfurt') throw new Error(); this.world.load(d, ASSETS); this.roads.load(d.roads); this.veg.load(d.veg); this.blocks.load(d.blocks); this.blocks.loadBakes(); this.paint.load(d.ground); this.hist = []; this.redoH = []; this.tiles.clearAll(); this.saveSoon(); this.ui.sync(); this.dirty(); }
+    try { const d = JSON.parse(await f.text()); if (d.game !== 'anarchy-frankfurt') throw new Error(); this.world.load(d, ASSETS); this.roads.load(d.roads); this.veg.load(d.veg); this.blocks.load(d.blocks); this.blocks.loadBakes(); this.paint.load(d.ground); this.doors.load(d.doors); this.hist = []; this.redoH = []; this.tiles.clearAll(); this.saveSoon(); this.ui.sync(); this.dirty(); }
     catch (e) { alert('Das ist keine gültige Anarchy-Frankfurt-Karte.'); }
   }
-  newMap() { this.world.load({ objects: [] }); this.roads.load(null); this.veg.load(null); this.blocks.load(null); this.paint.load(null); this.tools.selBlock = null; this.hist = []; this.redoH = []; this.tools.sel = null; this.tools.selRoad = null; this.tiles.clearAll(); this.saveSoon(); this.ui.sync(); this.dirty(); }
+  newMap() { this.world.load({ objects: [] }); this.roads.load(null); this.veg.load(null); this.blocks.load(null); this.paint.load(null); this.doors.load(null); this.tools.selBlock = null; this.hist = []; this.redoH = []; this.tools.sel = null; this.tools.selRoad = null; this.tiles.clearAll(); this.saveSoon(); this.ui.sync(); this.dirty(); }
   goTo(w, z) { this.cam.x = w[0]; this.cam.y = w[1]; if (z) this.cam.zoom = z; this.cam.clamp(); this.dirty(); this.viewChanged(); }
   zoomStep(dir, dx = this.cam.w / 2, dy = this.cam.h / 2) {
     const Z = CFG.ZOOMS; let i = Z.findIndex(z => z >= this.cam.zoom - 1e-9); if (i < 0) i = Z.length - 1;
     const n = Math.max(0, Math.min(Z.length - 1, i + dir)); if (Z[n] === this.cam.zoom) return;
     this.cam.zoomAt(Z[n], dx, dy); this.dirty(); this.viewChanged();
   }
-  viewChanged() { clearTimeout(this._vt); this._vt = setTimeout(() => this.loadVisible(), 350); }
+  viewChanged() { this._vcT = performance.now(); clearTimeout(this._vt); this._vt = setTimeout(() => this.loadVisible(), 350); }
   // OSM-Kacheln im Sichtbereich anfordern (nah zuerst)
   loadVisible(force) {
     if (!force && (!this.autoLoad || this.cam.zoom < 1 / 8)) return;
@@ -165,36 +167,59 @@ class App {
     if (K.has('w') || K.has('arrowup')) vy += 1; if (K.has('s') || K.has('arrowdown')) vy -= 1;
     if (K.has('a') || K.has('arrowleft')) vx += 1; if (K.has('d') || K.has('arrowright')) vx -= 1;
     if ((vx || vy) && !this.play.active) { const sp = 14 * this.cam.dpr; this.cam.panDevice(vx * sp, vy * sp); this.dirty(); this.viewChanged(); }
-    if (!this._dirty) return;
+    if (!this._dirty && this._retry && performance.now() >= this._retry) { this._retry = 0; this._dirty = true; }
+    if (!this._dirty) { this.idleBuild(); return; }
     this._dirty = false; this.draw(); this.ui.status();
   }
+  // Ruhepause: Kacheln rund um den sichtbaren Bereich schon vorbereiten, damit sie beim Verschieben fertig sind
+  idleBuild() {
+    const cam = this.cam; if (this.play.active || cam.zoom < 0.5 || performance.now() - (this._vcT || 0) < 250 || this._preDone === this._preKey()) return;
+    const v = cam.visibleNative(), R = 2, tx0 = Math.floor(v[0] / T) - R, tx1 = Math.floor(v[2] / T) + R, ty0 = Math.floor(v[1] / T) - R, ty1 = Math.floor(v[3] / T) + R;
+    const cx = (tx0 + tx1) / 2, cy = (ty0 + ty1) / 2, list = [];
+    for (let ty = ty0; ty <= ty1; ty++) for (let tx = tx0; tx <= tx1; tx++) list.push([tx, ty, Math.hypot(tx - cx, ty - cy)]);
+    list.sort((a, b) => a[2] - b[2]);
+    const t = performance.now() + 5; let more = false;
+    const bg = { n: 99, t }, bp = { n: 99, t }, br = { n: 99, t }, bo = { n: 99, t, spr: { n: 1 } };
+    this.tiles.fit((tx1 - tx0 + 1) * (ty1 - ty0 + 1));
+    for (const [tx, ty] of list) {
+      if (performance.now() > t) { more = true; break; }
+      if (this.mapAlpha > 0 && this.tiles.ground(tx, ty, bg) === undefined) more = true;
+      if (this.tiles.paint(tx, ty, bp) === undefined) more = true;
+      if (this.tiles.roads(tx, ty, br) === undefined) more = true;
+      if (this.tiles.objects(tx, ty, bo) === undefined) more = true;
+    }
+    if (!more) this._preDone = this._preKey();
+  }
+  _preKey() { const c = this.cam; return [c.x | 0, c.y | 0, c.zoom, c.w, c.h, this.mapAlpha > 0].join(); }
   draw() {
     const { ctx, cam } = this, s = cam.scale, o = cam.origin(), v = cam.visibleNative(), GMx = cam.groundMatrix();
     ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha = 1;
     ctx.fillStyle = COL.outside; ctx.fillRect(0, 0, cam.w, cam.h);
     ctx.save(); ctx.setTransform(...GMx); ctx.fillStyle = '#5c7848'; ctx.fillRect(-H, -H, 2 * H, 2 * H); ctx.restore();
-    let pending = false;
+    let pending = false, pendObj = false, b2 = null; const B = ms => ({ n: 99, t: performance.now() + ms });
+    this.blocks.focus = [cam.x, cam.y];
     if (cam.zoom >= 0.5) {
       const tx0 = Math.floor(v[0] / T), tx1 = Math.floor(v[2] / T), ty0 = Math.floor(v[1] / T), ty1 = Math.floor(v[3] / T);
+      this.tiles.fit((tx1 - tx0 + 1) * (ty1 - ty0 + 1));
       const put = (c, tx, ty) => {
         const x = Math.round(o[0] + tx * T * s), y = Math.round(o[1] + ty * T * s);
         ctx.drawImage(c, x, y, Math.round(o[0] + (tx + 1) * T * s) - x, Math.round(o[1] + (ty + 1) * T * s) - y);
       };
       ctx.imageSmoothingEnabled = false;
-      const b1 = { n: 12 }; ctx.globalAlpha = this.mapAlpha;
+      const b1 = B(5); ctx.globalAlpha = this.mapAlpha;
       if (this.mapAlpha > 0) for (let ty = ty0; ty <= ty1; ty++) for (let tx = tx0; tx <= tx1; tx++) { const c = this.tiles.ground(tx, ty, b1); if (c === undefined) pending = true; else put(c, tx, ty); }
       ctx.globalAlpha = 1;
-      const bp = { n: 10 };
+      const bp = B(3);
       for (let ty = ty0; ty <= ty1; ty++) for (let tx = tx0; tx <= tx1; tx++) { const c = this.tiles.paint(tx, ty, bp); if (c === undefined) pending = true; else if (c) put(c, tx, ty); }
-      const b3 = { n: 10 };
+      const b3 = B(3);
       for (let ty = ty0; ty <= ty1; ty++) for (let tx = tx0; tx <= tx1; tx++) { const c = this.tiles.roads(tx, ty, b3); if (c === undefined) pending = true; else if (c) put(c, tx, ty); }
       if (!this.play.active) this.drawGrid();
-      const b2 = { n: 16, spr: { n: 3 } };
-      for (let ty = ty0; ty <= ty1; ty++) for (let tx = tx0; tx <= tx1; tx++) { const c = this.tiles.objects(tx, ty, b2); if (c === undefined) pending = true; else if (c) put(c, tx, ty); }
+      b2 = Object.assign(B(CFG.FRAME_MS - 4), { spr: { n: 3 } });
+      for (let ty = ty0; ty <= ty1; ty++) for (let tx = tx0; tx <= tx1; tx++) { const c = this.tiles.objects(tx, ty, b2); if (c === undefined) pendObj = true; else if (c) put(c, tx, ty); }
     } else {
       // Übersicht: Boden aus verkleinerten Kacheln (schnell, auch mit vielen Gebäuden)
       const f = Math.max(1 / 32, Math.pow(2, Math.ceil(Math.log2(cam.zoom)))), S = T / f;
-      const tx0 = Math.floor(v[0] / S), tx1 = Math.floor(v[2] / S), ty0 = Math.floor(v[1] / S), ty1 = Math.floor(v[3] / S), b0 = { n: 10 };
+      const tx0 = Math.floor(v[0] / S), tx1 = Math.floor(v[2] / S), ty0 = Math.floor(v[1] / S), ty1 = Math.floor(v[3] / S), b0 = B(8);
       ctx.imageSmoothingEnabled = true; ctx.globalAlpha = this.mapAlpha;
       if (this.mapAlpha > 0) for (let ty = ty0; ty <= ty1; ty++) for (let tx = tx0; tx <= tx1; tx++) {
         const c = this.tiles.ground(tx, ty, b0, f); if (c === undefined) { pending = true; continue; }
@@ -220,7 +245,9 @@ class App {
     // Kartenrand
     ctx.save(); ctx.setTransform(...GMx); ctx.strokeStyle = '#e0483a'; ctx.lineWidth = 3 / (PPM * s * 0.75); ctx.strokeRect(-H, -H, 2 * H, 2 * H); ctx.restore();
     if (this.play.active) this.play.draw(ctx); else this.tools.overlay(ctx);
-    if (pending) this._dirty = true;
+    // Wartet nur auf Häuser aus dem Hintergrund (in diesem Bild wurde keine Kachel gebaut): nicht jedes Bild neu zeichnen, die fertigen Häuser melden sich selbst
+    if (pending || (pendObj && (!b2 || b2.k || !this.blocks.pool()))) this._dirty = true;
+    else if (pendObj) this._retry = performance.now() + 120;
   }
   // Übersicht: Häuser von oben als Dachflächen
   drawBlocksFlat() {

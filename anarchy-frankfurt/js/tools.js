@@ -6,7 +6,7 @@ import { VEG, BRUSHES } from './veg.js';
 import { BLOCK_DEFAULT, normPoly } from './blocks.js';
 import { ROAD_DEFAULT, layout, ACUTE } from './roads.js';
 
-export const MODES = ['select', 'place', 'brush', 'erase', 'road', 'block', 'ground'];
+export const MODES = ['select', 'place', 'brush', 'erase', 'road', 'block', 'ground', 'door'];
 
 export class Tools {
   constructor(app) {
@@ -75,6 +75,7 @@ export class Tools {
       this.app.dirty(); return true;
     }
     if (this.mode === 'block') { this.blockDown(g, e, dx, dy); this.app.dirty(); return true; }
+    if (this.mode === 'door') { this.doorClick(g); return true; }
     if (this.mode === 'ground') { this.app.paint.begin(); this.paint = { g, last: performance.now() }; this.cursor = g; this.paintTick(0.05); return true; }
     if (this.mode === 'brush' || this.mode === 'erase') {
       world.begin(); this.app.veg.begin(); this.paint = { g, last: performance.now() }; this.cursor = g; this.paintTick(0.05); return true;
@@ -97,6 +98,26 @@ export class Tools {
     if (this.paint) { if (this.mode === 'ground') this.app.paint.commit(); else { this.app.world.commit(); this.app.veg.commit(); } this.paint = null; }
     this.app.ui.sync();
   }
+  // ---------- Türen-Werkzeug ----------
+  // Angebote: Eingang jedes Blockhauses (par.door) und Türen platzierter Gebäude – betretbar ist nur, was markiert wurde
+  doorSpots(x, y, r) {
+    const out = [], A = this.app;
+    for (const par of A.blocks.parcels([x - r, y - r, x + r, y + r])) if (par.door) out.push(par.door);
+    for (const o of A.world.near(x, y, r + 8)) {
+      const d = ASSETS[o.a]; if (!d || !d.door) continue;
+      const a = o.r * Math.PI / 36, c = Math.cos(a), s = Math.sin(a);
+      out.push({ x: o.x + d.door[0] * c - d.door[1] * s, y: o.y + d.door[0] * s + d.door[1] * c, F: d.floors || 1, style: 'haus', w: 10, d: 8 });
+    }
+    return out.filter(d => Math.hypot(d.x - x, d.y - y) <= r);
+  }
+  doorTarget(g) {
+    const r = Math.max(2.5, 28 / (12 * this.app.cam.scale * 0.75)); let best = null, bd = r;
+    const mk = this.app.doors.at(g[0], g[1], r); if (mk) return { spot: mk, marked: true };
+    for (const d of this.doorSpots(g[0], g[1], r)) { const k = Math.hypot(d.x - g[0], d.y - g[1]); if (k < bd) { bd = k; best = d; } }
+    return best ? { spot: best, marked: false } : null;
+  }
+  doorClick(g) { const T = this.doorTarget(g); if (T) { this.app.doors.toggle(T.spot); this.app.dirty(); } }
+
   // wird jedes Bild aufgerufen, solange gemalt wird (wie in Rap Streets: Menge pro Zeit)
   paintTick(dt) {
     if (!this.paint) return;
@@ -230,7 +251,7 @@ export class Tools {
     else if (k === 'v') this.nextVariant();
     else if (k === 'delete' || k === 'backspace') this.deleteSel();
     else if (k === 'escape' || k === 'enter') { if (this.mode === 'block' && this.block.pts.length) { if (k === 'enter') this.blockFinish(); else { this.block.pts = []; this.app.dirty(); } } else if (this.mode === 'road' && this.road.start) this.roadFinish(); else { this.sel = null; this.selRoad = null; this.setMode('select'); } }
-    else if (k >= '1' && k <= '7') this.setMode(MODES[+k - 1]);
+    else if (k >= '1' && k <= '8') this.setMode(MODES[+k - 1]);
     else return false;
     return true;
   }
@@ -285,6 +306,12 @@ export class Tools {
       }
       ring(p[0], p[1], 0.6, '#ffd34a', 2);
       return;
+    }
+    for (const d of this.app.doors.list) ring(d.x, d.y, 0.7, '#5bd68a', this.mode === 'door' ? 3 : 2);
+    if (this.mode === 'door') {
+      const bb = cam.visibleGround();
+      for (const d of this.doorSpots((bb[0] + bb[2]) / 2, (bb[1] + bb[3]) / 2, Math.min(260, Math.hypot(bb[2] - bb[0], bb[3] - bb[1]) / 2))) if (!this.app.doors.at(d.x, d.y, 0.6)) ring(d.x, d.y, 0.45, 'rgba(255,211,74,.75)', 1.5);
+      if (this.cursor) { const T = this.doorTarget(this.cursor); if (T) ring(T.spot.x, T.spot.y, 1.1, T.marked ? '#ff6a5a' : '#ffd34a', 2.5); }
     }
     if (!this.cursor) return;
     const [gx, gy] = this.cursor;

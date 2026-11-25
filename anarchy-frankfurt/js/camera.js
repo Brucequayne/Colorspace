@@ -1,6 +1,6 @@
 // Anarchy Frankfurt – zentrale Einstellungen, Projektion, Kamera, Geo-Umrechnung
 export const CFG = {
-  VERSION: '0.29-editor',
+  VERSION: '0.30-editor',
   MODEL_V: '27',           // Cache-Stempel für models/*.png|json
   THETA_DEG: 48,          // Kameraneigung
   PPM: 12,                // Pixel pro Meter (nativ)
@@ -8,7 +8,11 @@ export const CFG = {
   CENTER: { lat: 50.1210, lon: 8.6360 }, // Mitte von Frankfurt (Stadtgebiet passt komplett rein)
   ROT_STEPS: 24,          // 15°-Schritte
   TILE_PX: 256,           // Render-Kacheln (nativ)
-  TILE_CACHE: 280,
+  TILE_CACHE: 450,         // Mindestgröße je Ebene; wächst mit dem Sichtbereich (siehe Tiles.fit)
+  FRAME_MS: 12,            // Zeitbudget je Bild fürs Kachelbauen (statt fester Stückzahl)
+  HOUSE_V: '1',            // Stempel des Haus-Speichers im Browser: bei Änderung am Haus-Rendering erhöhen (alte Bilder verfallen)
+  HOUSE_MAX: 8000,         // höchstens so viele fertige Häuser dauerhaft speichern
+  SHADOW_RES: 0.05,        // Meter je Pixel der Schattenkarte der Häuser (vorher 0.035)
   OSM_TILE_M: 1000,       // OSM-Ladekacheln 1 x 1 km
   SUN: [-0.35, 0.55, 0.75],
   ZOOMS: [1 / 32, 1 / 16, 1 / 8, 1 / 4, 1 / 2, 1, 2, 3, 4, 6],

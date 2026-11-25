@@ -116,16 +116,8 @@ export class Play {
     return false;
   }
   // ---------- Türen ----------
-  doors(x, y, r) {
-    const out = [], A = this.app;
-    for (const par of A.blocks.parcels([x - r, y - r, x + r, y + r])) if (par.door) out.push(par.door);
-    for (const o of A.world.near(x, y, 12)) {
-      const d = ASSETS[o.a]; if (!d || !d.door) continue;
-      const a = o.r * Math.PI / 36, c = Math.cos(a), s = Math.sin(a);
-      out.push({ x: o.x + d.door[0] * c - d.door[1] * s, y: o.y + d.door[0] * s + d.door[1] * c, F: d.floors || 1, style: 'haus', w: 10, d: 8 });
-    }
-    return out;
-  }
+  // nur im Editor markierte Türen sind begehbar
+  doors(x, y, r) { return this.app.doors.near(x, y, r); }
   enter(door) { this.inside = { door, info: interiorOf(door), from: { x: this.p.x, y: this.p.y } }; this.keys.clear(); this.showInside(); }
   leave() { this.inside = null; this.hideInside(); this.app.dirty(); }
   showInside() {

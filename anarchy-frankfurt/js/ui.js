@@ -153,7 +153,7 @@ export class UI {
     { const fb = $('fogBtn'); if (fb) { fb.classList.toggle('on', this.app.play.fog); fb.querySelector('b').textContent = this.app.play.fog ? 'an' : 'aus'; } }
     const t = this.app.tools;
     // Panel zeigt nur das aktive Werkzeug (in der Auswahl zusätzlich die Einstellungen des gewählten Blocks/der Straße)
-    const TT = { select: 'Auswahl', place: 'Objekte platzieren', brush: 'Vegetationspinsel', erase: 'Radierer', road: 'Straße', block: 'Häuserblock', ground: 'Bodenpinsel' };
+    const TT = { select: 'Auswahl', place: 'Objekte platzieren', brush: 'Vegetationspinsel', erase: 'Radierer', road: 'Straße', block: 'Häuserblock', ground: 'Bodenpinsel', door: 'Begehbare Türen' };
     $('pTitle').textContent = TT[t.mode] + (t.mode === 'select' && t.selBlock ? ' · Häuserblock' : t.mode === 'select' && t.selRoad ? ' · Straße' : '');
     document.querySelectorAll('#panel section[data-modes]').forEach(s => {
       let show = s.dataset.modes.split(' ').includes(t.mode);
@@ -175,7 +175,7 @@ export class UI {
     if (sel) info.innerHTML = `Ausgewählt: <b>${ASSETS[sel.a].name}</b> · ${sel.r * 5}° · Variante ${sel.v + 1}/${ASSETS[sel.a].variants}<br>Q/E drehen · V Variante · Entf löschen`;
     else if (t.mode === 'place') info.innerHTML = `Platzieren: <b>${ASSETS[t.asset].name}</b> · ${t.rot * 5}° · ${t.randVar ? 'zufällige Variante' : 'Variante ' + (t.variant + 1)}`;
     else info.textContent = t.mode === 'select' ? 'Objekt, Haus oder Straße anklicken. Ziehen = verschieben, Q/E = drehen, Entf = löschen. Leere Fläche ziehen = Karte bewegen.' : 'Asset unten wählen, dann auf der Karte klicken.';
-    $('sObj').textContent = this.app.world.size.toLocaleString('de-DE') + ' Objekte · ' + this.app.veg.size.toLocaleString('de-DE') + ' Pflanzen';
+    $('sObj').textContent = this.app.world.size.toLocaleString('de-DE') + ' Objekte · ' + this.app.veg.size.toLocaleString('de-DE') + ' Pflanzen · ' + this.app.doors.size + ' Türen';
   }
   status() {
     const app = this.app, c = app.tools.cursor;

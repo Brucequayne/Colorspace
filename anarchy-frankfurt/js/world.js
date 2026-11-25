@@ -47,6 +47,23 @@ export class World {
   }
 }
 
+// ---------- Begehbare Türen ----------
+// Nur hier markierte Türen führen später in einen Innenraum. Häuser der Blöcke sind sonst nur Bild + Kollision.
+export class Doors {
+  constructor() { this.list = []; this.U = []; this.R = []; this.onLog = null; this.onChange = null; }
+  get size() { return this.list.length; }
+  near(x, y, r) { return this.list.filter(d => Math.hypot(d.x - x, d.y - y) <= r); }
+  at(x, y, r = 1.2) { let best = null, bd = r; for (const d of this.list) { const k = Math.hypot(d.x - x, d.y - y); if (k < bd) { bd = k; best = d; } } return best; }
+  _snap() { return JSON.stringify(this.list); }
+  _do(fn) { const b = this._snap(); fn(); this.U.push(b); if (this.U.length > 200) this.U.shift(); this.R = []; this.onLog && this.onLog(); this.onChange && this.onChange(); }
+  // Tür markieren oder (wenn schon markiert) wieder entfernen
+  toggle(c) { const ex = this.at(c.x, c.y, 0.6); this._do(() => { if (ex) this.list.splice(this.list.indexOf(ex), 1); else this.list.push({ x: Math.round(c.x * 100) / 100, y: Math.round(c.y * 100) / 100, F: c.F, style: c.style, w: Math.round(c.w * 10) / 10, d: Math.round(c.d * 10) / 10 }); }); return !ex; }
+  undo() { const s = this.U.pop(); if (!s) return false; this.R.push(this._snap()); this.list = JSON.parse(s); this.onChange && this.onChange(); return true; }
+  redo() { const s = this.R.pop(); if (!s) return false; this.U.push(this._snap()); this.list = JSON.parse(s); this.onChange && this.onChange(); return true; }
+  serialize() { return this.list.map(d => [d.x, d.y, d.F, d.style, d.w, d.d]); }
+  load(a) { this.list = (Array.isArray(a) ? a : []).map(([x, y, F, style, w, d]) => ({ x, y, F, style, w, d })); this.U = []; this.R = []; this.onChange && this.onChange(); }
+}
+
 // ---------- IndexedDB (OSM-Cache + Karten) und Datei-Export/-Import ----------
 let dbp = null;
 function db() {
@@ -65,6 +82,7 @@ function req(store, mode, fn) {
 }
 export const dbGet = (s, k) => req(s, 'readonly', o => o.get(k));
 export const dbSet = (s, k, v) => req(s, 'readwrite', o => o.put(v, k));
+export const dbCount = s => req(s, 'readonly', o => o.count());
 export const dbClear = s => req(s, 'readwrite', o => o.clear());
 
 export function downloadJSON(obj, name) {
