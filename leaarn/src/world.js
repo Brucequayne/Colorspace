@@ -8,6 +8,7 @@ import { Vegetation, TYPES } from "le/vegetation.js";
 import { HouseInst } from "le/houses.js";
 import { houseDef } from "le/haeuser.js";
 import { Objekte } from "le/objekte.js";
+import { buildJunctions, junctionMeshes, jQuery, jCarve, jDist } from "le/junction.js";
 
 // Haftung (mu) und Rollwiderstand je Untergrund. Reihenfolge wie LAYERS in terrain.js
 const SURF = [[0.62, 0.05], [0.58, 0.05], [0.55, 0.06], [0.58, 0.06], [0.6, 0.04], [0.45, 0.09], [0.85, 0.02], [0.35, 0.05]];
@@ -17,6 +18,7 @@ export class World {
     this.engine = engine;
     this.terrain = new Terrain();
     this.roads = []; this.roadGroup = new THREE.Group();
+    this.junctions = []; [this.jmesh, this.jwmesh] = junctionMeshes(); this.roadGroup.add(this.jmesh); this.roadGroup.add(this.jwmesh);   // Kreuzungen (seit v0.19.8)
     this.veg = new Vegetation(this);
     this.env = { time: 14, fog: 30, view: 1400, wind: 35, windDir: 40 };
     this.name = "Hub";
@@ -68,9 +70,10 @@ export class World {
     return ch;
   }
   buildRoads() {
-    this.roads.forEach((r) => r.sample());
+    this.roads.forEach((r) => { r.jz = []; r.jEnd = [false, false]; r.sample(); });
     if (this.snapJoins()) this.roads.forEach((r) => r.sample());
     const main = this.road; this.roads.forEach((r) => { r.main = r === main; r.markBridges(); });
+    this.junctions = buildJunctions(this.roads, this.jmesh, this.jwmesh);   // Kreuzungen zuerst: sie legen fest, wo die Straßen ausgespart werden
     this.roads.forEach((r) => r.buildMesh());
   }
   // Gelände unter allen Straßen: Aufschütten/Abtragen der Straße mit dem größten Einfluss, danach alles Abtragen (Brücken, ohne Anpassung)
@@ -78,9 +81,12 @@ export class World {
     let best = null, lo = Infinity;
     for (const r of this.roads) {
       if (r.S.length < 2) continue; const c = r.carve(x, z); if (!c) continue;
-      if (c.lo) { if (c.h < lo) lo = c.h; } else if (!best || c.w > best.w || (c.w === best.w && c.h > best.h)) best = c;
+      if (c.lo) { if (c.h < lo) lo = c.h; } else if (!best || (c.under && !best.under) || (c.under && best.under ? c.h < best.h : !best.under && (c.w > best.w || (c.w === best.w && c.h > best.h)))) best = c;   // unter einer Fahrbahn wird immer abgesenkt (seit v0.19.8), sonst stärkster Einfluss
     }
     let h = b; if (best) h = best.w >= 1 ? best.h : lerp(b, best.h, best.w);
+    // Kreuzungen (seit v0.19.8): drinnen versteckt, am Rand bündig; stärkster Einfluss gewinnt
+    let J = null; for (const k of this.junctions) { const c = jCarve(k, x, z); if (c && (!J || c.inside || (!J.inside && c.w > J.w))) J = c; if (J && J.inside) break; }
+    if (J) { if (J.inside) h = J.h; else if (best && best.under && !this.junctions.some((k) => k.arms.some((a) => a.r === best.road))) h = Math.min(h, J.h); else h = lerp(h, J.h, J.w); }
     h = Math.min(h, lo);
     // Häuser: Grundfläche eben auf Haushöhe, weicher Übergang (stärkster Einfluss gewinnt)
     let hb = null; for (const hs of this.houses) { const c = hs.carve(x, z); if (c && (!hb || c.w > hb.w)) hb = c; }
@@ -88,7 +94,13 @@ export class World {
     return h;
   }
   // Abstand zur nächsten Fahrbahnkante (negativ = auf der Fahrbahn), Infinity wenn keine Straße in der Nähe
-  roadDist(x, z) { let d = Infinity; for (const r of this.roads) { if (r.S.length < 2) continue; const q = r.nearest(x, z); if (q) d = Math.min(d, Math.abs(q.d) - q.w / 2 - q.walk); } return d; }   // Gehweg zählt zur Straße (seit v0.16)
+  // seit v0.19.8: hinter dem Straßenende zählt der Abstand zum Ende, in Kreuzungen der Abstand zur Kreuzungsfläche
+  roadDist(x, z) {
+    let d = Infinity;
+    for (const r of this.roads) { if (r.S.length < 2) continue; const q = r.nearest(x, z); if (!q || (r.jz.length && r.inZone(q.dist))) continue; const lat = Math.abs(q.d) - q.w / 2 - q.walk; d = Math.min(d, q.over > 0 ? Math.hypot(Math.max(0, lat), q.over) : lat); }
+    for (const J of this.junctions) d = Math.min(d, jDist(J, x, z));
+    return d;
+  }   // Gehweg zählt zur Straße (seit v0.16)
   // Boden unter (x, z) für die Physik: Fahrbahn hat Vorrang, sonst Gelände mit seiner Bodenart
   // y (seit v0.12): Höhe des abfragenden Punkts – wer unter einer Brücke fährt, bekommt das Gelände, nicht die Brücke
   // Mehrere Straßen übereinander: die höchste Fahrbahn, die nicht über dem abfragenden Punkt liegt
@@ -99,6 +111,7 @@ export class World {
       if (y != null && y < q.h - 1.6) continue;   // Fahrbahn liegt deutlich über dem Punkt (Brücke darüber)
       if (!r || q.h > r.h) r = Object.assign({}, q);
     }
+    for (const J of this.junctions) { const q = jQuery(J, x, z); if (!q || q.h <= th - 0.6 || (y != null && y < q.h - 1.6)) continue; if (!r || q.h > r.h) r = q; }   // Kreuzungen (seit v0.19.8)
     if (r) { o.h = r.h; o.n = r.n; o.mu = r.kind === "curb" ? 1.22 : 1.35; o.rr = 0.013; o.kind = r.kind; return o; }   // Asphalt seit v0.11 35 % griffiger
     o.h = th; o.n = this.terrain.normalAt(x, z, this.n); const L = this.terrain.layerAt(x, z); o.mu = SURF[L][0]; o.rr = SURF[L][1]; o.kind = "terrain"; return o;
   }

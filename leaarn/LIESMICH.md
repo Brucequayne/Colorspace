@@ -17,6 +17,7 @@ Neue Module: in `MODULES` in `leaarn.js` eintragen.
 | `terrain.js`, `road.js`, `vegetation.js`, `models.js`, `wind.js`, `race.js`, `car.js`, `drive.js`, `input.js`, `sceneio.js` | aus Poly Racer (Gelände 360² auf 1440 m, Straßenbau, Vegetation, Auto für später) |
 | `houses.js` | **Haus-Bauteile** (`PARTS`), Hausbau aus Bauteilen (`buildHouse`), Kollision (Wand-Strecken, Möbel-Kästen), Türen, Interaktionen, `HouseInst` (Haus in der Welt) |
 | `haeuser.js` | **fertige Häuser** für den Map-Editor (`HOUSES`, bisher `starter`) |
+| `junction.js` | Kreuzungen und Einmündungen (seit v0.19.8) |
 | `world.js` | Welt = Gelände + Straßen + Vegetation + Häuser (`houses`, Gelände wird unter Häusern geebnet), Standard-Hub |
 | `player.js` | Spielfigur: Low-Poly-Modell mit Lauf-Animation, Laufen/Rennen/Springen, Kollision, Kamera-Strahl gegen Wände (`camHit`) |
 | `play.js` | Spielen: Kamera (3rd Person, drinnen steiler über die Wände), Türen und Schreibtisch mit E, Geld-Anzeige, Pause |
@@ -74,6 +75,19 @@ Straßentypen in `TYPEN` (road.js): `zwei`, `zwei-gw`, `ein`, `ein-gw`, `rad` �
 Eine Straße mit `typ` ignoriert Breite/Kerbs/Gehweg der Punkte (alte Straßen ohne `typ` bleiben wie gebaut). Kreuzungen: `prio()` (breiter, dann älter)
 gewinnt, die andere lässt dort ihren Belag weg; Markierungen und Gehwege entfallen auf fremder Fahrbahn (`onRoad`). Editor: Einrasten in `endAt`
 (Straßenende → Verbinden, gleicher Typ wird eine Straße; Straße → Einmündung `j`), `matchCross` gleicht Kreuzungen in der Höhe an, Griffe nur an offenen Enden.
+
+## Kreuzungen (seit v0.19.8)
+
+`junction.js`: `findNodes` sucht Knoten (Straßenende auf einer Straße = Einmündung, Mittellinien kreuzen sich auf gleicher Höhe ±1,5 m = Kreuzung,
+Ende an Ende = Übergang; nahe Knoten und Knoten mit überlappenden Bereichen werden verschmolzen). `buildOne` macht daraus Arme (jede Richtung,
+in die eine Straße vom Knoten weggeht), sortiert sie nach Winkel und baut zwischen je zwei Armen eine Ecke: `fillet` (Innenecke, Bordstein-Bogen
+4 m mit Gehweg, 3 m ohne, 1,2 m Radweg, bei spitzen Winkeln kleiner), `reflex` (stumpfe Außenseite: scharfe Ecke), `along` (durchgehende Straße:
+Rand folgt der Straße). Jeder Arm wird hinter dem Bogen mit einem exakten Querschnitt geschnitten (`Road.secAt`), die Straße spart den Bereich aus
+(`Road.jz`, `Road.pieces`, Enden in `Road.jEnd`). Die Kreuzung zeichnet Asphalt als Fächer um die Mitte, Randlinien (auf der Fächerhöhe),
+Gehwege mit Bordstein um die Ecken und Seitenwände in eigene Netze (`World.jmesh`, `World.jwmesh`). Physik `jQuery`, Gelände `jCarve`
+(drinnen 15 cm darunter, Rand 2,5 m bündig, dahinter Böschung; hinter den Schnittlinien gilt die Straße), Pflanzenabstand `jDist`.
+`Road.nearest` liefert `over` (Abstand hinter einem offenen Ende): dort gibt es keine Straße, kein Abtragen und keinen Pflanzen-Freiraum mehr,
+Sackgassen bekommen einen runden Gelände-Abschluss und eine Stirnwand. `World.carve`: unter einer Fahrbahn wird immer abgesenkt.
 
 ## Objekte und Gras-Sichtweite (seit v0.19)
 

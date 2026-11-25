@@ -348,7 +348,7 @@ export class Editor {
     }); });
     if (best) return best;
     for (const r of w.roads) {
-      if (r.S.length < 2) continue; const q = r.nearest(g.x, g.z); if (!q || Math.abs(q.d) > q.w / 2 + q.walk + 0.5) continue;
+      if (r.S.length < 2) continue; const q = r.nearest(g.x, g.z); if (!q || q.over > 0.5 || Math.abs(q.d) > q.w / 2 + q.walk + 0.5) continue;
       const sy = q.y; if (Math.abs(sy - E.y) > (this.s.rh === 0 ? 4 : 2.5)) continue;   // deutlich höher/tiefer: Brücke darüber statt Einmündung
       if (r === AR && A) { const qa = r.nearest(A.x, A.z); if (qa) { let dd = Math.abs(qa.dist - q.dist); if (r.closed) dd = Math.min(dd, r.len - dd); if (dd < 25) continue; } }
       return { x: q.cx, z: q.cz, y: q.y, j: 1, road: r };

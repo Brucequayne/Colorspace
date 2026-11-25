@@ -15,12 +15,12 @@ import { clamp, lerp, smooth, DEG, hash2 } from "le/core.js";
 
 const COL = { asphalt: new THREE.Color("#3D3E41"), line: new THREE.Color("#E9E7E1"), red: new THREE.Color("#C42F26"), white: new THREE.Color("#EDEDEA"), skirt: new THREE.Color("#55524D"), dark: new THREE.Color("#1C1C1E") };
 const STEP = 2;    // Abstand der Querschnitte in Metern
-const CW = 1.3;    // Kerb-Breite
+export const CW = 1.3;    // Kerb-Breite
 const GRID = 16;   // Raster für die Abfrage
 const BR = 1.4;    // ab dieser Höhe über dem Gelände wird (ohne Gelände-Anpassung) eine Brücke gebaut
 const DECK = 1.0;  // Dicke der Brückenplatte
 const PW = 0.4, PT = 0.35, PH = 0.9;   // Brücke: Randstreifen bis zur Brüstung, Brüstungsdicke, Brüstungshöhe
-const GW = 2.2, KH = 0.15, KB = 0.18;   // Gehweg: Breite (mit Bordstein), Bordstein-Höhe, Bordstein-Breite oben
+export const GW = 2.2, KH = 0.15, KB = 0.18;   // Gehweg: Breite (mit Bordstein), Bordstein-Höhe, Bordstein-Breite oben
 // Straßentypen (seit v0.19): fertige Straßen, Spur = 2,6 m (Auto 1,8 m breit). w = Fahrbahnbreite, gw = Gehweg auf beiden Seiten (amerikanisch)
 export const TYPEN = {
   zwei: { w: 5.8, lanes: 2, gw: false }, "zwei-gw": { w: 5.8, lanes: 2, gw: true },
@@ -29,12 +29,14 @@ export const TYPEN = {
 };
 const BIKE = new THREE.Color("#8E4C44");
 const CURB = new THREE.Color("#9C9A93"), CURB2 = new THREE.Color("#B4B2AB");
+// Farben für die Kreuzungen (junction.js, seit v0.19.8)
+export const RCOL = { asphalt: COL.asphalt, line: COL.line, skirt: COL.skirt, curb: CURB, curb2: CURB2 };
 const CON = { a: new THREE.Color("#A3A19B"), b: new THREE.Color("#8A8882"), c: new THREE.Color("#B9B7B0"), d: new THREE.Color("#74726D") };
 
 // Gehweg-Texturen (seit v0.16), im Browser gezeichnet: europäisch = kleine Backsteine im Läuferverband (1 m Kachel),
 // amerikanisch = Betonplatte 1,5 m mit Fugen (eine Platte über die ganze Gehwegbreite)
 let WTEX = null;
-function walkTex() {
+export function walkTex() {
   if (WTEX) return WTEX;
   const mk = (draw) => { const c = document.createElement("canvas"); c.width = c.height = 256; draw(c.getContext("2d")); const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; return t; };
   let seed = 7; const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
@@ -73,6 +75,39 @@ export class Road {
     this.world = null;     // Welt (für die anderen Straßen)
     this.main = false;     // Hauptstrecke: bekommt Start/Ziel
     this.typ = null;       // Straßentyp (seit v0.19, TYPEN), null = alte, frei eingestellte Straße
+    this.jz = [];          // Kreuzungs-Bereiche [von, bis] (Streckenlänge): dort zeichnet die Kreuzung, nicht die Straße (seit v0.19.8, junction.js)
+    this.jEnd = [false, false];   // Anfang/Ende liegt in einer Kreuzung
+  }
+  // Punkt quer zur Fahrbahn: Querschnitt s, Abstand off von der Mitte (+ = rechts), Höhe y über der Fahrbahn
+  at(s, off, y) { return new THREE.Vector3(s.p.x + s.r.x * off, s.p.y - off * s.tan + (y || 0), s.p.z + s.r.z * off); }
+  // Querschnitt zwischen a und b (f 0…1), exakt wie die Straße an dieser Stelle (seit v0.19.8)
+  lerpSec(a, b, f) {
+    const p = a.p.clone().lerp(b.p, f), r = a.r.clone().lerp(b.r, f).normalize(), tan = lerp(a.tan, b.tan, f), w = lerp(a.w, b.w, f), hw = w / 2;
+    return Object.assign({}, a, { p: p, r: r, tan: tan, w: w, t: a.t.clone().lerp(b.t, f).normalize(), d: a.d + f * a.p.distanceTo(b.p), gap: lerp(a.gap || 0, b.gap || 0, f),
+      L: p.clone().addScaledVector(r, -hw).setY(p.y + hw * tan), R: p.clone().addScaledVector(r, hw).setY(p.y - hw * tan) });
+  }
+  // Querschnitt an Streckenposition d
+  secAt(d) {
+    const S = this.S, m = S.length; if (!m) return null; if (m === 1) return S[0];
+    if (this.closed) { d = ((d % this.len) + this.len) % this.len; } else d = clamp(d, 0, this.len);
+    let lo = 0, hi = m - 1; while (hi - lo > 1) { const mid = (lo + hi) >> 1; if (S[mid].d <= d) lo = mid; else hi = mid; }
+    let i = S[hi].d <= d ? hi : lo; if (!this.closed && i >= m - 1) i = m - 2;
+    const a = S[i], b = S[(i + 1) % m], L = a.p.distanceTo(b.p) || 1e-6;
+    return this.lerpSec(a, b, clamp((d - a.d) / L, 0, 1));
+  }
+  // liegt Streckenposition d in einem Kreuzungs-Bereich?
+  inZone(d) {
+    const e = 0.03;   // am Schnitt überlappen Straße und Kreuzung minimal, damit dort keine Lücke entsteht
+    for (const z of this.jz) { const a = z[0] > 0.5 || this.closed ? z[0] + e : -1, b = z[1] < this.len - 0.5 || this.closed ? z[1] - e : this.len + 1;   // an Straßenenden nicht verkleinern
+      if (d > a && d < b) return true; if (this.closed && ((d + this.len > a && d + this.len < b) || (d - this.len > a && d - this.len < b))) return true; }
+    return false;
+  }
+  // Teile von [da, db] außerhalb der Kreuzungs-Bereiche
+  pieces(da, db) {
+    let P = [[da, db]]; const Z = [];
+    this.jz.forEach((z) => { Z.push(z); if (this.closed) { Z.push([z[0] - this.len, z[1] - this.len]); Z.push([z[0] + this.len, z[1] + this.len]); } });
+    for (const z of Z) { const n = []; for (const p of P) { if (z[1] <= p[0] || z[0] >= p[1]) { n.push(p); continue; } if (z[0] > p[0]) n.push([p[0], z[0]]); if (z[1] < p[1]) n.push([z[1], p[1]]); } P = n; }
+    return P.filter((p) => p[1] - p[0] > 0.005);
   }
   others() { return this.world ? this.world.roads.filter((r) => r !== this && r.S.length > 1) : []; }
   P(i) { const n = this.pts.length; return this.closed ? this.pts[((i % n) + n) % n] : this.pts[clamp(i, 0, n - 1)]; }
@@ -171,11 +206,19 @@ export class Road {
     best.t = new THREE.Vector3().lerpVectors(a.t, b.t, u).normalize(); best.curb = best.d < 0 ? a.cl : a.cr; best.dist = a.d + u * a.p.distanceTo(b.p);
     best.cl = a.cl; best.cr = a.cr; best.sl = a.sl; best.sr = a.sr; best.sw = best.d < 0 ? a.sl : a.sr; best.walk = best.sw ? GW + (best.curb ? CW : 0) : 0;
     best.br = u < 0.5 ? a.br : b.br; best.terr = a.terr && !best.br;
+    // über das Ende einer offenen Straße hinaus (seit v0.19.8): over = Abstand hinter dem Ende, end = 0 Anfang / 1 Ende
+    best.over = 0; best.end = -1;
+    if (!this.closed) {
+      if (best.i === 0 && u <= 0) { const t = a.t, l = Math.hypot(t.x, t.z) || 1; best.over = Math.max(0, -((x - a.p.x) * t.x + (z - a.p.z) * t.z) / l); best.end = 0; }
+      else if (best.i === this.segCount() - 1 && u >= 1) { const t = b.t, l = Math.hypot(t.x, t.z) || 1; best.over = Math.max(0, ((x - b.p.x) * t.x + (z - b.p.z) * t.z) / l); best.end = 1; }
+      if (best.over > 0) { best.d = (x - best.cx) * r.x + (z - best.cz) * r.z; best.endJ = !!this.jEnd[best.end]; }
+    }
     return best;
   }
   // Physik: Fahrbahn unter (x, z)? → { h, n, kind: "road" | "curb" }
   query(x, z) {
     const q = this.nearest(x, z); if (!q) return null;
+    if (q.over > 0.02 || (this.jz.length && this.inZone(q.dist))) return null;   // hinter dem Ende keine Straße; in Kreuzungen antwortet die Kreuzung (seit v0.19.8)
     const hw = q.w / 2, ad = Math.abs(q.d), sd = q.d < 0 ? -1 : 1, kw = q.curb ? CW : 0;
     if (ad > (q.br ? this.face(q, sd) + 0.05 : hw + kw + (q.sw ? GW : q.curb ? 0 : 0.15))) return null;
     let h = q.y - q.d * q.tan; const kind = q.sw && ad > hw + kw ? "walk" : ad > hw && q.curb && ad <= hw + CW ? "curb" : "road";
@@ -191,13 +234,21 @@ export class Road {
     if (!this.S.length) return null;
     const q = this.nearest(x, z); if (!q) return null;
     const hw = q.w / 2, edge = hw + (q.curb ? CW : 0) + (q.sw ? GW : 0), shoulder = edge + 2.5, ad = Math.abs(q.d), up = q.sw ? KH : 0;
+    // hinter dem Ende (seit v0.19.8): in einer Kreuzung nichts (die Kreuzung formt das Gelände), sonst runder Abschluss wie an den Seiten
+    if (q.over > 0) {
+      if (q.endJ) return null;
+      const dd = Math.hypot(Math.max(0, ad - edge), q.over), top = q.y - Math.sign(q.d) * Math.min(ad, edge) * q.tan;
+      if (!q.terr || q.br) { if (dd > 6.3) return null; return { h: top - (q.br ? 1.3 : 0.15) + Math.max(0, dd - 0.3), w: 1, lo: true }; }
+      if (dd > 2.5 + this.fall) return null;
+      return { h: top - 0.03 + up, w: dd <= 2.5 ? 1 : 1 - smooth((dd - 2.5) / this.fall) };
+    }
     if (!q.terr || q.br) {   // ohne Gelände-Anpassung: nur abtragen, was über die Fahrbahn (bzw. Brückenplatte) ragt, mit 45°-Kante
       const e2 = (q.br ? this.face(q, q.d < 0 ? -1 : 1) + PT : edge) + 0.3; if (ad > e2 + 6) return null;
       const top = q.y - Math.sign(q.d) * Math.min(ad, edge) * q.tan - (q.br ? DECK + 0.3 : 0.15);
       return { h: top + Math.max(0, ad - e2), w: 1, lo: true };
     }
     if (ad > shoulder + this.fall) return null;
-    if (ad <= edge) return { h: q.y - q.d * q.tan - 0.15, w: 1 };
+    if (ad <= edge) return { h: q.y - q.d * q.tan - 0.15, w: 1, under: true, road: this };
     const he = q.y - Math.sign(q.d) * edge * q.tan - 0.03 + up;   // mit Gehweg: Randstreifen bündig mit dem Gehweg
     return { h: he, w: ad <= shoulder ? 1 : 1 - smooth((ad - shoulder) / this.fall) };
   }
@@ -219,7 +270,13 @@ export class Road {
     // Gehweg je Abschnitt und Seite: weglassen, wo er auf der Fahrbahn einer anderen Straße läge (Kreuzung, Einmündung)
     const wcut = S.map((a, i) => { const b = S[(i + 1) % m]; return [-1, 1].map((sd) => { if (!(sd < 0 ? a.sl : a.sr) || !this.cov) return false; const e = a.w / 2 + ((sd < 0 ? a.cl : a.cr) ? CW : 0); return [e + 0.3, e + GW * 0.5, e + GW - 0.2].some((o) => { const pa = at(a, sd * o, KH), pb = at(b, sd * o, KH), p2 = pa.lerp(pb, 0.5); return this.onRoad(p2.x, p2.z, p2.y - KH); }); }); });
     for (let i = 0; i < this.segCount(); i++) {
-      const a = S[i], b = S[(i + 1) % m], ha = a.w / 2, hb = b.w / 2, db0 = a.d + a.p.distanceTo(b.p);
+      // Kreuzungs-Bereiche (seit v0.19.8) aussparen: Teilstücke mit exakten Querschnitten an den Rändern
+      const A0 = S[i], B0 = S[(i + 1) % m], L0 = A0.p.distanceTo(B0.p) || 1e-6, da0 = A0.d;
+      const parts = this.jz.length ? this.pieces(da0, da0 + L0) : [[da0, da0 + L0]];
+      for (const pc of parts) {
+      const full0 = pc[0] <= da0 + 1e-6, full1 = pc[1] >= da0 + L0 - 1e-6;
+      const a = full0 ? A0 : this.lerpSec(A0, B0, (pc[0] - da0) / L0), b = full1 ? B0 : this.lerpSec(A0, B0, (pc[1] - da0) / L0);
+      const ha = a.w / 2, hb = b.w / 2, db0 = a.d + a.p.distanceTo(b.p);
       col.copy(TY && TY.bike ? BIKE : COL.asphalt).multiplyScalar(0.94 + hash2(i, 0, 5) * 0.1);
       // Kreuzung (seit v0.19): ganz auf der Fahrbahn einer Straße mit Vorrang → eigenen Belag weglassen
       const under = this.cov && [a.L, a.R, b.R, b.L].every((v) => this.onRoad(v.x, v.z, v.y, true));
@@ -259,8 +316,8 @@ export class Road {
         if (sd < 0) { lo = a1; lob = b1; } else { ro = a1; rob = b1; }
         // Stirnseiten, wo der Gehweg beginnt oder endet
         const has = (s2) => { if (!s2) return false; const k = S.indexOf(s2); return (sd < 0 ? s2.sl : s2.sr) && !(k >= 0 && wcut[k] && wcut[k][sd < 0 ? 0 : 1]); };
-        if (!has(pv)) quad(A(ea, y0), A(ea + GW, y0 - 0.2), A(ea + GW, KH), A(ea, KH), CURB);
-        if (!has(nx) || (!this.closed && i === this.segCount() - 1)) quad(B2(eb, y0), B2(eb, KH), B2(eb + GW, KH), B2(eb + GW, y0 - 0.2), CURB);
+        if (full0 && !has(pv)) quad(A(ea, y0), A(ea + GW, y0 - 0.2), A(ea + GW, KH), A(ea, KH), CURB);
+        if (full1 && (!has(nx) || (!this.closed && i === this.segCount() - 1))) quad(B2(eb, y0), B2(eb, KH), B2(eb + GW, KH), B2(eb + GW, y0 - 0.2), CURB);
       }
       // Seitenwände nach unten, damit die Straße nie in der Luft hängt (auf Brücken übernimmt das die Brückenplatte)
       if (!(a.br && b.br)) {
@@ -268,7 +325,10 @@ export class Road {
         quad(lo, lob, lift(lob, -sk), lift(lo, -sk), COL.skirt);
         quad(ro, lift(ro, -sk), lift(rob, -sk), rob, COL.skirt);
       }
+      }
     }
+    // Sackgasse (seit v0.19.8): offenes Ende, das nicht in einer Kreuzung liegt, bekommt eine Stirnwand nach unten
+    if (!this.closed) [0, 1].forEach((k) => { if (this.jEnd[k]) return; const s = k ? S[m - 1] : S[0]; if (s.br) return; const l = s.cl ? at(s, -s.w / 2 - CW, 0.06) : s.L, r = s.cr ? at(s, s.w / 2 + CW, 0.06) : s.R; quad(l, r, lift(r, -1.2), lift(l, -1.2), COL.skirt); });
     // Start/Ziel: Schachbrett am ersten Querschnitt (nur Hauptstrecke)
     const s0 = S[0], s1 = S[1], cols = 10, rows = this.main ? 2 : 0;
     for (let rr = 0; rr < rows; rr++) for (let c = 0; c < cols; c++) {

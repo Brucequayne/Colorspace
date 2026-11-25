@@ -9,6 +9,7 @@
     "engine.js",      // Renderer, Kamera, Himmel, Sonne/Licht, Nebel, Schatten (aus Poly Racer)
     "terrain.js",     // Gelände 360 × 360 auf 1440 m (aus Poly Racer)
     "road.js",        // Straßen (aus Poly Racer)
+    "junction.js",    // Kreuzungen und Einmündungen (seit v0.19.8)
     "models.js",      // Low-Poly-Modelle: Bäume, Steine, Gras, Auto (aus Poly Racer)
     "vegetation.js",  // Vegetation (aus Poly Racer, wächst nicht in Häusern)
     "wind.js",        // Wind-Symbol (aus Poly Racer)
