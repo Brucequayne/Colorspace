@@ -212,6 +212,35 @@ const CSS = `
 .le-cds{display:flex;flex-direction:column;gap:6px}.le-cd{display:grid;grid-template-columns:36px 1fr auto;gap:10px;align-items:center;background:#26302F;padding:6px}.le-cd svg{width:36px;height:36px}.le-cd small{display:block;color:#A9ACB2}
 .le-plotb[aria-pressed=true]{background:#62929E!important;border-color:#62929E!important;color:#141518!important}.le-cats .le-plotb{grid-column:1/3}
 .le-plotp{padding:10px!important;gap:8px!important}.le-plotp p{margin:0;color:#C6C5B9;font-size:12px;line-height:1.45}
+/* v0.15: Stufen statt Jahrgänge, Vokabeltest Englisch */
+.le-kl{min-width:112px;text-align:center}.le-kl1{background:#62929E}.le-kl2{background:#C6C5B9}.le-kl3{background:#ED6A5E}.le-kl0{background:#4A6D7C;color:#ECEAE4}
+.le-vset{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(250px,1fr);gap:18px;align-items:start}.le-vset h4:first-child{margin-top:0}
+.le-vkat{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:5px}
+.le-vkat button{display:flex;flex-direction:column;align-items:flex-start;gap:2px;text-align:left;padding:7px 10px!important}.le-vkat button small{color:#A9ACB2;font-size:11px;font-weight:600}
+.le-vkat button[aria-pressed=true]{background:#ED6A5E!important;border-color:#ED6A5E!important;color:#141518!important}.le-vkat button[aria-pressed=true] small{color:#3A2523}
+.le-vside{background:#33403F;border:1px solid #4A5A5B;padding:12px 14px}
+.le-vlab{display:flex;justify-content:space-between;font-weight:700;font-size:12px;color:#8A8E96;margin-top:2px}.le-vlab .le-vsel{color:#fff}
+#le-vlinfo{margin:8px 0 0;line-height:1.5}#le-vlinfo em{font-style:normal;font-weight:700}
+.le-vgo{font-size:16px!important;padding:8px 20px!important}
+.le-vlist{display:flex;flex-direction:column;gap:6px;max-width:880px;margin:4px auto 0}
+.le-vrow{display:grid;grid-template-columns:24px minmax(130px,1fr) minmax(180px,1.4fr) 46px 64px;gap:6px 10px;align-items:center;background:#33403F;border:1px solid #4A5A5B;border-left:4px solid #4A5A5B;padding:8px 10px;transition:border-color .2s}
+.le-vnr{color:#8A8E96;font-weight:800}
+.le-vq b{display:block;font:800 20px var(--f-display,system-ui,sans-serif);color:#fff;overflow-wrap:anywhere}.le-vq small{color:#A9ACB2;font-size:11px;font-weight:700;letter-spacing:.04em}
+.le-root .le-vrow input{width:100%;font:700 18px var(--f-body,system-ui,sans-serif);padding:8px 10px;background:#1B1C1F;border:2px solid #62929E;outline:0}.le-root .le-vrow input:focus{border-color:#ED6A5E}
+.le-vok{align-self:stretch;font-size:18px!important;font-weight:800}
+.le-vpt{text-align:right}.le-vp{font:800 22px var(--f-display,system-ui,sans-serif);color:#fff;white-space:nowrap}.le-vp i{font-style:normal;color:#ED6A5E;font-size:15px}
+.le-vsol{grid-column:2/-1;display:none;font-size:13px;color:#C6C5B9}.le-vdone .le-vsol{display:block}.le-vsol b{color:#fff}
+.le-vtypo{font-style:normal;color:#ED6A5E;font-weight:700;margin-left:6px}
+.le-vrow.le-vg{border-left-color:#7FC8D4}.le-vrow.le-vh{border-left-color:#C6C5B9}.le-vrow.le-vb{border-left-color:#ED6A5E}
+.le-root .le-vg input{border-color:#7FC8D4;color:#7FC8D4}.le-root .le-vh input{border-color:#C6C5B9;color:#C6C5B9}.le-root .le-vb input{border-color:#ED6A5E;color:#ED6A5E}
+.le-vg .le-vp{color:#7FC8D4}.le-vb .le-vp{color:#ED6A5E}
+.le-vhint{text-align:center;margin-top:10px}.le-vendb{justify-content:center}
+#le-vsum{color:#fff;display:inline-block}.le-done .le-dim b,#le-vtiers b{color:#fff}
+.le-vresl{display:flex;flex-direction:column;gap:4px;max-width:780px;margin:14px auto 0;text-align:left}
+.le-vres{display:grid;grid-template-columns:1fr 1fr 1.5fr 60px;gap:10px;align-items:center;background:#33403F;border-left:4px solid #4A5A5B;padding:6px 10px;font-size:13px;color:#C6C5B9}
+.le-vres>b{color:#fff;font-size:15px}.le-vres em{font-style:normal;color:#8A8E96}.le-vres .le-vp{font-size:17px;text-align:right}
+.le-vres.le-vg{border-left-color:#7FC8D4}.le-vres.le-vh{border-left-color:#C6C5B9}.le-vres.le-vb{border-left-color:#ED6A5E}
+@media (max-width:820px){.le-vset{grid-template-columns:1fr}.le-vrow{grid-template-columns:22px 1fr 46px 54px}.le-vrow input{grid-column:2/3;grid-row:2}.le-vrow .le-vq{grid-column:2/-1}.le-vrow .le-vok{grid-row:2;grid-column:3}.le-vrow .le-vpt{grid-row:2;grid-column:4}.le-vres{grid-template-columns:1fr 1fr 56px}.le-vres>span:nth-of-type(2){grid-column:1/3}}
 `;
 
 let A = null;

@@ -28,6 +28,8 @@ Neue Module: in `MODULES` in `leaarn.js` eintragen.
 | `save.js` | Spielstand: Geld, Zwischenkonto (`offen`, seit v0.12), Lernstatistik je Fach/Thema |
 | `sound.js` | Kassen-Klingel beim Einsammeln (eigene Datei `leaarn/sounds/kasse.mp3` wird bevorzugt, sonst synthetisch), Münz-Tick |
 | `faecher/` | **ein Modul je Schulfach** (siehe unten), `index.js` = Liste, Aufgabenformat, Belohnung, Prüfen |
+| `faecher/wortliste.js` | Englisch-Vokabeln (seit v0.15): die 2500 häufigsten englischen Wörter, eine Zeile je Wort (`englisch=deutsch=Thema=Wortart`) |
+| `faecher/vokabeln.js` | Vokabeltest (seit v0.15): Themengebiete, Schwierigkeit, Prüfen mit Synonymen und Tippfehlern, Belohnung |
 | `editor.js` | Map-Editor (Developer Tool aus Poly Racer + Werkzeug **Häuser**) |
 | `houseeditor.js` | Haus-Editor (getrennt vom Map-Editor), Bulldozer (B, Treffer über `partAt` → Bauteil-Nummer je Netzstück), Kamera Q/E |
 | `charedit.js` | Charakter-Editor (seit v0.13): Name, Alter, Farben Oberteil/Hose/Schuhe/Haare, startet beim ersten Spielstart; Daten in `save.char` |
@@ -78,6 +80,16 @@ Eigene Stufen je Thema mit `lohn: [{ ab: 5, euro: 100 }, { ab: 1, euro: 25 }, { 
 Zwischenkonto (seit v0.12): Belohnungen gehen erst aufs Zwischenkonto im Laptop; „Belohnungen einsammeln“ oder Aufstehen bucht sie aufs Spielerkonto (Kassen-Klingel, fliegende Scheine in `play.js` → `collect`).
 
 Color Guesser (seit v0.12, art `guess`): Farbe 4 s zeigen (`zeigen`), dann HSB-Regler; Bewertung 0–10 aus CIEDE2000-Abstand (`rating` in `farben.js`), 5 Runden, `wertung(scores)` im Thema: Summe aufgerundet in Euro + Bonus, wenn alle Runden über 5/7,5/9 (+25/50/125 €, nur höchste Stufe).
+
+Vokabeltest (seit v0.15, art `vokabel`, Englisch, zwei Themen `vokabeln-de` / `vokabeln-en`): Thema mit `setup: true` → vor dem Start Einstellungs-Seite
+(Themengebiet `kat`: `alle`, `k:<Thema>`, `w:<Wortart>`; Schwierigkeit `lvl` 0–2 = Drittel des Bereichs nach Häufigkeit; gemerkt in `leaarn-ui-v1` → `vok`).
+5 Wörter gleichzeitig, jedes einzeln bestätigen (`renderVok`/`vConfirm` in `learn.js`). Punkte je Wort: 2 richtig, 1 Tippfehler (bis 3 Buchstaben keiner, 4–6 einer, ab 7 zwei;
+kein Tippfehler, wenn die Eingabe selbst ein anderes bekanntes Wort ist), Synonym-Bonus fürs zweite Wort nach Komma (+2/+1, nur wenn das erste zählt).
+Bei Deutsch → Englisch zählen alle englischen Wörter, die dieselbe deutsche Übersetzung haben (groß → big, large, tall …). Schreibvarianten (`color|colour`) und
+männlich/weiblich (Lehrer/Lehrerin) zählen als dasselbe Wort. Gleichlautende Wörter (Hotel, Hand) höchstens eins je Durchgang.
+Belohnung `VOK_LOHN`: 0 = 5 €, 1–5 = 25 €, 6–9 = 75 €, 10 = 150 €, über 10 = 250 €, mal 1 / 1,3 / 1,6 je Schwierigkeit (aufgerundet).
+
+Stufen statt Jahrgänge (seit v0.15): `klasse` 5–6 = Basics, 7–8 = Fortgeschritten, 9–10 = Experte, `stufe: "alle"` = Alle Stufen.
 
 Farbmischen (`faecher/farben.js`): Farbe = Pigment-Anteile [Rot, Gelb, Blau, Weiß, Schwarz], Mischen = gleiche Teile.
 Rot/Gelb/Blau werden über den RYB-Würfel (wie Malfarben, Itten) in RGB umgerechnet, Weiß/Schwarz danach beigemischt. Neue Malfarben in `PAINTS` eintragen.

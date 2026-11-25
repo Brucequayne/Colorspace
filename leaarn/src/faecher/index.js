@@ -12,6 +12,9 @@
 //   "mc"         { frage, optionen: [ … ], richtig: 0 }   Multiple Choice, richtig = Index der richtigen Option
 //   "wahrfalsch" { frage, richtig: true/false }           Aussage stimmt / stimmt nicht
 //   "farbe"      Farb-Spiel aus kunst.js (Farbe auf Farbe ziehen), richtig = Index der richtigen Option
+//   "vokabel"    Vokabeltest aus vokabeln.js (5 Wörter gleichzeitig, Punkte 0–2 je Wort + Synonym-Bonus), Thema mit setup: true
+//                (vor dem Start Themengebiet und Schwierigkeit wählen, opt = { kat, lvl } geht an erzeugen(R, opt) und wertung(scores, opt))
+// Stufe in der Themenliste: klasse 5–6 = Basics, 7–8 = Fortgeschritten, 9–10 = Experte; stufe: "alle" = für alle Stufen (Schwierigkeit im Spiel)
 // Eigene Belohnung je Thema: lohn: [{ ab: 5, euro: 100 }, { ab: 1, euro: 25 }, { ab: 0, euro: 5 }] (ab = mindestens so viele richtig)
 // Geplant: "zuordnen" (Paare), "lueckentext", "reihenfolge" und je Fach eigene Spiele (siehe spiele in den Fach-Dateien).
 // Noah liefert Themen als Text (Fach, Klasse, Inhalt) – Claude macht daraus Aufgaben in diesem Format.
@@ -48,9 +51,9 @@ export function belohnung(richtig, gesamt, th) {
   return 5;
 }
 // Aufgaben einer Runde
-export function runde(th, R) {
+export function runde(th, R, opt) {
   const n = th.anzahl || 10;
-  const list = typeof th.erzeugen === "function" ? th.erzeugen(R) : shuffle(th.aufgaben || [], R).slice(0, n);
+  const list = typeof th.erzeugen === "function" ? th.erzeugen(R, opt) : shuffle(th.aufgaben || [], R).slice(0, n);
   return list.slice(0, n).map((a) => Object.assign({ art: th.art || "eingabe" }, a));
 }
 // Antwort prüfen (Text: ohne Groß/Klein, Leerzeichen; Zahlen: Komma oder Punkt)

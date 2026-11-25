@@ -3,6 +3,19 @@
    Die Versionsnummer auf den Kacheln kommt aus dem obersten Eintrag. */
 window.PATCHNOTES = {
   leaarn: [
+    { v: "0.15", t: "2026-11-25T02:20:00+01:00",
+      de: ["Erstes Lernspiel in Englisch: Vokabeltest mit den 2500 häufigsten englischen Wörtern – Nomen, Verben, Adjektive, Adverbien und kleine Wörter. Zwei Modi: Deutsch → Englisch und Englisch → Deutsch.",
+        "Vor dem Start wählst du alle Wörter, eins von 13 Themengebieten (z. B. Alltag, Essen & Trinken, Technik, Politik) oder eine Wortart, dazu die Schwierigkeit Leicht, Mittel oder Schwer. Je schwerer, desto seltener die Wörter. Deine Wahl wird gemerkt.",
+        "Ein Durchgang hat 5 Wörter, alle gleichzeitig sichtbar. Jedes Wort bestätigst du einzeln mit Enter oder dem Haken daneben und siehst sofort die Lösung.",
+        "Richtig geschrieben = 2 Punkte, richtiges Wort mit kleinem Tippfehler = 1 Punkt. Synonyme zählen (Boden = floor oder ground, Farbe = color oder colour). Schreibst du ein zweites, anderes richtiges Wort mit Komma dahinter, gibt es bis zu 2 Bonuspunkte.",
+        "Belohnung: 0 Punkte = 5 €, 1–5 = 25 €, 6–9 = 75 €, 10 = 150 €, über 10 = 250 €. Auf Mittel gibt es 30 % mehr Geld, auf Schwer 60 % mehr.",
+        "In den Themenlisten stehen statt der Klassen jetzt Stufen: Basics (Klasse 5–6), Fortgeschritten (7–8) und Experte (9–10)."],
+      en: ["First English learning game: a vocabulary test with the 2,500 most common English words – nouns, verbs, adjectives, adverbs and small words. Two modes: German → English and English → German.",
+        "Before you start, pick all words, one of 13 topic areas (e.g. everyday life, food & drink, technology, politics) or a word type, plus the difficulty: easy, medium or hard. The harder, the rarer the words. Your choice is remembered.",
+        "A round has 5 words, all visible at once. You confirm each word on its own with Enter or the tick next to it and see the answer right away.",
+        "Correct spelling = 2 points, right word with a small typo = 1 point. Synonyms count (Boden = floor or ground, Farbe = color or colour). Write a second, different correct word after a comma for up to 2 bonus points.",
+        "Reward: 0 points = €5, 1–5 = €25, 6–9 = €75, 10 = €150, over 10 = €250. Medium pays 30 % more, hard 60 % more.",
+        "Topic lists now show levels instead of school years: Basics (years 5–6), Advanced (7–8) and Expert (9–10)."] },
     { v: "0.14", t: "2026-11-25T02:30:00+01:00",
       de: ["Laptop mit eigenem Menü links: Fächer, Statistiken, Schließen (weitere Punkte folgen). „Was lernst du heute?“ heißt jetzt „Fächer“.",
         "Vollbild-Knopf im Laptop: Der Bildschirm füllt das ganze Fenster, der Knopf merkt sich deine Wahl.",
