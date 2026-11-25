@@ -1,4 +1,4 @@
-// ===== faecher/index.js · Alle Schulfächer (Klasse 5–10, ohne Sport) und das gemeinsame Aufgabenformat =====
+// ===== faecher/index.js · Alle Schulfächer (Klasse 5–10) und das gemeinsame Aufgabenformat =====
 //
 // Ein Fach (eigene Datei faecher/<id>.js) exportiert:
 //   { id, name: L2(de, en), kurz, farbe, spiele: [geplante Spielarten], themen: [Thema, …] }
@@ -33,9 +33,10 @@ import religion from "le/faecher/religion.js";
 import kunst from "le/faecher/kunst.js";
 import musik from "le/faecher/musik.js";
 import informatik from "le/faecher/informatik.js";
+import sport from "le/faecher/sport.js";
 import { shuffle } from "le/faecher/werkzeug.js";
 
-export const FAECHER = [mathe, deutsch, englisch, fremdsprache, biologie, chemie, physik, geschichte, erdkunde, politik, wirtschaft, religion, kunst, musik, informatik];
+export const FAECHER = [mathe, deutsch, englisch, fremdsprache, biologie, chemie, physik, geschichte, erdkunde, politik, wirtschaft, religion, kunst, musik, informatik, sport];
 export const fach = (id) => FAECHER.find((f) => f.id === id) || null;
 export const spielbar = (th) => !th.geplant && (typeof th.erzeugen === "function" || (th.aufgaben && th.aufgaben.length > 0));
 export const fachAktiv = (f) => f.themen.some(spielbar);

@@ -129,6 +129,7 @@ export class Player {
     }
     m.legL.rotation.z = 0; m.legR.rotation.z = 0;
     this.phase += dt * (2.2 + this.speed * 1.55);
+    { const n = Math.floor((this.phase + 1.5708) / Math.PI); if (n !== this._sn) { this._sn = n; if (this.onStep && this.onGround && k > 0.25 && !this.frozen) this.onStep(this.speed); } }   // Fuß setzt auf (seit v0.20.1)
     const s = Math.sin(this.phase) * 0.62 * Math.min(1, k), air = this.onGround ? 0 : 1;
     m.legL.rotation.x = air ? -0.5 : s; m.legR.rotation.x = air ? 0.3 : -s;
     m.kneeL.rotation.x = air ? 0.7 : Math.max(0, s) * 0.9; m.kneeR.rotation.x = air ? 0.35 : Math.max(0, -s) * 0.9;   // Knie beugt sich, wenn das Bein hinten ist

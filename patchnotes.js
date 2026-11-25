@@ -3,6 +3,17 @@
    Die Versionsnummer auf den Kacheln kommt aus dem obersten Eintrag. */
 window.PATCHNOTES = {
   leaarn: [
+    { v: "0.20.1", t: "2026-11-25T23:56:00+01:00",
+      de: ["Flüssigkeiten (Wasser, Milch) werden jetzt getrunken statt gegessen: Hinweis, Meldung und Hilfetext sagen „trinken“.",
+        "Laptop, Fächer-Seite: große Kacheln, die die Fläche gleichmäßig ausfüllen (4 × 4). Neues Fach: Sport (Themen folgen).",
+        "Schrittgeräusche: Straße, Gehweg, Hausboden, Stein und Kies klingen hart, Gras und Wald weich, Erde dumpf und etwas tiefer. Sounds aus Shizuku.",
+        "Map-Editor: Steine und Felsen werden beim Pinseln zufällig gedreht (kleine Steine beliebig im Raum, große Brocken leicht gekippt).",
+        "Map-Editor: Vegetation lässt sich überall malen, auch auf Straßen und Grundstücken."],
+      en: ["Liquids (water, milk) are now drunk instead of eaten: prompt, message and help text say “drink”.",
+        "Laptop, subjects page: large tiles that fill the area evenly (4 × 4). New subject: Sports (topics to follow).",
+        "Footstep sounds: road, sidewalk, house floor, stone and gravel sound hard, grass and forest soft, dirt muffled and a little lower. Sounds from Shizuku.",
+        "Map editor: rocks and stones get random rotations when painted (small stones in any orientation, big boulders slightly tilted).",
+        "Map editor: vegetation can be painted anywhere, including on roads and plots."] },
     { v: "0.20", t: "2026-11-25T23:25:00+01:00",
       de: ["Neue Standardkarte „Hub“ von Noah mit Zuhause, Supermarkt und der Villa Sensei. Wer schon gespielt hat, bekommt sie beim nächsten Start einmal automatisch.",
         "Neues Haus: Villa Sensei (zwei Etagen, Balkon, Satteldach, Garten mit Hecke). Sie ist abgeschlossen: An der Tür kann man sie für 75.000 € kaufen oder für 900 € pro echtem Tag mieten.",

@@ -90,10 +90,13 @@ const CSS = `
 .le-bar .le-acc{font-weight:800;color:#fff;font-variant-numeric:tabular-nums}.le-bar button{padding:2px 10px;font-size:16px!important;background:transparent;border-color:#62929E}.le-sp{flex:1}
 .le-lbody{flex:1;overflow-y:auto;padding:16px 18px;scrollbar-width:thin}
 .le-lbody h2{margin:0 0 12px;font:700 20px var(--f-display,system-ui,sans-serif);color:#fff}.le-lbody h4{margin:16px 0 6px;color:#C6C5B9}
-.le-subj{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
-.le-subj button{display:grid;grid-template-columns:40px 1fr;grid-template-rows:auto auto;gap:0 10px;align-items:center;text-align:left;padding:9px 10px;background:#33403F;border-color:#4A5A5B}
-.le-subj i,.le-lhead i{grid-row:1/3;display:flex;align-items:center;justify-content:center;width:40px;height:40px;font:800 15px var(--f-display,system-ui,sans-serif);color:#1B1C1F}
-.le-subj b{font-size:14px}.le-subj small{color:#A9ACB2;font-weight:600}.le-subj .le-off{opacity:.5}.le-subj button:not(.le-off):hover{border-color:#ED6A5E}
+.le-lbody:has(>.le-subj){display:flex;flex-direction:column}
+.le-subj{flex:1;min-height:0;display:grid;grid-template-columns:repeat(4,1fr);grid-auto-rows:minmax(86px,1fr);gap:10px}
+.le-subj button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;text-align:center;padding:10px 8px;background:#33403F;border-color:#4A5A5B}
+.le-subj i,.le-lhead i{display:flex;align-items:center;justify-content:center;width:40px;height:40px;font:800 15px var(--f-display,system-ui,sans-serif);color:#1B1C1F}
+.le-subj button i{width:52px;height:52px;font-size:20px}
+@media (max-width:760px){.le-subj{grid-template-columns:repeat(2,1fr)}}
+.le-subj b{font-size:16px}.le-subj small{color:#A9ACB2;font-weight:600}.le-subj .le-off{opacity:.5}.le-subj button:not(.le-off):hover{border-color:#ED6A5E}
 .le-lhead{display:flex;align-items:center;gap:10px;margin-bottom:12px}.le-lhead h2{margin:0}.le-lhead i{width:34px;height:34px}.le-dim{color:#A9ACB2;font-size:12px}
 .le-topics{display:flex;flex-direction:column;gap:6px}
 .le-topic{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center;background:#33403F;border:1px solid #4A5A5B;padding:9px 12px}
@@ -313,7 +316,7 @@ const CSS = `
 .le-sicons{display:flex;gap:4px}.le-sicons i{font-style:normal;font-weight:800;width:20px;text-align:center}.le-sicons .le-ok{color:#7FC8D4}.le-sicons .le-no{color:#ED6A5E}.le-sdone .le-vp{text-align:right}
 @media (max-width:700px){.le-sfb{grid-template-columns:1fr}}
 .le-srow.le-slock b{color:#A9ACB2}.le-srow.le-slock button{opacity:.35}
-.le-subj button .le-bban{grid-column:1/-1;display:flex;justify-content:space-between;gap:6px;margin-top:7px;padding:3px 6px;background:#ED6A5E;color:#1B1C1F;font-size:11px;font-weight:800}
+.le-subj button{position:relative}.le-subj button .le-bban em{display:none}.le-subj button .le-bban{position:absolute;top:0;right:0;margin:0!important;padding:2px 7px!important;align-self:auto;display:flex;justify-content:space-between;gap:6px;margin-top:7px;padding:3px 6px;background:#ED6A5E;color:#1B1C1F;font-size:11px;font-weight:800}
 .le-subj button .le-bban{flex-wrap:wrap}.le-bban b,.le-bban em{white-space:nowrap}.le-bban b{font-size:11px!important}.le-bban em{font-style:normal;font-variant-numeric:tabular-nums}
 .le-bbar{display:flex;flex-wrap:wrap;justify-content:space-between;gap:4px 12px;margin:0 0 10px;padding:7px 10px;background:#ED6A5E;color:#1B1C1F;font-size:13px}
 .le-bbar em{font-style:normal;font-weight:800;font-variant-numeric:tabular-nums}

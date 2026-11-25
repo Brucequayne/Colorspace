@@ -106,7 +106,7 @@ auf Brücken rückt die Brüstung an die Gehweg-Außenkante (`face(q, Seite)`). 
 
 ## Fächer und Aufgaben
 
-Je Fach eine Datei in `src/faecher/` (Klasse 5–10, ohne Sport): mathe, deutsch, englisch, fremdsprache (Französisch/Latein/Spanisch),
+Je Fach eine Datei in `src/faecher/` (Klasse 5–10): mathe, deutsch, englisch, fremdsprache (Französisch/Latein/Spanisch),
 biologie, chemie, physik, geschichte, erdkunde, politik, wirtschaft, religion (Religion/Ethik), kunst, musik, informatik.
 
 ```js
@@ -200,6 +200,11 @@ Beim Start wird eine gespeicherte Szene nur übernommen, wenn ihre Kennung `std`
 (`app.ready`). Neue Karte: Datei ersetzen und `STD_MAP` hochzählen. Fertige Häuser mit `preis`/`miete` (haeuser.js, `villa`) sind abgeschlossen:
 besitz.js (`save.besitz`, `kaufen`, `mieten`, `abrechnen` je echtem Tag, Dialog `Makler`), play.js `inSide` (Innenseite der Tür = Seite mit Boden).
 Hunger: save.js `HUNGER` (60 Min. voll → leer, Aufwachen mit 25 %), `save.hunger`, Items mit `satt`, essen mit F (`take`), Ohnmacht `faintNow`, Bett `bed()`.
+
+## Schritte, Steine, freie Vegetation (seit v0.20.1)
+Schrittgeräusche: `src/schritt.js`, Dateien `leaarn/sounds/step_hart_1–7.mp3` und `step_gras_1–7.mp3` (aus Shizuku). Untergrund: Straße/Gehweg/Hausboden/Kies/Fels = hart, Erde = beide gemischt (Tiefpass 750 Hz, Tempo ×0,8), sonst Gras. Der Takt kommt aus der Beinanimation (`Player.onStep`).
+Vegetation: das `rot`-Feld codiert zusätzlich `2π · (frei + 2 · Steinlage)`: Steine werden zufällig gedreht (`ROTMAX`), `frei` = auf Straße/Grundstück gemalt, wird von `clearRoad` nicht entfernt. Format der Karten bleibt gleich.
+Trinken: Items mit `trink: 1` (Wasser, Milch). Sport: `faecher/sport.js`.
 
 ## Speicher im Browser
 

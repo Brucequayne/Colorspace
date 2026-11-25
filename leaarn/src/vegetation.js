@@ -26,6 +26,18 @@ export const TYPES = {
   boulder: { n: L2("Großer Felsbrocken", "Boulder"), sp: 3.2, shadow: true, sway: 0, col: 1.55 },
   cliff: { n: L2("Fels (größer als ein Auto)", "Rock (larger than a car)"), sp: 5.5, shadow: true, sway: 0, col: 2.9 }
 };
+// rot-Feld (seit v0.20.1, Format bleibt gleich): rot = Drehung (0–6,2) + 2π · code; code = frei (Bit 0) + 2 · Zufallszahl der Steinlage (0 = keine Kippung)
+// frei = mit dem Pinsel auf Straße oder Grundstück gemalt: wird beim Umbauen der Straße nicht mehr entfernt
+const TAU = Math.PI * 2, ROTMAX = { rock: 9, stonem: 9, stones: 9, pebbles: 9, boulder: 0.5, cliff: 0.45, slab: 0.2 };   // 9 = beliebig im Raum gedreht, sonst maximale Kippung (rad)
+const fr = (v) => v - Math.floor(v);
+function dec(rot) { const c = Math.floor((rot + 0.002) / TAU); return { yaw: rot - c * TAU, free: c & 1, seed: c >> 1 }; }
+const QY = new THREE.Quaternion(), QT = new THREE.Quaternion(), UP = new THREE.Vector3(0, 1, 0), AX = new THREE.Vector3();
+function orient(q, t, rot) {
+  const d = dec(rot), m = ROTMAX[t]; q.setFromAxisAngle(UP, d.yaw); if (!d.seed || !m) return q;
+  const a = fr(Math.sin(d.seed * 12.9898) * 43758.5453), b = fr(Math.sin(d.seed * 78.233) * 24634.6345), c = fr(Math.sin(d.seed * 37.719) * 31415.9265);
+  if (m >= 3) { const s1 = Math.sqrt(1 - a), s2 = Math.sqrt(a); return q.set(s1 * Math.sin(TAU * b), s1 * Math.cos(TAU * b), s2 * Math.sin(TAU * c), s2 * Math.cos(TAU * c)); }   // gleichverteilte Zufallsdrehung
+  AX.set(Math.cos(a * TAU), 0, Math.sin(a * TAU)); QT.setFromAxisAngle(AX, b * m); return q.premultiply(QT);
+}
 const BIG = 1.2;   // ab diesem Mindestabstand zählt ein Typ als groß
 const TILE = 64;   // Kachelgröße für Gras & Kleinkram (Sichtweite)
 export const DEFAULT_GROUPS = [
@@ -108,22 +120,25 @@ export class Vegetation {
     }
   }
   // Gilt der Platz? Gelände vorhanden, Hangneigung zwischen min und max, Abstand zur Straße
-  ok(g, x, z) {
+  ok(g, x, z, frei) {
     const w = this.world, T = w.terrain;
     if (!T.inside(x, z)) return false;
     const ny = T.normalAt(x, z).y; if (ny < Math.cos(g.slope * DEG) || ny > Math.cos((g.slopeMin || 0) * DEG) + 1e-6) return false;
-    if (w.roadDist(x, z) < 1.3 + g.road) return false;
-    if (w.onPlot && w.onPlot(x, z, 1)) return false;   // Leaarn: nicht in Häuser pflanzen
+    if (frei) return true;   // Pinsel (seit v0.20.1): Straße und Grundstück sind kein Hindernis mehr – frei malen
+    if (this.blocked(g, x, z)) return false;   // Zufallswald beim Erzeugen der Karte: nicht auf Straße und Grundstück
     return true;
   }
+  // Liegt der Punkt dort, wo früher nicht gepflanzt werden durfte (Straße mit Abstand, Grundstück)? Solche Pflanzen sind „frei“ und bleiben beim Straßenbau stehen
+  blocked(g, x, z) { const w = this.world; return w.roadDist(x, z) < 1.3 + g.road || !!(w.onPlot && w.onPlot(x, z, 1)); }
   // Pinseln: Anzahl aus Dichte (je 100 m²) × Fläche × Zeit
   paint(g, x, z, r, dt, R) {
     this.acc = (this.acc || 0) + g.dens / 100 * Math.PI * r * r * dt * 1.4;
     let n = Math.floor(this.acc); this.acc -= n; n = Math.min(n, 600);
     for (let i = 0; i < n; i++) {
       const a = R() * Math.PI * 2, d = Math.sqrt(R()) * r, px = x + Math.cos(a) * d, pz = z + Math.sin(a) * d, t = this.pick(g, R);
-      if (!t || !this.ok(g, px, pz) || !this.free(px, pz, TYPES[t].sp, g.sp == null ? 1 : g.sp)) continue;
-      this.add(t, px, pz, R() * Math.PI * 2, g.smin + R() * (g.smax - g.smin));
+      if (!t || !this.ok(g, px, pz, true) || !this.free(px, pz, TYPES[t].sp, g.sp == null ? 1 : g.sp)) continue;
+      const fre = this.blocked(g, px, pz) ? 1 : 0, seed = ROTMAX[t] ? 1 + Math.floor(R() * 900) : 0;   // Steine: zufällige Raumdrehung bzw. Kippung (seit v0.20.1)
+      this.add(t, px, pz, R() * 6.2 + TAU * (fre + 2 * seed), g.smin + R() * (g.smax - g.smin));
     }
   }
   add(t, x, z, rot, s) { const a = this.inst[t]; a.push(x, z, rot, s); this.addGrid(t, a.length - 4); this.dirty[t] = true; }
@@ -141,7 +156,7 @@ export class Vegetation {
     const w = this.world; let hit = false;
     Object.keys(this.inst).forEach((t) => {
       const a = this.inst[t], o = [];
-      for (let k = 0; k < a.length; k += 4) { if (w.roadDist(a[k], a[k + 1]) < 1.5 || (w.onPlot && w.onPlot(a[k], a[k + 1], 1))) continue; o.push(a[k], a[k + 1], a[k + 2], a[k + 3]); }
+      for (let k = 0; k < a.length; k += 4) { if (dec(a[k + 2]).free) { o.push(a[k], a[k + 1], a[k + 2], a[k + 3]); continue; } if (w.roadDist(a[k], a[k + 1]) < 1.5 || (w.onPlot && w.onPlot(a[k], a[k + 1], 1))) continue; o.push(a[k], a[k + 1], a[k + 2], a[k + 3]); }
       if (o.length !== a.length) { this.inst[t] = o; this.dirty[t] = true; hit = true; }
     });
     if (hit) this.rebuildGrid();
@@ -156,7 +171,7 @@ export class Vegetation {
     if (TYPES[t].sp < BIG) { this.buildTiles(t); return; }
     const m = new THREE.InstancedMesh(this.geoOf(t), this.matOf(t), n), T = this.world.terrain, mx = new THREE.Matrix4(), q = new THREE.Quaternion(), up = new THREE.Vector3(0, 1, 0), sc = new THREE.Vector3(), p = new THREE.Vector3();
     for (let i = 0; i < n; i++) {
-      const k = i * 4; q.setFromAxisAngle(up, a[k + 2]); sc.setScalar(a[k + 3]);
+      const k = i * 4; orient(q, t, a[k + 2]); sc.setScalar(a[k + 3]);
       p.set(a[k], T.heightAt(a[k], a[k + 1]) - 0.08 * a[k + 3], a[k + 1]); mx.compose(p, q, sc); m.setMatrixAt(i, mx);
     }
     m.castShadow = TYPES[t].shadow; m.receiveShadow = true; m.computeBoundingSphere();
@@ -169,7 +184,7 @@ export class Vegetation {
     const mx = new THREE.Matrix4(), q = new THREE.Quaternion(), up = new THREE.Vector3(0, 1, 0), sc = new THREE.Vector3(), p = new THREE.Vector3();
     B.forEach((l, key) => {
       const m = new THREE.InstancedMesh(this.geoOf(t), this.matOf(t), l.length), kk = key.split(",").map(Number);
-      l.forEach((k, i) => { q.setFromAxisAngle(up, a[k + 2]); sc.setScalar(a[k + 3]); p.set(a[k], T.heightAt(a[k], a[k + 1]) - 0.08 * a[k + 3], a[k + 1]); mx.compose(p, q, sc); m.setMatrixAt(i, mx); });
+      l.forEach((k, i) => { orient(q, t, a[k + 2]); sc.setScalar(a[k + 3]); p.set(a[k], T.heightAt(a[k], a[k + 1]) - 0.08 * a[k + 3], a[k + 1]); mx.compose(p, q, sc); m.setMatrixAt(i, mx); });
       m.castShadow = TYPES[t].shadow; m.receiveShadow = true; m.computeBoundingSphere(); m.userData.cx = (kk[0] + 0.5) * TILE; m.userData.cz = (kk[1] + 0.5) * TILE;
       this.group.add(m); out.push(m);
     });

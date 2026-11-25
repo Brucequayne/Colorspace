@@ -9,12 +9,13 @@ import { geld, euro, offen, einsammeln, charakter, fokus, setFokus, FOKUS, hunge
 import { Makler, kaufbar, frei, hausName, abrechnen, gemietet } from "le/besitz.js";
 import { Shop, LADEN } from "le/shop.js";
 import { kasse, tick } from "le/sound.js";
+import { laden, schritt, untergrund } from "le/schritt.js";
 import { LH } from "le/houses.js";
 import { LAGER, ITEMS, inv, sel, take } from "le/items.js";
 
 addTexts({
-  pHelp: L2("WASD/Pfeile laufen · Umschalt rennen · Leertaste springen · E benutzen · F essen · I Inventar · 1–9 Schnellauswahl · Maus ziehen dreht die Kamera · Rad zoomt · Esc Pause", "WASD/arrows walk · Shift run · Space jump · E use · F eat · I inventory · 1–9 hotbar · drag the mouse to turn the camera · wheel zooms · Esc pause"),
-  pHunger: L2("Hunger", "Hunger"), pEat: L2("{n} essen (+{p} %)", "Eat {n} (+{p} %)"), pAte: L2("{n} gegessen · Hunger {p} %", "Ate {n} · hunger {p} %"), pFull: L2("Du bist satt.", "You're full."),
+  pHelp: L2("WASD/Pfeile laufen · Umschalt rennen · Leertaste springen · E benutzen · F essen/trinken · I Inventar · 1–9 Schnellauswahl · Maus ziehen dreht die Kamera · Rad zoomt · Esc Pause", "WASD/arrows walk · Shift run · Space jump · E use · F eat/drink · I inventory · 1–9 hotbar · drag the mouse to turn the camera · wheel zooms · Esc pause"),
+  pHunger: L2("Hunger", "Hunger"), pEat: L2("{n} essen (+{p} %)", "Eat {n} (+{p} %)"), pAte: L2("{n} gegessen · Hunger {p} %", "Ate {n} · hunger {p} %"), pFull: L2("Du bist satt.", "You're full."), pDrink: L2("{n} trinken (+{p} %)", "Drink {n} (+{p} %)"), pDrank: L2("{n} getrunken · Hunger {p} %", "Drank {n} · hunger {p} %"), pFullD: L2("Du magst nichts mehr trinken.", "You can't drink any more."),
   pHungry: L2("Du hast Hunger! Iss etwas (Essen in die Schnellauswahl legen, dann F).", "You're hungry! Eat something (put food in the hotbar, then press F)."),
   pFaint: L2("Du bist vor Hunger ohnmächtig geworden …", "You fainted from hunger …"), pWake: L2("Du bist in deinem Bett aufgewacht. Iss etwas!", "You woke up in your bed. Eat something!"),
   pOpen: L2("Tür öffnen", "Open door"), pShut: L2("Tür schließen", "Close door"), pLearn: L2("Am Laptop lernen", "Learn on the laptop"), pMusic: L2("Ghettoblaster benutzen", "Use the boombox"),
@@ -27,7 +28,7 @@ addTexts({
 export class Play {
   constructor(app, opts) {
     this.app = app; this.world = app.world; this.opts = opts || {};
-    const ch = charakter(); this.pl = new Player(this.world, ch); this.world.sensor = this.pl.p;   // Automatiktüren reagieren auf den Spieler (seit v0.19.7)
+    const ch = charakter(); this.pl = new Player(this.world, ch); this.world.sensor = this.pl.p; laden(); this.pl.onStep = (v) => schritt(untergrund(this.world, this.pl.p, this.pl.g), v);   // Automatiktüren reagieren auf den Spieler (seit v0.19.7)
     this.cam = { yaw: 0, pitch: 0.36, dist: 5.2, inside: 0, pos: new THREE.Vector3(), look: new THREE.Vector3(), snap: true };
     this.act = null; this.learn = null; this.paused = false; this.btn = -1;
     this.hud = el("div", "le-hud", '<div class="le-money"><span>' + esc(ch && ch.name ? ch.name : "") + '</span><b id="le-money"></b></div><div class="le-gain" id="le-gain"></div><div class="le-prompt" id="le-prompt"></div><div class="le-focus" id="le-focus"><span>' + t("pFocus") + '</span><i><b id="le-fbar"></b></i><em id="le-fpct"></em></div><div class="le-hunger" id="le-hunger"><span>' + t("pHunger") + '</span><i><b id="le-hbar"></b></i><em id="le-hpct"></em></div><div class="le-where" id="le-where"></div><div class="le-help">' + t("pHelp") + "</div>");
@@ -209,7 +210,7 @@ export class Play {
       this.act = this.findAct();
       const pr = document.getElementById("le-prompt");
       const A = this.act ? this.act.a : null;
-      const it = this.food(), txt = this.seat ? "E  " + t("pStand") : A ? "E  " + (A.type === "kauf" ? t("bPrompt").replace("{n}", hausName(A.k)) : A.type === "tuer" ? t(A.door.want > 0.5 ? "pShut" : "pOpen") : A.type === "musik" ? t("pMusic") : A.type === "sitzen" ? t("pSit") : A.type === "lager" ? fmtN(t("pStore"), tl(LAGER[A.lager].n)) : A.type === "laden" ? fmtN(t("pShop"), tl((LADEN[A.laden] || LADEN.allg).n)) : t("pLearn")) : it ? "F  " + t("pEat").replace("{n}", tl(it.n)).replace("{p}", Math.round(it.satt * 100)) : "";
+      const it = this.food(), txt = this.seat ? "E  " + t("pStand") : A ? "E  " + (A.type === "kauf" ? t("bPrompt").replace("{n}", hausName(A.k)) : A.type === "tuer" ? t(A.door.want > 0.5 ? "pShut" : "pOpen") : A.type === "musik" ? t("pMusic") : A.type === "sitzen" ? t("pSit") : A.type === "lager" ? fmtN(t("pStore"), tl(LAGER[A.lager].n)) : A.type === "laden" ? fmtN(t("pShop"), tl((LADEN[A.laden] || LADEN.allg).n)) : t("pLearn")) : it ? "F  " + t(it.trink ? "pDrink" : "pEat").replace("{n}", tl(it.n)).replace("{p}", Math.round(it.satt * 100)) : "";
       if (pr && pr.textContent !== txt) { pr.textContent = txt; pr.style.display = txt ? "" : "none"; }
       const wh = document.getElementById("le-where"), home = this.world.home(), wt = p.house && p.house === home ? t("pHome") : "";
       if (wh && wh.textContent !== wt) wh.textContent = wt;
@@ -238,10 +239,10 @@ export class Play {
   food() { const s = inv()[sel()], it = s && ITEMS[s.id]; return it && it.satt ? it : null; }
   eat() {
     const it = this.food(); if (!it) return;
-    if (this.hu >= 0.995) { this.app.toast(t("pFull")); return; }
+    if (this.hu >= 0.995) { this.app.toast(t(it.trink ? "pFullD" : "pFull")); return; }
     if (!take(sel(), 1)) return;
     this.hu = Math.min(1, this.hu + it.satt); setHunger(this.hu); this.huUi(true); this.inv.draw(); tick(1);
-    this.app.toast(t("pAte").replace("{n}", tl(it.n)).replace("{p}", Math.ceil(this.hu * 100 - 1e-6)));
+    this.app.toast(t(it.trink ? "pDrank" : "pAte").replace("{n}", tl(it.n)).replace("{p}", Math.ceil(this.hu * 100 - 1e-6)));
   }
   // Ohnmacht: Bild wird schwarz, alles schließt, man wacht im Bett des Zuhauses sitzend auf (25 % Hunger)
   faintNow() {
