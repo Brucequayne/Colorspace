@@ -343,6 +343,37 @@ export const GLASS = new THREE.MeshLambertMaterial({ vertexColors: true, transpa
 // merge() aus models.js erwartet Teile ohne Normalen; vorbereitete Möbel-Netze haben schon Position + Farbe
 function mergeAny(arr) { return merge(arr.map((g) => { if (g.attributes.normal) g.deleteAttribute("normal"); return g; })); }
 
+// ---------- Zaun / Hecke ums Grundstück (seit v0.17, ausgelagert v0.18) ----------
+// Gibt { parts, plot, n } zurück: alte Zäune/Hecken entfernt, neue auf dem Grundstücksrand (Etage 0), Kanten mit Hauswand ausgelassen,
+// vor der ersten Tür 2 m Eingang frei. Ohne Grundstück: erst ums Haus +2 m. Benutzt vom Haus-Editor und für das Starterhaus (haeuser.js).
+export function gardenParts(def, id) {
+    const d = { parts: (def.parts || []).slice(), plot: (def.plot || []).map((c) => [c[0], c[1]]) }, PS = d.parts;
+    if (!(d.plot || []).length) { const b = buildHouse(d), R = [Math.floor(b.min[0]) - 2, Math.floor(b.min[1]) - 2, Math.ceil(b.max[0]) + 1, Math.ceil(b.max[1]) + 1]; d.plot = []; for (let x = R[0]; x <= R[2]; x++) for (let z = R[1]; z <= R[3]; z++) d.plot.push([x, z]); }
+    // Löcher im Grundstück auffüllen (einzelne fehlende Zellen innen), sonst wächst die Hecke um sie herum ins Haus
+    { const S = new Set(d.plot.map((c) => c[0] + "," + c[1])), xs = d.plot.map((c) => c[0]), zs = d.plot.map((c) => c[1]);
+      const x0 = Math.min(...xs) - 1, x1 = Math.max(...xs) + 1, z0 = Math.min(...zs) - 1, z1 = Math.max(...zs) + 1, out = new Set(), st = [[x0, z0]];
+      while (st.length) { const [x, z] = st.pop(), k = x + "," + z; if (x < x0 || x > x1 || z < z0 || z > z1 || out.has(k) || S.has(k)) continue; out.add(k); st.push([x + 1, z], [x - 1, z], [x, z + 1], [x, z - 1]); }
+      for (let x = x0; x <= x1; x++) for (let z = z0; z <= z1; z++) { const k = x + "," + z; if (!S.has(k) && !out.has(k)) d.plot.push([x, z]); } }
+    d.parts = PS.filter((p) => !(PARTS[p[0]] && (PARTS[p[0]].fence || PARTS[p[0]].hedge)));
+    const plot = new Set(d.plot.map((c) => c[0] + "," + c[1])), walls = new Set(), floors = new Set();
+    d.parts.forEach((p) => { const k = PARTS[p[0]]; if (!k || (p[4] | 0) !== 0) return; if (k.kind === "wall") walls.add(edgeKey(p[1], p[2], p[3], 0)); if (k.kind === "floor") floors.add(p[1] + "," + p[2]); });
+    const NB = [[0, -1], [1, 0], [0, 1], [-1, 0]], edges = [];
+    d.plot.forEach((c) => { for (let r = 0; r < 4; r++) { if (plot.has((c[0] + NB[r][0]) + "," + (c[1] + NB[r][1]))) continue; const k = edgeKey(c[0], c[1], r, 0); if (!walls.has(k)) edges.push([c[0], c[1], r]); } });
+    // Eingang: Haustür (erste Tür auf Etage 0) → nach außen zeigende Seite, dort die Randkante(n) direkt davor freilassen
+    const door = d.parts.find((p) => PARTS[p[0]] && PARTS[p[0]].door && (p[4] | 0) === 0);
+    let r0 = 2, cx = null;
+    if (door) { const inC = floors.has(door[1] + "," + door[2]); r0 = inC ? door[3] & 3 : (door[3] + 2) & 3; const E = [[0.5, 0], [1, 0.5], [0.5, 1], [0, 0.5]][door[3] & 3]; cx = [door[1] + E[0], door[2] + E[1]]; }
+    const side = edges.filter((e) => e[2] === r0);
+    if (side.length) {
+      if (!cx) { const xs = side.map((e) => (r0 & 1 ? e[1] : e[0])); const mid = (Math.min(...xs) + Math.max(...xs) + 1) / 2; cx = r0 & 1 ? [0, mid] : [mid, 0]; }
+      const lat = (e) => (r0 & 1 ? Math.abs(e[1] + 0.5 - cx[1]) : Math.abs(e[0] + 0.5 - cx[0])), dist = (e) => (r0 & 1 ? Math.abs(e[0] - cx[0]) : Math.abs(e[2] === 0 ? e[1] - cx[1] : e[1] + 1 - cx[1]));
+      const front = side.filter((e) => lat(e) < 1.6).sort((a, b) => dist(a) - dist(b) || lat(a) - lat(b));
+      const g1 = front[0]; if (g1) { const line = side.filter((e) => (r0 & 1 ? e[0] === g1[0] : e[1] === g1[1])).sort((a, b) => lat(a) - lat(b)); const gap = new Set(line.slice(0, 2).map((e) => e.join(","))); for (let i = edges.length - 1; i >= 0; i--) if (gap.has(edges[i].join(","))) edges.splice(i, 1); }
+    }
+    edges.forEach((e) => d.parts.push([id, e[0], e[1], e[2], 0]));
+    return { parts: d.parts, plot: d.plot, n: edges.length };
+  }
+
 // ---------- Haus in der Welt ----------
 // Eintrag in der Szene: { k: "starter" (fest) oder "lokal:<name>", d: Hausdaten (bei lokalen Häusern), x, z, y, a (Grad), home }
 export class HouseInst {
@@ -357,10 +388,12 @@ export class HouseInst {
   }
   place() { const e = this.e; this.root.position.set(e.x, e.y, e.z); this.root.rotation.y = -(e.a || 0) * Math.PI / 180; this.root.updateMatrixWorld(true); this.ca = Math.cos((e.a || 0) * Math.PI / 180); this.sa = Math.sin((e.a || 0) * Math.PI / 180); }
   // Welt → Haus-Raster (lokal) und zurück
-  toLocal(x, z) { const dx = x - this.e.x, dz = z - this.e.z; return { x: dx * this.ca - dz * this.sa + this.ox, z: dx * this.sa + dz * this.ca + this.oz }; }
-  toWorld(x, z) { const dx = x - this.ox, dz = z - this.oz; return { x: this.e.x + dx * this.ca + dz * this.sa, z: this.e.z - dx * this.sa + dz * this.ca }; }
-  dirToWorld(x, z) { return { x: x * this.ca + z * this.sa, z: -x * this.sa + z * this.ca }; }
-  dirToLocal(x, z) { return { x: x * this.ca - z * this.sa, z: x * this.sa + z * this.ca }; }
+  // passend zur Drehung des Modells (rotation.y = −a): Welt = (x·cos a − z·sin a, x·sin a + z·cos a). Bis v0.17 lief die Umrechnung andersherum,
+  // dadurch lagen Kollision, Türen und Möbel-Interaktionen bei gedrehten Häusern (außer 0°/180°) gespiegelt (Hotfix v0.18)
+  toLocal(x, z) { const dx = x - this.e.x, dz = z - this.e.z; return { x: dx * this.ca + dz * this.sa + this.ox, z: -dx * this.sa + dz * this.ca + this.oz }; }
+  toWorld(x, z) { const dx = x - this.ox, dz = z - this.oz; return { x: this.e.x + dx * this.ca - dz * this.sa, z: this.e.z + dx * this.sa + dz * this.ca }; }
+  dirToWorld(x, z) { return { x: x * this.ca - z * this.sa, z: x * this.sa + z * this.ca }; }
+  dirToLocal(x, z) { return { x: x * this.ca + z * this.sa, z: -x * this.sa + z * this.ca }; }
   // Bodenzelle unter (Welt-)Punkt auf Etage l?
   floorAt(x, z, l) { const p = this.toLocal(x, z); return this.b.cells.has(cellKey(Math.floor(p.x), Math.floor(p.z), l || 0)); }
   // auf dem Grundstück? (Pflanzen wachsen dort nicht)

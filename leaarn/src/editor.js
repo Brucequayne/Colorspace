@@ -54,8 +54,10 @@ addTexts({
   fName: L2("Streckenname", "Track name"), fExport: L2("Exportieren (.txt)", "Export (.txt)"), fImport: L2("Importieren (.txt)", "Import (.txt)"), fNew: L2("Neue leere Fläche", "New blank area"), fStd: L2("Standard-Teststrecke", "Standard test track"),
   fNote: L2("Die Map wird automatisch im Browser gespeichert. Für das Spiel: exportieren und mir die .txt schicken.", "The map is saved automatically in the browser. For the game: export and send me the .txt."),
   hsFix: L2("Fertige Häuser", "Finished houses"), hsLocal: L2("Aus dem Haus-Editor (lokal)", "From the house editor (local)"), hsNoLocal: L2("Noch keine – im Haus-Editor bauen.", "None yet – build some in the house editor."),
+  hsList: L2("Platzierte Häuser", "Placed houses"), hsMove: L2("Verschieben (M)", "Move (M)"), hsMoving: L2("Haus hängt an der Maus: Klick setzt es ab, Esc bricht ab.", "House follows the mouse: click to drop it, Esc cancels."),
+  hsGo: L2("Kamera hin", "Go to"), hsHomeTag: L2("Zuhause", "Home"),
   hsSel: L2("Gewähltes Haus", "Selected house"), hsRot: L2("Drehung", "Rotation"), hsY: L2("Höhe", "Height"), hsHome: L2("Zuhause (Spielstart)", "Home (game start)"), hsDel: L2("Haus löschen", "Delete house"), hsNone: L2("Kein Haus gewählt", "No house selected"),
-  hsHelp: L2("Klick ins Freie setzt das gewählte Haus (Gelände wird darunter geebnet, Pflanzen verschwinden). Klick auf ein Haus wählt es, Ziehen verschiebt es. R dreht um 15° (Umschalt: 90°), Entf löscht. Esc hebt die Auswahl auf.", "Click on free ground places the selected house (terrain is levelled, plants are removed). Click a house to select it, drag to move it. R rotates by 15° (Shift: 90°), Del deletes. Esc deselects."),
+  hsHelp: L2("Klick ins Freie setzt das gewählte Haus (Gelände wird darunter geebnet, Pflanzen verschwinden). Klick auf ein Haus (oder in der Liste) wählt es, Ziehen oder M verschiebt es. R dreht um 15° (Umschalt: 90°), Entf löscht. Esc hebt die Auswahl auf.", "Click on free ground places the selected house (terrain is levelled, plants are removed). Click a house (or pick it in the list) to select it, drag or press M to move it. R rotates by 15° (Shift: 90°), Del deletes. Esc deselects."),
   hsCount: L2("{n} Häuser in der Map", "{n} houses in the map"),
   fSure: L2("Aktuelle Szene verwerfen? (Rückgängig geht)", "Discard the current scene? (Undo works)"), fDone: L2("Exportiert: {f}", "Exported: {f}"), fBad: L2("Datei konnte nicht gelesen werden.", "The file could not be read."), fLoaded: L2("Geladen: {n}", "Loaded: {n}")
 });
@@ -166,8 +168,10 @@ export class Editor {
         "<h4>" + t("hsLocal") + "</h4>" + (Array.isArray(loc) && loc.length ? '<div class="le-groups">' + loc.map((d, i) => hb("lokal:" + i, d.name || "?")).join("") + "</div>" : '<p class="le-dim">' + t("hsNoLocal") + "</p>") +
         sl("ha", t("hsRot"), 0, 345, 15, s.ha, "°");
       const H = this.hsel;
+      // Liste der platzierten Häuser (seit v0.18): Klick wählt das Haus und fährt die Kamera hin
+      h += "<h4>" + t("hsList") + " (" + w.houses.length + ')</h4><div class="le-groups">' + w.houses.map((x, i) => '<button data-hs="' + i + '" aria-pressed="' + (x === H) + '">' + esc(x.def.name || x.e.k) + (x.e.home ? " · " + t("hsHomeTag") : "") + "</button>").join("") + "</div>";
       if (H) h += '<div class="le-box"><b>' + t("hsSel") + '</b> <span class="le-dim">' + esc(H.def.name || H.e.k) + "</span>" + sl("hrot", t("hsRot"), 0, 359, 1, Math.round(H.e.a || 0), "°") + sl("hy", t("hsY"), -50, 150, 0.05, H.e.y, " m") +
-        chk("hhome", t("hsHome"), !!H.e.home) + '<div class="le-btns"><button data-e="hdel">' + t("hsDel") + "</button></div></div>";
+        chk("hhome", t("hsHome"), !!H.e.home) + (this.hmove ? '<p class="le-good">' + t("hsMoving") + "</p>" : "") + '<div class="le-btns"><button data-e="hmove"' + (this.hmove ? ' aria-pressed="true"' : "") + ">" + t("hsMove") + '</button><button data-e="hgo">' + t("hsGo") + '</button><button data-e="hdel">' + t("hsDel") + "</button></div></div>";
       else h += '<p class="le-dim">' + t("hsNone") + "</p>";
       h += "<p>" + t("hsHelp") + "</p>";
     } else if (s.tool === "env") {
@@ -187,6 +191,7 @@ export class Editor {
   status(msg) { const e = this.root.querySelector("#le-st"); if (e) e.textContent = msg || ""; }
   click(e) {
     const tb = e.target.closest("[data-tool]"); if (tb) { this.setTool(tb.getAttribute("data-tool")); return; }
+    const hs = e.target.closest("[data-hs]"); if (hs) { const H = this.world.houses[+hs.getAttribute("data-hs")]; if (H) { if (this.hmove) this.moveCancel(); this.hsel = H; this.cam.x = H.e.x; this.cam.z = H.e.z; this.cam.dist = Math.min(this.cam.dist, 60); this.panel(); this.saveUI(); } return; }
     const hk = e.target.closest("[data-hk]"); if (hk) { this.s.hk = hk.getAttribute("data-hk"); this.hgk = ""; this.panel(); this.saveUI(); return; }
     const sg = e.target.closest("[data-seg]");
     if (sg) { const k = sg.getAttribute("data-seg"), v = sg.getAttribute("data-v"); this.s[k] = /^(layer|vg|rterr)$/.test(k) ? +v : v; if (k === "rmode") this.place = null; this.panel(); this.preview(); return; }
@@ -196,7 +201,9 @@ export class Editor {
     else if (a === "drive") { autosave(w, true); this.app.go("drive", { fromEditor: true }); }
     else if (a === "play") { autosave(w, true); this.app.go("play", { fromEditor: true }); }
     else if (a === "house") { autosave(w, true); this.app.go("house"); }
-    else if (a === "hdel" && this.hsel) { this.push(); w.removeHouse(this.hsel); this.hsel = null; w.housesChanged(); this.panel(); autosave(w); }
+    else if (a === "hmove" && this.hsel) { if (this.hmove) this.moveCancel(); else this.moveStart(); }
+    else if (a === "hgo" && this.hsel) { this.cam.x = this.hsel.e.x; this.cam.z = this.hsel.e.z; this.cam.dist = Math.min(this.cam.dist, 60); this.saveUI(); }
+    else if (a === "hdel" && this.hsel) { this.hmove = null; this.push(); w.removeHouse(this.hsel); this.hsel = null; w.housesChanged(); this.panel(); autosave(w); }
     else if (a === "menu") { autosave(w, true); this.app.go("menu"); }
     else if (/^py[+-]\d$/.test(a) && p) { this.push(); this.soft("y", +a.slice(2)); this.roadEdit(true); }
     else if (a === "snap" && p) { this.push(); p.y = w.terrain.heightAt(p.x, p.z, true) + 0.15; this.roadEdit(true); }
@@ -255,7 +262,7 @@ export class Editor {
   push() { this.undo.push(JSON.stringify(this.world.toJSON())); if (this.undo.length > 25) this.undo.shift(); this.redo = []; }
   doUndo() { if (!this.undo.length) return; this.redo.push(JSON.stringify(this.world.toJSON())); this.world.fromJSON(JSON.parse(this.undo.pop())); this.after(); }
   doRedo() { if (!this.redo.length) return; this.undo.push(JSON.stringify(this.world.toJSON())); this.world.fromJSON(JSON.parse(this.redo.pop())); this.after(); }
-  after() { this.hsel = null; this.hdrag = null; if (!this.rd()) this.selNone(); else if (this.sel >= this.rd().pts.length) this.sel = -1; this.rebuildHandles(); this.panel(); autosave(this.world); }
+  after() { this.hsel = null; this.hdrag = null; this.hmove = null; if (!this.rd()) this.selNone(); else if (this.sel >= this.rd().pts.length) this.sel = -1; this.rebuildHandles(); this.panel(); autosave(this.world); }
   // ---------- Straße ----------
   // Auswahl: Straße sr, Punkt sel. Im Platzier-Modus ist der gewählte Punkt der Anker, von dem aus gebaut wird.
   rd() { return this.world.roads[this.sr] || null; }
@@ -463,6 +470,7 @@ export class Editor {
       this.commitPlace(this.endAt(g), false); return;
     }
     if (s.tool === "house") {
+      if (this.hmove) { this.moveDrop(); return; }
       const g = this.groundHit(e.clientX, e.clientY); if (!g) return;
       const hit = w.houseAt(g.x, g.z, 0.5);
       if (hit) { this.hsel = hit; this.push(); this.hdrag = { h: hit, dx: hit.e.x - g.x, dz: hit.e.z - g.z, moved: false }; this.panel(); return; }
@@ -492,6 +500,10 @@ export class Editor {
       else { const g = this.groundHit(e.clientX, e.clientY); if (g) { p.x = g.x; p.z = g.z; } }
       this.roadEdit(false); this.panelPoint(); return;
     }
+    if (this.hmove && this.btn < 0) {   // Verschieben (seit v0.18): Haus folgt der Maus
+      const g = this.groundHit(e.clientX, e.clientY); if (g) { const H = this.hmove.h; H.e.x = g.x; H.e.z = g.z; H.e.y = this.world.terrain.heightAt(g.x, g.z, true); H.place(); this.hmove.moved = true; }
+      return;
+    }
     if (this.hdrag && this.btn === 0) {
       const g = this.groundHit(e.clientX, e.clientY); if (g) { const H = this.hdrag.h; H.e.x = g.x + this.hdrag.dx; H.e.z = g.z + this.hdrag.dz; H.e.y = this.world.terrain.heightAt(H.e.x, H.e.z, true); H.place(); this.hdrag.moved = true; }
       return;
@@ -519,13 +531,15 @@ export class Editor {
     if ((e.code === "KeyQ" || e.code === "KeyE") && !e.ctrlKey && !e.metaKey) return true;   // Kamera drehen (gehalten, siehe update)
     if ((e.code === "Delete" || e.code === "Backspace") && this.s.tool === "road") { this.delPoint(); return true; }
     if (this.s.tool === "house") {
-      if ((e.code === "Delete" || e.code === "Backspace") && this.hsel) { this.push(); this.world.removeHouse(this.hsel); this.hsel = null; this.world.housesChanged(); this.panel(); autosave(this.world); return true; }
+      if ((e.code === "Delete" || e.code === "Backspace") && this.hsel) { this.hmove = null; this.push(); this.world.removeHouse(this.hsel); this.hsel = null; this.world.housesChanged(); this.panel(); autosave(this.world); return true; }
       if (e.code === "KeyR") {
         const st = e.shiftKey ? 90 : 15;
         if (this.hsel) { this.push(); this.hsel.e.a = ((this.hsel.e.a || 0) + st) % 360; this.hsel.place(); this.world.housesChanged(); autosave(this.world); }
         else { this.s.ha = (this.s.ha + st) % 360; this.hgk = ""; }
         this.panel(); this.saveUI(); return true;
       }
+      if (e.code === "Escape" && this.hmove) { this.moveCancel(); return true; }
+      if (e.code === "KeyM" && this.hsel && !e.ctrlKey) { if (this.hmove) this.moveCancel(); else this.moveStart(); return true; }
       if (e.code === "Escape" && this.hsel) { this.hsel = null; this.panel(); return true; }
     }
     if (this.s.tool === "road" && (e.code === "KeyC" || e.code === "KeyV") && !e.ctrlKey && !e.metaKey) {
@@ -596,12 +610,26 @@ Editor.prototype.setGhost = function (def) {
   this.hghost.root.traverse((o) => { if (o.isMesh) { o.material = this.gmat; o.castShadow = false; } });
   this.eng.scene.add(this.hghost.root);
 };
+// Haus verschieben (seit v0.18): aufnehmen → folgt der Maus → Klick setzt ab (Gelände wird neu geebnet), Esc stellt es zurück
+Editor.prototype.moveStart = function () {
+  const H = this.hsel; if (!H) return; this.push();
+  this.hmove = { h: H, x: H.e.x, z: H.e.z, y: H.e.y, moved: false }; this.panel();
+};
+Editor.prototype.moveDrop = function () {
+  const M = this.hmove; if (!M) return; this.hmove = null;
+  if (M.moved) { this.world.housesChanged(); autosave(this.world); } else this.undo.pop();
+  this.panel();
+};
+Editor.prototype.moveCancel = function () {
+  const M = this.hmove; if (!M) return; this.hmove = null;
+  M.h.e.x = M.x; M.h.e.z = M.z; M.h.e.y = M.y; M.h.place(); this.undo.pop(); this.panel();
+};
 Editor.prototype.houseGhost = function () {
   const key = this.s.hk + "|" + this.s.ha;
   if (key !== this.hgk) { this.setGhost(this.houseDefSel()); this.hgk = key; }
   const G = this.hghost; if (!G) return;
   const g = this.btn < 0 ? this.groundHit(this.cx || 0, this.cy || 0) : null, over = g && this.world.houseAt(g.x, g.z, 0.5);
-  G.root.visible = !!g && !over;
+  G.root.visible = !!g && !over && !this.hmove;
   if (g && !over) { G.e.x = g.x; G.e.z = g.z; G.e.y = this.world.terrain.heightAt(g.x, g.z); G.e.a = this.s.ha; G.place(); }
 };
 function confirmLite(msg) { try { return window.confirm(msg); } catch (e) { return true; } }

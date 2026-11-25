@@ -3,6 +3,15 @@
    Die Versionsnummer auf den Kacheln kommt aus dem obersten Eintrag. */
 window.PATCHNOTES = {
   leaarn: [
+    { v: "0.18", t: "2026-11-25T03:45:00+01:00",
+      de: ["Hotfix: Gedrehte Häuser haben jetzt die richtige Kollision. Bisher lagen Wände, Möbel, Türen und E-Aktionen bei jedem Winkel außer 0° und 180° spiegelverkehrt zum sichtbaren Haus. Deshalb ließen sich gedrehte Häuser im Map-Editor auch schlecht anklicken.",
+        "Neues Starterhaus: mit Regal, Bett, Teppich und Stehlampe und einem 10 × 9 m großen Grundstück, rundherum eine Hecke mit Eingang vor der Haustür.",
+        "Map-Editor, Werkzeug Häuser: Neue Liste „Platzierte Häuser“, ein Klick wählt das Haus und fährt die Kamera hin. „Verschieben (M)“ hängt das gewählte Haus an die Maus, ein Klick setzt es ab, Esc bricht ab. Dazu „Kamera hin“ und „Haus löschen“ (oder Entf).",
+        "Haus-Editor: Die Zaun- und Hecken-Automatik füllt einzelne Lücken im Grundstück auf, damit keine Hecke ins Haus wächst."],
+      en: ["Hotfix: rotated houses now have correct collision. Until now walls, furniture, doors and E actions were mirrored against the visible house at any angle except 0° and 180°, which also made rotated houses hard to click in the map editor.",
+        "New starter house: with shelf, bed, rug and floor lamp and a 10 × 9 m plot with a hedge all around and an entrance in front of the door.",
+        "Map editor, houses tool: new “Placed houses” list, one click selects a house and moves the camera there. “Move (M)” attaches the selected house to the mouse, click to drop it, Esc cancels. Plus “Go to” and “Delete house” (or Del).",
+        "House editor: the fence/hedge automation fills single gaps in the plot so no hedge grows into the house."] },
     { v: "0.17", t: "2026-11-25T03:20:00+01:00",
       de: ["Neu: Fokus. Die Leiste oben links lädt sich, während du eine Lern-Challenge spielst – von leer auf voll in 5 Minuten. Nur das Laptop-Menü offen zu haben reicht nicht. Läufst du in der Welt herum, ohne zu lernen, sinkt der Fokus langsam: von voll auf leer in 10 Minuten.",
         "Voller Fokus lohnt sich: Ist die Leiste voll, bekommst du auf jedes abgeschlossene Lernspiel 15 % mehr Belohnung. Der Bonus steht auf dem Ergebnis-Bildschirm, im Laptop siehst du den Fokus oben in der Leiste.",

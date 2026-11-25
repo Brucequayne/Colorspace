@@ -62,6 +62,10 @@ Möbel-Lager (seit v0.16): Teile mit `act: "lager"` und `lager: "kleidung" | "re
 gespeichert in `leaarn-save-v1` → `lager[Schlüssel]`. Schlüssel = `home:<Bauteil-Nummer>` im Zuhause (bleibt beim Verschieben des Hauses), sonst `<k>@<x>,<z>:<Nummer>`.
 Erlaubte Arten in `LAGER` (items.js): Kleiderschrank nur `kind: "kleidung"`, Kühlschrank nur `kind: "essen"`, Regal alles. Muster-Gegenstände: `muetze`, `apfel` (noch nicht erhältlich).
 
+Drehung (Hotfix v0.18): Das Modell dreht mit `rotation.y = −a`, `toLocal`/`toWorld`/`dirToWorld`/`dirToLocal` rechnen passend dazu
+(Welt = x·cos a − z·sin a, x·sin a + z·cos a). Map-Editor: Häuser über die Liste „Platzierte Häuser“ wählen, `M` = Verschieben (`moveStart`/`moveDrop`/`moveCancel`).
+Starterhaus (v0.18): Noahs Export, Hecke per `gardenParts` (houses.js, auch vom Haus-Editor benutzt) beim Laden erzeugt.
+
 Map-Eintrag: `{ k: "starter" | "lokal", d: Hausdaten (nur lokal), x, z, y, a (Grad), home }`. `home` = Zuhause (Spielstart vor der ersten Tür).
 
 ## Straßen: Gehweg (seit v0.16)

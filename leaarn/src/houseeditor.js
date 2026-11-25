@@ -4,7 +4,7 @@
 // "Leaarn_Haus_<Name>.txt" exportiert. Lokale Häuser kann der Map-Editor sofort platzieren.
 import * as THREE from "three";
 import { t, addTexts, L2, tl, clamp, lerp, el, esc, fmt, store, KEYS } from "le/core.js";
-import { PARTS, CATS, buildHouse, edgeKey, cellKey, LH, partName, partAt } from "le/houses.js";
+import { PARTS, CATS, buildHouse, edgeKey, cellKey, LH, partName, partAt, gardenParts } from "le/houses.js";
 import { HOUSES } from "le/haeuser.js";
 
 addTexts({
@@ -150,28 +150,7 @@ export class HouseEditor {
   after2() { this.rebuild(); this.plotMesh(); this.save(); this.panel(); }
   // Zaun/Hecke automatisch auf den Grundstücksrand (Etage 0). Kanten mit Hauswand werden ausgelassen,
   // vor der Haustür bleibt ein 2 m breiter Eingang frei. Gibt die gebauten Meter zurück.
-  autoGarden(id) {
-    const d = this.def, PS = d.parts;
-    if (!(d.plot || []).length) { const b = buildHouse(d), R = [Math.floor(b.min[0]) - 2, Math.floor(b.min[1]) - 2, Math.ceil(b.max[0]) + 1, Math.ceil(b.max[1]) + 1]; d.plot = []; for (let x = R[0]; x <= R[2]; x++) for (let z = R[1]; z <= R[3]; z++) d.plot.push([x, z]); }
-    d.parts = PS.filter((p) => !(PARTS[p[0]] && (PARTS[p[0]].fence || PARTS[p[0]].hedge)));
-    const plot = new Set(d.plot.map((c) => c[0] + "," + c[1])), walls = new Set(), floors = new Set();
-    d.parts.forEach((p) => { const k = PARTS[p[0]]; if (!k || (p[4] | 0) !== 0) return; if (k.kind === "wall") walls.add(edgeKey(p[1], p[2], p[3], 0)); if (k.kind === "floor") floors.add(p[1] + "," + p[2]); });
-    const NB = [[0, -1], [1, 0], [0, 1], [-1, 0]], edges = [];
-    d.plot.forEach((c) => { for (let r = 0; r < 4; r++) { if (plot.has((c[0] + NB[r][0]) + "," + (c[1] + NB[r][1]))) continue; const k = edgeKey(c[0], c[1], r, 0); if (!walls.has(k)) edges.push([c[0], c[1], r]); } });
-    // Eingang: Haustür (erste Tür auf Etage 0) → nach außen zeigende Seite, dort die Randkante(n) direkt davor freilassen
-    const door = d.parts.find((p) => PARTS[p[0]] && PARTS[p[0]].door && (p[4] | 0) === 0);
-    let r0 = 2, cx = null;
-    if (door) { const inC = floors.has(door[1] + "," + door[2]); r0 = inC ? door[3] & 3 : (door[3] + 2) & 3; const E = [[0.5, 0], [1, 0.5], [0.5, 1], [0, 0.5]][door[3] & 3]; cx = [door[1] + E[0], door[2] + E[1]]; }
-    const side = edges.filter((e) => e[2] === r0);
-    if (side.length) {
-      if (!cx) { const xs = side.map((e) => (r0 & 1 ? e[1] : e[0])); const mid = (Math.min(...xs) + Math.max(...xs) + 1) / 2; cx = r0 & 1 ? [0, mid] : [mid, 0]; }
-      const lat = (e) => (r0 & 1 ? Math.abs(e[1] + 0.5 - cx[1]) : Math.abs(e[0] + 0.5 - cx[0])), dist = (e) => (r0 & 1 ? Math.abs(e[0] - cx[0]) : Math.abs(e[2] === 0 ? e[1] - cx[1] : e[1] + 1 - cx[1]));
-      const front = side.filter((e) => lat(e) < 1.6).sort((a, b) => dist(a) - dist(b) || lat(a) - lat(b));
-      const g1 = front[0]; if (g1) { const line = side.filter((e) => (r0 & 1 ? e[0] === g1[0] : e[1] === g1[1])).sort((a, b) => lat(a) - lat(b)); const gap = new Set(line.slice(0, 2).map((e) => e.join(","))); for (let i = edges.length - 1; i >= 0; i--) if (gap.has(edges[i].join(","))) edges.splice(i, 1); }
-    }
-    edges.forEach((e) => d.parts.push([id, e[0], e[1], e[2], 0]));
-    return edges.length;
-  }
+  autoGarden(id) { const r = gardenParts(this.def, id); this.def.parts = r.parts; this.def.plot = r.plot; return r.n; }
   setCat(c) { this.s.cat = c; this.s.bull = false; this.root.classList.remove("le-bullon"); if (c !== "plot" && (!PARTS[this.s.part] || PARTS[this.s.part].cat !== c)) this.s.part = Object.keys(PARTS).find((k) => PARTS[k].cat === c); this.panel(); this.saveUI(); this.gkey = ""; }
   after() { this.undo = []; this.redo = []; this.save(); this.rebuild(); this.panel(); this.saveUI(); }
   // ---------- Rückgängig ----------
