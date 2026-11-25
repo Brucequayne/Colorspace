@@ -7,7 +7,13 @@
 // Etage: Teile auf Etage 1 liegen auf den Wänden der Etage 0 (Decke/Dach). Wer im Haus steht, sieht alles darüber nicht.
 import * as THREE from "three";
 import { L2, tl, hash2 } from "le/core.js";
-import { part, merge, M } from "le/models.js";
+import { part as part0, merge, M } from "le/models.js";
+// Haus-Teile einfarbig (ohne Farbrauschen je Dreieck), damit Wände und Böden sauber wirken (seit v0.14)
+function part(geo, color, m, jit, seed) {
+  const g = part0(geo, color, m, jit, seed), c = new THREE.Color(color), a = g.attributes.color;
+  for (let i = 0; i < a.count; i++) a.setXYZ(i, c.r, c.g, c.b);
+  return g;
+}
 
 export const CELL = 1, LH = 2.8, FLOOR = 0.12, WT = 0.14;   // Zelle, Etagenhöhe, Bodendicke, Wanddicke
 
@@ -53,7 +59,8 @@ export const PARTS = {
   "kuehlschrank": { kind: "obj", cat: "obj", n: L2("Kühlschrank", "Fridge"), box: [0.6, 0.6] },
   "lampe": { kind: "obj", cat: "obj", n: L2("Stehlampe", "Floor lamp"), box: null },
   "pflanze": { kind: "obj", cat: "obj", n: L2("Zimmerpflanze", "House plant"), box: null },
-  "teppich": { kind: "obj", cat: "obj", n: L2("Teppich", "Rug"), box: null }
+  "teppich": { kind: "obj", cat: "obj", n: L2("Teppich", "Rug"), box: null },
+  "ghettoblaster": { kind: "obj", cat: "obj", n: L2("Ghettoblaster (Musik, E)", "Boombox (music, E)"), box: [0.66, 0.26], act: "musik" }
 };
 export const CATS = [["floor", L2("Böden", "Floors")], ["wall", L2("Wände", "Walls")], ["roof", L2("Dach", "Roof")], ["obj", L2("Möbel", "Furniture")]];
 export const partName = (id) => (PARTS[id] ? tl(PARTS[id].n) : id);
@@ -187,6 +194,15 @@ function objParts(id, seed) {
     Cy(0.16, 0.12, 0.32, 0, 0.16, 0, COL.koralle, 8);
     for (let k = 0; k < 7; k++) { const a = k / 7 * 6.28, l = 0.25 + hash2(k, 1, 7) * 0.2; P.push(part(new THREE.BoxGeometry(0.1, 0.02, l), COL.gruen, new THREE.Matrix4().makeTranslation(0, 0.36, 0).multiply(new THREE.Matrix4().makeRotationY(a)).multiply(new THREE.Matrix4().makeRotationX(-0.7)).multiply(new THREE.Matrix4().makeTranslation(0, 0, l / 2)), 0, seed + 60 + k)); }
     Cy(0.02, 0.02, 0.4, 0, 0.5, 0, shade(COL.gruen, 0.8), 5);
+  } else if (id === "ghettoblaster") {
+    // Gehäuse, zwei Lautsprecher, Kassettenfach, Tasten, Griff und Antenne (vorne = +z)
+    B(0.64, 0.34, 0.2, 0, 0.17, 0, "#2E3134"); B(0.6, 0.05, 0.19, 0, 0.36, 0, "#3B3F43");
+    const spk = (x) => { P.push(part(new THREE.CylinderGeometry(0.115, 0.115, 0.03, 14), "#C6C5B9", new THREE.Matrix4().makeTranslation(x, 0.16, 0.1).multiply(new THREE.Matrix4().makeRotationX(Math.PI / 2)), 0, seed + 70)); P.push(part(new THREE.CylinderGeometry(0.095, 0.095, 0.04, 14), "#1B1C1F", new THREE.Matrix4().makeTranslation(x, 0.16, 0.105).multiply(new THREE.Matrix4().makeRotationX(Math.PI / 2)), 0, seed + 71)); P.push(part(new THREE.CylinderGeometry(0.03, 0.03, 0.05, 8), "#5A5F63", new THREE.Matrix4().makeTranslation(x, 0.16, 0.11).multiply(new THREE.Matrix4().makeRotationX(Math.PI / 2)), 0, seed + 72)); };
+    spk(-0.19); spk(0.19);
+    B(0.14, 0.09, 0.02, 0, 0.19, 0.1, "#7FB4C4"); B(0.12, 0.05, 0.022, 0, 0.19, 0.101, "#475657");
+    for (let k = 0; k < 4; k++) B(0.025, 0.02, 0.03, -0.045 + k * 0.03, 0.29, 0.08, k === 0 ? COL.koralle : "#8E918F");
+    B(0.04, 0.12, 0.04, -0.2, 0.44, 0, "#5A5F63"); B(0.04, 0.12, 0.04, 0.2, 0.44, 0, "#5A5F63"); B(0.44, 0.03, 0.05, 0, 0.5, 0, "#5A5F63");
+    P.push(part(new THREE.CylinderGeometry(0.006, 0.008, 0.55, 5), "#B8B6AE", new THREE.Matrix4().makeTranslation(0.27, 0.6, -0.05).multiply(new THREE.Matrix4().makeRotationZ(-0.45)), 0, seed + 80));
   } else if (id === "teppich") {
     B(1.6, 0.012, 1.1, 0, 0.006, 0, COL.koralle); B(1.4, 0.014, 0.9, 0, 0.007, 0, shade(COL.koralle, 0.82));
   }
@@ -243,6 +259,14 @@ export function buildHouse(def, opts) {
   if (out.min[0] > out.max[0]) { out.min = [0, 0]; out.max = [1, 1]; }
   return out;
 }
+// Grundstück als Rechteck [x0, z0, x1, z1] (lokal): alle Grundstücks-Zellen + das Haus; ohne Grundstück: Haus + 2 m
+export function plotRect(def, b) {
+  const P = (def && def.plot) || [];
+  if (!P.length) return [b.min[0] - 2, b.min[1] - 2, b.max[0] + 2, b.max[1] + 2];
+  let x0 = b.min[0], z0 = b.min[1], x1 = b.max[0], z1 = b.max[1];
+  P.forEach((c) => { x0 = Math.min(x0, c[0]); z0 = Math.min(z0, c[1]); x1 = Math.max(x1, c[0] + 1); z1 = Math.max(z1, c[1] + 1); });
+  return [x0, z0, x1, z1];
+}
 // Welche Ecken (Vertex-Bereiche) zu welchem Bauteil gehören: [[erster Vertex, Bauteil-Nummer], …]
 function ranges(arr) { const r = []; let v = 0; arr.forEach((g) => { r.push([v, g.userData.pi == null ? -1 : g.userData.pi]); v += g.attributes.position.count; }); return r; }
 export function partAt(mesh, face) { const R = mesh.userData.ranges; if (!R) return -1; const v = face * 3; let pi = -1; for (const q of R) { if (q[0] <= v) pi = q[1]; else break; } return pi; }
@@ -259,6 +283,7 @@ export class HouseInst {
     // Mitte der Grundfläche = Drehpunkt
     this.ox = (this.b.min[0] + this.b.max[0]) / 2; this.oz = (this.b.min[1] + this.b.max[1]) / 2;
     this.hw = (this.b.max[0] - this.b.min[0]) / 2; this.hd = (this.b.max[1] - this.b.min[1]) / 2;
+    this.pr = plotRect(def, this.b);
     this.root = new THREE.Group(); this.inner = this.b.group; this.inner.position.set(-this.ox, 0, -this.oz); this.root.add(this.inner);
     this.place();
   }
@@ -270,13 +295,16 @@ export class HouseInst {
   dirToLocal(x, z) { return { x: x * this.ca - z * this.sa, z: x * this.sa + z * this.ca }; }
   // Bodenzelle unter (Welt-)Punkt auf Etage l?
   floorAt(x, z, l) { const p = this.toLocal(x, z); return this.b.cells.has(cellKey(Math.floor(p.x), Math.floor(p.z), l || 0)); }
+  // auf dem Grundstück? (Pflanzen wachsen dort nicht)
+  onPlot(x, z, m) { const p = this.toLocal(x, z), R = this.pr, r = m || 0; return p.x > R[0] - r && p.x < R[2] + r && p.z > R[1] - r && p.z < R[3] + r; }
   // überdachte Zelle (drinnen) auf Etage l?
   coveredAt(x, z, l) { const p = this.toLocal(x, z); return this.b.cover.has(cellKey(Math.floor(p.x), Math.floor(p.z), l || 0)); }
   // Grundfläche (+ Rand) enthält Punkt?
   contains(x, z, m) { const p = this.toLocal(x, z), r = m || 0; return p.x > this.b.min[0] - r && p.x < this.b.max[0] + r && p.z > this.b.min[1] - r && p.z < this.b.max[1] + r; }
   // Gelände-Einbettung: in der Grundfläche + 1,5 m flach auf Haushöhe, danach 7 m weicher Übergang
+  // seit v0.14: das ganze Grundstück (Rechteck um alle Grundstücks-Zellen und das Haus) + 0,5 m ist flach
   carve(x, z) {
-    const p = this.toLocal(x, z), dx = Math.max(this.b.min[0] - 1.5 - p.x, 0, p.x - this.b.max[0] - 1.5), dz = Math.max(this.b.min[1] - 1.5 - p.z, 0, p.z - this.b.max[1] - 1.5), d = Math.hypot(dx, dz);
+    const p = this.toLocal(x, z), R = this.pr, dx = Math.max(R[0] - 0.5 - p.x, 0, p.x - R[2] - 0.5), dz = Math.max(R[1] - 0.5 - p.z, 0, p.z - R[3] - 0.5), d = Math.hypot(dx, dz);
     if (d >= 7) return null; const k = d / 7; return { h: this.e.y - 0.04, w: 1 - k * k * (3 - 2 * k) };
   }
   // Etagen ab l+1 ausblenden (wer drin steht, sieht ins Haus)

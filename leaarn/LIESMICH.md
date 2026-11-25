@@ -21,6 +21,10 @@ Neue Module: in `MODULES` in `leaarn.js` eintragen.
 | `player.js` | Spielfigur: Low-Poly-Modell mit Lauf-Animation, Laufen/Rennen/Springen, Kollision, Kamera-Strahl gegen Wände (`camHit`) |
 | `play.js` | Spielen: Kamera (3rd Person, drinnen steiler über die Wände), Türen und Schreibtisch mit E, Geld-Anzeige, Pause |
 | `learn.js` | Lernmodus am Laptop: Fächer → Themen → Runde (10 Aufgaben) → Ergebnis mit Belohnung |
+| `stats.js` | Statistiken im Laptop (seit v0.14): Lernzeit/Geld je Tag (Woche/Monat, echtes Datum), Runden je Fach, meistgelerntes Fach; Daten aus `save.log` |
+| `items.js` | Gegenstände (`ITEMS`, Symbole als SVG), Inventar im Spielstand (`save.inv`, 36 Plätze: 0–8 Schnellauswahl), `give`, `move`, `has` |
+| `inventory.js` | Schnellauswahl (1–9) und Rucksack (I) mit Ziehen und Ablegen |
+| `musik.js` | Ghettoblaster: CDs (Gegenstände mit `kind: "cd"`, `src`) abspielen, Lautstärke nach Abstand |
 | `save.js` | Spielstand: Geld, Zwischenkonto (`offen`, seit v0.12), Lernstatistik je Fach/Thema |
 | `sound.js` | Kassen-Klingel beim Einsammeln (eigene Datei `leaarn/sounds/kasse.mp3` wird bevorzugt, sonst synthetisch), Münz-Tick |
 | `faecher/` | **ein Modul je Schulfach** (siehe unten), `index.js` = Liste, Aufgabenformat, Belohnung, Prüfen |
@@ -44,6 +48,8 @@ Ein Haus = Liste von Bauteilen auf einem 1-m-Raster, Etagen à 2,8 m:
 Ablauf: Noah baut im Haus-Editor, exportiert `Leaarn_Haus_<Name>.txt` und schickt sie. Claude trägt das Haus in `haeuser.js` ein
 (neuer Schlüssel in `HOUSES`), dann steht es im Map-Editor unter „Fertige Häuser“. Häuser aus der Browser-Liste des Haus-Editors
 lassen sich im Map-Editor schon vorher als „lokal“ platzieren – ihre Daten werden dann in die Map geschrieben.
+
+Grundstück (seit v0.14): `plot: [[x, z], …]` Zellen im Haus. Auf der Map wird das Rechteck um Grundstück + Haus (+0,5 m) flach gemacht (`plotRect`, `carve`), dort wachsen keine Pflanzen (`world.onPlot`). Ohne Grundstück: Haus + 2 m.
 
 Map-Eintrag: `{ k: "starter" | "lokal", d: Hausdaten (nur lokal), x, z, y, a (Grad), home }`. `home` = Zuhause (Spielstart vor der ersten Tür).
 

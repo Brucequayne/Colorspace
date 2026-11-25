@@ -3,6 +3,21 @@
    Die Versionsnummer auf den Kacheln kommt aus dem obersten Eintrag. */
 window.PATCHNOTES = {
   leaarn: [
+    { v: "0.14", t: "2026-11-25T02:30:00+01:00",
+      de: ["Laptop mit eigenem Menü links: Fächer, Statistiken, Schließen (weitere Punkte folgen). „Was lernst du heute?“ heißt jetzt „Fächer“.",
+        "Vollbild-Knopf im Laptop: Der Bildschirm füllt das ganze Fenster, der Knopf merkt sich deine Wahl.",
+        "Statistiken: Lernzeit und verdientes Geld je Tag als Säulendiagramme mit echtem Datum, umschaltbar zwischen Woche und Monat (mit Blättern). Dazu Runden je Fach als Balken und das Fach, in dem du am meisten gelernt hast (Std:Min). Zeiten werden ab diesem Update aufgezeichnet.",
+        "Hauswände, Böden und Dächer sind jetzt einfarbig sauber – keine sichtbaren Dreiecke mehr.",
+        "Haus-Editor: neuer Reiter „Grundstück“ (Taste 5). Grundstück per Rechteck ziehen, mit Umschalt oder Rechtsklick entfernen, oder automatisch ums Haus legen. Auf der Map wird das ganze Grundstück flach gemacht und bleibt frei von Pflanzen.",
+        "Neues Möbel: Ghettoblaster. Mit E öffnest du ihn und spielst CDs aus deinem Inventar ab. Musik gibt es in einem späteren Update als CDs im Supermarkt. Im Starterhaus steht schon einer.",
+        "Inventar mit Taste I, Schnellauswahl unten mit den Tasten 1–9. Gegenstände lassen sich per Ziehen und Ablegen zwischen Rucksack und Schnellauswahl verschieben (gleiche stapeln, sonst tauschen). Zum Start liegt dein Hausschlüssel in Platz 1."],
+      en: ["Laptop with its own menu on the left: subjects, statistics, close (more to come). “What are you learning today?” is now called “Subjects”.",
+        "Fullscreen button in the laptop: the screen fills the whole window, the button remembers your choice.",
+        "Statistics: learning time and money earned per day as column charts with the real date, switchable between week and month (with paging). Plus rounds per subject as bars and the subject you learned most (h:min). Times are recorded from this update on.",
+        "House walls, floors and roofs are now cleanly single-coloured – no more visible triangles.",
+        "House editor: new tab “Plot” (key 5). Drag rectangles to add, Shift or right click to remove, or place it around the house automatically. On the map the whole plot is levelled and kept free of plants.",
+        "New furniture: boombox. Press E to open it and play CDs from your inventory. Music will come as CDs at the supermarket in a later update. The starter house already has one.",
+        "Inventory with key I, hotbar at the bottom with keys 1–9. Drag and drop items between backpack and hotbar (same items stack, otherwise swap). You start with your house key in slot 1."] },
     { v: "0.13", t: "2026-11-25T01:30:00+01:00",
       de: ["Charakter-Editor: Beim ersten Spielstart wählst du Name, Alter und die Farben von Oberteil, Hose, Schuhen und Haaren (Vorschläge oder eigene Farbe). Später erreichbar über „Charakter“ im Hauptmenü. Dein Name steht über dem Kontostand.",
         "Haus-Editor: Bulldozer (Knopf oder Taste B) – das Teil unter der Maus wird rot markiert und per Klick abgerissen, Ziehen reißt mehrere ab.",

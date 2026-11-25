@@ -3,13 +3,15 @@ import * as THREE from "three";
 import { t, addTexts, L2, clamp, lerp, el, esc, store, KEYS, DEV_CODE, PR } from "le/core.js";
 import { Player, camHit } from "le/player.js";
 import { Learn } from "le/learn.js";
+import { Inventory } from "le/inventory.js";
+import { Musik } from "le/musik.js";
 import { geld, euro, offen, einsammeln, charakter } from "le/save.js";
 import { kasse, tick } from "le/sound.js";
 import { LH } from "le/houses.js";
 
 addTexts({
-  pHelp: L2("WASD/Pfeile laufen · Umschalt rennen · Leertaste springen · E benutzen · Maus ziehen dreht die Kamera · Rad zoomt · Esc Pause", "WASD/arrows walk · Shift run · Space jump · E use · drag the mouse to turn the camera · wheel zooms · Esc pause"),
-  pOpen: L2("Tür öffnen", "Open door"), pShut: L2("Tür schließen", "Close door"), pLearn: L2("Am Laptop lernen", "Learn on the laptop"),
+  pHelp: L2("WASD/Pfeile laufen · Umschalt rennen · Leertaste springen · E benutzen · I Inventar · 1–9 Schnellauswahl · Maus ziehen dreht die Kamera · Rad zoomt · Esc Pause", "WASD/arrows walk · Shift run · Space jump · E use · I inventory · 1–9 hotbar · drag the mouse to turn the camera · wheel zooms · Esc pause"),
+  pOpen: L2("Tür öffnen", "Open door"), pShut: L2("Tür schließen", "Close door"), pLearn: L2("Am Laptop lernen", "Learn on the laptop"), pMusic: L2("Ghettoblaster benutzen", "Use the boombox"),
   pHome: L2("Zuhause", "Home"), pPause: L2("Pause", "Paused"), pGo: L2("Weiter", "Continue"), pMenu: L2("Hauptmenü", "Main menu"), pEditor: L2("Zum Map-Editor", "To map editor"),
   pNoHome: L2("Kein Haus in der Map – im Map-Editor ein Haus setzen.", "No house in the map – place one in the map editor."), pEarned: L2("+{n}", "+{n}")
 });
@@ -22,6 +24,7 @@ export class Play {
     this.act = null; this.learn = null; this.paused = false; this.btn = -1;
     this.hud = el("div", "le-hud", '<div class="le-money"><span>' + esc(ch && ch.name ? ch.name : "") + '</span><b id="le-money"></b></div><div class="le-gain" id="le-gain"></div><div class="le-prompt" id="le-prompt"></div><div class="le-where" id="le-where"></div><div class="le-help">' + t("pHelp") + "</div>");
     app.ui.appendChild(this.hud); this.shown = geld(); this.money();
+    this.inv = new Inventory(app); this.musik = new Musik(app);
     this.spawn();
     const c = app.engine.renderer.domElement;
     this.onDown = (e) => { if (this.learn || this.paused) return; this.btn = e.button; this.last = [e.clientX, e.clientY]; const ae = document.activeElement; if (ae && ae.blur && ae !== document.body) ae.blur(); };
@@ -33,6 +36,7 @@ export class Play {
     c.addEventListener("wheel", this.onWheel, { passive: false }); c.addEventListener("contextmenu", this.onCtx);
   }
   dispose() {
+    this.inv.dispose(); this.musik.dispose();
     const c = this.app.engine.renderer.domElement;
     c.removeEventListener("pointerdown", this.onDown); window.removeEventListener("pointermove", this.onMove); window.removeEventListener("pointerup", this.onUp);
     c.removeEventListener("wheel", this.onWheel); c.removeEventListener("contextmenu", this.onCtx);
@@ -82,7 +86,7 @@ export class Play {
       if (!h.contains(p.x, p.z, 3)) continue;
       for (const a of h.b.acts) {
         if (a.l !== this.pl.level) continue;
-        const w = h.toWorld(a.x, a.z), d = Math.hypot(w.x - p.x, w.z - p.z), lim = a.type === "tuer" ? 1.5 : 1.05;
+        const w = h.toWorld(a.x, a.z), d = Math.hypot(w.x - p.x, w.z - p.z), lim = a.type === "tuer" ? 1.5 : a.type === "musik" ? 1.25 : 1.05;
         if (d < lim && d < bd) { bd = d; best = { a: a, h: h }; }
       }
     }
@@ -92,6 +96,7 @@ export class Play {
     const A = this.act; if (!A) return;
     if (A.a.type === "tuer") { const d = A.a.door; d.want = d.want > 0.5 ? 0 : 1; }
     else if (A.a.type === "lernen") this.openLearn(A);
+    else if (A.a.type === "musik") { const w = A.h.toWorld(A.a.cx, A.a.cz); this.musik.show({ x: w.x, z: w.z }); }
   }
   openLearn(A) {
     const a = A.a, h = A.h, w = h.toWorld(a.x, a.z), f = h.dirToWorld(a.fx, a.fz);
@@ -110,10 +115,14 @@ export class Play {
   }
   gain(n) { const g = document.getElementById("le-gain"); if (!g) return; g.textContent = "+" + euro(n); g.classList.remove("le-show"); void g.offsetWidth; g.classList.add("le-show"); }
   key(e) {
+    if (this.inv.open) { if (e.code === "KeyI" || e.code === "Escape") { this.inv.toggle(false); return true; } return false; }
+    if (this.musik.open && !this.learn) { if (e.code === "KeyE" || e.code === "Escape") { this.musik.hide(); return true; } return false; }
     if (this.learn) return this.learn.key(e);
     if (e.code === "Escape") { this.pause(!this.paused); return true; }
     if (this.paused) return false;
     if (e.code === "KeyE" && !e.repeat) { this.use(); return true; }
+    if (e.code === "KeyI" && !e.repeat) { this.inv.toggle(true); return true; }
+    if (/^Digit[1-9]$/.test(e.code)) { this.inv.select(+e.code.slice(5) - 1); return true; }
     if (/^(Space|ArrowUp|ArrowDown|ArrowLeft|ArrowRight)$/.test(e.code)) return true;
     return false;
   }
@@ -128,7 +137,8 @@ export class Play {
     const inp = this.app.input, c = this.cam, p = this.pl, pad = inp.poll();
     // Steuerung relativ zur Kamera
     let f = 0, s = 0, run = inp.k("ShiftLeft", "ShiftRight"), jump = false;
-    if (!this.paused && !this.learn) {
+    const busy = this.inv.open || this.musik.open;
+    if (!this.paused && !this.learn && !busy) {
       f = (inp.k("KeyW", "ArrowUp") ? 1 : 0) - (inp.k("KeyS", "ArrowDown") ? 1 : 0); s = (inp.k("KeyD", "ArrowRight") ? 1 : 0) - (inp.k("KeyA", "ArrowLeft") ? 1 : 0);
       jump = inp.k("Space");
       if (pad) {
@@ -148,11 +158,12 @@ export class Play {
     if (!this.learn && !this.paused) {
       this.act = this.findAct();
       const pr = document.getElementById("le-prompt");
-      const txt = this.act ? "E  " + (this.act.a.type === "tuer" ? t(this.act.a.door.want > 0.5 ? "pShut" : "pOpen") : t("pLearn")) : "";
+      const txt = this.act ? "E  " + (this.act.a.type === "tuer" ? t(this.act.a.door.want > 0.5 ? "pShut" : "pOpen") : this.act.a.type === "musik" ? t("pMusic") : t("pLearn")) : "";
       if (pr && pr.textContent !== txt) { pr.textContent = txt; pr.style.display = txt ? "" : "none"; }
       const wh = document.getElementById("le-where"), home = this.world.home(), wt = p.house && p.house === home ? t("pHome") : "";
       if (wh && wh.textContent !== wt) wh.textContent = wt;
     }
+    this.musik.update(this.pl.p);
     this.camera(dt);
   }
   camera(dt) {

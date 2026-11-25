@@ -13,10 +13,12 @@ for (let z = 0; z < 3; z++) { P.push(["wand-putz", 0, z, 3, 0]); P.push([z === 1
 P.push(["boden-platten", 1, 3, 0, 0], ["boden-platten", 2, 3, 0, 0]);
 for (let z = 0; z < 3; z++) { P.push(["dach-schiefer", 0, z, 1, 1, 0], ["dach-schiefer", 1, z, 1, 1, 1], ["dach-schiefer", 2, z, 3, 1, 1], ["dach-schiefer", 3, z, 3, 1, 0]); }
 [[0, 0, 0], [1, 1, 0], [2, 1, 1], [3, 0, 1]].forEach((g) => { P.push(["giebel-putz", g[0], 0, 0, 1, g[1], g[2]]); P.push(["giebel-putz", g[0], 2, 2, 1, g[1], 1 - g[2]]); });
-P.push(["schreibtisch", 2, 0, 0, 0], ["stuhl", 2, 1, 0, 0]);
+P.push(["schreibtisch", 2, 0, 0, 0], ["stuhl", 2, 1, 0, 0], ["ghettoblaster", 0, 1, 3, 0]);
+// Grundstück (seit v0.14): Zellen rund ums Haus, werden beim Platzieren auf der Map flach gemacht
+const PLOT = []; for (let x = -2; x <= 5; x++) for (let z = -2; z <= 6; z++) PLOT.push([x, z]);
 
 export const HOUSES = {
-  starter: { n: L2("Starterhaus", "Starter house"), d: { v: 1, name: "Starterhaus", parts: P } }
+  starter: { n: L2("Starterhaus", "Starter house"), d: { v: 1, name: "Starterhaus", parts: P, plot: PLOT } }
 };
 // Hausdaten zu einem Map-Eintrag
 export function houseDef(e) { if (e.d) return e.d; const h = HOUSES[e.k]; return h ? h.d : { v: 1, name: "?", parts: [] }; }

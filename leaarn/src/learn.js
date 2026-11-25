@@ -1,11 +1,12 @@
 // ===== learn.js · Lernmodus am Laptop: Fächer → Themen → 10 Aufgaben → Ergebnis mit Belohnung =====
-import { t, addTexts, L2, tl, el, esc, fmt, rng, PR } from "le/core.js";
+import { t, addTexts, L2, tl, el, esc, fmt, rng, PR, store, KEYS } from "le/core.js";
+import { Stats } from "le/stats.js";
 import { FAECHER, fach, spielbar, fachAktiv, belohnung, runde, pruefe, STANDARD_LOHN } from "le/faecher/index.js";
-import { addOffen, offen, einsammeln, addRunde, stat, euro } from "le/save.js";
+import { addOffen, offen, einsammeln, addRunde, stat, euro, save, persist } from "le/save.js";
 import { hsb, rgbHex, de2000, rating } from "le/faecher/farben.js";
 
 addTexts({
-  lHello: L2("Was lernst du heute?", "What are you learning today?"), lSoon: L2("bald", "soon"), lBack: L2("Zurück", "Back"), lClose: L2("Laptop zuklappen", "Close laptop"),
+  lHello: L2("Fächer", "Subjects"), nSubj: L2("Fächer", "Subjects"), nStats: L2("Statistiken", "Statistics"), nClose: L2("Schließen", "Close"), lFull: L2("Vollbild", "Fullscreen"), lWin: L2("Fenster", "Window"), lSoon: L2("bald", "soon"), lBack: L2("Zurück", "Back"), lClose: L2("Laptop zuklappen", "Close laptop"),
   lClass: L2("Klasse", "Grade"), lStart: L2("Starten", "Start"), lBest: L2("Bestes: {b}/{m} · {n}× gespielt", "Best: {b}/{m} · played {n}×"),
   cDrop: L2("Zieh eine Farbe auf die erste Farbe (oder klick sie an, Tasten 1–3)", "Drag a colour onto the first colour (or click it, keys 1–3)"),
   cDrop2: L2("Zieh das Ergebnis in das Feld mit dem Fragezeichen (oder klick es an, Tasten 1–3)", "Drag the result into the box with the question mark (or click it, keys 1–3)"),
@@ -30,14 +31,28 @@ addTexts({
 export class Learn {
   constructor(app, onClose, onCollect) {
     this.app = app; this.onClose = onClose; this.onCollect = onCollect; this.view = "home"; this.f = null; this.th = null; this.q = null;
-    this.root = el("div", "le-lap", '<div class="le-lapf"><div class="le-scr"><div class="le-bar"><b>LEAARN</b><span class="le-sp"></span><span class="le-pend" id="le-lpend"></span><button class="le-col" data-l="collect" id="le-lcol"></button><button data-l="close" title="Esc">×</button></div><div class="le-lbody" id="le-lbody"></div></div><div class="le-lbase"></div><div class="le-lhint">' + t("lEsc") + "</div></div>");
-    app.ui.appendChild(this.root);
+    this.root = el("div", "le-lap", '<div class="le-lapf"><div class="le-scr"><div class="le-bar"><b>LEAARN</b><span class="le-sp"></span><span class="le-pend" id="le-lpend"></span><button class="le-col" data-l="collect" id="le-lcol"></button><button class="le-fullb" data-l="full" id="le-lfull"></button><button data-l="close" title="Esc">×</button></div>' +
+      '<div class="le-lmain"><nav class="le-nav"><button data-nav="home">' + t("nSubj") + '</button><button data-nav="stats">' + t("nStats") + '</button><span class="le-sp"></span><button data-nav="close">' + t("nClose") + '</button></nav><div class="le-lbody" id="le-lbody"></div></div></div><div class="le-lbase"></div><div class="le-lhint">' + t("lEsc") + "</div></div>");
+    app.ui.appendChild(this.root); this.stats = new Stats();
+    this.full(!!(store.get(KEYS.ui, {}).lapFull));
     this.root.addEventListener("click", (e) => this.click(e));
     this.root.addEventListener("keydown", (e) => { if (e.target.id === "le-ans" && e.key === "Enter") { e.preventDefault(); this.submit(e.target.value); } });
     this.root.addEventListener("input", (e) => { if (e.target.hasAttribute("data-g")) this.gInput(); });
     this.render();
   }
   dispose() { clearTimeout(this.tm); clearInterval(this.gi); this.root.remove(); }
+  // Vollbild: der Bildschirm des Laptops füllt das ganze Fenster (Einstellung wird gemerkt)
+  full(on) {
+    this.isFull = on; this.root.classList.toggle("le-full", on);
+    const b = this.root.querySelector("#le-lfull"); if (b) { b.textContent = on ? "⤡ " + t("lWin") : "⤢ " + t("lFull"); b.setAttribute("aria-pressed", String(on)); }
+    const u = store.get(KEYS.ui, {}); u.lapFull = on; store.set(KEYS.ui, u);
+  }
+  // Menü links: Fächer / Statistiken / Schließen (läuft eine Runde, wird vorher nachgefragt)
+  nav(to) {
+    if (to === "close") { this.close(); return; }
+    if (this.view === "quiz" && this.q && this.q.res.length && !confirmLite(t("lQuit"))) return;
+    clearTimeout(this.tm); clearInterval(this.gi); this.view = to; this.render();
+  }
   // Zwischenkonto oben in der Leiste + Knopf „Belohnungen einsammeln“
   acc(pulse) {
     const a = this.root.querySelector("#le-lpend"), b = this.root.querySelector("#le-lcol"), n = offen(); if (!a) return;
@@ -52,6 +67,9 @@ export class Learn {
   }
   body(h) { this.root.querySelector("#le-lbody").innerHTML = h; this.acc(); }
   render() {
+    const sec = this.view === "stats" ? "stats" : "home";
+    this.root.querySelectorAll("[data-nav]").forEach((b) => b.setAttribute("aria-pressed", String(b.getAttribute("data-nav") === sec)));
+    if (this.view === "stats") { this.body(this.stats.html()); this.stats.bind(this.root); return; }
     if (this.view === "home") {
       this.body('<h2>' + t("lHello") + '</h2><div class="le-subj">' + FAECHER.map((f) => {
         const on = fachAktiv(f), nr = f.themen.filter(spielbar).length;
@@ -70,7 +88,7 @@ export class Learn {
   }
   start(th) {
     this.th = th; const R = rng((Date.now() ^ (Math.random() * 1e9)) >>> 0);
-    this.q = { list: runde(th, R), i: 0, res: [], lock: false, ph: "show" }; this.view = "quiz"; this.render();
+    this.q = { list: runde(th, R), i: 0, res: [], lock: false, ph: "show", t0: performance.now() }; this.view = "quiz"; this.render();
   }
   renderQ() {
     const q = this.q, a = q.list[q.i], n = q.list.length, f = this.f;
@@ -104,6 +122,9 @@ export class Learn {
     if (th.wertung) { q.w = th.wertung(q.res.map((x) => x.score)); r = q.w.summe; lohn = q.w.euro; }
     else { r = q.res.filter((x) => x.ok).length; lohn = belohnung(r, n, th); }
     addOffen(lohn); addRunde(this.f.id, th.id, r, th.wertung ? n * 10 : n, lohn); q.r = r; q.lohn = lohn;
+    // Lern-Protokoll für die Statistik: Zeitpunkt, Fach, Thema, Dauer (max. 30 Min. je Runde), Euro
+    const S = save(); S.log = S.log || []; S.log.push({ t: Date.now(), f: this.f.id, th: th.id, s: Math.round(Math.min(1800, (performance.now() - (q.t0 || performance.now())) / 1000)), e: lohn });
+    if (S.log.length > 6000) S.log.splice(0, S.log.length - 6000); persist();
     this.view = "done"; this.render(); this.acc(true);
   }
   // Knöpfe unter dem Ergebnis
@@ -242,12 +263,15 @@ export class Learn {
       '<div class="le-earn">' + t("lEarn") + " <b>+" + euro(q.lohn) + "</b> <small>" + t("pToPend") + '</small></div><p class="le-dim">' + t("gRules") + "</p>" + this.doneBtns() + "</div>");
   }
   click(e) {
+    const nv = e.target.closest("[data-nav]"); if (nv) { this.nav(nv.getAttribute("data-nav")); return; }
+    const st = e.target.closest("[data-st]"); if (st) { if (this.stats.click(st)) this.render(); return; }
     const fb = e.target.closest("[data-f]"); if (fb) { const f = fach(fb.getAttribute("data-f")); if (f) { this.f = f; this.view = "fach"; this.render(); } return; }
     const tb = e.target.closest("[data-t]"); if (tb) { const th = this.f.themen.find((x) => x.id === tb.getAttribute("data-t")); if (th) this.start(th); return; }
     const mc = e.target.closest("[data-mc]"); if (mc && this.view === "quiz") { const a = this.q.list[this.q.i]; this.submit(a.art === "wahrfalsch" ? mc.getAttribute("data-mc") === "1" : +mc.getAttribute("data-mc")); return; }
     const kb = e.target.closest("[data-k]"); if (kb) { this.padKey(kb.getAttribute("data-k")); return; }
     const b = e.target.closest("[data-l]"); if (!b) return; const a = b.getAttribute("data-l");
     if (a === "close") this.close();
+    else if (a === "full") this.full(!this.isFull);
     else if (a === "collect" || a === "collect2") this.collect(b);
     else if (a === "gsub") this.gSubmit();
     else if (a === "gnext") this.gNext();
@@ -267,7 +291,7 @@ export class Learn {
   }
   // Tasten (aus dem Spiel weitergereicht). true = verbraucht
   key(e) {
-    if (e.code === "Escape") { if (this.view === "fach") { this.view = "home"; this.render(); } else this.close(); return true; }
+    if (e.code === "Escape") { if (this.view === "stats") { this.view = "home"; this.render(); } else if (this.view === "fach") { this.view = "home"; this.render(); } else this.close(); return true; }
     if (this.view === "quiz") {
       const a = this.q.list[this.q.i];
       if (a.art === "guess") { if (e.code === "Enter" || e.code === "NumpadEnter") { if (this.q.ph === "mix") this.gSubmit(); else if (this.q.ph === "res") this.gNext(); return true; } return false; }

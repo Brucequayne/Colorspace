@@ -105,7 +105,7 @@ export class Vegetation {
     if (!T.inside(x, z)) return false;
     const ny = T.normalAt(x, z).y; if (ny < Math.cos(g.slope * DEG) || ny > Math.cos((g.slopeMin || 0) * DEG) + 1e-6) return false;
     if (w.roadDist(x, z) < 1.3 + g.road) return false;
-    if (w.inHouse && w.inHouse(x, z, 2)) return false;   // Leaarn: nicht in Häuser pflanzen
+    if (w.onPlot && w.onPlot(x, z, 1)) return false;   // Leaarn: nicht in Häuser pflanzen
     return true;
   }
   // Pinseln: Anzahl aus Dichte (je 100 m²) × Fläche × Zeit
@@ -133,7 +133,7 @@ export class Vegetation {
     const w = this.world; let hit = false;
     Object.keys(this.inst).forEach((t) => {
       const a = this.inst[t], o = [];
-      for (let k = 0; k < a.length; k += 4) { if (w.roadDist(a[k], a[k + 1]) < 1.5 || (w.inHouse && w.inHouse(a[k], a[k + 1], 2))) continue; o.push(a[k], a[k + 1], a[k + 2], a[k + 3]); }
+      for (let k = 0; k < a.length; k += 4) { if (w.roadDist(a[k], a[k + 1]) < 1.5 || (w.onPlot && w.onPlot(a[k], a[k + 1], 1))) continue; o.push(a[k], a[k + 1], a[k + 2], a[k + 3]); }
       if (o.length !== a.length) { this.inst[t] = o; this.dirty[t] = true; hit = true; }
     });
     if (hit) this.rebuildGrid();

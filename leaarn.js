@@ -21,11 +21,15 @@
     "car.js",         // Fahrzeug (aus Poly Racer, später: Auto kaufen)
     "drive.js",       // Auto-Test im Map-Editor
     "save.js",        // Spielstand: Geld, Zwischenkonto, Lernstatistik
+    "items.js",       // Gegenstände, Inventar-Daten
+    "inventory.js",   // Schnellauswahl 1–9, Rucksack (I), Ziehen und Ablegen
+    "musik.js",       // Ghettoblaster
     "sound.js",       // Kassen-Klingel, Münz-Tick
     "faecher/werkzeug.js", "faecher/farben.js", "faecher/mathe.js", "faecher/deutsch.js", "faecher/englisch.js", "faecher/fremdsprache.js", "faecher/biologie.js",
     "faecher/chemie.js", "faecher/physik.js", "faecher/geschichte.js", "faecher/erdkunde.js", "faecher/politik.js", "faecher/wirtschaft.js",
     "faecher/religion.js", "faecher/kunst.js", "faecher/musik.js", "faecher/informatik.js",
     "faecher/index.js", // alle Fächer, Aufgabenformat, Belohnung
+    "stats.js",       // Statistiken im Laptop
     "learn.js",       // Lernmodus am Laptop
     "player.js",      // Spielfigur: Modell, Laufen, Kollision
     "play.js",        // Spielen: Hub, Kamera, Türen, Schreibtisch

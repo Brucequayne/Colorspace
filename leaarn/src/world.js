@@ -32,6 +32,7 @@ export class World {
   setHouses(list) { this.houses.slice().forEach((h) => this.removeHouse(h)); (list || []).forEach((e) => this.addHouse(Object.assign({}, e))); }
   houseAt(x, z, m) { for (const h of this.houses) if (h.contains(x, z, m || 0)) return h; return null; }
   inHouse(x, z, m) { return !!this.houseAt(x, z, m); }
+  onPlot(x, z, m) { for (const h of this.houses) if (h.onPlot(x, z, m || 0)) return true; return false; }
   home() { return this.houses.find((h) => h.e.home) || this.houses[0] || null; }
   // nach Verschieben/Setzen: Gelände darunter ebnen, Pflanzen im Haus entfernen
   housesChanged() { this.terrain.recalc(); this.terrain.rebuild(); this.veg.clearRoad(); this.veg.refresh(true); }

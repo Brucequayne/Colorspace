@@ -16,7 +16,9 @@ addTexts({
   hInfo: L2("{n} Bauteile · Grundfläche {w} × {d} m · {l} Etage(n)", "{n} parts · footprint {w} × {d} m · {l} floor(s)"),
   hHelp: L2("Linke Maus setzt (Ziehen malt), Rechtsklick oder Umschalt+Links entfernt. Wände: die Kante unter der Maus wird gewählt. R dreht (Giebel: spiegeln). Bild↑/↓ Etage, ,/. Dachstufe, 1–4 Kategorie, Strg+Z/Y.", "Left mouse places (drag paints), right click or Shift+left removes. Walls: the edge under the mouse is used. R rotates (gable: mirror). PgUp/PgDn floor, ,/. roof step, 1–4 category, Ctrl+Z/Y."),
   hCam: L2("Kamera: Q/E halten oder rechte Maus ziehen drehen · mittlere Maus oder Umschalt+rechte verschieben · Rad zoomen · WASD bewegen", "Camera: hold Q/E or right drag rotate · middle mouse or Shift+right pan · wheel zoom · WASD move"),
-  hBull: L2("Bulldozer", "Bulldozer"), hBullOn: L2("Bulldozer: angeklicktes Teil wird abgerissen (Ziehen reißt mehrere ab) · B oder Esc zum Bauen", "Bulldozer: the clicked part is demolished (drag to demolish several) · B or Esc to build"),
+  hBull: L2("Bulldozer", "Bulldozer"), hPlot: L2("Grundstück", "Plot"),
+  hPlotHelp: L2("Linke Maus ziehen: Rechteck zum Grundstück hinzufügen · Umschalt+Ziehen oder Rechtsklick: entfernen. Auf der Map wird das ganze Grundstück flach gemacht, dort wachsen keine Pflanzen.", "Left drag: add a rectangle to the plot · Shift+drag or right click: remove. On the map the whole plot is levelled and no plants grow there."),
+  hPlotAuto: L2("Grundstück ums Haus (+2 m)", "Plot around the house (+2 m)"), hPlotClear: L2("Grundstück löschen", "Clear plot"), hPlotSize: L2("{n} m² Grundstück", "{n} m² plot"), hBullOn: L2("Bulldozer: angeklicktes Teil wird abgerissen (Ziehen reißt mehrere ab) · B oder Esc zum Bauen", "Bulldozer: the clicked part is demolished (drag to demolish several) · B or Esc to build"),
   hNote: L2("Für das Spiel: exportieren und mir die .txt schicken – ich mache daraus ein fertiges Haus für den Map-Editor. Häuser aus dieser Liste kannst du im Map-Editor (Werkzeug Häuser) schon jetzt als „lokal“ platzieren und testen.", "For the game: export and send me the .txt – I turn it into a finished house for the map editor. Houses from this list can already be placed in the map editor (houses tool) as “local” for testing."),
   hDone: L2("Exportiert: {f}", "Exported: {f}"), hBad: L2("Datei konnte nicht gelesen werden.", "The file could not be read."), hLoaded: L2("Geladen: {n}", "Loaded: {n}"),
   hRot: L2("Drehung", "Rotation"), hMirror: L2("gespiegelt", "mirrored"), hPart: L2("Bauteil", "Part")
@@ -85,8 +87,9 @@ export class HouseEditor {
   panel() {
     const s = this.s, d = this.def, P = this.root.querySelector("#le-panel"), L = this.root.querySelector("#le-hparts");
     const seg = (k, opts, cur) => '<div class="le-seg">' + opts.map((o) => '<button data-seg="' + k + '" data-v="' + o[0] + '" aria-pressed="' + (String(cur) === String(o[0])) + '">' + o[1] + "</button>").join("") + "</div>";
-    L.innerHTML = '<button class="le-bull" data-e="bull" aria-pressed="' + !!s.bull + '"><i>B</i>' + t("hBull") + "</button>" + '<div class="le-seg le-cats">' + CATS.map((c, i) => '<button data-cat="' + c[0] + '" aria-pressed="' + (s.cat === c[0]) + '"><i>' + (i + 1) + "</i>" + tl(c[1]) + "</button>").join("") + "</div>" +
-      '<div class="le-plist">' + Object.keys(PARTS).filter((k) => PARTS[k].cat === s.cat).map((k) => '<button data-part="' + k + '" aria-pressed="' + (s.part === k) + '"><i style="background:' + swatch(k) + '"></i>' + partName(k) + "</button>").join("") + "</div>";
+    L.innerHTML = '<button class="le-bull" data-e="bull" aria-pressed="' + !!s.bull + '"><i>B</i>' + t("hBull") + "</button>" + '<div class="le-seg le-cats">' + CATS.map((c, i) => '<button data-cat="' + c[0] + '" aria-pressed="' + (s.cat === c[0]) + '"><i>' + (i + 1) + "</i>" + tl(c[1]) + "</button>").join("") + '<button data-cat="plot" class="le-plotb" aria-pressed="' + (s.cat === "plot") + '"><i>5</i>' + t("hPlot") + "</button></div>" +
+      (s.cat === "plot" ? '<div class="le-plist le-plotp"><p>' + t("hPlotHelp") + '</p><p class="le-dim">' + fmt(t("hPlotSize"), { n: (this.def.plot || []).length }) + '</p><button data-e="plotauto">' + t("hPlotAuto") + '</button><button data-e="plotclear">' + t("hPlotClear") + "</button></div>" :
+      '<div class="le-plist">' + Object.keys(PARTS).filter((k) => PARTS[k].cat === s.cat).map((k) => '<button data-part="' + k + '" aria-pressed="' + (s.part === k) + '"><i style="background:' + swatch(k) + '"></i>' + partName(k) + "</button>").join("") + "</div>");
     const b = this.bounds(), lv = new Set(d.parts.map((p) => p[4] | 0));
     let h = "<h3>" + t("hTitle") + '</h3><label class="le-row"><span>' + t("hName") + '</span><input type="text" data-k="name" value="' + esc(d.name || "") + '"></label>' +
       '<div class="le-row"><span>' + t("hLevel") + "</span></div>" + seg("lv", [[0, "0"], [1, "1"], [2, "2"], [3, "3"]], s.lv) +
@@ -114,13 +117,15 @@ export class HouseEditor {
     const sg = e.target.closest("[data-seg]"); if (sg) { this.s[sg.getAttribute("data-seg")] = +sg.getAttribute("data-v"); this.rebuild(); this.panel(); this.saveUI(); return; }
     const b = e.target.closest("[data-e]"); if (!b) return; const a = b.getAttribute("data-e");
     if (a === "bull") { this.setBull(!this.s.bull); return; }
+    if (a === "plotclear") { this.push(); this.def.plot = []; this.plotMesh(); this.save(); this.panel(); return; }
+    if (a === "plotauto") { const b = buildHouse(this.def); this.push(); this.def.plot = []; this.plotApply([Math.floor(b.min[0]) - 2, Math.floor(b.min[1]) - 2, Math.ceil(b.max[0]) + 1, Math.ceil(b.max[1]) + 1], false); return; }
     if (a === "undo") this.doUndo(); else if (a === "redo") this.doRedo();
     else if (a === "menu") this.app.go("menu");
     else if (a === "map") this.app.go("editor");
     else if (a === "new") { this.list.push(DEF_HOUSE()); this.s.cur = this.list.length - 1; this.after(); }
     else if (a === "copy") { const c = JSON.parse(JSON.stringify(this.def)); c.name = (c.name || "Haus") + " 2"; this.list.push(c); this.s.cur = this.list.length - 1; this.after(); }
     else if (a === "del") { if (!confirmLite(t("hSure"))) return; this.list.splice(this.s.cur, 1); if (!this.list.length) this.list.push(DEF_HOUSE()); this.s.cur = Math.min(this.s.cur, this.list.length - 1); this.after(); }
-    else if (a === "starter") { this.push(); this.def.parts = JSON.parse(JSON.stringify(HOUSES.starter.d.parts)); this.after(); }
+    else if (a === "starter") { this.push(); this.def.parts = JSON.parse(JSON.stringify(HOUSES.starter.d.parts)); this.def.plot = JSON.parse(JSON.stringify(HOUSES.starter.d.plot || [])); this.after(); }
     else if (a === "export") { const f = exportHouse(this.def); this.app.toast(fmt(t("hDone"), { f: f })); }
     else if (a === "import") this.root.querySelector("#le-hfile").click();
   }
@@ -136,24 +141,47 @@ export class HouseEditor {
       f.text().then((txt) => { const d = parseHouse(txt); if (!d) { this.app.toast(t("hBad")); return; } this.list.push(d); this.s.cur = this.list.length - 1; this.after(); this.app.toast(fmt(t("hLoaded"), { n: d.name })); });
     }
   }
-  setCat(c) { this.s.cat = c; this.s.bull = false; this.root.classList.remove("le-bullon"); if (!PARTS[this.s.part] || PARTS[this.s.part].cat !== c) this.s.part = Object.keys(PARTS).find((k) => PARTS[k].cat === c); this.panel(); this.saveUI(); this.gkey = ""; }
+  setCat(c) { this.s.cat = c; this.s.bull = false; this.root.classList.remove("le-bullon"); if (c !== "plot" && (!PARTS[this.s.part] || PARTS[this.s.part].cat !== c)) this.s.part = Object.keys(PARTS).find((k) => PARTS[k].cat === c); this.panel(); this.saveUI(); this.gkey = ""; }
   after() { this.undo = []; this.redo = []; this.save(); this.rebuild(); this.panel(); this.saveUI(); }
   // ---------- Rückgängig ----------
-  push() { this.undo.push(JSON.stringify(this.def.parts)); if (this.undo.length > 60) this.undo.shift(); this.redo = []; }
-  doUndo() { if (!this.undo.length) return; this.redo.push(JSON.stringify(this.def.parts)); this.def.parts = JSON.parse(this.undo.pop()); this.save(); this.rebuild(); this.panel(); }
-  doRedo() { if (!this.redo.length) return; this.undo.push(JSON.stringify(this.def.parts)); this.def.parts = JSON.parse(this.redo.pop()); this.save(); this.rebuild(); this.panel(); }
+  snap() { return JSON.stringify({ p: this.def.parts, pl: this.def.plot || [] }); }
+  unsnap(j) { const o = JSON.parse(j); this.def.parts = o.p; this.def.plot = o.pl; }
+  push() { this.undo.push(this.snap()); if (this.undo.length > 60) this.undo.shift(); this.redo = []; }
+  doUndo() { if (!this.undo.length) return; this.redo.push(this.snap()); this.unsnap(this.undo.pop()); this.save(); this.rebuild(); this.panel(); }
+  doRedo() { if (!this.redo.length) return; this.undo.push(this.snap()); this.unsnap(this.redo.pop()); this.save(); this.rebuild(); this.panel(); }
   // ---------- Haus neu bauen ----------
   rebuild() {
     while (this.houseG.children.length) { const c = this.houseG.children.pop(); c.traverse((o) => { if (o.geometry) o.geometry.dispose(); }); }
     const b = buildHouse(this.def); this.houseG.add(b.group);
     Object.keys(b.levels).forEach((l) => { b.levels[l].visible = this.s.above || +l <= this.s.lv; });
     b.doors.forEach((d) => { d.pivot.visible = this.s.above || d.l <= this.s.lv; });
+    this.plotMesh();
+  }
+  // Grundstück als halb durchsichtige Fläche am Boden (+ Rand), Vorschau-Rechteck beim Ziehen
+  plotMesh(prev) {
+    if (!this.plotG) { this.plotG = new THREE.Group(); this.stage.add(this.plotG); }
+    while (this.plotG.children.length) { const c = this.plotG.children.pop(); c.geometry.dispose(); }
+    const cells = (this.def.plot || []).map((c) => [c[0], c[1]]), on = this.s.cat === "plot";
+    const add = (list, col, op, y) => {
+      if (!list.length) return; const P = [];
+      list.forEach((c) => { const x = c[0], z = c[1]; P.push(x, y, z, x, y, z + 1, x + 1, y, z, x + 1, y, z, x, y, z + 1, x + 1, y, z + 1); });
+      const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.Float32BufferAttribute(P, 3));
+      const m = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: op, depthWrite: false, side: THREE.DoubleSide })); m.renderOrder = 3; this.plotG.add(m);
+    };
+    add(cells, 0x62929E, on ? 0.45 : 0.22, 0.012);
+    if (prev) { const L = []; for (let x = prev[0]; x <= prev[2]; x++) for (let z = prev[1]; z <= prev[3]; z++) L.push([x, z]); add(L, prev[4] ? 0xED6A5E : 0xC6C5B9, 0.5, 0.02); }
+  }
+  plotRect(a, b) { return [Math.min(a.x, b.x), Math.min(a.z, b.z), Math.max(a.x, b.x), Math.max(a.z, b.z)]; }
+  plotApply(R, del) {
+    const set = new Map((this.def.plot || []).map((c) => [c[0] + "," + c[1], c]));
+    for (let x = R[0]; x <= R[2]; x++) for (let z = R[1]; z <= R[3]; z++) { const k = x + "," + z; if (del) set.delete(k); else set.set(k, [x, z]); }
+    this.def.plot = Array.from(set.values()); this.plotMesh(); this.save(); this.panel();
   }
   // ---------- Maus ----------
   hoverAt(cx, cy) {
     const r = this.eng.renderer.domElement.getBoundingClientRect();
     this.mouse.set((cx - r.left) / r.width * 2 - 1, -((cy - r.top) / r.height) * 2 + 1); this.ray.setFromCamera(this.mouse, this.eng.camera);
-    const y0 = this.s.lv * LH, o = this.ray.ray.origin, d = this.ray.ray.direction; if (Math.abs(d.y) < 1e-4) return null;
+    const y0 = this.s.cat === "plot" ? 0 : this.s.lv * LH, o = this.ray.ray.origin, d = this.ray.ray.direction; if (Math.abs(d.y) < 1e-4) return null;
     const k = (y0 - o.y) / d.y; if (k < 0) return null;
     const px = o.x + d.x * k, pz = o.z + d.z * k; if (Math.abs(px) > 20 || Math.abs(pz) > 20) return null;
     const x = Math.floor(px), z = Math.floor(pz), fx = px - x, fz = pz - z, dd = [fz, 1 - fx, 1 - fz, fx], m = Math.min(...dd);
@@ -201,6 +229,7 @@ export class HouseEditor {
     const ae = document.activeElement; if (ae && ae !== document.body && ae.blur) ae.blur();
     if (e.button !== 0) return;
     if (this.s.bull) { this.push(); this.painted = this.bulldoze(e.clientX, e.clientY); return; }
+    if (this.s.cat === "plot") { const h = this.hoverAt(e.clientX, e.clientY); if (h) { this.push(); this.pdrag = { a: h, del: e.shiftKey }; this.plotMesh(this.plotRect(h, h).concat([e.shiftKey ? 1 : 0])); } return; }
     const h = this.hoverAt(e.clientX, e.clientY); this.push(); this.painted = false;
     this.erase = e.shiftKey;
     if (this.apply(h)) this.painted = true;
@@ -218,10 +247,13 @@ export class HouseEditor {
       else { c.yaw -= dx * 0.005; c.pitch = clamp(c.pitch + dy * 0.004, 0.08, 1.5); }
       return;
     }
+    if (this.btn === 0 && this.pdrag) { const h = this.hoverAt(e.clientX, e.clientY); if (h) { this.pdrag.b = h; this.plotMesh(this.plotRect(this.pdrag.a, h).concat([this.pdrag.del ? 1 : 0])); } return; }
     if (this.btn === 0 && this.s.bull) { if (this.bulldoze(e.clientX, e.clientY)) this.painted = true; return; }
     if (this.btn === 0) { const h = this.hoverAt(e.clientX, e.clientY); if (this.apply(h)) this.painted = true; }
   }
   up(e) {
+    if (this.btn === 0 && this.pdrag) { this.plotApply(this.plotRect(this.pdrag.a, this.pdrag.b || this.pdrag.a), this.pdrag.del); this.pdrag = null; this.btn = -1; return; }
+    if (this.btn === 2 && this.s.cat === "plot" && this.d0 && Math.hypot(e.clientX - this.d0[0], e.clientY - this.d0[1]) < 5) { const h = this.hoverAt(e.clientX, e.clientY); if (h) { this.push(); this.plotApply([h.x, h.z, h.x, h.z], true); } this.btn = -1; return; }
     if (this.btn === 0) { if (!this.painted) this.undo.pop(); else { this.save(); this.panel(); } }
     if (this.btn === 2 && this.d0 && Math.hypot(e.clientX - this.d0[0], e.clientY - this.d0[1]) < 5) {   // Rechtsklick ohne Ziehen: entfernen
       const h = this.hoverAt(e.clientX, e.clientY); this.push(); if (this.remove(h)) { this.rebuild(); this.save(); this.panel(); } else this.undo.pop();
@@ -233,6 +265,7 @@ export class HouseEditor {
     if ((e.ctrlKey || e.metaKey) && e.code === "KeyZ") { e.shiftKey ? this.doRedo() : this.doUndo(); return true; }
     if ((e.ctrlKey || e.metaKey) && e.code === "KeyY") { this.doRedo(); return true; }
     const n = parseInt(e.key, 10); if (n >= 1 && n <= CATS.length && !e.ctrlKey) { this.setCat(CATS[n - 1][0]); return true; }
+    if (n === 5 && !e.ctrlKey) { this.setCat("plot"); return true; }
     if (e.code === "KeyB" && !e.ctrlKey) { this.setBull(!this.s.bull); return true; }
     if (e.code === "Escape" && this.s.bull) { this.setBull(false); return true; }
     if (e.code === "KeyQ" || e.code === "KeyE") return true;   // Kamera drehen (gehalten, siehe update)
@@ -256,6 +289,7 @@ export class HouseEditor {
     cam.lookAt(c.x, c.y, c.z); if (cam.fov !== 50) { cam.fov = 50; cam.updateProjectionMatrix(); }
     this.eng.focus(new THREE.Vector3(c.x, 0, c.z));
     if (this.s.bull) { this.bullHover(); return; }
+    if (this.s.cat === "plot") { const hh = this.btn < 0 ? this.hoverAt(this.cx || -9999, this.cy || -9999) : null; this.edgeM.visible = false; this.cellM.visible = !!hh; if (hh) this.cellM.position.set(hh.x, 0.03, hh.z); if (this.ghost && this.gkey !== "plot") { this.ghost.traverse((o) => { if (o.geometry) o.geometry.dispose(); }); this.stage.remove(this.ghost); this.ghost = null; } this.gkey = "plot"; return; }
     // Vorschau des Bauteils unter der Maus
     const h = this.btn < 0 || this.btn === 0 ? this.hoverAt(this.cx || -9999, this.cy || -9999) : null, cd = this.cand(h), y0 = this.s.lv * LH;
     this.cellM.visible = this.edgeM.visible = !!h;
@@ -288,11 +322,11 @@ HouseEditor.prototype.bullHover = function () {
 function swatch(k) { const d = PARTS[k]; return d.c || ({ schreibtisch: "#8A6142", stuhl: "#62929E", bett: "#F2F0EA", regal: "#5E4330", schrank: "#8A6142", sofa: "#62929E", tisch: "#8A6142", kuehlschrank: "#F2F0EA", lampe: "#F3E3B4", pflanze: "#5D8A4E", teppich: "#ED6A5E" })[k] || "#888"; }
 export function exportHouse(d) {
   const fn = (d.name || "Haus").replace(/[^\wäöüÄÖÜß\- ]+/g, "").replace(/\s+/g, "_");
-  const blob = new Blob([JSON.stringify({ v: 1, name: d.name, parts: d.parts })], { type: "text/plain" }), url = URL.createObjectURL(blob), a = document.createElement("a");
+  const blob = new Blob([JSON.stringify({ v: 1, name: d.name, parts: d.parts, plot: d.plot || [] })], { type: "text/plain" }), url = URL.createObjectURL(blob), a = document.createElement("a");
   a.href = url; a.download = "Leaarn_Haus_" + fn + ".txt"; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 15000);
   return a.download;
 }
 export function parseHouse(txt) {
-  try { const o = JSON.parse(txt); if (!o || !Array.isArray(o.parts)) return null; return { v: 1, name: String(o.name || "Haus"), parts: o.parts.filter((p) => Array.isArray(p) && PARTS[p[0]]) }; } catch (e) { return null; }
+  try { const o = JSON.parse(txt); if (!o || !Array.isArray(o.parts)) return null; return { v: 1, name: String(o.name || "Haus"), parts: o.parts.filter((p) => Array.isArray(p) && PARTS[p[0]]), plot: Array.isArray(o.plot) ? o.plot.filter((c) => Array.isArray(c) && c.length >= 2) : [] }; } catch (e) { return null; }
 }
 function confirmLite(msg) { try { return window.confirm(msg); } catch (e) { return true; } }
