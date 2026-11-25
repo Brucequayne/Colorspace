@@ -15,7 +15,7 @@
    Arbeitsstand: localStorage `monstersarc.monster.draft.v2`. Eingebunden von devkit.js (Reiter „monsters“). */
 (function () {
   var MA = window.MA, L2 = MA.L2, MO = MA.monsters, D = MA.m3d, V = D.v, DKEY = "monstersarc.monster.draft.v2";
-  var BW = 160, BH = 91, K = 3, S = null;
+  var BW = 240, BH = 136, K = 2, S = null;   // 3D-Ansicht: 240 × 136 Pixel, ×2 auf 480 × 272 (Monster ca. 128 px hoch, seit v0.26.1)
 
   MA.EDITOR_CSS = (MA.EDITOR_CSS || "") +
     ".ma-me .seg{display:grid;gap:3px;margin:3px 0 6px}.ma-me .seg.c2{grid-template-columns:repeat(2,1fr)}.ma-me .seg.c3{grid-template-columns:repeat(3,1fr)}.ma-me .seg.c4{grid-template-columns:repeat(4,1fr)}.ma-me .seg.c5{grid-template-columns:repeat(5,1fr)}" +
@@ -56,7 +56,7 @@
       pix: { tool: "pen", col: "#1A1420", undo: [] }, undo: [], msg: "", bad: false, starters: false, lastSaved: null, evoLvl: 16, cam: { yaw: 0.55, pitch: 0.25, zoom: 30, t: [0, -0.2, 0] },
       needBuild: true, needView: true, vc: MA.canvas(BW, BH), pmx: 0, pmy: 0, uT: 0 };
     var d = null; try { d = JSON.parse(localStorage.getItem(DKEY) || "null"); } catch (e) {}
-    if (d && d.m) { S.m = MO.sanitize(d.m); if (!S.m.model) S.m.model = D.starter(1); if (d.cam) S.cam = d.cam; } else { S.m = fresh(1); fit(); }
+    if (d && d.m) { S.m = MO.sanitize(d.m); if (!S.m.model) S.m.model = D.starter(1); if (d.cam) { S.cam.yaw = d.cam.yaw; S.cam.pitch = d.cam.pitch; } fit(); } else { S.m = fresh(1); fit(); }
   }
   function M() { return S.m.model; }
   var keepT = 0;
@@ -69,7 +69,7 @@
   function pushUndo() { S.undo.push(JSON.stringify(M())); if (S.undo.length > 50) S.undo.shift(); }
   function undo() { if (!S.undo.length) { say(L2("Nichts rückgängig zu machen.", "Nothing to undo.")); return; } S.m.model = D.sanitize(JSON.parse(S.undo.pop())); S.pend = -1; changed(true); }
   function fit() {
-    var B = D.build(M()); S.cam.t = [B.bs[0], B.bs[1], B.bs[2]]; S.cam.zoom = BH * 0.82 / (2 * B.bs[3]); S.needView = true;
+    var B = D.build(M()); S.cam.t = [B.bs[0], B.bs[1], B.bs[2]]; S.cam.zoom = BH * 0.94 / (2 * B.bs[3]); S.needView = true;
   }
 
   // ---------- Seitenleiste ----------
@@ -137,7 +137,7 @@
     }
     h += '<h4>' + L2("Kamera", "Camera") + '</h4><div class="row3"><button type="button" data-a="v_front">' + L2("Vorne", "Front") + '</button><button type="button" data-a="v_side">' + L2("Seite", "Side") + '</button><button type="button" data-a="v_back">' + L2("Hinten", "Back") + '</button></div>';
     h += '<div class="hint">' + L2("Mausrad gedrückt + ziehen (oder Ziehen auf leerer Fläche, oder <kbd>Alt</kbd> + linke Maustaste) = drehen · <kbd>Shift</kbd> + Mausrad gedrückt = verschieben · Mausrad auf leerer Fläche = Zoom · Pfeiltasten drehen · <kbd>F</kbd> zentrieren.", "Hold wheel + drag (or drag on empty space, or <kbd>Alt</kbd> + left mouse) = rotate · <kbd>Shift</kbd> + held wheel = pan · wheel on empty space = zoom · arrow keys rotate · <kbd>F</kbd> centre.") + '</div>';
-    h += '<h4>' + L2("Bildgröße im Spiel", "Sprite size in game") + '</h4>' + slider("size", L2("Größe", "Size"), 0.5, 1.6, 0.05, S.m.size, function (v) { return Math.round(64 * v) + " px"; });
+    h += '<h4>' + L2("Bildgröße im Spiel", "Sprite size in game") + '</h4>' + slider("size", L2("Größe", "Size"), 0.5, 2, 0.05, S.m.size, function (v) { return Math.round(64 * v) + " px"; });
     h += '<div class="hint">' + L2("Größere Monster bekommen mehr Pixel, die Pixel selbst bleiben gleich groß.", "Bigger monsters get more pixels; the pixels stay the same size.") + '</div>';
     return h;
   }
@@ -193,7 +193,7 @@
       h += '<div class="box"><b>' + (fr ? L2("Schritt 1 von 3: Foto von vorne", "Step 1 of 3: front snapshot") : L2("Schritt 2 von 3: Foto von hinten", "Step 2 of 3: back snapshot")) + '</b><br>' +
         L2("Dreh das Monster so, wie es im Spiel zu sehen sein soll (Ziehen mit linker oder mittlerer Maustaste, Pfeiltasten). Rechts siehst du das fertige Spielbild.", "Rotate the monster the way it should look in the game (drag with left or middle mouse, arrow keys). On the right you see the final game sprite.") +
         (fr ? "" : L2(" Das Foto von hinten nutzt den gleichen Maßstab wie vorne.", " The back snapshot uses the same scale as the front.")) + '</div>';
-      h += slider("size", L2("Bildgröße", "Sprite size"), 0.5, 1.6, 0.05, S.m.size, function (v) { return Math.round(64 * v) + " px"; });
+      h += slider("size", L2("Bildgröße", "Sprite size"), 0.5, 2, 0.05, S.m.size, function (v) { return Math.round(64 * v) + " px"; });
       h += '<div class="row3"><button type="button" data-a="f_l">⟲ 15°</button><button type="button" data-a="f_reset">' + L2("Standard", "Default") + '</button><button type="button" data-a="f_r">15° ⟳</button></div>';
       h += '<button type="button" class="big" data-a="shot">' + L2("Foto aufnehmen", "Take snapshot") + '</button>';
       h += '<div class="row2"><button type="button" data-a="f_back">' + (fr ? L2("Abbrechen", "Cancel") : L2("Zurück zu vorne", "Back to front")) + '</button><span></span></div>';
@@ -353,7 +353,7 @@
         var q = Mo.limbs[hov.i].j[hov.j], qr = Math.max(0.008, Math.min(0.6, q.r * f)); scaleAnchored(function (a) { return a.k === "l" && a.i === hov.i && a.j === hov.j; }, q.p, qr / q.r); q.r = qr; changed(false);
       } else if (pend && S.tool === "stamp") {
         if (now - S.uT > 700) pushUndo(); S.uT = now; pend.s = Math.max(0.2, Math.min(5, pend.s * f)); changed(false); syncStampSliders();
-      } else { S.cam.zoom = Math.max(6, Math.min(400, S.cam.zoom * f)); S.needView = true; }
+      } else { S.cam.zoom = Math.max(8, Math.min(600, S.cam.zoom * f)); S.needView = true; }
     }
     // Rechtsklick: entfernen
     if (I.rmbHit && inC && hov && hov.k !== "x") removeNode(hov);
@@ -699,7 +699,7 @@
     ctx.drawImage(background(), 0, 0);
     if (!S.fprev) S.fprev = D.snapshot(M(), S.m.pal, S.fcam.yaw, S.fcam.pitch, px(), S.flow === "back" && S.snap.front ? S.snap.front.zoom : 0);
     var cv = S.fprev && S.fprev.cv; if (!cv) return;
-    var k = Math.max(1, Math.floor(Math.min(230 / cv.width, 230 / cv.height))), x = Math.round(MA.W / 2 - cv.width * k / 2), y = Math.round(MA.H / 2 - cv.height * k / 2) + 8;
+    var k = Math.max(1, Math.floor(Math.min(240 / cv.width, 240 / cv.height))), x = Math.round(MA.W / 2 - cv.width * k / 2), y = Math.round(MA.H / 2 - cv.height * k / 2) + 8;
     ctx.fillStyle = "rgba(28,29,28,.18)"; ctx.fillRect(x - 4, y - 4, cv.width * k + 8, cv.height * k + 8);
     ctx.save(); ctx.imageSmoothingEnabled = false; ctx.drawImage(cv, x, y, cv.width * k, cv.height * k); ctx.restore();
     txt(ctx, (S.flow === "front" ? L2("VORNE", "FRONT") : L2("HINTEN", "BACK")) + " · " + px() + " px · ×" + k + L2(" · ziehen zum Drehen", " · drag to rotate"), 8, 8);
@@ -747,7 +747,7 @@
         return;
       }
       if (S.flow === "pixel") { pixUpdate(I); return; }
-      if (S.tab !== "build") { if (I.lmb && onCanvas(I) && (dx || dy)) { S.cam.yaw -= dx * 0.012; S.cam.pitch = Math.max(-1.45, Math.min(1.45, S.cam.pitch + dy * 0.012)); S.needView = true; } if (I.wheel && onCanvas(I)) { S.cam.zoom = Math.max(6, Math.min(400, S.cam.zoom * Math.pow(1.08, -I.wheel))); S.needView = true; } return; }
+      if (S.tab !== "build") { if (I.lmb && onCanvas(I) && (dx || dy)) { S.cam.yaw -= dx * 0.012; S.cam.pitch = Math.max(-1.45, Math.min(1.45, S.cam.pitch + dy * 0.012)); S.needView = true; } if (I.wheel && onCanvas(I)) { S.cam.zoom = Math.max(8, Math.min(600, S.cam.zoom * Math.pow(1.08, -I.wheel))); S.needView = true; } return; }
       if (!typing) {
         if (S.ctrlZ) { S.ctrlZ = 0; undo(); }
         if (I.down("ArrowLeft")) { S.cam.yaw += 0.03; S.needView = true; } if (I.down("ArrowRight")) { S.cam.yaw -= 0.03; S.needView = true; }

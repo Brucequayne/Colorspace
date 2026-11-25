@@ -129,6 +129,11 @@ window.PATCHNOTES = {
         "House editor (separate from the map editor) with floors, walls in plaster, brick and wood with windows and doors, a roof with slopes and gables, and furniture. Houses are exported as .txt."] }
   ],
   monstersarc: [
+    { v: "0.26.1", t: "2026-11-25T05:50:00+01:00",
+      de: ["Monster-Editor: Die 3D-Ansicht beim Bearbeiten ist doppelt so fein (240 × 136 statt 160 × 91 Pixel). Das Monster ist dort jetzt rund 128 Pixel hoch.",
+        "Bildgröße für die Fotos jetzt bis 128 Pixel (vorher 102)."],
+      en: ["Monster editor: the 3D view while editing is twice as fine (240 × 136 instead of 160 × 91 pixels). The monster is now about 128 pixels tall there.",
+        "Snapshot sprite size now up to 128 pixels (before 102)."] },
     { v: "0.26", t: "2026-11-25T05:45:00+01:00",
       de: ["Monster-Editor komplett neu als 3D-Baukasten (Prinzip wie bei „Spore“). Gebaut wird in 3D mit Licht schräg von oben, angezeigt wird alles schon im Pixel-Look des Spiels.",
         "Formen: Die Wirbelsäule besteht aus Wirbeln. Punkte ziehen, mit dem Mausrad auf einem Wirbel den Körper dort dicker oder dünner machen (Shift + Mausrad = breiter/schmaler), mit „+“ an Schwanz und Hals verlängern. Der Schädel funktioniert genauso (eigene Knoten, „+“ an der Schnauze). Alles verschmilzt weich und organisch.",
