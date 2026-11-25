@@ -44,7 +44,7 @@ addTexts({
   scIntro: L2("Du bekommst nacheinander 2 Elemente und baust jeweils ihr Schalenmodell: Kern mit Protonen und Neutronen, die Schalen und die Elektronen darauf. Daneben kannst du das Periodensystem ausklappen.", "You get 2 elements, one after another, and build each one's shell model: nucleus with protons and neutrons, the shells and the electrons on them. You can unfold the periodic table next to it."),
   scPts: L2("Punkte je Element (max. 5)", "Points per element (max 5)"), scP: L2("Protonen", "Protons"), scN: L2("Neutronen", "Neutrons"), scSh: L2("Anzahl Schalen", "Number of shells"),
   scTot: L2("Elektronen gesamt", "Total electrons"), scDist: L2("Verteilung auf die Schalen", "Distribution over the shells"),
-  scPx: L2("= Ordnungszahl", "= atomic number"), scNx: L2("= gerundete Atommasse − Ordnungszahl", "= rounded atomic mass − atomic number"), scShx: L2("= Periode", "= period"),
+  scPx: L2("= Ordnungszahl", "= atomic number"), scNx: L2("= gerundete Atommasse − Ordnungszahl (auf Leicht und Mittel vorgegeben, der Punkt zählt automatisch)", "= rounded atomic mass − atomic number (given on easy and medium, the point counts automatically)"), scNfix: L2("vorgegeben", "given"), scShx: L2("= Periode", "= period"),
   scTotx: L2("= Protonen (Atom ist neutral)", "= protons (atom is neutral)"), scDistx: L2("jede Schale richtig besetzt", "every shell filled correctly"),
   scTask: L2("Baue das Schalenmodell von {n}", "Build the shell model of {n}"), scRound: L2("Element {i} von {n}", "Element {i} of {n}"), scCore: L2("Kern", "Nucleus"),
   scShells: L2("Schalen", "Shells"), scAdd: L2("+ Schale", "+ shell"), scDel: L2("− Schale", "− shell"), scEl: L2("Elektronen", "Electrons"), scMax: L2("max. {n}", "max {n}"),
@@ -355,7 +355,7 @@ export class Learn {
   }
   renderSchaleQ() {
     const q = this.q, f = this.f, a = q.list[q.i], e = a.el, st = STUFEN_SCHALE[(q.opt && q.opt.lvl) | 0]; clearTimeout(this.tm);
-    if (!q.b) q.b = { p: 0, n: 0, sh: [] };
+    if (!q.b) q.b = { p: 0, n: st.nfix ? neutronen(e) : 0, sh: [] };   // v0.19.3: Leicht/Mittel Neutronen vorgegeben
     if (!this.spse) this.spse = { open: false, el: null };
     const sum = q.res.reduce((s, x) => s + x.score, 0), dots = q.list.map((x, k) => '<i class="' + (k < q.res.length ? (q.res[k].score === 5 ? "le-ok" : q.res[k].score ? "le-half" : "le-no") : k === q.i ? "le-now" : "") + '"></i>').join("");
     this.body('<div class="le-lhead"><i style="background:' + f.farbe + '">' + esc(f.kurz) + "</i><h2>" + esc(tl(this.th.name)) + '</h2><span class="le-sp"></span><span class="le-dim">' + esc(tl(st.name)) + " · <b>" + sum + "</b> / 10</span></div>" +
@@ -367,16 +367,16 @@ export class Learn {
   sDraw() {
     const q = this.q, b = q.b, st = STUFEN_SCHALE[(q.opt && q.opt.lvl) | 0], shown = q.ph === "shown", sv = this.root.querySelector("#le-ssvg"), ct = this.root.querySelector("#le-sctl"); if (!sv || !ct) return;
     sv.innerHTML = schaleSvg(b, { help: st.hilfe, edit: !shown });
-    const pm = (k, v, lab) => '<div class="le-srow"><span>' + lab + '</span><button data-sb="' + k + '-"' + (shown ? " disabled" : "") + ">−</button><b>" + v + '</b><button data-sb="' + k + '+"' + (shown ? " disabled" : "") + ">+</button></div>";
+    const pm = (k, v, lab, lock) => '<div class="le-srow' + (lock ? " le-slock" : "") + '"><span>' + lab + '</span><button data-sb="' + k + '-"' + (shown || lock ? " disabled" : "") + ">−</button><b>" + v + '</b><button data-sb="' + k + '+"' + (shown || lock ? " disabled" : "") + ">+</button></div>";
     const names = ["K", "L", "M", "N"];
-    let h = "<h4>" + t("scCore") + "</h4>" + pm("p", b.p, "p⁺ " + t("scP")) + pm("n", b.n, "n " + t("scN")) + "<h4>" + t("scShells") + '</h4><div class="le-btns"><button data-sb="s+"' + (shown || b.sh.length >= 4 ? " disabled" : "") + ">" + t("scAdd") + '</button><button data-sb="s-"' + (shown || !b.sh.length ? " disabled" : "") + ">" + t("scDel") + "</button></div>";
+    let h = "<h4>" + t("scCore") + "</h4>" + pm("p", b.p, "p⁺ " + t("scP")) + pm("n", b.n, "n " + t("scN") + (st.nfix ? ' <small class="le-dim">' + t("scNfix") + "</small>" : ""), st.nfix) + "<h4>" + t("scShells") + '</h4><div class="le-btns"><button data-sb="s+"' + (shown || b.sh.length >= 4 ? " disabled" : "") + ">" + t("scAdd") + '</button><button data-sb="s-"' + (shown || !b.sh.length ? " disabled" : "") + ">" + t("scDel") + "</button></div>";
     h += b.sh.length ? b.sh.map((x, k) => pm("e" + k, x, names[k] + "-" + t("scEl") + (st.hilfe ? ' <small class="le-dim">' + fmt(t("scMax"), { n: SCHALE_MAX[k] }) + "</small>" : ""))).join("") : '<p class="le-dim">' + t("scNoSh") + "</p>";
     if (!shown) h += '<p class="le-dim le-shelp">' + t("scHow") + '</p><div class="le-btns"><button class="le-pri le-vgo" data-l="scheck">' + t("scCheck") + " ↵</button></div>";
     ct.innerHTML = h;
   }
   sBtn(k, big) {
     const q = this.q; if (!q || q.ph === "shown" || !q.b) return; const b = q.b, d = (k.slice(-1) === "+" ? 1 : -1) * (big ? 5 : 1), w = k.slice(0, -1);
-    if (w === "p") b.p = Math.max(0, Math.min(60, b.p + d)); else if (w === "n") b.n = Math.max(0, Math.min(80, b.n + d));
+    if (w === "p") b.p = Math.max(0, Math.min(60, b.p + d)); else if (w === "n") { if (STUFEN_SCHALE[(q.opt && q.opt.lvl) | 0].nfix) return; b.n = Math.max(0, Math.min(80, b.n + d)); }
     else if (w === "s") { if (d > 0 && b.sh.length < 4) b.sh.push(0); else if (d < 0) b.sh.pop(); }
     else if (w[0] === "e") return this.sEl(+w.slice(1), d > 0 ? 1 : -1);
     tick(1); this.sDraw();
@@ -387,7 +387,7 @@ export class Learn {
     const e = q.list[q.i].el, r = schaleBewerte(e, q.b); q.res.push({ ok: r.score === 5, score: r.score, parts: r.parts, el: e, b: { p: q.b.p, n: q.b.n, sh: q.b.sh.slice() } }); q.ph = "shown";
     const L = ["scP", "scN", "scSh", "scTot", "scDist"], soll = [e.z, neutronen(e), e.sch.length, e.z, e.sch.join(" · ")], ist = [q.b.p, q.b.n, q.b.sh.length, q.b.sh.reduce((s, x) => s + x, 0), q.b.sh.join(" · ") || "–"];
     const box = this.root.querySelector("#le-sres");
-    box.innerHTML = '<div class="le-sfb"><div class="le-sfl">' + L.map((k, i) => '<div class="' + (r.parts[i] ? "le-vg" : "le-vb") + '"><i>' + (r.parts[i] ? "✓" : "✗") + "</i><span>" + t(k) + "</span><b>" + ist[i] + (r.parts[i] ? "" : ' <small>→ ' + soll[i] + "</small>") + "</b></div>").join("") +
+    box.innerHTML = '<div class="le-sfb"><div class="le-sfl">' + L.map((k, i) => '<div class="' + (r.parts[i] ? "le-vg" : "le-vb") + '"><i>' + (r.parts[i] ? "✓" : "✗") + "</i><span>" + t(k) + (i === 1 && STUFEN_SCHALE[(q.opt && q.opt.lvl) | 0].nfix ? ' <small class="le-dim">(' + t("scNfix") + ")</small>" : "") + "</span><b>" + ist[i] + (r.parts[i] ? "" : ' <small>→ ' + soll[i] + "</small>") + "</b></div>").join("") +
       '<p class="le-sgot">' + fmt(t("scGot"), { p: r.score }) + '</p></div><div class="le-scmp"><small>' + t("scRight") + "</small>" + schaleSvg({ p: e.z, n: neutronen(e), sh: e.sch }, { small: true }) + "</div></div>" +
       '<div class="le-btns"><button class="le-pri le-vgo" data-l="snext">' + t(q.i + 1 >= q.list.length ? "peEnd" : "peNext") + " ↵</button></div>";
     this.sDraw(); const sm = this.root.querySelector(".le-lhead b"); if (sm) sm.textContent = q.res.reduce((s, x) => s + x.score, 0);

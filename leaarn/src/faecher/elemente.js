@@ -276,9 +276,10 @@ export function pseWertung(scores, opt) {
 // Je Element 5 Punkte: Protonen · Neutronen (gerundete Atommasse − Ordnungszahl) · Anzahl Schalen (= Periode) · Elektronen gesamt (= Protonen)
 // · Verteilung auf die Schalen (jede Schale richtig). 2 Elemente je Durchgang = 10 Punkte, Belohnung wie pseWertung.
 export const STUFEN_SCHALE = [
-  { id: 0, name: L2("Leicht", "Easy"), faktor: 1, hilfe: true, info: L2("Elemente 1–10, mit Hilfe (max. Elektronen pro Schale)", "Elements 1–10, with help (max electrons per shell)") },
-  { id: 1, name: L2("Mittel", "Medium"), faktor: 1.3, hilfe: true, info: L2("Elemente 1–20, mit Hilfe", "Elements 1–20, with help") },
-  { id: 2, name: L2("Schwer", "Hard"), faktor: 1.6, hilfe: false, info: L2("Elemente 1–20, ohne Hilfe", "Elements 1–20, no help") }
+  // nfix (seit v0.19.3): Neutronen sind vorgegeben (richtig eingetragen, nicht änderbar) – ihr Punkt zählt automatisch
+  { id: 0, name: L2("Leicht", "Easy"), faktor: 1, hilfe: true, nfix: true, info: L2("Elemente 1–10, mit Hilfe (max. Elektronen pro Schale), Neutronen vorgegeben", "Elements 1–10, with help (max electrons per shell), neutrons given") },
+  { id: 1, name: L2("Mittel", "Medium"), faktor: 1.3, hilfe: true, nfix: true, info: L2("Elemente 1–20, mit Hilfe, Neutronen vorgegeben", "Elements 1–20, with help, neutrons given") },
+  { id: 2, name: L2("Schwer", "Hard"), faktor: 1.6, hilfe: false, nfix: false, info: L2("Elemente 1–20, ohne Hilfe, Neutronen selbst bestimmen", "Elements 1–20, no help, work out the neutrons yourself") }
 ];
 export const SCHALE_MAX = [2, 8, 8, 2];   // Schulregel bis Calcium (M-Schale fasst eigentlich 18)
 export const neutronen = (e) => Math.max(0, Math.round(e.m) - e.z);

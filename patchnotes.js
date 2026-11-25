@@ -3,6 +3,11 @@
    Die Versionsnummer auf den Kacheln kommt aus dem obersten Eintrag. */
 window.PATCHNOTES = {
   leaarn: [
+    { v: "0.19.3", t: "2026-11-25T20:00:00+01:00",
+      de: ["Hotfix Schalenmodell-Spiel: Auf Leicht und Mittel ist die Neutronenzahl jetzt schon richtig eingetragen und lässt sich nicht verändern. Du baust nur noch Protonen, Schalen und Elektronen, der Neutronen-Punkt zählt automatisch.",
+        "Nur auf Schwer musst du die Neutronen weiterhin selbst bestimmen."],
+      en: ["Hotfix for the shell model game: on easy and medium the neutron count is now filled in correctly and cannot be changed. You only build protons, shells and electrons, the neutron point counts automatically.",
+        "Only on hard do you still have to work out the neutrons yourself."] },
     { v: "0.19.2", t: "2026-11-25T19:50:00+01:00",
       de: ["Zweites Chemie-Spiel: „Atombau: Schalenmodelle bauen“. Du bekommst nacheinander 2 Elemente und baust jeweils ihr Schalenmodell: Protonen und Neutronen im Kern mit + und −, Schalen hinzufügen oder wegnehmen, Elektronen mit einem Klick auf die Schale setzen (Rechtsklick nimmt eins weg).",
         "Pro Element gibt es bis zu 5 Punkte, jeder Bestandteil zählt einzeln: Protonen, Neutronen, Anzahl der Schalen, Elektronen insgesamt und die Verteilung auf die Schalen. Nach dem Prüfen siehst du, was gestimmt hat, und das richtige Modell daneben.",

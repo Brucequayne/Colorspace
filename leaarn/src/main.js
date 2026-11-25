@@ -312,6 +312,7 @@ const CSS = `
 .le-sdone.le-vg{border-left-color:#7FC8D4}.le-sdone.le-vh{border-left-color:#C6C5B9}.le-sdone.le-vb{border-left-color:#ED6A5E}.le-sdone b{color:#fff}
 .le-sicons{display:flex;gap:4px}.le-sicons i{font-style:normal;font-weight:800;width:20px;text-align:center}.le-sicons .le-ok{color:#7FC8D4}.le-sicons .le-no{color:#ED6A5E}.le-sdone .le-vp{text-align:right}
 @media (max-width:700px){.le-sfb{grid-template-columns:1fr}}
+.le-srow.le-slock b{color:#A9ACB2}.le-srow.le-slock button{opacity:.35}
 `;
 
 let A = null;
