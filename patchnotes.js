@@ -3,6 +3,15 @@
    Die Versionsnummer auf den Kacheln kommt aus dem obersten Eintrag. */
 window.PATCHNOTES = {
   leaarn: [
+    { v: "0.19.1", t: "2026-11-25T19:15:00+01:00",
+      de: ["Erstes Lernspiel in Chemie: „Periodensystem: Elemente erkennen“. Zuerst erkundest du das komplette Periodensystem mit allen 118 Elementen – Maus drüber hebt ein Element hervor, ein Klick klappt alle wichtigen Infos auf: Ordnungszahl, Atommasse, Neutronen, Periode und Gruppe, Metall oder Nichtmetall, Zustand bei 20 °C, Außenelektronen, Schalenmodell mit Bild und ein Satz Wissenswertes.",
+        "Dann Start: 5 Runden, in jeder siehst du ein Elementsymbol und schreibst den Namen. Richtig = 2 Punkte, kleiner Tippfehler = 1 Punkt. Bekannte Schreibweisen wie Jod, Kalzium oder Cäsium zählen auch.",
+        "Schwierigkeit: Leicht = Elemente 1–20, Mittel = dazu wichtige Metalle, Halogene und Edelgase (+30 % Geld), Schwer = alle 118 Elemente (+60 % Geld). Im Periodensystem sind die abgefragten Elemente hell markiert.",
+        "Belohnung wie beim Vokabeltest: 0 Punkte = 5 €, 1–5 = 25 €, 6–9 = 75 €, 10 = 150 €. Der Fokus-Bonus gilt auch hier."],
+      en: ["First chemistry learning game: “Periodic table: name the element”. First explore the complete periodic table with all 118 elements – hovering highlights an element, a click opens all key facts: atomic number, atomic mass, neutrons, period and group, metal or nonmetal, state at 20 °C, outer electrons, shell model with a picture and a fun fact.",
+        "Then start: 5 rounds, each shows an element symbol and you write its (German) name. Correct = 2 points, small typo = 1 point. Common spellings like Jod, Kalzium or Cäsium count too.",
+        "Difficulty: easy = elements 1–20, medium = plus important metals, halogens and noble gases (+30 % money), hard = all 118 elements (+60 % money). Elements that can come up are highlighted in the table.",
+        "Reward like the vocabulary test: 0 points = €5, 1–5 = €25, 6–9 = €75, 10 = €150. The focus bonus applies here too."] },
     { v: "0.19", t: "2026-11-25T04:15:00+01:00",
       de: ["Straßenwerkzeug komplett überarbeitet: Du wählst einen fertigen Straßentyp – 2-spurig, Einbahnstraße (beide mit oder ohne Gehweg) oder Radweg – und baust mit Gerade oder Kurve wie bisher. Keine Ankerpunkte und Punkt-Einstellungen mehr, nur noch die offenen Enden der Straßen sind als Griffe sichtbar.",
         "Spurbreite passend zum Auto (2,6 m pro Spur). 2-spurig mit gestrichelter Mittellinie, Einbahnstraße mit Richtungspfeilen (Fahrtrichtung lässt sich umdrehen), Radweg schmal mit rötlichem Belag. Gehwege gibt es nur noch im amerikanischen Stil.",

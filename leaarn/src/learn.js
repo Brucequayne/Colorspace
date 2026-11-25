@@ -5,6 +5,7 @@ import { FAECHER, fach, spielbar, fachAktiv, belohnung, runde, pruefe, STANDARD_
 import { addOffen, offen, einsammeln, addRunde, stat, euro, save, persist, fokusVoll, FOKUS } from "le/save.js";
 import { hsb, rgbHex, de2000, rating } from "le/faecher/farben.js";
 import { KAT, WORTARTEN, ART_KURZ, STUFEN, VOK_LOHN, bereich, stufenPool, bewerte } from "le/faecher/vokabeln.js";
+import { ELEMENTE, KATEG, ZUSTAND, STUFEN_PSE, PSE_LOHN, psePool, pseBewerte, valenz } from "le/faecher/elemente.js";
 
 addTexts({
   lHello: L2("Fächer", "Subjects"), nSubj: L2("Fächer", "Subjects"), nStats: L2("Statistiken", "Statistics"), nClose: L2("Schließen", "Close"), lFull: L2("Vollbild", "Fullscreen"), lWin: L2("Fenster", "Window"), lSoon: L2("bald", "soon"), lBack: L2("Zurück", "Back"), lClose: L2("Laptop zuklappen", "Close laptop"),
@@ -28,6 +29,16 @@ addTexts({
   gRules: L2("Summe der 5 Bewertungen = Euro (aufgerundet). Bonus, wenn alle Runden über 5 (+25 €), 7,5 (+50 €) oder 9 (+125 €) liegen.", "Sum of the 5 ratings = euros (rounded up). Bonus if every round is above 5 (+€25), 7.5 (+€50) or 9 (+€125)."),
   gKeys: L2("Enter = abgeben · Pfeiltasten verschieben den gewählten Regler", "Enter = submit · arrow keys move the selected slider"),
   // Stufen statt Jahrgänge (v0.15)
+  // Periodensystem (Chemie, v0.19.1)
+  peHint: L2("Fahr mit der Maus über die Elemente, klick eins an für alle Infos. Wenn du bereit bist: Schwierigkeit wählen und Start.", "Hover over the elements, click one for all details. When you're ready: pick a difficulty and start."),
+  peZ: L2("Ordnungszahl", "Atomic number"), peZs: L2("= Anzahl Protonen = Anzahl Elektronen", "= number of protons = number of electrons"), peM: L2("Atommasse", "Atomic mass"),
+  peN: L2("Neutronen (häufigstes Atom)", "Neutrons (most common atom)"), pePer: L2("Periode", "Period"), peGr: L2("Gruppe", "Group"), peHG: L2("{n}. Hauptgruppe", "main group {n}"),
+  peNG: L2("Nebengruppe (Gruppe {n})", "transition group (group {n})"), peKat: L2("Art", "Type"), peZu: L2("bei 20 °C", "at 20 °C"), peVal: L2("Außenelektronen", "Outer electrons"),
+  peSch: L2("Elektronen pro Schale", "Electrons per shell"), peRad: L2("radioaktiv", "radioactive"), peLa: L2("Lanthanoide", "Lanthanides"), peAc: L2("Actinoide", "Actinides"),
+  peQ: L2("Welches Element hat das Symbol {s}?", "Which element has the symbol {s}?"), peRound: L2("Element {i} von {n}", "Element {i} of {n}"), peCheck: L2("Prüfen", "Check"),
+  peNext: L2("Weiter", "Next"), peEnd: L2("Zur Auswertung", "See results"), peRight: L2("Richtig! +2", "Correct! +2"), peTypo: L2("Fast – kleiner Tippfehler. +1", "Almost – small typo. +1"),
+  peWrong: L2("Leider falsch. 0 Punkte", "Wrong. 0 points"), peIs: L2("{s} ist {n}", "{s} is {n}"), pePool: L2("Hell markiert: Elemente, die auf dieser Stufe abgefragt werden", "Highlighted: elements asked at this level"),
+  peRules: L2("5 Elemente, eins nach dem anderen: Symbol sehen, Namen auf Deutsch schreiben. Richtig = 2 Punkte, kleiner Tippfehler = 1 Punkt. Umlaute darfst du als ae/oe/ue schreiben.", "5 elements, one after another: see the symbol, write the German name. Correct = 2 points, small typo = 1 point."),
   fLap: L2("Fokus", "Focus"), fBoost: L2("Fokus-Bonus +15 %: +{e}", "Focus bonus +15 %: +{e}"), fCharge: L2("lädt", "charging"),
   sBas: L2("Basics", "Basics"), sAdv: L2("Fortgeschritten", "Advanced"), sExp: L2("Experte", "Expert"), sAll: L2("Alle Stufen", "All levels"),
   // Vokabeltest (v0.15)
@@ -59,9 +70,10 @@ export class Learn {
     this.root.addEventListener("click", (e) => this.click(e));
     this.root.addEventListener("keydown", (e) => {
       if (e.target.id === "le-ans" && e.key === "Enter") { e.preventDefault(); this.submit(e.target.value); }
+      else if (e.target.id === "le-pans" && e.key === "Enter") { e.preventDefault(); e.stopPropagation(); this.pCheck(false); }
       else if (e.target.hasAttribute && e.target.hasAttribute("data-vi") && e.key === "Enter") { e.preventDefault(); e.stopPropagation(); this.vConfirm(+e.target.getAttribute("data-vi"), false); }
     });
-    this.root.addEventListener("input", (e) => { if (e.target.hasAttribute("data-g")) this.gInput(); else if (e.target.hasAttribute("data-vl")) { this.vopt({ lvl: +e.target.value }); this.vLvlInfo(); } });
+    this.root.addEventListener("input", (e) => { if (e.target.hasAttribute("data-g")) this.gInput(); else if (e.target.hasAttribute("data-vl")) { this.vopt({ lvl: +e.target.value }); this.vLvlInfo(); } else if (e.target.hasAttribute("data-pl")) { this.popt({ lvl: +e.target.value }); this.pLvlInfo(); } });
     this.render();
   }
   dispose() { clearTimeout(this.tm); clearInterval(this.gi); this.root.remove(); }
@@ -107,13 +119,13 @@ export class Learn {
           return '<div class="le-topic' + (ok ? "" : " le-off") + '">' + stufe(th) + "<div><b>" + esc(tl(th.name)) + "</b>" + (th.info ? "<small>" + esc(tl(th.info)) + "</small>" : "") + (st ? "<small>" + (th.art === "guess" ? fmt(t("pBestPts"), { b: num(st.best), n: st.n }) : th.wertung ? fmt(t("pBestPts"), { b: st.best, n: st.n }) : fmt(t("lBest"), { b: st.best, m: th.anzahl || 10, n: st.n })) + "</small>" : "") + "</div>" +
             (ok ? '<button class="le-pri" data-t="' + th.id + '">' + t("lStart") + "</button>" : '<em>' + t("lSoon") + "</em>") + "</div>";
         }).join("") + "</div>" + (f.spiele && f.spiele.length ? '<p class="le-dim">' + t("lPlanned") + ": " + f.spiele.map((s) => esc(tl(s.name))).join(" · ") + "</p>" : ""));
-    } else if (this.view === "setup") this.renderSetup();
+    } else if (this.view === "setup") { if (this.th && this.th.art === "pse") this.renderPseSetup(); else this.renderSetup(); }
     else if (this.view === "quiz") this.renderQ();
     else if (this.view === "done") this.renderDone();
   }
   start(th) {
     this.th = th; const R = rng((Date.now() ^ (Math.random() * 1e9)) >>> 0);
-    const opt = th.setup ? Object.assign({}, this.vopt()) : null;
+    const opt = th.setup ? Object.assign({}, th.art === "pse" ? this.popt() : this.vopt()) : null;
     this.q = { list: runde(th, R, opt), i: 0, res: [], lock: false, ph: "show", t0: performance.now(), opt: opt }; this.view = "quiz"; this.render();
   }
   renderQ() {
@@ -121,6 +133,7 @@ export class Learn {
     if (a.art === "farbe") { this.renderFarbe(); return; }
     if (a.art === "guess") { this.renderGuess(); return; }
     if (a.art === "vokabel") { this.renderVok(); return; }
+    if (a.art === "pse") { this.renderPseQ(); return; }
     const dots = q.list.map((x, i) => '<i class="' + (i < q.res.length ? (q.res[i].ok ? "le-ok" : "le-no") : i === q.i ? "le-now" : "") + '"></i>').join("");
     let inp = "";
     if (a.art === "mc") inp = '<div class="le-mc">' + a.optionen.map((o, i) => '<button data-mc="' + i + '"><kbd>' + (i + 1) + "</kbd>" + esc(o) + "</button>").join("") + "</div>";
@@ -173,6 +186,7 @@ export class Learn {
   }
   renderDone() {
     if (this.th.art === "vokabel") { this.renderVokDone(); return; }
+    if (this.th.art === "pse") { this.renderPseDone(); return; }
     if (this.th.wertung) { this.renderGuessDone(); return; }
     const q = this.q, n = q.list.length, wr = q.res.filter((x) => !x.ok), sw = (h) => '<i class="le-msw" style="background:' + h + '"></i>';
     this.body('<div class="le-done"><h2>' + t("lDone") + '</h2><div class="le-big">' + q.r + "<small>/" + n + '</small></div><p>' + fmt(t("lScore"), { r: q.r, n: n }) + '</p><div class="le-earn">' + t("lEarn") + " <b>+" + euro(q.lohn) + "</b> <small>" + t("pToPend") + '</small></div>' + this.boostHtml() + '<p class="le-dim">' + tiers(this.th.lohn || STANDARD_LOHN, n) + "</p>" +
@@ -301,6 +315,79 @@ export class Learn {
       (w.bonus ? '<p class="le-good"><b>' + fmt(t("gBonus"), { x: num(w.bonus.ueber, 1) }) + ": +" + euro(w.bonus.euro) + "</b></p>" : '<p class="le-dim">' + t("gNoBonus") + "</p>") +
       '<div class="le-earn">' + t("lEarn") + " <b>+" + euro(q.lohn) + "</b> <small>" + t("pToPend") + '</small></div>' + this.boostHtml() + '<p class="le-dim">' + t("gRules") + "</p>" + this.doneBtns() + "</div>");
   }
+  // ---------- Periodensystem (Chemie, seit v0.19.1) ----------
+  popt(set) {
+    const u = store.get(KEYS.ui, {}), o = Object.assign({ lvl: 0, el: 1 }, u.pse || {});
+    if (set) { Object.assign(o, set); u.pse = o; store.set(KEYS.ui, u); }
+    if (!(o.lvl >= 0 && o.lvl <= 2)) o.lvl = 0; return o;
+  }
+  renderPseSetup() {
+    const f = this.f, th = this.th, o = this.popt();
+    const tiles = ELEMENTE.map((e) => '<button class="le-pe" data-pe="' + e.z + '" style="grid-row:' + e.row + ";grid-column:" + e.col + ";--c:" + KATEG[e.kat].c + '" title="' + esc(e.name) + '"><small>' + e.z + "</small><b>" + e.sym + "</b></button>").join("") +
+      '<div class="le-pph" style="grid-row:6;grid-column:3;--c:' + KATEG.la.c + '">57–71</div><div class="le-pph" style="grid-row:7;grid-column:3;--c:' + KATEG.ac.c + '">89–103</div>' +
+      '<div class="le-plab" style="grid-row:9;grid-column:1/3">' + t("peLa") + '</div><div class="le-plab" style="grid-row:10;grid-column:1/3">' + t("peAc") + "</div>";
+    const legend = Object.keys(KATEG).map((k) => '<span class="le-lg"><i style="background:' + KATEG[k].c + '"></i>' + esc(tl(KATEG[k].n)) + "</span>").join("");
+    this.body('<div class="le-lhead"><button data-l="fach">← ' + t("lBack") + '</button><i style="background:' + f.farbe + '">' + esc(f.kurz) + "</i><h2>" + esc(tl(th.name)) + "</h2></div>" +
+      '<p class="le-dim le-phint">' + t("peHint") + '</p><div class="le-pse"><div class="le-ptab">' + tiles + '</div><div class="le-pinfo" id="le-pinfo"></div></div><div class="le-legend le-plg">' + legend + "</div>" +
+      '<div class="le-pctl"><div class="le-vlvl"><b>' + t("vLevel") + '</b><input type="range" data-pl min="0" max="2" step="1" value="' + o.lvl + '"><div class="le-vlab">' + STUFEN_PSE.map((x) => '<span data-pls="' + x.id + '">' + esc(tl(x.name)) + "</span>").join("") + '</div><p id="le-plinfo"></p></div>' +
+      '<div><p class="le-dim" id="le-ptiers"></p><p class="le-dim">' + t("peRules") + '</p><div class="le-btns"><button class="le-pri le-vgo" data-l="vgo">Start ↵</button></div></div></div>');
+    this.pLvlInfo();
+  }
+  pLvlInfo() {
+    const o = this.popt(), st = STUFEN_PSE[o.lvl], pool = new Set(psePool(o.lvl).map((e) => e.z));
+    this.root.querySelectorAll("[data-pls]").forEach((x) => x.classList.toggle("le-vsel", +x.getAttribute("data-pls") === o.lvl));
+    this.root.querySelectorAll("[data-pe]").forEach((x) => x.classList.toggle("le-pdim", !pool.has(+x.getAttribute("data-pe"))));
+    const inf = this.root.querySelector("#le-plinfo"); if (inf) inf.innerHTML = "<b>" + esc(tl(st.info)) + "</b> · " + (st.faktor > 1 ? '<em class="le-good">' + fmt(t("vBonusPct"), { p: Math.round((st.faktor - 1) * 100) }) + "</em>" : t("vBase")) + '<br><small class="le-dim">' + t("pePool") + "</small>";
+    const ti = this.root.querySelector("#le-ptiers"); if (ti) ti.innerHTML = "<b>" + t("vRewards") + ":</b> " + pseTiers(st.faktor);
+  }
+  // Element aufklappen: alle wichtigen Infos (Niveau Klasse 8)
+  pShow(z) {
+    const e = ELEMENTE[z - 1], box = this.root.querySelector("#le-pinfo"); if (!e || !box) return;
+    const tl2 = this.root.querySelector('[data-pe="' + z + '"]');
+    if (tl2 && tl2.classList.contains("le-on") && box.classList.contains("le-pvis")) { this.pClose(); return; }   // gleiches Element nochmal: zuklappen
+    this.root.querySelectorAll(".le-pe.le-on").forEach((x) => x.classList.remove("le-on")); if (tl2) tl2.classList.add("le-on");
+    const K = KATEG[e.kat], row = (k, v) => "<div><span>" + k + "</span><b>" + v + "</b></div>", mass = e.m % 1 ? String(e.m).replace(".", PR.lang === "en" ? "." : ",") : e.m;
+    const gr = e.gr ? (e.haupt ? fmt(t("peHG"), { n: e.haupt }) : fmt(t("peNG"), { n: e.gr })) : tl(K.n);
+    box.innerHTML = '<div class="le-pcard"><div class="le-ptile" style="--c:' + K.c + '"><small>' + e.z + "</small><b>" + e.sym + "</b><i>" + mass + "</i></div><div><h3>" + esc(e.name) + "</h3>" +
+      '<p class="le-dim">' + esc(tl(K.n)) + " · " + tl(ZUSTAND[e.zu]) + " " + t("peZu") + (e.radio ? ' · <em class="le-prad">' + t("peRad") + "</em>" : "") + "</p></div></div>" +
+      '<div class="le-prows">' + row(t("peZ"), e.z + ' <small class="le-dim">' + t("peZs") + "</small>") + row(t("peM"), mass + " u") + row(t("peN"), "ca. " + Math.max(0, Math.round(e.m) - e.z)) +
+      row(t("pePer") + " / " + t("peGr"), e.per + " / " + esc(gr)) + (valenz(e) ? row(t("peVal"), valenz(e)) : "") + row(t("peSch"), e.sch.join(" · ")) + "</div>" +
+      '<div class="le-pbohr">' + bohr(e) + '<p>' + esc(e.fakt) + "</p></div>" + '<button class="le-px" data-l="pclose" title="Esc">×</button>';
+    // neben dem Element aufklappen: rechts davon (linke Hälfte) oder links davon (rechte Hälfte), in der Höhe im Periodensystem gehalten
+    box.classList.add("le-pvis"); box.classList.remove("le-popen"); void box.offsetWidth; box.classList.add("le-popen");
+    const P = box.parentElement, W = P.clientWidth, H = P.clientHeight, bw = box.offsetWidth, bh = box.offsetHeight;
+    if (tl2) { const tx = tl2.offsetLeft, ty = tl2.offsetTop, tw = tl2.offsetWidth; const left = tx + tw / 2 > W / 2 ? tx - bw - 8 : tx + tw + 8; box.style.left = Math.max(0, Math.min(W - bw, left)) + "px"; box.style.top = Math.max(0, Math.min(Math.max(0, H - bh), ty - 30)) + "px"; box.style.transformOrigin = (tx + tw / 2 > W / 2 ? "right" : "left") + " top"; }
+  }
+  pClose() { const box = this.root.querySelector("#le-pinfo"); if (box) box.classList.remove("le-pvis", "le-popen"); this.root.querySelectorAll(".le-pe.le-on").forEach((x) => x.classList.remove("le-on")); }
+  renderPseQ() {
+    const q = this.q, f = this.f, a = q.list[q.i], e = a.el, K = KATEG[e.kat], r = q.ph === "shown" ? q.res[q.res.length - 1] : null; clearTimeout(this.tm);
+    const sum = q.res.reduce((s, x) => s + x.score, 0), dots = q.list.map((x, k) => '<i class="' + (k < q.res.length ? (q.res[k].score === 2 ? "le-ok" : q.res[k].score ? "le-half" : "le-no") : k === q.i ? "le-now" : "") + '"></i>').join("");
+    const st = STUFEN_PSE[(q.opt && q.opt.lvl) | 0];
+    let fb = "";
+    if (r) fb = '<div class="le-pfb ' + (r.score === 2 ? "le-vg" : r.score ? "le-vh" : "le-vb") + '"><b>' + t(r.score === 2 ? "peRight" : r.score ? "peTypo" : "peWrong") + "</b><span>" + fmt(t("peIs"), { s: e.sym, n: "<b>" + esc(e.name) + "</b>" }) + (e.alt.length > 1 ? ' <small class="le-dim">(' + esc(e.alt.slice(1).join(", ")) + ")</small>" : "") +
+      ' · <span class="le-dim">' + t("peZ") + " " + e.z + " · " + esc(tl(K.n)) + "</span></span></div>" +
+      '<div class="le-btns"><button class="le-pri le-vgo" data-l="pnext">' + t(q.i + 1 >= q.list.length ? "peEnd" : "peNext") + " ↵</button></div>";
+    this.body('<div class="le-lhead"><i style="background:' + f.farbe + '">' + esc(f.kurz) + "</i><h2>" + esc(tl(this.th.name)) + '</h2><span class="le-sp"></span><span class="le-dim">' + esc(tl(st.name)) + " · <b>" + sum + "</b> / 10</span></div>" +
+      '<div class="le-pq"><div class="le-dots">' + dots + '</div><p class="le-dim">' + fmt(t("peRound"), { i: q.i + 1, n: q.list.length }) + '</p><div class="le-ptile le-pbig" style="--c:' + K.c + '"><b>' + e.sym + "</b></div>" +
+      "<h3>" + fmt(t("peQ"), { s: "<b>" + e.sym + "</b>" }) + "</h3>" +
+      '<div class="le-pin"><input type="text" id="le-pans" autocomplete="off" autocapitalize="off" spellcheck="false" maxlength="40"' + (r ? ' disabled value="' + esc(r.e) + '"' : "") + ">" + (r ? "" : '<button class="le-pri" data-l="pchk">' + t("peCheck") + " ↵</button>") + "</div>" + fb + "</div>");
+    if (!r) { const ip = this.root.querySelector("#le-pans"); if (ip) setTimeout(() => ip.focus(), 0); }
+    else { const b = this.root.querySelector('[data-l="pnext"]'); if (b) setTimeout(() => b.focus(), 0); }
+  }
+  pCheck(viaBtn) {
+    const q = this.q; if (!q || this.view !== "quiz" || q.ph === "shown") return;
+    const ip = this.root.querySelector("#le-pans"), v = ip ? ip.value.trim() : ""; if (!v && !viaBtn) return;
+    const e = q.list[q.i].el, sc = pseBewerte(e, v); q.res.push({ ok: sc === 2, score: sc, el: e, e: v || "–" }); q.ph = "shown"; this.renderPseQ();
+  }
+  pNext() { const q = this.q; if (!q || q.ph !== "shown") return; q.i++; q.ph = "ask"; if (q.i >= q.list.length) this.finish(); else this.renderPseQ(); }
+  renderPseDone() {
+    const q = this.q, w = q.w, st = STUFEN_PSE[(q.opt && q.opt.lvl) | 0];
+    const rows = q.res.map((r) => '<div class="le-vres ' + (r.score === 2 ? "le-vg" : r.score ? "le-vh" : "le-vb") + '"><b><span class="le-pmini" style="--c:' + KATEG[r.el.kat].c + '">' + r.el.sym + "</span></b><span>" + esc(r.e) + "</span><span>" + esc(r.el.name) + '</span><span class="le-vp">' + (r.score ? "+" + r.score : "0") + "</span></div>").join("");
+    this.body('<div class="le-done"><h2>' + t("lDone") + '</h2><div class="le-big">' + w.summe + "<small>/10</small></div>" +
+      "<p>" + fmt(t("vPts"), { p: w.summe }) + (st.faktor > 1 ? ' · <span class="le-dim">' + fmt(t("vMult"), { s: tl(st.name), b: euro(w.basis), f: String(st.faktor).replace(".", PR.lang === "en" ? "." : ","), e: euro(w.euro) }) + "</span>" : "") + "</p>" +
+      '<div class="le-earn">' + t("lEarn") + " <b>+" + euro(q.lohn) + "</b> <small>" + t("pToPend") + "</small></div>" + this.boostHtml() + '<p class="le-dim">' + pseTiers(st.faktor, w.summe) + "</p>" +
+      '<div class="le-vresl">' + rows + "</div>" + this.doneBtns() + "</div>");
+  }
   // ---------- Vokabeltest (Englisch, seit v0.15) ----------
   // Einstellungen (Themengebiet, Schwierigkeit) – gemerkt in leaarn-ui-v1 → vok
   vopt(set) {
@@ -378,6 +465,7 @@ export class Learn {
     const st = e.target.closest("[data-st]"); if (st) { if (this.stats.click(st)) this.render(); return; }
     const fb = e.target.closest("[data-f]"); if (fb) { const f = fach(fb.getAttribute("data-f")); if (f) { this.f = f; this.view = "fach"; this.render(); } return; }
     const tb = e.target.closest("[data-t]"); if (tb) { const th = this.f.themen.find((x) => x.id === tb.getAttribute("data-t")); if (th) { if (th.setup) { this.th = th; this.view = "setup"; this.render(); } else this.start(th); } return; }
+    const pe = e.target.closest("[data-pe]"); if (pe) { const z = +pe.getAttribute("data-pe"); this.popt({ el: z }); this.pShow(z); return; }
     const vk = e.target.closest("[data-vk]"); if (vk) { this.vopt({ kat: vk.getAttribute("data-vk") }); this.renderSetup(); return; }
     const vb = e.target.closest("[data-vok]"); if (vb) { this.vConfirm(+vb.getAttribute("data-vok"), true); return; }
     const mc = e.target.closest("[data-mc]"); if (mc && this.view === "quiz") { const a = this.q.list[this.q.i]; this.submit(a.art === "wahrfalsch" ? mc.getAttribute("data-mc") === "1" : +mc.getAttribute("data-mc")); return; }
@@ -390,6 +478,9 @@ export class Learn {
     else if (a === "gnext") this.gNext();
     else if (a === "vgo") this.start(this.th);
     else if (a === "vend") this.vEnd();
+    else if (a === "pchk") this.pCheck(true);
+    else if (a === "pnext") this.pNext();
+    else if (a === "pclose") this.pClose();
     else if (a === "vset") { this.view = "setup"; this.render(); }
     else if (a === "home") { this.view = "home"; this.render(); }
     else if (a === "fach") { this.view = "fach"; this.render(); }
@@ -407,10 +498,11 @@ export class Learn {
   }
   // Tasten (aus dem Spiel weitergereicht). true = verbraucht
   key(e) {
-    if (e.code === "Escape") { if (this.view === "stats") { this.view = "home"; this.render(); } else if (this.view === "fach") { this.view = "home"; this.render(); } else if (this.view === "setup") { this.view = "fach"; this.render(); } else this.close(); return true; }
+    if (e.code === "Escape") { if (this.view === "stats") { this.view = "home"; this.render(); } else if (this.view === "fach") { this.view = "home"; this.render(); } else if (this.view === "setup") { const pc = this.root.querySelector("#le-pinfo.le-pvis"); if (pc) this.pClose(); else { this.view = "fach"; this.render(); } } else this.close(); return true; }
     if (this.view === "setup") { if ((e.code === "Enter" || e.code === "NumpadEnter") && e.target.tagName !== "BUTTON") { this.start(this.th); return true; } return false; }
     if (this.view === "quiz") {
       const a = this.q.list[this.q.i];
+      if (a.art === "pse") { if ((e.code === "Enter" || e.code === "NumpadEnter") && this.q.ph === "shown" && e.target.tagName !== "BUTTON") { this.pNext(); return true; } return false; }
       if (a.art === "vokabel") { if ((e.code === "Enter" || e.code === "NumpadEnter") && this.q.vr && this.q.vr.every(Boolean) && e.target.tagName !== "BUTTON") { this.vEnd(); return true; } return false; }
       if (a.art === "guess") { if (e.code === "Enter" || e.code === "NumpadEnter") { if (this.q.ph === "mix") this.gSubmit(); else if (this.q.ph === "res") this.gNext(); return true; } return false; }
       if (a.art === "farbe" && /^Digit[1-3]$/.test(e.code)) { this.choose(+e.code.slice(5) - 1); return true; }
@@ -445,4 +537,19 @@ function vSol(a, b) {
   const all = a.gruppen.map((g, gi) => (hit(gi) ? "<b>" : "") + esc(g.join(" / ")) + (hit(gi) ? "</b>" : "")).join(" · ");
   const typo = [b.haupt, b.bonus].filter((x) => x && x.p === 1).length ? ' <em class="le-vtypo">' + t("vTypo") + "</em>" : "";
   return all + typo;
+}
+// Periodensystem: Belohnungsstufen als Text (mit Faktor), erreichte Stufe fett
+function pseTiers(faktor, punkte) {
+  const L = PSE_LOHN, hit = punkte == null ? -1 : L.findIndex((x) => punkte >= x.ab);
+  return L.map((x, i) => { const lab = x.ab === 10 ? "10" : x.ab === 0 ? "0" : x.ab + "–" + (L[i - 1].ab - 1), s = lab + " → " + euro(Math.ceil(x.euro * faktor - 1e-9)); return i === hit ? "<b>" + s + "</b>" : s; }).join(" · ");
+}
+// Schalenmodell als kleine Grafik: Kern mit Ordnungszahl, Elektronen als Punkte auf den Schalen
+function bohr(e) {
+  const S = e.sch, n = S.length, R0 = 16, dr = n > 5 ? 9 : 12, size = 2 * (R0 + dr * (n - 1)) + 16, c = size / 2;
+  let g = '<svg viewBox="0 0 ' + size + " " + size + '" width="' + Math.min(170, size) + '" height="' + Math.min(170, size) + '"><circle cx="' + c + '" cy="' + c + '" r="9" fill="#ED6A5E"/><text x="' + c + '" y="' + (c + 3.5) + '" text-anchor="middle" font-size="9" font-weight="800" fill="#141518">' + e.z + "</text>";
+  S.forEach((k, i) => {
+    const r = R0 + dr * i; g += '<circle cx="' + c + '" cy="' + c + '" r="' + r + '" fill="none" stroke="#62929E" stroke-width="1"/>';
+    for (let j = 0; j < k; j++) { const a = -Math.PI / 2 + (j / k) * Math.PI * 2; g += '<circle cx="' + (c + Math.cos(a) * r).toFixed(1) + '" cy="' + (c + Math.sin(a) * r).toFixed(1) + '" r="' + (k > 18 ? 1.5 : 2.3) + '" fill="#ECEAE4"/>'; }
+  });
+  return g + "</svg>";
 }

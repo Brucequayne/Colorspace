@@ -26,7 +26,7 @@
     "inventory.js",   // Schnellauswahl 1–9, Rucksack (I), Ziehen und Ablegen
     "musik.js",       // Ghettoblaster
     "sound.js",       // Kassen-Klingel, Münz-Tick
-    "faecher/werkzeug.js", "faecher/farben.js", "faecher/wortliste.js", "faecher/vokabeln.js", "faecher/mathe.js", "faecher/deutsch.js", "faecher/englisch.js", "faecher/fremdsprache.js", "faecher/biologie.js",
+    "faecher/werkzeug.js", "faecher/farben.js", "faecher/wortliste.js", "faecher/vokabeln.js", "faecher/elemente.js", "faecher/mathe.js", "faecher/deutsch.js", "faecher/englisch.js", "faecher/fremdsprache.js", "faecher/biologie.js",
     "faecher/chemie.js", "faecher/physik.js", "faecher/geschichte.js", "faecher/erdkunde.js", "faecher/politik.js", "faecher/wirtschaft.js",
     "faecher/religion.js", "faecher/kunst.js", "faecher/musik.js", "faecher/informatik.js",
     "faecher/index.js", // alle Fächer, Aufgabenformat, Belohnung

@@ -261,6 +261,35 @@ const CSS = `
 .le-lfok em{font-style:normal;color:#fff;font-variant-numeric:tabular-nums;min-width:44px}.le-lfok.le-up i b{background:#7FC8D4}.le-lfok.le-full i b{background:#ED6A5E}.le-lfok.le-full em{color:#ED6A5E}
 .le-fboost{display:inline-block;margin:4px 0 0;padding:3px 10px;background:rgba(237,106,94,.16);border:1px solid #ED6A5E;color:#ED6A5E;font-weight:800}
 .le-shop .le-cd button{white-space:nowrap}.le-shop .le-cd small{max-width:220px}
+/* v0.19.1: Periodensystem (Chemie) */
+.le-phint{margin:-4px 0 8px}
+.le-pse{position:relative}
+.le-ptab{display:grid;grid-template-columns:repeat(18,minmax(26px,1fr));grid-template-rows:repeat(7,minmax(34px,auto)) 8px repeat(2,minmax(34px,auto));gap:2px}
+.le-root .le-pe{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:1px 0!important;min-width:0;background:var(--c)!important;border:1px solid rgba(0,0,0,.25)!important;color:#fff!important;cursor:pointer;transition:transform .12s,opacity .2s;line-height:1}
+.le-pe small{font-size:9px;font-weight:700;opacity:.8}.le-pe b{font-size:14px;font-weight:800}
+.le-root .le-pe:hover{transform:scale(1.35);z-index:3;outline:2px solid #fff;box-shadow:0 4px 12px rgba(0,0,0,.5)}.le-root .le-pe.le-on{outline:3px solid #ED6A5E;z-index:2}
+.le-pe.le-pdim{opacity:.38}.le-pe.le-pdim:hover{opacity:1}
+.le-pph{display:flex;align-items:center;justify-content:center;background:var(--c);opacity:.55;font-size:9px;font-weight:800;color:#fff}
+.le-plab{display:flex;align-items:center;justify-content:flex-end;padding-right:6px;font-size:11px;font-weight:700;color:#A9ACB2}
+.le-pinfo{display:none;position:absolute;z-index:5;width:310px;background:#2E3A39;border:1px solid #62929E;box-shadow:0 10px 28px rgba(0,0,0,.55);padding:12px}.le-pinfo.le-pvis{display:block}.le-pinfo.le-popen{animation:le-popen .2s ease-out}
+.le-root .le-px{position:absolute;right:6px;top:6px;padding:0 8px!important;font-size:18px!important;line-height:26px}
+@keyframes le-popen{from{opacity:0;transform:scale(.6)}to{opacity:1;transform:none}}
+.le-pcard{display:flex;gap:12px;align-items:center;margin-bottom:8px;padding-right:22px}.le-pcard h3{margin:0;font-size:20px}.le-pcard p{margin:2px 0 0}
+.le-ptile{display:flex;flex-direction:column;align-items:center;justify-content:center;width:74px;height:74px;flex:none;background:var(--c);color:#fff;border:1px solid rgba(0,0,0,.3)}
+.le-ptile small{font-size:12px;font-weight:700;align-self:flex-start;margin-left:6px;opacity:.85}.le-ptile b{font-size:30px;font-weight:800;line-height:1}.le-ptile i{font-style:normal;font-size:11px;opacity:.85}
+.le-prad{font-style:normal;color:#ED6A5E;font-weight:700}
+.le-prows>div{display:flex;justify-content:space-between;gap:10px;padding:4px 0;border-bottom:1px solid #44514F;font-size:13px}.le-prows span{color:#A9ACB2}.le-prows b{text-align:right}.le-prows b small{display:block;font-weight:500}
+.le-pbohr{display:flex;gap:10px;align-items:center;margin-top:8px}.le-pbohr p{margin:0;font-size:13px;line-height:1.45;color:#C6C5B9}.le-pbohr svg{flex:none}
+.le-plg{margin:8px 0}
+.le-pctl{display:grid;grid-template-columns:minmax(220px,1fr) minmax(0,1.4fr);gap:18px;align-items:start;margin-top:6px}
+.le-pq{max-width:560px;margin:0 auto;text-align:center}.le-pq .le-btns{justify-content:center}.le-pq h3{margin:14px 0 12px;font-size:20px}
+.le-ptile.le-pbig{width:130px;height:130px;margin:6px auto 0}.le-ptile.le-pbig b{font-size:60px}
+.le-pin{display:flex;gap:8px;justify-content:center}.le-root .le-pin input{flex:1;max-width:340px;font:700 20px var(--f-body,system-ui,sans-serif);padding:9px 12px;background:#1B1C1F;border:2px solid #62929E;outline:0}.le-root .le-pin input:focus{border-color:#ED6A5E}
+.le-pfb{margin:14px auto 4px;padding:10px 12px;border-left:4px solid #4A5A5B;background:#33403F;display:flex;flex-direction:column;gap:4px;text-align:left}
+.le-pfb.le-vg{border-left-color:#7FC8D4}.le-pfb.le-vg>b{color:#7FC8D4}.le-pfb.le-vh{border-left-color:#C6C5B9}.le-pfb.le-vb{border-left-color:#ED6A5E}.le-pfb.le-vb>b{color:#ED6A5E}
+.le-dots i.le-half{background:#C6C5B9}
+.le-pmini{display:inline-flex;align-items:center;justify-content:center;width:34px;height:28px;background:var(--c);color:#fff;font-weight:800}
+@media (max-width:980px){.le-pctl{grid-template-columns:1fr}}
 `;
 
 let A = null;

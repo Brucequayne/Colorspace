@@ -123,6 +123,11 @@ Bei Deutsch → Englisch zählen alle englischen Wörter, die dieselbe deutsche 
 männlich/weiblich (Lehrer/Lehrerin) zählen als dasselbe Wort. Gleichlautende Wörter (Hotel, Hand) höchstens eins je Durchgang.
 Belohnung `VOK_LOHN`: 0 = 5 €, 1–5 = 25 €, 6–9 = 75 €, 10 = 150 €, über 10 = 250 €, mal 1 / 1,3 / 1,6 je Schwierigkeit (aufgerundet).
 
+Periodensystem (Chemie, seit v0.19.1, art `pse`, Thema `periodensystem`): Daten und Regeln in `faecher/elemente.js` (118 Elemente mit Name,
+Alternativnamen, Masse, Kategorie, Zustand; Periode/Gruppe/Platz und Elektronen pro Schale werden berechnet, `FAKT` = Wissenswertes).
+Setup-Seite = erkundbares Periodensystem (`renderPseSetup`, Klick klappt die Infokarte neben dem Element auf), dann 5 Runden Symbol → Name
+(`renderPseQ`/`pCheck`/`pNext`), Punkte 2/1/0 wie beim Vokabeltest, Schwierigkeit in `STUFEN_PSE` (gemerkt in `leaarn-ui-v1` → `pse`).
+
 Stufen statt Jahrgänge (seit v0.15): `klasse` 5–6 = Basics, 7–8 = Fortgeschritten, 9–10 = Experte, `stufe: "alle"` = Alle Stufen.
 
 Farbmischen (`faecher/farben.js`): Farbe = Pigment-Anteile [Rot, Gelb, Blau, Weiß, Schwarz], Mischen = gleiche Teile.
