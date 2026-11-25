@@ -12,7 +12,7 @@ addTexts({
   hName: L2("Name des Hauses", "House name"), hLevel: L2("Etage", "Floor"), hStage: L2("Dachstufe (Höhe der Schräge/des Giebels)", "Roof step (height of slope/gable)"),
   hAbove: L2("Etagen darüber zeigen", "Show floors above"), hList: L2("Meine Häuser (im Browser)", "My houses (in this browser)"),
   hNew: L2("Neues Haus", "New house"), hCopy: L2("Kopie", "Copy"), hDel: L2("Löschen", "Delete"), hExport: L2("Exportieren (.txt)", "Export (.txt)"), hImport: L2("Importieren (.txt)", "Import (.txt)"),
-  hStarter: L2("Starterhaus als Vorlage", "Starter house as template"), hSure: L2("Dieses Haus löschen?", "Delete this house?"),
+  hStarter: L2("Starterhaus als Vorlage", "Starter house as template"), hMarket: L2("Supermarkt als Vorlage (neues Haus)", "Supermarket as template (new house)"), hSure: L2("Dieses Haus löschen?", "Delete this house?"),
   hInfo: L2("{n} Bauteile · Grundfläche {w} × {d} m · {l} Etage(n)", "{n} parts · footprint {w} × {d} m · {l} floor(s)"),
   hHelp: L2("Linke Maus setzt (Ziehen malt), Rechtsklick oder Umschalt+Links entfernt. Wände: die Kante unter der Maus wird gewählt. R dreht (Giebel/Markise: spiegeln). Bild↑/↓ Etage, ,/. Dachstufe, 1–6 Kategorie, 7 Grundstück, Strg+Z/Y.", "Left mouse places (drag paints), right click or Shift+left removes. Walls: the edge under the mouse is used. R rotates (gable/awning: mirror). PgUp/PgDn floor, ,/. roof step, 1–6 category, 7 plot, Ctrl+Z/Y."),
   hCam: L2("Kamera: Q/E halten oder rechte Maus ziehen drehen · mittlere Maus oder Umschalt+rechte verschieben · Rad zoomen · WASD bewegen", "Camera: hold Q/E or right drag rotate · middle mouse or Shift+right pan · wheel zoom · WASD move"),
@@ -103,7 +103,7 @@ export class HouseEditor {
       '<p class="le-dim">' + fmt(t("hInfo"), { n: d.parts.length, w: b ? b.w : 0, d: b ? b.d : 0, l: lv.size || 0 }) + "</p>" +
       "<h4>" + t("hList") + '</h4><div class="le-hl">' + this.list.map((x, i) => '<button data-house="' + i + '" aria-pressed="' + (i === s.cur) + '">' + esc(x.name || "?") + "</button>").join("") + "</div>" +
       '<div class="le-btns"><button data-e="new">+ ' + t("hNew") + '</button><button data-e="copy">' + t("hCopy") + '</button><button data-e="del">' + t("hDel") + "</button></div>" +
-      '<div class="le-btns le-col"><button data-e="export" class="le-pri">' + t("hExport") + '</button><button data-e="import">' + t("hImport") + '</button><button data-e="starter">' + t("hStarter") + "</button></div>" +
+      '<div class="le-btns le-col"><button data-e="export" class="le-pri">' + t("hExport") + '</button><button data-e="import">' + t("hImport") + '</button><button data-e="starter">' + t("hStarter") + '</button><button data-e="market">' + t("hMarket") + "</button></div>" +
       "<p>" + t("hNote") + "</p><p>" + t("hHelp") + "</p>";
     P.innerHTML = h;
     this.root.querySelector("#le-hname").textContent = d.name || "";
@@ -133,6 +133,7 @@ export class HouseEditor {
     else if (a === "copy") { const c = JSON.parse(JSON.stringify(this.def)); c.name = (c.name || "Haus") + " 2"; this.list.push(c); this.s.cur = this.list.length - 1; this.after(); }
     else if (a === "del") { if (!confirmLite(t("hSure"))) return; this.list.splice(this.s.cur, 1); if (!this.list.length) this.list.push(DEF_HOUSE()); this.s.cur = Math.min(this.s.cur, this.list.length - 1); this.after(); }
     else if (a === "starter") { this.push(); this.def.parts = JSON.parse(JSON.stringify(HOUSES.starter.d.parts)); this.def.plot = JSON.parse(JSON.stringify(HOUSES.starter.d.plot || [])); this.after(); }
+    else if (a === "market") { const c = JSON.parse(JSON.stringify(HOUSES.supermarkt.d)); this.list.push(c); this.s.cur = this.list.length - 1; this.after(); }   // seit v0.19.9: als neues Haus, damit nichts überschrieben wird
     else if (a === "export") { const f = exportHouse(this.def); this.app.toast(fmt(t("hDone"), { f: f })); }
     else if (a === "import") this.root.querySelector("#le-hfile").click();
   }

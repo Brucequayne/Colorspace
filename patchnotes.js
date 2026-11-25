@@ -3,6 +3,17 @@
    Die Versionsnummer auf den Kacheln kommt aus dem obersten Eintrag. */
 window.PATCHNOTES = {
   leaarn: [
+    { v: "0.19.9", t: "2026-11-25T22:50:00+01:00",
+      de: ["Neues fertiges Gebäude: Supermarkt (12 × 8 m, ein Stockwerk). Im Map-Editor unter Häuser → Fertige Häuser auswählen und platzieren.",
+        "Vorne große Schaufenster mit gestreiften Markisen, links Eingang und rechts Ausgang als Automatik-Schiebetüren, davor ein gepflasterter Vorplatz mit Einkaufswagen.",
+        "Innen: drei Obst- und Gemüsestände, zwei Gefriertruhen, Warenregale an der Rückwand, zwei Regal-Inseln und zwei Kassen mit Laufband vor dem Ausgang. An allen Regalen, Truhen und Ständen kann man mit E einkaufen.",
+        "Neues Sortiment: Obst und Gemüse (Apfel, Banane, Karotten, Tomaten), Tiefkühlware (Pizza, Eis, Fischstäbchen) und im Warenregal Brot, Milch, Nudeln, Müsli, Wasser und Schokolade. Alles passt in den Kühlschrank.",
+        "Haus-Editor: „Supermarkt als Vorlage“ legt den Supermarkt als neues Haus in deine Liste, zum Umbauen und Exportieren."],
+      en: ["New finished building: supermarket (12 × 8 m, one floor). Pick it in the map editor under Houses → Finished houses and place it.",
+        "Large shop windows with striped awnings at the front, entrance on the left and exit on the right as automatic sliding doors, and a paved forecourt with shopping carts.",
+        "Inside: three fruit & veg stands, two chest freezers, shelves along the back wall, two shelf islands and two checkouts with conveyor belts in front of the exit. Press E at any shelf, freezer or stand to shop.",
+        "New goods: fruit & vegetables (apple, banana, carrots, tomatoes), frozen food (pizza, ice cream, fish fingers) and bread, milk, pasta, muesli, water and chocolate on the shelves. Everything fits in the fridge.",
+        "House editor: “Supermarket as template” adds the supermarket as a new house to your list, to rebuild and export."] },
     { v: "0.19.8", t: "2026-11-25T22:15:00+01:00",
       de: ["Kreuzungen und Einmündungen komplett neu: Sie sind jetzt eine eigene, saubere Fläche, an die alle Straßen exakt anschließen. Kein Gras und kein Gelände mehr, das durch den Asphalt sticht, keine stufig abgeschnittenen Gehwege.",
         "Bordsteine laufen an jeder Ecke in einem runden Bogen um, Gehwege verbinden sich nahtlos um die Ecke. Das funktioniert bei T-Einmündungen, Kreuzungen und bei spitzen oder stumpfen Winkeln, nicht nur bei 90°.",

@@ -189,6 +189,9 @@ Läden (seit v0.19.7): Wandteile `shopwin: 1|2|3` (Schaufenster, Glas als eigene
 Neue Bauteil-Art `kind: "deco"` (Markisen, `awn: 1|2|3`): liegt auf einer Kante, eigener Platz (`slot` "a…"), ersetzt die Wand nicht, ragt in die angeklickte Zelle, `p[6]` = 1 spiegelt die Seite.
 Kategorie `objekte` ersetzt `shop` (Teile-IDs unverändert); `HouseEditor` biegt eine gespeicherte Kategorie `shop` auf `objekte` um.
 
+Supermarkt (seit v0.19.9): fertiges Haus `supermarkt` in haeuser.js (per Code gebaut, 12 × 8 m, Grundstück +1 m, vorne +3 m), im Haus-Editor
+„Supermarkt als Vorlage“ (neues Haus in der Liste). Sortiment in items.js (`preis`, `laden`).
+
 ## Speicher im Browser
 
 `leaarn-scene-v1` (Map), `leaarn-save-v1` (Geld, Lernstatistik), `leaarn-houses-v1` (Häuser aus dem Haus-Editor),

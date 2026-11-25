@@ -15,7 +15,32 @@ export const ITEMS = {
   muetze: { kind: "kleidung", n: L2("Mütze", "Beanie"), d: L2("Kleidungsstück – gehört in den Kleiderschrank.", "Clothing – belongs in the wardrobe."), max: 1,
     ico: svg('<path d="M6 22a10 10 0 0 1 20 0z" fill="#ED6A5E"/><rect x="5" y="21" width="22" height="5" fill="#C6C5B9"/><circle cx="16" cy="9" r="3" fill="#C6C5B9"/>') },
   apfel: { kind: "essen", n: L2("Apfel", "Apple"), d: L2("Lebensmittel – gehört in den Kühlschrank.", "Food – belongs in the fridge."), max: 20, preis: 2, laden: "obst",
-    ico: svg('<path d="M16 10c-5-3-11 0-10 7 1 6 5 10 10 8 5 2 9-2 10-8 1-7-5-10-10-7z" fill="#C9483C"/><path d="M16 10c0-3 1-5 3-6" stroke="#5E4330" stroke-width="2" fill="none"/><path d="M17 7c2-2 5-2 6 0-2 1-4 1-6 0z" fill="#5D8A4E"/>') }
+    ico: svg('<path d="M16 10c-5-3-11 0-10 7 1 6 5 10 10 8 5 2 9-2 10-8 1-7-5-10-10-7z" fill="#C9483C"/><path d="M16 10c0-3 1-5 3-6" stroke="#5E4330" stroke-width="2" fill="none"/><path d="M17 7c2-2 5-2 6 0-2 1-4 1-6 0z" fill="#5D8A4E"/>') },
+  // Supermarkt-Sortiment (seit v0.19.9): alles Lebensmittel (Kühlschrank), Preise in €
+  banane: { kind: "essen", n: L2("Banane", "Banana"), d: L2("Obst – reif und gelb.", "Fruit – ripe and yellow."), max: 20, preis: 2, laden: "obst",
+    ico: svg('<path d="M6 9c2 11 12 17 21 13-1-2-3-2-5-2-8 0-12-5-13-11z" fill="#E8C66A"/><path d="M6 9l-1-3 3 1z" fill="#5E4330"/>') },
+  karotte: { kind: "essen", n: L2("Karotten", "Carrots"), d: L2("Gemüse – knackig und orange.", "Vegetables – crunchy and orange."), max: 20, preis: 2, laden: "obst",
+    ico: svg('<path d="M9 23l13-13 3 3-13 13z" fill="#E8873C"/><path d="M22 10l3-6M22 10l6-2M23 11l4 2" stroke="#5D8A4E" stroke-width="2.4"/>') },
+  tomate: { kind: "essen", n: L2("Tomaten", "Tomatoes"), d: L2("Gemüse – rot und saftig.", "Vegetables – red and juicy."), max: 20, preis: 2, laden: "obst",
+    ico: svg('<circle cx="16" cy="18" r="9" fill="#C9483C"/><path d="M11 10l5 3 5-3-3 4h-4z" fill="#5D8A4E"/>') },
+  pizza: { kind: "essen", n: L2("Tiefkühlpizza", "Frozen pizza"), d: L2("Tiefkühlware – 15 Minuten im Ofen.", "Frozen food – 15 minutes in the oven."), max: 10, preis: 6, laden: "tiefkuehl",
+    ico: svg('<rect x="5" y="7" width="22" height="18" fill="#4A6D7C"/><circle cx="16" cy="16" r="7" fill="#E8C66A"/><circle cx="14" cy="14" r="1.6" fill="#C9483C"/><circle cx="18" cy="17" r="1.6" fill="#C9483C"/><circle cx="14" cy="19" r="1.2" fill="#5D8A4E"/>') },
+  eis: { kind: "essen", n: L2("Eis", "Ice cream"), d: L2("Tiefkühlware – eine Packung Vanilleeis.", "Frozen food – a tub of vanilla ice cream."), max: 10, preis: 5, laden: "tiefkuehl",
+    ico: svg('<path d="M8 12h16l-2 14H10z" fill="#F2F0EA"/><rect x="7" y="9" width="18" height="4" fill="#ED6A5E"/><rect x="10" y="17" width="12" height="3" fill="#E8C66A"/>') },
+  fisch: { kind: "essen", n: L2("Fischstäbchen", "Fish fingers"), d: L2("Tiefkühlware – knusprig paniert.", "Frozen food – crispy and breaded."), max: 10, preis: 5, laden: "tiefkuehl",
+    ico: svg('<rect x="5" y="8" width="22" height="16" fill="#62929E"/><rect x="9" y="12" width="14" height="3" fill="#E8A44A"/><rect x="9" y="17" width="14" height="3" fill="#E8A44A"/>') },
+  brot: { kind: "essen", n: L2("Brot", "Bread"), d: L2("Ein frisches Brot.", "A fresh loaf of bread."), max: 10, preis: 3, laden: "allg",
+    ico: svg('<path d="M5 20c0-7 5-11 11-11s11 4 11 11v3H5z" fill="#B07A45"/><path d="M11 13l2 4M16 12l1 4M21 13l-1 4" stroke="#7A5230" stroke-width="1.6"/>') },
+  milch: { kind: "essen", n: L2("Milch", "Milk"), d: L2("Ein Liter frische Milch.", "One litre of fresh milk."), max: 10, preis: 2, laden: "allg",
+    ico: svg('<path d="M11 9h10v4l2 3v11H9V16l2-3z" fill="#F2F0EA"/><rect x="11" y="6" width="10" height="3" fill="#4A6D7C"/><rect x="9" y="18" width="14" height="5" fill="#62929E"/>') },
+  nudeln: { kind: "essen", n: L2("Nudeln", "Pasta"), d: L2("Eine Packung Spaghetti.", "A pack of spaghetti."), max: 10, preis: 2, laden: "allg",
+    ico: svg('<rect x="7" y="6" width="18" height="21" fill="#ED6A5E"/><rect x="10" y="10" width="12" height="9" fill="#F2F0EA"/><path d="M12 11v7M14 11v7M16 11v7M18 11v7M20 11v7" stroke="#E8C66A" stroke-width="1.2"/>') },
+  muesli: { kind: "essen", n: L2("Müsli", "Muesli"), d: L2("Haferflocken mit Nüssen und Rosinen.", "Oats with nuts and raisins."), max: 10, preis: 4, laden: "allg",
+    ico: svg('<rect x="8" y="5" width="16" height="22" fill="#5D8A4E"/><circle cx="16" cy="17" r="5" fill="#E8C66A"/><circle cx="15" cy="16" r="1" fill="#8A6142"/><circle cx="17.5" cy="18" r="1" fill="#8A6142"/>') },
+  wasser: { kind: "essen", n: L2("Wasser", "Water"), d: L2("Eine Flasche Mineralwasser.", "A bottle of mineral water."), max: 10, preis: 1, laden: "allg",
+    ico: svg('<path d="M13 5h6v4l3 4v14H10V13l3-4z" fill="#7FB4C4"/><rect x="13" y="3" width="6" height="3" fill="#4A6D7C"/><rect x="10" y="16" width="12" height="5" fill="#F2F0EA"/>') },
+  schoko: { kind: "essen", n: L2("Schokolade", "Chocolate"), d: L2("Eine Tafel Vollmilchschokolade.", "A bar of milk chocolate."), max: 10, preis: 2, laden: "allg",
+    ico: svg('<rect x="6" y="9" width="20" height="14" fill="#5E4330"/><path d="M13 9v14M19 9v14M6 16h20" stroke="#3E2C20" stroke-width="1.4"/><rect x="6" y="9" width="8" height="14" fill="#ED6A5E"/>') },
   // Beispiel für später:
   // cd_beispiel: { kind: "cd", n: L2("Titel", "Title"), artist: "Noah", src: "leaarn/musik/titel.mp3", max: 1, ico: CD_ICO("#ED6A5E") }
 };
