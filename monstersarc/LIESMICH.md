@@ -40,7 +40,8 @@ Ordner nacheinander, mit demselben Cache-Stempel `?v=…`. Kein Build-Schritt n�
 | `monsters.js` | Monster (seit v0.25): Datensatz (`sanitize`, `blank`), Bild-Generator `render(m, "front"\|"back")` (Formen in 0…1, gerastert mit 64 × Größe Pixeln, 5 Tonstufen, Außen- und Innenlinien, Gesicht als Pixel), Schrei `playCry` (8-bit, Seed, Tonhöhe, Länge), Werte `statAt` (Grundwert Lv 1 → Grundwert + Potenzial × 4 auf Lv 100), Monsterliste (localStorage `monstersarc.monsters.v1`, Export/Import der ganzen Liste) |
 | `monstertpl.js` | 25 Grundmonster als Vorlagen (`MA.MONSTER_TEMPLATES`) |
 | `monsters/liste.js` | Feste Monsterliste des Spiels (`MA.MONSTER_LIST`, `null` = nur Browser-Liste). Exportierte Listen von Noah kommen hier hinein |
-| `monstereditor.js` | Monster-Editor (seit v0.25), Reiter im Dev-Kit (`MA.monsterEditor.mount/update/render`). Reiter Allgemein, Aussehen, Farben, Werte, Klang, Attacken (leer). Vorschau wie im Kampf (×2/×1) oder nebeneinander. Arbeitsstand `monstersarc.monster.draft.v1` |
+| `monster3d.js` | 3D-Baukasten für Monster (seit v0.26): Modell (Wirbelsäule, Schädel, Glieder, Stempel, Pinsel; `sanitize`), `build`/`pack` → Grundkörper, WebGL2-Raymarching `draw` (Licht von oben links, weiche Schatten, Verdeckung), Pixel-Look `post` (4 Töne, Raster, Außen-/Innenlinien, Fellbüschel), `snapshot` (fertiges Spielbild), Stempel-Assets `A` (Augen, Mund, Zacken/Flügel, Füße, Hände), 12 Glied-Vorlagen, 8 Grundkörper |
+| `monstereditor.js` | Monster-Editor, Reiter im Dev-Kit (`MA.monsterEditor.mount/update/render`). Seit v0.26: Reiter Bauen (3D: Formen, Glieder, Stempel, Pinsel, Kamera, Symmetrie), Allgemein, Farben, Werte, Klang, Attacken. „Zur Liste hinzufügen“ = Foto vorne → Foto hinten → Nachzeichnen (Stift/Radierer/Pipette/Füllen) → speichern, danach „Entwicklung bauen“. Arbeitsstand `monstersarc.monster.draft.v2` |
 | `scene-dex.js` | Monsterliste im Spiel (Hauptmenü → Monsterliste) |
 | `main.js` | Hülle: Canvas, Skalierung, Szenen, Schleife |
 
@@ -75,3 +76,7 @@ Innenraum (Format-Version 2, Feld `interior`, seit v0.21): `size` = [Breite, Tie
 ## Monster (seit v0.25)
 Datensatz: `id`, `no` (Nr. in der Monsterliste), `name`, `el` [Element 1, Element 2 oder -1], `pre`/`evo` (id), `evoLvl`, `look` (Körperbau und Teile, `seed`), `pal` (main, sec, acc, eye, extra), `size` (Bild: 64 × size Pixel), `h` (m), `kg`, `stats` {hp, atk, def, spa, spd, ini: [Grundwert Lv 1, Potenzial 0–100]}, `cry` {seed, pitch, stretch}. Elemente: Index in `MA.monsters.ELEMENTS`.
 Perspektive: nur vorne und hinten (wie Gen 3), keine Animation. Export-Datei `MonstersArc_Monsterliste.json` (Format `monstersarc-monsters`, Feld `list`).
+
+
+### 3D-Monster (seit v0.26)
+Jedes neue Monster hat zusätzlich `model` (3D-Modell, Aufbau siehe Kopf von `monster3d.js`), `img` { front, back: PNG als data-URL, w: Kantenlänge } und `snap` { f, b: [Drehung, Neigung] der Fotos }. Im Spiel werden nur die Bilder aus `img` gezeigt (`MA.monsters.render` nimmt sie, falls vorhanden). Ältere Monster ohne `img` werden weiter mit dem 2D-Generator aus v0.25 gezeichnet. Die Bildgröße ist `64 × size` Pixel (+ 2 für die Linie). Der 3D-Editor braucht WebGL2.

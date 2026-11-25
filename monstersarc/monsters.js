@@ -57,6 +57,12 @@
     Object.keys(PAL0).forEach(function (k) { o.pal[k] = okCol(m.pal && m.pal[k], PAL0[k]); });
     STATS.forEach(function (s) { var v = m.stats && m.stats[s.k] || b.stats[s.k]; o.stats[s.k] = [Math.round(clamp(v[0], 1, 60, 7)), Math.round(clamp(v[1], 0, 100, 45))]; });
     var c = m.cry || {}; o.cry = { seed: Math.round(clamp(c.seed, 1, 99999, 1)), pitch: clamp(c.pitch, 0.5, 2, 1), stretch: clamp(c.stretch, 0.5, 2, 1) };
+    // seit v0.26: 3D-Modell (monster3d.js) und fertige Spielbilder (Fotos aus dem 3D-Editor, nachgezeichnet)
+    o.model = m.model && MA.m3d ? MA.m3d.sanitize(m.model) : null;
+    var im = m.img, okI = function (u) { return typeof u === "string" && u.indexOf("data:image/png;base64,") === 0 && u.length < 600000; };
+    o.img = im && okI(im.front) && okI(im.back) ? { front: im.front, back: im.back, w: Math.round(clamp(im.w, 8, 300, 66)) } : null;
+    var sn = m.snap, okS = function (a) { return Array.isArray(a) && a.length === 2 && isFinite(+a[0]) && isFinite(+a[1]); };
+    o.snap = sn && okS(sn.f) && okS(sn.b) ? { f: [+sn.f[0], +sn.f[1]], b: [+sn.b[0], +sn.b[1]] } : null;
     return o;
   }
 
@@ -245,7 +251,16 @@
 
   var cache = {}, cacheN = 0;
   // Bild eines Monsters: view "front" | "back". Ergebnis: Canvas S × S (S = 64 × Größe)
+  var imgCache = {};
+  function fromImg(m, view) {   // fertiges Bild aus dem 3D-Editor (seit v0.26)
+    var u = m.img[view], key = m.id + view + u.length + u.slice(-32);
+    if (imgCache[key]) return imgCache[key];
+    var cv = MA.canvas(m.img.w, m.img.w), im = new Image();
+    im.onload = function () { cv.width = im.width; cv.height = im.height; cv.ctx.imageSmoothingEnabled = false; cv.ctx.drawImage(im, 0, 0); };
+    im.src = u; return (imgCache[key] = cv);
+  }
   function render(m, view) {
+    if (m.img && m.img[view === "back" ? "back" : "front"]) return fromImg(m, view === "back" ? "back" : "front");
     var back = view === "back", key = JSON.stringify([m.look, m.pal, m.size, back]);
     if (cache[key]) return cache[key];
     if (cacheN > 300) { cache = {}; cacheN = 0; }

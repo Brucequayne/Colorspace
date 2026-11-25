@@ -25,6 +25,7 @@
     "monsters/liste.js", // feste Monsterliste des Spiels (null = nur Browser-Liste)
     "monsters.js",      // Monster: Bild-Generator (vorne/hinten), Schrei, Werte, Monsterliste (seit v0.25)
     "monstertpl.js",    // 25 Grundmonster als Vorlagen
+    "monster3d.js",     // 3D-Baukasten für Monster (seit v0.26): Modell, WebGL-Renderer, Stempel-Assets, Pixel-Look
     "world.js",         // Spielwelt mit Kamera: zeichnet Boden, Pflanzen, Objekte, Figuren
     "character.js",     // Figur: Laufen, Kollision, Schritte (Spieler und später NPCs)
     "scene-menu.js",    // Hauptmenü
@@ -32,7 +33,7 @@
     "scene-dex.js",     // Monsterliste im Spiel (seit v0.25)
     "devkit.js",        // Dev-Kit: Map-Editor (weitere Editoren später)
     "buildeditor.js",   // Gebäude-Editor (seit v0.2), Reiter im Dev-Kit
-    "monstereditor.js", // Monster-Editor (seit v0.25), Reiter im Dev-Kit
+    "monstereditor.js", // Monster-Editor (seit v0.25, 3D seit v0.26), Reiter im Dev-Kit
     "main.js"           // Hülle: Canvas, Skalierung, Szenen, Schleife
   ];
   var stamp = "";

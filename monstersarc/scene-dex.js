@@ -24,12 +24,14 @@
 
   function pad(n) { return ("00" + n).slice(-3); }
   function esc(t) { return String(t).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
-  function img(m, view, sc) { var c = MO.render(m, view); return '<img alt="" src="' + c.toDataURL() + '" width="' + c.width * sc + '" height="' + c.height * sc + '">'; }
+  function img(m, view, sc) {
+    if (m.img && m.img[view]) return '<img alt="" src="' + m.img[view] + '" width="' + m.img.w * sc + '" height="' + m.img.w * sc + '">';   // Bild aus dem 3D-Editor (seit v0.26)
+    var c = MO.render(m, view); return '<img alt="" src="' + c.toDataURL() + '" width="' + c.width * sc + '" height="' + c.height * sc + '">'; }
 
   function detail() {
     var m = MO.byId(S.sel), r = S.el.querySelector(".r");
     if (!m) { r.innerHTML = '<div class="empty">' + L2("Wähle links ein Monster.", "Pick a monster on the left.") + '</div>'; return; }
-    var sc = m.size <= 1.1 ? 2 : 1, pre = m.pre && MO.byId(m.pre), evo = m.evo && MO.byId(m.evo);
+    var sc = (m.img ? m.img.w <= 72 : m.size <= 1.1) ? 2 : 1, pre = m.pre && MO.byId(m.pre), evo = m.evo && MO.byId(m.evo);
     var h = '<div class="no">#' + pad(m.no) + '</div><h3>' + esc(m.name || "?") + '</h3><div class="els">' +
       [m.el[0], m.el[1]].filter(function (e) { return e >= 0; }).map(function (e) { return '<span style="background:' + MO.EL_COL[e] + '">' + MO.elName(e) + '</span>'; }).join("") + '</div>' +
       '<div class="pics"><div>' + img(m, "front", sc) + L2("vorne", "front") + '</div><div>' + img(m, "back", sc) + L2("hinten", "back") + '</div></div>' +
