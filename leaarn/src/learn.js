@@ -8,8 +8,20 @@ import { hsb, rgbHex, de2000, rating } from "le/faecher/farben.js";
 import { KAT, WORTARTEN, ART_KURZ, STUFEN, VOK_LOHN, bereich, stufenPool, bewerte } from "le/faecher/vokabeln.js";
 import { ELEMENTE, KATEG, ZUSTAND, STUFEN_PSE, PSE_LOHN, psePool, pseBewerte, valenz, STUFEN_SCHALE, SCHALE_MAX, neutronen, schalePool, schaleBewerte, STUFEN_STECK, ROEM, STECK_FELDER, steckSoll, steckBewerte } from "le/faecher/elemente.js";
 import { fachBonus, restzeit } from "le/faecher/boni.js";
+import { KARTEN, STUFEN_KARTE, karte, ladeKarte, landName, anzahl, landBewerte } from "le/faecher/laenderraten.js";
 
 addTexts({
+  // Länder raten (Erdkunde, v0.19.5)
+  kIntro: L2("Auf der Karte leuchtet ein Land auf. Klick es an, dann öffnet sich ein Fenster: Namen eintippen und mit Enter bestätigen. Das Fenster lässt sich an der Kopfzeile verschieben. 10 Länder pro Durchgang.", "A country lights up on the map. Click it and a small window opens: type the name and confirm with Enter. You can move the window by its title bar. 10 countries per round."),
+  kMap: L2("Karte", "Map"), kPts: L2("Richtig = 1 Punkt, kleiner Tippfehler = ½ Punkt (max. 10). Deutsche und englische Namen zählen.", "Correct = 1 point, small typo = ½ point (max 10). German and English names both count."),
+  kNoLvl: L2("Hier gibt es keine Stufen: alle {n} Länder sind dabei, 10 davon kommen dran.", "No levels here: all {n} countries are in, 10 of them come up."),
+  kNoLvlDe: L2("Keine Stufen: 10 der {n} Bundesländer kommen dran.", "No levels: 10 of the {n} states come up."),
+  kLoad: L2("Karte wird geladen …", "Loading map …"), kErr: L2("Die Karte konnte nicht geladen werden.", "The map could not be loaded."),
+  kRound: L2("Land {i} von {n}", "Country {i} of {n}"), kClick: L2("Klick auf das leuchtende Land (Enter öffnet das Fenster auch)", "Click the glowing country (Enter opens the window too)"),
+  kClickDe: L2("Klick auf das leuchtende Bundesland (Enter öffnet das Fenster auch)", "Click the glowing state (Enter opens the window too)"),
+  kAsk: L2("Welches Land ist das?", "Which country is this?"), kAskDe: L2("Welches Bundesland ist das?", "Which state is this?"),
+  kRight: L2("Richtig: {n}", "Correct: {n}"), kTypo: L2("Fast – richtig geschrieben: {n} (½ Punkt)", "Almost – correct spelling: {n} (½ point)"), kWrong: L2("Leider falsch – das ist {n}", "Wrong – this is {n}"),
+  kNext: L2("Weiter", "Next"), kEnd: L2("Zur Auswertung", "See results"),
   // Element-Steckbrief (Chemie, v0.19.4) und Fach-Bonus
   stIntro: L2("Du bekommst ein Element und füllst seinen Steckbrief aus. Alles steht im Periodensystem, das du rechts ausklappen kannst – oder lässt sich daraus ausrechnen.", "You get one element and fill in its profile. Everything can be found in the periodic table, which you can unfold on the right, or worked out from it."),
   stPts: L2("Je 1 Punkt (max. 10)", "1 point each (max 10)"), stBonus: L2("Alles richtig: +1 Bonuspunkt", "All correct: +1 bonus point"),
@@ -96,10 +108,11 @@ export class Learn {
     this.root.addEventListener("keydown", (e) => {
       if (e.target.id === "le-ans" && e.key === "Enter") { e.preventDefault(); this.submit(e.target.value); }
       else if (e.target.id === "le-pans" && e.key === "Enter") { e.preventDefault(); e.stopPropagation(); this.pCheck(false); }
+      else if (e.target.id === "le-kans" && e.key === "Enter") { e.preventDefault(); e.stopPropagation(); this.kCheck(); }
       else if (e.target.hasAttribute && e.target.hasAttribute("data-si") && e.key === "Enter") { e.preventDefault(); e.stopPropagation(); this.tNextField(e.target.getAttribute("data-si")); }
       else if (e.target.hasAttribute && e.target.hasAttribute("data-vi") && e.key === "Enter") { e.preventDefault(); e.stopPropagation(); this.vConfirm(+e.target.getAttribute("data-vi"), false); }
     });
-    this.root.addEventListener("input", (e) => { if (e.target.hasAttribute("data-si")) { if (this.q && this.q.inp) this.q.inp[e.target.getAttribute("data-si")] = e.target.value.trim(); return; } if (e.target.hasAttribute("data-tl")) { this.topt({ lvl: +e.target.value }); this.tLvlInfo(); return; } if (e.target.hasAttribute("data-g")) this.gInput(); else if (e.target.hasAttribute("data-vl")) { this.vopt({ lvl: +e.target.value }); this.vLvlInfo(); } else if (e.target.hasAttribute("data-pl")) { this.popt({ lvl: +e.target.value }); this.pLvlInfo(); } else if (e.target.hasAttribute("data-sl")) { this.sopt({ lvl: +e.target.value }); this.sLvlInfo(); } });
+    this.root.addEventListener("input", (e) => { if (e.target.hasAttribute("data-si")) { if (this.q && this.q.inp) this.q.inp[e.target.getAttribute("data-si")] = e.target.value.trim(); return; } if (e.target.hasAttribute("data-kl")) { this.kopt({ lvl: +e.target.value }); this.kLvlInfo(); return; } if (e.target.hasAttribute("data-tl")) { this.topt({ lvl: +e.target.value }); this.tLvlInfo(); return; } if (e.target.hasAttribute("data-g")) this.gInput(); else if (e.target.hasAttribute("data-vl")) { this.vopt({ lvl: +e.target.value }); this.vLvlInfo(); } else if (e.target.hasAttribute("data-pl")) { this.popt({ lvl: +e.target.value }); this.pLvlInfo(); } else if (e.target.hasAttribute("data-sl")) { this.sopt({ lvl: +e.target.value }); this.sLvlInfo(); } });
     // Schalenmodell: Rechtsklick auf eine Schale nimmt ein Elektron weg
     this.root.addEventListener("contextmenu", (e) => { const r = e.target.closest && e.target.closest("[data-ring]"); if (r) { e.preventDefault(); this.sEl(+r.getAttribute("data-ring"), -1); } });
     this.bi = setInterval(() => this.bTick(), 1000);
@@ -148,13 +161,13 @@ export class Learn {
           return '<div class="le-topic' + (ok ? "" : " le-off") + '">' + stufe(th) + "<div><b>" + esc(tl(th.name)) + "</b>" + (th.info ? "<small>" + esc(tl(th.info)) + "</small>" : "") + (st ? "<small>" + (th.art === "guess" ? fmt(t("pBestPts"), { b: num(st.best), n: st.n }) : th.wertung ? fmt(t("pBestPts"), { b: st.best, n: st.n }) : fmt(t("lBest"), { b: st.best, m: th.anzahl || 10, n: st.n })) + "</small>" : "") + "</div>" +
             (ok ? '<button class="le-pri" data-t="' + th.id + '">' + t("lStart") + "</button>" : '<em>' + t("lSoon") + "</em>") + "</div>";
         }).join("") + "</div>" + (f.spiele && f.spiele.length ? '<p class="le-dim">' + t("lPlanned") + ": " + f.spiele.map((s) => esc(tl(s.name))).join(" · ") + "</p>" : ""));
-    } else if (this.view === "setup") { if (this.th && this.th.art === "pse") this.renderPseSetup(); else if (this.th && this.th.art === "schale") this.renderSchaleSetup(); else if (this.th && this.th.art === "steck") this.renderSteckSetup(); else this.renderSetup(); }
+    } else if (this.view === "setup") { if (this.th && this.th.art === "pse") this.renderPseSetup(); else if (this.th && this.th.art === "schale") this.renderSchaleSetup(); else if (this.th && this.th.art === "steck") this.renderSteckSetup(); else if (this.th && this.th.art === "karte") this.renderKarteSetup(); else this.renderSetup(); }
     else if (this.view === "quiz") this.renderQ();
     else if (this.view === "done") this.renderDone();
   }
   start(th) {
     this.th = th; const R = rng((Date.now() ^ (Math.random() * 1e9)) >>> 0);
-    const opt = th.setup ? Object.assign({}, th.art === "pse" ? this.popt() : th.art === "schale" ? this.sopt() : th.art === "steck" ? this.topt() : this.vopt()) : null;
+    const opt = th.setup ? Object.assign({}, th.art === "pse" ? this.popt() : th.art === "schale" ? this.sopt() : th.art === "steck" ? this.topt() : th.art === "karte" ? this.kopt() : this.vopt()) : null;
     this.q = { list: runde(th, R, opt), i: 0, res: [], lock: false, ph: "show", t0: performance.now(), opt: opt }; this.view = "quiz"; this.render();
   }
   renderQ() {
@@ -165,6 +178,7 @@ export class Learn {
     if (a.art === "pse") { this.renderPseQ(); return; }
     if (a.art === "schale") { this.renderSchaleQ(); return; }
     if (a.art === "steck") { this.renderSteckQ(); return; }
+    if (a.art === "karte") { this.renderKarteQ(); return; }
     const dots = q.list.map((x, i) => '<i class="' + (i < q.res.length ? (q.res[i].ok ? "le-ok" : "le-no") : i === q.i ? "le-now" : "") + '"></i>').join("");
     let inp = "";
     if (a.art === "mc") inp = '<div class="le-mc">' + a.optionen.map((o, i) => '<button data-mc="' + i + '"><kbd>' + (i + 1) + "</kbd>" + esc(o) + "</button>").join("") + "</div>";
@@ -237,6 +251,7 @@ export class Learn {
     if (this.th.art === "pse") { this.renderPseDone(); return; }
     if (this.th.art === "schale") { this.renderSchaleDone(); return; }
     if (this.th.art === "steck") { this.renderSteckDone(); return; }
+    if (this.th.art === "karte") { this.renderKarteDone(); return; }
     if (this.th.wertung) { this.renderGuessDone(); return; }
     const q = this.q, n = q.list.length, wr = q.res.filter((x) => !x.ok), sw = (h) => '<i class="le-msw" style="background:' + h + '"></i>';
     this.body('<div class="le-done"><h2>' + t("lDone") + '</h2><div class="le-big">' + q.r + "<small>/" + n + '</small></div><p>' + fmt(t("lScore"), { r: q.r, n: n }) + '</p><div class="le-earn">' + t("lEarn") + " <b>+" + euro(q.lohn) + "</b> <small>" + t("pToPend") + '</small></div>' + this.boostHtml() + '<p class="le-dim">' + tiers(this.th.lohn || STANDARD_LOHN, n) + "</p>" +
@@ -455,6 +470,102 @@ export class Learn {
       "<p>" + fmt(t("vPts"), { p: w.summe }) + (st.faktor > 1 ? ' · <span class="le-dim">' + fmt(t("vMult"), { s: tl(st.name), b: euro(w.basis), f: String(st.faktor).replace(".", PR.lang === "en" ? "." : ","), e: euro(w.euro) }) + "</span>" : "") + "</p>" +
       '<div class="le-earn">' + t("lEarn") + " <b>+" + euro(q.lohn) + "</b> <small>" + t("pToPend") + "</small></div>" + this.boostHtml() + '<p class="le-dim">' + pseTiers(st.faktor, w.summe) + "</p>" +
       '<div class="le-vresl">' + rows + '</div><p class="le-dim">' + L.map((k) => t(k)).join(" · ") + "</p>" + this.doneBtns() + "</div>");
+  }
+  // ---------- Länder raten (Erdkunde, seit v0.19.5) ----------
+  kopt(set) {
+    const u = store.get(KEYS.ui, {}), o = Object.assign({ karte: "europa", lvl: 0 }, u.karte || {});
+    if (set) { Object.assign(o, set); u.karte = o; store.set(KEYS.ui, u); }
+    if (!KARTEN.some((k) => k.id === o.karte)) o.karte = "europa"; if (!(o.lvl >= 0 && o.lvl <= 2)) o.lvl = 0; return o;
+  }
+  renderKarteSetup() {
+    const f = this.f, th = this.th, o = this.kopt();
+    this.body('<div class="le-lhead"><button data-l="fach">← ' + t("lBack") + '</button><i style="background:' + f.farbe + '">' + esc(f.kurz) + "</i><h2>" + esc(tl(th.name)) + "</h2></div>" + this.bonusBar(f) +
+      '<div class="le-tset"><p>' + t("kIntro") + "</p><h4>" + t("kMap") + '</h4><div class="le-kmaps">' +
+      KARTEN.map((k) => '<button data-km="' + k.id + '"' + (k.id === o.karte ? ' class="le-vsel"' : "") + "><b>" + esc(tl(k.name)) + "</b><small>" + anzahl(k.id) + " " + esc(tl(k.was)) + "</small></button>").join("") + "</div>" +
+      '<div class="le-vlvl" id="le-klvl"></div><p class="le-dim">' + t("kPts") + '</p><p class="le-dim" id="le-ktiers"></p><div class="le-btns"><button class="le-pri le-vgo" data-l="vgo">Start ↵</button></div></div>');
+    this.kLvlInfo();
+  }
+  kLvlInfo() {
+    const o = this.kopt(), k = karte(o.karte), box = this.root.querySelector("#le-klvl"); if (!box) return;
+    this.root.querySelectorAll("[data-km]").forEach((x) => x.classList.toggle("le-vsel", x.getAttribute("data-km") === o.karte));
+    const st = k.stufen ? STUFEN_KARTE[o.lvl] : STUFEN_KARTE[0];
+    box.innerHTML = k.stufen
+      ? "<b>" + t("vLevel") + '</b><input type="range" data-kl min="0" max="2" step="1" value="' + o.lvl + '"><div class="le-vlab">' + STUFEN_KARTE.map((x) => '<span class="' + (x.id === o.lvl ? "le-vsel" : "") + '">' + esc(tl(x.name)) + "</span>").join("") + "</div><p><b>" + esc(tl(st.info)) + "</b> · " + (st.faktor > 1 ? '<em class="le-good">' + fmt(t("vBonusPct"), { p: Math.round((st.faktor - 1) * 100) }) + "</em>" : t("vBase")) + "</p>"
+      : '<p class="le-dim">' + fmt(t(k.id === "deutschland" ? "kNoLvlDe" : "kNoLvl"), { n: anzahl(k.id) }) + "</p>";
+    const ti = this.root.querySelector("#le-ktiers"); if (ti) ti.innerHTML = "<b>" + t("vRewards") + ":</b> " + pseTiers(st.faktor);
+  }
+  kName(id) { return landName(id, PR.lang); }
+  renderKarteQ() {
+    const q = this.q, f = this.f, k = karte(q.opt.karte); clearTimeout(this.tm);
+    if (!q.map) {
+      this.body('<p class="le-dim">' + t("kLoad") + "</p>");
+      if (!q.loading) { q.loading = true; ladeKarte(k.id).then((m) => { q.map = m; if (this.q === q && this.view === "quiz") this.renderKarteQ(); }).catch(() => { this.body('<p class="le-bad">' + t("kErr") + "</p>"); }); }
+      return;
+    }
+    const m = q.map, lvl = k.stufen ? esc(tl(STUFEN_KARTE[q.opt.lvl | 0].name)) + " · " : "";
+    q.ph = q.ph === "shown" ? "shown" : "ask";
+    const svg = '<svg class="le-ksvg" viewBox="0 0 ' + m.w + " " + m.h + '" preserveAspectRatio="xMidYMid meet">' + m.f.map((x) => '<path d="' + x.d + '"' + (x.id ? ' data-ld="' + x.id + '"' : "") + "/>").join("") + '<g id="le-kring"></g></svg>';
+    this.body('<div class="le-kq"><div class="le-lhead"><i style="background:' + f.farbe + '">' + esc(f.kurz) + "</i><h2>" + esc(tl(this.th.name)) + " · " + esc(tl(k.name)) + '</h2><span class="le-sp"></span><span class="le-dim">' + lvl + '<b id="le-ksum"></b> / 10</span></div>' +
+      '<div class="le-dots" id="le-kdots"></div><p class="le-dim le-khint" id="le-khint"></p><div class="le-kwrap" id="le-kwrap">' + svg + '<div class="le-kpop" id="le-kpop" hidden></div></div></div>');
+    const wrap = this.root.querySelector("#le-kwrap");
+    // Fenster verschieben (an der Kopfzeile ziehen)
+    wrap.addEventListener("pointerdown", (e) => {
+      const h = e.target.closest(".le-kdrag"); if (!h) return; const pop = this.root.querySelector("#le-kpop"), r0 = wrap.getBoundingClientRect(), sx = e.clientX - pop.offsetLeft, sy = e.clientY - pop.offsetTop;
+      h.setPointerCapture(e.pointerId); e.preventDefault();
+      const mv = (ev) => { const x = Math.max(0, Math.min(r0.width - pop.offsetWidth, ev.clientX - sx)), y = Math.max(0, Math.min(r0.height - pop.offsetHeight, ev.clientY - sy)); pop.style.left = x + "px"; pop.style.top = y + "px"; q.kpos = { x: x, y: y }; };
+      const up = () => { h.removeEventListener("pointermove", mv); h.removeEventListener("pointerup", up); };
+      h.addEventListener("pointermove", mv); h.addEventListener("pointerup", up);
+    });
+    this.kMark();
+  }
+  // Ziel pulsieren lassen, beantwortete Länder einfärben, Punkte/Fortschritt oben
+  kMark() {
+    const q = this.q, sv = this.root.querySelector(".le-ksvg"); if (!sv) return; const cur = q.list[q.i] && q.list[q.i].id, m = q.map;
+    const done = {}; q.res.forEach((r) => { done[r.id] = r.score >= 1 ? "le-kok" : r.score > 0 ? "le-khalf" : "le-kno"; });
+    sv.querySelectorAll("[data-ld]").forEach((p) => { const id = p.getAttribute("data-ld"); p.setAttribute("class", id === cur && q.ph !== "shown" ? "le-kt" : done[id] || (id === cur ? "le-kcur" : "")); });
+    const ring = sv.querySelector("#le-kring"); ring.innerHTML = "";
+    const tp = cur && sv.querySelector('[data-ld="' + cur + '"]');
+    if (tp) {
+      const fx = m.f.find((x) => x.id === cur), bb = tp.getBBox(), small = fx.s || Math.max(bb.width, bb.height) < m.w * 0.014, r = m.w * 0.016;
+      if (small) ring.innerHTML = '<circle class="le-kr' + (q.ph === "shown" ? "" : " le-krp") + '" cx="' + fx.x + '" cy="' + fx.y + '" r="' + r + '"/><circle class="le-khit" data-ld="' + cur + '" cx="' + fx.x + '" cy="' + fx.y + '" r="' + r * 1.6 + '"/>';
+    }
+    const sum = q.res.reduce((s, x) => s + x.score, 0), S = this.root.querySelector("#le-ksum"); if (S) S.textContent = num(sum, sum % 1 ? 1 : 0);
+    const D = this.root.querySelector("#le-kdots"); if (D) D.innerHTML = q.list.map((x, k) => '<i class="' + (k < q.res.length ? (q.res[k].score >= 1 ? "le-ok" : q.res[k].score ? "le-half" : "le-no") : k === q.i ? "le-now" : "") + '"></i>').join("");
+    const H = this.root.querySelector("#le-khint"); if (H) H.textContent = fmt(t("kRound"), { i: Math.min(q.i + 1, q.list.length), n: q.list.length }) + " · " + t(q.opt.karte === "deutschland" ? "kClickDe" : "kClick");
+  }
+  kClick(id, e) {
+    const q = this.q; if (!q || this.view !== "quiz" || q.ph === "shown" || id !== q.list[q.i].id) return;
+    const wrap = this.root.querySelector("#le-kwrap").getBoundingClientRect(); this.kOpen(e.clientX - wrap.left + 14, e.clientY - wrap.top - 20);
+  }
+  // Fenster zum Eintippen öffnen (an der Klickstelle bzw. dort, wohin es zuletzt geschoben wurde)
+  kOpen(x, y) {
+    const q = this.q, pop = this.root.querySelector("#le-kpop"), wrap = this.root.querySelector("#le-kwrap"); if (!pop || !wrap) return;
+    if (x == null) { const sv = this.root.querySelector(".le-ksvg"), fx = q.map.f.find((f) => f.id === q.list[q.i].id), pt = sv.createSVGPoint(); pt.x = fx.x; pt.y = fx.y; const s = pt.matrixTransform(sv.getScreenCTM()), r = wrap.getBoundingClientRect(); x = s.x - r.left + 14; y = s.y - r.top - 20; }
+    if (q.kpos) { x = q.kpos.x; y = q.kpos.y; }
+    pop.hidden = false;
+    pop.innerHTML = '<div class="le-kdrag"><span>⠿</span> ' + t(q.opt.karte === "deutschland" ? "kAskDe" : "kAsk") + '<button data-l="kclose" title="Esc">×</button></div><div class="le-kin"><input id="le-kans" type="text" autocomplete="off" spellcheck="false" maxlength="40"><button class="le-pri" data-l="kok">' + t("lOk") + ' ↵</button></div><div id="le-kfb"></div>';
+    const r = wrap.getBoundingClientRect(); pop.style.left = Math.max(0, Math.min(r.width - pop.offsetWidth, x)) + "px"; pop.style.top = Math.max(0, Math.min(r.height - pop.offsetHeight, y)) + "px";
+    const ip = pop.querySelector("#le-kans"); setTimeout(() => ip.focus(), 0);
+  }
+  kClose() { const pop = this.root.querySelector("#le-kpop"); if (pop) pop.hidden = true; }
+  kCheck() {
+    const q = this.q, ip = this.root.querySelector("#le-kans"); if (!q || q.ph === "shown" || !ip) return; const v = ip.value.trim(); if (!v) return;
+    const id = q.list[q.i].id, p = landBewerte(id, v), score = p === 2 ? 1 : p === 1 ? 0.5 : 0; q.res.push({ id: id, e: v, score: score }); q.ph = "shown"; tick(score ? 2 : 0);
+    ip.disabled = true; ip.classList.add(score >= 1 ? "le-good" : score ? "le-half" : "le-bad");
+    const nm = esc(this.kName(id)), fb = this.root.querySelector("#le-kfb");
+    fb.innerHTML = '<p class="' + (score >= 1 ? "le-good" : score ? "le-khalft" : "le-bad") + '">' + (score >= 1 ? "✓ " + fmt(t("kRight"), { n: nm }) : score ? "≈ " + fmt(t("kTypo"), { n: nm }) : "✗ " + fmt(t("kWrong"), { n: nm })) + '</p><div class="le-btns"><button class="le-pri le-vgo" data-l="knext">' + t(q.i + 1 >= q.list.length ? "kEnd" : "kNext") + " ↵</button></div>";
+    const kok = this.root.querySelector("[data-l=kok]"); if (kok) kok.disabled = true;
+    this.kMark(); const bt = fb.querySelector("button"); if (bt) bt.focus();
+  }
+  kNext() { const q = this.q; if (!q || q.ph !== "shown") return; q.i++; q.ph = "ask"; this.kClose(); if (q.i >= q.list.length) this.finish(); else this.kMark(); }
+  renderKarteDone() {
+    const q = this.q, w = q.w, k = karte(q.opt.karte), st = k.stufen ? STUFEN_KARTE[q.opt.lvl | 0] : STUFEN_KARTE[0], pts = (s) => (s >= 1 ? "+1" : s ? "+½" : "0");
+    const rows = q.res.map((r) => '<div class="' + (r.score >= 1 ? "le-vg" : r.score ? "le-vh" : "le-vb") + '"><i>' + (r.score >= 1 ? "✓" : r.score ? "≈" : "✗") + "</i><span>" + esc(this.kName(r.id)) + "</span><b>" + (r.score >= 1 ? "" : esc(r.e) + " ") + '<small>' + pts(r.score) + "</small></b></div>").join("");
+    const sum = num(w.summe, w.summe % 1 ? 1 : 0);
+    this.body('<div class="le-done"><h2>' + t("lDone") + '</h2><div class="le-big">' + sum + "<small>/10</small></div>" +
+      "<p>" + esc(tl(k.name)) + " · " + fmt(t("vPts"), { p: sum }) + (st.faktor > 1 ? ' · <span class="le-dim">' + fmt(t("vMult"), { s: tl(st.name), b: euro(w.basis), f: String(st.faktor).replace(".", PR.lang === "en" ? "." : ","), e: euro(w.euro) }) + "</span>" : "") + "</p>" +
+      '<div class="le-earn">' + t("lEarn") + " <b>+" + euro(q.lohn) + "</b> <small>" + t("pToPend") + "</small></div>" + this.boostHtml() + '<p class="le-dim">' + pseTiers(st.faktor, w.summe) + "</p>" +
+      '<div class="le-sfl le-tdone le-kdone">' + rows + "</div>" + this.doneBtns() + "</div>");
   }
   // ---------- Element-Steckbrief (Chemie, seit v0.19.4) ----------
   topt(set) {
@@ -680,6 +791,8 @@ export class Learn {
     const tb = e.target.closest("[data-t]"); if (tb) { const th = this.f.themen.find((x) => x.id === tb.getAttribute("data-t")); if (th) { if (th.setup) { this.th = th; this.view = "setup"; this.render(); } else this.start(th); } return; }
     const sb = e.target.closest("[data-sb]"); if (sb) { this.sBtn(sb.getAttribute("data-sb"), e.shiftKey); return; }
     const rg = e.target.closest("[data-ring]"); if (rg) { this.sEl(+rg.getAttribute("data-ring"), 1); return; }
+    const km = e.target.closest("[data-km]"); if (km) { this.kopt({ karte: km.getAttribute("data-km") }); this.kLvlInfo(); return; }
+    const ld = e.target.closest("[data-ld]"); if (ld) { this.kClick(ld.getAttribute("data-ld"), e); return; }
     const hg = e.target.closest("[data-hg]"); if (hg) { this.tHg(+hg.getAttribute("data-hg")); return; }
     const spe = e.target.closest("[data-sp]"); if (spe) { this.spse.el = +spe.getAttribute("data-sp"); this.sPanel(); return; }
     const pe = e.target.closest("[data-pe]"); if (pe) { const z = +pe.getAttribute("data-pe"); this.popt({ el: z }); this.pShow(z); return; }
@@ -700,6 +813,9 @@ export class Learn {
     else if (a === "pclose") this.pClose();
     else if (a === "scheck") this.sCheck();
     else if (a === "tcheck") this.tCheck();
+    else if (a === "kok") this.kCheck();
+    else if (a === "knext") this.kNext();
+    else if (a === "kclose") this.kClose();
     else if (a === "tend") this.finish();
     else if (a === "snext") this.sNext();
     else if (a === "spopen") { this.spse.open = true; this.spse.el = null; this.sPanel(); }
@@ -722,10 +838,17 @@ export class Learn {
   }
   // Tasten (aus dem Spiel weitergereicht). true = verbraucht
   key(e) {
+    if (e.code === "Escape" && this.view === "quiz") { const pop = this.root.querySelector("#le-kpop"); if (pop && !pop.hidden && this.q.ph !== "shown") { this.kClose(); return true; } }
     if (e.code === "Escape") { if (this.view === "stats") { this.view = "home"; this.render(); } else if (this.view === "fach") { this.view = "home"; this.render(); } else if (this.view === "setup") { const pc = this.root.querySelector("#le-pinfo.le-pvis"); if (pc) this.pClose(); else { this.view = "fach"; this.render(); } } else this.close(); return true; }
     if (this.view === "setup") { if ((e.code === "Enter" || e.code === "NumpadEnter") && e.target.tagName !== "BUTTON") { this.start(this.th); return true; } return false; }
     if (this.view === "quiz") {
       const a = this.q.list[this.q.i];
+      if (a.art === "karte") {
+        const pop = this.root.querySelector("#le-kpop"), open = pop && !pop.hidden;
+        if (e.code === "Escape" && open && this.q.ph !== "shown") { this.kClose(); return true; }
+        if ((e.code === "Enter" || e.code === "NumpadEnter") && e.target.tagName !== "BUTTON" && e.target.tagName !== "INPUT") { if (this.q.ph === "shown") this.kNext(); else if (!open && this.q.map) this.kOpen(); return true; }
+        return false;
+      }
       if (a.art === "steck") { if ((e.code === "Enter" || e.code === "NumpadEnter") && e.target.tagName !== "BUTTON" && e.target.tagName !== "INPUT") { if (this.q.ph === "shown") this.finish(); else this.tCheck(); return true; } return false; }
       if (a.art === "schale") { if ((e.code === "Enter" || e.code === "NumpadEnter") && e.target.tagName !== "BUTTON") { if (this.q.ph === "shown") this.sNext(); else this.sCheck(); return true; } return false; }
       if (a.art === "pse") { if ((e.code === "Enter" || e.code === "NumpadEnter") && this.q.ph === "shown" && e.target.tagName !== "BUTTON") { this.pNext(); return true; } return false; }

@@ -329,6 +329,34 @@ const CSS = `
 .le-thg button{padding:3px 0!important;font-size:12px!important;font-weight:800}
 .le-thg button.le-vsel{background:#62929E;border-color:#62929E;color:#1B1C1F}
 .le-tdone{max-width:460px;margin:10px auto;text-align:left}
+.le-kmaps{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px;margin-bottom:10px}
+.le-kmaps button{display:flex;flex-direction:column;align-items:flex-start;gap:2px;text-align:left;padding:8px 10px}
+.le-kmaps button small{color:#A9ACB2;font-weight:600}
+.le-kmaps button.le-vsel{border-color:#ED6A5E;background:#3A4746}
+.le-khint{margin:2px 0 6px}
+.le-kq{display:flex;flex-direction:column;height:100%;min-height:340px}
+.le-kq .le-lhead h2{margin-bottom:0}
+.le-kwrap{position:relative;flex:1;min-height:240px;background:#26302F;border:1px solid #44514F;user-select:none}
+.le-ksvg{position:absolute;inset:0;display:block;width:100%;height:100%}
+.le-ksvg path{fill:#3E4C4B;stroke:#62929E;stroke-width:.7px;vector-effect:non-scaling-stroke;stroke-linejoin:round}
+.le-ksvg path:not([data-ld]){fill:#323C3C}
+.le-ksvg path.le-kt{fill:#ED6A5E;cursor:pointer;animation:le-kpulse 1.1s ease-in-out infinite}
+.le-ksvg path.le-kcur{fill:#C6C5B9}
+.le-ksvg path.le-kok{fill:#62929E}.le-ksvg path.le-khalf{fill:#8E8C6E}.le-ksvg path.le-kno{fill:#7E3F38}
+@keyframes le-kpulse{0%,100%{fill:#ED6A5E}50%{fill:#6B3732}}
+.le-kr{fill:none;stroke:#ED6A5E;stroke-width:2px;vector-effect:non-scaling-stroke;transform-box:fill-box;transform-origin:center}
+.le-krp{animation:le-kring 1.1s ease-in-out infinite}
+@keyframes le-kring{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.6);opacity:.45}}
+.le-khit{fill:transparent;cursor:pointer}
+.le-kpop{position:absolute;z-index:5;width:250px;background:#2E3A39;border:1px solid #ED6A5E;box-shadow:0 8px 24px rgba(0,0,0,.5)}
+.le-kdrag{display:flex;align-items:center;gap:6px;padding:5px 6px 5px 8px;background:#475657;font-size:12px;font-weight:800;cursor:move;touch-action:none}
+.le-kdrag span{color:#A9ACB2}.le-kdrag button{margin-left:auto;padding:0 6px!important;font-size:14px!important}
+.le-kin{display:flex;gap:4px;padding:8px}
+.le-kin input{flex:1;min-width:0;font-size:15px;font-weight:700;padding:5px 7px}
+.le-kin input.le-half{border-color:#C6C5B9;color:#C6C5B9}
+#le-kfb{padding:0 8px}#le-kfb p{margin:0 0 6px;font-weight:700;font-size:13px}#le-kfb .le-btns{margin:0 0 8px}
+.le-khalft{color:#C6C5B9}
+.le-kdone{max-width:520px}
 `;
 
 let A = null;

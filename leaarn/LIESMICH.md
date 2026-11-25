@@ -138,6 +138,12 @@ Element-Steckbrief (Chemie, seit v0.19.4, art `steck`, Thema `steckbrief`): 1 El
 alle 9 richtig = +1 Bonuspunkt (`steckBewerte`/`steckSoll` in elemente.js). UI `renderSteckQ`/`tCheck`/`renderSteckDone`, Periodensystem wieder `sPanel`
 (auf Schwer `spse.lite`: Karte zeigt nur Ordnungszahl und Masse). Stufen `STUFEN_STECK`, gemerkt in `leaarn-ui-v1` → `steck`.
 
+Länder raten (Erdkunde, seit v0.19.5, art `karte`, Thema `laender-raten`): Logik in `faecher/laenderraten.js` (`KARTEN`, `STUFEN_KARTE`, `laenderZiehen`,
+`landBewerte` 2/1/0 → 1 / ½ / 0 Punkte, `laenderWertung`), Namen und Schwierigkeits-Gruppen in `faecher/laender.js` (`LAND`, `BUNDESLAND`, `GRUPPEN` je Karte
+leicht/mittel/schwer). Karten `faecher/karte_<id>.js` (SVG-Pfade, aus Natural Earth 1:50m bzw. deutschlandGeoJSON mit mapshaper erzeugt, flächentreue Projektion,
+werden erst beim Spielen per `import()` geladen). UI `renderKarteQ` / `kMark` / `kOpen` (verschiebbares Fenster) / `kCheck` / `renderKarteDone`, gemerkt in `leaarn-ui-v1` → `karte`.
+Stufen: Leicht = Gruppe 1, Mittel = 7 aus Gruppe 2 + Rest Gruppe 1, Schwer = 6 aus Gruppe 3 + Rest Gruppe 2. Deutschland, Südamerika, Ozeanien ohne Stufen.
+
 Fach-Boni (seit v0.19.4, `faecher/boni.js`): Liste `BONI` mit Fach, Prozent und Ende (deutsche Zeit). Wirkt in `finish()` nach dem Stufen-Faktor,
 vor dem Fokus-Bonus; Banner mit Timer auf der Fach-Kachel (`bonusTag`) und über den Themen (`bonusBar`), Timer `bTick` jede Sekunde.
 Abgelaufene Einträge wirken nicht mehr; für den nächsten Bonus einfach einen Eintrag ergänzen.

@@ -3,6 +3,15 @@
    Die Versionsnummer auf den Kacheln kommt aus dem obersten Eintrag. */
 window.PATCHNOTES = {
   leaarn: [
+    { v: "0.19.5", t: "2026-11-25T21:30:00+01:00",
+      de: ["Erstes Erdkunde-Spiel: „Länder raten“. Karten ohne Beschriftung, nur mit Grenzen: Deutschland (Bundesländer), Europa, Afrika, Asien, Nord- und Mittelamerika, Südamerika, Ozeanien oder die ganze Weltkarte.",
+        "Ein Land pulsiert auf der Karte. Anklicken, dann öffnet sich ein kleines Fenster (an der Kopfzeile verschiebbar), Namen eintippen und mit Enter oder OK bestätigen. Sehr kleine Länder bekommen einen pulsierenden Ring.",
+        "10 Länder pro Durchgang: richtig = 1 Punkt, kleiner Tippfehler = ½ Punkt. Deutsche und englische Namen zählen. Belohnung wie bei den anderen 10-Punkte-Spielen: 0 = 5 €, 1–5 = 25 €, 6–9 = 75 €, 10 = 150 €.",
+        "Schwierigkeit für Europa, Afrika, Asien, Nord-/Mittelamerika und die Welt: Leicht = bekannte, große Länder, Mittel = vor allem mittlere Länder (+30 % Geld), Schwer = vor allem kleine und unbekanntere Länder (+60 % Geld). Deutschland, Südamerika und Ozeanien haben keine Stufen."],
+      en: ["First geography game: “Guess the country”. Maps without labels, just borders: Germany (states), Europe, Africa, Asia, North and Central America, South America, Oceania or the whole world map.",
+        "A country pulses on the map. Click it and a small window opens (you can move it by its title bar), type the name and confirm with Enter or OK. Very small countries get a pulsing ring.",
+        "10 countries per round: correct = 1 point, small typo = ½ point. German and English names both count. Reward as in the other 10-point games: 0 = €5, 1–5 = €25, 6–9 = €75, 10 = €150.",
+        "Levels for Europe, Africa, Asia, North/Central America and the world: easy = well-known, large countries, medium = mostly medium countries (+30 % money), hard = mostly small and lesser-known countries (+60 % money). Germany, South America and Oceania have no levels."] },
     { v: "0.19.4", t: "2026-11-25T20:45:00+01:00",
       de: ["Drittes Chemie-Spiel: „Element-Steckbrief“. Du bekommst ein Element und füllst seinen Steckbrief aus: Symbol, Hauptgruppe (römisch I–VIII), Periode, Ordnungszahl, Elektronen gesamt, Valenzelektronen, Protonen, Neutronen und Atommasse (gerundet). Rechts lässt sich wieder das Periodensystem ausklappen.",
         "Jede richtige Angabe gibt 1 Punkt, sind alle 9 richtig, gibt es 1 Bonuspunkt dazu (max. 10). Belohnung wie bei den anderen Chemie-Spielen: 0 = 5 €, 1–5 = 25 €, 6–9 = 75 €, 10 = 150 €.",
