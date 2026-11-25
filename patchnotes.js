@@ -3,6 +3,17 @@
    Die Versionsnummer auf den Kacheln kommt aus dem obersten Eintrag. */
 window.PATCHNOTES = {
   leaarn: [
+    { v: "0.16", t: "2026-11-25T02:55:00+01:00",
+      de: ["Hinsetzen: Auf Stuhl, Sofa (zwei Plätze) und Bettkante setzt du dich mit E. Aufstehen mit E oder einfach loslaufen. Die Figur hat dafür jetzt Kniegelenke – auch beim Laufen beugen sich die Knie.",
+        "Der Stuhl am Schreibtisch gehört zum Laptop: Öffnest du den Laptop, setzt du dich automatisch hin und tippst, beim Zuklappen stehst du wieder auf.",
+        "Kleiderschrank, Regal und Kühlschrank haben jetzt ein eigenes Lager mit 8 × 8 Plätzen (E öffnet, E oder Esc schließt). Gegenstände ziehst du zwischen Lager und Rucksack hin und her, Umschalt + Klick schiebt einen ganzen Stapel hinüber.",
+        "In den Kleiderschrank passen nur Kleidungsstücke, in den Kühlschrank nur Lebensmittel, ins Regal alles (später CDs, Bücher und mehr). Kleidung und Essen folgen in kommenden Updates.",
+        "Map-Editor, Straßenwerkzeug: Gehweg links und rechts, einzeln oder zusätzlich zu den Kerbs, mit 15 cm hohem Bordstein. Zwei Stile: europäisch mit kleinen Backsteinen und amerikanisch mit großen Betonplatten. Die Einstellung lässt sich mit einem Klick auf alle Punkte einer Straße übertragen und wird beim Weiterbauen übernommen. Auch auf Brücken, dort rückt die Brüstung an den Gehwegrand."],
+      en: ["Sitting: press E to sit on chairs, sofas (two seats) and the edge of a bed. Stand up with E or just walk off. The character now has knee joints – knees also bend while walking.",
+        "The chair at the desk belongs to the laptop: open the laptop and you sit down and type automatically, close it and you stand up again.",
+        "Wardrobe, shelf and fridge now have their own 8 × 8 storage (E opens, E or Esc closes). Drag items between storage and backpack, Shift + click moves a whole stack.",
+        "Only clothing fits in the wardrobe, only food in the fridge, anything on the shelf (later CDs, books and more). Clothes and food are coming in future updates.",
+        "Map editor, road tool: sidewalk left and right, on its own or next to the curbs, with a 15 cm kerbstone. Two styles: European with small bricks and American with large concrete slabs. Apply the setting to every point of a road with one click; new road pieces keep it. Works on bridges too, the parapet moves to the sidewalk edge."] },
     { v: "0.15", t: "2026-11-25T02:20:00+01:00",
       de: ["Erstes Lernspiel in Englisch: Vokabeltest mit den 2500 häufigsten englischen Wörtern – Nomen, Verben, Adjektive, Adverbien und kleine Wörter. Zwei Modi: Deutsch → Englisch und Englisch → Deutsch.",
         "Vor dem Start wählst du alle Wörter, eins von 13 Themengebieten (z. B. Alltag, Essen & Trinken, Technik, Politik) oder eine Wortart, dazu die Schwierigkeit Leicht, Mittel oder Schwer. Je schwerer, desto seltener die Wörter. Deine Wahl wird gemerkt.",

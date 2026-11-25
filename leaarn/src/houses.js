@@ -23,6 +23,8 @@ const COL = { putz: "#D9D6CC", ziegel: "#A9533F", holz: "#8A6142", holzd: "#5E43
 
 // Bauteil-Katalog. kind: floor (Zelle), wall (Kante), roof (Zelle, Stufe), gable (Kante, Stufe), obj (Zelle, Drehung)
 // box: Kollision [Breite, Tiefe] in m (lokal, vor der Drehung), act: Interaktion
+// sit (seit v0.16): Sitzplätze [x, z, Blickrichtung x, Blickrichtung z, Sitzhöhe] lokal um die Zellmitte (Taste E)
+// lager (seit v0.16): Möbel mit Inventar (8 × 8), Art siehe LAGER in items.js
 export const PARTS = {
   // Böden
   "boden-holz": { kind: "floor", cat: "floor", n: L2("Holzboden", "Wooden floor"), c: COL.boden, plank: true },
@@ -50,13 +52,13 @@ export const PARTS = {
   "giebel-holz": { kind: "gable", cat: "roof", n: L2("Giebel Holz", "Gable wood"), c: COL.holz },
   // Möbel
   "schreibtisch": { kind: "obj", cat: "obj", n: L2("Schreibtisch mit Laptop (Lernen)", "Desk with laptop (learning)"), box: [1.2, 0.62], act: "lernen" },
-  "stuhl": { kind: "obj", cat: "obj", n: L2("Stuhl", "Chair"), box: null },
-  "bett": { kind: "obj", cat: "obj", n: L2("Bett", "Bed"), box: [0.95, 2.0] },
-  "regal": { kind: "obj", cat: "obj", n: L2("Regal", "Shelf"), box: [0.9, 0.35] },
-  "schrank": { kind: "obj", cat: "obj", n: L2("Kleiderschrank", "Wardrobe"), box: [0.95, 0.55] },
-  "sofa": { kind: "obj", cat: "obj", n: L2("Sofa", "Sofa"), box: [1.8, 0.85] },
+  "stuhl": { kind: "obj", cat: "obj", n: L2("Stuhl", "Chair"), box: null, sit: [[0, 0.02, 0, -1, 0.49]] },
+  "bett": { kind: "obj", cat: "obj", n: L2("Bett", "Bed"), box: [0.95, 2.0], sit: [[0.28, 0.35, 1, 0, 0.5]] },
+  "regal": { kind: "obj", cat: "obj", n: L2("Regal (Lager, E)", "Shelf (storage, E)"), box: [0.9, 0.35], act: "lager", lager: "regal" },
+  "schrank": { kind: "obj", cat: "obj", n: L2("Kleiderschrank (Lager, E)", "Wardrobe (storage, E)"), box: [0.95, 0.55], act: "lager", lager: "kleidung" },
+  "sofa": { kind: "obj", cat: "obj", n: L2("Sofa", "Sofa"), box: [1.8, 0.85], sit: [[-0.42, 0.06, 0, 1, 0.52], [0.42, 0.06, 0, 1, 0.52]] },
   "tisch": { kind: "obj", cat: "obj", n: L2("Tisch", "Table"), box: [1.2, 0.8] },
-  "kuehlschrank": { kind: "obj", cat: "obj", n: L2("Kühlschrank", "Fridge"), box: [0.6, 0.6] },
+  "kuehlschrank": { kind: "obj", cat: "obj", n: L2("Kühlschrank (Lager, E)", "Fridge (storage, E)"), box: [0.6, 0.6], act: "lager", lager: "essen" },
   "lampe": { kind: "obj", cat: "obj", n: L2("Stehlampe", "Floor lamp"), box: null },
   "pflanze": { kind: "obj", cat: "obj", n: L2("Zimmerpflanze", "House plant"), box: null },
   "teppich": { kind: "obj", cat: "obj", n: L2("Teppich", "Rug"), box: null },
@@ -241,10 +243,22 @@ export function buildHouse(def, opts) {
       const ps = objParts(id, seed), g = merge(ps), m = new THREE.Matrix4().makeTranslation(x + 0.5, y0 + FLOOR, z + 0.5).multiply(new THREE.Matrix4().makeRotationY(-r * Math.PI / 2));
       g.applyMatrix4(m); g.deleteAttribute("normal"); list.push(g);
       if (def2.box) { const w = r & 1 ? def2.box[1] : def2.box[0], d = r & 1 ? def2.box[0] : def2.box[1]; out.boxes.push({ cx: x + 0.5, cz: z + 0.5, hw: w / 2, hd: d / 2, l: l, y1: y0 + 1 }); }
-      if (def2.act) { const fx = [0, -1, 0, 1][r], fz = [1, 0, -1, 0][r]; out.acts.push({ type: def2.act, x: x + 0.5 + fx * 0.75, z: z + 0.5 + fz * 0.75, l: l, cx: x + 0.5, cz: z + 0.5, fx: fx, fz: fz, y: y0 + FLOOR }); }   // Stelle vor dem Möbel (vorne = Seite des Nutzers)
+      if (def2.act) { const fx = [0, -1, 0, 1][r], fz = [1, 0, -1, 0][r]; out.acts.push({ type: def2.act, x: x + 0.5 + fx * 0.75, z: z + 0.5 + fz * 0.75, l: l, cx: x + 0.5, cz: z + 0.5, fx: fx, fz: fz, y: y0 + FLOOR, pi: i, lager: def2.lager || null, id: id }); }   // Stelle vor dem Möbel (vorne = Seite des Nutzers)
+      // Sitzplätze (seit v0.16): Platz (sx, sz), Blickrichtung (fx, fz), Sitzhöhe h (im Haus). Ansprechen etwas vor dem Platz
+      if (def2.sit) def2.sit.forEach((q) => {
+        const ro = (vx, vz) => { const a = -r * Math.PI / 2, c = Math.cos(a), sn = Math.sin(a); return [vx * c + vz * sn, -vx * sn + vz * c]; };
+        const ps = ro(q[0], q[1]), f = ro(q[2], q[3]), sx = x + 0.5 + ps[0], sz = z + 0.5 + ps[1];
+        out.acts.push({ type: "sitzen", x: sx + f[0] * 0.35, z: sz + f[1] * 0.35, l: l, sx: sx, sz: sz, fx: Math.round(f[0] * 1e6) / 1e6, fz: Math.round(f[1] * 1e6) / 1e6, y: y0 + FLOOR, h: y0 + FLOOR + q[4], pi: i, id: id });
+      });
     }
     out.top = Math.max(out.top, y0 + LH);
     for (let k = n0; k < list.length; k++) list[k].userData.pi = i;   // Bauteil-Nummer je Netzstück (Bulldozer im Haus-Editor)
+  });
+  // Stuhl am Schreibtisch (seit v0.16): gehört zum Laptop – beim Öffnen setzt sich die Figur automatisch darauf, mit E nicht einzeln benutzbar
+  out.acts.filter((a) => a.type === "lernen").forEach((a) => {
+    let best = null, bd = 1.0;
+    out.acts.forEach((s) => { if (s.type !== "sitzen" || s.l !== a.l || s.desk) return; const d = Math.hypot(s.sx - a.x, s.sz - a.z); if (d < bd) { bd = d; best = s; } });
+    if (best) { best.desk = true; a.seat = best; }
   });
   // Eckpfosten
   Object.keys(posts).forEach((k) => { const v = k.split(",").map(Number); L(v[2]).push(part(new THREE.BoxGeometry(WT, LH, WT), posts[k], M(v[0], v[2] * LH + LH / 2, v[1], 1), 0, v[0] * 7 + v[1] * 3)); });

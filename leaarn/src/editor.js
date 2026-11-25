@@ -37,7 +37,10 @@ addTexts({
   hVeg: L2("Linke Maus pinselt die gewählte Gruppe. Jede Pflanze wird nach den Wahrscheinlichkeiten gewählt. Abstand zur Straße und maximale Hangneigung gelten je Gruppe.", "Left mouse paints the selected group. Each plant is picked by the probabilities. Distance to the road and maximum slope apply per group."),
   hCam: L2("Kamera: rechte Maus drehen · mittlere Maus oder Umschalt+rechte verschieben · Rad zoomen · WASD bewegen · 1–6 Werkzeuge · Strg+Z/Y", "Camera: right mouse rotate · middle mouse or Shift+right pan · wheel zoom · WASD move · 1–6 tools · Ctrl+Z/Y"),
   pPoint: L2("Punkt {i} von {n}", "Point {i} of {n}"), pNone: L2("Kein Punkt gewählt", "No point selected"), height: L2("Höhe", "Height"), width: L2("Breite", "Width"), bank: L2("Neigung (+ links höher)", "Banking (+ left higher)"),
-  curbL: L2("Kerbs links", "Curbs left"), curbR: L2("Kerbs rechts", "Curbs right"), snap: L2("Auf Gelände setzen", "Snap to terrain"), del: L2("Punkt löschen", "Delete point"),
+  curbL: L2("Kerbs links", "Curbs left"), curbR: L2("Kerbs rechts", "Curbs right"),
+  walkL: L2("Gehweg links", "Sidewalk left"), walkR: L2("Gehweg rechts", "Sidewalk right"), walkSt: L2("Gehweg-Stil", "Sidewalk style"),
+  walkEU: L2("Europäisch (Backstein)", "European (brick)"), walkAM: L2("Amerikanisch (Betonplatten)", "American (concrete slabs)"),
+  walkAll: L2("Gehweg-Einstellung auf alle Punkte übertragen", "Apply sidewalk settings to all points"), snap: L2("Auf Gelände setzen", "Snap to terrain"), del: L2("Punkt löschen", "Delete point"),
   closed: L2("Rundkurs (geschlossen)", "Circuit (closed)"), fall: L2("Böschung", "Embankment"), snapAll: L2("Alle Punkte auf Gelände", "All points to terrain"), smoothH: L2("Höhenverlauf glätten", "Smooth height profile"),
   roadDel: L2("Straße löschen", "Delete road"), roadLen: L2("Länge {l} m · {n} Punkte", "Length {l} m · {n} points"),
   vPaint: L2("Pinseln", "Paint"), vErase: L2("Radieren", "Erase"), vOnly: L2("Radierer nur für diese Gruppe", "Eraser only for this group"), vGroups: L2("Pinsel-Gruppen", "Brush groups"),
@@ -140,7 +143,8 @@ export class Editor {
           '<div class="le-btns"><button data-e="snapall">' + t("snapAll") + '</button><button data-e="smoothh">' + t("smoothH") + '</button><button data-e="rdel">' + t("rDelRoad") + "</button></div></div>";
         if (p) h += '<div class="le-box"><b>' + fmt(t("pPoint"), { i: this.sel + 1, n: R.pts.length }) + "</b>" + sl("py", t("height"), -150, 250, 0.1, p.y, " m") +
           '<div class="le-btns"><button data-e="py-5">−5</button><button data-e="py-1">−1</button><button data-e="py+1">+1</button><button data-e="py+5">+5</button></div>' +
-          sl("pw", t("width"), 4, 30, 0.5, p.w, " m") + sl("pb", t("bank"), -30, 30, 0.5, p.bank, "°") + chk("pcl", t("curbL"), p.cl) + chk("pcr", t("curbR"), p.cr) + chk("pt", t("pTerr"), p.t !== 0) + chk("pbr", t("pBr"), !!p.b) + chk("pcp", t("pCp"), !!p.cp) + (p.cp && R !== w.road ? '<p class="le-dim">' + t("pCpMain") + "</p>" : "") +
+          sl("pw", t("width"), 4, 30, 0.5, p.w, " m") + sl("pb", t("bank"), -30, 30, 0.5, p.bank, "°") + chk("pcl", t("curbL"), p.cl) + chk("pcr", t("curbR"), p.cr) + chk("psl", t("walkL"), !!p.sl) + chk("psr", t("walkR"), !!p.sr) +
+          (p.sl || p.sr ? '<div class="le-row"><span>' + t("walkSt") + '</span></div><div class="le-seg"><button data-e="pgs0" aria-pressed="' + !p.gs + '">' + t("walkEU") + '</button><button data-e="pgs1" aria-pressed="' + !!p.gs + '">' + t("walkAM") + '</button></div><div class="le-btns"><button data-e="walkall">' + t("walkAll") + "</button></div>" : "") + chk("pt", t("pTerr"), p.t !== 0) + chk("pbr", t("pBr"), !!p.b) + chk("pcp", t("pCp"), !!p.cp) + (p.cp && R !== w.road ? '<p class="le-dim">' + t("pCpMain") + "</p>" : "") +
           '<div class="le-btns"><button data-e="snap">' + t("snap") + '</button><button data-e="pdel">' + t("del") + "</button></div></div>";
       } else h += '<p class="le-dim">' + t("rFree") + "</p>";
       h += "<p>" + t("hRoad") + "</p>";
@@ -197,6 +201,8 @@ export class Editor {
     else if (/^py[+-]\d$/.test(a) && p) { this.push(); this.soft("y", +a.slice(2)); this.roadEdit(true); }
     else if (a === "snap" && p) { this.push(); p.y = w.terrain.heightAt(p.x, p.z, true) + 0.15; this.roadEdit(true); }
     else if (a === "pdel" && p) this.delPoint();
+    else if ((a === "pgs0" || a === "pgs1") && p) { this.push(); p.gs = a === "pgs1" ? 1 : 0; this.roadEdit(true); this.panel(); }
+    else if (a === "walkall" && R && p) { this.push(); R.pts.forEach((q) => { q.sl = !!p.sl; q.sr = !!p.sr; q.gs = p.gs ? 1 : 0; }); this.roadEdit(true); this.panel(); }
     else if (a === "snapall" && R) { this.push(); R.pts.forEach((q) => { q.y = w.terrain.heightAt(q.x, q.z, true) + 0.15; }); this.roadEdit(true); }
     else if (a === "smoothh" && R) { this.push(); const n = R.pts.length, y = R.pts.map((q) => q.y); R.pts.forEach((q, i) => { const pa = R.closed ? y[(i - 1 + n) % n] : y[Math.max(0, i - 1)], pb = R.closed ? y[(i + 1) % n] : y[Math.min(n - 1, i + 1)]; q.y = (y[i] * 2 + pa + pb) / 4; }); this.roadEdit(true); }
     else if (a === "rdel" && R) { this.push(); w.removeRoad(R); if (!w.roads.length) w.addRoad(); this.selNone(); this.roadEdit(true); }
@@ -232,6 +238,7 @@ export class Editor {
       f.text().then((txt) => { this.push(); if (loadText(w, txt)) { this.selNone(); this.rebuildHandles(); this.panel(); autosave(w); this.app.toast(fmt(t("fLoaded"), { n: w.name })); } else { this.undo.pop(); this.app.toast(t("fBad")); } });
       return;
     }
+    if (k === "psl" || k === "psr") { const R = this.rd(), p = this.pt(); if (!R || !p) return; this.push(); p[k === "psl" ? "sl" : "sr"] = e.target.checked; this.roadEdit(true); this.panel(); return; }
     if (k === "pcl" || k === "pcr" || k === "pt" || k === "pbr" || k === "pcp" || k === "closed") {
       const R = this.rd(), p = this.pt(); if (!R) return; this.push();
       if (k === "closed") R.closed = e.target.checked && R.pts.length >= 3; else if (k === "pt" && p) p.t = e.target.checked ? 1 : 0; else if (k === "pbr" && p) p.b = e.target.checked ? 1 : 0; else if (k === "pcp" && p) { p.cp = e.target.checked ? 1 : 0; if (p.cp) p.a = 0; } else if (p) p[k === "pcl" ? "cl" : "cr"] = e.target.checked;
@@ -359,7 +366,7 @@ export class Editor {
       if (k === n) y = E.y;
       else if (follow) y = base(c.x, c.z) + 0.15;   // Gelände; geglättet wird danach in placePlan
       else { const h00 = 2 * f * f * f - 3 * f * f + 1, h10 = f * f * f - 2 * f * f + f, h01 = -2 * f * f * f + 3 * f * f, h11 = f * f * f - f * f; y = h00 * A.y + h10 * L * m0 + h01 * E.y + h11 * L * m1; }   // knickfrei
-      out.push({ x: k === n ? E.x : c.x, z: k === n ? E.z : c.z, y: y, w: A.w || 12, bank: 0, cl: false, cr: false, t: s.rterr, a: k < n ? 1 : 0, j: k === n && E.j ? 1 : 0 });
+      out.push({ x: k === n ? E.x : c.x, z: k === n ? E.z : c.z, y: y, w: A.w || 12, bank: 0, cl: false, cr: false, sl: !!A.sl, sr: !!A.sr, gs: A.gs ? 1 : 0, t: s.rterr, a: k < n ? 1 : 0, j: k === n && E.j ? 1 : 0 });   // Gehweg wird beim Weiterbauen übernommen
     }
     return out;
   }
@@ -448,7 +455,7 @@ export class Editor {
       if (e.ctrlKey || e.metaKey) {   // Punkt in die nächste Straße einfügen (alle Modi)
         let best = null, bd = 1e9; w.roads.forEach((r, ri) => { if (r.S.length < 2) return; const q = r.nearest(g.x, g.z); if (q && Math.abs(q.d) < bd) { bd = Math.abs(q.d); best = { r: r, ri: ri, q: q }; } });
         if (!best) return; this.push();
-        const r = best.r, src = r.pts[best.q.a.seg] || r.pts[0], np = { x: g.x, z: g.z, y: best.q.y, w: src.w, bank: 0, cl: false, cr: false, t: src.t === 0 ? 0 : 1, a: 0 };
+        const r = best.r, src = r.pts[best.q.a.seg] || r.pts[0], np = { x: g.x, z: g.z, y: best.q.y, w: src.w, bank: 0, cl: false, cr: false, sl: !!src.sl, sr: !!src.sr, gs: src.gs ? 1 : 0, t: src.t === 0 ? 0 : 1, a: 0 };
         const at = best.q.a.seg + 1; r.pts.splice(at, 0, np); this.sr = best.ri; this.sel = at; this.roadEdit(true); return;
       }
       if (!place) { if (this.sr >= 0) { this.selNone(); this.roadEdit(true); } return; }

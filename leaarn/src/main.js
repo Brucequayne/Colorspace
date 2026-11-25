@@ -241,6 +241,14 @@ const CSS = `
 .le-vres>b{color:#fff;font-size:15px}.le-vres em{font-style:normal;color:#8A8E96}.le-vres .le-vp{font-size:17px;text-align:right}
 .le-vres.le-vg{border-left-color:#7FC8D4}.le-vres.le-vh{border-left-color:#C6C5B9}.le-vres.le-vb{border-left-color:#ED6A5E}
 @media (max-width:820px){.le-vset{grid-template-columns:1fr}.le-vrow{grid-template-columns:22px 1fr 46px 54px}.le-vrow input{grid-column:2/3;grid-row:2}.le-vrow .le-vq{grid-column:2/-1}.le-vrow .le-vok{grid-row:2;grid-column:3}.le-vrow .le-vpt{grid-row:2;grid-column:4}.le-vres{grid-template-columns:1fr 1fr 56px}.le-vres>span:nth-of-type(2){grid-column:1/3}}
+/* v0.16: Möbel-Lager (Kleiderschrank, Regal, Kühlschrank) */
+.le-sbox{display:grid;grid-template-columns:auto auto;gap:6px 22px;align-items:start}.le-sbox h3 small{font-weight:600;font-size:12px;margin-left:6px}
+.le-shint{margin:-4px 0 8px!important}.le-sfoot{grid-column:1/-1}
+.le-sgrid{display:grid;grid-template-columns:repeat(8,46px);gap:4px}.le-store .le-igrid{grid-template-columns:repeat(9,46px)}.le-store .le-ibox .le-slot2{width:46px;height:46px}.le-store .le-ibox .le-slot2 svg{width:32px;height:32px}
+.le-sgrid .le-slot2{background:rgba(74,109,124,.22);border-color:#4A6D7C}
+.le-slot2.le-nope{animation:le-nope .45s ease-out}@keyframes le-nope{0%,60%{border-color:#ED6A5E;background:rgba(237,106,94,.35)}100%{}}
+@media (max-width:1000px){.le-sbox{grid-template-columns:auto}}
+.le-ui:has(.le-inv) .le-prompt,.le-ui:has(.le-music) .le-prompt{display:none}
 `;
 
 let A = null;

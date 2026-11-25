@@ -1,6 +1,6 @@
 // ===== play.js · Spielen: Figur im Hub (3rd Person), Türen, Schreibtisch → Lernmodus, Geld-Anzeige =====
 import * as THREE from "three";
-import { t, addTexts, L2, clamp, lerp, el, esc, store, KEYS, DEV_CODE, PR } from "le/core.js";
+import { t, addTexts, L2, tl, clamp, lerp, el, esc, store, KEYS, DEV_CODE, PR } from "le/core.js";
 import { Player, camHit } from "le/player.js";
 import { Learn } from "le/learn.js";
 import { Inventory } from "le/inventory.js";
@@ -8,12 +8,14 @@ import { Musik } from "le/musik.js";
 import { geld, euro, offen, einsammeln, charakter } from "le/save.js";
 import { kasse, tick } from "le/sound.js";
 import { LH } from "le/houses.js";
+import { LAGER } from "le/items.js";
 
 addTexts({
   pHelp: L2("WASD/Pfeile laufen · Umschalt rennen · Leertaste springen · E benutzen · I Inventar · 1–9 Schnellauswahl · Maus ziehen dreht die Kamera · Rad zoomt · Esc Pause", "WASD/arrows walk · Shift run · Space jump · E use · I inventory · 1–9 hotbar · drag the mouse to turn the camera · wheel zooms · Esc pause"),
   pOpen: L2("Tür öffnen", "Open door"), pShut: L2("Tür schließen", "Close door"), pLearn: L2("Am Laptop lernen", "Learn on the laptop"), pMusic: L2("Ghettoblaster benutzen", "Use the boombox"),
   pHome: L2("Zuhause", "Home"), pPause: L2("Pause", "Paused"), pGo: L2("Weiter", "Continue"), pMenu: L2("Hauptmenü", "Main menu"), pEditor: L2("Zum Map-Editor", "To map editor"),
-  pNoHome: L2("Kein Haus in der Map – im Map-Editor ein Haus setzen.", "No house in the map – place one in the map editor."), pEarned: L2("+{n}", "+{n}")
+  pNoHome: L2("Kein Haus in der Map – im Map-Editor ein Haus setzen.", "No house in the map – place one in the map editor."), pEarned: L2("+{n}", "+{n}"),
+  pSit: L2("Hinsetzen", "Sit down"), pStand: L2("Aufstehen (E oder Laufen)", "Stand up (E or walk)"), pStore: L2("{n} öffnen", "Open {n}")
 });
 
 export class Play {
@@ -85,22 +87,46 @@ export class Play {
     for (const h of this.world.houses) {
       if (!h.contains(p.x, p.z, 3)) continue;
       for (const a of h.b.acts) {
-        if (a.l !== this.pl.level) continue;
-        const w = h.toWorld(a.x, a.z), d = Math.hypot(w.x - p.x, w.z - p.z), lim = a.type === "tuer" ? 1.5 : a.type === "musik" ? 1.25 : 1.05;
+        if (a.l !== this.pl.level || a.desk) continue;   // Stuhl am Schreibtisch: nur über den Laptop
+        const w = h.toWorld(a.x, a.z), d = Math.hypot(w.x - p.x, w.z - p.z), lim = a.type === "tuer" ? 1.5 : a.type === "musik" ? 1.25 : a.type === "lager" ? 1.2 : a.type === "sitzen" ? 0.95 : 1.05;
         if (d < lim && d < bd) { bd = d; best = { a: a, h: h }; }
       }
     }
     return best;
   }
   use() {
+    if (this.seat) { this.stand(); return; }
     const A = this.act; if (!A) return;
     if (A.a.type === "tuer") { const d = A.a.door; d.want = d.want > 0.5 ? 0 : 1; }
     else if (A.a.type === "lernen") this.openLearn(A);
     else if (A.a.type === "musik") { const w = A.h.toWorld(A.a.cx, A.a.cz); this.musik.show({ x: w.x, z: w.z }); }
+    else if (A.a.type === "sitzen") this.sit(A.h, A.a, "rest");
+    else if (A.a.type === "lager") this.inv.openStore(this.storeKey(A.h, A.a), A.a.lager);
+  }
+  // Speicherplatz eines Möbel-Lagers: Zuhause (bleibt erhalten, wenn das Haus verschoben wird) oder Haus nach Art und Lage + Bauteil-Nummer
+  storeKey(h, a) { const e = h.e; return (e.home ? "home" : e.k + "@" + Math.round(e.x) + "," + Math.round(e.z)) + ":" + a.pi; }
+  // ---------- Sitzen (seit v0.16) ----------
+  sit(h, a, pose) {
+    const k = pose === "lap" ? 0.12 : 0, w = h.toWorld(a.sx + a.fx * k, a.sz + a.fz * k), f = h.dirToWorld(a.fx, a.fz);   // am Laptop etwas an den Tisch gerückt
+    this.pl.sitDown(w.x, w.z, h.e.y + a.y, Math.atan2(f.x, f.z), a.h - a.y, pose); this.seat = { h: h, a: a };
+  }
+  // Aufstehen: freie Stelle vor, neben oder hinter dem Sitz (die mit der wenigsten Kollision)
+  stand() {
+    const S = this.seat; if (!S) return; this.seat = null;
+    const h = S.h, a = S.a, y = h.e.y + a.y, sx = -a.fz, sz = a.fx;
+    const cand = [[a.fx * 0.62, a.fz * 0.62], [0, 0], [sx * 0.62, sz * 0.62], [-sx * 0.62, -sz * 0.62], [-a.fx * 0.6, -a.fz * 0.6]];
+    let best = null, bd = 1e9;
+    for (const c of cand) {
+      const w = h.toWorld(a.sx + c[0], a.sz + c[1]), q = new THREE.Vector3(w.x, y, w.z); this.pl.collide(q);
+      const d = Math.hypot(q.x - w.x, q.z - w.z); if (d < bd - 1e-3) { bd = d; best = q; } if (d < 0.04) break;
+    }
+    this.pl.standUp(best.x, best.z, y);
   }
   openLearn(A) {
     const a = A.a, h = A.h, w = h.toWorld(a.x, a.z), f = h.dirToWorld(a.fx, a.fz);
-    this.pl.place(w.x, w.z, Math.atan2(-f.x, -f.z)); this.pl.p.y = h.e.y + a.y; this.pl.frozen = true;
+    if (a.seat) this.sit(h, a.seat, "lap");   // Stuhl am Schreibtisch: automatisch hinsetzen
+    else { this.pl.place(w.x, w.z, Math.atan2(-f.x, -f.z)); this.pl.p.y = h.e.y + a.y; }
+    this.pl.frozen = true;
     // Kamera hinter die Figur, Blick auf den Laptop
     const c = h.toWorld(a.cx, a.cz), sd = { x: -f.z, z: f.x }; this.learnCam = { look: new THREE.Vector3(c.x, h.e.y + a.y + 0.8, c.z), pos: new THREE.Vector3(c.x + f.x * 2.0 + sd.x * 0.7, h.e.y + a.y + 2.25, c.z + f.z * 2.0 + sd.z * 0.7) };
     this.learn = new Learn(this.app, () => this.closeLearn(), (n, r) => this.collect(n, r));
@@ -111,11 +137,12 @@ export class Play {
     if (!this.learn) return;
     const lap = this.learn.root.querySelector(".le-scr"), r = lap ? lap.getBoundingClientRect() : null, n = einsammeln();
     this.learn.dispose(); this.learn = null; this.learnCam = null; this.pl.frozen = false; this.hud.classList.remove("le-dimhud");
+    if (this.seat) this.stand();   // Laptop zu: wieder aufstehen
     if (n) this.collect(n, r ? { left: r.left + r.width / 2 - 60, top: r.top + r.height / 2 - 30, width: 120, height: 60 } : null); else { this.shown = geld(); this.money(); }
   }
   gain(n) { const g = document.getElementById("le-gain"); if (!g) return; g.textContent = "+" + euro(n); g.classList.remove("le-show"); void g.offsetWidth; g.classList.add("le-show"); }
   key(e) {
-    if (this.inv.open) { if (e.code === "KeyI" || e.code === "Escape") { this.inv.toggle(false); return true; } return false; }
+    if (this.inv.open) { if (e.code === "KeyI" || e.code === "Escape" || (e.code === "KeyE" && this.inv.store && !e.repeat)) { this.inv.toggle(false); return true; } return false; }
     if (this.musik.open && !this.learn) { if (e.code === "KeyE" || e.code === "Escape") { this.musik.hide(); return true; } return false; }
     if (this.learn) return this.learn.key(e);
     if (e.code === "Escape") { this.pause(!this.paused); return true; }
@@ -141,6 +168,7 @@ export class Play {
     if (!this.paused && !this.learn && !busy) {
       f = (inp.k("KeyW", "ArrowUp") ? 1 : 0) - (inp.k("KeyS", "ArrowDown") ? 1 : 0); s = (inp.k("KeyD", "ArrowRight") ? 1 : 0) - (inp.k("KeyA", "ArrowLeft") ? 1 : 0);
       jump = inp.k("Space");
+      if (this.seat && (f || s || jump)) { this.stand(); jump = false; }   // Laufen oder Springen: aufstehen
       if (pad) {
         const ax = pad.axes[0] || 0, ay = pad.axes[1] || 0, rx = pad.axes[2] || 0, ry = pad.axes[3] || 0, dz = (v) => (Math.abs(v) < 0.15 ? 0 : v);
         if (dz(ax) || dz(ay)) { s = dz(ax); f = -dz(ay); run = run || Math.hypot(ax, ay) > 0.92; }
@@ -158,7 +186,8 @@ export class Play {
     if (!this.learn && !this.paused) {
       this.act = this.findAct();
       const pr = document.getElementById("le-prompt");
-      const txt = this.act ? "E  " + (this.act.a.type === "tuer" ? t(this.act.a.door.want > 0.5 ? "pShut" : "pOpen") : this.act.a.type === "musik" ? t("pMusic") : t("pLearn")) : "";
+      const A = this.act ? this.act.a : null;
+      const txt = this.seat ? "E  " + t("pStand") : A ? "E  " + (A.type === "tuer" ? t(A.door.want > 0.5 ? "pShut" : "pOpen") : A.type === "musik" ? t("pMusic") : A.type === "sitzen" ? t("pSit") : A.type === "lager" ? fmtN(t("pStore"), tl(LAGER[A.lager].n)) : t("pLearn")) : "";
       if (pr && pr.textContent !== txt) { pr.textContent = txt; pr.style.display = txt ? "" : "none"; }
       const wh = document.getElementById("le-where"), home = this.world.home(), wt = p.house && p.house === home ? t("pHome") : "";
       if (wh && wh.textContent !== wt) wh.textContent = wt;
@@ -175,7 +204,7 @@ export class Play {
     // drinnen: Kamera steiler und näher, damit sie über die Wände ins Zimmer schaut
     c.inside = lerp(c.inside, p.house ? 1 : 0, 1 - Math.exp(-dt * 4));
     const pitch = lerp(c.pitch, Math.max(c.pitch, 0.98), c.inside), dist = lerp(c.dist, clamp(c.dist, 3.6, 6.5), c.inside);
-    const tgt = new THREE.Vector3(p.p.x, p.p.y + 1.45, p.p.z), cp = Math.cos(pitch);
+    const tgt = new THREE.Vector3(p.p.x, p.p.y + 1.45 + (p.sit ? p.sit.dy : 0), p.p.z), cp = Math.cos(pitch);
     const want = new THREE.Vector3(tgt.x + Math.sin(c.yaw) * cp * dist, tgt.y + Math.sin(pitch) * dist, tgt.z + Math.cos(c.yaw) * cp * dist);
     // Wände zwischen Figur und Kamera: Kamera davor ziehen
     const th = camHit(this.world, tgt, want);
@@ -193,3 +222,4 @@ export class Play {
     this.app.engine.focus(p.p);
   }
 }
+function fmtN(s, n) { return s.replace("{n}", n); }

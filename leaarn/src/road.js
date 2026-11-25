@@ -1,6 +1,8 @@
 // ===== road.js · Straße: Spline-Punkte, Netz, Abfrage für Physik, Einbettung ins Gelände =====
 // Punkte: { x, z, y (Höhe), w (Breite m), bank (Neigung in Grad, + = linke Seite höher), cl, cr (Kerbs links/rechts ab diesem Punkt) }.
 // t (seit v0.12): 1 = Gelände anpassen ab diesem Punkt, 0 = Straße liegt aufs vorhandene Gelände (nur Hervorstehendes wird abgetragen).
+// sl, sr (seit v0.16): Gehweg links/rechts ab diesem Punkt (zusätzlich oder statt Kerbs, liegt außen neben den Kerbs),
+// gs: Gehweg-Stil 0 = europäisch (kleine Backsteine), 1 = amerikanisch (große Betonplatten). Gehweg: Bordstein 15 cm hoch, 2,4 m breit.
 // a = Hilfspunkt (beim Platzieren erzeugt, kleiner Griff). j = Ende mündet in eine andere Straße (Abzweigung/Einmündung,
 // Höhe wird an die andere Straße angeglichen). b = Brücke ab diesem Punkt erzwingen (seit v0.13).
 // Seit v0.13 gibt es mehrere Straßen (world.roads). Kreuzt eine Straße eine andere mindestens 3 m höher, wird sie dort
@@ -18,7 +20,34 @@ const GRID = 16;   // Raster für die Abfrage
 const BR = 1.4;    // ab dieser Höhe über dem Gelände wird (ohne Gelände-Anpassung) eine Brücke gebaut
 const DECK = 1.0;  // Dicke der Brückenplatte
 const PW = 0.4, PT = 0.35, PH = 0.9;   // Brücke: Randstreifen bis zur Brüstung, Brüstungsdicke, Brüstungshöhe
+const GW = 2.4, KH = 0.15, KB = 0.18;   // Gehweg: Breite (mit Bordstein), Bordstein-Höhe, Bordstein-Breite oben
+const CURB = new THREE.Color("#9C9A93"), CURB2 = new THREE.Color("#B4B2AB");
 const CON = { a: new THREE.Color("#A3A19B"), b: new THREE.Color("#8A8882"), c: new THREE.Color("#B9B7B0"), d: new THREE.Color("#74726D") };
+
+// Gehweg-Texturen (seit v0.16), im Browser gezeichnet: europäisch = kleine Backsteine im Läuferverband (1 m Kachel),
+// amerikanisch = Betonplatte 1,5 m mit Fugen (eine Platte über die ganze Gehwegbreite)
+let WTEX = null;
+function walkTex() {
+  if (WTEX) return WTEX;
+  const mk = (draw) => { const c = document.createElement("canvas"); c.width = c.height = 256; draw(c.getContext("2d")); const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; return t; };
+  let seed = 7; const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
+  const eu = mk((g) => {
+    g.fillStyle = "#6F6259"; g.fillRect(0, 0, 256, 256);
+    const cols = ["#9E4E3A", "#A85A43", "#93473A", "#B0644A", "#8C4A3C", "#A2533F"], bw = 256 / 5, bh = 256 / 10;
+    for (let r = 0; r < 10; r++) for (let k = -1; k < 6; k++) {
+      const x = k * bw + (r & 1 ? bw / 2 : 0), y = r * bh; g.fillStyle = cols[Math.floor(rnd() * cols.length)];
+      g.fillRect(x + 2, y + 2, bw - 4, bh - 4); g.fillStyle = "rgba(0,0,0,0.08)"; g.fillRect(x + 2, y + bh - 6, bw - 4, 4);
+    }
+  });
+  const am = mk((g) => {
+    g.fillStyle = "#B9B7B0"; g.fillRect(0, 0, 256, 256);
+    for (let i = 0; i < 2600; i++) { const v = 150 + Math.floor(rnd() * 60); g.fillStyle = "rgba(" + v + "," + v + "," + (v - 4) + ",0.35)"; g.fillRect(rnd() * 256, rnd() * 256, 2, 2); }
+    g.fillStyle = "#7F7D77"; g.fillRect(0, 0, 4, 256); g.fillRect(252, 0, 4, 256);   // Querfuge zwischen den Platten
+    g.fillStyle = "rgba(90,88,84,0.55)"; g.fillRect(0, 0, 256, 3); g.fillRect(0, 253, 256, 3);
+  });
+  const mat = (t) => new THREE.MeshLambertMaterial({ map: t, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 });
+  WTEX = [mat(eu), mat(am)]; return WTEX;
+}
 
 function cr(p0, p1, p2, p3, t) { const t2 = t * t, t3 = t2 * t; return 0.5 * (2 * p1 + (-p0 + p2) * t + (2 * p0 - 5 * p1 + 4 * p2 - p3) * t2 + (-p0 + 3 * p1 - 3 * p2 + p3) * t3); }
 
@@ -30,6 +59,7 @@ export class Road {
     this.mesh = new THREE.Mesh(new THREE.BufferGeometry(), this.mat); this.mesh.receiveShadow = true; this.mesh.userData.road = true;
     this.bmat = new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide, emissive: new THREE.Color(0x26282A) });   // Beton: Unterseite im Schatten nicht schwarz
     this.bmesh = new THREE.Mesh(new THREE.BufferGeometry(), this.bmat); this.bmesh.castShadow = true; this.bmesh.receiveShadow = false;
+    this.wmesh = new THREE.Mesh(new THREE.BufferGeometry(), typeof document !== "undefined" ? walkTex() : []); this.wmesh.receiveShadow = true;   // Gehweg-Pflaster (texturiert)
     this.base = null;      // (x, z) => Grundhöhe des Geländes (setzt die Welt)
     this.pillars = [];     // [x, z, r] Brückenpfeiler für die Kollision
     this.anyBridge = false;
@@ -49,10 +79,10 @@ export class Road {
       for (let s = 0; s < steps; s++) {
         const k = s / steps;
         S.push({ p: new THREE.Vector3(cr(a.x, b.x, c.x, d.x, k), cr(a.y, b.y, c.y, d.y, k), cr(a.z, b.z, c.z, d.z, k)),
-          w: Math.max(3, cr(a.w, b.w, c.w, d.w, k)), bank: cr(a.bank, b.bank, c.bank, d.bank, k), cl: !!b.cl, cr: !!b.cr, seg: i, terr: b.t !== 0 && !b.b, forced: !!b.b });
+          w: Math.max(3, cr(a.w, b.w, c.w, d.w, k)), bank: cr(a.bank, b.bank, c.bank, d.bank, k), cl: !!b.cl, cr: !!b.cr, sl: !!b.sl, sr: !!b.sr, gs: b.gs | 0, seg: i, terr: b.t !== 0 && !b.b, forced: !!b.b });
       }
     }
-    if (!this.closed) { const e = this.pts[n - 1]; S.push({ p: new THREE.Vector3(e.x, e.y, e.z), w: e.w, bank: e.bank, cl: false, cr: false, seg: n - 2, terr: this.pts[n - 2].t !== 0 && !this.pts[n - 2].b, forced: !!this.pts[n - 2].b }); }
+    if (!this.closed) { const e = this.pts[n - 1]; S.push({ p: new THREE.Vector3(e.x, e.y, e.z), w: e.w, bank: e.bank, cl: false, cr: false, sl: false, sr: false, gs: 0, seg: n - 2, terr: this.pts[n - 2].t !== 0 && !this.pts[n - 2].b, forced: !!this.pts[n - 2].b }); }
     const m = S.length;
     for (let i = 0; i < m; i++) {
       const pa = S[this.closed ? (i - 1 + m) % m : Math.max(0, i - 1)].p, pb = S[this.closed ? (i + 1) % m : Math.min(m - 1, i + 1)].p;
@@ -102,8 +132,10 @@ export class Road {
     for (let i = 0; i < m; i++) if (S[i].br) this.anyBridge = true;
   }
   roadBelow(x, z, top) { if (!this.world) return false; for (const o of this.world.roads) if (o.S.length > 1 && o.lowerAt(x, z, top + 3, CW + 2, o === this ? -1e9 : null) > -Infinity) return true; return false; }
-  // Innenseite der Brüstung (Abstand von der Mittellinie)
-  face(q) { return q.w / 2 + CW + PW; }   // auf Brücken immer Platz für Kerbs, damit die Brüstung keinen Versatz hat
+  // Innenseite der Brüstung (Abstand von der Mittellinie). Mit Gehweg rückt die Brüstung an dessen Außenkante (seit v0.16)
+  face(q, sd) { const w = sd < 0 ? q.sl : sd > 0 ? q.sr : false; return w ? q.w / 2 + ((sd < 0 ? q.cl : q.cr) ? CW : 0) + GW : q.w / 2 + CW + PW; }
+  // Breite neben der Fahrbahn auf einer Seite (sd -1 links, +1 rechts): Kerb und Gehweg
+  side(q, sd) { return ((sd < 0 ? q.cl : q.cr) ? CW : 0) + ((sd < 0 ? q.sl : q.sr) ? GW : 0); }
   segCount() { return this.closed ? this.S.length : this.S.length - 1; }
   buildGrid() {
     const g = this.grid = new Map(), S = this.S, m = S.length, ext = this.maxHalf() + CW + 2.5 + Math.max(this.fall, 7) + 2;
@@ -113,7 +145,7 @@ export class Road {
       for (let z = z0; z <= z1; z++) for (let x = x0; x <= x1; x++) { const k = x + "," + z; let l = g.get(k); if (!l) g.set(k, (l = [])); l.push(i); }
     }
   }
-  maxHalf() { let w = 3; this.pts.forEach((p) => { w = Math.max(w, p.w / 2); }); return w; }
+  maxHalf() { let w = 3; this.pts.forEach((p) => { w = Math.max(w, p.w / 2 + (p.sl || p.sr ? GW : 0)); }); return w; }
   // Nächster Straßenabschnitt zu (x, z): Lage entlang (i, u), seitlicher Abstand d (+ = rechts), Höhe der Mittellinie usw.
   nearest(x, z) {
     const l = this.grid.get(Math.floor(x / GRID) + "," + Math.floor(z / GRID)); if (!l) return null;
@@ -127,16 +159,18 @@ export class Road {
     const a = best.a, b = best.b, u = best.u, r = new THREE.Vector3().lerpVectors(a.r, b.r, u).normalize();
     best.d = (x - best.cx) * r.x + (z - best.cz) * r.z; best.y = lerp(a.p.y, b.p.y, u); best.w = lerp(a.w, b.w, u); best.tan = lerp(a.tan, b.tan, u); best.r = r;
     best.t = new THREE.Vector3().lerpVectors(a.t, b.t, u).normalize(); best.curb = best.d < 0 ? a.cl : a.cr; best.dist = a.d + u * a.p.distanceTo(b.p);
+    best.cl = a.cl; best.cr = a.cr; best.sl = a.sl; best.sr = a.sr; best.sw = best.d < 0 ? a.sl : a.sr; best.walk = best.sw ? GW + (best.curb ? CW : 0) : 0;
     best.br = u < 0.5 ? a.br : b.br; best.terr = a.terr && !best.br;
     return best;
   }
   // Physik: Fahrbahn unter (x, z)? → { h, n, kind: "road" | "curb" }
   query(x, z) {
     const q = this.nearest(x, z); if (!q) return null;
-    const hw = q.w / 2, ad = Math.abs(q.d);
-    if (ad > (q.br ? this.face(q) + 0.05 : hw + (q.curb ? CW : 0.15))) return null;
-    let h = q.y - q.d * q.tan; const kind = ad > hw && q.curb && ad <= hw + CW ? "curb" : "road";
+    const hw = q.w / 2, ad = Math.abs(q.d), sd = q.d < 0 ? -1 : 1, kw = q.curb ? CW : 0;
+    if (ad > (q.br ? this.face(q, sd) + 0.05 : hw + kw + (q.sw ? GW : q.curb ? 0 : 0.15))) return null;
+    let h = q.y - q.d * q.tan; const kind = q.sw && ad > hw + kw ? "walk" : ad > hw && q.curb && ad <= hw + CW ? "curb" : "road";
     if (kind === "curb") h += 0.05 * (ad - hw) / CW;
+    if (kind === "walk") h += KH;   // Gehweg: 15 cm über der Fahrbahn
     const lat = new THREE.Vector3(q.r.x, -q.tan, q.r.z).normalize(), n = new THREE.Vector3().crossVectors(lat, q.t).normalize();
     if (n.y < 0) n.negate();
     return { h: h, n: n, kind: kind, dist: q.dist, d: q.d, br: q.br };
@@ -146,15 +180,15 @@ export class Road {
   carve(x, z) {
     if (!this.S.length) return null;
     const q = this.nearest(x, z); if (!q) return null;
-    const hw = q.w / 2, edge = hw + (q.curb ? CW : 0), shoulder = edge + 2.5, ad = Math.abs(q.d);
+    const hw = q.w / 2, edge = hw + (q.curb ? CW : 0) + (q.sw ? GW : 0), shoulder = edge + 2.5, ad = Math.abs(q.d), up = q.sw ? KH : 0;
     if (!q.terr || q.br) {   // ohne Gelände-Anpassung: nur abtragen, was über die Fahrbahn (bzw. Brückenplatte) ragt, mit 45°-Kante
-      const e2 = (q.br ? hw + CW + PW + PT : edge) + 0.3; if (ad > e2 + 6) return null;
+      const e2 = (q.br ? this.face(q, q.d < 0 ? -1 : 1) + PT : edge) + 0.3; if (ad > e2 + 6) return null;
       const top = q.y - Math.sign(q.d) * Math.min(ad, edge) * q.tan - (q.br ? DECK + 0.3 : 0.15);
       return { h: top + Math.max(0, ad - e2), w: 1, lo: true };
     }
     if (ad > shoulder + this.fall) return null;
     if (ad <= edge) return { h: q.y - q.d * q.tan - 0.15, w: 1 };
-    const he = q.y - Math.sign(q.d) * edge * q.tan - 0.03;
+    const he = q.y - Math.sign(q.d) * edge * q.tan - 0.03 + up;   // mit Gehweg: Randstreifen bündig mit dem Gehweg
     return { h: he, w: ad <= shoulder ? 1 : 1 - smooth((ad - shoulder) / this.fall) };
   }
   // Netz bauen (Fahrbahn, weiße Randlinien, rot-weiße Kerbs, Seitenwände, Start/Ziel)
@@ -162,9 +196,9 @@ export class Road {
   // Liegt (x, z) auf der Fahrbahn einer anderen Straße auf etwa Höhe y? (Abzweigungen: dort keine Randlinien/Kerbs)
   covered(x, z, y) { for (const o of this.others()) { const q = o.query(x, z); if (q && Math.abs(q.h - y) < 0.8) return true; } return false; }
   buildMesh() {
-    const S = this.S, m = S.length, P = [], Co = [];
+    const S = this.S, m = S.length, P = [], Co = [], WP = [[], []], WU = [[], []];
     const g = this.mesh.geometry; this.cov = this.others().length > 0;
-    if (m < 2) { g.setAttribute("position", new THREE.Float32BufferAttribute([], 3)); g.setAttribute("color", new THREE.Float32BufferAttribute([], 3)); this.anyBridge = false; this.buildBridges(); return; }
+    if (m < 2) { g.setAttribute("position", new THREE.Float32BufferAttribute([], 3)); g.setAttribute("color", new THREE.Float32BufferAttribute([], 3)); this.anyBridge = false; this.buildWalk(WP, WU); this.buildBridges(); return; }
     const pushTri = (a, b, c, col) => { P.push(a.x, a.y, a.z, b.x, b.y, b.z, c.x, c.y, c.z); for (let k = 0; k < 3; k++) Co.push(col.r, col.g, col.b); };
     const quad = (a, b, c, d, col) => { pushTri(a, b, d, col); pushTri(b, c, d, col); };
     const lift = (v, y) => new THREE.Vector3(v.x, v.y + y, v.z);
@@ -183,6 +217,24 @@ export class Road {
       let lo = a.L, lob = b.L, ro = a.R, rob = b.R;
       if (a.cl && !cvL) { lo = at(a, -ha - CW, 0.06); lob = at(b, -hb - CW, 0.06); quad(lo, at(a, -ha, 0.01), at(b, -hb, 0.01), lob, kc); }
       if (a.cr && !cvR) { ro = at(a, ha + CW, 0.06); rob = at(b, hb + CW, 0.06); quad(at(a, ha, 0.01), ro, rob, at(b, hb, 0.01), kc); }
+      // Gehweg (seit v0.16): Bordstein (Kante + Oberseite), Pflaster bis zur Außenkante, Abschluss an Anfang und Ende
+      const db = a.d + a.p.distanceTo(b.p), pv = this.closed ? S[(i - 1 + m) % m] : S[i - 1], nx = S[(i + 1) % m];
+      for (const sd of [-1, 1]) {
+        const on = sd < 0 ? a.sl && !cvL : a.sr && !cvR; if (!on) continue;
+        const kerb = (sd < 0 ? a.cl && !cvL : a.cr && !cvR), y0 = kerb ? 0.06 : 0.01, ea = ha + (kerb ? CW : 0), eb = hb + (kerb ? CW : 0);
+        const A = (o, y) => at(a, sd * o, y), B2 = (o, y) => at(b, sd * o, y);
+        quad(A(ea, y0), A(ea, KH), B2(eb, KH), B2(eb, y0), CURB);                       // Bordstein-Kante
+        quad(A(ea, KH), A(ea + KB, KH), B2(eb + KB, KH), B2(eb, KH), CURB2);            // Bordstein oben
+        const st = a.gs ? 1 : 0, L = st ? 1.5 : 1, wv = st ? GW - KB : 1, wp = WP[st], wu = WU[st];
+        const vtx = (v, u, vv) => { wp.push(v.x, v.y, v.z); wu.push(u, vv); };
+        const a0 = A(ea + KB, KH), a1 = A(ea + GW, KH), b1 = B2(eb + GW, KH), b0 = B2(eb + KB, KH), ua = a.d / L, ub = db / L, v1 = (GW - KB) / wv;
+        vtx(a0, ua, 0); vtx(a1, ua, v1); vtx(b0, ub, 0); vtx(a1, ua, v1); vtx(b1, ub, v1); vtx(b0, ub, 0);
+        if (sd < 0) { lo = a1; lob = b1; } else { ro = a1; rob = b1; }
+        // Stirnseiten, wo der Gehweg beginnt oder endet
+        const has = (s2) => !!s2 && (sd < 0 ? s2.sl : s2.sr);
+        if (!has(pv)) quad(A(ea, y0), A(ea + GW, y0 - 0.2), A(ea + GW, KH), A(ea, KH), CURB);
+        if (!has(nx) || (!this.closed && i === this.segCount() - 1)) quad(B2(eb, y0), B2(eb, KH), B2(eb + GW, KH), B2(eb + GW, y0 - 0.2), CURB);
+      }
       // Seitenwände nach unten, damit die Straße nie in der Luft hängt (auf Brücken übernimmt das die Brückenplatte)
       if (!(a.br && b.br)) {
         const sk = a.terr ? 1.2 : clamp(Math.max(a.gap, b.gap) + 0.4, 1.2, BR + 0.6);
@@ -199,7 +251,16 @@ export class Road {
     }
     g.setAttribute("position", new THREE.Float32BufferAttribute(P, 3)); g.setAttribute("color", new THREE.Float32BufferAttribute(Co, 3));
     g.deleteAttribute("normal"); g.computeVertexNormals(); g.computeBoundingSphere();   // altes Normalen-Feld nicht wiederverwenden (andere Länge)
+    this.buildWalk(WP, WU);
     this.buildBridges(at);
+  }
+  // Gehweg-Pflaster: ein Netz mit zwei Materialien (europäisch / amerikanisch)
+  buildWalk(WP, WU) {
+    const g = this.wmesh.geometry, P = WP[0].concat(WP[1]), U = WU[0].concat(WU[1]), n0 = WP[0].length / 3;
+    g.clearGroups(); g.setAttribute("position", new THREE.Float32BufferAttribute(P, 3)); g.setAttribute("uv", new THREE.Float32BufferAttribute(U, 2));
+    if (g.attributes.normal) g.deleteAttribute("normal");
+    if (P.length) { g.addGroup(0, n0, 0); g.addGroup(n0, P.length / 3 - n0, 1); g.computeVertexNormals(); }
+    g.computeBoundingSphere(); this.wmesh.visible = P.length > 0;
   }
   // Betonbrücken: Randstreifen, Brüstungen, Fahrbahnplatte, Pfeiler etwa alle 22 m, Widerlager an den Enden
   buildBridges(at) {
@@ -216,16 +277,16 @@ export class Road {
       for (let i = 0; i < this.segCount(); i++) {
         const a = S[i], b = S[(i + 1) % m]; if (!a.br || !b.br) continue;
         for (const sd of [-1, 1]) {
-          const ea = a.w / 2 + ((sd < 0 ? a.cl : a.cr) ? CW : 0), eb = b.w / 2 + ((sd < 0 ? a.cl : a.cr) ? CW : 0);
-          const fa = a.w / 2 + CW + PW, fb = b.w / 2 + CW + PW, oa = fa + PT, ob = fb + PT;
+          const wk = sd < 0 ? a.sl : a.sr, ea = a.w / 2 + ((sd < 0 ? a.cl : a.cr) ? CW : 0), eb = b.w / 2 + ((sd < 0 ? a.cl : a.cr) ? CW : 0);
+          const fa = this.face(a, sd), fb = this.face(Object.assign({}, b, { cl: a.cl, cr: a.cr, sl: a.sl, sr: a.sr }), sd), oa = fa + PT, ob = fb + PT, y0 = wk ? KH : 0.02;
           const A = (o, y) => at(a, sd * o, y), B2 = (o, y) => at(b, sd * o, y);
-          quad(A(ea, 0.02), A(fa, 0.02), B2(fb, 0.02), B2(eb, 0.02), CON.c);            // Randstreifen
-          quad(A(fa, 0.02), A(fa, PH), B2(fb, PH), B2(fb, 0.02), CON.a);                 // Brüstung innen
+          if (!wk) quad(A(ea, 0.02), A(fa, 0.02), B2(fb, 0.02), B2(eb, 0.02), CON.c);   // Randstreifen (mit Gehweg liegt dort das Pflaster)
+          quad(A(fa, y0), A(fa, PH), B2(fb, PH), B2(fb, y0), CON.a);                     // Brüstung innen
           quad(A(fa, PH), A(oa, PH), B2(ob, PH), B2(fb, PH), CON.c);                     // Brüstung oben
           quad(A(oa, PH), A(oa, -DECK), B2(ob, -DECK), B2(ob, PH), CON.b);               // Außenwand bis Unterkante Platte
         }
-        const oa = a.w / 2 + CW + PW + PT, ob = b.w / 2 + CW + PW + PT;
-        quad(at(a, -oa, -DECK), at(a, oa, -DECK), at(b, ob, -DECK), at(b, -ob, -DECK), CON.d);   // Unterseite
+        const fb2 = Object.assign({}, b, { cl: a.cl, cr: a.cr, sl: a.sl, sr: a.sr }), oaL = this.face(a, -1) + PT, oaR = this.face(a, 1) + PT, obL = this.face(fb2, -1) + PT, obR = this.face(fb2, 1) + PT;
+        quad(at(a, -oaL, -DECK), at(a, oaR, -DECK), at(b, obR, -DECK), at(b, -obL, -DECK), CON.d);   // Unterseite
         // Pfeiler
         if (a.d - lastP >= 22 && a.gap > BR) {
           lastP = a.d;
@@ -241,7 +302,7 @@ export class Road {
         const s = S[i]; if (!s.br) continue;
         const pv = this.closed ? S[(i - 1 + m) % m] : S[i - 1], nx = this.closed ? S[(i + 1) % m] : S[i + 1];
         if (pv && nx && pv.br && nx.br) continue;
-        const o1 = s.w / 2 + CW + PW + PT, o2 = o1, bot = s.gnd - 1;
+        const o1 = this.face(s, -1) + PT, o2 = this.face(s, 1) + PT, bot = s.gnd - 1;
         const A = at(s, -o1, -DECK), B2 = at(s, o2, -DECK);
         quad(A, B2, V(B2.x, bot, B2.z), V(A.x, bot, A.z), CON.b);
       }
@@ -257,6 +318,6 @@ export class Road {
   }
   // Steuerpunkt-Abschnitt, der (x, z) am nächsten liegt (zum Einfügen)
   segAt(x, z) { const q = this.nearest(x, z); return q ? { seg: q.a.seg, d: Math.abs(q.d) } : null; }
-  toJSON() { return { pts: this.pts.map((p) => ({ x: +p.x.toFixed(2), z: +p.z.toFixed(2), y: +p.y.toFixed(2), w: +p.w.toFixed(2), bank: +p.bank.toFixed(1), cl: p.cl ? 1 : 0, cr: p.cr ? 1 : 0, t: p.t === 0 ? 0 : 1, a: p.a ? 1 : 0, j: p.j ? 1 : 0, b: p.b ? 1 : 0, cp: p.cp ? 1 : 0 })), closed: this.closed, fall: this.fall }; }
-  fromJSON(o) { this.pts = (o && o.pts || []).map((p) => ({ x: p.x, z: p.z, y: p.y, w: p.w || 12, bank: p.bank || 0, cl: !!p.cl, cr: !!p.cr, t: p.t === 0 ? 0 : 1, a: p.a ? 1 : 0, j: p.j ? 1 : 0, b: p.b ? 1 : 0, cp: p.cp ? 1 : 0 })); this.closed = o ? o.closed !== false : true; this.fall = o && o.fall != null ? o.fall : 10; }
+  toJSON() { return { pts: this.pts.map((p) => ({ x: +p.x.toFixed(2), z: +p.z.toFixed(2), y: +p.y.toFixed(2), w: +p.w.toFixed(2), bank: +p.bank.toFixed(1), cl: p.cl ? 1 : 0, cr: p.cr ? 1 : 0, sl: p.sl ? 1 : 0, sr: p.sr ? 1 : 0, gs: p.gs ? 1 : 0, t: p.t === 0 ? 0 : 1, a: p.a ? 1 : 0, j: p.j ? 1 : 0, b: p.b ? 1 : 0, cp: p.cp ? 1 : 0 })), closed: this.closed, fall: this.fall }; }
+  fromJSON(o) { this.pts = (o && o.pts || []).map((p) => ({ x: p.x, z: p.z, y: p.y, w: p.w || 12, bank: p.bank || 0, cl: !!p.cl, cr: !!p.cr, sl: !!p.sl, sr: !!p.sr, gs: p.gs ? 1 : 0, t: p.t === 0 ? 0 : 1, a: p.a ? 1 : 0, j: p.j ? 1 : 0, b: p.b ? 1 : 0, cp: p.cp ? 1 : 0 })); this.closed = o ? o.closed !== false : true; this.fall = o && o.fall != null ? o.fall : 10; }
 }

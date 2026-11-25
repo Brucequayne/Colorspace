@@ -40,11 +40,11 @@ export class World {
   addRoad(o) {
     const r = new Road(); r.world = this; r.base = (x, z) => this.terrain.heightAt(x, z, true);
     if (o) r.fromJSON(o); else { r.closed = false; }
-    this.roads.push(r); this.roadGroup.add(r.mesh); this.roadGroup.add(r.bmesh); return r;
+    this.roads.push(r); this.roadGroup.add(r.mesh); this.roadGroup.add(r.bmesh); this.roadGroup.add(r.wmesh); return r;
   }
   removeRoad(r) {
     const i = this.roads.indexOf(r); if (i < 0) return;
-    this.roads.splice(i, 1); this.roadGroup.remove(r.mesh); this.roadGroup.remove(r.bmesh); r.mesh.geometry.dispose(); r.bmesh.geometry.dispose();
+    this.roads.splice(i, 1); this.roadGroup.remove(r.mesh); this.roadGroup.remove(r.bmesh); this.roadGroup.remove(r.wmesh); r.mesh.geometry.dispose(); r.bmesh.geometry.dispose(); r.wmesh.geometry.dispose();
   }
   setRoads(list) { this.roads.slice().forEach((r) => this.removeRoad(r)); (list && list.length ? list : [{ pts: [], closed: false }]).forEach((o) => this.addRoad(o)); }
   // Hauptstrecke (Start der Testfahrt): erster Rundkurs, sonst die längste Straße
@@ -86,7 +86,7 @@ export class World {
     return h;
   }
   // Abstand zur nächsten Fahrbahnkante (negativ = auf der Fahrbahn), Infinity wenn keine Straße in der Nähe
-  roadDist(x, z) { let d = Infinity; for (const r of this.roads) { if (r.S.length < 2) continue; const q = r.nearest(x, z); if (q) d = Math.min(d, Math.abs(q.d) - q.w / 2); } return d; }
+  roadDist(x, z) { let d = Infinity; for (const r of this.roads) { if (r.S.length < 2) continue; const q = r.nearest(x, z); if (q) d = Math.min(d, Math.abs(q.d) - q.w / 2 - q.walk); } return d; }   // Gehweg zählt zur Straße (seit v0.16)
   // Boden unter (x, z) für die Physik: Fahrbahn hat Vorrang, sonst Gelände mit seiner Bodenart
   // y (seit v0.12): Höhe des abfragenden Punkts – wer unter einer Brücke fährt, bekommt das Gelände, nicht die Brücke
   // Mehrere Straßen übereinander: die höchste Fahrbahn, die nicht über dem abfragenden Punkt liegt

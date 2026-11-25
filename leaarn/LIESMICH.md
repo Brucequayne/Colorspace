@@ -53,7 +53,22 @@ lassen sich im Map-Editor schon vorher als „lokal“ platzieren – ihre Daten
 
 Grundstück (seit v0.14): `plot: [[x, z], …]` Zellen im Haus. Auf der Map wird das Rechteck um Grundstück + Haus (+0,5 m) flach gemacht (`plotRect`, `carve`), dort wachsen keine Pflanzen (`world.onPlot`). Ohne Grundstück: Haus + 2 m.
 
+Sitzen (seit v0.16): Möbel mit `sit: [[x, z, fx, fz, Sitzhöhe], …]` (lokal um die Zellmitte, f = Blickrichtung) bekommen je Platz eine Interaktion `sitzen`
+(Stuhl, Sofa mit zwei Plätzen, Bettkante). E setzt hin (`Player.sitDown`, Figur hat dafür Kniegelenke), E oder Laufen steht auf (`Play.stand` sucht die freie Stelle
+vor, neben oder hinter dem Sitz). Ein Stuhl bis 1 m vor einem Schreibtisch gehört zum Laptop (`desk`): nicht einzeln benutzbar, beim Öffnen des Laptops setzt man sich darauf.
+
+Möbel-Lager (seit v0.16): Teile mit `act: "lager"` und `lager: "kleidung" | "regal" | "essen"` (Kleiderschrank, Regal, Kühlschrank) haben 64 Plätze (8 × 8),
+gespeichert in `leaarn-save-v1` → `lager[Schlüssel]`. Schlüssel = `home:<Bauteil-Nummer>` im Zuhause (bleibt beim Verschieben des Hauses), sonst `<k>@<x>,<z>:<Nummer>`.
+Erlaubte Arten in `LAGER` (items.js): Kleiderschrank nur `kind: "kleidung"`, Kühlschrank nur `kind: "essen"`, Regal alles. Muster-Gegenstände: `muetze`, `apfel` (noch nicht erhältlich).
+
 Map-Eintrag: `{ k: "starter" | "lokal", d: Hausdaten (nur lokal), x, z, y, a (Grad), home }`. `home` = Zuhause (Spielstart vor der ersten Tür).
+
+## Straßen: Gehweg (seit v0.16)
+
+Punkte haben zusätzlich `sl`, `sr` (Gehweg links/rechts ab diesem Punkt) und `gs` (0 europäisch = kleine Backsteine, 1 amerikanisch = Betonplatten 1,5 m).
+Gehweg = 2,4 m breit inkl. Bordstein, 15 cm über der Fahrbahn, liegt außen neben den Kerbs. Pflaster als eigenes Netz `wmesh` mit zwei im Browser gezeichneten Texturen
+(`walkTex` in road.js), Bordstein und Stirnseiten im normalen Straßennetz. Physik: `query` liefert `kind: "walk"`, Gelände-Randstreifen liegt bündig mit dem Gehweg,
+auf Brücken rückt die Brüstung an die Gehweg-Außenkante (`face(q, Seite)`). Pflanzen halten Abstand zum Gehweg (`roadDist`).
 
 ## Fächer und Aufgaben
 

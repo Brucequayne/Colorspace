@@ -35,9 +35,14 @@ export function figure(look) {
   const limb = (x, y, parts) => { const pv = new THREE.Group(); pv.position.set(x, y, 0); pv.add(mk(parts)); body.add(pv); return pv; };
   const armL = limb(-0.26, 1.42, [part(new THREE.BoxGeometry(0.11, 0.42, 0.12), TOP, M(0, -0.2, 0, 1)), part(new THREE.BoxGeometry(0.09, 0.2, 0.1), SKIN, M(0, -0.5, 0, 1))]);
   const armR = limb(0.26, 1.42, [part(new THREE.BoxGeometry(0.11, 0.42, 0.12), TOP, M(0, -0.2, 0, 1)), part(new THREE.BoxGeometry(0.09, 0.2, 0.1), SKIN, M(0, -0.5, 0, 1))]);
-  const legL = limb(-0.1, 0.92, [part(new THREE.BoxGeometry(0.15, 0.82, 0.16), PANTS, M(0, -0.42, 0, 1)), part(new THREE.BoxGeometry(0.15, 0.09, 0.26), SHOE, M(0, -0.875, 0.04, 1))]);
-  const legR = limb(0.1, 0.92, [part(new THREE.BoxGeometry(0.15, 0.82, 0.16), PANTS, M(0, -0.42, 0, 1)), part(new THREE.BoxGeometry(0.15, 0.09, 0.26), SHOE, M(0, -0.875, 0.04, 1))]);
-  return { group: g, body: body, head: head, armL: armL, armR: armR, legL: legL, legR: legR };
+  // Beine mit Kniegelenk (seit v0.16, fürs Sitzen): Oberschenkel am Hüft-Drehpunkt, Unterschenkel + Schuh am Knie
+  const leg = (x) => {
+    const pv = limb(x, 0.92, [part(new THREE.BoxGeometry(0.15, 0.44, 0.16), PANTS, M(0, -0.21, 0, 1))]);
+    const knee = new THREE.Group(); knee.position.set(0, -0.42, 0); knee.add(mk([part(new THREE.BoxGeometry(0.15, 0.42, 0.16), PANTS, M(0, -0.21, 0, 1)), part(new THREE.BoxGeometry(0.15, 0.09, 0.26), SHOE, M(0, -0.455, 0.04, 1))])); pv.add(knee);
+    pv.userData.knee = knee; return pv;
+  };
+  const legL = leg(-0.1), legR = leg(0.1);
+  return { group: g, body: body, head: head, armL: armL, armR: armR, legL: legL, legR: legR, kneeL: legL.userData.knee, kneeR: legR.userData.knee };
 }
 
 export class Player {
@@ -45,7 +50,11 @@ export class Player {
     this.world = world; this.m = figure(look); world.engine.scene.add(this.m.group);
     this.p = new THREE.Vector3(); this.v = new THREE.Vector3(); this.face = 0; this.vy = 0; this.onGround = true;
     this.phase = 0; this.speed = 0; this.house = null; this.level = 0; this.frozen = false; this.g = {};
+    this.sit = null;   // Sitzen (seit v0.16): { dy: Höhe der Figur über dem Boden, pose: "rest" | "lap" }
   }
+  // hinsetzen: Figur auf den Sitzplatz (x, z, Boden y), Blick face, Sitzhöhe h über dem Boden
+  sitDown(x, z, y, face, h, pose) { this.p.set(x, y, z); this.face = face; this.v.set(0, 0, 0); this.vy = 0; this.speed = 0; this.onGround = true; this.sit = { dy: h + 0.08 - 0.92, pose: pose || "rest", t: 0 }; this.frozen = true; this.sync(0); }
+  standUp(x, z, y) { this.sit = null; this.frozen = false; this.p.set(x, y, z); this.v.set(0, 0, 0); this.vy = 0; this.onGround = true; this.sync(0); }
   dispose() { this.m.group.traverse((o) => { if (o.geometry) o.geometry.dispose(); }); this.m.group.removeFromParent(); }
   place(x, z, face) { this.p.set(x, 0, z); this.p.y = this.groundAt(x, z, 1e3); this.face = face || 0; this.v.set(0, 0, 0); this.vy = 0; this.sync(0); }
   // Boden unter der Figur: Hausboden (wenn auf einer Bodenzelle), sonst Straße/Gelände
@@ -59,6 +68,7 @@ export class Player {
   }
   // inp: { x, z } Richtung (Welt, Länge ≤ 1), run, jump
   update(dt, inp) {
+    if (this.sit) { this.speed = 0; this.sync(dt); return; }   // sitzt: keine Bewegung, Haus/Etage bleiben
     const W = this.world, want = new THREE.Vector3(inp.x, 0, inp.z), sp = this.frozen ? 0 : (inp.run ? 6.2 : 3.6);
     if (want.lengthSq() > 1) want.normalize();
     const acc = this.onGround ? 14 : 4;
@@ -107,9 +117,20 @@ export class Player {
   sync(dt) {
     const m = this.m, k = clamp(this.speed / 3.6, 0, 1.6);
     m.group.position.copy(this.p); m.group.rotation.y = this.face;
+    if (this.sit) {   // Sitzhaltung: Oberschenkel nach vorn, Unterschenkel nach unten; am Laptop Hände auf der Tastatur
+      const S = this.sit; S.t = Math.min(1, S.t + (dt || 0) * 5); const e = S.t * S.t * (3 - 2 * S.t);
+      m.group.position.y = this.p.y + S.dy * e;
+      m.legL.rotation.x = m.legR.rotation.x = -1.5 * e; m.kneeL.rotation.x = m.kneeR.rotation.x = 1.5 * e;
+      m.legL.rotation.z = 0.04; m.legR.rotation.z = -0.04;
+      const ax = S.pose === "lap" ? -1.05 : -0.55; m.armL.rotation.x = m.armR.rotation.x = ax * e; m.armL.rotation.z = -0.12; m.armR.rotation.z = 0.12;
+      m.body.position.y = 0; m.body.rotation.x = S.pose === "lap" ? 0.08 : -0.04;
+      return;
+    }
+    m.legL.rotation.z = 0; m.legR.rotation.z = 0;
     this.phase += dt * (2.2 + this.speed * 1.55);
     const s = Math.sin(this.phase) * 0.62 * Math.min(1, k), air = this.onGround ? 0 : 1;
     m.legL.rotation.x = air ? -0.5 : s; m.legR.rotation.x = air ? 0.3 : -s;
+    m.kneeL.rotation.x = air ? 0.7 : Math.max(0, s) * 0.9; m.kneeR.rotation.x = air ? 0.35 : Math.max(0, -s) * 0.9;   // Knie beugt sich, wenn das Bein hinten ist
     m.armL.rotation.x = air ? -0.9 : -s * 0.85; m.armR.rotation.x = air ? -0.9 : s * 0.85;
     m.armL.rotation.z = -0.06; m.armR.rotation.z = 0.06;
     m.body.position.y = this.onGround ? Math.abs(Math.cos(this.phase)) * 0.045 * Math.min(1, k) : 0;
