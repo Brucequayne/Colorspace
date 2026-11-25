@@ -144,6 +144,10 @@ leicht/mittel/schwer). Karten `faecher/karte_<id>.js` (SVG-Pfade, aus Natural Ea
 werden erst beim Spielen per `import()` geladen). UI `renderKarteQ` / `kMark` / `kOpen` (verschiebbares Fenster) / `kCheck` / `renderKarteDone`, gemerkt in `leaarn-ui-v1` → `karte`.
 Stufen: Leicht = Gruppe 1, Mittel = 7 aus Gruppe 2 + Rest Gruppe 1, Schwer = 6 aus Gruppe 3 + Rest Gruppe 2. Deutschland, Südamerika, Ozeanien ohne Stufen.
 
+Element-Fenster (seit v0.19.6): `winPlace(fenster, art, [[Selektor, Gewicht], …], schonen)` setzt Info-Fenster an die freieste Stelle im sichtbaren Laptop-Inhalt
+(Raster-Suche, gewichtete Überdeckung) und macht sie an `[data-wdrag]` verschiebbar; die verschobene Stelle wird je Spielart gemerkt (`this.wpos`).
+Spiel 1: `#le-pinfo` liegt jetzt direkt im Laptop-Inhalt. Spiel 2/3: Klick im Periodensystem → `sPick` → Schublade zu, `sFloat` zeigt `#le-sfloat`.
+
 Fach-Boni (seit v0.19.4, `faecher/boni.js`): Liste `BONI` mit Fach, Prozent und Ende (deutsche Zeit). Wirkt in `finish()` nach dem Stufen-Faktor,
 vor dem Fokus-Bonus; Banner mit Timer auf der Fach-Kachel (`bonusTag`) und über den Themen (`bonusBar`), Timer `bTick` jede Sekunde.
 Abgelaufene Einträge wirken nicht mehr; für den nächsten Bonus einfach einen Eintrag ergänzen.

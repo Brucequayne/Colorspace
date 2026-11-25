@@ -448,20 +448,60 @@ export class Learn {
     const P = this.root.querySelector("#le-spse"), S = this.spse; if (!P || !S) return;
     P.classList.toggle("le-sopen", S.open);
     if (!S.open) { P.innerHTML = '<button class="le-stab" data-l="spopen">▸ ' + t("spOpen") + "</button>"; return; }
-    if (!S.el) {
+    {
       P.innerHTML = '<div class="le-shead"><b>' + t("spOpen") + '</b><button data-l="spclose">×</button></div><p class="le-dim">' + t("spHint") + '</p><div class="le-ptab le-smini">' +
         ELEMENTE.map((e) => '<button class="le-pe" data-sp="' + e.z + '" style="grid-row:' + e.row + ";grid-column:" + e.col + ";--c:" + KATEG[e.kat].c + '" title="' + esc(e.name) + '"><small>' + e.z + "</small><b>" + e.sym + "</b></button>").join("") + "</div>";
       return;
     }
+  }
+  // Element gewählt (seit v0.19.6): Periodensystem klappt zu, die Infos kommen in ein verschiebbares Fenster an einer freien Stelle
+  sPick(z) { const S = this.spse; if (!S) return; S.el = z; S.open = false; this.sPanel(); this.sFloat(); }
+  sFloatClose() { const w = this.root.querySelector("#le-sfloat"); if (w) w.remove(); }
+  sFloat() {
+    const S = this.spse, host = this.root.querySelector("#le-lbody"); if (!S || !S.el || !host) return; this.sFloatClose();
     const e = ELEMENTE[S.el - 1], K = KATEG[e.kat], row = (k, v) => "<div><span>" + k + "</span><b>" + v + "</b></div>", mass = e.m % 1 ? String(e.m).replace(".", PR.lang === "en" ? "." : ",") : e.m;
     const gr = e.gr ? (e.haupt ? fmt(t("peHG"), { n: e.haupt }) : fmt(t("peNG"), { n: e.gr })) : tl(K.n);
+    const bar = '<div class="le-wbar" data-wdrag><span>⠿</span><button data-l="spback">' + t("spBack") + '</button><button data-l="sfclose" title="Esc">×</button></div>';
+    let h;
     if (S.lite) {   // Steckbrief auf Schwer: nur was auf einem gedruckten Periodensystem steht
-      P.innerHTML = '<div class="le-shead"><button data-l="spback">' + t("spBack") + '</button><button data-l="spclose">×</button></div><div class="le-pcard le-popen"><div class="le-ptile" style="--c:' + K.c + '"><small>' + e.z + "</small><b>" + e.sym + "</b><i>" + mass + "</i></div><div><h3>" + esc(e.name) + '</h3><p class="le-dim">' + esc(tl(K.n)) + "</p></div></div>" +
+      h = bar + '<div class="le-pcard"><div class="le-ptile" style="--c:' + K.c + '"><small>' + e.z + "</small><b>" + e.sym + "</b><i>" + mass + "</i></div><div><h3>" + esc(e.name) + '</h3><p class="le-dim">' + esc(tl(K.n)) + "</p></div></div>" +
         '<div class="le-prows">' + row(t("peZ"), e.z) + row(t("peM"), mass + " u") + "</div>";
-      return;
+    } else h = bar + '<div class="le-pcard"><div class="le-ptile" style="--c:' + K.c + '"><small>' + e.z + "</small><b>" + e.sym + "</b><i>" + mass + "</i></div><div><h3>" + esc(e.name) + '</h3><p class="le-dim">' + esc(tl(K.n)) + " · " + tl(ZUSTAND[e.zu]) + " " + t("peZu") + "</p></div></div>" +
+      '<div class="le-prows">' + row(t("peZ"), e.z) + row(t("peM"), mass + " u") + row(t("pePer"), e.per) + row(t("peGr"), esc(gr)) + "</div>";   // ohne Wissens-Satz: das Fenster bleibt klein und verdeckt weniger
+    host.insertAdjacentHTML("beforeend", '<div class="le-pinfo le-win le-pvis le-popen" id="le-sfloat">' + h + "</div>");
+    const w = host.querySelector("#le-sfloat");
+    // Gewichte: Bedienelemente und Eingabefelder am wichtigsten, die Modell-Grafik darf eher verdeckt werden
+    this.winPlace(w, this.q && this.q.list[0] && this.q.list[0].art === "steck" ? "steck" : "schale",
+      [[".le-sctl > *,.le-tf,#le-tbtn,#le-sres > *,#le-tres > *", 4], [".le-lhead,.le-dots,.le-swork > h3,.le-spse", 1.5], [".le-swork > p,#le-thow", 1], [".le-ssvg svg", 0.5]]);
+  }
+  // Fenster (Element-Infos) an die freieste Stelle im sichtbaren Bereich setzen und verschiebbar machen (seit v0.19.6).
+  // avoid = [[Selektor, Gewicht], …] – was möglichst nicht verdeckt werden soll; keep = wird besonders geschont (z. B. das angeklickte Element). Einmal verschoben → bleibt dort.
+  winPlace(w, kind, avoid, keep) {
+    const host = this.root.querySelector("#le-lbody"); if (!w || !host) return; this.wpos = this.wpos || {};
+    const W = host.clientWidth, H = host.clientHeight, st = host.scrollTop, bw = w.offsetWidth, bh = w.offsetHeight, hr = host.getBoundingClientRect();
+    const clampX = (x) => Math.max(0, Math.min(W - bw, x)), clampY = (y) => Math.max(st, Math.min(st + Math.max(0, H - bh), y));
+    let pos = this.wpos[kind];
+    if (pos) pos = { x: clampX(pos.x), y: clampY(pos.y) };
+    else {
+      const A = [];
+      avoid.forEach(([sel, k]) => host.querySelectorAll(sel).forEach((el) => { if (w.contains(el) || el.offsetParent === null) return; const r = el.getBoundingClientRect(); if (r.width && r.height) A.push({ r: r, k: el === keep ? 25 : k }); }));
+      let best = null;
+      for (let y = 0; y <= Math.max(0, H - bh); y += 10) for (let x = 0; x <= Math.max(0, W - bw); x += 10) {
+        const ax = hr.left + x, ay = hr.top + y; let c = (x * 0.02 + y * 0.01);
+        for (const a of A) { const ox = Math.min(ax + bw, a.r.right) - Math.max(ax, a.r.left); if (ox <= 0) continue; const oy = Math.min(ay + bh, a.r.bottom) - Math.max(ay, a.r.top); if (oy > 0) c += ox * oy * a.k; }
+        if (!best || c < best.c) best = { c: c, x: x, y: y + st };
+      }
+      pos = best || { x: clampX(W - bw), y: st };
     }
-    P.innerHTML = '<div class="le-shead"><button data-l="spback">' + t("spBack") + '</button><button data-l="spclose">×</button></div><div class="le-pcard le-popen"><div class="le-ptile" style="--c:' + K.c + '"><small>' + e.z + "</small><b>" + e.sym + "</b><i>" + mass + "</i></div><div><h3>" + esc(e.name) + '</h3><p class="le-dim">' + esc(tl(K.n)) + " · " + tl(ZUSTAND[e.zu]) + " " + t("peZu") + "</p></div></div>" +
-      '<div class="le-prows">' + row(t("peZ"), e.z) + row(t("peM"), mass + " u") + row(t("pePer"), e.per) + row(t("peGr"), esc(gr)) + '</div><p class="le-dim le-sfact">' + esc(e.fakt) + "</p>";
+    w.style.left = pos.x + "px"; w.style.top = pos.y + "px"; w.style.transformOrigin = "center top";
+    const bar = w.querySelector("[data-wdrag]"); if (!bar) return;
+    bar.addEventListener("pointerdown", (e) => {
+      if (e.target.closest("button")) return; e.preventDefault(); bar.setPointerCapture(e.pointerId);
+      const sx = e.clientX - w.offsetLeft, sy = e.clientY - w.offsetTop, W2 = host.clientWidth, H2 = host.clientHeight, st2 = host.scrollTop;
+      const mv = (ev) => { const x = Math.max(0, Math.min(W2 - w.offsetWidth, ev.clientX - sx)), y = Math.max(st2, Math.min(st2 + Math.max(0, H2 - w.offsetHeight), ev.clientY - sy)); w.style.left = x + "px"; w.style.top = y + "px"; this.wpos[kind] = { x: x, y: y }; };
+      const up = () => { bar.removeEventListener("pointermove", mv); bar.removeEventListener("pointerup", up); };
+      bar.addEventListener("pointermove", mv); bar.addEventListener("pointerup", up);
+    });
   }
   renderSchaleDone() {
     const q = this.q, w = q.w, st = STUFEN_SCHALE[(q.opt && q.opt.lvl) | 0], L = ["scP", "scN", "scSh", "scTot", "scDist"];
@@ -652,9 +692,9 @@ export class Learn {
       '<div class="le-plab" style="grid-row:9;grid-column:1/3">' + t("peLa") + '</div><div class="le-plab" style="grid-row:10;grid-column:1/3">' + t("peAc") + "</div>";
     const legend = Object.keys(KATEG).map((k) => '<span class="le-lg"><i style="background:' + KATEG[k].c + '"></i>' + esc(tl(KATEG[k].n)) + "</span>").join("");
     this.body('<div class="le-lhead"><button data-l="fach">← ' + t("lBack") + '</button><i style="background:' + f.farbe + '">' + esc(f.kurz) + "</i><h2>" + esc(tl(th.name)) + "</h2></div>" +
-      '<p class="le-dim le-phint">' + t("peHint") + '</p><div class="le-pse"><div class="le-ptab">' + tiles + '</div><div class="le-pinfo" id="le-pinfo"></div></div><div class="le-legend le-plg">' + legend + "</div>" +
+      '<p class="le-dim le-phint">' + t("peHint") + '</p><div class="le-pse"><div class="le-ptab">' + tiles + '</div></div><div class="le-legend le-plg">' + legend + "</div>" +
       '<div class="le-pctl"><div class="le-vlvl"><b>' + t("vLevel") + '</b><input type="range" data-pl min="0" max="2" step="1" value="' + o.lvl + '"><div class="le-vlab">' + STUFEN_PSE.map((x) => '<span data-pls="' + x.id + '">' + esc(tl(x.name)) + "</span>").join("") + '</div><p id="le-plinfo"></p></div>' +
-      '<div><p class="le-dim" id="le-ptiers"></p><p class="le-dim">' + t("peRules") + '</p><div class="le-btns"><button class="le-pri le-vgo" data-l="vgo">Start ↵</button></div></div></div>');
+      '<div><p class="le-dim" id="le-ptiers"></p><p class="le-dim">' + t("peRules") + '</p><div class="le-btns"><button class="le-pri le-vgo" data-l="vgo">Start ↵</button></div></div></div><div class="le-pinfo le-win" id="le-pinfo"></div>');
     this.pLvlInfo();
   }
   pLvlInfo() {
@@ -672,15 +712,14 @@ export class Learn {
     this.root.querySelectorAll(".le-pe.le-on").forEach((x) => x.classList.remove("le-on")); if (tl2) tl2.classList.add("le-on");
     const K = KATEG[e.kat], row = (k, v) => "<div><span>" + k + "</span><b>" + v + "</b></div>", mass = e.m % 1 ? String(e.m).replace(".", PR.lang === "en" ? "." : ",") : e.m;
     const gr = e.gr ? (e.haupt ? fmt(t("peHG"), { n: e.haupt }) : fmt(t("peNG"), { n: e.gr })) : tl(K.n);
-    box.innerHTML = '<div class="le-pcard"><div class="le-ptile" style="--c:' + K.c + '"><small>' + e.z + "</small><b>" + e.sym + "</b><i>" + mass + "</i></div><div><h3>" + esc(e.name) + "</h3>" +
+    box.innerHTML = '<div class="le-wbar" data-wdrag><span>⠿</span>' + esc(e.name) + '<button data-l="pclose" title="Esc">×</button></div><div class="le-pcard"><div class="le-ptile" style="--c:' + K.c + '"><small>' + e.z + "</small><b>" + e.sym + "</b><i>" + mass + "</i></div><div><h3>" + esc(e.name) + "</h3>" +
       '<p class="le-dim">' + esc(tl(K.n)) + " · " + tl(ZUSTAND[e.zu]) + " " + t("peZu") + (e.radio ? ' · <em class="le-prad">' + t("peRad") + "</em>" : "") + "</p></div></div>" +
       '<div class="le-prows">' + row(t("peZ"), e.z + ' <small class="le-dim">' + t("peZs") + "</small>") + row(t("peM"), mass + " u") + row(t("peN"), "ca. " + Math.max(0, Math.round(e.m) - e.z)) +
       row(t("pePer") + " / " + t("peGr"), e.per + " / " + esc(gr)) + (valenz(e) ? row(t("peVal"), valenz(e)) : "") + row(t("peSch"), e.sch.join(" · ")) + "</div>" +
-      '<div class="le-pbohr">' + bohr(e) + '<p>' + esc(e.fakt) + "</p></div>" + '<button class="le-px" data-l="pclose" title="Esc">×</button>';
-    // neben dem Element aufklappen: rechts davon (linke Hälfte) oder links davon (rechte Hälfte), in der Höhe im Periodensystem gehalten
+      '<div class="le-pbohr">' + bohr(e) + '<p>' + esc(e.fakt) + "</p></div>";
+    // seit v0.19.6: verschiebbar; öffnet an der freiesten Stelle (das angeklickte Element bleibt sichtbar) oder dort, wohin es zuletzt geschoben wurde
     box.classList.add("le-pvis"); box.classList.remove("le-popen"); void box.offsetWidth; box.classList.add("le-popen");
-    const P = box.parentElement, W = P.clientWidth, H = P.clientHeight, bw = box.offsetWidth, bh = box.offsetHeight;
-    if (tl2) { const tx = tl2.offsetLeft, ty = tl2.offsetTop, tw = tl2.offsetWidth; const left = tx + tw / 2 > W / 2 ? tx - bw - 8 : tx + tw + 8; box.style.left = Math.max(0, Math.min(W - bw, left)) + "px"; box.style.top = Math.max(0, Math.min(Math.max(0, H - bh), ty - 30)) + "px"; box.style.transformOrigin = (tx + tw / 2 > W / 2 ? "right" : "left") + " top"; }
+    this.winPlace(box, "pse", [[".le-pe,.le-pph,.le-plab", 1], [".le-lhead,.le-phint,.le-plg", 1.5], [".le-pctl > *", 2]], tl2);
   }
   pClose() { const box = this.root.querySelector("#le-pinfo"); if (box) box.classList.remove("le-pvis", "le-popen"); this.root.querySelectorAll(".le-pe.le-on").forEach((x) => x.classList.remove("le-on")); }
   renderPseQ() {
@@ -794,7 +833,7 @@ export class Learn {
     const km = e.target.closest("[data-km]"); if (km) { this.kopt({ karte: km.getAttribute("data-km") }); this.kLvlInfo(); return; }
     const ld = e.target.closest("[data-ld]"); if (ld) { this.kClick(ld.getAttribute("data-ld"), e); return; }
     const hg = e.target.closest("[data-hg]"); if (hg) { this.tHg(+hg.getAttribute("data-hg")); return; }
-    const spe = e.target.closest("[data-sp]"); if (spe) { this.spse.el = +spe.getAttribute("data-sp"); this.sPanel(); return; }
+    const spe = e.target.closest("[data-sp]"); if (spe) { this.sPick(+spe.getAttribute("data-sp")); return; }
     const pe = e.target.closest("[data-pe]"); if (pe) { const z = +pe.getAttribute("data-pe"); this.popt({ el: z }); this.pShow(z); return; }
     const vk = e.target.closest("[data-vk]"); if (vk) { this.vopt({ kat: vk.getAttribute("data-vk") }); this.renderSetup(); return; }
     const vb = e.target.closest("[data-vok]"); if (vb) { this.vConfirm(+vb.getAttribute("data-vok"), true); return; }
@@ -818,9 +857,10 @@ export class Learn {
     else if (a === "kclose") this.kClose();
     else if (a === "tend") this.finish();
     else if (a === "snext") this.sNext();
-    else if (a === "spopen") { this.spse.open = true; this.spse.el = null; this.sPanel(); }
+    else if (a === "spopen") { this.spse.open = true; this.spse.el = null; this.sPanel(); this.sFloatClose(); }
     else if (a === "spclose") { this.spse.open = false; this.sPanel(); }
-    else if (a === "spback") { this.spse.el = null; this.sPanel(); }
+    else if (a === "spback") { this.spse.open = true; this.spse.el = null; this.sPanel(); this.sFloatClose(); }
+    else if (a === "sfclose") this.sFloatClose();
     else if (a === "vset") { this.view = "setup"; this.render(); }
     else if (a === "home") { this.view = "home"; this.render(); }
     else if (a === "fach") { this.view = "fach"; this.render(); }
@@ -838,6 +878,7 @@ export class Learn {
   }
   // Tasten (aus dem Spiel weitergereicht). true = verbraucht
   key(e) {
+    if (e.code === "Escape" && this.view === "quiz" && this.root.querySelector("#le-sfloat")) { this.sFloatClose(); return true; }
     if (e.code === "Escape" && this.view === "quiz") { const pop = this.root.querySelector("#le-kpop"); if (pop && !pop.hidden && this.q.ph !== "shown") { this.kClose(); return true; } }
     if (e.code === "Escape") { if (this.view === "stats") { this.view = "home"; this.render(); } else if (this.view === "fach") { this.view = "home"; this.render(); } else if (this.view === "setup") { const pc = this.root.querySelector("#le-pinfo.le-pvis"); if (pc) this.pClose(); else { this.view = "fach"; this.render(); } } else this.close(); return true; }
     if (this.view === "setup") { if ((e.code === "Enter" || e.code === "NumpadEnter") && e.target.tagName !== "BUTTON") { this.start(this.th); return true; } return false; }

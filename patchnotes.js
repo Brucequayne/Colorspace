@@ -3,6 +3,13 @@
    Die Versionsnummer auf den Kacheln kommt aus dem obersten Eintrag. */
 window.PATCHNOTES = {
   leaarn: [
+    { v: "0.19.6", t: "2026-11-25T22:00:00+01:00",
+      de: ["Chemie-Spiele: Das Fenster mit den Element-Infos lässt sich jetzt an seiner Kopfzeile verschieben (ziehen und loslassen). Hat man es einmal verschoben, öffnet es beim nächsten Element wieder an dieser Stelle.",
+        "Es öffnet automatisch an der freiesten Stelle und verdeckt möglichst keine Eingabefelder, Knöpfe oder das angeklickte Element.",
+        "Schalenmodell und Steckbrief: Ein Klick auf ein Element klappt das Periodensystem zu und zeigt die Infos im verschiebbaren Fenster. „← Periodensystem“ klappt es wieder auf, Esc oder × schließt das Fenster."],
+      en: ["Chemistry games: the window with the element details can now be moved by its title bar (drag and drop). Once moved, it opens at that spot again for the next element.",
+        "It automatically opens in the emptiest spot and tries not to cover input fields, buttons or the clicked element.",
+        "Shell model and element profile: clicking an element folds the periodic table away and shows the details in the movable window. “← Periodic table” unfolds it again, Esc or × closes the window."] },
     { v: "0.19.5", t: "2026-11-25T21:30:00+01:00",
       de: ["Erstes Erdkunde-Spiel: „Länder raten“. Karten ohne Beschriftung, nur mit Grenzen: Deutschland (Bundesländer), Europa, Afrika, Asien, Nord- und Mittelamerika, Südamerika, Ozeanien oder die ganze Weltkarte.",
         "Ein Land pulsiert auf der Karte. Anklicken, dann öffnet sich ein kleines Fenster (an der Kopfzeile verschiebbar), Namen eintippen und mit Enter oder OK bestätigen. Sehr kleine Länder bekommen einen pulsierenden Ring.",

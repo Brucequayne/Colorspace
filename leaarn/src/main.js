@@ -357,6 +357,13 @@ const CSS = `
 #le-kfb{padding:0 8px}#le-kfb p{margin:0 0 6px;font-weight:700;font-size:13px}#le-kfb .le-btns{margin:0 0 8px}
 .le-khalft{color:#C6C5B9}
 .le-kdone{max-width:520px}
+.le-lbody{position:relative}
+.le-pinfo.le-win{z-index:8}
+.le-wbar{display:flex;align-items:center;gap:6px;margin:-12px -12px 10px;padding:4px 5px 4px 9px;background:#475657;font-size:12px;font-weight:800;color:#ECEAE4;cursor:move;touch-action:none;user-select:none}
+.le-wbar>span{color:#A9ACB2}.le-wbar button{padding:1px 8px!important;font-size:12px!important}.le-wbar button:last-child{margin-left:auto;font-size:15px!important}
+.le-wbar button+button{margin-left:auto}
+#le-sfloat{width:300px}
+#le-sfloat .le-pcard{padding-right:0}
 `;
 
 let A = null;
