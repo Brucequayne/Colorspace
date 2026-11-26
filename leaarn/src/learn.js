@@ -5,7 +5,7 @@ import { tick } from "le/sound.js";
 import { FAECHER, fach, spielbar, fachAktiv, belohnung, runde, pruefe, STANDARD_LOHN } from "le/faecher/index.js";
 import { addOffen, offen, einsammeln, addRunde, stat, euro, save, persist, fokusVoll, FOKUS } from "le/save.js";
 import { hsb, rgbHex, de2000, rating } from "le/faecher/farben.js";
-import { KAT, WORTARTEN, ART_KURZ, STUFEN, VOK_LOHN, bereich, stufenPool, bewerte } from "le/faecher/vokabeln.js";
+import { KAT, WORTARTEN, ART_KURZ, STUFEN, VOK_LOHN, VOK_EN, stufenPool } from "le/faecher/vokabeln.js";
 import { ELEMENTE, KATEG, ZUSTAND, STUFEN_PSE, PSE_LOHN, psePool, pseBewerte, valenz, STUFEN_SCHALE, SCHALE_MAX, neutronen, schalePool, schaleBewerte, STUFEN_STECK, ROEM, STECK_FELDER, steckSoll, steckBewerte } from "le/faecher/elemente.js";
 import { fachBonus, restzeit } from "le/faecher/boni.js";
 import { KARTEN, STUFEN_KARTE, karte, ladeKarte, landName, anzahl, landBewerte } from "le/faecher/laenderraten.js";
@@ -751,16 +751,18 @@ export class Learn {
       '<div class="le-earn">' + t("lEarn") + " <b>+" + euro(q.lohn) + "</b> <small>" + t("pToPend") + "</small></div>" + this.boostHtml() + '<p class="le-dim">' + pseTiers(st.faktor, w.summe) + "</p>" +
       '<div class="le-vresl">' + rows + "</div>" + this.doneBtns() + "</div>");
   }
-  // ---------- Vokabeltest (Englisch, seit v0.15) ----------
-  // Einstellungen (Themengebiet, Schwierigkeit) – gemerkt in leaarn-ui-v1 → vok
+  // ---------- Vokabeltest (Englisch seit v0.15, Spanisch seit v0.20.3) ----------
+  // Sprache des Themas (th.vok), Englisch wenn nicht angegeben
+  vk() { return (this.th && this.th.vok) || VOK_EN; }
+  // Einstellungen (Themengebiet, Schwierigkeit) – gemerkt in leaarn-ui-v1 → vok (Englisch) bzw. th.optKey (z. B. vokEs)
   vopt(set) {
-    const u = store.get(KEYS.ui, {}), o = Object.assign({ kat: "alle", lvl: 0 }, u.vok || {});
-    if (set) { Object.assign(o, set); u.vok = o; store.set(KEYS.ui, u); }
+    const key = (this.th && this.th.optKey) || "vok", u = store.get(KEYS.ui, {}), o = Object.assign({ kat: "alle", lvl: 0 }, u[key] || {});
+    if (set) { Object.assign(o, set); u[key] = o; store.set(KEYS.ui, u); }
     if (!(o.lvl >= 0 && o.lvl <= 2)) o.lvl = 0;
     return o;
   }
   renderSetup() {
-    const f = this.f, th = this.th, o = this.vopt(), cnt = (id) => bereich(id).length;
+    const f = this.f, th = this.th, o = this.vopt(), V = this.vk(), cnt = (id) => V.bereich(id).length;
     const btn = (id, name) => '<button data-vk="' + id + '" aria-pressed="' + (o.kat === id) + '"><b>' + esc(name) + "</b><small>" + fmt(t("vN"), { n: cnt(id) }) + "</small></button>";
     const tiersTxt = '<p class="le-dim" id="le-vtiers"></p>';
     this.body('<div class="le-lhead"><button data-l="fach">← ' + t("lBack") + '</button><i style="background:' + f.farbe + '">' + esc(f.kurz) + "</i><h2>" + esc(tl(th.name)) + "</h2></div>" +
@@ -768,11 +770,11 @@ export class Learn {
       "<h4>" + t("vTypes") + '</h4><div class="le-vkat">' + WORTARTEN.map((w) => btn("w:" + w.id, tl(w.name))).join("") + "</div></div>" +
       '<div class="le-vcol le-vside"><h4>' + t("vLevel") + '</h4><div class="le-vlvl"><input type="range" data-vl min="0" max="2" step="1" value="' + o.lvl + '"><div class="le-vlab">' +
       STUFEN.map((s) => '<span data-vls="' + s.id + '">' + esc(tl(s.name)) + "</span>").join("") + '</div><p id="le-vlinfo"></p></div>' +
-      "<h4>" + t("vRewards") + "</h4>" + tiersTxt + '<p class="le-dim">' + t("vRules") + '</p><div class="le-btns"><button class="le-pri le-vgo" data-l="vgo">' + t("vGo") + " ↵</button></div></div></div>");
+      "<h4>" + t("vRewards") + "</h4>" + tiersTxt + '<p class="le-dim">' + (th.regeln ? tl(th.regeln) : t("vRules")) + '</p><div class="le-btns"><button class="le-pri le-vgo" data-l="vgo">' + t("vGo") + " ↵</button></div></div></div>");
     this.vLvlInfo();
   }
   vLvlInfo() {
-    const o = this.vopt(), list = bereich(o.kat), p = stufenPool(list, o.lvl), st = STUFEN[o.lvl];
+    const o = this.vopt(), list = this.vk().bereich(o.kat), p = stufenPool(list, o.lvl), st = STUFEN[o.lvl];
     this.root.querySelectorAll("[data-vls]").forEach((x) => x.classList.toggle("le-vsel", +x.getAttribute("data-vls") === o.lvl));
     const inf = this.root.querySelector("#le-vlinfo");
     if (inf) inf.innerHTML = "<b>" + t("vLvl" + o.lvl) + "</b> · " + (st.faktor > 1 ? '<em class="le-good">' + fmt(t("vBonusPct"), { p: Math.round((st.faktor - 1) * 100) }) + "</em>" : t("vBase")) + '<br><small class="le-dim">' + fmt(t("vRange"), { a: p.von, b: p.bis, n: list.length }) + "</small>";
@@ -783,7 +785,7 @@ export class Learn {
     if (!q.vr) q.vr = q.list.map(() => null);
     const tag = (a) => { const k = ART_KURZ[a.p]; return k ? "<small>" + esc(tl(k)) + "</small>" : ""; };
     const rows = q.list.map((a, i) => '<div class="le-vrow" data-vrow="' + i + '"><span class="le-vnr">' + (i + 1) + '</span><div class="le-vq"><b>' + esc(a.frage) + "</b>" + tag(a) + "</div>" +
-      '<input type="text" data-vi="' + i + '" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" maxlength="60" lang="' + (a.lang === "en" ? "en" : "de") + '">' +
+      '<input type="text" data-vi="' + i + '" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" maxlength="60" lang="' + (a.lang || "de") + '">' +
       '<button class="le-vok" data-vok="' + i + '" title="Enter">✓</button><span class="le-vpt"></span><div class="le-vsol"></div></div>').join("");
     const st = STUFEN[(q.opt && q.opt.lvl) | 0];
     this.body('<div class="le-lhead"><i style="background:' + f.farbe + '">' + esc(f.kurz) + "</i><h2>" + esc(tl(this.th.name)) + '</h2><span class="le-sp"></span><span class="le-dim">' + esc(tl(st.name)) + ' · <b id="le-vsum">0</b> / 10</span></div>' +
@@ -795,7 +797,7 @@ export class Learn {
     const q = this.q; if (!q || this.view !== "quiz" || !q.vr || q.vr[i]) return;
     const a = q.list[i], ip = this.root.querySelector('[data-vi="' + i + '"]'), v = ip ? ip.value : "";
     if (!v.trim() && !viaBtn) return;
-    const b = bewerte(a, v); q.vr[i] = Object.assign({ e: v, a: a }, b);
+    const b = this.vk().bewerte(a, v); q.vr[i] = Object.assign({ e: v, a: a }, b);
     q.res.push({ ok: b.punkte >= 2, score: b.punkte, i: i });
     const row = this.root.querySelector('[data-vrow="' + i + '"]');
     if (row) {

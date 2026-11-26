@@ -3,6 +3,13 @@
    Die Versionsnummer auf den Kacheln kommt aus dem obersten Eintrag. */
 window.PATCHNOTES = {
   leaarn: [
+    { v: "0.20.3", t: "2026-11-26T17:07:00+01:00",
+      de: ["Das Fach „2. Fremdsprache“ heißt jetzt Spanisch.",
+        "Neu: Vokabeltest Spanisch (Deutsch → Spanisch und Spanisch → Deutsch), aufgebaut wie der englische: 2500 wichtige spanische Wörter nach Häufigkeit, 13 Themengebiete und 4 Wortarten, drei Schwierigkeiten, 5 Wörter je Durchgang, gleiche Punkte und Belohnung.",
+        "Spanische Akzente und ñ darf man ohne Zeichen tippen, der Artikel (el, la …) muss nicht mitgeschrieben werden."],
+      en: ["The subject “2nd foreign language” is now called Spanish.",
+        "New: Spanish vocabulary test (German → Spanish and Spanish → German), built like the English one: 2,500 important Spanish words by frequency, 13 topic areas and 4 word types, three difficulty levels, 5 words per round, same points and rewards.",
+        "Spanish accents and ñ may be typed without the marks, and the article (el, la …) is optional."] },
     { v: "0.20.2", t: "2026-11-26T16:00:00+01:00",
       de: ["Beim Herumlaufen ist die Maus gefangen: Mausbewegung dreht die Kamera wie in einem Shooter, kein Mauszeiger mehr. Beim Öffnen von Inventar, Laden, Laptop oder Pause ist der Zeiger wieder da. Esc gibt die Maus frei und öffnet die Pause, ein Klick fängt sie wieder.",
         "Die Haare an der Stirn des Charakters clippen nicht mehr.",

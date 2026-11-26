@@ -206,6 +206,9 @@ Schrittgeräusche: `src/schritt.js`, Dateien `leaarn/sounds/step_hart_1–7.mp3`
 Vegetation: das `rot`-Feld codiert zusätzlich `2π · (frei + 2 · Steinlage)`: Steine werden zufällig gedreht (`ROTMAX`), `frei` = auf Straße/Grundstück gemalt, wird von `clearRoad` nicht entfernt. Format der Karten bleibt gleich.
 Trinken: Items mit `trink: 1` (Wasser, Milch). Sport: `faecher/sport.js`.
 
+## Spanisch (seit v0.20.3)
+Das Fach mit der ID `fremdsprache` heißt jetzt Spanisch (ID bleibt wegen Statistik und Boni). Vokabeltest wie Englisch: `faecher/vokabeln.js` baut mit `sprache(RAW, code)` den Test für eine Sprache (`VOK_EN`, `VOK_ES`); Wörter in `faecher/wortliste_es.js` (gleiches Zeilenformat, Formen mit `|`, Nomen mit Artikel). Themen tragen `vok`, `optKey` (Einstellungen in leaarn-ui-v1 → `vokEs`) und `regeln`.
+
 ## Speicher im Browser
 
 `leaarn-scene-v1` (Map), `leaarn-save-v1` (Geld, Lernstatistik), `leaarn-houses-v1` (Häuser aus dem Haus-Editor),
