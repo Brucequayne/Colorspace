@@ -3,6 +3,17 @@
    Die Versionsnummer auf den Kacheln kommt aus dem obersten Eintrag. */
 window.PATCHNOTES = {
   leaarn: [
+    { v: "0.20.2", t: "2026-11-26T16:00:00+01:00",
+      de: ["Beim Herumlaufen ist die Maus gefangen: Mausbewegung dreht die Kamera wie in einem Shooter, kein Mauszeiger mehr. Beim Öffnen von Inventar, Laden, Laptop oder Pause ist der Zeiger wieder da. Esc gibt die Maus frei und öffnet die Pause, ein Klick fängt sie wieder.",
+        "Die Haare an der Stirn des Charakters clippen nicht mehr.",
+        "Villa Sensei: Miete jetzt 3.500 € pro Tag statt 900 €.",
+        "Map-Editor: Umschalt + linke Maustaste pinselt Vegetation weg (Radierer-Werkzeug bleibt zusätzlich).",
+        "Ghettoblaster: Der Knopf heißt jetzt „Spielen“ statt „Abspielen“."],
+      en: ["While walking around the mouse is captured: mouse movement turns the camera like in a shooter, no cursor. The cursor returns when you open inventory, shops, laptop or pause. Esc releases the mouse and opens the pause menu, a click captures it again.",
+        "The character's hair no longer clips at the forehead.",
+        "Villa Sensei: rent is now €3,500 per day instead of €900.",
+        "Map editor: Shift + left mouse brushes vegetation away (the erase tool remains as well).",
+        "Boombox: the German button label is now “Spielen” instead of “Abspielen”."] },
     { v: "0.20.1", t: "2026-11-25T23:56:00+01:00",
       de: ["Flüssigkeiten (Wasser, Milch) werden jetzt getrunken statt gegessen: Hinweis, Meldung und Hilfetext sagen „trinken“.",
         "Laptop, Fächer-Seite: große Kacheln, die die Fläche gleichmäßig ausfüllen (4 × 4). Neues Fach: Sport (Themen folgen).",

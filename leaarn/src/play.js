@@ -14,7 +14,7 @@ import { LH } from "le/houses.js";
 import { LAGER, ITEMS, inv, sel, take } from "le/items.js";
 
 addTexts({
-  pHelp: L2("WASD/Pfeile laufen · Umschalt rennen · Leertaste springen · E benutzen · F essen/trinken · I Inventar · 1–9 Schnellauswahl · Maus ziehen dreht die Kamera · Rad zoomt · Esc Pause", "WASD/arrows walk · Shift run · Space jump · E use · F eat/drink · I inventory · 1–9 hotbar · drag the mouse to turn the camera · wheel zooms · Esc pause"),
+  pHelp: L2("WASD/Pfeile laufen · Umschalt rennen · Leertaste springen · E benutzen · F essen/trinken · I Inventar · 1–9 Schnellauswahl · Maus bewegen dreht die Kamera · Rad zoomt · Esc Pause", "WASD/arrows walk · Shift run · Space jump · E use · F eat/drink · I inventory · 1–9 hotbar · move the mouse to turn the camera · wheel zooms · Esc pause"),
   pHunger: L2("Hunger", "Hunger"), pEat: L2("{n} essen (+{p} %)", "Eat {n} (+{p} %)"), pAte: L2("{n} gegessen · Hunger {p} %", "Ate {n} · hunger {p} %"), pFull: L2("Du bist satt.", "You're full."), pDrink: L2("{n} trinken (+{p} %)", "Drink {n} (+{p} %)"), pDrank: L2("{n} getrunken · Hunger {p} %", "Drank {n} · hunger {p} %"), pFullD: L2("Du magst nichts mehr trinken.", "You can't drink any more."),
   pHungry: L2("Du hast Hunger! Iss etwas (Essen in die Schnellauswahl legen, dann F).", "You're hungry! Eat something (put food in the hotbar, then press F)."),
   pFaint: L2("Du bist vor Hunger ohnmächtig geworden …", "You fainted from hunger …"), pWake: L2("Du bist in deinem Bett aufgewacht. Iss etwas!", "You woke up in your bed. Eat something!"),
@@ -43,16 +43,22 @@ export class Play {
     this.spawn();
     const c = app.engine.renderer.domElement;
     this.onDown = (e) => { if (this.learn || this.paused) return; this.btn = e.button; this.last = [e.clientX, e.clientY]; const ae = document.activeElement; if (ae && ae.blur && ae !== document.body) ae.blur(); };
-    this.onMove = (e) => { if (this.btn < 0) return; const dx = e.clientX - this.last[0], dy = e.clientY - this.last[1]; this.last = [e.clientX, e.clientY]; this.cam.yaw -= dx * 0.0055; this.cam.pitch = clamp(this.cam.pitch + dy * 0.004, -0.15, 1.35); };
+    this.onMove = (e) => { if (document.pointerLockElement === c) { this.cam.yaw -= e.movementX * 0.0028; this.cam.pitch = clamp(this.cam.pitch + e.movementY * 0.0022, -0.15, 1.35); return; }   // Maus gefangen: Kamera wie im Shooter (seit v0.20.2)
+      if (this.btn < 0) return; const dx = e.clientX - this.last[0], dy = e.clientY - this.last[1]; this.last = [e.clientX, e.clientY]; this.cam.yaw -= dx * 0.0055; this.cam.pitch = clamp(this.cam.pitch + dy * 0.004, -0.15, 1.35); };
     this.onUp = () => { this.btn = -1; };
     this.onWheel = (e) => { e.preventDefault(); if (!this.learn) this.cam.dist = clamp(this.cam.dist * Math.exp(e.deltaY * 0.0012), 2.2, 12); };
     this.onCtx = (e) => e.preventDefault();
+    this.gest = 0; this.lockAt = 0; this.lockLost = 0; this.wasLocked = false;
+    this.onGest = () => { this.gest = performance.now(); };   // Mausfang geht nur nach Klick oder Taste
+    this.onLock = () => { const on = document.pointerLockElement === c; if (this.wasLocked && !on) { this.lockLost = performance.now(); if (!this.paused && !this.learn && !this.faint) this.pause(true); } this.wasLocked = on; };
+    window.addEventListener("pointerdown", this.onGest, true); window.addEventListener("keydown", this.onGest, true); document.addEventListener("pointerlockchange", this.onLock);
     c.addEventListener("pointerdown", this.onDown); window.addEventListener("pointermove", this.onMove); window.addEventListener("pointerup", this.onUp);
     c.addEventListener("wheel", this.onWheel, { passive: false }); c.addEventListener("contextmenu", this.onCtx);
   }
   dispose() {
     this.inv.dispose(); this.musik.dispose(); this.shop.dispose(); this.mk.dispose(); setFokus(this.fk); setHunger(this.hu); if (this.fadeEl) this.fadeEl.remove();
     const c = this.app.engine.renderer.domElement;
+    window.removeEventListener("pointerdown", this.onGest, true); window.removeEventListener("keydown", this.onGest, true); document.removeEventListener("pointerlockchange", this.onLock); if (document.pointerLockElement) document.exitPointerLock();
     c.removeEventListener("pointerdown", this.onDown); window.removeEventListener("pointermove", this.onMove); window.removeEventListener("pointerup", this.onUp);
     c.removeEventListener("wheel", this.onWheel); c.removeEventListener("contextmenu", this.onCtx);
     if (this.learn) this.learn.dispose(); if (this.pm) this.pm.remove();
@@ -167,7 +173,7 @@ export class Play {
     if (this.faint) return true;
     if (this.musik.open && !this.learn) { if (e.code === "KeyE" || e.code === "Escape") { this.musik.hide(); return true; } return false; }
     if (this.learn) return this.learn.key(e);
-    if (e.code === "Escape") { this.pause(!this.paused); return true; }
+    if (e.code === "Escape") { if (performance.now() - this.lockLost < 300) return true; this.pause(!this.paused); return true; }   // Esc hat die Maus schon freigegeben und pausiert
     if (this.paused) return false;
     if (e.code === "KeyE" && !e.repeat) { this.use(); return true; }
     if (e.code === "KeyI" && !e.repeat) { this.inv.toggle(true); return true; }
@@ -188,6 +194,9 @@ export class Play {
     // Steuerung relativ zur Kamera
     let f = 0, s = 0, run = inp.k("ShiftLeft", "ShiftRight"), jump = false;
     const busy = this.inv.open || this.musik.open || this.shop.open || this.mk.open || this.faint;
+    { const cv = this.app.engine.renderer.domElement, want = !this.paused && !this.learn && !busy, on = document.pointerLockElement === cv, now = performance.now();
+      if (!want && on) document.exitPointerLock();
+      else if (want && !on && now - this.gest < 4000 && now - this.lockAt > 600 && document.hasFocus()) { this.lockAt = now; try { const r = cv.requestPointerLock(); if (r && r.catch) r.catch(() => {}); } catch (e) { } } }   // Maus fangen, solange man herumläuft
     if (!this.paused && !this.learn && !busy) {
       f = (inp.k("KeyW", "ArrowUp") ? 1 : 0) - (inp.k("KeyS", "ArrowDown") ? 1 : 0); s = (inp.k("KeyD", "ArrowRight") ? 1 : 0) - (inp.k("KeyA", "ArrowLeft") ? 1 : 0);
       jump = inp.k("Space");

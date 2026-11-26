@@ -5,7 +5,7 @@ import { ITEMS, has } from "le/items.js";
 
 addTexts({
   mTitle: L2("Ghettoblaster", "Boombox"), mNone: L2("Keine CDs im Inventar. Musik kannst du bald als CD im Supermarkt kaufen.", "No CDs in your inventory. You will soon be able to buy music as CDs at the supermarket."),
-  mPlay: L2("Abspielen", "Play"), mStop: L2("Stopp", "Stop"), mNow: L2("Läuft: {t}", "Playing: {t}"), mOff: L2("Aus", "Off"), mClose: L2("Schließen (E)", "Close (E)")
+  mPlay: L2("Spielen", "Play"), mStop: L2("Stopp", "Stop"), mNow: L2("Läuft: {t}", "Playing: {t}"), mOff: L2("Aus", "Off"), mClose: L2("Schließen (E)", "Close (E)")
 });
 
 export class Musik {

@@ -26,7 +26,7 @@ export function figure(look) {
   const head = new THREE.Group(); head.position.set(0, 1.55, 0); body.add(head);
   head.add(mk([
     part(new THREE.BoxGeometry(0.25, 0.27, 0.25), SKIN, M(0, 0.15, 0, 1)),
-    part(new THREE.BoxGeometry(0.27, 0.1, 0.27), HAIR, M(0, 0.3, -0.01, 1)),
+    part(new THREE.BoxGeometry(0.27, 0.1, 0.29), HAIR, M(0, 0.3, 0, 1)),   // Haardecke steht vorn über die Stirn (seit v0.20.2: kein Clipping)
     part(new THREE.BoxGeometry(0.27, 0.16, 0.06), HAIR, M(0, 0.2, -0.12, 1)),
     part(new THREE.BoxGeometry(0.04, 0.04, 0.02), EYE, M(-0.06, 0.17, 0.126, 1)),
     part(new THREE.BoxGeometry(0.04, 0.04, 0.02), EYE, M(0.06, 0.17, 0.126, 1)),
