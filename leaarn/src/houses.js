@@ -8,6 +8,7 @@
 import * as THREE from "three";
 import { L2, tl, hash2 } from "le/core.js";
 import { part as part0, merge, M } from "le/models.js";
+import { puppeParts } from "le/kleidung.js";
 // Haus-Teile einfarbig (ohne Farbrauschen je Dreieck), damit Wände und Böden sauber wirken (seit v0.14)
 function part(geo, color, m, jit, seed) {
   const g = part0(geo, color, m, jit, seed), c = new THREE.Color(color), a = g.attributes.color;
@@ -83,7 +84,18 @@ export const PARTS = {
   // Supermarkt (seit v0.17): Regale, an denen man später Waren kauft (E); seit v0.19.7 in der Kategorie Objekte
   "kuehltruhe": { kind: "obj", cat: "objekte", n: L2("Gefriertruhe (Einkaufen, E)", "Chest freezer (shop, E)"), c: COL.eis, box: [1.8, 0.85], act: "laden", laden: "tiefkuehl" },
   "obstregal": { kind: "obj", cat: "objekte", n: L2("Obst- und Gemüseregal (Einkaufen, E)", "Fruit & veg stand (shop, E)"), c: "#C9483C", box: [1.8, 0.9], act: "laden", laden: "obst" },
-  "warenregal": { kind: "obj", cat: "objekte", n: L2("Supermarktregal (Einkaufen, E)", "Supermarket shelf (shop, E)"), c: COL.stahl, box: [1.8, 0.6], act: "laden", laden: "allg" }
+  "warenregal": { kind: "obj", cat: "objekte", n: L2("Supermarktregal (Einkaufen, E)", "Supermarket shelf (shop, E)"), c: COL.stahl, box: [1.8, 0.6], act: "laden", laden: "allg" },
+  // Klamottenladen (seit v0.21): Regale und Ständer verkaufen Kleidung (shop.js, Ware aus kleidung.js), Puppen und Kabine sind Deko
+  "kleiderstaender": { kind: "obj", cat: "objekte", n: L2("Kleiderstange mit Pullis (Einkaufen, E)", "Clothes rail with jumpers (shop, E)"), c: "#E07B39", box: [1.8, 0.6], act: "laden", laden: "kl-pulli" },
+  "rundstaender": { kind: "obj", cat: "objekte", n: L2("Runder Ständer mit Mänteln (Einkaufen, E)", "Round rack with coats (shop, E)"), c: "#6B6E3E", box: [1.1, 1.1], act: "laden", laden: "kl-mantel" },
+  "kleiderregal": { kind: "obj", cat: "objekte", n: L2("Hosenregal (Einkaufen, E)", "Trouser shelf (shop, E)"), c: "#3F5F86", box: [1.8, 0.5], act: "laden", laden: "kl-hose" },
+  "schuhregal": { kind: "obj", cat: "objekte", n: L2("Schuhregal (Einkaufen, E)", "Shoe shelf (shop, E)"), c: "#6B4A2E", box: [1.4, 0.45], act: "laden", laden: "kl-schuhe" },
+  "accessoires": { kind: "obj", cat: "objekte", n: L2("Mützen- und Schaltisch (Einkaufen, E)", "Hat & scarf table (shop, E)"), c: "#E8C66A", box: [1.0, 0.8], act: "laden", laden: "kl-acc" },
+  "puppe-winter": { kind: "obj", cat: "objekte", n: L2("Schaufensterpuppe Winter", "Mannequin winter"), c: "#C9B48A", box: [0.6, 0.6] },
+  "puppe-street": { kind: "obj", cat: "objekte", n: L2("Schaufensterpuppe Streetwear", "Mannequin streetwear"), c: "#2B2E30", box: [0.6, 0.6] },
+  "puppe-sommer": { kind: "obj", cat: "objekte", n: L2("Schaufensterpuppe Sommer", "Mannequin summer"), c: "#8DB3CF", box: [0.6, 0.6] },
+  "umkleide": { kind: "obj", cat: "objekte", n: L2("Umkleidekabine", "Changing cubicle"), c: "#62929E", box: [1.0, 1.0] },
+  "standspiegel": { kind: "obj", cat: "objekte", n: L2("Standspiegel", "Standing mirror"), c: "#BFE3EC", box: [0.6, 0.3] }
 };
 export const CATS = [["floor", L2("Böden", "Floors")], ["wall", L2("Wände", "Walls")], ["roof", L2("Dach", "Roof")], ["obj", L2("Möbel", "Furniture")], ["garden", L2("Garten", "Garden")], ["objekte", L2("Objekte", "Objects")]];
 export const partName = (id) => (PARTS[id] ? tl(PARTS[id].n) : id);
@@ -322,6 +334,56 @@ function objParts(id, seed) {
       for (let f = 0; f < 4; f++) M2(0.07, 0.06, 0.07, -0.13 + f * 0.085, 0.11, -0.04 + (f & 1) * 0.08, shade(col, 0.9 + hash2(f, k, row) * 0.25));
     }
     for (let k = 0; k < 4; k++) B(0.16, 0.05, 0.01, -0.66 + k * 0.44, 0.42, 0.37, COL.weiss);   // Preisschilder
+  } else if (id === "kleiderstaender") {
+    // Kleiderstange: zwei Pfosten mit Füßen, Stange, neun Pullis auf Holzbügeln
+    const st = COL.stahl, pc = ["#E07B39", COL.stoff, COL.koralle, "#8E918F", "#26385A", "#F2F0EA", "#7A2E35", "#6B6E3E", "#E8C66A"];
+    B(0.04, 1.6, 0.04, -0.84, 0.8, 0, st); B(0.04, 1.6, 0.04, 0.84, 0.8, 0, st); B(1.72, 0.03, 0.03, 0, 1.6, 0, st);
+    B(0.05, 0.04, 0.56, -0.84, 0.02, 0, COL.dunkel); B(0.05, 0.04, 0.56, 0.84, 0.02, 0, COL.dunkel);
+    for (let k = 0; k < 9; k++) { const x = -0.7 + k * 0.175, c = pc[k]; B(0.01, 0.05, 0.01, x, 1.58, 0, st); B(0.015, 0.02, 0.4, x, 1.54, 0, COL.holz);
+      B(0.05, 0.6, 0.38, x, 1.22, 0, c); B(0.04, 0.42, 0.07, x, 1.28, 0.22, shade(c, 0.9)); B(0.04, 0.42, 0.07, x, 1.28, -0.22, shade(c, 0.9)); B(0.052, 0.05, 0.382, x, 0.94, 0, shade(c, 0.85)); }
+  } else if (id === "rundstaender") {
+    // runder Ständer: Mittelstange, Ring, zehn Mäntel rundherum
+    const st = COL.stahl, mc = ["#6B6E3E", "#C9B48A", "#26385A", "#2B2E30", "#B8383A", "#475657", "#BFA77A", "#E8C66A", "#C6C5B9", "#7B5236"];
+    Cy(0.3, 0.32, 0.04, 0, 0.02, 0, COL.dunkel, 14); Cy(0.025, 0.025, 1.55, 0, 0.78, 0, st, 6);
+    for (let k = 0; k < 10; k++) { const a = k / 10 * Math.PI * 2, cx = Math.cos(a) * 0.42, cz = Math.sin(a) * 0.42, c = mc[k];
+      B(0.03, 0.03, 0.28, Math.cos(a) * 0.45, 1.55, Math.sin(a) * 0.45, st, -a); B(0.02, 0.03, 0.03, Math.cos(a) * 0.2, 1.55, Math.sin(a) * 0.2, st, -a);
+      B(0.07, 0.95, 0.36, cx, 1.04, cz, c, -a); B(0.075, 0.12, 0.2, cx, 1.47, cz, shade(c, 0.85), -a); }
+    for (let k = 0; k < 4; k++) B(0.9, 0.025, 0.025, 0, 1.55, 0, st, k * Math.PI / 4);
+  } else if (id === "kleiderregal") {
+    // Wandregal mit gefalteten Hosen und Pullis in Stapeln
+    const fc = ["#3F5F86", "#2B2E30", "#C9B48A", "#6B6E3E", "#8DB3CF", "#8E918F", "#26385A", "#6B4A2E", "#62929E", "#ED6A5E"];
+    B(1.8, 1.9, 0.04, 0, 0.95, -0.23, COL.holzd); B(0.04, 1.9, 0.5, -0.88, 0.95, 0, COL.holz); B(0.04, 1.9, 0.5, 0.88, 0.95, 0, COL.holz); B(1.8, 0.12, 0.05, 0, 1.84, 0.22, COL.koralle);
+    for (let sh = 0; sh < 4; sh++) { const y = 0.06 + sh * 0.44; B(1.72, 0.03, 0.46, 0, y, 0, COL.holz);
+      for (let k = 0; k < 4; k++) { const x = -0.63 + k * 0.42, n = 3 + Math.floor(hash2(sh, k, seed) * 3); for (let i = 0; i < n; i++) { const c = fc[Math.floor(hash2(sh * 7 + k, i, seed + 5) * fc.length)]; B(0.34, 0.055, 0.3, x, y + 0.045 + i * 0.058, 0.02, c); } } }
+  } else if (id === "schuhregal") {
+    // Schuhregal: vier Böden mit je vier Paar Schuhen
+    const sc = ["#F2F0EA", "#2B2E30", "#ED6A5E", "#6B4A2E", "#62929E", "#B8383A", "#E8C66A", "#8E918F"];
+    B(1.4, 1.5, 0.04, 0, 0.75, -0.2, COL.holzd); B(0.04, 1.5, 0.45, -0.68, 0.75, 0, COL.holz); B(0.04, 1.5, 0.45, 0.68, 0.75, 0, COL.holz);
+    for (let sh = 0; sh < 4; sh++) { const y = 0.06 + sh * 0.38; B(1.32, 0.03, 0.42, 0, y, 0, COL.holz);
+      for (let k = 0; k < 4; k++) { const x = -0.48 + k * 0.32, c = sc[Math.floor(hash2(sh, k, seed + 9) * sc.length)], hi = hash2(k, sh, seed) > 0.6 ? 0.08 : 0;
+        for (const o of [-0.055, 0.055]) { B(0.09, 0.07 + hi, 0.22, x + o, y + 0.05 + hi / 2, 0.02, c); B(0.095, 0.02, 0.23, x + o, y + 0.025, 0.02, COL.weiss); } } }
+  } else if (id === "accessoires") {
+    // Tisch mit Kappen und Mützen, dahinter ein Ständer mit hängenden Schals
+    B(1.0, 0.05, 0.6, 0, 0.75, 0.08, COL.holz); [[-0.45, -0.18], [0.45, -0.18], [-0.45, 0.34], [0.45, 0.34]].forEach((q) => B(0.05, 0.73, 0.05, q[0], 0.365, q[1], COL.holzd));
+    const hc = ["#ED6A5E", "#26385A", "#E8C66A", "#62929E", "#2B2E30", "#5D8A4E"];
+    for (let k = 0; k < 3; k++) { const x = -0.3 + k * 0.3, c = hc[k]; B(0.2, 0.08, 0.22, x, 0.82, 0.18, c); B(0.15, 0.012, 0.1, x, 0.785, 0.33, shade(c, 0.8)); }
+    for (let k = 0; k < 3; k++) { const x = -0.3 + k * 0.3, c = hc[k + 3]; B(0.2, 0.12, 0.2, x, 0.84, -0.06, c); B(0.21, 0.05, 0.21, x, 0.8, -0.06, shade(c, 0.8)); }
+    B(0.04, 1.6, 0.04, -0.45, 0.8, -0.34, COL.stahl); B(0.04, 1.6, 0.04, 0.45, 0.8, -0.34, COL.stahl); B(0.94, 0.03, 0.03, 0, 1.58, -0.34, COL.stahl);
+    const scf = ["#7A2E35", "#C6C5B9", "#E8C66A", "#62929E", "#B8383A", "#8E918F"];
+    for (let k = 0; k < 6; k++) { const x = -0.36 + k * 0.145, c = scf[k]; B(0.1, 0.03, 0.05, x, 1.57, -0.34, c); B(0.08, 0.5, 0.02, x - 0.02, 1.32, -0.32, c); B(0.08, 0.42, 0.02, x + 0.02, 1.36, -0.36, shade(c, 0.85)); }
+  } else if (id === "puppe-winter" || id === "puppe-street" || id === "puppe-sommer") {
+    // Schaufensterpuppen mit fertigem Outfit (dieselbe Kleidung wie im Laden, kleidung.js)
+    const O = { "puppe-winter": { kopf: "kl_bommel_1", hals: "kl_schallang_1", ober: "kl_rolli_1", jacke: "kl_wollmantel_1", hose: "kl_jeans_1", schuhe: "kl_winterstiefel_1" },
+      "puppe-street": { kopf: "kl_snapback_1", ober: "kl_hoodie_1", hose: "kl_baggyjeans_1", schuhe: "kl_hightop_2" },
+      "puppe-sommer": { kopf: "kl_bucket_1", hals: "kl_halstuch_1", ober: "kl_sweat_2", hose: "kl_bermuda_1", schuhe: "kl_sandalen_1" } }[id];
+    puppeParts(O, seed).forEach((g) => P.push(g));
+  } else if (id === "umkleide") {
+    // Umkleidekabine: Rück- und Seitenwände, Spiegel, Hocker, Vorhang halb offen
+    B(1.0, 2.1, 0.04, 0, 1.05, -0.48, COL.putz); B(0.04, 2.1, 1.0, -0.48, 1.05, 0, COL.putz); B(0.04, 2.1, 1.0, 0.48, 1.05, 0, COL.putz);
+    B(0.96, 0.03, 0.03, 0, 2.05, 0.46, COL.stahl); B(0.42, 1.85, 0.03, -0.25, 1.1, 0.46, COL.stoff); B(0.14, 1.85, 0.07, 0.38, 1.1, 0.46, shade(COL.stoff, 0.85));
+    B(0.46, 1.25, 0.03, 0, 1.25, -0.455, COL.holz); B(0.4, 1.18, 0.012, 0, 1.25, -0.437, "#BFE0E8"); Cy(0.15, 0.15, 0.04, -0.2, 0.45, -0.15, COL.koralle, 10); Cy(0.02, 0.02, 0.43, -0.2, 0.215, -0.15, COL.metall, 5);
+  } else if (id === "standspiegel") {
+    B(0.6, 1.7, 0.05, 0, 0.95, 0, COL.holz); B(0.5, 1.6, 0.012, 0, 0.95, 0.03, "#BFE0E8"); B(0.06, 0.04, 0.35, -0.25, 0.02, 0, COL.holzd); B(0.06, 0.04, 0.35, 0.25, 0.02, 0, COL.holzd);
   } else if (id === "warenregal") {
     // Supermarktregal: Sockel, Rückwand, Seitenteile, vier Böden mit bunten Packungen, Preisleisten
     B(1.8, 0.12, 0.6, 0, 0.06, 0, COL.dunkel); B(1.8, 1.8, 0.05, 0, 0.95, -0.27, COL.stahl); B(0.04, 1.85, 0.6, -0.88, 0.925, 0, shade(COL.stahl, 0.85)); B(0.04, 1.85, 0.6, 0.88, 0.925, 0, shade(COL.stahl, 0.85));

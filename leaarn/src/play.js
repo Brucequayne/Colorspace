@@ -5,16 +5,18 @@ import { Player, camHit } from "le/player.js";
 import { Learn } from "le/learn.js";
 import { Inventory } from "le/inventory.js";
 import { Musik } from "le/musik.js";
-import { geld, euro, offen, einsammeln, charakter, fokus, setFokus, FOKUS, hunger, setHunger, HUNGER } from "le/save.js";
+import { geld, euro, offen, einsammeln, charakter, setCharakter, fokus, setFokus, FOKUS, hunger, setHunger, HUNGER } from "le/save.js";
 import { Makler, kaufbar, frei, hausName, abrechnen, gemietet } from "le/besitz.js";
 import { Shop, LADEN } from "le/shop.js";
 import { kasse, tick } from "le/sound.js";
 import { laden, schritt, untergrund } from "le/schritt.js";
+import { Outfit } from "le/outfit.js";
+import { outfitPruefen } from "le/kleidung.js";
 import { LH } from "le/houses.js";
 import { LAGER, ITEMS, inv, sel, take } from "le/items.js";
 
 addTexts({
-  pHelp: L2("WASD/Pfeile laufen · Umschalt rennen · Leertaste springen · E benutzen · F essen/trinken · I Inventar · 1–9 Schnellauswahl · Maus bewegen dreht die Kamera · Rad zoomt · Esc Pause", "WASD/arrows walk · Shift run · Space jump · E use · F eat/drink · I inventory · 1–9 hotbar · move the mouse to turn the camera · wheel zooms · Esc pause"),
+  pHelp: L2("WASD/Pfeile laufen · Umschalt rennen · Leertaste springen · E benutzen · F essen/trinken (am Kleiderschrank: Outfit) · I Inventar · 1–9 Schnellauswahl · Maus bewegen dreht die Kamera · Rad zoomt · Esc Pause", "WASD/arrows walk · Shift run · Space jump · E use · F eat/drink (at the wardrobe: outfit) · I inventory · 1–9 hotbar · move the mouse to turn the camera · wheel zooms · Esc pause"),
   pHunger: L2("Hunger", "Hunger"), pEat: L2("{n} essen (+{p} %)", "Eat {n} (+{p} %)"), pAte: L2("{n} gegessen · Hunger {p} %", "Ate {n} · hunger {p} %"), pFull: L2("Du bist satt.", "You're full."), pDrink: L2("{n} trinken (+{p} %)", "Drink {n} (+{p} %)"), pDrank: L2("{n} getrunken · Hunger {p} %", "Drank {n} · hunger {p} %"), pFullD: L2("Du magst nichts mehr trinken.", "You can't drink any more."),
   pHungry: L2("Du hast Hunger! Iss etwas (Essen in die Schnellauswahl legen, dann F).", "You're hungry! Eat something (put food in the hotbar, then press F)."),
   pFaint: L2("Du bist vor Hunger ohnmächtig geworden …", "You fainted from hunger …"), pWake: L2("Du bist in deinem Bett aufgewacht. Iss etwas!", "You woke up in your bed. Eat something!"),
@@ -28,7 +30,8 @@ addTexts({
 export class Play {
   constructor(app, opts) {
     this.app = app; this.world = app.world; this.opts = opts || {};
-    const ch = charakter(); this.pl = new Player(this.world, ch); this.world.sensor = this.pl.p; laden(); this.pl.onStep = (v) => schritt(untergrund(this.world, this.pl.p, this.pl.g), v);   // Automatiktüren reagieren auf den Spieler (seit v0.19.7)
+    const ch = charakter(); if (ch && ch.outfit) ch.outfit = outfitPruefen(ch.outfit);   // Outfit nur mit Kleidung, die man noch besitzt (seit v0.21)
+    this.pl = new Player(this.world, ch); this.world.sensor = this.pl.p; laden(); this.pl.onStep = (v) => schritt(untergrund(this.world, this.pl.p, this.pl.g), v);   // Automatiktüren reagieren auf den Spieler (seit v0.19.7)
     this.cam = { yaw: 0, pitch: 0.36, dist: 5.2, inside: 0, pos: new THREE.Vector3(), look: new THREE.Vector3(), snap: true };
     this.act = null; this.learn = null; this.paused = false; this.btn = -1;
     this.hud = el("div", "le-hud", '<div class="le-money"><span>' + esc(ch && ch.name ? ch.name : "") + '</span><b id="le-money"></b></div><div class="le-gain" id="le-gain"></div><div class="le-prompt" id="le-prompt"></div><div class="le-focus" id="le-focus"><span>' + t("pFocus") + '</span><i><b id="le-fbar"></b></i><em id="le-fpct"></em></div><div class="le-hunger" id="le-hunger"><span>' + t("pHunger") + '</span><i><b id="le-hbar"></b></i><em id="le-hpct"></em></div><div class="le-where" id="le-where"></div><div class="le-help">' + t("pHelp") + "</div>");
@@ -38,6 +41,7 @@ export class Play {
     this.fk = fokus(); this.fkSave = 0; this.focusUi(true);
     // Hunger und Häuser (seit v0.20)
     this.hu = hunger(); this.huSave = 0; this.huUi(true); this.rentT = 0;
+    this.outfit = new Outfit(app, (o) => this.wear(o));   // Kleiderschrank: F (seit v0.21)
     this.mk = new Makler(app, (k, a) => { this.shown = geld(); this.money(); if (a === "cancel") this.lockDoors(k); });
     this.rent();
     this.spawn();
@@ -50,13 +54,13 @@ export class Play {
     this.onCtx = (e) => e.preventDefault();
     this.gest = 0; this.lockAt = 0; this.lockLost = 0; this.wasLocked = false;
     this.onGest = () => { this.gest = performance.now(); };   // Mausfang geht nur nach Klick oder Taste
-    this.onLock = () => { const on = document.pointerLockElement === c; if (this.wasLocked && !on) { this.lockLost = performance.now(); if (!this.paused && !this.learn && !this.faint) this.pause(true); } this.wasLocked = on; };
+    this.onLock = () => { const on = document.pointerLockElement === c; if (this.wasLocked && !on) { if (this.selfUnlock) this.selfUnlock = false; /* selbst freigegeben (Fenster offen): keine Pause */ else { this.lockLost = performance.now(); if (!this.paused && !this.learn && !this.faint) this.pause(true); } } this.wasLocked = on; };
     window.addEventListener("pointerdown", this.onGest, true); window.addEventListener("keydown", this.onGest, true); document.addEventListener("pointerlockchange", this.onLock);
     c.addEventListener("pointerdown", this.onDown); window.addEventListener("pointermove", this.onMove); window.addEventListener("pointerup", this.onUp);
     c.addEventListener("wheel", this.onWheel, { passive: false }); c.addEventListener("contextmenu", this.onCtx);
   }
   dispose() {
-    this.inv.dispose(); this.musik.dispose(); this.shop.dispose(); this.mk.dispose(); setFokus(this.fk); setHunger(this.hu); if (this.fadeEl) this.fadeEl.remove();
+    this.inv.dispose(); this.musik.dispose(); this.shop.dispose(); this.mk.dispose(); this.outfit.dispose(); setFokus(this.fk); setHunger(this.hu); if (this.fadeEl) this.fadeEl.remove();
     const c = this.app.engine.renderer.domElement;
     window.removeEventListener("pointerdown", this.onGest, true); window.removeEventListener("keydown", this.onGest, true); document.removeEventListener("pointerlockchange", this.onLock); if (document.pointerLockElement) document.exitPointerLock();
     c.removeEventListener("pointerdown", this.onDown); window.removeEventListener("pointermove", this.onMove); window.removeEventListener("pointerup", this.onUp);
@@ -117,6 +121,13 @@ export class Play {
   }
   // steht die Figur auf der Innenseite der Tür? (Seite mit Boden auf derselben Etage; unter einem Balkon zählt als draußen)
   inSide(h, d) { const q = h.toLocal(this.pl.p.x, this.pl.p.z), sd = (q.x - d.cx) * d.nx + (q.z - d.cz) * d.nz < 0 ? -1 : 1; return h.b.cells.has(Math.floor(d.cx + d.nx * 0.5 * sd) + "," + Math.floor(d.cz + d.nz * 0.5 * sd) + "," + d.l); }
+  // Kleiderschrank in Reichweite? (seit v0.21)
+  wardrobe() { const A = this.act; return !this.seat && A && A.a.type === "lager" && A.a.lager === "kleidung" ? A : null; }
+  openOutfit() {
+    const A = this.wardrobe(); if (!A) return; const ch = charakter() || {};
+    this.outfit.show(this.storeKey(A.h, A.a), ch.outfit); this.cam.yaw = this.pl.face;   // Kamera vor die Figur, damit man das Outfit sieht
+  }
+  wear(o) { const ch = charakter() || {}; ch.outfit = o; setCharakter(ch); this.pl.relook(ch); }
   use() {
     if (this.seat) { this.stand(); return; }
     const A = this.act; if (!A) return;
@@ -168,6 +179,7 @@ export class Play {
   gain(n) { const g = document.getElementById("le-gain"); if (!g) return; g.textContent = "+" + euro(n); g.classList.remove("le-show"); void g.offsetWidth; g.classList.add("le-show"); }
   key(e) {
     if (this.inv.open) { if (e.code === "KeyI" || e.code === "Escape" || (e.code === "KeyE" && this.inv.store && !e.repeat)) { this.inv.toggle(false); return true; } return false; }
+    if (this.outfit.open) { if ((e.code === "KeyF" && !e.repeat) || (e.code === "KeyE" && !e.repeat) || e.code === "Escape") { this.outfit.hide(); return true; } return false; }
     if (this.shop.open) { if ((e.code === "KeyE" && !e.repeat) || e.code === "Escape") { this.shop.hide(); return true; } return false; }
     if (this.mk.open) { if ((e.code === "KeyE" && !e.repeat) || e.code === "Escape") { this.mk.hide(); return true; } return false; }
     if (this.faint) return true;
@@ -177,7 +189,7 @@ export class Play {
     if (this.paused) return false;
     if (e.code === "KeyE" && !e.repeat) { this.use(); return true; }
     if (e.code === "KeyI" && !e.repeat) { this.inv.toggle(true); return true; }
-    if (e.code === "KeyF" && !e.repeat) { this.eat(); return true; }
+    if (e.code === "KeyF" && !e.repeat) { if (this.wardrobe()) this.openOutfit(); else this.eat(); return true; }   // am Kleiderschrank: Outfit (seit v0.21)
     if (/^Digit[1-9]$/.test(e.code)) { this.inv.select(+e.code.slice(5) - 1); return true; }
     if (/^(Space|ArrowUp|ArrowDown|ArrowLeft|ArrowRight)$/.test(e.code)) return true;
     return false;
@@ -193,9 +205,9 @@ export class Play {
     const inp = this.app.input, c = this.cam, p = this.pl, pad = inp.poll();
     // Steuerung relativ zur Kamera
     let f = 0, s = 0, run = inp.k("ShiftLeft", "ShiftRight"), jump = false;
-    const busy = this.inv.open || this.musik.open || this.shop.open || this.mk.open || this.faint;
+    const busy = this.inv.open || this.musik.open || this.shop.open || this.mk.open || this.outfit.open || this.faint;
     { const cv = this.app.engine.renderer.domElement, want = !this.paused && !this.learn && !busy, on = document.pointerLockElement === cv, now = performance.now();
-      if (!want && on) document.exitPointerLock();
+      if (!want && on) { this.selfUnlock = true; document.exitPointerLock(); }
       else if (want && !on && now - this.gest < 4000 && now - this.lockAt > 600 && document.hasFocus()) { this.lockAt = now; try { const r = cv.requestPointerLock(); if (r && r.catch) r.catch(() => {}); } catch (e) { } } }   // Maus fangen, solange man herumläuft
     if (!this.paused && !this.learn && !busy) {
       f = (inp.k("KeyW", "ArrowUp") ? 1 : 0) - (inp.k("KeyS", "ArrowDown") ? 1 : 0); s = (inp.k("KeyD", "ArrowRight") ? 1 : 0) - (inp.k("KeyA", "ArrowLeft") ? 1 : 0);
@@ -219,7 +231,7 @@ export class Play {
       this.act = this.findAct();
       const pr = document.getElementById("le-prompt");
       const A = this.act ? this.act.a : null;
-      const it = this.food(), txt = this.seat ? "E  " + t("pStand") : A ? "E  " + (A.type === "kauf" ? t("bPrompt").replace("{n}", hausName(A.k)) : A.type === "tuer" ? t(A.door.want > 0.5 ? "pShut" : "pOpen") : A.type === "musik" ? t("pMusic") : A.type === "sitzen" ? t("pSit") : A.type === "lager" ? fmtN(t("pStore"), tl(LAGER[A.lager].n)) : A.type === "laden" ? fmtN(t("pShop"), tl((LADEN[A.laden] || LADEN.allg).n)) : t("pLearn")) : it ? "F  " + t(it.trink ? "pDrink" : "pEat").replace("{n}", tl(it.n)).replace("{p}", Math.round(it.satt * 100)) : "";
+      const it = this.food(), txt = this.seat ? "E  " + t("pStand") : A ? "E  " + (A.type === "kauf" ? t("bPrompt").replace("{n}", hausName(A.k)) : A.type === "tuer" ? t(A.door.want > 0.5 ? "pShut" : "pOpen") : A.type === "musik" ? t("pMusic") : A.type === "sitzen" ? t("pSit") : A.type === "lager" ? fmtN(t("pStore"), tl(LAGER[A.lager].n)) + (A.lager === "kleidung" ? "   F  " + t("pOutfit") : "") : A.type === "laden" ? fmtN(t("pShop"), tl((LADEN[A.laden] || LADEN.allg).n)) : t("pLearn")) : it ? "F  " + t(it.trink ? "pDrink" : "pEat").replace("{n}", tl(it.n)).replace("{p}", Math.round(it.satt * 100)) : "";
       if (pr && pr.textContent !== txt) { pr.textContent = txt; pr.style.display = txt ? "" : "none"; }
       const wh = document.getElementById("le-where"), home = this.world.home(), wt = p.house && p.house === home ? t("pHome") : "";
       if (wh && wh.textContent !== wt) wh.textContent = wt;

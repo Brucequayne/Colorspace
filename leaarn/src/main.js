@@ -244,6 +244,7 @@ const CSS = `
 .le-vres>b{color:#fff;font-size:15px}.le-vres em{font-style:normal;color:#8A8E96}.le-vres .le-vp{font-size:17px;text-align:right}
 .le-vres.le-vg{border-left-color:#7FC8D4}.le-vres.le-vh{border-left-color:#C6C5B9}.le-vres.le-vb{border-left-color:#ED6A5E}
 @media (max-width:820px){.le-vset{grid-template-columns:1fr}.le-vrow{grid-template-columns:22px 1fr 46px 54px}.le-vrow input{grid-column:2/3;grid-row:2}.le-vrow .le-vq{grid-column:2/-1}.le-vrow .le-vok{grid-row:2;grid-column:3}.le-vrow .le-vpt{grid-row:2;grid-column:4}.le-vres{grid-template-columns:1fr 1fr 56px}.le-vres>span:nth-of-type(2){grid-column:1/3}}
+/* v0.21: Outfit am Kleiderschrank */.le-outfit{left:auto;right:4vw;transform:translate(0,-50%)}.le-outfit .le-mbox2{width:min(470px,92vw);max-height:82vh;overflow-y:auto}.le-orow{display:grid;grid-template-columns:104px 1fr;gap:8px;align-items:center;margin:7px 0}.le-orow>span{font-size:13px;color:#C6C5B9;font-weight:700}.le-osw{display:flex;flex-wrap:wrap;gap:4px;align-items:center}.le-osw button{width:42px;height:42px;padding:4px;background:#26302F;border:1px solid #3A4746}.le-osw button svg{width:32px;height:32px;display:block}.le-osw button[aria-pressed=true]{outline:2px solid #ED6A5E;outline-offset:-1px;background:#33403F}.le-osw .le-ono{width:auto;padding:0 10px;font-size:12px}
 /* v0.16: Möbel-Lager (Kleiderschrank, Regal, Kühlschrank) */
 .le-sbox{display:grid;grid-template-columns:auto auto;gap:6px 22px;align-items:start}.le-sbox h3 small{font-weight:600;font-size:12px;margin-left:6px}
 .le-shint{margin:-4px 0 8px!important}.le-sfoot{grid-column:1/-1}
@@ -263,7 +264,7 @@ const CSS = `
 .le-lfok{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:#C6C5B9;margin-right:6px}.le-lfok i{display:block;width:70px;height:8px;background:#2A2C30;border:1px solid #62929E;overflow:hidden}.le-lfok i b{display:block;height:100%;width:0;background:#62929E}
 .le-lfok em{font-style:normal;color:#fff;font-variant-numeric:tabular-nums;min-width:44px}.le-lfok.le-up i b{background:#7FC8D4}.le-lfok.le-full i b{background:#ED6A5E}.le-lfok.le-full em{color:#ED6A5E}
 .le-fboost{display:inline-block;margin:4px 0 0;padding:3px 10px;background:rgba(237,106,94,.16);border:1px solid #ED6A5E;color:#ED6A5E;font-weight:800}
-.le-shop .le-cd button{white-space:nowrap}.le-shop .le-cd small{max-width:220px}
+.le-shop .le-cds{max-height:min(56vh,520px);overflow-y:auto;padding-right:4px}.le-shop .le-cd button{white-space:nowrap}.le-shop .le-cd small{max-width:220px}
 /* v0.19.1: Periodensystem (Chemie) */
 .le-phint{margin:-4px 0 8px}
 .le-pse{position:relative}
@@ -295,7 +296,7 @@ const CSS = `
 @media (max-width:980px){.le-pctl{grid-template-columns:1fr}}
 /* v0.19.2: Schalenmodelle bauen (Chemie) */
 .le-sset{display:grid;grid-template-columns:220px minmax(0,1fr);gap:18px;align-items:start}.le-slist{margin:4px 0 12px;padding-left:18px;line-height:1.7}
-.le-sbuild{position:relative;display:flex;gap:12px;align-items:flex-start}.le-swork{flex:1;min-width:0}.le-swork h3{margin:2px 0 8px}
+.le-sbuild{position:relative;display:flex;gap:12px;align-items:flex-start}.le-sbig{flex-direction:column;align-items:stretch}.le-sbig .le-swork{width:100%}/* v0.21: großes Periodensystem im Steckbrief */.le-bigpse h4{margin:14px 0 6px}.le-bscroll{overflow-x:auto;padding-bottom:4px}.le-bpt{display:grid;grid-template-columns:20px repeat(18,minmax(50px,1fr));grid-template-rows:auto repeat(7,60px) 10px repeat(2,60px);gap:2px;min-width:960px}.le-bpe{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;padding:2px 2px 3px;background:var(--c);color:#fff;border:1px solid rgba(0,0,0,.25);line-height:1.1;overflow:hidden;user-select:none}.le-bpe small{position:absolute;left:3px;top:2px;font-size:11px;font-weight:700}.le-bpe b{font-size:19px;font-weight:800}.le-bpe span{font-size:8.5px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;opacity:.95}.le-bpe i{font-style:normal;font-size:9.5px;opacity:.9}.le-bph2{justify-content:center;font-size:11px;font-weight:700}.le-bgh{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;font-size:11px;color:#A9ACB2;padding-bottom:2px}.le-bgh b{color:#E8E6DF;font-size:12px}.le-bph{display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#E8E6DF}.le-blab{display:flex;align-items:center;justify-content:flex-end;padding-right:6px;font-size:11px;color:#A9ACB2}.le-swork{flex:1;min-width:0}.le-swork h3{margin:2px 0 8px}
 .le-sarea{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;align-items:start}
 .le-ssvg{background:#2A3534;border:1px solid #44514F;display:flex;justify-content:center;padding:6px}
 .le-shit{stroke:transparent;cursor:pointer;pointer-events:stroke}.le-shit:hover{stroke:rgba(237,106,94,.18)}

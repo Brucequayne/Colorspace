@@ -23,7 +23,7 @@ addTexts({
   kRight: L2("Richtig: {n}", "Correct: {n}"), kTypo: L2("Fast – richtig geschrieben: {n} (½ Punkt)", "Almost – correct spelling: {n} (½ point)"), kWrong: L2("Leider falsch – das ist {n}", "Wrong – this is {n}"),
   kNext: L2("Weiter", "Next"), kEnd: L2("Zur Auswertung", "See results"),
   // Element-Steckbrief (Chemie, v0.19.4) und Fach-Bonus
-  stIntro: L2("Du bekommst ein Element und füllst seinen Steckbrief aus. Alles steht im Periodensystem, das du rechts ausklappen kannst – oder lässt sich daraus ausrechnen.", "You get one element and fill in its profile. Everything can be found in the periodic table, which you can unfold on the right, or worked out from it."),
+  stIntro: L2("Du bekommst ein Element und füllst seinen Steckbrief aus. Alles steht im großen Periodensystem unter dem Steckbrief – oder lässt sich daraus ausrechnen. Welche Zahl was bedeutet, musst du selbst wissen.", "You get one element and fill in its profile. Everything can be found in the large periodic table below the profile, or worked out from it. You have to know yourself which number means what."),
   stPts: L2("Je 1 Punkt (max. 10)", "1 point each (max 10)"), stBonus: L2("Alles richtig: +1 Bonuspunkt", "All correct: +1 bonus point"),
   st_sym: L2("Symbol", "Symbol"), st_hg: L2("Hauptgruppe", "Main group"), st_per: L2("Periode", "Period"), st_z: L2("Ordnungszahl", "Atomic number"), st_el: L2("Elektronen gesamt", "Total electrons"),
   st_val: L2("Valenzelektronen", "Valence electrons"), st_p: L2("Protonen", "Protons"), st_n: L2("Neutronen", "Neutrons"), st_m: L2("Atommasse (gerundet)", "Atomic mass (rounded)"),
@@ -631,15 +631,14 @@ export class Learn {
   renderSteckQ() {
     const q = this.q, f = this.f, e = q.list[q.i].el, st = STUFEN_STECK[(q.opt && q.opt.lvl) | 0]; clearTimeout(this.tm);
     if (!q.inp) { q.inp = {}; STECK_FELDER.forEach((k) => { q.inp[k] = ""; }); q.ph = "ask"; }
-    this.spse = { open: false, el: null, lite: !st.voll };
+    this.spse = null; this.sFloatClose();   // seit v0.21: kein Ausklapp-System, sondern ein großes klassisches Periodensystem unter dem Steckbrief
     const fld = (k) => '<div class="le-tf" data-tfk="' + k + '"><label for="le-si-' + k + '">' + t("st_" + k) + "</label>" + (k === "hg"
       ? '<div class="le-thg">' + ROEM.map((r, i) => '<button data-hg="' + (i + 1) + '"' + (+q.inp.hg === i + 1 ? ' class="le-vsel"' : "") + ">" + r + "</button>").join("") + "</div>"
       : '<input id="le-si-' + k + '" data-si="' + k + '" type="text" autocomplete="off" spellcheck="false" maxlength="' + (k === "sym" ? 3 : 4) + '"' + (k === "sym" ? "" : ' inputmode="numeric"') + ' value="' + esc(q.inp[k]) + '">') + '<small class="le-tfr"></small></div>';
     this.body('<div class="le-lhead"><i style="background:' + f.farbe + '">' + esc(f.kurz) + "</i><h2>" + esc(tl(this.th.name)) + '</h2><span class="le-sp"></span><span class="le-dim">' + esc(tl(st.name)) + " · max. 10</span></div>" +
-      '<div class="le-sbuild"><div class="le-swork"><h3>' + fmt(t("stTask"), { n: "<b>" + esc(e.name) + "</b>" }) + '</h3><div class="le-tgrid">' + STECK_FELDER.map(fld).join("") + "</div>" +
+      '<div class="le-sbuild le-sbig"><div class="le-swork"><h3>' + fmt(t("stTask"), { n: "<b>" + esc(e.name) + "</b>" }) + '</h3><div class="le-tgrid">' + STECK_FELDER.map(fld).join("") + "</div>" +
       '<div id="le-tres"></div><p class="le-dim le-shelp" id="le-thow">' + t("stHow") + '</p><div class="le-btns" id="le-tbtn"><button class="le-pri le-vgo" data-l="tcheck">' + t("stCheck") + " ↵</button></div></div>" +
-      '<div class="le-spse" id="le-spse"></div></div>');
-    this.sPanel(); const ip = this.root.querySelector("[data-si=sym]"); if (ip) setTimeout(() => ip.focus(), 0);
+      bigPse(!st.voll) + "</div>"); const ip = this.root.querySelector("[data-si=sym]"); if (ip) setTimeout(() => ip.focus(), 0);
   }
   tHg(n) {
     const q = this.q; if (!q || !q.inp || q.ph === "shown") return; q.inp.hg = +q.inp.hg === n ? "" : n; tick(1);
@@ -914,6 +913,22 @@ function tiers(L, n) {
 // Zahl mit Komma (deutsch) bzw. Punkt (englisch), 2 Nachkommastellen
 function num(v, d) { const k = d == null ? 2 : d; return (+v).toLocaleString(PR.lang === "en" ? "en-US" : "de-DE", { minimumFractionDigits: k, maximumFractionDigits: k }); }
 // Vokabeltest: Belohnungsstufen als Text (mit Faktor der Schwierigkeit), die erreichte Stufe hervorgehoben
+// Großes klassisches Periodensystem für den Steckbrief (seit v0.21): jede Kachel zeigt Ordnungszahl, Symbol, Name und Atommasse –
+// ohne Beschriftung, welche Zahl was ist, und ohne Anklicken. lite (Schwer) = ohne Gruppen- und Periodennummern am Rand
+function bigPse(lite) {
+  const M = (m) => (m % 1 ? String(m).replace(".", PR.lang === "en" ? "." : ",") : String(m));
+  const HG = { 1: "I", 2: "II", 13: "III", 14: "IV", 15: "V", 16: "VI", 17: "VII", 18: "VIII" };
+  let h = "";
+  if (!lite) {
+    for (let g = 1; g <= 18; g++) h += '<div class="le-bgh" style="grid-row:1;grid-column:' + (g + 1) + '">' + (HG[g] ? "<b>" + HG[g] + "</b>" : "") + "<span>" + g + "</span></div>";
+    for (let r = 1; r <= 7; r++) h += '<div class="le-bph" style="grid-row:' + (r + 1) + ';grid-column:1">' + r + "</div>";
+  }
+  h += ELEMENTE.map((e) => '<div class="le-bpe" style="grid-row:' + (e.row + 1) + ";grid-column:" + (e.col + 1) + ";--c:" + KATEG[e.kat].c + '"><small>' + e.z + "</small><b>" + e.sym + "</b><span>" + esc(e.name) + "</span><i>" + M(e.m) + "</i></div>").join("");
+  h += '<div class="le-bpe le-bph2" style="grid-row:7;grid-column:4;--c:' + KATEG.la.c + '">57–71</div><div class="le-bpe le-bph2" style="grid-row:8;grid-column:4;--c:' + KATEG.ac.c + '">89–103</div>' +
+    '<div class="le-blab" style="grid-row:10;grid-column:1/4">' + t("peLa") + '</div><div class="le-blab" style="grid-row:11;grid-column:1/4">' + t("peAc") + "</div>";
+  const legend = Object.keys(KATEG).map((k) => '<span class="le-lg"><i style="background:' + KATEG[k].c + '"></i>' + esc(tl(KATEG[k].n)) + "</span>").join("");
+  return '<div class="le-bigpse"><h4>' + t("spOpen") + '</h4><div class="le-bscroll"><div class="le-bpt">' + h + '</div></div><div class="le-legend">' + legend + "</div></div>";
+}
 function vokTiers(faktor, punkte) {
   const L = VOK_LOHN, lab = (x, i) => (i === 0 ? t("vOver") : x.ab === 10 ? "10" : x.ab === 0 ? "0" : x.ab + "–" + (L[i - 1].ab - 1)), hit = punkte == null ? -1 : L.findIndex((x) => punkte >= x.ab);
   return L.map((x, i) => { const s = lab(x, i) + " → " + euro(Math.ceil(x.euro * faktor - 1e-9)); return i === hit ? "<b>" + s + "</b>" : s; }).join(" · ");

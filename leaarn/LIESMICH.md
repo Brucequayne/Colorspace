@@ -209,6 +209,10 @@ Trinken: Items mit `trink: 1` (Wasser, Milch). Sport: `faecher/sport.js`.
 ## Spanisch (seit v0.20.3)
 Das Fach mit der ID `fremdsprache` heißt jetzt Spanisch (ID bleibt wegen Statistik und Boni). Vokabeltest wie Englisch: `faecher/vokabeln.js` baut mit `sprache(RAW, code)` den Test für eine Sprache (`VOK_EN`, `VOK_ES`); Wörter in `faecher/wortliste_es.js` (gleiches Zeilenformat, Formen mit `|`, Nomen mit Artikel). Themen tragen `vok`, `optKey` (Einstellungen in leaarn-ui-v1 → `vokEs`) und `regeln`.
 
+## Kleidung und Klamottenladen (seit v0.21)
+`src/kleidung.js`: 48 Formen (`FORMEN`, je Slot kopf/hals/ober/jacke/hose/schuhe) × 2 Varianten (`V`, Farben/Muster streifen, karo, tarn, block) = 96 Artikel mit IDs `kl_<form>_<n>` (nie umbenennen). Muster sind Teilkästen, keine Texturen. `koerper(look)` baut die Figur je Glied (player.js `figure`, Schaufensterpuppen über `puppeParts`). Getragen: `save.char.outfit` (Item-IDs), geändert mit F am Kleiderschrank (`src/outfit.js`). Läden: Regale/Ständer in houses.js mit `laden` kl-acc, kl-pulli, kl-mantel, kl-hose, kl-schuhe (shop.js).
+Steckbrief: großes Periodensystem `bigPse()` in learn.js.
+
 ## Speicher im Browser
 
 `leaarn-scene-v1` (Map), `leaarn-save-v1` (Geld, Lernstatistik), `leaarn-houses-v1` (Häuser aus dem Haus-Editor),

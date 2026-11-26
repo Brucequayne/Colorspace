@@ -1,47 +1,27 @@
 // ===== player.js · Spielfigur: Low-Poly-Modell, Laufen, Springen, Kollision mit Häusern, Möbeln und Bäumen =====
 import * as THREE from "three";
 import { clamp, lerp } from "le/core.js";
-import { part, merge, M } from "le/models.js";
+import { merge } from "le/models.js";
+import { koerper } from "le/kleidung.js";
 import { LH, FLOOR, WT } from "le/houses.js";
 
-// Aussehen (seit v0.13 aus dem Charakter-Editor): Oberteil, Hose, Schuhe, Haare
-export const LOOK = { top: "#62929E", pants: "#4A6D7C", shoes: "#2B2E30", hair: "#3A2A20" };
-const SKIN = "#E3B38E", ACC = "#ED6A5E", EYE = "#2B2E30";
+// Aussehen und Kleidung (seit v0.21): Körperteile kommen aus kleidung.js (koerper), hier werden daraus die beweglichen Glieder
+export { LOOK } from "le/kleidung.js";
 export const RADIUS = 0.28, HEIGHT = 1.78;
 
 // Figur aus einzelnen Gliedern (Drehpunkte an Hüfte und Schultern), vorne = +z
 export function figure(look) {
-  const L = Object.assign({}, LOOK, look || {}), TOP = L.top, PANTS = L.pants, SHOE = L.shoes, HAIR = L.hair;
+  const S = koerper(look);
   const mat = new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true });
   const mk = (parts) => { const m = new THREE.Mesh(merge(parts), mat); m.castShadow = true; m.receiveShadow = true; return m; };
   const g = new THREE.Group(), body = new THREE.Group(); g.add(body);
-  const torso = mk([
-    part(new THREE.BoxGeometry(0.4, 0.5, 0.22), TOP, M(0, 1.22, 0, 1)),
-    part(new THREE.BoxGeometry(0.36, 0.1, 0.2), PANTS, M(0, 0.95, 0, 1)),
-    part(new THREE.BoxGeometry(0.22, 0.08, 0.04), ACC, M(0, 1.3, 0.115, 1)),                 // Brust-Streifen
-    part(new THREE.BoxGeometry(0.3, 0.12, 0.12), TOP, M(0, 1.5, -0.08, 1)),                  // Kapuze
-    part(new THREE.BoxGeometry(0.11, 0.16, 0.11), SKIN, M(0, 1.53, 0, 1))                    // Hals (reicht bis in den Kopf, keine Lücke)
-  ]);
-  body.add(torso);
-  const head = new THREE.Group(); head.position.set(0, 1.55, 0); body.add(head);
-  head.add(mk([
-    part(new THREE.BoxGeometry(0.25, 0.27, 0.25), SKIN, M(0, 0.15, 0, 1)),
-    part(new THREE.BoxGeometry(0.27, 0.1, 0.29), HAIR, M(0, 0.3, 0, 1)),   // Haardecke steht vorn über die Stirn (seit v0.20.2: kein Clipping)
-    part(new THREE.BoxGeometry(0.27, 0.16, 0.06), HAIR, M(0, 0.2, -0.12, 1)),
-    part(new THREE.BoxGeometry(0.04, 0.04, 0.02), EYE, M(-0.06, 0.17, 0.126, 1)),
-    part(new THREE.BoxGeometry(0.04, 0.04, 0.02), EYE, M(0.06, 0.17, 0.126, 1)),
-    part(new THREE.BoxGeometry(0.05, 0.05, 0.04), "#D9A07E", M(0, 0.11, 0.135, 1))
-  ]));
+  body.add(mk(S.torso));
+  const head = new THREE.Group(); head.position.set(0, 1.55, 0); body.add(head); head.add(mk(S.head));
   const limb = (x, y, parts) => { const pv = new THREE.Group(); pv.position.set(x, y, 0); pv.add(mk(parts)); body.add(pv); return pv; };
-  const armL = limb(-0.26, 1.42, [part(new THREE.BoxGeometry(0.11, 0.42, 0.12), TOP, M(0, -0.2, 0, 1)), part(new THREE.BoxGeometry(0.09, 0.2, 0.1), SKIN, M(0, -0.5, 0, 1))]);
-  const armR = limb(0.26, 1.42, [part(new THREE.BoxGeometry(0.11, 0.42, 0.12), TOP, M(0, -0.2, 0, 1)), part(new THREE.BoxGeometry(0.09, 0.2, 0.1), SKIN, M(0, -0.5, 0, 1))]);
+  const armL = limb(-0.26, 1.42, S.armL), armR = limb(0.26, 1.42, S.armR);
   // Beine mit Kniegelenk (seit v0.16, fürs Sitzen): Oberschenkel am Hüft-Drehpunkt, Unterschenkel + Schuh am Knie
-  const leg = (x) => {
-    const pv = limb(x, 0.92, [part(new THREE.BoxGeometry(0.15, 0.44, 0.16), PANTS, M(0, -0.21, 0, 1))]);
-    const knee = new THREE.Group(); knee.position.set(0, -0.42, 0); knee.add(mk([part(new THREE.BoxGeometry(0.15, 0.42, 0.16), PANTS, M(0, -0.21, 0, 1)), part(new THREE.BoxGeometry(0.15, 0.09, 0.26), SHOE, M(0, -0.455, 0.04, 1))])); pv.add(knee);
-    pv.userData.knee = knee; return pv;
-  };
-  const legL = leg(-0.1), legR = leg(0.1);
+  const leg = (x, th, sh) => { const pv = limb(x, 0.92, th), knee = new THREE.Group(); knee.position.set(0, -0.42, 0); knee.add(mk(sh)); pv.add(knee); pv.userData.knee = knee; return pv; };
+  const legL = leg(-0.1, S.thighL, S.shinL), legR = leg(0.1, S.thighR, S.shinR);
   return { group: g, body: body, head: head, armL: armL, armR: armR, legL: legL, legR: legR, kneeL: legL.userData.knee, kneeR: legR.userData.knee };
 }
 
@@ -56,6 +36,8 @@ export class Player {
   sitDown(x, z, y, face, h, pose) { this.p.set(x, y, z); this.face = face; this.v.set(0, 0, 0); this.vy = 0; this.speed = 0; this.onGround = true; this.sit = { dy: h + 0.08 - 0.92, pose: pose || "rest", t: 0 }; this.frozen = true; this.sync(0); }
   standUp(x, z, y) { this.sit = null; this.frozen = false; this.p.set(x, y, z); this.v.set(0, 0, 0); this.vy = 0; this.onGround = true; this.sync(0); }
   dispose() { this.m.group.traverse((o) => { if (o.geometry) o.geometry.dispose(); }); this.m.group.removeFromParent(); }
+  // neues Aussehen (Outfit gewechselt, seit v0.21): Figur neu bauen, Stellung bleibt
+  relook(look) { const sc = this.m.group.parent; this.dispose(); this.m = figure(look); if (sc) sc.add(this.m.group); if (this.sit) this.sit.t = 1; this.sync(0); }
   place(x, z, face) { this.p.set(x, 0, z); this.p.y = this.groundAt(x, z, 1e3); this.face = face || 0; this.v.set(0, 0, 0); this.vy = 0; this.sync(0); }
   // Boden unter der Figur: Hausboden (wenn auf einer Bodenzelle), sonst Straße/Gelände
   groundAt(x, z, y) {

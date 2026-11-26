@@ -23,7 +23,7 @@ export class CharEditor {
   constructor(app, opts) {
     this.app = app; this.first = !!(opts && opts.first);
     const c = charakter() || {};
-    this.c = { name: c.name || "", alter: c.alter || 12, top: c.top || LOOK.top, pants: c.pants || LOOK.pants, shoes: c.shoes || LOOK.shoes, hair: c.hair || LOOK.hair };
+    this.c = { name: c.name || "", alter: c.alter || 12, top: c.top || LOOK.top, pants: c.pants || LOOK.pants, shoes: c.shoes || LOOK.shoes, hair: c.hair || LOOK.hair, outfit: c.outfit || null };   // Outfit (seit v0.21) bleibt erhalten
     this.yaw = 0.5; this.drag = null;
     // Bühne: Figur vor dem Zuhause (bzw. in der Kartenmitte)
     const h = app.world.home(); this.at = new THREE.Vector3(h ? h.e.x : 0, 0, h ? h.e.z : 0);
@@ -61,7 +61,7 @@ export class CharEditor {
     const d = e.target.closest("[data-cd]"); if (!d) return;
     if (d.getAttribute("data-cd") === "cancel") { this.app.go("menu"); return; }
     const name = this.c.name.trim(); if (!name) { this.root.querySelector("#le-cmsg").textContent = t("cNeed"); this.root.querySelector("#le-cname").focus(); return; }
-    setCharakter({ name: name, alter: clamp(Math.round(+this.c.alter) || 12, 8, 99), top: this.c.top, pants: this.c.pants, shoes: this.c.shoes, hair: this.c.hair });
+    setCharakter({ name: name, alter: clamp(Math.round(+this.c.alter) || 12, 8, 99), top: this.c.top, pants: this.c.pants, shoes: this.c.shoes, hair: this.c.hair, outfit: this.c.outfit || undefined });
     this.app.go(this.first ? "play" : "menu");
   }
   key(e) { if (e.code === "Enter" && e.target.id === "le-cname") { this.click({ target: this.root.querySelector('[data-cd="ok"]') }); return true; } return false; }

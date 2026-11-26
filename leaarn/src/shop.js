@@ -3,13 +3,20 @@
 // Bezahlt wird vom Spielerkonto (geld), die Ware kommt ins Inventar. Umschalt + Klick kauft 5 Stück.
 import { t, addTexts, L2, tl, el, esc, PR } from "le/core.js";
 import { ITEMS, give } from "le/items.js";
+import "le/kleidung.js";   // legt die Kleidungsartikel an (seit v0.21)
 import { geld, addGeld, euro } from "le/save.js";
 import { tick } from "le/sound.js";
 
 export const LADEN = {
   tiefkuehl: { n: L2("Gefriertruhe", "Chest freezer"), leer: L2("Die Truhe ist noch leer – Tiefkühlware kommt in einem der nächsten Updates.", "The freezer is still empty – frozen food is coming in a future update.") },
   obst: { n: L2("Obst & Gemüse", "Fruit & vegetables"), leer: L2("Noch kein Obst und Gemüse – kommt bald.", "No fruit and vegetables yet – coming soon.") },
-  allg: { n: L2("Supermarktregal", "Supermarket shelf"), leer: L2("Das Regal ist noch leer – weitere Waren kommen bald.", "The shelf is still empty – more goods are coming soon.") }
+  allg: { n: L2("Supermarktregal", "Supermarket shelf"), leer: L2("Das Regal ist noch leer – weitere Waren kommen bald.", "The shelf is still empty – more goods are coming soon.") },
+  // Klamottenladen (seit v0.21): Kleidung aus kleidung.js
+  "kl-acc": { n: L2("Mützen, Kappen & Schals", "Hats, caps & scarves"), leer: L2("Noch leer.", "Still empty.") },
+  "kl-pulli": { n: L2("Pullis", "Jumpers"), leer: L2("Noch leer.", "Still empty.") },
+  "kl-mantel": { n: L2("Mäntel & Jacken", "Coats & jackets"), leer: L2("Noch leer.", "Still empty.") },
+  "kl-hose": { n: L2("Hosen", "Trousers"), leer: L2("Noch leer.", "Still empty.") },
+  "kl-schuhe": { n: L2("Schuhe", "Shoes"), leer: L2("Noch leer.", "Still empty.") }
 };
 addTexts({
   sMoney: L2("Dein Geld: {e}", "Your money: {e}"), sBuy: L2("Kaufen", "Buy"), sClose: L2("Schließen (E)", "Close (E)"), sBought: L2("Gekauft: {n}", "Bought: {n}"),

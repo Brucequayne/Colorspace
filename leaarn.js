@@ -25,6 +25,8 @@
     "drive.js",       // Auto-Test im Map-Editor
     "save.js",        // Spielstand: Geld, Zwischenkonto, Lernstatistik
     "items.js",       // Gegenstände, Inventar-Daten
+    "kleidung.js",    // Kleidung: Formen, Varianten, Figur-Aufbau, Schaufensterpuppen (seit v0.21)
+    "outfit.js",      // Outfit ändern am Kleiderschrank (seit v0.21)
     "inventory.js",   // Schnellauswahl 1–9, Rucksack (I), Ziehen und Ablegen
     "musik.js",       // Ghettoblaster
     "schritt.js",     // Schrittgeräusche (seit v0.20.1)

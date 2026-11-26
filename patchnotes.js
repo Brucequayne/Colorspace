@@ -3,6 +3,17 @@
    Die Versionsnummer auf den Kacheln kommt aus dem obersten Eintrag. */
 window.PATCHNOTES = {
   leaarn: [
+    { v: "0.21", t: "2026-11-26T18:50:00+01:00",
+      de: ["Chemie, Element-Steckbrief: großes klassisches Periodensystem unter dem Steckbrief statt Ausklapp-System. Jede Kachel zeigt Ordnungszahl, Symbol, Name und Atommasse – ohne Beschriftung, welche Zahl was ist, und ohne Anklicken. Auf Schwer ohne Gruppen- und Periodennummern.",
+        "Am Kleiderschrank mit F das Outfit ändern: Kleidung aus dem Schrank und dem Rucksack, nach Kopf, Hals, Oberteil, Jacke, Hose und Schuhen sortiert. Die Figur ändert sich sofort.",
+        "Kleidung: 48 Formen (Mützen, Kappen, Schals, Pullis, Mäntel und Jacken, kurze, lange und Baggy-Hosen, Schuhe), jede in zwei Farb- oder Mustervarianten – 96 einzelne Artikel.",
+        "Klamottenladen-Objekte im Haus-Editor (Objekte): Kleiderstange mit Pullis, runder Ständer mit Mänteln, Hosenregal, Schuhregal, Mützen- und Schaltisch (dort mit E einkaufen), drei Schaufensterpuppen mit Outfits, Umkleidekabine, Standspiegel.",
+        "Behoben: Öffnen von Inventar, Laden oder Lager hat beim gefangenen Mauszeiger das Pause-Menü geöffnet."],
+      en: ["Chemistry, element profile: a large classic periodic table below the profile instead of the fold-out one. Each tile shows atomic number, symbol, name and atomic mass – with no labels saying which number is which, and nothing to click. On hard without group and period numbers.",
+        "Press F at the wardrobe to change your outfit: clothes from the wardrobe and your backpack, sorted by head, neck, top, jacket, trousers and shoes. The figure changes instantly.",
+        "Clothing: 48 shapes (beanies, caps, scarves, jumpers, coats and jackets, short, long and baggy trousers, shoes), each in two colour or pattern variants – 96 separate items.",
+        "Clothes shop objects in the house editor (objects): clothes rail with jumpers, round rack with coats, trouser shelf, shoe shelf, hat & scarf table (shop there with E), three dressed mannequins, changing cubicle, standing mirror.",
+        "Fixed: opening the inventory, a shop or storage while the mouse was captured opened the pause menu."] },
     { v: "0.20.3", t: "2026-11-26T17:07:00+01:00",
       de: ["Das Fach „2. Fremdsprache“ heißt jetzt Spanisch.",
         "Neu: Vokabeltest Spanisch (Deutsch → Spanisch und Spanisch → Deutsch), aufgebaut wie der englische: 2500 wichtige spanische Wörter nach Häufigkeit, 13 Themengebiete und 4 Wortarten, drei Schwierigkeiten, 5 Wörter je Durchgang, gleiche Punkte und Belohnung.",

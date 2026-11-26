@@ -297,9 +297,9 @@ export function schaleBewerte(e, b) {
 // · Protonen · Neutronen · Atommasse (gerundet). Alle 9 richtig = 1 Bonuspunkt → max. 10. Nur Hauptgruppen-Elemente (Gruppe 1, 2, 13–18) bis Radon.
 // Belohnung wie die anderen Chemie-Spiele (PSE_LOHN), Stufen-Faktor 1 / 1,3 / 1,6.
 export const STUFEN_STECK = [
-  { id: 0, name: L2("Leicht", "Easy"), faktor: 1, voll: true, max: 20, info: L2("Elemente 1–20, das Periodensystem zeigt alle Infos", "Elements 1–20, the periodic table shows all details") },
-  { id: 1, name: L2("Mittel", "Medium"), faktor: 1.3, voll: true, max: 54, info: L2("Hauptgruppen-Elemente bis Xenon, das Periodensystem zeigt alle Infos", "Main-group elements up to xenon, the periodic table shows all details") },
-  { id: 2, name: L2("Schwer", "Hard"), faktor: 1.6, voll: false, max: 86, info: L2("Hauptgruppen-Elemente bis Radon, das Periodensystem zeigt nur Ordnungszahl und Atommasse", "Main-group elements up to radon, the periodic table only shows atomic number and mass") }
+  { id: 0, name: L2("Leicht", "Easy"), faktor: 1, voll: true, max: 20, info: L2("Elemente 1–20, das Periodensystem hat Gruppen- und Periodennummern", "Elements 1–20, the periodic table has group and period numbers") },
+  { id: 1, name: L2("Mittel", "Medium"), faktor: 1.3, voll: true, max: 54, info: L2("Hauptgruppen-Elemente bis Xenon, das Periodensystem hat Gruppen- und Periodennummern", "Main-group elements up to xenon, the periodic table has group and period numbers") },
+  { id: 2, name: L2("Schwer", "Hard"), faktor: 1.6, voll: false, max: 86, info: L2("Hauptgruppen-Elemente bis Radon, das Periodensystem hat keine Gruppen- und Periodennummern", "Main-group elements up to radon, the periodic table has no group or period numbers") }
 ];
 export const ROEM = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII"];
 export const STECK_FELDER = ["sym", "hg", "per", "z", "el", "val", "p", "n", "m"];
