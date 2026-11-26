@@ -68,6 +68,11 @@
   function changed(panel) { S.needBuild = true; S.needView = true; keep(); if (panel) renderPanel(); }
   function pushUndo() { S.undo.push(JSON.stringify(M())); if (S.undo.length > 50) S.undo.shift(); }
   function undo() { if (!S.undo.length) { say(L2("Nichts rückgängig zu machen.", "Nothing to undo.")); return; } S.m.model = D.sanitize(JSON.parse(S.undo.pop())); S.pend = -1; changed(true); }
+  function measured() {   // Größe und Gewicht aus dem Modell (seit v0.26.2), zwischengespeichert
+    var key = JSON.stringify(M()) + "|" + S.m.size;
+    if (!S.meas || S.meas.key !== key) S.meas = { key: key, r: D.measure(M(), S.m.size) };
+    S.m.h = S.meas.r.h; S.m.kg = S.meas.r.kg; return S.meas.r;
+  }
   function fit() {
     var B = D.build(M()); S.cam.t = [B.bs[0], B.bs[1], B.bs[2]]; S.cam.zoom = BH * 0.94 / (2 * B.bs[3]); S.needView = true;
   }
@@ -109,11 +114,11 @@
     var Mo = M(), h = '<div class="seg c4">' + [["shape", "Formen", "Shape"], ["limb", "Glieder", "Limbs"], ["stamp", "Stempel", "Stamps"], ["paint", "Pinsel", "Brush"]].map(function (t) { return '<button type="button" data-tool="' + t[0] + '" aria-pressed="' + (S.tool === t[0]) + '">' + L2(t[1], t[2]) + '</button>'; }).join("") + '</div>';
     h += '<div class="row2"><button type="button" data-a="sym" aria-pressed="' + Mo.sym + '">' + L2("Symmetrie ", "Symmetry ") + (Mo.sym ? L2("an", "on") : L2("aus", "off")) + '</button><button type="button" data-a="undo">' + L2("Rückgängig", "Undo") + ' <kbd>Strg+Z</kbd></button></div>';
     if (S.tool === "shape") {
-      h += '<div class="hint"><b>' + L2("Wirbelsäule und Schädel", "Spine and skull") + '</b><br>' + L2("Gelbe Punkte = Wirbel, orange = Schädel, blau = Gelenke. Ziehen = verschieben. Mausrad auf einem Punkt = dicker/dünner, <kbd>Shift</kbd> + Mausrad = breiter/schmaler. Grüne <b>+</b> an Schwanz, Hals und Schnauze verlängern. Rechtsklick entfernt einen Punkt.", "Yellow = vertebrae, orange = skull, blue = joints. Drag to move. Wheel on a point = thicker/thinner, <kbd>Shift</kbd> + wheel = wider/narrower. Green <b>+</b> at tail, neck and snout extend. Right click removes a point.") + '</div>';
+      h += '<div class="hint"><b>' + L2("Wirbelsäule und Schädel", "Spine and skull") + '</b><br>' + L2("Gelbe Punkte = Wirbel, orange = Schädel, blau = Gelenke. Ziehen = verschieben. Mausrad auf einem Punkt = dicker/dünner, <kbd>Shift</kbd> + Mausrad = breiter/schmaler, Mausrad zwischen zwei Gelenken eines Glieds = nur dieser Abschnitt. Grüne <b>+</b> an Schwanz, Hals und Schnauze verlängern. Rechtsklick entfernt einen Punkt.", "Yellow = vertebrae, orange = skull, blue = joints. Drag to move. Wheel on a point = thicker/thinner, <kbd>Shift</kbd> + wheel = wider/narrower. Green <b>+</b> at tail, neck and snout extend. Right click removes a point.") + '</div>';
       h += '<div class="hint">' + Mo.spine.length + L2(" Wirbel · ", " vertebrae · ") + Mo.head.length + L2(" Schädelknoten · ", " skull nodes · ") + Mo.limbs.length + L2(" Glieder · ", " limbs · ") + Mo.stamps.length + L2(" Stempel", " stamps") + '</div>';
     } else if (S.tool === "limb") {
       h += '<h4>' + L2("Glied-Vorlage (Zahl der Gelenke)", "Limb preset (number of joints)") + '</h4><div class="grid c4">' + D.PRESETS.map(function (p) { return '<button type="button" data-pre="' + p.id + '" aria-pressed="' + (S.limbPre === p.id) + '"><img alt="" src="' + D.limbThumb(p.id) + '">' + L2(p.n[0], p.n[1]) + ' · ' + p.j.length + '</button>'; }).join("") + '</div>';
-      h += '<div class="hint">' + L2("Auf den Körper klicken = Glied ansetzen (bei Symmetrie auf beiden Seiten). Gelenke ziehen, Mausrad auf einem Gelenk = Dicke bis zum nächsten Gelenk. Rechtsklick auf ein Gelenk entfernt das Glied. Beine reichen automatisch bis zum Boden.", "Click the body = attach a limb (both sides with symmetry). Drag joints, wheel on a joint = thickness up to the next joint. Right click a joint removes the limb. Legs reach the ground automatically.") + '</div>';
+      h += '<div class="hint">' + L2("Auf den Körper klicken = Glied ansetzen (bei Symmetrie auf beiden Seiten). Gelenke ziehen, Mausrad auf einem Gelenk = Dicke bis zum nächsten Gelenk, Mausrad zwischen zwei Gelenken = nur dieser Abschnitt dicker/dünner. Rechtsklick auf ein Gelenk entfernt das Glied. Beine reichen automatisch bis zum Boden.", "Click the body = attach a limb (both sides with symmetry). Drag joints, wheel on a joint = thickness up to the next joint, wheel between two joints = only that segment thicker/thinner. Right click a joint removes the limb. Legs reach the ground automatically.") + '</div>';
     } else if (S.tool === "stamp") {
       h += '<div class="seg c5">' + D.CATS.map(function (c) { return '<button type="button" data-cat="' + c[0] + '" aria-pressed="' + (S.cat === c[0]) + '">' + L2(c[1], c[2]) + '</button>'; }).join("") + '</div>';
       h += '<div class="grid">' + D.A[S.cat].map(function (a, i) { return '<button type="button" data-asset="' + i + '" aria-pressed="' + (S.aIdx === i) + '" title="' + esc(L2(a.n[0], a.n[1])) + '"><img alt="" src="' + D.assetThumb(a.id, palObj()) + '">' + esc(L2(a.n[0], a.n[1])) + '</button>'; }).join("") + '</div>';
@@ -155,9 +160,11 @@
     h += '<div class="ma-ed-row"><label>' + L2("Entwickelt zu", "Evolves into") + '</label><select data-k="evo">' + mOpt(m.evo) + '</select></div>';
     h += '<div class="ma-ed-row"><label>' + L2("ab Level", "at level") + '</label><input type="number" min="2" max="100" data-k="evoLvl" value="' + m.evoLvl + '"></div>';
     h += '<div class="hint">' + L2("Zur Auswahl stehen Monster, die schon in der Liste gespeichert sind. Beim Speichern wird die Verknüpfung auf beiden Seiten eingetragen. Schneller: nach dem Hinzufügen „Entwicklung bauen“.", "You can pick monsters already saved in the list. Saving links both sides. Faster: after adding, use “Build evolution”.") + '</div>';
-    h += '<h4>' + L2("Größe und Gewicht", "Height and weight") + '</h4>';
-    h += '<div class="ma-ed-row"><label>' + L2("Größe (m)", "Height (m)") + '</label><input type="number" min="0.1" max="30" step="0.1" data-k="h" value="' + m.h + '"></div>';
-    h += '<div class="ma-ed-row"><label>' + L2("Gewicht (kg)", "Weight (kg)") + '</label><input type="number" min="0.1" max="999" step="0.1" data-k="kg" value="' + m.kg + '"></div>';
+    var me = measured(), dec = function (v) { return String(v).replace(".", MA.lang === "en" ? "." : ","); };
+    h += '<h4>' + L2("Größe und Gewicht (automatisch)", "Height and weight (automatic)") + '</h4>';
+    h += '<div class="ma-ed-row"><label>' + L2("Größe", "Height") + '</label><b style="flex:1">' + dec(me.h) + ' m</b></div>';
+    h += '<div class="ma-ed-row"><label>' + L2("Gewicht", "Weight") + '</label><b style="flex:1">' + dec(me.kg) + ' kg</b></div>';
+    h += '<div class="hint">' + L2("Größe aus der Höhe des Modells und der Bildgröße, Gewicht aus dem Volumen. Stein wiegt doppelt, Feder nur die Hälfte (Vögel sind leicht), Haut und Fell normal.", "Height from the model's height and the sprite size, weight from the volume. Stone weighs double, feathers only half (birds are light), skin and fur normal.") + '</div>';
     return h;
   }
   function colPanel() {
@@ -325,6 +332,19 @@
     H.forEach(function (o) { var d = (o.x - mx) * (o.x - mx) + (o.y - my) * (o.y - my) + (o.hid ? 30 : 0); if (d < bd) { bd = d; best = o; } });
     return best;
   }
+  function hoverSeg(H, mx, my) {   // Maus über einem Abschnitt zwischen zwei Gelenken (seit v0.26.2)
+    var Mo = M(), best = null, bd = 1e9;
+    H.forEach(function (a) {
+      if (a.k !== "l") return;
+      var b = null; H.forEach(function (o) { if (o.k === "l" && o.i === a.i && o.j === a.j + 1 && !!o.m === !!a.m) b = o; });
+      if (!b) return;
+      var dx = b.x - a.x, dy = b.y - a.y, l2 = dx * dx + dy * dy || 1, t = ((mx - a.x) * dx + (my - a.y) * dy) / l2;
+      if (t < 0.12 || t > 0.88) return;
+      var px2 = a.x + dx * t - mx, py2 = a.y + dy * t - my, d = Math.sqrt(px2 * px2 + py2 * py2), q = Mo.limbs[a.i].j[a.j], rad = Math.max(6, q.r * (q.s || 1) * S.cam.zoom * K + 2);
+      if (d < rad && d < bd) { bd = d; best = { k: "g", i: a.i, j: a.j, m: a.m, x: a.x + dx * 0.5, y: a.y + dy * 0.5, ax: a.x, ay: a.y, bx: b.x, by: b.y }; }
+    });
+    return best;
+  }
   function pickAt(mx, my, P) {
     if (!S.built) return null; var r = D.ray(S.cam, BW, BH, mx / K, my / K);
     return D.pick(P || S.built.P, r.o, r.d, S.built.bs);
@@ -336,7 +356,7 @@
   function buildUpdate(I, dx, dy) {
     var Mo = M(), mx = I.mx, my = I.my, inC = onCanvas(I), shift = I.down("Shift"), alt = I.down("Alt"), now = performance.now();
     var H = S.needView ? (S.lastH || []) : handles(); S.lastH = H;
-    var hov = inC && !S.drag ? hoverHandle(H, mx, my) : S.hov; if (!S.drag) S.hov = hov;
+    var hov = inC && !S.drag ? (hoverHandle(H, mx, my) || hoverSeg(H, mx, my)) : S.hov; if (!S.drag) S.hov = hov;
     // Kamera
     if ((I.mmb && !shift) || (S.drag && S.drag.k === "orbit")) { if (dx || dy) { S.cam.yaw -= dx * 0.012; S.cam.pitch = Math.max(-1.45, Math.min(1.45, S.cam.pitch + dy * 0.012)); S.needView = true; } }
     if (I.mmb && shift && (dx || dy)) { var B = D.basis(S.cam); S.cam.t = V.add(S.cam.t, V.add(V.mul(B.R, -dx / K / S.cam.zoom), V.mul(B.U, dy / K / S.cam.zoom))); S.needView = true; }
@@ -348,6 +368,9 @@
         var n = (hov.k === "s" ? Mo.spine : Mo.head)[hov.i];
         if (shift) n.w = Math.max(0.35, Math.min(2.5, n.w * f)); else { var nr = Math.max(0.02, Math.min(1, n.r * f)); scaleAnchored(function (a) { return a.k === hov.k && a.i === hov.i; }, n.p, nr / n.r); n.r = nr; }
         changed(false);
+      } else if (hov && hov.k === "g") {
+        if (now - S.uT > 700) pushUndo(); S.uT = now;
+        var sq = Mo.limbs[hov.i].j[hov.j]; sq.s = Math.max(0.3, Math.min(3, (sq.s || 1) * f)); if (Math.abs(sq.s - 1) < 0.02) delete sq.s; changed(false);
       } else if (hov && hov.k === "l") {
         if (now - S.uT > 700) pushUndo(); S.uT = now;
         var q = Mo.limbs[hov.i].j[hov.j], qr = Math.max(0.008, Math.min(0.6, q.r * f)); scaleAnchored(function (a) { return a.k === "l" && a.i === hov.i && a.j === hov.j; }, q.p, qr / q.r); q.r = qr; changed(false);
@@ -356,11 +379,12 @@
       } else { S.cam.zoom = Math.max(8, Math.min(600, S.cam.zoom * f)); S.needView = true; }
     }
     // Rechtsklick: entfernen
-    if (I.rmbHit && inC && hov && hov.k !== "x") removeNode(hov);
+    if (I.rmbHit && inC && hov && hov.k !== "x" && hov.k !== "g") removeNode(hov);
     // Linksklick
     if (I.lmbHit && inC && !I.mmb) {
       if (alt) S.drag = { k: "orbit" };
       else if (hov && hov.k === "x") { pushUndo(); extend(hov.w); }
+      else if (hov && hov.k === "g") { /* Abschnitt: nur Mausrad */ }
       else if (hov && (hov.k === "s" || hov.k === "h" || hov.k === "l")) { pushUndo(); S.drag = { k: "node", h: hov }; }
       else if (hov && hov.k === "st") { S.pend = hov.i; pushUndo(); S.drag = { k: "stmove", P: D.build(Mo, { exclude: hov.i }).P }; renderPanel(); }
       else {
@@ -517,6 +541,7 @@
     pixSync();
     m.img = { front: P.cv.front.toDataURL(), back: P.cv.back.toDataURL(), w: P.cv.front.width };
     m.snap = { f: [S.snap.front.yaw, S.snap.front.pitch], b: [S.snap.back.yaw, S.snap.back.pitch] };
+    measured();
     var isNew = !MO.byId(m.id), parent = m.pre && isNew ? MO.byId(m.pre) : null;
     S.m = MO.put(m);
     if (parent) { parent = MO.byId(parent.id); if (parent) { parent.evoLvl = Math.max(2, Math.min(100, Math.round(S.evoLvl || 16))); parent.evo = S.m.id; MO.put(parent); S.m = MO.byId(S.m.id); } }
@@ -549,7 +574,7 @@
       MO.remove(m.id); S.delArm = null; S.lastSaved = null; say(L2("Gelöscht: ", "Deleted: ") + (m.name || "?") + L2(" – das Modell bleibt im Editor.", " – the model stays in the editor.")); changed(true); return;
     }
     if (a === "save") { startFlow(); return; }
-    if (a === "saveinfo") { S.m = MO.put(m); if (!S.m.model) S.m.model = Mo; say(L2("Daten gespeichert (Bilder unverändert).", "Data saved (images unchanged).")); changed(true); return; }
+    if (a === "saveinfo") { measured(); S.m = MO.put(m); if (!S.m.model) S.m.model = Mo; say(L2("Daten gespeichert (Bilder unverändert).", "Data saved (images unchanged).")); changed(true); return; }
     if (a === "evo") {
       var par = MO.byId(m.id); if (!par) return;
       var ch = MO.sanitize(JSON.parse(JSON.stringify(m))); ch.id = MO.blank().id; ch.no = MO.nextNo(); ch.name = ""; ch.pre = par.id; ch.evo = null; ch.img = null; ch.snap = m.snap;
@@ -669,6 +694,10 @@
       else { ctx.fillStyle = "#1C1D1C"; ctx.beginPath(); ctx.arc(o.x, o.y, r + 1.5, 0, 6.283); ctx.fill(); ctx.fillStyle = o.col; ctx.beginPath(); ctx.arc(o.x, o.y, r, 0, 6.283); ctx.fill(); }
     });
     ctx.globalAlpha = 1;
+    if (S.hov && S.hov.k === "g") {   // Abschnitt hervorheben
+      var g = S.hov, q = M().limbs[g.i] && M().limbs[g.i].j[g.j];
+      if (q) { ctx.strokeStyle = "rgba(110,200,232,.85)"; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(g.ax, g.ay); ctx.lineTo(g.bx, g.by); ctx.stroke(); txt(ctx, L2("Abschnitt ", "Segment ") + Math.round((q.s || 1) * 100) + " %", g.x + 8, g.y - 6, "#BDE8F6"); }
+    }
     // Linien der Wirbelsäule und Glieder
     ctx.strokeStyle = "rgba(28,29,28,.28)"; ctx.lineWidth = 1;
     function chain(f) { var pts = H.filter(f); if (pts.length < 2) return; ctx.beginPath(); pts.forEach(function (o, i) { if (i) ctx.lineTo(o.x, o.y); else ctx.moveTo(o.x, o.y); }); ctx.stroke(); }

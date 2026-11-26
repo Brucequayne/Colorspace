@@ -219,7 +219,7 @@
     (Array.isArray(M.limbs) ? M.limbs : []).slice(0, 12).forEach(function (L) {
       if (!L || !Array.isArray(L.j) || L.j.length < 2) return;
       o.limbs.push({ pre: typeof L.pre === "string" ? L.pre : "leg3", sym: !!L.sym, slot: Math.round(clamp(L.slot, 0, 4, 0)), anc: anc(L.anc),
-        j: L.j.slice(0, 8).map(function (q) { return { p: v3(q && q.p, [0, 0, 0]), r: clamp(q && q.r, 0.008, 0.6, 0.06) }; }) });
+        j: L.j.slice(0, 8).map(function (q) { var o2 = { p: v3(q && q.p, [0, 0, 0]), r: clamp(q && q.r, 0.008, 0.6, 0.06) }, sf = clamp(q && q.s, 0.3, 3, 1); if (Math.abs(sf - 1) > 0.01) o2.s = sf; return o2; }) });
     });
     (Array.isArray(M.stamps) ? M.stamps : []).slice(0, 60).forEach(function (s) {
       if (!s || !asset(s.a)) return;
@@ -267,7 +267,14 @@
     var nBody = P.length;
     M.limbs.forEach(function (L, li) {
       var j = L.j, s0 = P.length, sl = L.slot || bs;
-      for (var q = 0; q < j.length - 1; q++) rc(j[q].p, j[q + 1].p, j[q].r, j[q].r * 0.65 + j[q + 1].r * 0.35, 1, sl, q === 0 ? 0.08 : 0.05, 1, { k: "l", i: li, j: q });
+      for (var q = 0; q < j.length - 1; q++) {
+        var r1 = j[q].r, r2 = j[q].r * 0.65 + j[q + 1].r * 0.35, sf = j[q].s || 1, kq = q === 0 ? 0.08 : 0.05;
+        if (Math.abs(sf - 1) < 0.01) rc(j[q].p, j[q + 1].p, r1, r2, 1, sl, kq, 1, { k: "l", i: li, j: q });
+        else {   // Abschnitt dicker/dünner: Mitte wird zum Bauch bzw. zur Taille (seit v0.26.2)
+          var mid = mul(add(j[q].p, j[q + 1].p), 0.5), rm = Math.max(0.006, (r1 + r2) / 2 * sf);
+          rc(j[q].p, mid, r1, rm, 1, sl, kq, 1, { k: "l", i: li, j: q, g: 1 }); rc(mid, j[q + 1].p, rm, r2, 1, sl, 0.03, 1, { k: "l", i: li, j: q, g: 1 });
+        }
+      }
       rc(j[j.length - 1].p, j[j.length - 1].p, j[j.length - 1].r, j[j.length - 1].r, 1, sl, 0.04, 1, { k: "l", i: li, j: j.length - 1 });
       if (L.sym) for (var m = s0, e = P.length; m < e; m++) P.push(mirrorPrim(P[m]));
     });
@@ -363,7 +370,7 @@
   var VS = "#version 300 es\nvoid main(){vec2 p=vec2(float((gl_VertexID<<1)&2),float(gl_VertexID&2));gl_Position=vec4(p*2.0-1.0,0.0,1.0);}";
   var FS = [
     "#version 300 es", "precision highp float;precision highp int;precision highp sampler2D;",
-    "uniform sampler2D uP;uniform int uN;uniform sampler2D uD;uniform int uM;uniform int uMat;",
+    "uniform sampler2D uP;uniform int uN;uniform sampler2D uD;uniform int uM;uniform int uMat;uniform int uSimple;",
     "uniform vec3 uT,uR,uU,uF,uL;uniform float uS;uniform vec2 uRes;uniform vec4 uBS;out vec4 oc;",
     "vec4 tp(int i,int k){return texelFetch(uP,ivec2(k,i),0);}",
     "vec3 qrot(vec4 q,vec3 v){return v+2.0*cross(q.xyz,cross(q.xyz,v)+q.w*v);}",
@@ -391,6 +398,10 @@
     " vec4 t0=tp(id,0);int slot=int(t0.y+0.5);int fl=int(t0.w+0.5);int mat=0;bool hl=false;",
     " if((fl&1)!=0){mat=uMat;for(int j=0;j<2048;j++){if(j>=uM)break;vec4 a=texelFetch(uD,ivec2(0,j),0);if(length(p-a.xyz)<a.w){vec4 bb=texelFetch(uD,ivec2(1,j),0);if(bb.x<0.5)mat=int(bb.y+0.5);else slot=int(bb.y+0.5);}}}",
     " float tl=1.0;",
+    " if(uSimple==1){",   // Spielbild: ruhige Flächen wie in der 3. Generation, nur Risse bzw. Federkanten
+    "  if(mat==2){vec3 q=p*7.0;vec3 ip=floor(q);float d1=9.0,d2=9.0;for(int z=-1;z<=1;z++)for(int y=-1;y<=1;y++)for(int x=-1;x<=1;x++){vec3 g=ip+vec3(float(x),float(y),float(z));float dd=length(q-g-h33(g));if(dd<d1){d2=d1;d1=dd;}else if(dd<d2)d2=dd;}if(d2-d1<0.07)tl=0.45;}",
+    "  else if(mat==3){vec3 q=p*9.0;float row=floor(q.y*1.5);vec2 f2=fract(vec2(q.x+q.z+row*0.5,q.y*1.5));if(length(vec2(f2.x-0.5,f2.y)*vec2(1.0,1.3))>0.95)tl=0.5;}",
+    " } else",
     " if(mat==2){vec3 q=p*9.0;vec3 ip=floor(q);float d1=9.0,d2=9.0;vec3 bc=vec3(0.0);",
     "  for(int z=-1;z<=1;z++)for(int y=-1;y<=1;y++)for(int x=-1;x<=1;x++){vec3 g=ip+vec3(float(x),float(y),float(z));vec3 oo=g+h33(g);float dd=length(q-oo);if(dd<d1){d2=d1;d1=dd;bc=g;}else if(dd<d2)d2=dd;}",
     "  n=normalize(n+(h33(bc)-0.5)*0.55);tl=(d2-d1<0.1)?0.6:0.92+0.16*h31(bc);}",
@@ -406,8 +417,8 @@
     " vec3 L=uL;float dif=clamp((dot(n,L)+0.2)/1.2,0.0,1.0);",
     " float shd=1.0,st=0.03;for(int s=0;s<22;s++){float dd=mapd(p+n*0.012+L*st);shd=min(shd,9.0*dd/st);st+=clamp(dd,0.02,0.2);if(shd<0.05||st>3.0)break;}shd=clamp(shd,0.0,1.0);",
     " float ao=0.0,sc=1.0;for(int k=1;k<=3;k++){float hh=0.045*float(k);ao+=(hh-mapd(p+n*hh))*sc;sc*=0.6;}ao=clamp(1.0-ao*3.5,0.0,1.0);",
-    " float lum=(0.24+0.76*dif*mix(0.58,1.0,shd))*mix(0.72,1.0,ao)*tl;",
-    " if(mat==0||(fl&2)!=0){float sp=pow(max(dot(reflect(-L,n),-rd),0.0),18.0);lum+=sp*((fl&2)!=0?0.6:0.2);}",
+    " float lum=uSimple==1?(0.3+0.7*dif*mix(0.72,1.0,shd))*mix(0.88,1.0,ao)*tl:(0.24+0.76*dif*mix(0.58,1.0,shd))*mix(0.72,1.0,ao)*tl;",
+    " if((mat==0&&uSimple==0)||(fl&2)!=0){float sp=pow(max(dot(reflect(-L,n),-rd),0.0),18.0);lum+=sp*((fl&2)!=0?0.6:0.2);}",
     " if(hl)lum=1.0;float dep=clamp(0.5+dot(p-uT,uF)/(4.0*uBS.w),0.0,1.0);",
     " oc=vec4(float(slot+8*mat)/255.0,clamp(lum,0.0,1.0),dep,1.0);}"
   ].join("\n");
@@ -420,14 +431,14 @@
       function sh(t, s) { var o = g.createShader(t); g.shaderSource(o, s); g.compileShader(o); if (!g.getShaderParameter(o, g.COMPILE_STATUS)) throw new Error(g.getShaderInfoLog(o)); return o; }
       var pr = g.createProgram(); g.attachShader(pr, sh(g.VERTEX_SHADER, VS)); g.attachShader(pr, sh(g.FRAGMENT_SHADER, FS)); g.linkProgram(pr);
       if (!g.getProgramParameter(pr, g.LINK_STATUS)) throw new Error(g.getProgramInfoLog(pr));
-      var U = {}; ["uP", "uN", "uD", "uM", "uMat", "uT", "uR", "uU", "uF", "uL", "uS", "uRes", "uBS"].forEach(function (n) { U[n] = g.getUniformLocation(pr, n); });
+      var U = {}; ["uP", "uN", "uD", "uM", "uMat", "uSimple", "uT", "uR", "uU", "uF", "uL", "uS", "uRes", "uBS"].forEach(function (n) { U[n] = g.getUniformLocation(pr, n); });
       function tex() { var t = g.createTexture(); g.bindTexture(g.TEXTURE_2D, t); g.texParameteri(g.TEXTURE_2D, g.TEXTURE_MIN_FILTER, g.NEAREST); g.texParameteri(g.TEXTURE_2D, g.TEXTURE_MAG_FILTER, g.NEAREST); g.texParameteri(g.TEXTURE_2D, g.TEXTURE_WRAP_S, g.CLAMP_TO_EDGE); g.texParameteri(g.TEXTURE_2D, g.TEXTURE_WRAP_T, g.CLAMP_TO_EDGE); return t; }
       GL = { c: c, g: g, pr: pr, U: U, tP: tex(), tD: tex(), vao: g.createVertexArray(), last: null };
     } catch (e) { if (window.console) console.warn("monster3d WebGL:", e); GL = false; }
     return GL;
   }
   // Bild rendern → Uint8Array RGBA (Zeilen von oben nach unten). R = slot + 8·mat, G = Helligkeit, B = Tiefe, A = Treffer
-  function draw(pk, cam, W, H) {
+  function draw(pk, cam, W, H, simple) {
     var G = glInit(); if (!G) return null;
     var g = G.g, B = basis(cam);
     if (G.c.width !== W || G.c.height !== H) { G.c.width = W; G.c.height = H; }
@@ -438,7 +449,7 @@
       G.last = pk;
     }
     g.activeTexture(g.TEXTURE0); g.bindTexture(g.TEXTURE_2D, G.tP); g.activeTexture(g.TEXTURE1); g.bindTexture(g.TEXTURE_2D, G.tD);
-    var U = G.U; g.uniform1i(U.uP, 0); g.uniform1i(U.uD, 1); g.uniform1i(U.uN, pk.N); g.uniform1i(U.uM, pk.M); g.uniform1i(U.uMat, pk.mat);
+    var U = G.U; g.uniform1i(U.uP, 0); g.uniform1i(U.uD, 1); g.uniform1i(U.uN, pk.N); g.uniform1i(U.uM, pk.M); g.uniform1i(U.uMat, pk.mat); g.uniform1i(U.uSimple, simple ? 1 : 0);
     g.uniform3fv(U.uT, cam.t); g.uniform3fv(U.uR, B.R); g.uniform3fv(U.uU, B.U); g.uniform3fv(U.uF, B.F); g.uniform3fv(U.uL, B.L);
     g.uniform1f(U.uS, cam.zoom); g.uniform2f(U.uRes, W, H); g.uniform4fv(U.uBS, pk.bs);
     g.bindVertexArray(G.vao); g.clearColor(0, 0, 0, 0); g.clear(g.COLOR_BUFFER_BIT); g.drawArrays(g.TRIANGLES, 0, 3);
@@ -468,11 +479,21 @@
       if (src >= 0 && MA.hash2(x, y, 41) < 0.36) add2.push([k, src]);
     }
     add2.forEach(function (a) { var q = a[1]; hit[a[0]] = 2; slot[a[0]] = slot[q]; mat[a[0]] = 1; lum[a[0]] = lum[q] * 0.8; dep[a[0]] = dep[q]; });
-    var T = palTones(pal), img = new ImageData(W, H), b = img.data, thr = o.thr || 0.04;
+    var T = palTones(pal), img = new ImageData(W, H), b = img.data, thr = o.thr || 0.04, TN = new Int8Array(N);
+    for (k = 0; k < N; k++) if (hit[k]) {
+      var xa = k % W, ya = (k - xa) / W;
+      if (o.simple) TN[k] = lum[k] > 0.8 ? 0 : lum[k] > 0.44 ? 1 : 2;   // Spielbild: Licht, Grundton, Schatten
+      else { var La = lum[k] + (BAY[(ya & 3) * 4 + (xa & 3)] / 16 - 0.47) * 0.05; TN[k] = La > 0.8 ? 0 : La > 0.52 ? 1 : La > 0.28 ? 2 : 3; }
+    }
+    if (o.simple) for (var pass = 0; pass < 2; pass++) for (k = 0; k < N; k++) {   // einzelne Pixel an die Nachbarn angleichen
+      if (!hit[k]) continue; var xs = k % W, ys = (k - xs) / W, cnt = [0, 0, 0, 0], same = 0, nb = 0;
+      [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(function (d) { var xx = xs + d[0], yy = ys + d[1]; if (xx < 0 || yy < 0 || xx >= W || yy >= H) return; var q = yy * W + xx; if (!hit[q] || slot[q] !== slot[k]) return; nb++; cnt[TN[q]]++; if (TN[q] === TN[k]) same++; });
+      if (nb >= 3 && same === 0) { var bt = 0; for (var t = 1; t < 4; t++) if (cnt[t] > cnt[bt]) bt = t; TN[k] = bt; }
+    }
     for (k = 0; k < N; k++) {
       var x2 = k % W, y2 = (k - x2) / W, c = null;
       if (hit[k]) {
-        var L = lum[k] + (BAY[(y2 & 3) * 4 + (x2 & 3)] / 16 - 0.47) * 0.05, tn = L > 0.8 ? 0 : L > 0.52 ? 1 : L > 0.28 ? 2 : 3;
+        var tn = TN[k];
         if (hit[k] === 1) for (i = 0; i < 4; i++) {
           var xx = x2 + [1, -1, 0, 0][i], yy = y2 + [0, 0, 1, -1][i]; if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
           var q = yy * W + xx; if (hit[q] && dep[q] > dep[k] + thr) { tn = 3; break; }
@@ -491,20 +512,22 @@
 
   // ---------- Fotos (fertige Spielbilder) ----------
   function bbox(raw, W, H) { var x0 = W, y0 = H, x1 = -1, y1 = -1; for (var y = 0; y < H; y++) for (var x = 0; x < W; x++) if (raw[(y * W + x) * 4 + 3] > 128) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; } return x1 < 0 ? null : [x0, y0, x1, y1]; }
-  // Bild px × px (+ 1 Pixel Rand für die Linie). zoomMax: Maßstab der Vorderansicht übernehmen (gleich große Bilder)
-  function snapshot(M, pal, yaw, pitch, px, zoomMax) {
-    var B = build(M), pk = pack(B), W = px + 2, cam = { yaw: yaw, pitch: pitch, t: B.bs.slice(0, 3), zoom: (px * 0.92) / (2 * B.bs[3]) };
-    var r = draw(pk, cam, W, W); if (!r) return null;
-    var bb = bbox(r, W, W);
+  // Spielbild px × px (+ 1 Pixel Rand für die Linie), Monster mittig mit gleichem Rand bei jeder Pixelzahl (seit v0.26.2).
+  // zsMax: Maßstab (Zoom je Bildpixel) der Vorderansicht übernehmen, damit vorne und hinten gleich groß sind.
+  var FILL = 0.88;
+  function snapshot(M, pal, yaw, pitch, px, zsMax) {
+    var B = build(M), pk = pack(B), W0 = 160, cam = { yaw: yaw, pitch: pitch, t: B.bs.slice(0, 3), zoom: W0 * 0.95 / (2 * B.bs[3]) };
+    var r = draw(pk, cam, W0, W0, true); if (!r) return null;
+    var bb = bbox(r, W0, W0), zs = FILL / (2 * B.bs[3]);
     if (bb) {
-      var Bs = basis(cam), bw = bb[2] - bb[0] + 1, bh = bb[3] - bb[1] + 1, cx = (bb[0] + bb[2] + 1) / 2, cy = (bb[1] + bb[3] + 1) / 2;
-      cam.t = add(add(cam.t, mul(Bs.R, (cx - W / 2) / cam.zoom)), mul(Bs.U, (W / 2 - cy) / cam.zoom));
-      var z2 = cam.zoom * Math.min(px / bw, px / bh); if (zoomMax) z2 = Math.min(z2, zoomMax);
-      var free = px - bh * z2 / cam.zoom; cam.zoom = z2; cam.t = add(cam.t, mul(Bs.U, (free / 2) / cam.zoom));
-      r = draw(pk, cam, W, W);
+      var Bs = basis(cam), bw = (bb[2] - bb[0] + 1) / cam.zoom, bh = (bb[3] - bb[1] + 1) / cam.zoom, cx = (bb[0] + bb[2] + 1) / 2, cy = (bb[1] + bb[3] + 1) / 2;
+      cam.t = add(add(cam.t, mul(Bs.R, (cx - W0 / 2) / cam.zoom)), mul(Bs.U, (W0 / 2 - cy) / cam.zoom));
+      zs = FILL / Math.max(bw, bh);
     }
-    var pp = post(r, W, W, pal, { thr: 3 / (cam.zoom * 4 * B.bs[3]) }), cv = MA.canvas(W, W); cv.ctx.putImageData(pp.img, 0, 0);
-    return { cv: cv, zoom: cam.zoom };
+    if (zsMax) zs = Math.min(zs, zsMax);
+    var W = px + 2; cam.zoom = zs * px; r = draw(pk, cam, W, W, true);
+    var pp = post(r, W, W, pal, { thr: 3 / (cam.zoom * 4 * B.bs[3]), simple: true }), cv = MA.canvas(W, W); cv.ctx.putImageData(pp.img, 0, 0);
+    return { cv: cv, zoom: zs };
   }
   // Vorschaubild eines Stempels / Grundkörpers
   var thumbs = {};
@@ -600,10 +623,28 @@
   ];
   function starter(i) { var M = STARTERS[i].f(); return snapStamps(sanitize(M)); }
 
+  // Größe (m) und Gewicht (kg) aus dem Modell (seit v0.26.2). Bildgröße `size` legt den Maßstab fest: 1 Modell-Einheit = 0,5 m × size.
+  // Masse: Haut/Fell 1, Stein 2, Feder 0,5 (Vögel wiegen für ihre Größe nur die Hälfte), Stempel 1.
+  var DENS = [1, 1, 2, 0.5], RHO = 260;
+  function measure(M, size) {
+    var B = build(M), P = B.P, lo = [9, 9, 9], hi = [-9, -9, -9];
+    P.forEach(function (q) { for (var k = 0; k < 3; k++) { lo[k] = Math.min(lo[k], q.bc[k] - q.br); hi[k] = Math.max(hi[k], q.bc[k] + q.br); } });
+    var n = 26, st = [(hi[0] - lo[0]) / n, (hi[1] - lo[1]) / n, (hi[2] - lo[2]) / n], vv = st[0] * st[1] * st[2], mass = 0, vol = 0, y0 = 9, y1 = -9;
+    for (var iz = 0; iz < n; iz++) for (var iy = 0; iy < n; iy++) for (var ix = 0; ix < n; ix++) {
+      var p = [lo[0] + (ix + 0.5) * st[0], lo[1] + (iy + 0.5) * st[1], lo[2] + (iz + 0.5) * st[2]], r = sdf(P, p);
+      if (r[0] > 0) continue;
+      var pr = P[r[1]], d = 1;
+      if (pr && (pr.f & 1)) { var mt = M.mat; B.D.forEach(function (q) { if (q.k === 0 && len(sub(p, q.p)) < q.r + 0.12) mt = q.v; }); d = DENS[mt] || 1; }
+      vol += vv; mass += vv * d; y0 = Math.min(y0, p[1] - st[1] / 2); y1 = Math.max(y1, p[1] + st[1] / 2);
+    }
+    var u = 0.5 * (size || 1), h = Math.max(0.1, (y1 - y0) * u), kg = mass * u * u * u * RHO;
+    return { h: Math.round(h * 10) / 10, kg: kg < 10 ? Math.round(kg * 10) / 10 : Math.round(kg), vol: vol };
+  }
+
   MA.m3d = {
     GND: GND, PRESETS: PRESETS, preset: preset, A: A, CATS: CATS, asset: asset, STARTERS: STARTERS, starter: starter,
     sanitize: sanitize, build: build, pack: pack, draw: draw, post: post, pick: pick, sdf: sdf, basis: basis, project: project, ray: ray,
-    snapshot: snapshot, assetThumb: assetThumb, modelThumb: modelThumb, limbThumb: limbThumb, makeLimb: makeLimb, nearestAnchor: nearestAnchor,
+    snapshot: snapshot, measure: measure, assetThumb: assetThumb, modelThumb: modelThumb, limbThumb: limbThumb, makeLimb: makeLimb, nearestAnchor: nearestAnchor,
     stampFrame: stampFrame, palTones: palTones, ok: function () { return !!glInit(); },
     v: { add: add, sub: sub, mul: mul, dot: dot, cross: cross, len: len, norm: norm, mir: mir }
   };

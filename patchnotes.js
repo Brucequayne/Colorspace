@@ -242,6 +242,15 @@ window.PATCHNOTES = {
         "House editor (separate from the map editor) with floors, walls in plaster, brick and wood with windows and doors, a roof with slopes and gables, and furniture. Houses are exported as .txt."] }
   ],
   monstersarc: [
+    { v: "0.26.2", t: "2026-11-26T02:15:00+01:00",
+      de: ["Fertige Spielbilder (Fotos vorne/hinten) mit einfacheren Schatten wie im Pokédex: nur Licht, Grundton und Schatten, kein Raster, einzelne Störpixel werden geglättet. Im Editor bleibt die detaillierte Schattierung.",
+        "Glieder: Auch die Abschnitte zwischen zwei Gelenken lassen sich jetzt einzeln dicker oder dünner machen – mit der Maus drüberfahren und Mausrad drehen. Die Mitte wird zum Bauch bzw. zur Taille.",
+        "Größe und Gewicht werden automatisch berechnet: Größe aus der Höhe des Modells und der Bildgröße, Gewicht aus dem Volumen. Stein wiegt doppelt so viel, Feder nur die Hälfte (Vögel sind leicht), Haut und Fell normal.",
+        "Fotos: Das Monster ist jetzt immer mittig im Bild, mit gleichem Rand. Bei mehr oder weniger Pixeln bleibt die Bildaufteilung gleich."],
+      en: ["Final game sprites (front/back snapshots) with simpler shading like in the Pokédex: only light, base tone and shadow, no dithering, stray pixels get smoothed. The editor keeps the detailed shading.",
+        "Limbs: the segments between two joints can now be made thicker or thinner individually – hover over them and turn the mouse wheel. The middle becomes a belly or a waist.",
+        "Height and weight are calculated automatically: height from the model's height and the sprite size, weight from the volume. Stone weighs double, feathers only half (birds are light), skin and fur normal.",
+        "Snapshots: the monster is now always centred in the picture with the same margin. With more or fewer pixels the composition stays the same."] },
     { v: "0.26.1", t: "2026-11-25T05:50:00+01:00",
       de: ["Monster-Editor: Die 3D-Ansicht beim Bearbeiten ist doppelt so fein (240 × 136 statt 160 × 91 Pixel). Das Monster ist dort jetzt rund 128 Pixel hoch.",
         "Bildgröße für die Fotos jetzt bis 128 Pixel (vorher 102)."],
