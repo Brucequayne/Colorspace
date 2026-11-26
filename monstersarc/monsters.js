@@ -46,7 +46,7 @@
     var o = { id: typeof m.id === "string" ? m.id : b.id, no: Math.round(clamp(m.no, 0, 9999, 1)), name: String(m.name || "").slice(0, 24),
       el: [Math.round(clamp(m.el && m.el[0], 0, ELEMENTS.length - 1, 0)), Math.round(clamp(m.el && m.el[1], -1, ELEMENTS.length - 1, -1))],
       pre: typeof m.pre === "string" ? m.pre : null, evo: typeof m.evo === "string" ? m.evo : null, evoLvl: Math.round(clamp(m.evoLvl, 2, 100, 16)),
-      size: clamp(m.size, 0.5, 2, 1), h: clamp(m.h, 0.1, 30, 0.5), kg: clamp(m.kg, 0.1, 999, 8), look: {}, pal: {}, stats: {}, cry: {} };
+      size: clamp(m.size, 0.5, 4, 1), h: clamp(m.h, 0.1, 60, 0.5), kg: clamp(m.kg, 0.1, 99999, 8), look: {}, pal: {}, stats: {}, cry: {} };
     var L = m.look || {};
     Object.keys(LOOK0).forEach(function (k) {
       if (CH[k]) o.look[k] = CH[k].indexOf(L[k]) >= 0 ? L[k] : LOOK0[k];

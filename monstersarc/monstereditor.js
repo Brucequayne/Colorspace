@@ -120,9 +120,13 @@
     S.host.innerHTML = h; S.host.scrollTop = sc;
   }
   function buildPanel() {
-    var Mo = M(), h = '<div class="seg c4">' + [["shape", "Formen", "Shape"], ["limb", "Glieder", "Limbs"], ["stamp", "Stempel", "Stamps"], ["paint", "Pinsel", "Brush"]].map(function (t) { return '<button type="button" data-tool="' + t[0] + '" aria-pressed="' + (S.tool === t[0]) + '">' + L2(t[1], t[2]) + '</button>'; }).join("") + '</div>';
+    var Mo = M(), h = '<div class="seg c5">' + [["shape", "Formen", "Shape"], ["limb", "Glieder", "Limbs"], ["stamp", "Stempel", "Stamps"], ["paint", "Pinsel", "Brush"], ["move", "Bewegen", "Move"]].map(function (t) { return '<button type="button" data-tool="' + t[0] + '" aria-pressed="' + (S.tool === t[0]) + '">' + L2(t[1], t[2]) + '</button>'; }).join("") + '</div>';
     h += '<div class="row2"><button type="button" data-a="sym" aria-pressed="' + Mo.sym + '">' + L2("Symmetrie ", "Symmetry ") + (Mo.sym ? L2("an", "on") : L2("aus", "off")) + '</button><button type="button" data-a="undo">' + L2("Rückgängig", "Undo") + ' <kbd>Strg+Z</kbd></button></div>';
-    if (S.tool === "shape") {
+    h += '<div class="row2"><button type="button" data-a="smooth">' + L2("Körper glätten", "Smooth body") + '</button><button type="button" data-a="dex">' + L2("Monsterliste", "Monster list") + ' <kbd>L</kbd></button></div>';
+    if (S.tool === "move") {
+      h += '<div class="hint"><b>' + L2("Ganzes Monster bewegen", "Move the whole monster") + '</b><br>' + L2("Im Bild ziehen verschiebt das ganze Monster, ohne etwas an der Form zu ändern (bei Symmetrie nur hoch/runter und vor/zurück).", "Dragging in the view moves the whole monster without changing its shape (with symmetry only up/down and forward/back).") + '</div>' +
+        '<div class="row3"><button type="button" data-a="mv_up">↑ ' + L2("hoch", "up") + '</button><button type="button" data-a="mv_ground">' + L2("Auf den Boden", "Onto the ground") + '</button><button type="button" data-a="mv_down">↓ ' + L2("runter", "down") + '</button></div>';
+    } else if (S.tool === "shape") {
       h += '<div class="hint"><b>' + L2("Wirbelsäule und Schädel", "Spine and skull") + '</b><br>' + L2("Gelbe Punkte = Wirbel, orange = Schädel, blau = Gelenke. Ziehen = verschieben. Mausrad auf einem Punkt = dicker/dünner, <kbd>Shift</kbd> + Mausrad = breiter/schmaler, Mausrad zwischen zwei Gelenken eines Glieds = nur dieser Abschnitt. Grüne <b>+</b> an Schwanz, Hals und Schnauze verlängern. Rechtsklick entfernt einen Punkt.", "Yellow = vertebrae, orange = skull, blue = joints. Drag to move. Wheel on a point = thicker/thinner, <kbd>Shift</kbd> + wheel = wider/narrower. Green <b>+</b> at tail, neck and snout extend. Right click removes a point.") + '</div>';
       h += '<div class="hint">' + Mo.spine.length + L2(" Wirbel · ", " vertebrae · ") + Mo.head.length + L2(" Schädelknoten · ", " skull nodes · ") + Mo.limbs.length + L2(" Glieder · ", " limbs · ") + Mo.stamps.length + L2(" Stempel", " stamps") + '</div>';
     } else if (S.tool === "limb") {
@@ -153,7 +157,7 @@
     h += '<div class="hint">' + L2("So viele Pixel hoch ist das Monster in der 3D-Ansicht (16 = sehr grob, 256 = sehr fein). Ändert nur die Ansicht, nicht das Spielbild. Hohe Werte brauchen mehr Rechenleistung.", "How many pixels tall the monster is in the 3D view (16 = very coarse, 256 = very fine). Only changes the view, not the game sprite. High values need more computing power.") + '</div>';
     h += '<h4>' + L2("Kamera", "Camera") + '</h4><div class="row3"><button type="button" data-a="v_front">' + L2("Vorne", "Front") + '</button><button type="button" data-a="v_side">' + L2("Seite", "Side") + '</button><button type="button" data-a="v_back">' + L2("Hinten", "Back") + '</button></div>';
     h += '<div class="hint">' + L2("Mausrad gedrückt + ziehen (oder Ziehen auf leerer Fläche, oder <kbd>Alt</kbd> + linke Maustaste) = drehen · <kbd>Shift</kbd> + Mausrad gedrückt = verschieben · Mausrad auf leerer Fläche = Zoom · Pfeiltasten drehen · <kbd>F</kbd> zentrieren.", "Hold wheel + drag (or drag on empty space, or <kbd>Alt</kbd> + left mouse) = rotate · <kbd>Shift</kbd> + held wheel = pan · wheel on empty space = zoom · arrow keys rotate · <kbd>F</kbd> centre.") + '</div>';
-    h += '<h4>' + L2("Bildgröße im Spiel", "Sprite size in game") + '</h4>' + slider("size", L2("Größe", "Size"), 0.5, 2, 0.05, S.m.size, function (v) { return Math.round(64 * v) + " px"; });
+    h += '<h4>' + L2("Bildgröße im Spiel", "Sprite size in game") + '</h4>' + slider("size", L2("Größe", "Size"), 0.5, 4, 0.05, S.m.size, function (v) { return Math.round(64 * v) + " px"; });
     h += '<div class="hint">' + L2("Größere Monster bekommen mehr Pixel, die Pixel selbst bleiben gleich groß.", "Bigger monsters get more pixels; the pixels stay the same size.") + '</div>';
     return h;
   }
@@ -211,7 +215,7 @@
       h += '<div class="box"><b>' + (fr ? L2("Schritt 1 von 3: Foto von vorne", "Step 1 of 3: front snapshot") : L2("Schritt 2 von 3: Foto von hinten", "Step 2 of 3: back snapshot")) + '</b><br>' +
         L2("Dreh das Monster so, wie es im Spiel zu sehen sein soll (Ziehen mit linker oder mittlerer Maustaste, Pfeiltasten). Rechts siehst du das fertige Spielbild.", "Rotate the monster the way it should look in the game (drag with left or middle mouse, arrow keys). On the right you see the final game sprite.") +
         (fr ? "" : L2(" Das Foto von hinten nutzt den gleichen Maßstab wie vorne.", " The back snapshot uses the same scale as the front.")) + '</div>';
-      h += slider("size", L2("Bildgröße", "Sprite size"), 0.5, 2, 0.05, S.m.size, function (v) { return Math.round(64 * v) + " px"; });
+      h += slider("size", L2("Bildgröße", "Sprite size"), 0.5, 4, 0.05, S.m.size, function (v) { return Math.round(64 * v) + " px"; });
       h += '<div class="row3"><button type="button" data-a="f_l">⟲ 15°</button><button type="button" data-a="f_reset">' + L2("Standard", "Default") + '</button><button type="button" data-a="f_r">15° ⟳</button></div>';
       h += '<button type="button" class="big" data-a="shot">' + L2("Foto aufnehmen", "Take snapshot") + '</button>';
       h += '<div class="row2"><button type="button" data-a="f_back">' + (fr ? L2("Abbrechen", "Cancel") : L2("Zurück zu vorne", "Back to front")) + '</button><span></span></div>';
@@ -221,6 +225,7 @@
       sw.push([26, 20, 30], [255, 255, 255], [14, 10, 18], [200, 70, 84]);
       h += '<div class="box"><b>' + L2("Schritt 3 von 3: Nachzeichnen", "Step 3 of 3: touch up") + '</b><br>' + L2("Mit Stift und Pipette Pixel für Pixel nachbessern – links vorne, rechts hinten. Rechtsklick = Pipette.", "Touch up pixel by pixel with pen and picker – front left, back right. Right click = picker.") + '</div>';
       h += '<div class="seg c4">' + [["pen", "Stift", "Pen"], ["erase", "Radierer", "Eraser"], ["pick", "Pipette", "Picker"], ["fill", "Füllen", "Fill"]].map(function (q) { return '<button type="button" data-ptool="' + q[0] + '" aria-pressed="' + (P.tool === q[0]) + '">' + L2(q[1], q[2]) + '</button>'; }).join("") + '</div>';
+      if (S.pix.img && S.pix.img.front.width > 225) h += '<div class="seg c2">' + [["front", "Vorne", "Front"], ["back", "Hinten", "Back"]].map(function (q) { return '<button type="button" data-pview="' + q[0] + '" aria-pressed="' + ((S.pix.cur || "front") === q[0]) + '">' + L2(q[1], q[2]) + '</button>'; }).join("") + '</div>';
       h += '<label class="colr"><input type="color" data-k="pcol" value="' + P.col + '"><span>' + L2("Aktuelle Farbe", "Current colour") + '</span><code>' + P.col + '</code></label>';
       h += '<div class="sw">' + sw.map(function (c) { var hx = toHex(c); return '<button type="button" data-sw="' + hx + '" aria-pressed="' + (hx === P.col) + '" style="background:' + hx + '"></button>'; }).join("") + '</div>';
       h += '<div class="row2"><button type="button" data-a="pundo">' + L2("Rückgängig", "Undo") + ' <kbd>Strg+Z</kbd></button><button type="button" data-a="preshoot">' + L2("Fotos neu machen", "Retake snapshots") + '</button></div>';
@@ -248,6 +253,22 @@
   }
   function scaleAnchored(match, center, f) {
     allAnchored(function (it, typ) { if (typ === "limb" || !it.anc || !match(it.anc) || it.anc.k === "e") return; it.p = V.add(center, V.mul(V.sub(it.p, center), f)); });
+  }
+  function translateModel(d) {   // ganzes Monster verschieben, Form bleibt (seit v0.26.4)
+    var Mo = M(), sh = function (q) { q.p = V.add(q.p, d); };
+    Mo.spine.forEach(sh); Mo.head.forEach(sh); Mo.limbs.forEach(function (L) { L.j.forEach(sh); }); Mo.stamps.forEach(sh); Mo.paint.forEach(sh);
+  }
+  function smoothModel() {   // Körper glätten: Dicken an die Nachbarn angleichen (seit v0.26.4)
+    var Mo = M(), f = 0.5;
+    function chain(arr, keys) {
+      keys.forEach(function (k) {
+        var v = arr.map(function (n) { return n[k]; });
+        arr.forEach(function (n, i) { if (arr.length < 2) return; var a = v[Math.max(0, i - 1)], b = v[Math.min(v.length - 1, i + 1)], avg = (a + v[i] + b) / 3; n[k] = v[i] + (avg - v[i]) * f; });
+      });
+    }
+    var body = Mo.head.length ? Mo.spine.slice().reverse().concat(Mo.head) : Mo.spine.slice();
+    chain(body, ["r", "w"]);
+    Mo.limbs.forEach(function (L) { chain(L.j, ["r"]); L.j.forEach(function (q) { if (q.s) { q.s = 1 + (q.s - 1) * f; if (Math.abs(q.s - 1) < 0.03) delete q.s; } }); });
   }
   function moveNode(kind, i, np) {
     var Mo = M(), arr = kind === "s" ? Mo.spine : Mo.head, n = arr[i]; if (Mo.sym) np[0] = 0;
@@ -313,6 +334,7 @@
   // ---------- Griffe (Punkte im Bild) ----------
   function handles() {
     var Mo = M(), H = [], B = D.basis(S.cam), t = S.tool;
+    if (t === "move") return H;
     function P(o, p) { var s = D.project(S.cam, BW, BH, p, B); o.p = p; o.x = s[0] * K; o.y = s[1] * K; o.z = s[2]; H.push(o); }
     if (t === "shape" || t === "limb") {
       if (t === "shape") {
@@ -366,6 +388,17 @@
   function onCanvas(I) { return I.mx >= 0 && I.my >= 0 && I.mx < MA.W && I.my < MA.H; }
   function buildUpdate(I, dx, dy) {
     var Mo = M(), mx = I.mx, my = I.my, inC = onCanvas(I), shift = I.down("Shift"), alt = I.down("Alt"), now = performance.now();
+    if (S.tool === "move") {   // ganzes Monster ziehen
+      if (I.mmb && !shift && (dx || dy)) { S.cam.yaw -= dx * 0.012; S.cam.pitch = Math.max(-1.45, Math.min(1.45, S.cam.pitch + dy * 0.012)); S.needView = true; }
+      if (I.wheel && inC) { S.cam.zoom = Math.max(8, Math.min(600, S.cam.zoom * Math.pow(1.08, -I.wheel))); S.needView = true; }
+      if (I.lmbHit && inC) { pushUndo(); S.drag = { k: "move" }; }
+      if (S.drag && S.drag.k === "move" && I.lmb && (dx || dy)) {
+        var Bm = D.basis(S.cam), dm = V.add(V.mul(Bm.R, dx / K / S.cam.zoom), V.mul(Bm.U, -dy / K / S.cam.zoom)); if (Mo.sym) dm[0] = 0;
+        translateModel(dm); changed(false);
+      }
+      if (S.drag && !I.lmb) { S.drag = null; keep(); }
+      S.lastH = []; S.hov = null; return;
+    }
     var H = S.needView ? (S.lastH || []) : handles(); S.lastH = H;
     var hov = inC && !S.drag ? (hoverHandle(H, mx, my) || hoverSeg(H, mx, my)) : S.hov; if (!S.drag) S.hov = hov;
     // Kamera
@@ -507,12 +540,17 @@
   }
   function pixSync() { ["front", "back"].forEach(function (v) { S.pix.cv[v].ctx.putImageData(S.pix.img[v], 0, 0); }); }
   function pixLayout() {
-    var W = S.pix.img.front.width, k = Math.max(1, Math.floor(Math.min(210 / W, 230 / W))), y = Math.round((MA.H - W * k) / 2) + 6;
+    var W = S.pix.img.front.width;
+    if (W > 225) {   // große Bilder (seit v0.26.4): nur eine Ansicht, umschaltbar
+      var k1 = Math.max(1, Math.floor(270 / W)), o = {}, cur = S.pix.cur || "front"; o[cur] = [Math.round(MA.W / 2 - W * k1 / 2), Math.max(0, Math.round((MA.H - W * k1) / 2))];
+      return Object.assign({ k: k1, W: W, single: true }, o);
+    }
+    var k = Math.max(1, Math.floor(Math.min(210 / W, 230 / W))), y = Math.round((MA.H - W * k) / 2) + 6;
     return { k: k, W: W, front: [Math.round(MA.W / 4 - W * k / 2), y], back: [Math.round(MA.W * 3 / 4 - W * k / 2), y] };
   }
   function pixUpdate(I) {
     var P = S.pix, Lo = pixLayout(), mx = I.mx, my = I.my, hit = null;
-    ["front", "back"].forEach(function (v) { var o = Lo[v], x = Math.floor((mx - o[0]) / Lo.k), y = Math.floor((my - o[1]) / Lo.k); if (x >= 0 && y >= 0 && x < Lo.W && y < Lo.W) hit = { v: v, x: x, y: y }; });
+    ["front", "back"].forEach(function (v) { var o = Lo[v]; if (!o) return; var x = Math.floor((mx - o[0]) / Lo.k), y = Math.floor((my - o[1]) / Lo.k); if (x >= 0 && y >= 0 && x < Lo.W && y < Lo.W) hit = { v: v, x: x, y: y }; });
     P.hov = hit;
     if (S.ctrlZ) { S.ctrlZ = 0; pixUndo(); }
     if (!hit) { if (!I.lmb) P.stroke = false; return; }
@@ -575,6 +613,7 @@
     if (d.brush) { var q = d.brush.split(":"); S.brush.k = +q[0]; S.brush.v = +q[1]; S.brush.erase = false; renderPanel(); return; }
     if (d.pal != null) { var p = PALS[+d.pal]; ["main", "sec", "acc", "eye", "extra"].forEach(function (k, i) { m.pal[k] = p[i]; }); changed(true); return; }
     if (d.ptool) { S.pix.tool = d.ptool; renderPanel(); return; }
+    if (d.pview) { S.pix.cur = d.pview; renderPanel(); return; }
     if (d.sw) { S.pix.col = d.sw; if (S.pix.tool !== "fill") S.pix.tool = "pen"; renderPanel(); return; }
     var a = d.a;
     if (a === "new") { S.starters = !S.starters; if (S.starters && MO.byId(m.id)) { S.m = fresh(1); S.lastSaved = null; S.undo = []; fit(); say(L2("Neues Monster – Grundkörper wählen.", "New monster – pick a base body.")); changed(false); } renderPanel(); return; }
@@ -599,6 +638,10 @@
     if (a === "rndpal") { m.pal = randomPal(); changed(true); return; }
     if (a === "sym") { Mo.sym = !Mo.sym; if (Mo.sym) { Mo.spine.forEach(function (n) { n.p[0] = 0; }); Mo.head.forEach(function (n) { n.p[0] = 0; }); } changed(true); return; }
     if (a === "undo") { undo(); return; }
+    if (a === "smooth") { pushUndo(); smoothModel(); say(L2("Körper geglättet – mehrmals klicken für mehr.", "Body smoothed – click several times for more.")); changed(true); return; }
+    if (a === "dex") { MA.dexFrom = "devkit"; MA.main.go("dex"); return; }
+    if (a === "mv_up" || a === "mv_down") { pushUndo(); translateModel([0, a === "mv_up" ? 0.05 : -0.05, 0]); changed(false); return; }
+    if (a === "mv_ground") { pushUndo(); var me = D.measure(M(), 1); translateModel([0, D.GND - me.y0, 0]); say(L2("Monster steht jetzt auf dem Boden.", "The monster now stands on the ground.")); changed(false); return; }
     if (a === "stok") { S.pend = -1; renderPanel(); return; }
     if (a === "stdel") { if (S.pend >= 0) removeNode({ k: "st", i: S.pend }); return; }
     if (a === "erase") { S.brush.erase = !S.brush.erase; renderPanel(); return; }
@@ -732,7 +775,7 @@
       var B = D.basis(S.cam), p = D.project(S.cam, BW, BH, S.brushHit.p, B);
       ctx.strokeStyle = S.brush.erase ? "#ED6A5E" : "#F2EEE6"; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(p[0] * K, p[1] * K, S.brush.r * S.cam.zoom * K, 0, 6.283); ctx.stroke();
     }
-    var tn = { shape: L2("Formen", "Shape"), limb: L2("Glieder", "Limbs"), stamp: L2("Stempel", "Stamps"), paint: L2("Pinsel", "Brush") }[S.tool];
+    var tn = { shape: L2("Formen", "Shape"), limb: L2("Glieder", "Limbs"), stamp: L2("Stempel", "Stamps"), paint: L2("Pinsel", "Brush"), move: L2("Bewegen", "Move") }[S.tool];
     txt(ctx, tn + (M().sym ? L2(" · Symmetrie an", " · symmetry on") : L2(" · Symmetrie aus", " · symmetry off")), 8, 8);
     if (S.tool === "stamp" && S.pend >= 0) txt(ctx, L2("Stempel: ziehen · Mausrad Größe · Q/E drehen · R/T neigen · Enter bestätigen", "Stamp: drag · wheel size · Q/E rotate · R/T tilt · Enter confirm"), 8, MA.H - 18, "#F4D6CE");
   }
@@ -740,7 +783,7 @@
     ctx.drawImage(background(), 0, 0);
     if (!S.fprev) S.fprev = D.snapshot(M(), S.m.pal, S.fcam.yaw, S.fcam.pitch, px(), S.flow === "back" && S.snap.front ? S.snap.front.zoom : 0);
     var cv = S.fprev && S.fprev.cv; if (!cv) return;
-    var k = Math.max(1, Math.floor(Math.min(240 / cv.width, 240 / cv.height))), x = Math.round(MA.W / 2 - cv.width * k / 2), y = Math.round(MA.H / 2 - cv.height * k / 2) + 8;
+    var k = Math.max(1, Math.floor(Math.min(240 / cv.width, 240 / cv.height))), x = Math.round(MA.W / 2 - cv.width * k / 2), y = Math.max(0, Math.round(MA.H / 2 - cv.height * k / 2) + (cv.height * k > 240 ? 0 : 8));
     ctx.fillStyle = "rgba(28,29,28,.18)"; ctx.fillRect(x - 4, y - 4, cv.width * k + 8, cv.height * k + 8);
     ctx.save(); ctx.imageSmoothingEnabled = false; ctx.drawImage(cv, x, y, cv.width * k, cv.height * k); ctx.restore();
     txt(ctx, (S.flow === "front" ? L2("VORNE", "FRONT") : L2("HINTEN", "BACK")) + " · " + px() + " px · ×" + k + L2(" · ziehen zum Drehen", " · drag to rotate"), 8, 8);
@@ -750,7 +793,7 @@
     ctx.fillStyle = "#2A2C2B"; ctx.fillRect(0, 0, MA.W, MA.H);
     var Lo = pixLayout(), P = S.pix;
     ["front", "back"].forEach(function (v) {
-      var o = Lo[v], W = Lo.W * Lo.k;
+      var o = Lo[v]; if (!o) return; var W = Lo.W * Lo.k;
       for (var y = 0; y < Lo.W; y += 2) for (var x = 0; x < Lo.W; x += 2) { ctx.fillStyle = ((x + y) / 2) % 2 ? "#9AAE9E" : "#A8BCAC"; ctx.fillRect(o[0] + x * Lo.k, o[1] + y * Lo.k, Lo.k * 2, Lo.k * 2); }
       ctx.save(); ctx.imageSmoothingEnabled = false; ctx.drawImage(P.cv[v], o[0], o[1], W, W); ctx.restore();
       txt(ctx, v === "front" ? L2("vorne", "front") : L2("hinten", "back"), o[0], o[1] - 16);
@@ -788,12 +831,14 @@
         return;
       }
       if (S.flow === "pixel") { pixUpdate(I); return; }
+      if (!typing && I.hit("l")) { MA.dexFrom = "devkit"; MA.main.go("dex"); return; }
       if (S.tab !== "build") { if (I.lmb && onCanvas(I) && (dx || dy)) { S.cam.yaw -= dx * 0.012; S.cam.pitch = Math.max(-1.45, Math.min(1.45, S.cam.pitch + dy * 0.012)); S.needView = true; } if (I.wheel && onCanvas(I)) { S.cam.zoom = Math.max(8, Math.min(600, S.cam.zoom * Math.pow(1.08, -I.wheel))); S.needView = true; } return; }
       if (!typing) {
         if (S.ctrlZ) { S.ctrlZ = 0; undo(); }
         if (I.down("ArrowLeft")) { S.cam.yaw += 0.03; S.needView = true; } if (I.down("ArrowRight")) { S.cam.yaw -= 0.03; S.needView = true; }
         if (I.down("ArrowUp")) { S.cam.pitch = Math.min(1.45, S.cam.pitch + 0.03); S.needView = true; } if (I.down("ArrowDown")) { S.cam.pitch = Math.max(-1.45, S.cam.pitch - 0.03); S.needView = true; }
         if (I.hit("f") && !(S.tool === "stamp" && S.pend >= 0)) fit();
+        if (I.hit("l")) { MA.dexFrom = "devkit"; MA.main.go("dex"); return; }
       }
       buildUpdate(I, dx, dy);
     },

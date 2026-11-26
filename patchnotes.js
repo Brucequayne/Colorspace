@@ -242,6 +242,15 @@ window.PATCHNOTES = {
         "House editor (separate from the map editor) with floors, walls in plaster, brick and wood with windows and doors, a roof with slopes and gables, and furniture. Houses are exported as .txt."] }
   ],
   monstersarc: [
+    { v: "0.26.4", t: "2026-11-26T03:20:00+01:00",
+      de: ["Monster-Editor: neues Werkzeug „Bewegen“ – im Bild ziehen verschiebt das ganze Monster, ohne die Form zu ändern. Dazu Knöpfe hoch, runter und „Auf den Boden“.",
+        "Neuer Knopf „Körper glätten“: gleicht die Dicken von Wirbelsäule, Schädel und allen Gliedern an ihre Nachbarn an (weniger Kontrast zwischen dick und dünn). Mehrmals klicken = stärker, Strg+Z macht es rückgängig.",
+        "Taste L (oder Knopf) öffnet aus dem Editor direkt die Monsterliste. Mit L, Esc oder „Zurück zum Editor“ geht es wieder zurück.",
+        "Spielbilder jetzt bis 256 Pixel. Große Bilder werden beim Nachzeichnen einzeln gezeigt (Umschalter Vorne/Hinten)."],
+      en: ["Monster editor: new “Move” tool – dragging in the view moves the whole monster without changing its shape. Plus buttons up, down and “Onto the ground”.",
+        "New “Smooth body” button: evens out the thickness of spine, skull and all limbs towards their neighbours (less contrast between thick and thin). Click several times for more, Ctrl+Z undoes it.",
+        "Key L (or button) opens the monster list straight from the editor. L, Esc or “Back to the editor” returns.",
+        "Game sprites now up to 256 pixels. Big images are shown one at a time while touching up (front/back switch)."] },
     { v: "0.26.3", t: "2026-11-26T02:40:00+01:00",
       de: ["Monster-Editor: Die Pixelzahl beim Bearbeiten ist jetzt einstellbar – von 16 (sehr grob) bis 256 Pixel Monsterhöhe (sehr fein). Der Bildausschnitt bleibt gleich, die Einstellung wird gemerkt. Das Spielbild ist davon unabhängig."],
       en: ["Monster editor: the pixel count while editing is now adjustable – from 16 (very coarse) to 256 pixels of monster height (very fine). The framing stays the same and the setting is remembered. The game sprite is independent of it."] },

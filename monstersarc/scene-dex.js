@@ -15,7 +15,7 @@
     ".ma-dex .grid button{display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 4px;background:#232524}.ma-dex .grid button[aria-pressed=true]{border-color:#ED6A5E;background:#2A2221}" +
     ".ma-dex .grid img{width:64px;height:64px;image-rendering:pixelated;object-fit:contain}.ma-dex .grid small{color:#ACA89F;font-size:.68rem}.ma-dex .grid b{font-weight:600;font-size:.78rem;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}" +
     ".ma-dex .r{overflow-y:auto;padding:14px 16px;scrollbar-width:thin}.ma-dex .pics{display:flex;gap:10px;justify-content:center;background:linear-gradient(#C8DCC8,#98B888);padding:10px;margin:8px 0}" +
-    ".ma-dex .pics div{display:flex;flex-direction:column;align-items:center;gap:4px;color:#2A3A2A;font-size:.7rem}.ma-dex .pics img{image-rendering:pixelated}" +
+    ".ma-dex .pics div{display:flex;flex-direction:column;align-items:center;gap:4px;color:#2A3A2A;font-size:.7rem;min-width:0;flex:0 1 auto}.ma-dex .pics img{image-rendering:pixelated;max-width:100%;height:auto}" +
     ".ma-dex h3{margin:0;font:600 1.2rem/1.2 var(--f-body,system-ui)}.ma-dex .no{color:#ACA89F}.ma-dex .els{display:flex;gap:4px;margin:6px 0}.ma-dex .els span{padding:2px 8px;font-size:.72rem;font-weight:600;color:#1C1D1C}" +
     ".ma-dex dl{display:grid;grid-template-columns:auto 1fr;gap:3px 12px;margin:8px 0;font-size:.8rem}.ma-dex dt{color:#ACA89F}.ma-dex dd{margin:0}" +
     ".ma-dex .bar{display:grid;grid-template-columns:86px 1fr 96px;gap:8px;align-items:center;font-size:.76rem;margin:3px 0}.ma-dex .bar i{display:block;height:8px;background:#2E302E;position:relative}" +
@@ -49,23 +49,24 @@
   function build() {
     var list = MO.sorted();
     if (!S.sel && list.length) S.sel = list[0].id;
-    var h = '<div class="ma-dex"><div class="l"><div class="hd"><h2>' + L2("Monsterliste", "Monster list") + '</h2><span>' + list.length + ' Monster</span><button type="button" data-a="back">← ' + L2("Hauptmenü", "Main menu") + '</button></div><div class="grid">';
+    var h = '<div class="ma-dex"><div class="l"><div class="hd"><h2>' + L2("Monsterliste", "Monster list") + '</h2><span>' + list.length + ' Monster</span><button type="button" data-a="back">← ' + (MA.dexFrom === "devkit" ? L2("Zurück zum Editor", "Back to the editor") : L2("Hauptmenü", "Main menu")) + '</button></div><div class="grid">';
     if (!list.length) h += '<div class="empty">' + L2("Noch keine Monster. Im Dev-Kit → Monster-Editor ein Monster bauen und „In Liste speichern“ drücken.", "No monsters yet. Build one in the dev kit → monster editor and press “Save to list”.") + '</div>';
     list.forEach(function (m) { h += '<button type="button" data-id="' + m.id + '" aria-pressed="' + (m.id === S.sel) + '">' + img(m, "front", 1).replace(/width="\d+" height="\d+"/, "") + '<small>#' + pad(m.no) + '</small><b>' + esc(m.name || "?") + '</b></button>'; });
     h += '</div></div><div class="r"></div></div>';
     MA.main.ui.innerHTML = h; S.el = MA.main.ui.firstChild;
     S.el.addEventListener("click", function (e) {
       var b = e.target.closest("button"); if (!b) return;
-      if (b.dataset.a === "back") { MA.main.go("menu"); return; }
+      if (b.dataset.a === "back") { back(); return; }
       if (b.dataset.a === "cry") { var m = MO.byId(S.sel); if (m) MO.playCry(m); return; }
       if (b.dataset.id) { S.sel = b.dataset.id; Array.prototype.forEach.call(S.el.querySelectorAll(".grid button"), function (q) { q.setAttribute("aria-pressed", q.dataset.id === S.sel); }); detail(); var mm = MO.byId(S.sel); if (mm) MO.playCry(mm); }
     });
     detail();
   }
+  function back() { var to = MA.dexFrom || "menu"; MA.dexFrom = null; MA.main.go(to); }   // aus dem Monster-Editor (Taste L) geht es dorthin zurück (seit v0.26.4)
   MA.scenes.dex = {
     enter: function () { build(); },
     exit: function () { MA.main.ui.innerHTML = ""; },
-    update: function () { if (MA.input.hit("Escape")) MA.main.go("menu"); },
+    update: function () { if (MA.input.hit("Escape") || (MA.dexFrom && MA.input.hit("l"))) back(); },
     render: function (ctx) { ctx.fillStyle = "#1C1D1C"; ctx.fillRect(0, 0, MA.W, MA.H); }
   };
 })();
