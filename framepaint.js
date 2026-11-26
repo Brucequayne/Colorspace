@@ -3,7 +3,7 @@
 (function () {
   "use strict";
 
-  var VERSION = "0.65", RATES = [5, 15, 30];
+  var VERSION = "0.7", RATES = [5, 15, 30];
   var lang = "de";
   function L2(de, en) { return { de: de, en: en }; }
 
@@ -36,7 +36,7 @@
     flowNote: L2("Striche bleiben an ihrem Platz und wandern bei Kameraschwenks mit. „Ruhe“: wie stark Kanten am vorigen Frame festhalten.", "Strokes stay in place and travel along with camera pans. “Calm”: how strongly edges hold on to the previous frame."),
     ptype: L2("Pinseltyp", "Brush type"), tStroke: L2("Pinsel", "Brush"), tSpray: L2("Spray", "Spray"), tCrayon: L2("Wachsmalkreide", "Wax crayon"), tHair: L2("Haarpinsel", "Hair brush"),
     guideL: L2("Strichführung", "Stroke guidance"), gClassic: L2("Klassisch", "Classic"), gOrganic: L2("Organisch", "Organic"),
-    guideNote: L2("Organisch liest die Struktur im Bild (Kanten, Konturen, Verläufe) und führt jeden Strich daran entlang: an runden Formen werden Kurven daraus, an klaren Kanten Geraden. In ruhigen Flächen ohne Struktur gilt der eingestellte Winkel.", "Organic reads the structure in the image (edges, contours, gradients) and guides every stroke along it: round shapes give curves, clear edges give straight lines. In calm areas without structure the set angle applies."),
+    guideNote: L2("Organisch zieht lange Linien entlang der Formen im Bild, in gleichmäßigem Abstand nebeneinander wie bei einer Schraffur. Die Richtung kommt von Kanten, Konturen und dem Rand der Farbfläche und reicht bis in ruhige Flächen hinein. Dunkle Stellen werden dichter schraffiert. Humanize 0 ergibt saubere, fließende Linien, mehr Humanize teilt sie in Bündel mit eigener Neigung und Lücken und legt eine Kreuzlage darüber.", "Organic draws long lines along the shapes in the image, evenly spaced side by side like hatching. The direction comes from edges, contours and the border of the colour area and reaches into calm areas too. Dark spots get denser hatching. Humanize 0 gives clean, flowing lines, more humanize splits them into bundles with their own tilt and gaps and adds a cross layer."),
     mpBatchDone: L2("Magic Paint in {n} Frames übernommen.", "Magic Paint applied to {n} frames."),
     mpNext: L2("Für alle folgenden Frames übernehmen", "Apply to all following frames"), mpAll: L2("Auf alle Frames anwenden", "Apply to all frames"),
     mpBatchNote: L2("Zeichnet jeden Frame mit dieser festen Palette nach, ohne einzeln zu bestätigen. Rechne mit etwa einer bis zwei Sekunden pro Frame. Schon damit bemalte Frames werden übersprungen.", "Redraws every frame with this fixed palette without confirming each one. Expect about one to two seconds per frame. Frames already painted with it are skipped."),
@@ -92,8 +92,8 @@
               "The video is split into frames, 5, 15 or 30 per second depending on the frame rate. Each frame has its own paint layer. The arrows jump from frame to frame, and each frame shows exactly what you painted there. “Copy paint from previous frame” brings over the drawing of the frame before, so you only adjust it slightly for the animation. Onion skin shows the previous frame faintly underneath."),
     how2: L2("Farben gibt es bewusst nur über die Pipette: C drücken und ins Bild klicken. Stift malt harte Linien, Pinsel weiche, die Spraydose sprüht Punkte und sprüht weiter, solange du die Maustaste hältst. Deckkraft gilt für den ganzen Strich, er wird also nicht fleckig, wo er sich überlappt. Glättung zieht den Strich etwas hinter der Maus her, so werden Linien ruhig. Mit Grafiktablett reagieren Stift und Pinsel auf Druck.",
               "Colours come only from the picker, on purpose: press C and click the image. The pen paints hard lines, the brush soft ones, the spray can sprays dots and keeps spraying while you hold the button. Opacity applies to the whole stroke, so it does not get blotchy where it overlaps. Smoothing lets the stroke trail a little behind the mouse, which calms lines. With a graphics tablet, pen and brush respond to pressure."),
-    how4: L2("Quickpaint malt eine Farbfläche automatisch aus, wie ein Chroma Key. Die Härte bestimmt, wie streng die Maske auf die gewählte Farbe reagiert. Gefüllt wird mit Schraffur-Strichen im eingestellten Winkel. Humanize macht daraus eine Handskizze: Striche werden ungleich lang, leicht gebogen, verschieden kräftig, es kommen Kreuzschraffur und skizzierte Umrisse dazu, und die Striche dürfen ein kleines Stück über den Rand laufen, aber nie weit. Als Pinseltyp gibt es Pinsel, Spray, Wachsmalkreide und Haarpinsel. Bei der Strichführung „Organisch“ folgen die Striche der Struktur im Bild und werden zu Kurven und Geraden, „Klassisch“ ist die bisherige Schraffur im festen Winkel. Solange du D gedrückt hältst, ist die ganze Bemalung ausgeblendet und du siehst das Original.",
-               "Quickpaint fills a colour area automatically, like a chroma key. Hardness sets how strictly the mask reacts to the chosen colour. It fills with hatching strokes at the set angle. Humanize turns that into a hand sketch: strokes get uneven lengths, slight curves and varying weight, cross-hatching and sketched outlines are added, and strokes may run slightly past the edge, but never far. Brush types are brush, spray, wax crayon and hair brush. With the stroke guidance “Organic” the strokes follow the structure in the image and become curves and straight lines, “Classic” is the previous hatching at a fixed angle. While you hold D, all painting is hidden and you see the original."),
+    how4: L2("Quickpaint malt eine Farbfläche automatisch aus, wie ein Chroma Key. Die Härte bestimmt, wie streng die Maske auf die gewählte Farbe reagiert. Gefüllt wird mit Schraffur-Strichen im eingestellten Winkel. Humanize macht daraus eine Handskizze: Striche werden ungleich lang, leicht gebogen, verschieden kräftig, es kommen Kreuzschraffur und skizzierte Umrisse dazu, und die Striche dürfen ein kleines Stück über den Rand laufen, aber nie weit. Als Pinseltyp gibt es Pinsel, Spray, Wachsmalkreide und Haarpinsel. Bei der Strichführung „Organisch“ laufen lange Linien in gleichmäßigem Abstand an den Formen im Bild entlang, Humanize teilt sie in Bündel. „Klassisch“ ist die Schraffur im festen Winkel. Solange du D gedrückt hältst, ist die ganze Bemalung ausgeblendet und du siehst das Original.",
+               "Quickpaint fills a colour area automatically, like a chroma key. Hardness sets how strictly the mask reacts to the chosen colour. It fills with hatching strokes at the set angle. Humanize turns that into a hand sketch: strokes get uneven lengths, slight curves and varying weight, cross-hatching and sketched outlines are added, and strokes may run slightly past the edge, but never far. Brush types are brush, spray, wax crayon and hair brush. With the stroke guidance “Organic” long, evenly spaced lines run along the shapes in the image, humanize splits them into bundles. “Classic” is the hatching at a fixed angle. While you hold D, all painting is hidden and you see the original."),
     how5: L2("Magic Paint nimmt dir die Schichtarbeit ab: Es sucht die wichtigsten Farben im Frame (4 bis 16, je nach Qualität), sortiert sie nach Fläche und malt jede als Quickpaint-Schicht in genau dieser Farbe. Frühe Schichten sind großzügig und dick und überlappen, spätere werden feiner und genauer. So ist am Ende fast das ganze Bild gezeichnet. Weil jeder Frame neu gezeichnet wird, wirken die Striche im Video lebendig, wie bei echter Handanimation. Im Modus Calm Frames bleiben die Striche dagegen von Frame zu Frame an ihrem Platz, das Video wirkt ruhiger.",
                "Magic Paint takes the layer work off your hands: it finds the main colours in the frame (4 to 16 depending on quality), sorts them by area and paints each as a Quickpaint layer in exactly that colour. Early layers are generous, thick and overlapping, later ones get finer and more precise. In the end almost the whole image is drawn. Because each frame is drawn anew, the strokes look alive in the video, like real hand animation. In Calm Frames mode the strokes stay in place from frame to frame instead, so the video looks calmer."),
     how3: L2("Der Export rechnet jeden Frame neu und kodiert ihn als H.264 in Full HD, 1920 × 1080, bei Hochkant-Videos 1080 × 1920. Die Bitrate ist variabel, der Regler gibt den Mittelwert vor. Du kannst die Bemalung über dem Video exportieren oder nur die Bemalung auf Weiß.",
@@ -576,29 +576,78 @@
     }
     return c;
   }
-  function flowField() {
-    var G = qpGrids(); if (G.flow) return G.flow;
+  // v0.7: Richtungsfeld nach dem Prinzip "Edge Tangent Flow". Die Richtung der Kanten (Bild und Rand der Farbfläche)
+  // wird per normierter Faltung in mehreren Maßstäben in die Fläche hineingetragen: nah an Kanten zählt die feine Richtung,
+  // weiter innen die immer gröbere. So folgen auch Striche mitten in einer ruhigen Fläche noch der Form ihres Umrisses.
+  function imgTensor() {
+    var G = qpGrids(); if (G.tens) return G.tens;
     var g = G.s, w = g.w, h = g.h, n = w * h, L = g.L, XX = new Float32Array(n), XY = new Float32Array(n), YY = new Float32Array(n), WC = [1, 0.6, 0.6], i, x, y;
     for (y = 1; y < h - 1; y++) for (x = 1; x < w - 1; x++) {
       i = y * w + x; var a = 0, b = 0, c = 0;
       for (var ch = 0; ch < 3; ch++) { var gx = (L[(i + 1) * 3 + ch] - L[(i - 1) * 3 + ch]) * WC[ch], gy = (L[(i + w) * 3 + ch] - L[(i - w) * 3 + ch]) * WC[ch]; a += gx * gx; b += gx * gy; c += gy * gy; }
       XX[i] = a; XY[i] = b; YY[i] = c;
     }
-    var r1 = Math.max(1, Math.round(w / 240)), r2 = Math.max(4, Math.round(w / 40));
+    var r1 = Math.max(1, Math.round(w / 240));
     var sXX = boxBlur(XX, w, h, r1, 2), sXY = boxBlur(XY, w, h, r1, 2), sYY = boxBlur(YY, w, h, r1, 2);
-    var bXX = boxBlur(XX, w, h, r2, 3), bXY = boxBlur(XY, w, h, r2, 3), bYY = boxBlur(YY, w, h, r2, 3);
-    var fx = new Float32Array(n), fy = new Float32Array(n);
+    var X = new Float32Array(n), Y = new Float32Array(n), W = new Float32Array(n);
     for (i = 0; i < n; i++) {
-      var A = sXX[i] + 0.35 * bXX[i], B = sXY[i] + 0.35 * bXY[i], C = sYY[i] + 0.35 * bYY[i], tr = A + C;
+      var A = sXX[i], B = sXY[i], C = sYY[i], tr = A + C;
       if (tr < 1e-6) continue;
-      var disc = Math.sqrt((A - C) * (A - C) + 4 * B * B), l1 = (tr + disc) / 2, l2 = (tr - disc) / 2, coh = (l1 - l2) / (l1 + l2 + 1e-6);
+      var dl = Math.sqrt((A - C) * (A - C) + 4 * B * B), l1 = (tr + dl) / 2, l2 = (tr - dl) / 2, coh = (l1 - l2) / (l1 + l2 + 1e-6);
       var wgt = Math.sqrt(coh) * l1 / (l1 + 5);
-      // Gradient-Winkel φ, Kantenrichtung = φ + 90°. Gespeichert im doppelten Winkel (Richtung ohne Vorzeichen): cos(2φ+180°) = −cos 2φ
-      var dl = Math.sqrt((A - C) * (A - C) + 4 * B * B) || 1;
-      fx[i] = -(A - C) / dl * wgt; fy[i] = -(2 * B) / dl * wgt;
+      // Gradient-Winkel φ, Kantenrichtung = φ + 90°, im doppelten Winkel gespeichert (Richtung ohne Vorzeichen)
+      dl = dl || 1; X[i] = -(A - C) / dl * wgt; Y[i] = -(2 * B) / dl * wgt; W[i] = wgt;
     }
-    G.flow = { w: w, h: h, fx: fx, fy: fy };
-    return G.flow;
+    // Für das Feld reicht das halbe Raster: Richtungen ändern sich weich, das spart drei Viertel der Rechenzeit
+    var w2 = w >> 1, h2 = h >> 1, X2 = new Float32Array(w2 * h2), Y2 = new Float32Array(w2 * h2), W2 = new Float32Array(w2 * h2);
+    for (y = 0; y < h2; y++) for (x = 0; x < w2; x++) {
+      var a0 = 2 * y * w + 2 * x, b0 = a0 + w, o2 = y * w2 + x;
+      X2[o2] = (X[a0] + X[a0 + 1] + X[b0] + X[b0 + 1]) / 4; Y2[o2] = (Y[a0] + Y[a0 + 1] + Y[b0] + Y[b0 + 1]) / 4; W2[o2] = (W[a0] + W[a0 + 1] + W[b0] + W[b0 + 1]) / 4;
+    }
+    G.tens = { w: w2, h: h2, X: X2, Y: Y2, W: W2 };
+    return G.tens;
+  }
+  // bl = weiche Maske der Farbfläche (Raster mw × mh): ihr Rand zählt stark mit, Bildstruktur außerhalb der Fläche schwach
+  function flowField(bl, mw, mh) {
+    var T = imgTensor(), w = T.w, h = T.h, n = w * h, X = new Float32Array(n), Y = new Float32Array(n), W = new Float32Array(n), i, x, y;
+    var md = new Float32Array(n), sx = mw / w, sy = mh / h;
+    for (y = 0; y < h; y++) for (x = 0; x < w; x++) {
+      var x0 = Math.floor(x * sx), x1 = Math.max(x0 + 1, Math.floor((x + 1) * sx)), y0 = Math.floor(y * sy), y1 = Math.max(y0 + 1, Math.floor((y + 1) * sy)), s0 = 0, c0 = 0;
+      for (var yy = y0; yy < y1 && yy < mh; yy++) for (var xx = x0; xx < x1 && xx < mw; xx++) { s0 += bl[yy * mw + xx]; c0++; }
+      md[y * w + x] = c0 ? s0 / c0 : 0;
+    }
+    var near = boxBlur(md, w, h, Math.max(2, Math.round(w / 120)), 1), KM = 3;
+    for (i = 0; i < n; i++) { var fac = 0.2 + 0.8 * Math.min(1, near[i] * 3); X[i] = T.X[i] * fac; Y[i] = T.Y[i] * fac; W[i] = T.W[i] * fac; }
+    for (y = 1; y < h - 1; y++) for (x = 1; x < w - 1; x++) {
+      i = y * w + x; var gx = (md[i + 1] - md[i - 1]) / 2, gy = (md[i + w] - md[i - w]) / 2, g2 = gx * gx + gy * gy;
+      if (g2 < 1e-5) continue;
+      var sg = KM * Math.sqrt(g2); X[i] -= (gx * gx - gy * gy) / g2 * sg; Y[i] -= 2 * gx * gy / g2 * sg; W[i] += sg;
+    }
+    var fx = new Float32Array(n), fy = new Float32Array(n), rem = new Float32Array(n).fill(1), u = w / 480;
+    [[2, 0.06], [6, 0.02], [18, 0.006], [54, 0.002]].forEach(function (sc) {
+      var r = Math.max(1, Math.round(sc[0] * u)), BX = boxBlur(X, w, h, r, 2), BY = boxBlur(Y, w, h, r, 2), BW = boxBlur(W, w, h, r, 2);
+      for (var k = 0; k < n; k++) {
+        if (rem[k] < 0.01 || BW[k] < 1e-7) continue;
+        var m = Math.hypot(BX[k], BY[k]); if (m < 1e-7) continue;
+        var take = rem[k] * BW[k] / (BW[k] + sc[1]);
+        fx[k] += take * BX[k] / m; fy[k] += take * BY[k] / m; rem[k] -= take;
+      }
+    });
+    return { w: w, h: h, fx: fx, fy: fy };
+  }
+  // Calm Frames: das Richtungsfeld hält (je nach „Ruhe“) am Feld des Nachbarframes fest, verschoben um den Kameraschwenk
+  function calmFlow(FF, o, pan) {
+    if (!pan) return FF;
+    var cs = calmStore(), ent = cs.masks[o.key] || (cs.masks[o.key] = {}), i = F.idx, pv = (ent[i - 1] || {}).ff || (ent[i + 1] || {}).ff;
+    if (pv && pv.w === FF.w && pv.h === FF.h) {
+      var a = 0.7 * o.calm / 100, w = FF.w, h = FF.h, ddx = Math.round((pan.x - pv.px) * w / F.ow), ddy = Math.round((pan.y - pv.py) * h / F.oh);
+      for (var y = 0; y < h; y++) for (var x = 0; x < w; x++) {
+        var sx = x - ddx, sy = y - ddy; if (sx < 0 || sy < 0 || sx >= w || sy >= h) continue;
+        var j = y * w + x, sj = sy * w + sx; FF.fx[j] = FF.fx[j] * (1 - a) + pv.fx[sj] * a; FF.fy[j] = FF.fy[j] * (1 - a) + pv.fy[sj] * a;
+      }
+    }
+    if (ent[i]) ent[i].ff = { w: FF.w, h: FF.h, fx: FF.fx, fy: FF.fy, px: pan.x, py: pan.y };
+    return FF;
   }
   // Strichrichtung an einer Stelle: Struktur, wo es eine gibt, sonst der eingestellte Winkel th
   function flowDir(FF, px, py, th) {
@@ -622,7 +671,7 @@
     var calm = o.calm != null, pan = calm ? calmPan() : null;
     if (calm) calmMask(M, bl, mw, mh, o.key, o.calm / 100, pan);
     var f = mw / F.ow, h = o.human / 100, sc = F.oh / 1080, w = o.width * sc, R = rng(o.seed), keep = o.keep == null ? 1 : o.keep, am = 1, type = o.type || "stroke";
-    var organic = o.guide === "organic", FF = organic ? flowField() : null, hrgb = hexRgb(o.color);
+    var organic = o.guide === "organic", FF = organic ? calmFlow(flowField(bl, mw, mh), o, calm ? pan : null) : null, hrgb = hexRgb(o.color);
     function inside(px, py) { var mx = Math.floor(px * f), my = Math.floor(py * f); return mx >= 0 && my >= 0 && mx < mw && my < mh && M[my * mw + mx] === 1; }
     var g2 = out.getContext("2d");
     g2.globalCompositeOperation = "source-over"; g2.globalAlpha = 1; g2.clearRect(0, 0, F.ow, F.oh);
@@ -720,36 +769,10 @@
       for (k = rgt.length - 2; k >= 0; k -= 2) g2.lineTo(rgt[k], rgt[k + 1]);
       g2.closePath(); g2.fill();
     }
-    // Organisch: Strich wird von seiner Mitte aus schrittweise dem Strukturfeld nachgeführt (Stromlinie), in beide Richtungen.
-    // Wo die Struktur gerade ist, wird er gerade, wo sie sich biegt, eine Kurve. Pro Schritt nur begrenzt einlenken, damit nichts knickt.
-    // off = Abweichung vom Grundwinkel (Zittern, Kreuzschraffur), läuft relativ zur Struktur mit.
-    function trace(cx, cy, off, len, over) {
-      var st = Math.max(2, w * 0.55), maxTurn = 0.22 + 0.25 * h, out = [[], []];
-      for (var sgn = 0; sgn < 2; sgn++) {
-        var x = cx, y = cy, a0 = flowDir(FF, cx, cy, th) + off + (sgn ? Math.PI : 0), ux = Math.cos(a0), uy = Math.sin(a0), d = 0, ext = 0, arr = out[sgn];
-        while (d < len / 2) {
-          var a = flowDir(FF, x, y, th) + off, vx = Math.cos(a), vy = Math.sin(a);
-          if (vx * ux + vy * uy < 0) { vx = -vx; vy = -vy; }
-          var cr = ux * vy - uy * vx, dt = Math.atan2(cr, ux * vx + uy * vy), tn = clamp(dt, -maxTurn, maxTurn), ca = Math.cos(tn), sa = Math.sin(tn);
-          var nx2 = ux * ca - uy * sa, ny2 = ux * sa + uy * ca; ux = nx2; uy = ny2;
-          var qx = x + ux * st, qy = y + uy * st;
-          if (!inside(qx, qy)) { ext += st; if (ext > over) break; }
-          x = qx; y = qy; d += st; arr.push(x, y);
-        }
-      }
-      var pts = [], k; for (k = out[1].length - 2; k >= 0; k -= 2) pts.push(out[1][k], out[1][k + 1]);
-      pts.push(cx, cy); for (k = 0; k < out[0].length; k++) pts.push(out[0][k]);
-      return pts;
-    }
     // Strich von der Mitte aus in beide Richtungen bis zur Kante der Fläche, plus kleiner Überstand
     function reach(cx, cy, ux, uy, max) { var st = Math.max(1, 1 / f), d = 0; while (d + st <= max && inside(cx + ux * (d + st), cy + uy * (d + st))) d += st; return d; }
     function mark(cx, cy, ang, len, lw, al) {
       if (keep < 1 && R() > keep) return;   // obere Schichten lassen mehr von darunter durch
-      if (organic) {
-        var ov = w * (0.2 + 0.8 * h) * R(), pts = trace(cx, cy, ang - th, len, ov);
-        if (pts.length < 6 || (pts.length / 2 - 1) * Math.max(2, w * 0.55) < w * 0.8) return;
-        pathDraw(pts, lw, al * am); return;
-      }
       var ux = Math.cos(ang), uy = Math.sin(ang), over = w * (0.2 + 0.8 * h) * R();
       var a = reach(cx, cy, -ux, -uy, len / 2), b = reach(cx, cy, ux, uy, len / 2);
       if (a + b < w * 0.8) return;
@@ -781,21 +804,166 @@
       for (k = pts.length / 3 - 1; k > 0; k--) { var r = Math.floor(R() * (k + 1)), ax = pts[3 * k], ay = pts[3 * k + 1]; pts[3 * k] = pts[3 * r]; pts[3 * k + 1] = pts[3 * r + 1]; pts[3 * r] = ax; pts[3 * r + 1] = ay; }
       return pts;
     }
-    var th = o.angle * Math.PI / 180, jit = (0.04 + 0.32 * h), P;
-    // 1. breite, blasse Grundstriche: geben Deckung und das schmutzige Kreide-Gefühl
-    P = points(w * 3.6, 1);
-    if (o.base !== false) for (i = 0; i < P.length; i += 3) if (!calm || (R = rng(P[i + 2]))) mark(P[i], P[i + 1], th + (R() - 0.5) * jit, w * (5 + 7 * R()), w * (1.4 + 0.8 * R()), 0.14 + 0.18 * R());
-    // 2. Hauptstriche: dicht, deutlich, ungleich lang und kräftig, überlappend
-    P = points(w * (1.75 + 0.35 * h), 2);
-    for (i = 0; i < P.length; i += 3) {
-      if (calm) R = rng(P[i + 2]);
-      var big = R() < 0.15 + 0.25 * h;
-      mark(P[i], P[i + 1], th + (R() - 0.5) * jit, w * (big ? 9 + 9 * R() : 4 + 5 * R() * (0.5 + h)), w * (0.75 + R() * (0.3 + 0.7 * h)), (0.6 + 0.4 * R()) * (1 - 0.3 * h * R()));
+    // ---------- Organisch (seit v0.7): gleichmäßig verteilte Stromlinien nach Jobard & Lefer ----------
+    // Jeder Strich läuft so lange am Richtungsfeld entlang, wie er darf: bis zum Rand der Fläche oder bis er einer
+    // Nachbarlinie zu nahe kommt. Neue Linien beginnen im festen Abstand neben bestehenden, so entstehen parallel
+    // geschichtete Linien wie bei einer Kupferstich-Schraffur. Dunkle Stellen im Video werden dichter schraffiert.
+    // Danach werden die Linien in Bündel zerlegt (Humanize): Nachbarstücke einer Zelle sind eine Handbewegung mit eigener
+    // Neigung, Stärke und Lücke zur nächsten Gruppe.
+    var LG = G.L;
+    function toneAt(x, y) { var gx = clamp(Math.floor(x * f), 0, mw - 1), gy = clamp(Math.floor(y * f), 0, mh - 1); return LG[(gy * mw + gx) * 3] / 100; }
+    function streams(P) {
+      var sepMin = P.sep * (1 - P.tone * 0.5), cs = Math.max(1, sepMin * 0.5), gw = Math.ceil(F.ow / cs) + 2, gh = Math.ceil(F.oh / cs) + 2;
+      var head = new Int32Array(gw * gh).fill(-1), nxt = [], PX = [], PY = [], st = Math.max(1.5, Math.min(w * 0.5, P.sep * 0.45));
+      var maxTurn = 0.16 + 0.12 * h, over = w * (0.25 + 0.6 * h), cap = 600000;
+      function cellOf(x, y) { return clamp(Math.floor(x / cs) + 1, 0, gw - 1) + clamp(Math.floor(y / cs) + 1, 0, gh - 1) * gw; }
+      function sepAt(x, y) { return P.sep * (1 + P.tone * (toneAt(x, y) - 0.5)); }
+      function near(x, y, d) {
+        var r = Math.ceil(d / cs), cx = clamp(Math.floor(x / cs) + 1, 0, gw - 1), cy = clamp(Math.floor(y / cs) + 1, 0, gh - 1), d2 = d * d;
+        for (var yy = Math.max(0, cy - r); yy <= Math.min(gh - 1, cy + r); yy++) for (var xx = Math.max(0, cx - r); xx <= Math.min(gw - 1, cx + r); xx++)
+          for (var k = head[yy * gw + xx]; k >= 0; k = nxt[k]) { var ex = PX[k] - x, ey = PY[k] - y; if (ex * ex + ey * ey < d2) return true; }
+        return false;
+      }
+      function dirAt(x, y, ux, uy) { var a = flowDir(FF, x, y, th) + P.off, vx = Math.cos(a), vy = Math.sin(a); if (vx * ux + vy * uy < 0) { vx = -vx; vy = -vy; } return [vx, vy]; }
+      function tline(sx, sy, off2, free) {
+        var halves = [[], []], tot = 0, lim = free ? w * (1.6 + 1.2 * h) : P.maxLen;
+        for (var sgn = 0; sgn < 2; sgn++) {
+          var a0 = flowDir(FF, sx, sy, th) + P.off + off2, ux = Math.cos(a0), uy = Math.sin(a0), x = sx, y = sy, ext = 0, turn = 0, run2 = 0, arr = halves[sgn];
+          if (sgn) { ux = -ux; uy = -uy; }
+          while (tot < lim) {
+            var d1 = dirAt(x, y, ux, uy), d2 = dirAt(x + d1[0] * st * 0.5, y + d1[1] * st * 0.5, d1[0], d1[1]);
+            var cr = ux * d2[1] - uy * d2[0], tn = clamp(Math.atan2(cr, ux * d2[0] + uy * d2[1]), -maxTurn, maxTurn), ca = Math.cos(tn), sa = Math.sin(tn);
+            var nx2 = ux * ca - uy * sa, ny2 = ux * sa + uy * ca; ux = nx2; uy = ny2;
+            var qx = x + ux * st, qy = y + uy * st;
+            if (qx < -over || qy < -over || qx > F.ow + over || qy > F.oh + over) break;
+            if (!inside(qx, qy)) { ext += st; if (ext > over) break; }
+            if (!free && near(qx, qy, sepAt(qx, qy) * P.test)) { run2 += st; if (run2 > P.sep * 0.7) break; }   // kurz weiterlaufen, damit an Stoßstellen keine Keile frei bleiben
+            turn += Math.abs(tn);
+            if (turn > 2.6) {   // Schleife: kommt die Linie sich selbst wieder nahe?
+              var ds = sepAt(qx, qy) * P.test, lp = false;
+              for (var k = 0; k < arr.length - 2 * Math.ceil(ds * 3 / st); k += 2) { var ex = arr[k] - qx, ey = arr[k + 1] - qy; if (ex * ex + ey * ey < ds * ds) { lp = true; break; } }
+              if (lp) break;
+            }
+            x = qx; y = qy; tot += st; arr.push(x, y);
+          }
+        }
+        var pts = [], k2; for (k2 = halves[1].length - 2; k2 >= 0; k2 -= 2) pts.push(halves[1][k2], halves[1][k2 + 1]);
+        pts.push(sx, sy); for (k2 = 0; k2 < halves[0].length; k2++) pts.push(halves[0][k2]);
+        return { pts: pts, len: tot };
+      }
+      var lines = [];
+      function tryLine(x, y, key) {
+        if (PX.length > cap || !inside(x, y) || near(x, y, sepAt(x, y) * 0.9)) return null;
+        var rl = rng(key), ln = tline(x, y, (rl() - 0.5) * 0.06 * h);
+        if (ln.len < P.minLen) return null;
+        for (var k = 0; k < ln.pts.length; k += 2) { var c = cellOf(ln.pts[k], ln.pts[k + 1]); PX.push(ln.pts[k]); PY.push(ln.pts[k + 1]); nxt.push(head[c]); head[c] = PX.length - 1; }
+        ln.key = key; lines.push(ln); return ln;
+      }
+      // Startpunkte: Calm hängt am Welt-Raster (wandert mit dem Schwenk, feste Reihenfolge), Active ist neu gemischt
+      var seeds = [], cell = P.sep * (calm ? 1.15 : 2.2), k3;
+      if (calm) {
+        var ix0 = Math.floor(-pan.x / cell) - 1, ix1 = Math.ceil((F.ow - pan.x) / cell) + 1, iy0 = Math.floor(-pan.y / cell) - 1, iy1 = Math.ceil((F.oh - pan.y) / cell) + 1;
+        for (var iy = iy0; iy <= iy1; iy++) for (var ix = ix0; ix <= ix1; ix++) {
+          var hk = hsh(o.seed, 20 + P.pass, ix, iy), r0 = rng(hk);
+          seeds.push([pan.x + (ix + 0.2 + 0.6 * r0()) * cell, pan.y + (iy + 0.2 + 0.6 * r0()) * cell, hk]);
+        }
+        seeds.sort(function (a, b) { return a[2] - b[2]; });
+      } else {
+        for (var gy = cell / 2; gy < F.oh; gy += cell) for (var gx = cell / 2; gx < F.ow; gx += cell) seeds.push([gx + (R() - 0.5) * cell * 0.7, gy + (R() - 0.5) * cell * 0.7, Math.floor(R() * 4294967296) | 0]);
+        for (k3 = seeds.length - 1; k3 > 0; k3--) { var rr = Math.floor(R() * (k3 + 1)), tmp = seeds[k3]; seeds[k3] = seeds[rr]; seeds[rr] = tmp; }
+      }
+      var queue = [], qi = 0, si = 0;
+      while (true) {
+        if (qi >= queue.length) {
+          var got = null;
+          while (si < seeds.length && !got) { var sd = seeds[si++]; got = tryLine(sd[0], sd[1], sd[2]); }
+          if (!got) break; queue.push(got);
+        }
+        var ln = queue[qi++], pp = ln.pts, np = pp.length / 2, every = Math.max(1, Math.round(P.sep * 0.8 / st));
+        if (calm) continue;   // Calm: keine Ketten aus Nachbarlinien, sonst verschiebt eine kleine Änderung alle folgenden Linien
+        for (var j = Math.floor(every / 2); j < np; j += every) {
+          var a = Math.max(0, j - 1), b = Math.min(np - 1, j + 1), dx = pp[b * 2] - pp[a * 2], dy = pp[b * 2 + 1] - pp[a * 2 + 1], dl = Math.hypot(dx, dy) || 1;
+          for (var sd2 = -1; sd2 <= 1; sd2 += 2) {
+            var dsx = sepAt(pp[j * 2], pp[j * 2 + 1]), cx2 = pp[j * 2] - dy / dl * dsx * sd2, cy2 = pp[j * 2 + 1] + dx / dl * dsx * sd2;
+            var nl = tryLine(cx2, cy2, hsh(ln.key, j, sd2, P.pass)); if (nl) queue.push(nl);
+          }
+        }
+      }
+      // Lücken füllen: wo keine Linie hinkam (schmale Ecken, kurze Zipfel), ein kurzer Strich in Feldrichtung
+      if (P.fill) {
+        var fc = P.sep * 0.9, fx0 = calm ? ((pan.x % fc) + fc) % fc : 0, fy0 = calm ? ((pan.y % fc) + fc) % fc : 0;
+        for (var yy = fy0 + fc / 2; yy < F.oh; yy += fc) for (var xx = fx0 + fc / 2; xx < F.ow; xx += fc) {
+          if (!inside(xx, yy) || near(xx, yy, sepAt(xx, yy) * 0.75)) continue;
+          var fk = calm ? hsh(o.seed, 30 + P.pass, Math.round((xx - pan.x) / fc), Math.round((yy - pan.y) / fc)) : Math.floor(R() * 4294967296) | 0, fl = tline(xx, yy, 0, true);
+          if (fl.pts.length < 4) continue; fl.key = fk; lines.push(fl);
+          for (var k4 = 0; k4 < fl.pts.length; k4 += 2) { var c4 = cellOf(fl.pts[k4], fl.pts[k4 + 1]); PX.push(fl.pts[k4]); PY.push(fl.pts[k4 + 1]); nxt.push(head[c4]); head[c4] = PX.length - 1; }
+        }
+      }
+      // Bündel: Voronoi-Zellen über der Fläche, jede Zelle eine Handbewegung
+      var Lb = w * (34 - 24 * h) * P.bund, segs = [], px0 = calm ? pan.x : 0, py0 = calm ? pan.y : 0;
+      function bundleOf(x, y) {
+        var bx = (x - px0) / Lb, by = (y - py0) / Lb, ix = Math.floor(bx), iy = Math.floor(by), best = 1e9, bk = 0;
+        for (var dy = -1; dy <= 1; dy++) for (var dx = -1; dx <= 1; dx++) {
+          var hk = hsh(o.seed, 40 + P.pass, ix + dx, iy + dy), r0 = rng(hk), ex = ix + dx + 0.15 + 0.7 * r0() - bx, ey = iy + dy + 0.15 + 0.7 * r0() - by, d = ex * ex + ey * ey;
+          if (d < best) { best = d; bk = hk; }
+        }
+        return bk;
+      }
+      var split = h > 0.04, minSeg = w * 2.2;
+      lines.forEach(function (ln) {
+        var p = ln.pts, np = p.length / 2, start = 0, cur = split ? bundleOf(p[0], p[1]) : 0, run = 0;
+        for (var k = 1; k <= np; k++) {
+          var bk = k < np && split ? bundleOf(p[k * 2], p[k * 2 + 1]) : cur;
+          if (k < np) run += Math.hypot(p[k * 2] - p[k * 2 - 2], p[k * 2 + 1] - p[k * 2 - 1]);
+          if (k === np || (bk !== cur && run >= minSeg && (np - k) * st >= minSeg)) {
+            segs.push({ pts: p.slice(start * 2, k * 2), bk: cur, lk: ln.key, cut0: start > 0, cut1: k < np });
+            start = k; cur = bk; run = 0;
+          }
+        }
+      });
+      if (calm) segs.sort(function (a, b) { return (a.lk ^ a.bk) - (b.lk ^ b.bk); });
+      else for (k3 = segs.length - 1; k3 > 0; k3--) { var r2 = Math.floor(R() * (k3 + 1)), t3 = segs[k3]; segs[k3] = segs[r2]; segs[r2] = t3; }
+      segs.forEach(function (sg) {
+        var rb = rng(sg.bk ^ P.pass * 0x1F123BB5), rot = (rb() - 0.5) * 0.55 * h, wf = 1 + (rb() - 0.5) * 0.45 * h, af = 1 - 0.3 * h * rb(), bp = rb();
+        if (keep < 1 && bp > keep) return;   // obere Schichten lassen bündelweise mehr von darunter durch
+        var q = sg.pts, nq = q.length / 2; if (nq < 2) return;
+        if (P.prob != null && rb() > P.prob * (1.35 - toneAt(q[(nq >> 1) * 2], q[(nq >> 1) * 2 + 1]))) return;
+        var rl = calm ? rng(sg.lk ^ sg.bk) : R;
+        // Lücken zwischen den Bündeln: geschnittene Enden ein Stück zurücknehmen
+        var t0 = sg.cut0 ? Math.min(nq - 2, Math.floor(rl() * (0.3 + 0.9 * h) * w / st)) : 0, t1 = sg.cut1 ? Math.min(nq - 2 - t0, Math.floor(rl() * (0.3 + 0.9 * h) * w / st)) : 0;
+        if (nq - t0 - t1 < 2) return;
+        q = q.slice(t0 * 2, (nq - t1) * 2); nq = q.length / 2;
+        if (rot) {   // ganze Gruppe leicht gedreht, um die Mitte des Stücks
+          var mx = 0, my = 0, k; for (k = 0; k < nq; k++) { mx += q[k * 2]; my += q[k * 2 + 1]; } mx /= nq; my /= nq;
+          var cr2 = Math.cos(rot), sr2 = Math.sin(rot); q = q.slice();
+          for (k = 0; k < nq; k++) { var ex = q[k * 2] - mx, ey = q[k * 2 + 1] - my; q[k * 2] = mx + ex * cr2 - ey * sr2; q[k * 2 + 1] = my + ex * sr2 + ey * cr2; }
+        }
+        pathDraw(q, w * (P.lw0 + P.lw1 * rl()) * wf, (P.al0 + P.al1 * rl()) * af * am);
+      });
     }
-    // 3. Kreuzschraffur in Teilen der Fläche (Humanize)
-    if (h > 0.25) {
-      P = points(w * 3.2, 3); if (calm) R = rng(hsh(o.seed, 9, 1, 1)); var th2 = th + (55 + (R() - 0.5) * 30) * Math.PI / 180;
-      for (i = 0; i < P.length; i += 3) if ((!calm || (R = rng(P[i + 2]))) && R() < (h - 0.25) * 0.9) mark(P[i], P[i + 1], th2 + (R() - 0.5) * jit, w * (4 + 6 * R()), w * (0.6 + 0.5 * R()), 0.55 + 0.3 * R());
+    var th = o.angle * Math.PI / 180, jit = (0.04 + 0.32 * h), P;
+    if (organic) {
+      var sp = type === "spray" ? 1.5 : 1;
+      // 1. breite, blasse Grundlinien, 2. Hauptlinien dicht und parallel, 3. Kreuzlage quer zur Form in dunklen Stellen (Humanize)
+      if (o.base !== false) streams({ pass: 1, sep: w * 2.6 * sp, off: 0, tone: 0.3, test: 0.6, minLen: w * 2, maxLen: w * (22 + 30 * (1 - h)), bund: 1.6, lw0: 1.6, lw1: 0.8, al0: 0.32, al1: 0.26 });
+      streams({ pass: 2, sep: w * (1.0 - 0.06 * h) * sp, off: 0, tone: 0.5, test: 0.62, minLen: w * 1.6, maxLen: w * (16 + 44 * (1 - h)), bund: 1, fill: true, lw0: o.base !== false ? 0.84 : 0.74, lw1: 0.22 + 0.3 * h, al0: 0.6, al1: 0.4 });
+      if (h > 0.25) { if (calm) R = rng(hsh(o.seed, 9, 1, 1)); streams({ pass: 3, sep: w * 1.5 * sp, off: (55 + (R() - 0.5) * 30) * Math.PI / 180, tone: 0.5, test: 0.62, minLen: w * 1.6, maxLen: w * 14, bund: 0.55, prob: (h - 0.25) * 1.1, lw0: 0.6, lw1: 0.45, al0: 0.55, al1: 0.3 }); }
+    } else {
+      // 1. breite, blasse Grundstriche: geben Deckung und das schmutzige Kreide-Gefühl
+      P = points(w * 3.6, 1);
+      if (o.base !== false) for (i = 0; i < P.length; i += 3) if (!calm || (R = rng(P[i + 2]))) mark(P[i], P[i + 1], th + (R() - 0.5) * jit, w * (5 + 7 * R()), w * (1.4 + 0.8 * R()), 0.14 + 0.18 * R());
+      // 2. Hauptstriche: dicht, deutlich, ungleich lang und kräftig, überlappend
+      P = points(w * (1.75 + 0.35 * h), 2);
+      for (i = 0; i < P.length; i += 3) {
+        if (calm) R = rng(P[i + 2]);
+        var big = R() < 0.15 + 0.25 * h;
+        mark(P[i], P[i + 1], th + (R() - 0.5) * jit, w * (big ? 9 + 9 * R() : 4 + 5 * R() * (0.5 + h)), w * (0.75 + R() * (0.3 + 0.7 * h)), (0.6 + 0.4 * R()) * (1 - 0.3 * h * R()));
+      }
+      // 3. Kreuzschraffur in Teilen der Fläche (Humanize)
+      if (h > 0.25) {
+        P = points(w * 3.2, 3); if (calm) R = rng(hsh(o.seed, 9, 1, 1)); var th2 = th + (55 + (R() - 0.5) * 30) * Math.PI / 180;
+        for (i = 0; i < P.length; i += 3) if ((!calm || (R = rng(P[i + 2]))) && R() < (h - 0.25) * 0.9) mark(P[i], P[i + 1], th2 + (R() - 0.5) * jit, w * (4 + 6 * R()), w * (0.6 + 0.5 * R()), 0.55 + 0.3 * R());
+      }
     }
     // 4. skizzierte Umrisse entlang der Kante, Richtung folgt der Kante
     var gstep = Math.max(2, Math.round(w * 1.2 * f)), psx = calm ? Math.round(pan.x * f) : 0, psy = calm ? Math.round(pan.y * f) : 0;
