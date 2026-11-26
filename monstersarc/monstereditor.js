@@ -15,7 +15,7 @@
    Arbeitsstand: localStorage `monstersarc.monster.draft.v2`. Eingebunden von devkit.js (Reiter „monsters“). */
 (function () {
   var MA = window.MA, L2 = MA.L2, MO = MA.monsters, D = MA.m3d, V = D.v, DKEY = "monstersarc.monster.draft.v2";
-  var BW = 240, BH = 136, K = 2, S = null;   // 3D-Ansicht: 240 × 136 Pixel, ×2 auf 480 × 272 (Monster ca. 128 px hoch, seit v0.26.1)
+  var BW = 240, BH = 136, K = 2, S = null;   // 3D-Ansicht: Pufferpixel BW × BH, ×K auf 480 × 272. Auflösung einstellbar 16–256 px Monsterhöhe (seit v0.26.3), siehe setRes
 
   MA.EDITOR_CSS = (MA.EDITOR_CSS || "") +
     ".ma-me .seg{display:grid;gap:3px;margin:3px 0 6px}.ma-me .seg.c2{grid-template-columns:repeat(2,1fr)}.ma-me .seg.c3{grid-template-columns:repeat(3,1fr)}.ma-me .seg.c4{grid-template-columns:repeat(4,1fr)}.ma-me .seg.c5{grid-template-columns:repeat(5,1fr)}" +
@@ -56,11 +56,12 @@
       pix: { tool: "pen", col: "#1A1420", undo: [] }, undo: [], msg: "", bad: false, starters: false, lastSaved: null, evoLvl: 16, cam: { yaw: 0.55, pitch: 0.25, zoom: 30, t: [0, -0.2, 0] },
       needBuild: true, needView: true, vc: MA.canvas(BW, BH), pmx: 0, pmy: 0, uT: 0 };
     var d = null; try { d = JSON.parse(localStorage.getItem(DKEY) || "null"); } catch (e) {}
+    setRes(d && d.res || 128);
     if (d && d.m) { S.m = MO.sanitize(d.m); if (!S.m.model) S.m.model = D.starter(1); if (d.cam) { S.cam.yaw = d.cam.yaw; S.cam.pitch = d.cam.pitch; } fit(); } else { S.m = fresh(1); fit(); }
   }
   function M() { return S.m.model; }
   var keepT = 0;
-  function keep() { clearTimeout(keepT); keepT = setTimeout(function () { try { localStorage.setItem(DKEY, JSON.stringify({ m: S.m, cam: S.cam })); } catch (e) {} }, 300); }
+  function keep() { clearTimeout(keepT); keepT = setTimeout(function () { try { localStorage.setItem(DKEY, JSON.stringify({ m: S.m, cam: S.cam, res: S.res })); } catch (e) {} }, 300); }
   function say(t, bad) { S.msg = t; S.bad = !!bad; var el = S.host && S.host.querySelector(".ma-me .msg"); if (el) { el.textContent = t; el.className = "msg" + (bad ? " bad" : ""); } }
   function esc(t) { return String(t).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
   function pad(n) { return ("00" + n).slice(-3); }
@@ -68,6 +69,14 @@
   function changed(panel) { S.needBuild = true; S.needView = true; keep(); if (panel) renderPanel(); }
   function pushUndo() { S.undo.push(JSON.stringify(M())); if (S.undo.length > 50) S.undo.shift(); }
   function undo() { if (!S.undo.length) { say(L2("Nichts rückgängig zu machen.", "Nothing to undo.")); return; } S.m.model = D.sanitize(JSON.parse(S.undo.pop())); S.pend = -1; changed(true); }
+  // Editor-Auflösung: res = Monsterhöhe in Pixeln (16–256). Der Bildausschnitt bleibt gleich, nur die Pixelzahl ändert sich.
+  function setRes(r) {
+    r = Math.max(16, Math.min(256, Math.round(+r || 128)));
+    var nbh = Math.max(17, Math.min(272, Math.round(r / 0.94)));
+    if (S.cam && BH) S.cam.zoom *= nbh / BH;
+    BH = nbh; K = MA.H / BH; BW = Math.max(30, Math.round(MA.W / K)); S.res = r;
+    S.vc = MA.canvas(BW, BH); S.vhit = null; S.needView = true;
+  }
   function measured() {   // Größe und Gewicht aus dem Modell (seit v0.26.2), zwischengespeichert
     var key = JSON.stringify(M()) + "|" + S.m.size;
     if (!S.meas || S.meas.key !== key) S.meas = { key: key, r: D.measure(M(), S.m.size) };
@@ -140,6 +149,8 @@
       h += '<button type="button" data-a="clearpaint" style="width:100%;margin-top:3px">' + L2("Alle Pinselstriche löschen", "Clear all brush strokes") + '</button>';
       h += '<div class="hint">' + L2("Grund-Oberfläche: ", "Base surface: ") + '<b>' + L2(MATS[M().mat][0], MATS[M().mat][1]) + '</b>. ' + L2("Mit gedrückter Maustaste auf den Körper malen. „Ganzer Körper“ setzt die gewählte Oberfläche bzw. Farbe überall.", "Paint on the body with the mouse held down. “Whole body” applies the chosen surface or colour everywhere.") + '</div>';
     }
+    h += '<h4>' + L2("Pixel beim Bearbeiten", "Pixels while editing") + '</h4>' + slider("res", L2("Auflösung", "Resolution"), 16, 256, 1, S.res, function (v) { return v + " px"; });
+    h += '<div class="hint">' + L2("So viele Pixel hoch ist das Monster in der 3D-Ansicht (16 = sehr grob, 256 = sehr fein). Ändert nur die Ansicht, nicht das Spielbild. Hohe Werte brauchen mehr Rechenleistung.", "How many pixels tall the monster is in the 3D view (16 = very coarse, 256 = very fine). Only changes the view, not the game sprite. High values need more computing power.") + '</div>';
     h += '<h4>' + L2("Kamera", "Camera") + '</h4><div class="row3"><button type="button" data-a="v_front">' + L2("Vorne", "Front") + '</button><button type="button" data-a="v_side">' + L2("Seite", "Side") + '</button><button type="button" data-a="v_back">' + L2("Hinten", "Back") + '</button></div>';
     h += '<div class="hint">' + L2("Mausrad gedrückt + ziehen (oder Ziehen auf leerer Fläche, oder <kbd>Alt</kbd> + linke Maustaste) = drehen · <kbd>Shift</kbd> + Mausrad gedrückt = verschieben · Mausrad auf leerer Fläche = Zoom · Pfeiltasten drehen · <kbd>F</kbd> zentrieren.", "Hold wheel + drag (or drag on empty space, or <kbd>Alt</kbd> + left mouse) = rotate · <kbd>Shift</kbd> + held wheel = pan · wheel on empty space = zoom · arrow keys rotate · <kbd>F</kbd> centre.") + '</div>';
     h += '<h4>' + L2("Bildgröße im Spiel", "Sprite size in game") + '</h4>' + slider("size", L2("Größe", "Size"), 0.5, 2, 0.05, S.m.size, function (v) { return Math.round(64 * v) + " px"; });
@@ -615,6 +626,7 @@
     if (k === "cseed") { m.cry.seed = Math.max(1, Math.min(99999, Math.round(+v || 1))); keep(); return; }
     if (k === "pitch" || k === "stretch") { m.cry[k] = +v; if (o) o.textContent = (+v).toFixed(2); keep(); return; }
     if (k === "size") { m.size = +v; if (o) o.textContent = Math.round(64 * v) + " px"; S.fprev = null; keep(); return; }
+    if (k === "res") { setRes(v); if (o) o.textContent = S.res + " px"; keep(); return; }
     if (k === "br_r") { S.brush.r = +v; if (o) o.textContent = Math.round(v * 100); return; }
     if (k === "st_s" || k === "st_rot" || k === "st_tilt") {
       var s = S.pend >= 0 ? M().stamps[S.pend] : null; if (!s) return;

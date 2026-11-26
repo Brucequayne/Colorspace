@@ -49,7 +49,7 @@
     { id: "buildings", name: function () { return L2("Gebäude-Editor", "Building editor"); }, ver: "v0.22" },   // seit v0.2: buildeditor.js
     { id: "attacks", name: function () { return L2("Attacken", "Attacks"); }, soon: true },
     { id: "missions", name: function () { return L2("Missionen", "Missions"); }, soon: true },
-    { id: "monsters", name: function () { return L2("Monster-Editor", "Monster editor"); }, ver: "v0.26.2" }   // seit v0.25: monstereditor.js, 3D-Baukasten seit v0.26 (monster3d.js)
+    { id: "monsters", name: function () { return L2("Monster-Editor", "Monster editor"); }, ver: "v0.26.3" }   // seit v0.25: monstereditor.js, 3D-Baukasten seit v0.26 (monster3d.js)
   ];
 
   var TOOLS = ["tile", "brush", "obj", "deco", "walls", "move", "erase", "spawn", "zones"];

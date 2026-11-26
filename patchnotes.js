@@ -242,6 +242,9 @@ window.PATCHNOTES = {
         "House editor (separate from the map editor) with floors, walls in plaster, brick and wood with windows and doors, a roof with slopes and gables, and furniture. Houses are exported as .txt."] }
   ],
   monstersarc: [
+    { v: "0.26.3", t: "2026-11-26T02:40:00+01:00",
+      de: ["Monster-Editor: Die Pixelzahl beim Bearbeiten ist jetzt einstellbar – von 16 (sehr grob) bis 256 Pixel Monsterhöhe (sehr fein). Der Bildausschnitt bleibt gleich, die Einstellung wird gemerkt. Das Spielbild ist davon unabhängig."],
+      en: ["Monster editor: the pixel count while editing is now adjustable – from 16 (very coarse) to 256 pixels of monster height (very fine). The framing stays the same and the setting is remembered. The game sprite is independent of it."] },
     { v: "0.26.2", t: "2026-11-26T02:15:00+01:00",
       de: ["Fertige Spielbilder (Fotos vorne/hinten) mit einfacheren Schatten wie im Pokédex: nur Licht, Grundton und Schatten, kein Raster, einzelne Störpixel werden geglättet. Im Editor bleibt die detaillierte Schattierung.",
         "Glieder: Auch die Abschnitte zwischen zwei Gelenken lassen sich jetzt einzeln dicker oder dünner machen – mit der Maus drüberfahren und Mausrad drehen. Die Mitte wird zum Bauch bzw. zur Taille.",
