@@ -242,6 +242,11 @@ window.PATCHNOTES = {
         "House editor (separate from the map editor) with floors, walls in plaster, brick and wood with windows and doors, a roof with slopes and gables, and furniture. Houses are exported as .txt."] }
   ],
   monstersarc: [
+    { v: "0.26.5", t: "2026-11-26T04:00:00+01:00",
+      de: ["Monster-Editor, Symmetrie: Beim Ausschalten bleibt die andere Seite, wie sie ist. Gespiegelte Glieder, Stempel und Pinselstriche werden zu zwei einzelnen Teilen, die du getrennt bearbeiten kannst – z. B. nur einen Arm anheben.",
+        "Beim Einschalten wird nichts mehr zurückgesetzt. Die Symmetrie gilt dann nur für das, was du danach neu setzt oder veränderst."],
+      en: ["Monster editor, symmetry: switching it off keeps the other side as it is. Mirrored limbs, stamps and brush strokes become two separate parts you can edit individually – e.g. raise just one arm.",
+        "Switching it on no longer resets anything. Symmetry then only applies to what you place or change afterwards."] },
     { v: "0.26.4", t: "2026-11-26T03:20:00+01:00",
       de: ["Monster-Editor: neues Werkzeug „Bewegen“ – im Bild ziehen verschiebt das ganze Monster, ohne die Form zu ändern. Dazu Knöpfe hoch, runter und „Auf den Boden“.",
         "Neuer Knopf „Körper glätten“: gleicht die Dicken von Wirbelsäule, Schädel und allen Gliedern an ihre Nachbarn an (weniger Kontrast zwischen dick und dünn). Mehrmals klicken = stärker, Strg+Z macht es rückgängig.",

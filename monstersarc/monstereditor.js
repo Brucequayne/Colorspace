@@ -121,6 +121,7 @@
   }
   function buildPanel() {
     var Mo = M(), h = '<div class="seg c5">' + [["shape", "Formen", "Shape"], ["limb", "Glieder", "Limbs"], ["stamp", "Stempel", "Stamps"], ["paint", "Pinsel", "Brush"], ["move", "Bewegen", "Move"]].map(function (t) { return '<button type="button" data-tool="' + t[0] + '" aria-pressed="' + (S.tool === t[0]) + '">' + L2(t[1], t[2]) + '</button>'; }).join("") + '</div>';
+    h += '<div class="hint" style="margin-top:0">' + L2("Symmetrie aus: vorhandene Paare werden zu zwei einzelnen Teilen (nichts verschwindet). Symmetrie an: gilt nur für das, was du danach setzt oder veränderst.", "Symmetry off: existing pairs become two separate parts (nothing disappears). Symmetry on: only applies to what you place or change afterwards.") + '</div>';
     h += '<div class="row2"><button type="button" data-a="sym" aria-pressed="' + Mo.sym + '">' + L2("Symmetrie ", "Symmetry ") + (Mo.sym ? L2("an", "on") : L2("aus", "off")) + '</button><button type="button" data-a="undo">' + L2("Rückgängig", "Undo") + ' <kbd>Strg+Z</kbd></button></div>';
     h += '<div class="row2"><button type="button" data-a="smooth">' + L2("Körper glätten", "Smooth body") + '</button><button type="button" data-a="dex">' + L2("Monsterliste", "Monster list") + ' <kbd>L</kbd></button></div>';
     if (S.tool === "move") {
@@ -270,6 +271,21 @@
     chain(body, ["r", "w"]);
     Mo.limbs.forEach(function (L) { chain(L.j, ["r"]); L.j.forEach(function (q) { if (q.s) { q.s = 1 + (q.s - 1) * f; if (Math.abs(q.s - 1) < 0.03) delete q.s; } }); });
   }
+  function bakeSym() {   // gespiegelte Glieder, Stempel und Pinselstriche in eigenständige Kopien umwandeln
+    var Mo = M(), map = {}, n = 0, cp = function (o) { return JSON.parse(JSON.stringify(o)); }, li, k;
+    var nl = Mo.limbs.length;
+    for (li = 0; li < nl; li++) { var L = Mo.limbs[li]; if (!L.sym) continue; L.sym = false; var c = cp(L); c.j.forEach(function (q) { q.p = V.mir(q.p); }); Mo.limbs.push(c); map[li] = Mo.limbs.length - 1; n++; }
+    Mo.limbs.forEach(function (L, i) { if (i >= nl && L.anc && L.anc.k === "l" && map[L.anc.i] != null) L.anc = { k: "l", i: map[L.anc.i], j: L.anc.j }; });
+    var ns = Mo.stamps.length;
+    for (k = 0; k < ns; k++) {
+      var st = Mo.stamps[k], e = st.anc && st.anc.k === "e" && map[st.anc.i] != null;
+      if (e) { st.sym = false; var c2 = cp(st); c2.anc = { k: "e", i: map[st.anc.i], j: 0 }; c2.rot = -st.rot; Mo.stamps.push(c2); n++; }
+      else if (st.sym) { st.sym = false; var c3 = cp(st); c3.mir = !st.mir; if (st.anc && st.anc.k === "l" && map[st.anc.i] != null) c3.anc = { k: "l", i: map[st.anc.i], j: st.anc.j }; Mo.stamps.push(c3); n++; }
+    }
+    var np = Mo.paint.length;
+    for (k = 0; k < np; k++) { var d = Mo.paint[k]; if (!d.sym) continue; d.sym = false; var c4 = cp(d); c4.p = V.mir(d.p); if (d.anc && d.anc.k === "l" && map[d.anc.i] != null) c4.anc = { k: "l", i: map[d.anc.i], j: d.anc.j }; Mo.paint.push(c4); }
+    return n;
+  }
   function moveNode(kind, i, np) {
     var Mo = M(), arr = kind === "s" ? Mo.spine : Mo.head, n = arr[i]; if (Mo.sym) np[0] = 0;
     var d = V.sub(np, n.p); n.p = np; moveAnchored(function (a) { return a.k === kind && a.i === i; }, d);
@@ -350,8 +366,8 @@
       Mo.limbs.forEach(function (L, li) { L.j.forEach(function (q, j) { P({ k: "l", i: li, j: j, col: "#6EC8E8" }, q.p); if (L.sym) P({ k: "l", i: li, j: j, m: 1, col: "#5AA0B8" }, V.mir(q.p)); }); });
     }
     if (t === "stamp") Mo.stamps.forEach(function (s, i) {
-      var F = D.stampFrame(Mo, s); P({ k: "st", i: i, col: i === S.pend ? "#ED6A5E" : "#E8E0FF" }, F.o);
-      var lsym = s.anc && s.anc.k === "e" && Mo.limbs[s.anc.i] && Mo.limbs[s.anc.i].sym; if (s.sym || lsym) P({ k: "st", i: i, m: 1, col: "#B8B0D0" }, V.mir(F.o));
+      var F = D.stampFrame(Mo, s), fo = s.mir ? V.mir(F.o) : F.o; P({ k: "st", i: i, col: i === S.pend ? "#ED6A5E" : "#E8E0FF" }, fo);
+      var lsym = s.anc && s.anc.k === "e" && Mo.limbs[s.anc.i] && Mo.limbs[s.anc.i].sym; if (s.sym || lsym) P({ k: "st", i: i, m: 1, col: "#B8B0D0" }, V.mir(fo));
     });
     // verdeckte Griffe markieren
     H.forEach(function (o) {
@@ -486,9 +502,10 @@
   }
   function placeStampAt(s, hit, mx, my) {
     var a = D.asset(s.a), Mo = M();
-    if (a && (a.cat === "feet" || a.cat === "hands")) { var li = nearLimbEnd(mx, my); if (li != null) { s.anc = { k: "e", i: li, j: 0 }; s.sym = !!Mo.limbs[li].sym; s.p = Mo.limbs[li].j[Mo.limbs[li].j.length - 1].p; return; } }
+    if (a && (a.cat === "feet" || a.cat === "hands")) { var li = nearLimbEnd(mx, my); if (li != null) { s.anc = { k: "e", i: li, j: 0 }; s.sym = !!Mo.limbs[li].sym; s.mir = false; s.p = Mo.limbs[li].j[Mo.limbs[li].j.length - 1].p; return; } }
     var p = hit.p, n = hit.n; if (hit.prim && hit.prim.src && hit.prim.src.m) { p = V.mir(p); n = V.mir(n); }
-    s.p = p; s.n = n; s.anc = srcAnchor(hit.prim, p); s.sym = Mo.sym && Math.abs(p[0]) > 0.04;
+    if (s.mir && !Mo.sym) { s.p = V.mir(p); s.n = V.mir(n); s.anc = srcAnchor(hit.prim, p); s.sym = false; return; }   // eigenständige Spiegel-Kopie bleibt gespiegelt gespeichert
+    s.mir = false; s.p = p; s.n = n; s.anc = srcAnchor(hit.prim, p); s.sym = Mo.sym && Math.abs(p[0]) > 0.04;
   }
   function addStamp(hit, mx, my) {
     var Mo = M(); if (Mo.stamps.length >= 60) { say(L2("Höchstens 60 Stempel.", "At most 60 stamps."), true); return; }
@@ -636,7 +653,12 @@
     if (a === "cseed") { m.cry.seed = 1 + Math.floor(Math.random() * 99998); keep(); renderPanel(); MO.playCry(m); return; }
     if (a === "play") { MO.playCry(m); return; }
     if (a === "rndpal") { m.pal = randomPal(); changed(true); return; }
-    if (a === "sym") { Mo.sym = !Mo.sym; if (Mo.sym) { Mo.spine.forEach(function (n) { n.p[0] = 0; }); Mo.head.forEach(function (n) { n.p[0] = 0; }); } changed(true); return; }
+    if (a === "sym") {   // aus: Paare werden zu zwei einzelnen Teilen; an: gilt nur für neue Teile und Änderungen, nichts wird zurückgesetzt (seit v0.26.5)
+      pushUndo();
+      if (Mo.sym) { var nb = bakeSym(); Mo.sym = false; say(nb ? L2("Symmetrie aus – ", "Symmetry off – ") + nb + L2(" Paare sind jetzt einzelne Teile und lassen sich getrennt bearbeiten.", " pairs are now separate parts you can edit individually.") : L2("Symmetrie aus.", "Symmetry off.")); }
+      else { Mo.sym = true; say(L2("Symmetrie an – gilt für alles, was du ab jetzt setzt oder veränderst.", "Symmetry on – applies to everything you place or change from now on.")); }
+      S.pend = -1; changed(true); return;
+    }
     if (a === "undo") { undo(); return; }
     if (a === "smooth") { pushUndo(); smoothModel(); say(L2("Körper geglättet – mehrmals klicken für mehr.", "Body smoothed – click several times for more.")); changed(true); return; }
     if (a === "dex") { MA.dexFrom = "devkit"; MA.main.go("dex"); return; }

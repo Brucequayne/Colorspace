@@ -223,7 +223,7 @@
     });
     (Array.isArray(M.stamps) ? M.stamps : []).slice(0, 60).forEach(function (s) {
       if (!s || !asset(s.a)) return;
-      o.stamps.push({ a: s.a, p: v3(s.p, [0, 0, 0]), n: norm(v3(s.n, [0, 0, 1])), rot: clamp(s.rot, -7, 7, 0), tilt: clamp(s.tilt, -1.6, 1.6, 0), s: clamp(s.s, 0.2, 5, 1), sym: !!s.sym, anc: anc(s.anc) });
+      o.stamps.push({ a: s.a, p: v3(s.p, [0, 0, 0]), n: norm(v3(s.n, [0, 0, 1])), rot: clamp(s.rot, -7, 7, 0), tilt: clamp(s.tilt, -1.6, 1.6, 0), s: clamp(s.s, 0.2, 5, 1), sym: !!s.sym, mir: !!s.mir, anc: anc(s.anc) });
     });
     (Array.isArray(M.paint) ? M.paint : []).slice(0, 600).forEach(function (d) {
       if (!d) return; o.paint.push({ p: v3(d.p, [0, 0, 0]), r: clamp(d.r, 0.01, 1, 0.08), k: d.k ? 1 : 0, v: Math.round(clamp(d.v, 0, 4, 0)), sym: !!d.sym, anc: anc(d.anc) });
@@ -289,6 +289,7 @@
         else { q.a = W(lp.a); q.b = W(lp.b); q.r1 = lp.r1 * sc; q.r2 = lp.r2 * sc; q.w = 1; }
         P.push(q);
       });
+      if (s.mir) for (var mm = s0, me = P.length; mm < me; mm++) { P[mm] = mirrorPrim(P[mm]); P[mm].src.m = 0; }   // eigenständige Spiegel-Kopie (seit v0.26.5): Werte liegen gespiegelt vor
       var lsym = s.anc && s.anc.k === "e" && M.limbs[s.anc.i] && M.limbs[s.anc.i].sym;
       if (s.sym || lsym) for (var m = s0, e = P.length; m < e; m++) P.push(mirrorPrim(P[m]));
     });
