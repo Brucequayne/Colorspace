@@ -63,7 +63,26 @@ Das Modell kommt später als SkinnedMesh mit denselben Knochen (oder wird auf si
 - Gangzyklus in `runner.js` (Zweig `loco`): Frequenz `cad` und Kontaktanteil `beta` aus dem Tempo, Schrittlänge = v·beta/cad (Standfuß steht).
   Gehen/Laufen wird über `rf` überblendet. Neigung aus Grundhaltung + Längsbeschleunigung `acc`, Kurvenlage aus Querbeschleunigung `lat`.
 
-## Bewegung (Stand v0.1)
+## Bewegung (Stand v0.12)
+
+- Tasten: WASD (relativ zur Kamera), Shift sprinten, Leertaste: springen / Wandsprung / an der Kante hochziehen / beim Aufkommen abrollen,
+  Q/E Hüft-Slide links/rechts (halten), Strg/C ducken und Kante loslassen.
+- Stufen ≤ `step` (0,45 m) steigt er im Lauf (`Mover.stepUp`, Versatz optisch über `smooth` ausgeglichen).
+- Kanten in der Luft (`Mover.grabLedge`): Höhe über dem Absprungboden ≤ 0,55 m Füße (`vault` „step“), ≤ `vaultHands` (1,3 m) Hände („hands“),
+  darüber Hängen (`hang`, Körper `hangDrop` unter der Kante). Im Hängen: Leertaste = Hochziehen („pullup“), A/D hangeln (`edgeAt` prüft die Kante),
+  Strg/C oder rückwärts = loslassen, rückwärts + Leertaste = Rücksprung.
+- Fallhöhe = höchster Punkt seit Bodenkontakt − Landehöhe. Grenzen `safe`, `stumble`, `deadly` in `TUNE`; Leertaste in der Luft bei schnellem Fall
+  = Abrollwunsch (`rollBuf`), kurz nach dem Aufprall noch `lateRoll` Sekunden Zeit. Beinbruch → Modus `broken`, Ragdoll in `runner.js`.
+- Slide: `slideSide` +1 links (Q), −1 rechts (E); Aufstehen `startGetup`: Wunschrichtung zur Hüftseite = schnell mit Drehung, andere Seite = langsam.
+
+## Animation (Stand v0.12)
+
+- `Runner.place()` vor `update()` aufrufen. `runner.world` = Welt für Fuß-Strahlen und Ragdoll-Kollision.
+- Füße: `ground()` je Fuß (Höhe, Neigung), Becken `pelOff` senkt sich auf den tieferen Fuß.
+- Hände: `armIK()` (Zwei-Knochen-IK in 3D, Ellbogen nach `pole`), genutzt beim Hängen, Hochziehen und Hände-Vault.
+- Ragdoll: `startRagdoll()` baut 15 Punkte aus den Gelenken, Stäbe dazwischen, `applyRag()` dreht die Knochen danach.
+
+## Bewegung (Stand v0.1, teils überholt)
 
 WASD (relativ zur Kamera), Shift sprinten, Leertaste springen. Strg/C: rutschen ab Sprinttempo, sonst ducken;
 kurz vor der Landung nach hohem Fall: abrollen (sonst ab ~4,9 m stolpern). In der Luft an einer Wand entlang: Wallrun,

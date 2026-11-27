@@ -50,10 +50,10 @@ const CSS = `
 .pru-dim{position:absolute;background:#141518;color:#fff;border-left:3px solid #E2621B;padding:4px 8px;font-weight:700;font-variant-numeric:tabular-nums;pointer-events:none!important;white-space:pre}
 .pru-dim[hidden]{display:none}
 /* Testlauf */
-.pru-hud{position:absolute;inset:0}
+.pru-hud{position:absolute;inset:0}.pru-hurt{position:absolute;inset:0;pointer-events:none!important;opacity:0;transition:opacity .15s;background:radial-gradient(ellipse at center,rgba(160,20,10,0) 45%,rgba(160,20,10,.55) 100%)}
 .pru-time{position:absolute;left:50%;top:18px;transform:translateX(-50%);font:800 34px/1 var(--f-display,system-ui,sans-serif);color:#fff;font-variant-numeric:tabular-nums;text-shadow:0 2px 12px rgba(0,0,0,.35);pointer-events:none!important}
 .pru-sub{position:absolute;left:50%;top:58px;transform:translateX(-50%);color:#fff;opacity:.85;font-weight:600;text-shadow:0 1px 6px rgba(0,0,0,.5);white-space:nowrap;pointer-events:none!important}
-.pru-keys{position:absolute;left:14px;bottom:14px;max-width:min(520px,44vw);line-height:1.4;color:#fff;opacity:.75;font-size:11.5px;text-shadow:0 1px 5px rgba(0,0,0,.6);pointer-events:none!important}
+.pru-keys{position:absolute;left:14px;top:14px;max-width:min(380px,30vw);line-height:1.4;color:#fff;opacity:.75;font-size:11.5px;text-shadow:0 1px 5px rgba(0,0,0,.6);pointer-events:none!important}
 .pru-click{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);background:rgba(20,21,24,.8);padding:10px 16px;font-weight:700;pointer-events:none!important}.pru-click[hidden]{display:none}
 .pru-over{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(10,11,13,.35)}.pru-over[hidden]{display:none}
 .pru-box{display:flex;flex-direction:column;gap:6px;width:280px;background:rgba(20,21,24,.94);border:1px solid #3A3D42;padding:18px;backdrop-filter:blur(8px)}
