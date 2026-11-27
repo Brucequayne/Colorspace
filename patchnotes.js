@@ -2,6 +2,11 @@
    Neueste Version jeweils oben. t = Zeitpunkt des Updates (deutsche Zeit).
    Die Versionsnummer auf den Kacheln kommt aus dem obersten Eintrag. */
 window.PATCHNOTES = {
+  wefx: [
+    { v: "0.1", t: "2026-11-27T04:30:00+01:00",
+      de: ["WeFX ist da: ein neues Video-Tool für kreative Effekte, mit demselben Aufbau wie Frame Painter (große Vorschau, Player mit I/O-Bereich, Vollbild, einklappbare Leiste)", "Effektkette: Effekte wirken nacheinander von oben nach unten, jeder bekommt das Ergebnis des vorigen. Die Reihenfolge änderst du per Drag & Drop am Griff oder mit den Pfeiltasten", "Jeder Effekt hat eigene Regler, einen Mix-Regler für seine Stärke, lässt sich ausschalten, duplizieren und zurücksetzen", "Drei erste Effekte: Welle, RGB-Split und Pixel (Blöcke oder Punktraster)", "Export als Full-HD-MP4 mit 24, 25, 30 oder 60 Bildern pro Sekunde, mit Ton und nur im I/O-Bereich, dazu Einzelbild als PNG", "Jeder Effekt steckt in einer eigenen Datei, so können Effekte später beliebig tief werden, ohne das Tool wackelig zu machen"],
+      en: ["WeFX is here: a new video tool for creative effects, built like Frame Painter (large preview, player with I/O range, fullscreen, foldable bar)", "Effect chain: effects work one after another from top to bottom, each gets the result of the one before. Change the order by drag and drop on the handle or with the arrow keys", "Every effect has its own sliders, a mix slider for its strength, and can be switched off, duplicated and reset", "First three effects: wave, RGB split and pixel (blocks or dot grid)", "Export as Full HD MP4 at 24, 25, 30 or 60 frames per second, with sound and only inside the I/O range, plus single frame as PNG", "Each effect lives in its own file, so effects can grow as deep as needed later without making the tool shaky"] }
+  ],
   leaarn: [
     { v: "0.21", t: "2026-11-26T18:50:00+01:00",
       de: ["Chemie, Element-Steckbrief: großes klassisches Periodensystem unter dem Steckbrief statt Ausklapp-System. Jede Kachel zeigt Ordnungszahl, Symbol, Name und Atommasse – ohne Beschriftung, welche Zahl was ist, und ohne Anklicken. Auf Schwer ohne Gruppen- und Periodennummern.",

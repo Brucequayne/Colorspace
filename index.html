@@ -78,6 +78,9 @@ button.navbtn{background:transparent;cursor:pointer;border-color:var(--ink)}
 .a-draw{stroke-dasharray:420;animation:icoDraw 3.2s ease-in-out infinite}.a-tip{animation:icoTip 3.2s ease-in-out infinite}
 .a-film{animation:icoFilm 3s linear infinite}.a-stroke{stroke-dasharray:90;animation:icoDraw2 3s ease-in-out infinite}
 .a-ch1{animation:icoCh1 3.6s ease-in-out infinite}
+.a-warp{animation:icoWarp 3.4s ease-in-out infinite}.a-wx{transform-box:view-box!important;animation:icoWx 1.6s linear infinite}.a-wx2{transform-box:view-box!important;animation:icoWx 2.2s linear infinite reverse}
+@keyframes icoWarp{0%,100%{transform:skewX(0) scale(1,1)}25%{transform:skewX(-9deg) scale(1.07,.93)}50%{transform:skewX(0) scale(.93,1.08)}75%{transform:skewX(9deg) scale(1.05,.95)}}
+@keyframes icoWx{to{transform:translateX(-134px)}}
 .a-drip{animation:icoDrip 2.8s ease-in infinite}.a-rip{opacity:0;animation:icoRip 2.8s ease-out infinite}.a-rip2{opacity:0;animation:icoRip 2.8s ease-out infinite;animation-delay:.18s}.a-wv{animation:icoWv 1.1s ease-in-out infinite}.a-wv2{animation:icoWv 1.1s ease-in-out infinite;animation-delay:.2s}@keyframes icoWv{0%,100%{opacity:.15}45%{opacity:1}}
 @keyframes icoDrip{0%{transform:translateY(-60px);opacity:0}10%{opacity:1}52%{transform:translateY(64px);opacity:1}56%,100%{transform:translateY(70px) scale(.4);opacity:0}}
 @keyframes icoRip{0%,52%{opacity:0;transform:scale(.2)}56%{opacity:1}100%{opacity:0;transform:scale(1.5)}}.a-ch3{animation:icoCh3 3.6s ease-in-out infinite}
@@ -332,6 +335,7 @@ body.home .foot{background:transparent;box-shadow:none}
 <script src="pixellab.js?v=20261127-0400"></script>
 <script src="ezcrop.js?v=20261127-0400"></script>
 <script src="framepaint.js?v=20261127-0400"></script>
+<script src="wefx.js?v=20261127-0400"></script>
 <script src="drawspace.js?v=20261127-0400"></script>
 <script src="citygen.js?v=20261127-0400"></script>
 <script src="spacerogue.js?v=20261127-0400"></script>
@@ -373,7 +377,7 @@ body.home .foot{background:transparent;box-shadow:none}
     pixellab: { de: "PIXELLAB", en: "PIXELLAB" },
     ezcrop: { de: "EZ Crop", en: "EZ Crop" },
     skapeform: { de: "SkapeForm", en: "SkapeForm" },
-    framepaint: { de: "Frame Painter", en: "Frame Painter" },
+    framepaint: { de: "Frame Painter", en: "Frame Painter" }, wefx: { de: "WeFX", en: "WeFX" },
     drawspace: { de: "Draw Space", en: "Draw Space" }, citygen: { de: "CityGenerator", en: "CityGenerator" }, spacerogue: { de: "Space Rogue", en: "Space Rogue" }, shizuku: { de: "Shizuku", en: "Shizuku" }, rapstreets: { de: "Rap Streets", en: "Rap Streets" }, polyracer: { de: "Poly Racer", en: "Poly Racer" }, leaarn: { de: "Leaarn", en: "Leaarn" }, monstersarc: { de: "Monsters Arc", en: "Monsters Arc" }, anarchyfrankfurt: { de: "Anarchy Frankfurt", en: "Anarchy Frankfurt" }
   };
   var APPS = [
@@ -407,6 +411,8 @@ body.home .foot{background:transparent;box-shadow:none}
       d: { de: "Skizzier Haupt- und Verteilerstraßen, wähle USA, Europa oder Japan und lass eine ganze Stadt entstehen. Danach Parks, Wasser und Spezialbauten wie Stadion, Kathedrale oder Hafen einmalen.", en: "Sketch main and distributor roads, pick USA, Europe or Japan and let a whole city grow. Then paint in parks, water and special buildings like a stadium, cathedral or harbour." } },
     { id: "drawspace", tone: "#62929E", ver: "v0.3", art: "ICO_drawspace",
       d: { de: "Eine weiße Fläche von 100.000 × 100.000 Pixeln zum Kritzeln: Rund-, Haar- und Borstenpinsel, Spraydose, Lineal und Kurve, starke Glättung, Farbkreis. Ausschnitte exportierst du als JPEG in genau der gezogenen Größe.", en: "A white area of 100,000 × 100,000 pixels for sketching: round, hair and bristle brushes, spray can, ruler and curve, strong smoothing, colour wheel. Export any area as a JPEG in exactly the size you drag." } },
+    { id: "wefx", tone: "#62929E", ver: "v0.1", art: "ICO_wefx",
+      d: { de: "Video-Effekte in einer Kette: Welle, RGB-Split, Pixel und mehr übereinanderlegen, die Reihenfolge per Drag & Drop ändern und live ansehen. Export als Full-HD-MP4. Das Video bleibt auf deinem Gerät.", en: "Video effects in a chain: layer wave, RGB split, pixel and more, change the order by drag and drop and watch it live. Export as Full HD MP4. The video stays on your device." } },
     { id: "framepaint", tone: "#62929E", ver: "v0.55", art: "ICO_framepaint",
       d: { de: "Video laden und Bild für Bild darübermalen: Stift, Pinsel, Spraydose, Wachsmalkreide, Farben nur per Pipette aus dem Video, Quickpaint füllt Farbflächen als Skizze, Magic Paint zeichnet den ganzen Frame nach. 5, 15 oder 30 Frames pro Sekunde, Export als Full-HD-MP4. Das Video bleibt auf deinem Gerät.", en: "Load a video and paint over it frame by frame: pen, brush, spray can, wax crayon, colours only via the picker from the video, Quickpaint fills colour areas as a sketch, Magic Paint redraws the whole frame. 5, 15 or 30 frames per second, export as Full HD MP4. The video stays on your device." } },
     { id: "weltmacht", tone: "#ED6A5E", ver: "v0.15", art: "ICO_weltmacht",
@@ -464,7 +470,7 @@ body.home .foot{background:transparent;box-shadow:none}
   (function () {
     var F = 'class="fg"', A = 'class="ac"', S = 'class="st"';
     var SH = { leaarn: "#E8665A", monstersarc: "#DF6256", polyracer: "#E26458", anarchyfrankfurt: "#D95E53", rapstreets: "#ED6A5E", shizuku: "#E8665A", spacerogue: "#DF6256", flughafen: "#F07367", gigachess: "#E5675B", weltmacht: "#D95E53", noaim: "#F07367", citygen: "#E26458",
-      pixellab: "#4A6D7C", colorspin: "#62929E", ezcrop: "#55808C", skapeform: "#4A6D7C", drawspace: "#62929E", framepaint: "#55808C", channels: "#5B8A96" };
+      pixellab: "#4A6D7C", colorspin: "#62929E", ezcrop: "#55808C", skapeform: "#4A6D7C", drawspace: "#62929E", framepaint: "#55808C", channels: "#5B8A96", wefx: "#4A6D7C" };
     function wrap(cat, body, id) { return '<svg class="ico ico-' + cat + '" style="--ib:' + SH[id] + '" viewBox="0 0 320 200" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><rect class="bg" width="320" height="200"/><g class="grid">' + grid() + '</g>' + body + '</svg>'; }
     function grid() { var o = ""; for (var x = 20; x < 320; x += 40) for (var y = 20; y < 200; y += 40) o += '<rect x="' + (x - 1.5) + '" y="' + (y - 1.5) + '" width="3" height="3"/>'; return o; }
     var I = {
@@ -511,6 +517,9 @@ body.home .foot{background:transparent;box-shadow:none}
       framepaint: ['t', '<g class="a-film"><rect ' + F + ' x="10" y="58" width="300" height="84"/><g class="bgc">' + (function () { var o = ""; for (var x = 18; x < 310; x += 24) { o += '<rect x="' + x + '" y="64" width="12" height="8"/><rect x="' + x + '" y="128" width="12" height="8"/>'; } return o; })() + '</g>' +
         '<rect class="bgc" x="38" y="78" width="70" height="44"/><rect class="bgc" x="125" y="78" width="70" height="44"/><rect class="bgc" x="212" y="78" width="70" height="44"/></g>' +
         '<path class="ac a-stroke" fill="none" stroke-width="7" d="M138 112c10-18 22-18 30-6s16 6 20-10"/>'],
+      wefx: ['t', '<defs><clipPath id="wxclip"><rect x="104" y="48" width="112" height="104"/></clipPath></defs><g class="a-warp"><g clip-path="url(#wxclip)"><rect ' + F + ' opacity=".18" x="104" y="48" width="112" height="104"/>' +
+        '<path class="st a-wx" d="M14 80c22-18 45-18 67 0s45 18 67 0 45-18 67 0 45 18 67 0 45-18 67 0 45 18 67 0"/><path class="ac a-wx2" fill="none" stroke-width="7" d="M14 120c22-18 45-18 67 0s45 18 67 0 45-18 67 0 45 18 67 0 45-18 67 0 45 18 67 0"/></g>' +
+        '<rect ' + S + ' x="104" y="48" width="112" height="104"/></g>'],
       channels: ['t', '<rect class="fg a-ch1" opacity=".9" x="112" y="60" width="72" height="72"/><rect  class="st a-ch2" x="124" y="70" width="72" height="72"/><rect class="ac a-ch3" opacity=".85" x="136" y="80" width="72" height="72"/>']
     };
     Object.keys(I).forEach(function (k) { ICO["ICO_" + k] = wrap(I[k][0], I[k][1], k); });
@@ -763,6 +772,7 @@ body.home .foot{background:transparent;box-shadow:none}
     if (window.Pixellab) window.Pixellab.unmount();
     if (window.EzCrop) window.EzCrop.unmount();
     if (window.FramePainter) window.FramePainter.unmount();
+    if (window.WeFX) window.WeFX.unmount();
     if (window.DrawSpace) window.DrawSpace.unmount();
     if (window.CityGen) window.CityGen.unmount();
     if (window.SpaceRogue) window.SpaceRogue.unmount();
@@ -777,11 +787,11 @@ body.home .foot{background:transparent;box-shadow:none}
     if (window.Leaarn) window.Leaarn.unmount();
     var v = S.view;
     document.body.classList.toggle("home", v === "home" || v === "privacy");
-    if (v === "flughafen" || v === "gigachess" || v === "colorspin" || v === "pixellab" || v === "ezcrop" || v === "framepaint" || v === "drawspace" || v === "citygen" || v === "spacerogue" || v === "channels" || v === "noaim" || v === "weltmacht" || v === "shizuku" || v === "rapstreets" || v === "skapeform" || v === "anarchyfrankfurt" || v === "polyracer" || v === "monstersarc" || v === "leaarn") {
+    if (v === "flughafen" || v === "gigachess" || v === "colorspin" || v === "pixellab" || v === "ezcrop" || v === "framepaint" || v === "wefx" || v === "drawspace" || v === "citygen" || v === "spacerogue" || v === "channels" || v === "noaim" || v === "weltmacht" || v === "shizuku" || v === "rapstreets" || v === "skapeform" || v === "anarchyfrankfurt" || v === "polyracer" || v === "monstersarc" || v === "leaarn") {
       var full = FULL.indexOf(v) >= 0;
       app.innerHTML = '<div class="appbar"><a class="back" href="#">' + U("back") + '</a>' + (full ? "" : '<div class="abr">' + pnButton(v) + '<div class="rate" id="rate" hidden></div></div>') + '</div><div id="approot"></div>';
       if (full) { var d = document.createElement("div"); d.className = "fbar"; d.innerHTML = pnButton(v) + '<div class="rate" id="rate" hidden></div>'; document.body.appendChild(d); }
-      var mod = { flughafen: window.Flughafen, gigachess: window.Gigachess, colorspin: window.Colorspin, pixellab: window.Pixellab, ezcrop: window.EzCrop, framepaint: window.FramePainter, drawspace: window.DrawSpace, citygen: window.CityGen, spacerogue: window.SpaceRogue, channels: window.Channels, noaim: window.NoAim, weltmacht: window.Weltmacht, shizuku: window.Shizuku, rapstreets: window.RapStreets, skapeform: window.SkapeForm, anarchyfrankfurt: window.AnarchyFrankfurt, polyracer: window.PolyRacer, monstersarc: window.MonstersArc, leaarn: window.Leaarn }[v];
+      var mod = { flughafen: window.Flughafen, gigachess: window.Gigachess, colorspin: window.Colorspin, pixellab: window.Pixellab, ezcrop: window.EzCrop, framepaint: window.FramePainter, wefx: window.WeFX, drawspace: window.DrawSpace, citygen: window.CityGen, spacerogue: window.SpaceRogue, channels: window.Channels, noaim: window.NoAim, weltmacht: window.Weltmacht, shizuku: window.Shizuku, rapstreets: window.RapStreets, skapeform: window.SkapeForm, anarchyfrankfurt: window.AnarchyFrankfurt, polyracer: window.PolyRacer, monstersarc: window.MonstersArc, leaarn: window.Leaarn }[v];
       if (mod) mod.mount(document.getElementById("approot"), S.lang);
       loadRating(v);
     } else if (v === "privacy") app.innerHTML = privacyHTML();
@@ -803,7 +813,7 @@ body.home .foot{background:transparent;box-shadow:none}
   function setView() {
     var id = location.hash.replace("#", "");
     if (id === "fotoprojekt") { id = "channels"; history.replaceState(null, "", "#channels"); }
-    S.view = id === "datenschutz" ? "privacy" : ["flughafen", "gigachess", "pixellab", "colorspin", "ezcrop", "framepaint", "drawspace", "citygen", "spacerogue", "channels", "noaim", "weltmacht", "shizuku", "rapstreets", "skapeform", "anarchyfrankfurt", "polyracer", "monstersarc", "leaarn"].indexOf(id) >= 0 ? id : "home";
+    S.view = id === "datenschutz" ? "privacy" : ["flughafen", "gigachess", "pixellab", "colorspin", "ezcrop", "framepaint", "wefx", "drawspace", "citygen", "spacerogue", "channels", "noaim", "weltmacht", "shizuku", "rapstreets", "skapeform", "anarchyfrankfurt", "polyracer", "monstersarc", "leaarn"].indexOf(id) >= 0 ? id : "home";
   }
   function route() { setView(); render(); window.scrollTo(0, 0); }
 
