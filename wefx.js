@@ -3,12 +3,12 @@
 
    Aufbau
    - Dieser Kern kümmert sich um Oberfläche, Video, Player, I/O-Bereich, Vollbild, die Effektkette und den Export.
-   - Jeder Effekt liegt in einer eigenen Datei unter wefx/ (fx-<id>.js) und meldet sich mit WeFX.register({...}) an.
+   - Jeder Effekt liegt in einer eigenen Datei fx-<id>.js im Hauptverzeichnis und meldet sich mit WeFX.register({...}) an.
      So kann ein Effekt beliebig tief werden, ohne den Kern anzufassen.
    - Die Reihenfolge der Kette zählt: Das Video läuft von oben nach unten durch alle eingeschalteten Effekte,
      jeder bekommt das Ergebnis des vorigen. Per Drag & Drop am Griff lässt sich die Reihenfolge ändern.
 
-   Effekt-Schnittstelle (siehe wefx/fx-wave.js als Vorlage)
+   Effekt-Schnittstelle (siehe fx-wave.js als Vorlage)
    WeFX.register({
      id: "wave", name: { de, en }, desc: { de, en }, icon: "<svg …>",
      params: [ { k, type: "range" | "select" | "color" | "check", label: { de, en }, def, min, max, step, unit, options: [[wert, { de, en }], …] } ],
@@ -16,15 +16,18 @@
      render(c)       // Pflicht: zeichnet von c.src nach c.dst
    })
    c = { src, dst (Canvas gleicher Größe), w, h, scale (Breite / 1920, für Pixelangaben), t (Sekunden), frame, fps,
-         p (Werte der Regler), state (bleibt je Instanz erhalten), cont (true, wenn direkt auf den vorigen Frame folgt),
+         p (Werte der Regler), state (bleibt je Instanz erhalten),
+         cont (true, wenn dieser Frame bis zu 4 Frames nach dem vorigen kommt; gap = Abstand),
+         same (true, wenn derselbe Frame noch einmal gerechnet wird, etwa nach einer Regleränderung im Stand),
          export (true beim Export), util }
-   Den Regler „Mix“ (Stärke der Wirkung) und das Ein-/Ausschalten übernimmt der Kern für jeden Effekt. */
+   Parametertyp "pick": Farbe, die man mit der Pipette aus dem Video nimmt (Wert "#RRGGBB").
+   Den Regler „Mix“, das Ein-/Ausschalten und den Bereich (Cropper) übernimmt der Kern für jeden Effekt. */
 (function () {
   "use strict";
 
-  var VERSION = "0.1", RATES = [24, 25, 30, 60];
-  // Je Effekt eine Datei: wefx/fx-<id>.js. Neue Effekte hier eintragen.
-  var FX_FILES = ["wave", "rgbsplit", "pixelate"];
+  var VERSION = "0.11", RATES = [24, 25, 30, 60];
+  // Je Effekt eine Datei: fx-<id>.js im Hauptverzeichnis. Neue Effekte hier eintragen.
+  var FX_FILES = ["colorblur", "wave", "rgbsplit", "pixelate"];
   var STAMP = (function () { var s = document.currentScript && document.currentScript.src, m = s && /[?&]v=([^&]+)/.exec(s); return m ? m[1] : VERSION; })();
   var lang = "de";
   function L2(de, en) { return { de: de, en: en }; }
@@ -49,6 +52,13 @@
     addH: L2("Effekt hinzufügen", "Add effect"), fxLoading: L2("Effekte werden geladen …", "Loading effects …"), fxFail: L2("{n} konnte nicht geladen werden.", "{n} could not be loaded."),
     mix: L2("Mix", "Mix"), on: L2("Ein- oder ausschalten", "Turn on or off"), openFx: L2("Einstellungen öffnen oder schließen", "Open or close settings"),
     del: L2("Entfernen", "Remove"), dup: L2("Duplizieren", "Duplicate"), reset: L2("Zurücksetzen", "Reset"), grip: L2("Ziehen zum Sortieren (oder Pfeiltasten)", "Drag to reorder (or arrow keys)"),
+    pickBtn: L2("Pipette", "Picker"), pickOn: L2("Klick ins Bild nimmt die Farbe (Esc bricht ab)", "Click the image to take the colour (Esc cancels)"),
+    cropH: L2("Bereich", "Area"), cropOn: L2("Nur in einem Bereich wirken", "Only work inside an area"), cropEdit: L2("Bereich bearbeiten", "Edit area"), cropDone: L2("Fertig", "Done"),
+    cropClear: L2("Keyframes löschen", "Clear keyframes"), cropInv: L2("Umkehren: außerhalb wirken", "Invert: work outside"), cropFeather: L2("Weiche Kante", "Soft edge"), cropSmooth: L2("Glättung der Bewegung", "Motion smoothing"),
+    cropKeys: L2("{n} Keyframes", "{n} keyframes"), cropNoKeys: L2("Noch keine Keyframes: der Bereich steht still.", "No keyframes yet: the area stays still."),
+    cropHelp: L2("Im Bild: innen ziehen verschiebt, an Kante oder Ecke ziehen ändert die Größe. Beim Abspielen mit gedrückter Maus wird die Bewegung aufgenommen, im Stand setzt Ziehen einen Keyframe.", "In the image: drag inside to move, drag an edge or corner to resize. Hold the mouse during playback to record the move, when paused dragging sets one keyframe."),
+    masterH: L2("Master-Bereich", "Master area"), masterOn: L2("Alle Effekte auf einen Bereich begrenzen", "Limit all effects to one area"), masterNote: L2("Außerhalb bleibt das Original, innen wirkt die ganze Kette.", "Outside stays original, inside the whole chain works."),
+    rec: L2("Aufnahme", "Recording"),
     exportH: L2("Export", "Export"), fps: L2("Bildrate", "Frame rate"), bitrate: L2("Bitrate (variabel)", "Bitrate (variable)"), audio: L2("Ton des Videos mitnehmen", "Keep the video's sound"),
     exportInfo: L2("MP4 · H.264 · {w} × {h} (Full HD) · {f} Bilder/s · variable Bitrate um {br} Mbit/s", "MP4 · H.264 · {w} × {h} (Full HD) · {f} fps · variable bitrate around {br} Mbit/s"),
     save: L2("Als MP4 exportieren", "Export as MP4"), cancel: L2("Abbrechen", "Cancel"),
@@ -65,6 +75,8 @@
               "An effect is a building block in a chain. The video runs from top to bottom through every effect that is switched on, each works on the result of the one before. That is why the order matters: pixel first and then wave bends the pixel blocks, wave first and then pixel turns the wave into coarse steps."),
     how2: L2("Jeder Effekt hat einen Regler „Mix“, der seine Wirkung mit dem Bild davor mischt, und lässt sich einzeln ausschalten. Am Griff links ziehst du ihn an eine andere Stelle, mit dem Griff im Fokus gehen auch die Pfeiltasten. D gedrückt halten zeigt das Original.",
               "Each effect has a “Mix” slider that blends its result with the image before it, and can be switched off on its own. Drag it by the handle on the left to another place, with the handle focused the arrow keys work too. Hold D to see the original."),
+    how4: L2("Jeder Effekt kann auf einen Bereich begrenzt werden, dazu gibt es einen Master-Bereich für die ganze Kette. Das Rechteck ziehst du im Bild frei auf, innen verschieben, an Kanten und Ecken die Größe ändern. Hältst du die Maus beim Abspielen gedrückt, wird die Bewegung als Keyframes aufgenommen, wie bei EZ Crop. „Umkehren“ lässt den Effekt außerhalb wirken.",
+              "Every effect can be limited to an area, and there is a master area for the whole chain. Drag the rectangle freely in the image, move it from inside, resize at edges and corners. Hold the mouse during playback and the move is recorded as keyframes, like in EZ Crop. “Invert” makes the effect work outside."),
     how3: L2("Die Vorschau rechnet in geringerer Auflösung, damit sie flüssig bleibt. Der Export rechnet jeden Frame in Full HD neu, nur im I/O-Bereich, wenn einer gesetzt ist.",
               "The preview works at a lower resolution so it stays smooth. The export renders every frame again in Full HD, only inside the I/O range if one is set.")
   };
@@ -96,7 +108,7 @@
     FX_FILES.forEach(function (id) {
       if (REG[id] || LOADING[id]) return;
       LOADING[id] = true; delete FAILED[id];
-      var s = document.createElement("script"); s.src = "wefx/fx-" + id + ".js?v=" + STAMP; s.async = true;
+      var s = document.createElement("script"); s.src = "fx-" + id + ".js?v=" + STAMP; s.async = true;
       s.onerror = function () { delete LOADING[id]; FAILED[id] = true; if (V) updateSide(); };
       document.head.appendChild(s);
     });
@@ -107,7 +119,7 @@
   // F: Projekt { file, url, name, dur, vw, vh, ow, oh, n, idx, inF, outF }
   // S.chain: [{ uid, id, on, open, mix, p }] in Verarbeitungsreihenfolge (oben zuerst)
   var F = null, V = null, uidN = 0;
-  var S = { chain: [], tab: "fx", sideOpen: true, mbit: 16, audio: true, fpsI: 2 };
+  var S = { chain: [], tab: "fx", sideOpen: true, mbit: 16, audio: true, fpsI: 2, master: newCrop() };
   function fps() { return RATES[S.fpsI]; }
 
   // ---------- Laden ----------
@@ -162,6 +174,60 @@
     updateBar(); if (S.tab === "export") updateSide();
   }
 
+  // ---------- Cropper (seit v0.11) ----------
+  // Jeder Effekt hat einen eigenen Bereich (it.crop), dazu gibt es einen Master-Bereich (S.master) für die ganze Kette.
+  // Ein Bereich ist ein freies Rechteck, Mitte und Größe als Anteil der Bildbreite und -höhe, mit Keyframes über die Zeit:
+  // { on, inv, feather, smooth, cur: { x, y, w, h }, keys: [{ t, x, y, w, h }] }
+  function newCrop() { return { on: false, inv: false, feather: 0, smooth: 35, cur: { x: 0.5, y: 0.5, w: 0.5, h: 0.5 }, keys: [] }; }
+  function cropFix(r) { var w = clamp(r.w, 0.02, 1), h = clamp(r.h, 0.02, 1); return { x: clamp(r.x, w / 2, 1 - w / 2), y: clamp(r.y, h / 2, 1 - h / 2), w: w, h: h }; }
+  function cropInterp(cr, tm) {
+    var k = cr.keys;
+    if (!k.length) return cr.cur;
+    if (tm <= k[0].t) return k[0];
+    if (tm >= k[k.length - 1].t) return k[k.length - 1];
+    var lo = 0, hi = k.length - 1;
+    while (hi - lo > 1) { var mid = (lo + hi) >> 1; if (k[mid].t <= tm) lo = mid; else hi = mid; }
+    var a = k[lo], b = k[hi], f = (tm - a.t) / ((b.t - a.t) || 1);
+    return { x: a.x + (b.x - a.x) * f, y: a.y + (b.y - a.y) * f, w: a.w + (b.w - a.w) * f, h: a.h + (b.h - a.h) * f };
+  }
+  function cropAt(cr, tm) {
+    if (V && V.cdrag && V.cdrag.cr === cr) return V.cdrag.r;   // beim Ziehen gilt, was die Maus gerade zeigt
+    var wd = cr.smooth / 100 * 0.4;
+    if (!cr.keys.length || wd <= 0) return cropFix(cropInterp(cr, tm));
+    var o = { x: 0, y: 0, w: 0, h: 0 }, n = 0;
+    for (var i = -4; i <= 4; i++) { var q = cropInterp(cr, tm + wd * i / 4), wt = 5 - Math.abs(i); o.x += q.x * wt; o.y += q.y * wt; o.w += q.w * wt; o.h += q.h * wt; n += wt; }
+    return cropFix({ x: o.x / n, y: o.y / n, w: o.w / n, h: o.h / n });
+  }
+  function cropSetKey(cr, tm, r) {
+    var k = cr.keys, i = k.findIndex(function (q) { return Math.abs(q.t - tm) < 1 / 120; }), nk = { t: tm, x: r.x, y: r.y, w: r.w, h: r.h };
+    if (i >= 0) k[i] = nk; else { k.push(nk); k.sort(function (a, b) { return a.t - b.t; }); }
+  }
+  function cropRecord(cr, tm, r) {   // Aufnahme wie bei EZ Crop: ersetzt nur die Keyframes seit dem letzten aufgenommenen Zeitpunkt
+    var prev = V.recPrev; if (prev == null || tm < prev) prev = tm - 1e-3;
+    cr.keys = cr.keys.filter(function (q) { return !(q.t > prev && q.t <= tm + 1e-4); });
+    cr.keys.push({ t: tm, x: r.x, y: r.y, w: r.w, h: r.h }); cr.keys.sort(function (a, b) { return a.t - b.t; });
+    V.recPrev = tm;
+  }
+  function cropOf(key) { if (key === "m") return S.master; var it = findIt(+key); return it ? it.crop : null; }
+  // Maske des Bereichs zeichnen und anwenden: innen das Ergebnis (res), außen das Bild davor (base)
+  function cropApply(base, res, cr, B, info) {
+    var w = base.width, h = base.height, r = cropAt(cr, info.t);
+    if (!B.m || B.m.width !== w || B.m.height !== h) { B.m = canvas(w, h); B.e = canvas(w, h); B.f = canvas(w, h); }
+    var mx = B.m.getContext("2d"), fe = cr.feather * w / 1920;
+    mx.setTransform(1, 0, 0, 1, 0, 0); mx.globalCompositeOperation = "source-over"; mx.clearRect(0, 0, w, h);
+    mx.filter = fe > 0.3 ? "blur(" + fe.toFixed(1) + "px)" : "none"; mx.fillStyle = "#fff";
+    var rx = (r.x - r.w / 2) * w, ry = (r.y - r.h / 2) * h, rw = r.w * w, rh = r.h * h;
+    if (cr.inv) { mx.fillRect(-fe * 3, -fe * 3, w + fe * 6, h + fe * 6); mx.filter = "none"; mx.globalCompositeOperation = "destination-out"; mx.filter = fe > 0.3 ? "blur(" + fe.toFixed(1) + "px)" : "none"; mx.fillRect(rx, ry, rw, rh); }
+    else mx.fillRect(rx, ry, rw, rh);
+    mx.filter = "none"; mx.globalCompositeOperation = "source-over";
+    var o = base === B.e || res === B.e ? (base === B.f || res === B.f ? null : B.f) : B.e, ox = o.getContext("2d");
+    ox.globalAlpha = 1; ox.globalCompositeOperation = "copy"; ox.drawImage(res, 0, 0);
+    ox.globalCompositeOperation = "destination-in"; ox.drawImage(B.m, 0, 0);
+    ox.globalCompositeOperation = "destination-over"; ox.drawImage(base, 0, 0);
+    ox.globalCompositeOperation = "source-over";
+    return o;
+  }
+
   // ---------- Effektkette ----------
   // Läuft in der Reihenfolge der Liste. Drei Puffer: A (Eingang), B (Ausgang des Effekts), C (für den Mix).
   function chainBuffers(store, w, h) {
@@ -171,7 +237,7 @@
   // inp: Canvas mit dem Videobild (Größe w × h). Gibt das Canvas mit dem Ergebnis zurück.
   function runChain(inp, store, info) {
     var w = inp.width, h = inp.height, B = chainBuffers(store, w, h), cur = inp, outs = [B.a, B.b, B.c], k = 0;
-    var cont = store.lastFrame != null && info.frame === store.lastFrame + 1;
+    var gap = store.lastFrame == null ? 0 : info.frame - store.lastFrame, same = gap === 0 && store.lastFrame != null, cont = gap >= 1 && gap <= 4;
     store.lastFrame = info.frame;
     S.chain.forEach(function (it) {
       var def = REG[it.id]; if (!def || !it.on || it.mix <= 0) return;
@@ -180,21 +246,23 @@
       var dst = outs[k % 3] === cur ? outs[(k + 1) % 3] : outs[k % 3];
       var dx = dst.getContext("2d"); dx.setTransform(1, 0, 0, 1, 0, 0); dx.globalAlpha = 1; dx.globalCompositeOperation = "source-over"; dx.filter = "none"; dx.clearRect(0, 0, w, h);
       try {
-        def.render({ src: cur, dst: dst, w: w, h: h, scale: w / 1920, t: info.t, frame: info.frame, fps: fps(), p: it.p, state: it[key], cont: cont, export: !!info.export, util: util });
+        def.render({ src: cur, dst: dst, w: w, h: h, scale: w / 1920, t: info.t, frame: info.frame, fps: fps(), p: it.p, state: it[key], cont: cont, gap: gap, same: same, export: !!info.export, util: util });
       } catch (e) { console.error("WeFX " + it.id, e); return; }
       if (it.mix < 100) {   // Mix: Ergebnis mit dem Bild davor mischen
         var mixc = [B.a, B.b, B.c].filter(function (c) { return c !== cur && c !== dst; })[0], mx = mixc.getContext("2d");
         mx.globalAlpha = 1; mx.globalCompositeOperation = "copy"; mx.drawImage(cur, 0, 0); mx.globalCompositeOperation = "source-over";
         mx.globalAlpha = it.mix / 100; mx.drawImage(dst, 0, 0); mx.globalAlpha = 1; dst = mixc;
       }
+      if (it.crop && it.crop.on) dst = cropApply(cur, dst, it.crop, B, info);   // Bereich: nur dort wirkt der Effekt
       cur = dst; k++;
     });
+    if (S.master.on && cur !== inp) cur = cropApply(inp, cur, S.master, B, info);   // Master-Bereich: außerhalb bleibt das Original
     return cur;
   }
   function addFx(id) {
     var def = REG[id]; if (!def) return;
     S.chain.forEach(function (it) { it.open = false; });
-    S.chain.push({ uid: ++uidN, id: id, on: true, open: true, mix: 100, p: defaults(def) });
+    S.chain.push({ uid: ++uidN, id: id, on: true, open: true, mix: 100, p: defaults(def), crop: newCrop() });
     updateSide(); need();
   }
   function findIt(uid) { for (var i = 0; i < S.chain.length; i++) if (S.chain[i].uid === uid) return S.chain[i]; return null; }
@@ -227,9 +295,12 @@
       var k = Math.min(F.n - 1, Math.floor(V.vid.currentTime * fps()));
       if (V.vid.ended || F.outF != null && k > F.outF) { stopPlay(); return; }
       if (k !== F.idx) { F.idx = k; updateBar(true); }
-      render(V.vid.currentTime, k); return;
+      var tm = V.vid.currentTime;
+      if (V.cdrag && tm - (V.lastRec || -1) >= 1 / 30) { cropRecord(V.cdrag.cr, tm, V.cdrag.r); V.lastRec = tm; V.cdrag.rec = true; }
+      if (k !== V.shown || V.need || V.cdrag) { V.shown = k; V.need = false; render(tm, k); }   // Effekte mit Gedächtnis brauchen jeden Frame genau einmal
+      return;
     }
-    if (V.need && !V.loading) { V.need = false; render(tFrame(F.idx), F.idx); }
+    if (V.need && !V.loading) { V.need = false; V.shown = F.idx; render(tFrame(F.idx), F.idx); }
   }
   function render(tm, frame) {
     var pv = V.pv || (V.pv = canvas(V.pw, V.ph));
@@ -237,6 +308,26 @@
     drawVideo(pv.getContext("2d"), V.vid, V.pw, V.ph);
     var out = V.peek || V.allOff ? pv : runChain(pv, V.store || (V.store = {}), { t: tm, frame: frame });
     var x = V.cv.getContext("2d"); x.imageSmoothingQuality = "high"; x.drawImage(out, 0, 0, V.cv.width, V.cv.height);
+    if (V.editCrop) drawCropUI(x, tm);
+  }
+  // Rahmen des Bereichs, der gerade bearbeitet wird: außen abgedunkelt, Griffe an Ecken und Kanten
+  function drawCropUI(x, tm) {
+    var cr = cropOf(V.editCrop); if (!cr || !cr.on) return;
+    var W = V.cv.width, H = V.cv.height, r = cropAt(cr, tm), dpr = window.devicePixelRatio || 1;
+    var rx = (r.x - r.w / 2) * W, ry = (r.y - r.h / 2) * H, rw = r.w * W, rh = r.h * H;
+    x.save(); x.fillStyle = "rgba(10,9,8,.5)";
+    if (cr.inv) x.fillRect(rx, ry, rw, rh);
+    else { x.fillRect(0, 0, W, ry); x.fillRect(0, ry + rh, W, H - ry - rh); x.fillRect(0, ry, rx, rh); x.fillRect(rx + rw, ry, W - rx - rw, rh); }
+    var recording = V.cdrag && V.playing;
+    x.strokeStyle = recording ? "#F87666" : "#D7D0C8"; x.lineWidth = 2 * dpr; x.setLineDash(cr.inv ? [8 * dpr, 6 * dpr] : []); x.strokeRect(rx, ry, rw, rh); x.setLineDash([]);
+    var hs = 9 * dpr; x.fillStyle = recording ? "#F87666" : "#D7D0C8";
+    [[0, 0], [0.5, 0], [1, 0], [1, 0.5], [1, 1], [0.5, 1], [0, 1], [0, 0.5]].forEach(function (q) { x.fillRect(rx + rw * q[0] - hs / 2, ry + rh * q[1] - hs / 2, hs, hs); });
+    var lab = V.editCrop === "m" ? t("masterH") : (function () { var it = findIt(+V.editCrop), d = it && REG[it.id]; return t("cropH") + " · " + (d ? tl(d.name) : ""); })();
+    if (recording) lab = "● " + t("rec") + " · " + lab;
+    x.font = "600 " + Math.round(12 * dpr) + "px " + getComputedStyle(document.body).fontFamily; var tw = x.measureText(lab).width + 14 * dpr;
+    x.fillStyle = recording ? "#F87666" : "#0A0908"; x.fillRect(rx, Math.max(0, ry - 24 * dpr), tw, 22 * dpr);
+    x.fillStyle = recording ? "#0A0908" : "#D7D0C8"; x.textBaseline = "middle"; x.fillText(lab, rx + 7 * dpr, Math.max(0, ry - 24 * dpr) + 11 * dpr);
+    x.restore();
   }
   function drawStrip() {
     if (!V || !F) return;
@@ -244,6 +335,8 @@
     var w = c.clientWidth, dpr = window.devicePixelRatio || 1;
     c.width = Math.max(1, Math.round(w * dpr)); c.height = Math.round(10 * dpr);
     var x = c.getContext("2d"); x.clearRect(0, 0, c.width, c.height);
+    var ec = V.editCrop && cropOf(V.editCrop);
+    if (ec && ec.keys.length && F.dur) { x.fillStyle = "#95A78D"; ec.keys.forEach(function (q) { x.fillRect(Math.floor(q.t / F.dur * c.width), 0, Math.max(1, Math.round(dpr)), c.height); }); }
     if (F.inF == null && F.outF == null) return;
     var fw = c.width / F.n, io = ioRange(), lw = Math.max(2, Math.round(2 * dpr));
     x.fillStyle = "rgba(248,118,102,.6)"; x.fillRect(Math.floor(io.a * fw), 0, Math.ceil((io.b - io.a + 1) * fw), c.height);
@@ -436,6 +529,13 @@
     ".wx-add{display:flex;flex-direction:column;align-items:flex-start;gap:6px;text-align:left;padding:10px 12px;border:0;border-radius:10px;background:var(--bg);color:var(--ink);cursor:pointer;font:inherit}",
     ".wx-add:hover{background:#E1DBD4}.wx-add b{display:flex;align-items:center;gap:8px;font:600 .9rem var(--f-display)}.wx-add span{font-size:.76rem;line-height:1.35;color:var(--soft)}",
     ".wx-add .wx-fico{width:26px;height:26px}.wx-add .wx-fico svg{width:17px;height:17px}.wx-add[disabled]{opacity:.45;cursor:default}",
+    ".wx-pickr{display:flex;align-items:center;gap:10px}.wx-sw{width:34px;height:34px;flex:none;border-radius:8px;box-shadow:inset 0 0 0 1px rgba(10,9,8,.25)}.wx-pickr code{font:600 .86rem ui-monospace,SFMono-Regular,Menlo,monospace;flex:1}",
+    ".wx-pk{font:600 .82rem var(--f-body);padding:7px 12px;border:0;border-radius:999px;background:var(--ink);color:var(--bg);cursor:pointer}.wx-pk[aria-pressed=true]{background:var(--accent);color:var(--ink)}",
+    ".wx-hint{margin:-4px 0 0;color:var(--soft);font-size:.76rem;line-height:1.35}",
+    ".wx-crop{display:flex;flex-direction:column;gap:10px;padding:10px;border-radius:10px;background:var(--card)}.wx-crop h4{margin:0;font:600 .7rem/1 var(--f-body);letter-spacing:.12em;text-transform:uppercase;color:var(--soft)}",
+    ".wx-ce{font:600 .82rem var(--f-body);padding:7px 14px;border:1.5px solid var(--ink);border-radius:999px;background:transparent;color:var(--ink);cursor:pointer}.wx-ce[aria-pressed=true]{background:var(--accent);border-color:var(--accent)}",
+    ".wx-cbadge{display:inline-grid;place-items:center;width:18px;height:18px;border-radius:5px;background:var(--accent);color:var(--ink);flex:none}.wx-cbadge svg{width:12px;height:12px}",
+    ".wx-desk canvas.pick{cursor:crosshair}",
     ".wx-stog{display:none}",
     "@media (min-width:1100px){",
     "  .wx-wrap{width:calc(100vw - 40px);margin-left:calc((100% - (100vw - 40px)) / 2);grid-template-columns:minmax(0,1fr) 340px;align-items:start;transition:grid-template-columns .25s ease}",
@@ -459,6 +559,7 @@
     eyeOff: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z" fill="none" stroke="currentColor" stroke-width="2"/><path d="M4 20L20 4" stroke="currentColor" stroke-width="2"/></svg>',
     caret: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2"/></svg>',
     x: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2"/></svg>',
+    crop: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 2v15h15M2 7h15v15" fill="none" stroke="currentColor" stroke-width="3"/></svg>',
     fx: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12c3-6 6-6 9 0s6 6 9 0" fill="none" stroke="currentColor" stroke-width="2"/></svg>'
   };
 
@@ -467,12 +568,12 @@
       '<div class="wx-wrap' + (S.sideOpen ? "" : " wx-closed") + '"><div class="wx-deskbox"><div class="wx-desk" id="wx-desk"></div><div id="wx-bar"></div><input type="file" id="wx-file" accept="video/*,.mp4,.mov,.m4v,.webm" hidden>' +
       '<button type="button" class="wx-stog" data-wx="side" aria-label="' + t("sideTog") + '" title="' + t("sideTog") + '" aria-expanded="' + S.sideOpen + '"><span aria-hidden="true"></span></button></div>' +
       '<aside class="wx-side" id="wx-side"><div class="wx-tabs" id="wx-tabs" role="tablist"></div><div class="wx-sc" id="wx-sc"></div></aside></div>' +
-      '<section class="phow"><h2>' + t("howH") + "</h2><p>" + t("how1") + "</p><p>" + t("how2") + "</p><p>" + t("how3") + "</p></section>";
+      '<section class="phow"><h2>' + t("howH") + "</h2><p>" + t("how1") + "</p><p>" + t("how2") + "</p><p>" + t("how4") + "</p><p>" + t("how3") + "</p></section>";
   }
   function buildUI() {
     var desk = V.root.querySelector("#wx-desk"), bar = V.root.querySelector("#wx-bar");
     if (V.vid) { V.vid.pause(); V.vid.removeAttribute("src"); V.vid.load(); V.vid = null; }
-    V.ready = false; V.cv = null; V.store = null;
+    V.ready = false; V.cv = null; V.store = null; V.editCrop = null; V.picking = null; V.cdrag = null;
     if (!F) {
       desk.classList.remove("tall");
       desk.innerHTML = '<div class="wx-drop"><b>' + t("drop") + "</b><span>" + t("or") + '</span><button type="button" class="wx-pick" data-wx="file">' + t("pick") + '</button><span id="wx-dn">' + t("dropNote") + "</span></div>";
@@ -501,12 +602,26 @@
   }
   function paramHTML(it, def, q) {
     var id = "wx-p-" + it.uid + "-" + q.k, v = it.p[q.k], lab = tl(q.label);
-    if (q.type === "range") return '<div class="wx-row"><label for="' + id + '">' + lab + '<span id="' + id + '-v">' + v + (q.unit || "") + '</span></label><input type="range" id="' + id + '" data-uid="' + it.uid + '" data-k="' + q.k + '" min="' + q.min + '" max="' + q.max + '" step="' + (q.step || 1) + '" value="' + v + '"></div>';
+    if (q.type === "range") return '<div class="wx-row"><label for="' + id + '">' + lab + '<span id="' + id + '-v">' + v + (q.unit || "") + '</span></label><input type="range" id="' + id + '" data-uid="' + it.uid + '" data-k="' + q.k + '" min="' + q.min + '" max="' + q.max + '" step="' + (q.step || 1) + '" value="' + v + '">' + (q.hint ? '<p class="wx-hint">' + tl(q.hint) + "</p>" : "") + "</div>";
     if (q.type === "select") return '<div class="wx-row"><label>' + lab + '</label><div class="wx-seg">' + q.options.map(function (o) {
       return '<button type="button" data-uid="' + it.uid + '" data-k="' + q.k + '" data-v="' + esc(o[0]) + '" aria-pressed="' + (v === o[0]) + '">' + tl(o[1]) + "</button>"; }).join("") + "</div></div>";
     if (q.type === "color") return '<div class="wx-row"><label for="' + id + '">' + lab + '<span>' + v + '</span></label><input type="color" id="' + id + '" data-uid="' + it.uid + '" data-k="' + q.k + '" value="' + v + '"></div>';
+    if (q.type === "pick") return '<div class="wx-row"><label>' + lab + '</label><div class="wx-pickr"><span class="wx-sw" style="background:' + v + '"></span><code>' + v + '</code><button type="button" class="wx-pk" data-pick="' + it.uid + '" data-k="' + q.k + '" aria-pressed="' + !!(V.picking && V.picking.uid === it.uid && V.picking.k === q.k) + '">' + t("pickBtn") + "</button></div>" + (V.picking && V.picking.uid === it.uid && V.picking.k === q.k ? '<p class="wx-hint">' + t("pickOn") + "</p>" : "") + "</div>";
     if (q.type === "check") return '<label class="wx-chk"><input type="checkbox" data-uid="' + it.uid + '" data-k="' + q.k + '"' + (v ? " checked" : "") + "> " + lab + "</label>";
     return "";
+  }
+  function cropHTML(cr, key, master) {
+    var ed = V.editCrop === key, h = '<div class="wx-crop"><h4>' + t(master ? "masterH" : "cropH") + "</h4>" +
+      '<label class="wx-chk"><input type="checkbox" data-crop="' + key + '" data-ck="on"' + (cr.on ? " checked" : "") + "> " + t(master ? "masterOn" : "cropOn") + "</label>";
+    if (cr.on) {
+      h += '<div class="wx-acts"><button type="button" class="wx-ce" data-cropedit="' + key + '" aria-pressed="' + ed + '"' + (F && V.ready ? "" : " disabled") + ">" + t(ed ? "cropDone" : "cropEdit") + "</button>" +
+        (cr.keys.length ? '<button type="button" class="navbtn" data-cropclear="' + key + '">' + t("cropClear") + "</button>" : "") + "</div>" +
+        '<p class="wx-desc">' + (cr.keys.length ? fmt(t("cropKeys"), { n: cr.keys.length.toLocaleString(lang === "de" ? "de-DE" : "en-GB") }) : t("cropNoKeys")) + (ed ? " · " + t("cropHelp") : "") + "</p>" +
+        '<div class="wx-row"><label for="wx-cf-' + key + '">' + t("cropFeather") + '<span id="wx-cf-' + key + '-v">' + cr.feather + ' px</span></label><input type="range" id="wx-cf-' + key + '" data-crop="' + key + '" data-ck="feather" min="0" max="200" step="1" value="' + cr.feather + '"></div>' +
+        '<div class="wx-row"><label for="wx-cs-' + key + '">' + t("cropSmooth") + '<span id="wx-cs-' + key + '-v">' + cr.smooth + ' %</span></label><input type="range" id="wx-cs-' + key + '" data-crop="' + key + '" data-ck="smooth" min="0" max="100" step="1" value="' + cr.smooth + '"></div>' +
+        '<label class="wx-chk"><input type="checkbox" data-crop="' + key + '" data-ck="inv"' + (cr.inv ? " checked" : "") + "> " + t("cropInv") + "</label>" + (master ? '<p class="wx-desc">' + t("masterNote") + "</p>" : "");
+    }
+    return h + "</div>";
   }
   function chainHTML() {
     var h = '<span class="wx-end">' + t("chainIn") + '</span><div class="wx-flow"></div>';
@@ -515,10 +630,11 @@
       var def = REG[it.id], name = def ? tl(def.name) : it.id;
       var body = it.open && def ? '<div class="wx-body">' + (def.desc ? '<p class="wx-desc">' + tl(def.desc) + "</p>" : "") + def.params.map(function (q) { return paramHTML(it, def, q); }).join("") +
         '<div class="wx-row"><label for="wx-mix-' + it.uid + '">' + t("mix") + '<span id="wx-mix-' + it.uid + '-v">' + it.mix + ' %</span></label><input type="range" id="wx-mix-' + it.uid + '" data-uid="' + it.uid + '" data-k="__mix" min="0" max="100" step="1" value="' + it.mix + '"></div>' +
+        cropHTML(it.crop, String(it.uid), false) +
         '<div class="wx-acts"><button type="button" class="navbtn" data-wx="dup" data-uid="' + it.uid + '">' + t("dup") + '</button><button type="button" class="navbtn" data-wx="reset" data-uid="' + it.uid + '">' + t("reset") + "</button></div></div>" : "";
       return '<div class="wx-item' + (it.on ? "" : " off") + '" data-item="' + it.uid + '"><div class="wx-ih">' +
         '<button type="button" class="wx-grip" data-grip="' + it.uid + '" title="' + t("grip") + '" aria-label="' + t("grip") + ": " + esc(name) + '">' + ICO.grip + "</button>" +
-        '<span class="wx-fico">' + (def && def.icon || ICO.fx) + "</span><b>" + esc(name) + '</b><span class="wx-num">' + (i + 1) + "</span>" +
+        '<span class="wx-fico">' + (def && def.icon || ICO.fx) + "</span><b>" + esc(name) + "</b>" + (it.crop.on ? '<span class="wx-cbadge" title="' + t("cropH") + '">' + ICO.crop + "</span>" : "") + '<span class="wx-num">' + (i + 1) + "</span>" +
         '<button type="button" class="wx-ib wx-onb" data-wx="on" data-uid="' + it.uid + '" aria-pressed="' + it.on + '" title="' + t("on") + '" aria-label="' + t("on") + '">' + (it.on ? ICO.eye : ICO.eyeOff) + "</button>" +
         '<button type="button" class="wx-ib wx-caret" data-wx="open" data-uid="' + it.uid + '" aria-expanded="' + !!it.open + '" title="' + t("openFx") + '" aria-label="' + t("openFx") + '">' + ICO.caret + "</button>" +
         '<button type="button" class="wx-ib" data-wx="del" data-uid="' + it.uid + '" title="' + t("del") + '" aria-label="' + t("del") + '">' + ICO.x + "</button></div>" + body + '</div>' + '<div class="wx-flow"></div>';
@@ -534,7 +650,7 @@
     var h = "";
     if (S.tab === "fx") {
       var pend = Object.keys(LOADING).length, fail = Object.keys(FAILED);
-      h = '<div class="wx-box"><h3>' + t("chainH") + '</h3><div class="wx-chain">' + chainHTML() + '</div><p class="wx-desc">' + t("chainNote") + "</p></div>" +
+      h = '<div class="wx-box"><h3>' + t("chainH") + '</h3><div class="wx-chain">' + chainHTML() + '</div><p class="wx-desc">' + t("chainNote") + "</p>" + cropHTML(S.master, "m", true) + "</div>" +
         '<div class="wx-box"><h3>' + t("addH") + '</h3><div class="wx-cat">' + FX_FILES.filter(function (id) { return REG[id]; }).map(function (id) {
           var d = REG[id]; return '<button type="button" class="wx-add" data-add="' + id + '"><b><span class="wx-fico">' + (d.icon || ICO.fx) + "</span>" + esc(tl(d.name)) + "</b>" + (d.desc ? "<span>" + esc(tl(d.short || d.desc)) + "</span>" : "") + "</button>";
         }).join("") + "</div>" + (pend ? '<p class="wx-desc">' + t("fxLoading") + "</p>" : "") + (fail.length ? '<p class="wx-desc">' + fmt(t("fxFail"), { n: fail.join(", ") }) + "</p>" : "") + "</div>";
@@ -622,9 +738,69 @@
     if (was) { updateSide(); need(); }
   }
 
+  // ---------- Maus im Bild: Pipette und Bereich bearbeiten ----------
+  function cvPos(e) { var r = V.cv.getBoundingClientRect(); return { x: (e.clientX - r.left) / r.width, y: (e.clientY - r.top) / r.height, pw: r.width, ph: r.height }; }
+  function cropHit(cr, p) {   // was liegt unter dem Zeiger: Kanten (l, r, t, b) oder innen (move)
+    var r = cropAt(cr, V.playing ? V.vid.currentTime : tFrame(F.idx)), tx = 10 / p.pw, ty = 10 / p.ph;
+    var l = r.x - r.w / 2, rr = r.x + r.w / 2, tp = r.y - r.h / 2, bt = r.y + r.h / 2;
+    if (p.x < l - tx || p.x > rr + tx || p.y < tp - ty || p.y > bt + ty) return null;
+    var e = { l: Math.abs(p.x - l) <= tx, r: Math.abs(p.x - rr) <= tx, t: Math.abs(p.y - tp) <= ty, b: Math.abs(p.y - bt) <= ty };
+    if (e.l || e.r || e.t || e.b) return { edges: e, r: r };
+    return { move: true, r: r };
+  }
+  function hitCursor(h) {
+    if (!h) return "default"; if (h.move) return "move";
+    var e = h.edges; if ((e.l && e.t) || (e.r && e.b)) return "nwse-resize"; if ((e.r && e.t) || (e.l && e.b)) return "nesw-resize";
+    return e.l || e.r ? "ew-resize" : "ns-resize";
+  }
+  function cursorState() { if (V && V.cv) { V.cv.classList.toggle("pick", !!V.picking); if (!V.picking && !V.editCrop) V.cv.style.cursor = ""; } }
+  function onCvDown(e) {
+    if (!V || !V.cv || e.target !== V.cv || !F || !V.ready || busy) return;
+    if (e.button !== undefined && e.button > 0) return;
+    var p = cvPos(e);
+    if (V.picking) {   // Pipette: Farbe aus dem Video (vor allen Effekten) nehmen
+      e.preventDefault();
+      var pv = V.pv, x = clamp(Math.floor(p.x * pv.width), 0, pv.width - 1), y = clamp(Math.floor(p.y * pv.height), 0, pv.height - 1);
+      var dd = pv.getContext("2d", { willReadFrequently: true }).getImageData(x, y, 1, 1).data, hx = "#" + [dd[0], dd[1], dd[2]].map(function (v) { return (v < 16 ? "0" : "") + v.toString(16); }).join("").toUpperCase();
+      var it = findIt(V.picking.uid); if (it) it.p[V.picking.k] = hx;
+      V.picking = null; cursorState(); updateSide(); need(); return;
+    }
+    var cr = V.editCrop && cropOf(V.editCrop); if (!cr || !cr.on) return;
+    var h = cropHit(cr, p); if (!h) return;
+    e.preventDefault(); try { V.cv.setPointerCapture(e.pointerId); } catch (er) {}
+    V.cdrag = { id: e.pointerId, cr: cr, hit: h, p0: p, r0: Object.assign({}, h.r), r: Object.assign({}, h.r), rec: false };
+    V.recPrev = null; V.lastRec = -1; need();
+  }
+  function onCvMove(e) {
+    if (!V || !V.cv) return;
+    if (V.cdrag && e.pointerId === V.cdrag.id) {
+      var d = V.cdrag, p = cvPos(e), dx = p.x - d.p0.x, dy = p.y - d.p0.y, r0 = d.r0, r;
+      if (d.hit.move) r = { x: r0.x + dx, y: r0.y + dy, w: r0.w, h: r0.h };
+      else {
+        var l = r0.x - r0.w / 2, rr = r0.x + r0.w / 2, tp = r0.y - r0.h / 2, bt = r0.y + r0.h / 2, ed = d.hit.edges;
+        if (ed.l) l = Math.min(clamp(l + dx, 0, 1), rr - 0.02); if (ed.r) rr = Math.max(clamp(rr + dx, 0, 1), l + 0.02);
+        if (ed.t) tp = Math.min(clamp(tp + dy, 0, 1), bt - 0.02); if (ed.b) bt = Math.max(clamp(bt + dy, 0, 1), tp + 0.02);
+        r = { x: (l + rr) / 2, y: (tp + bt) / 2, w: rr - l, h: bt - tp };
+      }
+      d.r = cropFix(r);
+      if (!V.playing) { if (d.cr.keys.length) cropSetKey(d.cr, tFrame(F.idx), d.r); else d.cr.cur = d.r; }   // im Stand: ein Keyframe oder (ohne Keyframes) feste Lage
+      need(); return;
+    }
+    if (e.target === V.cv && V.editCrop && !V.picking) { var cr = cropOf(V.editCrop); V.cv.style.cursor = cr && cr.on ? hitCursor(cropHit(cr, cvPos(e))) : ""; }
+  }
+  function onCvUp(e) {
+    if (!V || !V.cdrag || e.pointerId !== V.cdrag.id) return;
+    var d = V.cdrag; V.cdrag = null;
+    if (V.playing) cropRecord(d.cr, V.vid.currentTime, d.r);
+    updateSide(); drawStrip(); need();
+  }
+
   // ---------- Eingaben ----------
   function onClick(e) {
-    var b = e.target.closest("[data-wx],[data-tab],[data-add],[data-v],[data-fps]"); if (!b) return;
+    var b = e.target.closest("[data-wx],[data-tab],[data-add],[data-v],[data-fps],[data-pick],[data-cropedit],[data-cropclear]"); if (!b) return;
+    if (b.dataset.pick) { var pk = { uid: +b.dataset.pick, k: b.dataset.k }; V.picking = V.picking && V.picking.uid === pk.uid && V.picking.k === pk.k ? null : pk; if (V.picking) V.editCrop = null; cursorState(); updateSide(); need(); return; }
+    if (b.dataset.cropedit) { V.editCrop = V.editCrop === b.dataset.cropedit ? null : b.dataset.cropedit; V.picking = null; cursorState(); updateSide(); drawStrip(); need(); return; }
+    if (b.dataset.cropclear) { var cc = cropOf(b.dataset.cropclear); if (cc) { cc.cur = cropAt(cc, F && V.ready ? tFrame(F.idx) : 0); cc.keys = []; } updateSide(); drawStrip(); need(); return; }
     if (b.dataset.tab) { S.tab = b.dataset.tab; if (!S.sideOpen) { S.sideOpen = true; sideState(); } updateSide(); return; }
     if (b.dataset.add) { addFx(b.dataset.add); return; }
     if (b.dataset.fps !== undefined) { if (busy) return; var tm = F && V.ready ? F.idx / fps() : 0; S.fpsI = +b.dataset.fps; if (F && V.ready) { F.n = Math.max(1, Math.floor(F.dur * fps())); F.inF = null; F.outF = null; goFrame(Math.floor(tm * fps())); } updateSide(); return; }
@@ -635,8 +811,8 @@
     if (a === "file") { if (!busy) V.root.querySelector("#wx-file").click(); return; }
     if (a === "on" && it) { it.on = !it.on; updateSide(); need(); return; }
     if (a === "open" && it) { it.open = !it.open; updateSide(); return; }
-    if (a === "del" && it) { S.chain = S.chain.filter(function (q) { return q !== it; }); updateSide(); need(); return; }
-    if (a === "dup" && it) { var i = S.chain.indexOf(it), cp = { uid: ++uidN, id: it.id, on: it.on, open: true, mix: it.mix, p: Object.assign({}, it.p) }; it.open = false; S.chain.splice(i + 1, 0, cp); updateSide(); need(); return; }
+    if (a === "del" && it) { S.chain = S.chain.filter(function (q) { return q !== it; }); if (V.editCrop === String(it.uid)) V.editCrop = null; if (V.picking && V.picking.uid === it.uid) V.picking = null; cursorState(); updateSide(); need(); return; }
+    if (a === "dup" && it) { var i = S.chain.indexOf(it), cp = { uid: ++uidN, id: it.id, on: it.on, open: true, mix: it.mix, p: Object.assign({}, it.p), crop: JSON.parse(JSON.stringify(it.crop)) }; it.open = false; S.chain.splice(i + 1, 0, cp); updateSide(); need(); return; }
     if (a === "reset" && it && REG[it.id]) { it.p = defaults(REG[it.id]); it.mix = 100; updateSide(); need(); return; }
     if (a === "allOff") { V.allOff = !V.allOff; b.setAttribute("aria-pressed", String(V.allOff)); need(); return; }
     if (!F || !V.ready) return;
@@ -661,6 +837,12 @@
       else if (q.type === "check") it.p[q.k] = el.checked;
       need(); return;
     }
+    if (el.dataset.crop && el.dataset.ck) {
+      var cr = cropOf(el.dataset.crop); if (!cr) return; var ck = el.dataset.ck;
+      if (ck === "on") { cr.on = el.checked; if (cr.on && F && V.ready) V.editCrop = el.dataset.crop; else if (!cr.on && V.editCrop === el.dataset.crop) V.editCrop = null; cursorState(); updateSide(); drawStrip(); need(); return; }
+      if (ck === "inv") { cr.inv = el.checked; need(); return; }
+      cr[ck] = +el.value; var lb2 = V.root.querySelector((ck === "feather" ? "#wx-cf-" : "#wx-cs-") + el.dataset.crop + "-v"); if (lb2) lb2.textContent = el.value + (ck === "feather" ? " px" : " %"); need(); return;
+    }
     if (el.id === "wx-br") { S.mbit = +el.value; V.root.querySelector("#wx-br-v").textContent = S.mbit + " Mbit/s"; var inf = V.root.querySelector("#wx-info"); if (inf) inf.textContent = fmt(t("exportInfo"), { w: F ? F.ow : 1920, h: F ? F.oh : 1080, f: fps(), br: S.mbit }); return; }
     if (el.id === "wx-pos" && F && V.ready && !V.playing) goFrame(+el.value);
   }
@@ -683,6 +865,7 @@
     var k = e.key.toLowerCase();
     if (k === "d") { e.preventDefault(); if (!V.peek) { V.peek = true; var pk = V.root.querySelector("#wx-peek"); if (pk) pk.hidden = false; need(); } return; }
     if (k === "f") { e.preventDefault(); toggleFS(); return; }
+    if (k === "escape" && (V.picking || V.editCrop)) { V.picking = null; V.editCrop = null; cursorState(); updateSide(); drawStrip(); need(); return; }
     if (k === "escape") { var w = V.root.querySelector(".wx-wrap"); if (w && w.classList.contains("wx-fs") && !fsEl()) { toggleFS(); return; } }
     if ((k === "i" || k === "o") && !V.playing) { e.preventDefault(); ioSet(k === "i" ? "in" : "out"); return; }
     if (e.key === "ArrowLeft" || e.key === "ArrowRight") { if (tag === "INPUT" && tg.type === "range") return; e.preventDefault(); if (!V.playing) goFrame(F.idx + (e.key === "ArrowLeft" ? -1 : 1)); return; }
@@ -705,6 +888,7 @@
     V = { root: el, need: true };
     el.addEventListener("click", onClick); el.addEventListener("input", onInput); el.addEventListener("change", onChange);
     el.addEventListener("pointerdown", onGripDown); window.addEventListener("pointermove", onGripMove); window.addEventListener("pointerup", onGripUp); window.addEventListener("pointercancel", onGripUp);
+    el.addEventListener("pointerdown", onCvDown); window.addEventListener("pointermove", onCvMove); window.addEventListener("pointerup", onCvUp); window.addEventListener("pointercancel", onCvUp);
     window.addEventListener("keydown", onKey); window.addEventListener("keyup", onKeyUp); window.addEventListener("blur", onBlurWin); window.addEventListener("resize", onResize);
     document.addEventListener("fullscreenchange", onFsChange); document.addEventListener("webkitfullscreenchange", onFsChange);
     var desk = el.querySelector("#wx-desk");
@@ -722,6 +906,7 @@
     cancelReq = true;
     if (V.vid) V.vid.pause();
     window.removeEventListener("pointermove", onGripMove); window.removeEventListener("pointerup", onGripUp); window.removeEventListener("pointercancel", onGripUp);
+    window.removeEventListener("pointermove", onCvMove); window.removeEventListener("pointerup", onCvUp); window.removeEventListener("pointercancel", onCvUp); V.root.removeEventListener("pointerdown", onCvDown);
     window.removeEventListener("keydown", onKey); window.removeEventListener("keyup", onKeyUp); window.removeEventListener("blur", onBlurWin); window.removeEventListener("resize", onResize);
     V.root.removeEventListener("click", onClick); V.root.removeEventListener("input", onInput); V.root.removeEventListener("change", onChange); V.root.removeEventListener("pointerdown", onGripDown);
     V = null;

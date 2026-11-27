@@ -1,5 +1,5 @@
 /* WeFX-Effekt „Welle“: verschiebt das Bild zeilen- oder spaltenweise entlang einer Sinuswelle, die durchs Bild läuft.
-   Vorlage für neue Effekte: Datei wefx/fx-<id>.js anlegen, WeFX.register({...}) aufrufen und die id in FX_FILES in wefx.js eintragen. */
+   Vorlage für neue Effekte: Datei fx-<id>.js anlegen, WeFX.register({...}) aufrufen und die id in FX_FILES in wefx.js eintragen. */
 (function () {
   "use strict";
   if (!window.WeFX) return;
