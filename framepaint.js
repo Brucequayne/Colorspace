@@ -3,7 +3,7 @@
 (function () {
   "use strict";
 
-  var VERSION = "0.7", RATES = [5, 15, 30];
+  var VERSION = "0.71", RATES = [5, 15, 30];
   var lang = "de";
   function L2(de, en) { return { de: de, en: en }; }
 
@@ -18,30 +18,39 @@
     prev: L2("Frame zurück", "Previous frame"), next: L2("Frame vor", "Next frame"),
     frame: L2("Frame {i} / {n}", "Frame {i} / {n}"),
     play: L2("Abspielen", "Play"), pause: L2("Pause", "Pause"),
-    copyPrev: L2("Framepaint vom letzten Frame übernehmen", "Copy paint from previous frame"),
+    copyPrev: L2("Vom letzten Frame übernehmen", "Copy previous frame"),
     clearF: L2("Frame leeren", "Clear frame"), undo: L2("Rückgängig", "Undo"), redo: L2("Wiederholen", "Redo"),
-    onion: L2("Zwiebelhaut (letzter Frame blass)", "Onion skin (previous frame faint)"), hideVid: L2("Video ausblenden", "Hide video"),
+    onion: L2("Zwiebelhaut", "Onion skin"), hideVid: L2("Video ausblenden", "Hide video"),
     color: L2("Farbe", "Colour"), picker: L2("Pipette (C)", "Picker (C)"), pickOn: L2("Klick ins Bild nimmt die Farbe", "Click the image to take the colour"),
-    colorNote: L2("Farben gibt es nur über die Pipette: C drücken, dann mit Linksklick ins Bild. Sie nimmt immer die Farbe aus dem Video unter der Bemalung. Danach malst du sofort mit dieser Farbe.", "Colours come only from the picker: press C, then left-click the image. It always takes the colour from the video beneath the painting. You paint with that colour right away."),
+    colorNote: L2("C drücken, dann ins Bild klicken. Die Farbe kommt immer aus dem Video.", "Press C, then click the image. The colour always comes from the video."),
+    tabPaint: L2("Malen", "Paint"), tabAuto: L2("Auto", "Auto"), tabExport: L2("Export", "Export"),
+    cmPick: L2("Pipette", "Picker"), cmMix: L2("Mischen", "Mix"), cmSpecial: L2("Spezial", "Special"),
+    hue: L2("Farbton", "Hue"), light: L2("Helligkeit", "Lightness"), sat: L2("Sättigung", "Saturation"),
+    mixNote: L2("Drei Regler mischen deine Farbe, du malst sofort damit.", "Three sliders mix your colour, you paint with it right away."),
+    neonH: L2("Neon", "Neon"), metalH: L2("Metallic", "Metallic"), soon: L2("kommt bald", "coming soon"), glow: L2("Leuchten", "Glow"),
+    neonNote: L2("Heller Kern mit farbigem Schein. Gilt für alle Werkzeuge außer dem Radierer.", "Bright core with a coloured glow. Works with every tool except the eraser."),
+    NPink: L2("Pink", "Pink"), NRed: L2("Rot", "Red"), NOrange: L2("Orange", "Orange"), NYellow: L2("Gelb", "Yellow"), NGreen: L2("Grün", "Green"), NCyan: L2("Cyan", "Cyan"), NBlue: L2("Blau", "Blue"), NViolet: L2("Violett", "Violet"),
+    autoH: L2("Automatisch malen", "Paint automatically"), slotsH: L2("Gespeicherte Paletten", "Saved palettes"),
+    fs: L2("Vollbild", "Fullscreen"), fsOff: L2("Vollbild beenden", "Exit fullscreen"), sideTog: L2("Einstellungen ein- oder ausklappen", "Show or hide settings"),
     recent: L2("Zuletzt genommen", "Recently picked"),
     tool: L2("Werkzeug", "Tool"),
     pen: L2("Stift", "Pen"), brush: L2("Pinsel", "Brush"), hair: L2("Haarpinsel", "Hair brush"), hairS: L2("Haar", "Hair"), pressure: L2("Druck", "Pressure"),
-    hairNote: L2("Weicher, langhaariger Pinsel: buschig und etwas träge, mit Streifen und Schlieren in der Farbe. Je mehr Druck, desto breiter fächern die Haare auf.", "Soft, long-haired brush: bushy and a little sluggish, with streaks and smears in the paint. The more pressure, the wider the hairs fan out."),
+    hairNote: L2("Buschig, mit Streifen und Schlieren. Mehr Druck fächert die Haare auf.", "Bushy, with streaks and smears. More pressure fans the hairs out."),
     frameH: L2("Einzelbild", "Single frame"), frameSave: L2("Aktuellen Frame als PNG", "Current frame as PNG"),
-    frameInfo: L2("PNG · {w} × {h} (native Auflösung des Videos) · nimmt die Einstellung oben (Video + Painting oder nur Painting)", "PNG · {w} × {h} (the video's native resolution) · uses the setting above (video + painting or painting only)"),
+    frameInfo: L2("PNG · {w} × {h} · native Auflösung, wie oben eingestellt", "PNG · {w} × {h} · native resolution, as set above"),
     frameDone: L2("Frame {i} als PNG gespeichert ({w} × {h}).", "Frame {i} saved as PNG ({w} × {h})."), spray: L2("Spraydose", "Spray can"), eraser: L2("Radierer", "Eraser"),
     size: L2("Größe", "Size"), opacity: L2("Deckkraft", "Opacity"), smooth: L2("Glättung", "Smoothing"), hard: L2("Härte", "Hardness"),
     crayon: L2("Wachsmalkreide", "Wax crayon"), crayonS: L2("Kreide", "Crayon"), grain: L2("Körnung", "Grain"),
     flowL: L2("Frame-Modus", "Frame mode"), fActive: L2("Active Frames", "Active Frames"), fCalm: L2("Calm Frames", "Calm Frames"), calmL: L2("Ruhe", "Calm"),
-    flowNote: L2("Striche bleiben an ihrem Platz und wandern bei Kameraschwenks mit. „Ruhe“: wie stark Kanten am vorigen Frame festhalten.", "Strokes stay in place and travel along with camera pans. “Calm”: how strongly edges hold on to the previous frame."),
+    flowNote: L2("Striche bleiben stehen und wandern bei Schwenks mit.", "Strokes stay put and follow camera pans."),
     ptype: L2("Pinseltyp", "Brush type"), tStroke: L2("Pinsel", "Brush"), tSpray: L2("Spray", "Spray"), tCrayon: L2("Wachsmalkreide", "Wax crayon"), tHair: L2("Haarpinsel", "Hair brush"),
     guideL: L2("Strichführung", "Stroke guidance"), gClassic: L2("Klassisch", "Classic"), gOrganic: L2("Organisch", "Organic"),
-    guideNote: L2("Organisch zieht lange Linien entlang der Formen im Bild, in gleichmäßigem Abstand nebeneinander wie bei einer Schraffur. Die Richtung kommt von Kanten, Konturen und dem Rand der Farbfläche und reicht bis in ruhige Flächen hinein. Dunkle Stellen werden dichter schraffiert. Humanize 0 ergibt saubere, fließende Linien, mehr Humanize teilt sie in Bündel mit eigener Neigung und Lücken und legt eine Kreuzlage darüber.", "Organic draws long lines along the shapes in the image, evenly spaced side by side like hatching. The direction comes from edges, contours and the border of the colour area and reaches into calm areas too. Dark spots get denser hatching. Humanize 0 gives clean, flowing lines, more humanize splits them into bundles with their own tilt and gaps and adds a cross layer."),
+    guideNote: L2("Lange Linien folgen den Formen wie nachgezeichnet. Humanize macht daraus lockere Bündel.", "Long lines follow the shapes as if traced. Humanize turns them into loose bundles."),
     mpBatchDone: L2("Magic Paint in {n} Frames übernommen.", "Magic Paint applied to {n} frames."),
     mpNext: L2("Für alle folgenden Frames übernehmen", "Apply to all following frames"), mpAll: L2("Auf alle Frames anwenden", "Apply to all frames"),
-    mpBatchNote: L2("Zeichnet jeden Frame mit dieser festen Palette nach, ohne einzeln zu bestätigen. Rechne mit etwa einer bis zwei Sekunden pro Frame. Schon damit bemalte Frames werden übersprungen.", "Redraws every frame with this fixed palette without confirming each one. Expect about one to two seconds per frame. Frames already painted with it are skipped."),
+    mpBatchNote: L2("Ohne Bestätigen, etwa 1 bis 2 s pro Frame. Schon bemalte Frames werden übersprungen.", "No confirming, about 1 to 2 s per frame. Frames already painted are skipped."),
     density: L2("Dichte", "Density"), drop2: L2("Tropfengröße", "Droplet size"),
-    smoothNote: L2("Glättung zieht den Strich weich hinter der Maus her, Zittern verschwindet.", "Smoothing lets the stroke trail softly behind the mouse, so jitter disappears."),
+    smoothNote: L2("Glättung zieht den Strich weich hinter der Maus her.", "Smoothing lets the stroke trail softly behind the mouse."),
     fps: L2("Bildrate", "Frame rate"), fpsLock: L2("Die Bildrate lässt sich nur ändern, solange noch nichts gemalt ist.", "The frame rate can only be changed while nothing is painted yet."),
     fpsInfo: L2("{n} Frames bei {f} Bildern/s", "{n} frames at {f} fps"),
     exportH: L2("Export", "Export"), withVid: L2("Video + Painting", "Video + painting"), onlyPaint: L2("Nur Painting", "Painting only"),
@@ -57,41 +66,39 @@
     failed: L2("Export fehlgeschlagen: {e}", "Export failed: {e}"),
     bad: L2("Diese Datei konnte nicht als Video geöffnet werden.", "This file could not be opened as a video."),
     loading: L2("Frame wird geladen …", "Loading frame …"),
-    qpApplied: L2("Übernommen. Im nächsten Frame wird dieselbe Farbfläche mit denselben Einstellungen vorbereitet.", "Applied. On the next frame the same colour area is prepared with the same settings."),
+    qpApplied: L2("Übernommen. Im nächsten Frame wird dieselbe Fläche vorbereitet.", "Applied. The next frame prepares the same area."),
     qpRepick: L2("Neue Farbe", "New colour"),
     qpNext: L2("Für alle folgenden Frames übernehmen", "Apply to all following frames"), qpAll: L2("Auf alle Frames anwenden", "Apply to all frames"),
-    qpBatchNote: L2("Malt diese Einstellung automatisch in jeden Frame bis zum Ende (oder in alle). Frames, die damit schon bemalt sind, werden übersprungen. Bestehende Bemalung bleibt, Quickpaint kommt darüber.", "Paints this setting automatically into every frame up to the end (or into all). Frames already painted with it are skipped. Existing painting stays, Quickpaint goes on top."),
+    qpBatchNote: L2("Malt jeden Frame automatisch. Schon bemalte werden übersprungen, Bestehendes bleibt.", "Paints every frame automatically. Painted ones are skipped, existing paint stays."),
     qpBatchRun: L2("Frame {i} von {n} wird gemalt …", "Painting frame {i} of {n} …"), qpStop: L2("Stopp", "Stop"),
     qpBatchDone: L2("Quickpaint in {n} Frames übernommen.", "Quickpaint applied to {n} frames."), qpBatchStop: L2("Gestoppt nach {n} Frames.", "Stopped after {n} frames."),
     qpAllDone: L2("Alle Frames haben diese Einstellung schon.", "All frames already have this setting."),
     qpH: L2("Quickpaint", "Quickpaint"), qpStart: L2("Quickpaint starten (Q)", "Start Quickpaint (Q)"),
-    qpNote: L2("Q drücken, mit der Pipette eine Farbe im Video wählen: das Bild zeigt live, wo sie vorkommt. Linksklick legt die Farbe fest, dann Härte einstellen (auch per Mausrad) und mit einem zweiten Linksklick ins Bild übernehmen. Gemalt wird in deiner aktuellen Farbe, als Skizze mit Strichen. Esc bricht ab.",
-               "Press Q and pick a colour in the video with the picker: the image shows live where it appears. A left click fixes the colour, then set the hardness (mouse wheel works too) and apply with a second left click on the image. It paints in your current colour, as a sketch made of strokes. Esc cancels."),
+    qpNote: L2("Wähl eine Farbe im Bild, Quickpaint malt diese Fläche automatisch aus.", "Pick a colour in the image and Quickpaint paints that area for you."),
     qpPick: L2("Farbe im Video wählen · Linksklick legt sie fest", "Pick a colour in the video · left click fixes it"),
     qpTune: L2("Härte einstellen · Linksklick ins Bild übernimmt", "Set the hardness · left click on the image applies"),
-    qpHard: L2("Härte", "Hardness"), qpHardNote: L2("Niedrig erfasst auch ähnliche Farben, hoch nur fast genau diese.", "Low also catches similar colours, high only almost exactly this one."),
+    qpHard: L2("Härte", "Hardness"), qpHardNote: L2("Niedrig nimmt ähnliche Farben mit, hoch nur fast genau diese.", "Low takes similar colours too, high only almost exactly this one."),
     qpHuman: L2("Humanize", "Humanize"), qpAngle: L2("Winkel", "Angle"), qpWidth: L2("Strichstärke", "Stroke width"),
     qpOk: L2("Übernehmen", "Apply"), qpNo: L2("Abbrechen", "Cancel"), qpSeed: L2("Andere Variante", "Other variant"),
     qpKey: L2("Farbe", "Colour"),
     mpH: L2("Magic Paint", "Magic Paint"), mpStart: L2("Magic Paint starten (M)", "Start Magic Paint (M)"),
-    mpNote: L2("Zeichnet den ganzen Frame automatisch nach: Das Bild wird in Farbbereiche zerlegt und jeder Bereich als eigene Quickpaint-Schicht in seiner Farbe gemalt, große Flächen zuerst mit dicken Strichen, Details zuletzt mit feinen. Jede Schicht bekommt eigene Strichstärke, Härte und einen leicht anderen Winkel. Danach kannst du von Hand nacharbeiten.",
-               "Redraws the whole frame automatically: the image is split into colour areas and each area is painted as its own Quickpaint layer in its colour, large areas first with thick strokes, details last with fine ones. Each layer gets its own stroke width, hardness and a slightly different angle. Afterwards you can refine by hand."),
+    mpNote: L2("Mehrere Malschichten mit eigener Farbpalette, automatisch über das ganze Bild.", "Several paint layers with their own colour palette, over the whole image."),
     mpLayers: L2("Qualität (Schichten)", "Quality (layers)"), mpWork: L2("Schicht {i} von {n} wird gemalt …", "Painting layer {i} of {n} …"),
     mpDone: L2("{n} Schichten fertig · Linksklick ins Bild oder Enter übernimmt", "{n} layers done · left click on the image or Enter applies"),
-    close: L2("Schließen", "Close"), mpApplied: L2("Übernommen. Geh zum nächsten Frame, dort wird mit derselben Palette und demselben Strichmuster neu gezeichnet.", "Applied. Go to the next frame, it is redrawn there with the same palette and stroke pattern."),
-    mpLocked: L2("Palette und Strichmuster sind fixiert und bleiben auf allen Frames gleich. Schichtzahl oder „Neue Palette“ erzeugt eine neue.", "Palette and stroke pattern are locked and stay the same on every frame. Changing the layer count or “New palette” creates a new one."),
+    close: L2("Schließen", "Close"), mpApplied: L2("Übernommen. Im nächsten Frame geht es mit derselben Palette weiter.", "Applied. The next frame continues with the same palette."),
+    mpLocked: L2("Palette und Strichmuster bleiben auf allen Frames gleich.", "Palette and stroke pattern stay the same on every frame."),
     mpNew: L2("Die Palette wird aus diesem Frame berechnet.", "The palette is computed from this frame."),
     mpNewPal: L2("Neue Palette", "New palette"), mpCover: L2("Deckung", "Coverage"),
     mpSlot: L2("Slot {n}", "Slot {n}"), mpEmpty: L2("leer", "empty"), mpLoad: L2("Laden", "Load"), mpSave: L2("Speichern", "Save"),
     mpSaved: L2("Magic-Paint-Palette in Slot {n} gespeichert.", "Magic Paint palette saved to slot {n}."),
-    mpSlotsNote: L2("Slots merken sich Palette, Strichmuster und Regler für diese Sitzung. „Speichern“ geht, solange Magic Paint offen ist.", "Slots keep palette, stroke pattern and sliders for this session. “Save” works while Magic Paint is open."),
+    mpSlotsNote: L2("Merkt sich Palette, Strichmuster und Regler für diese Sitzung.", "Keeps palette, stroke pattern and sliders for this session."),
     mpWidth: L2("Strichstärke (Basis)", "Stroke width (base)"), mpAngle: L2("Winkel (Basis)", "Angle (base)"),
-    keys: L2("Tasten: C Pipette · Q Quickpaint · M Magic Paint · D halten: Bemalung ausblenden · P Stift · B Pinsel · H Haarpinsel · S Spray · W Wachsmalkreide · E Radierer · ← → Frame · Leertaste Abspielen · [ ] Größe · Strg+Z Rückgängig", "Keys: C picker · Q Quickpaint · M Magic Paint · hold D: hide painting · P pen · B brush · H hair brush · S spray · W wax crayon · E eraser · ← → frame · Space play · [ ] size · Ctrl+Z undo"),
+    keys: L2("Tasten: C Pipette · Q Quickpaint · M Magic Paint · F Vollbild · D halten: Bemalung aus · P B H S W E Werkzeuge · ← → Frame · Leertaste Abspielen · [ ] Größe · Strg+Z Rückgängig", "Keys: C picker · Q Quickpaint · M Magic Paint · F fullscreen · hold D: hide paint · P B H S W E tools · ← → frame · Space play · [ ] size · Ctrl+Z undo"),
     howH: L2("So funktioniert’s", "How it works"),
-    how1: L2("Das Video wird in Frames zerlegt, je nach Bildrate 5, 15 oder 30 pro Sekunde. Jeder Frame hat seine eigene Malebene. Mit den Pfeilen springst du von Frame zu Frame, und in jedem Frame siehst du genau das, was du dort gemalt hast. Mit „Framepaint vom letzten Frame übernehmen“ holst du die Zeichnung des vorherigen Frames, um sie für die Animation nur leicht anzupassen. Die Zwiebelhaut zeigt den letzten Frame blass darunter.",
-              "The video is split into frames, 5, 15 or 30 per second depending on the frame rate. Each frame has its own paint layer. The arrows jump from frame to frame, and each frame shows exactly what you painted there. “Copy paint from previous frame” brings over the drawing of the frame before, so you only adjust it slightly for the animation. Onion skin shows the previous frame faintly underneath."),
-    how2: L2("Farben gibt es bewusst nur über die Pipette: C drücken und ins Bild klicken. Stift malt harte Linien, Pinsel weiche, die Spraydose sprüht Punkte und sprüht weiter, solange du die Maustaste hältst. Deckkraft gilt für den ganzen Strich, er wird also nicht fleckig, wo er sich überlappt. Glättung zieht den Strich etwas hinter der Maus her, so werden Linien ruhig. Mit Grafiktablett reagieren Stift und Pinsel auf Druck.",
-              "Colours come only from the picker, on purpose: press C and click the image. The pen paints hard lines, the brush soft ones, the spray can sprays dots and keeps spraying while you hold the button. Opacity applies to the whole stroke, so it does not get blotchy where it overlaps. Smoothing lets the stroke trail a little behind the mouse, which calms lines. With a graphics tablet, pen and brush respond to pressure."),
+    how1: L2("Das Video wird in Frames zerlegt, je nach Bildrate 5, 15 oder 30 pro Sekunde. Jeder Frame hat seine eigene Malebene. Mit den Pfeilen springst du von Frame zu Frame, und in jedem Frame siehst du genau das, was du dort gemalt hast. Mit „Vom letzten Frame übernehmen“ holst du die Zeichnung des vorherigen Frames, um sie für die Animation nur leicht anzupassen. Die Zwiebelhaut zeigt den letzten Frame blass darunter.",
+              "The video is split into frames, 5, 15 or 30 per second depending on the frame rate. Each frame has its own paint layer. The arrows jump from frame to frame, and each frame shows exactly what you painted there. “Copy previous frame” brings over the drawing of the frame before, so you only adjust it slightly for the animation. Onion skin shows the previous frame faintly underneath."),
+    how2: L2("Farben nimmst du mit der Pipette aus dem Video (C drücken und ins Bild klicken), mischst sie unter „Mischen“ mit Farbton, Helligkeit und Sättigung oder wählst unter „Spezial“ eine Neonfarbe, die leuchtet. Stift malt harte Linien, Pinsel weiche, die Spraydose sprüht Punkte und sprüht weiter, solange du die Maustaste hältst. Deckkraft gilt für den ganzen Strich, er wird also nicht fleckig, wo er sich überlappt. Glättung zieht den Strich etwas hinter der Maus her, so werden Linien ruhig. Mit Grafiktablett reagieren Stift und Pinsel auf Druck.",
+              "You take colours from the video with the picker (press C and click the image), mix them under “Mix” with hue, lightness and saturation, or choose a glowing neon colour under “Special”. The pen paints hard lines, the brush soft ones, the spray can sprays dots and keeps spraying while you hold the button. Opacity applies to the whole stroke, so it does not get blotchy where it overlaps. Smoothing lets the stroke trail a little behind the mouse, which calms lines. With a graphics tablet, pen and brush respond to pressure."),
     how4: L2("Quickpaint malt eine Farbfläche automatisch aus, wie ein Chroma Key. Die Härte bestimmt, wie streng die Maske auf die gewählte Farbe reagiert. Gefüllt wird mit Schraffur-Strichen im eingestellten Winkel. Humanize macht daraus eine Handskizze: Striche werden ungleich lang, leicht gebogen, verschieden kräftig, es kommen Kreuzschraffur und skizzierte Umrisse dazu, und die Striche dürfen ein kleines Stück über den Rand laufen, aber nie weit. Als Pinseltyp gibt es Pinsel, Spray, Wachsmalkreide und Haarpinsel. Bei der Strichführung „Organisch“ laufen lange Linien in gleichmäßigem Abstand an den Formen im Bild entlang, Humanize teilt sie in Bündel. „Klassisch“ ist die Schraffur im festen Winkel. Solange du D gedrückt hältst, ist die ganze Bemalung ausgeblendet und du siehst das Original.",
                "Quickpaint fills a colour area automatically, like a chroma key. Hardness sets how strictly the mask reacts to the chosen colour. It fills with hatching strokes at the set angle. Humanize turns that into a hand sketch: strokes get uneven lengths, slight curves and varying weight, cross-hatching and sketched outlines are added, and strokes may run slightly past the edge, but never far. Brush types are brush, spray, wax crayon and hair brush. With the stroke guidance “Organic” long, evenly spaced lines run along the shapes in the image, humanize splits them into bundles. “Classic” is the hatching at a fixed angle. While you hold D, all painting is hidden and you see the original."),
     how5: L2("Magic Paint nimmt dir die Schichtarbeit ab: Es sucht die wichtigsten Farben im Frame (4 bis 16, je nach Qualität), sortiert sie nach Fläche und malt jede als Quickpaint-Schicht in genau dieser Farbe. Frühe Schichten sind großzügig und dick und überlappen, spätere werden feiner und genauer. So ist am Ende fast das ganze Bild gezeichnet. Weil jeder Frame neu gezeichnet wird, wirken die Striche im Video lebendig, wie bei echter Handanimation. Im Modus Calm Frames bleiben die Striche dagegen von Frame zu Frame an ihrem Platz, das Video wirkt ruhiger.",
@@ -128,7 +135,7 @@
   // ---------- Zustand ----------
   // F: Projekt { file, url, name, dur, vw, vh, fps, n, ow, oh, idx, paints: { i: {cv}|{blob} } }
   var F = null, V = null;
-  var S = { qp: { hard: 55, human: 55, angle: 35, width: 9, seed: 7, type: "stroke", flow: "active", calm: 60, guide: "classic" }, mp: { layers: 10, human: 55, angle: 35, width: 10, seed: 3, type: "stroke", flow: "active", calm: 60, guide: "classic" }, tool: "brush", sets: {}, color: "#1A1A1A", recent: [], onion: false, hideVid: false, mode: "video", mbit: 12, audio: true, fpsI: 1 };
+  var S = { qp: { hard: 55, human: 55, angle: 35, width: 9, seed: 7, type: "stroke", flow: "active", calm: 60, guide: "classic" }, mp: { layers: 10, human: 55, angle: 35, width: 10, seed: 3, type: "stroke", flow: "active", calm: 60, guide: "classic" }, tool: "brush", sets: {}, color: "#1A1A1A", recent: [], onion: false, hideVid: false, mode: "video", mbit: 12, audio: true, fpsI: 1, cmode: "pick", neon: null, glow: 60, tab: "paint", sideOpen: true };
   Object.keys(TOOLS).forEach(function (k) { S.sets[k] = Object.assign({}, TOOLS[k].set); });
   function set() { return S.sets[S.tool]; }
   function painted() { return Object.keys(F ? F.paints : {}).length + (V && V.dirty ? 1 : 0); }
@@ -283,7 +290,76 @@
     var tx = V.tmp.getContext("2d"); tx.globalCompositeOperation = "source-over"; tx.globalAlpha = 1; tx.clearRect(0, 0, F.ow, F.oh); tx.drawImage(V.stroke, 0, 0);
     applyGrain(tx, F.ow, F.oh, set().grain, 0, 0); return V.tmp;
   }
-  function inkColor() { return S.tool === "eraser" ? "#000000" : S.color; }
+  function inkColor() { return S.tool === "eraser" ? "#000000" : S.neon || S.color; }
+  // ---------- Farbmischung (seit v0.71): Farbton, Sättigung, Helligkeit ----------
+  function hexHsl(h) {
+    var c = hexRgb(h), r = c[0] / 255, g = c[1] / 255, b = c[2] / 255, mx = Math.max(r, g, b), mn = Math.min(r, g, b), l = (mx + mn) / 2, d = mx - mn, hu = 0, sa = 0;
+    if (d > 1e-6) {
+      sa = d / (1 - Math.abs(2 * l - 1));
+      hu = mx === r ? ((g - b) / d) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4; hu = (hu * 60 + 360) % 360;
+    }
+    return [Math.round(hu), Math.round(sa * 100), Math.round(l * 100)];
+  }
+  function hslHex(hu, sa, l) {
+    sa /= 100; l /= 100;
+    var c = (1 - Math.abs(2 * l - 1)) * sa, x = c * (1 - Math.abs((hu / 60) % 2 - 1)), m = l - c / 2, r = 0, g = 0, b = 0, k = Math.floor(hu / 60) % 6;
+    if (k === 0) { r = c; g = x; } else if (k === 1) { r = x; g = c; } else if (k === 2) { g = c; b = x; } else if (k === 3) { g = x; b = c; } else if (k === 4) { r = x; b = c; } else { r = c; b = x; }
+    return hex((r + m) * 255, (g + m) * 255, (b + m) * 255);
+  }
+  function hslTracks() {   // Verläufe hinter den Reglern zeigen, was der Regler bewirkt
+    var h = S.hsl || hexHsl(S.color), q = function (id) { return V && V.root.querySelector("#fp-hsl-" + id); };
+    var a = q("h"), b = q("s"), c = q("l");
+    if (a) a.style.background = "linear-gradient(90deg," + [0, 60, 120, 180, 240, 300, 360].map(function (d) { return hslHex(d % 360, Math.max(h[1], 60), 50); }).join(",") + ")";
+    if (b) b.style.background = "linear-gradient(90deg," + hslHex(h[0], 0, h[2]) + "," + hslHex(h[0], 100, h[2]) + ")";
+    if (c) c.style.background = "linear-gradient(90deg,#000," + hslHex(h[0], h[1], 50) + ",#fff)";
+  }
+  // ---------- Spezialfarben (seit v0.71): Neon ----------
+  // Der Strich wird in der Neonfarbe gezeichnet und beim Anzeigen und Übernehmen umgebaut: farbiger Schein außen
+  // (weicher Schatten), kräftiger Körper und ein fast weißer Kern, der zum Rand hin ausläuft. Gerechnet wird nur im
+  // Rechteck um den Strich, damit es beim Malen flüssig bleibt.
+  var NEON = [["#FF2079", "NPink"], ["#FF3131", "NRed"], ["#FF8A00", "NOrange"], ["#FFF01F", "NYellow"], ["#39FF14", "NGreen"], ["#00F0FF", "NCyan"], ["#1F51FF", "NBlue"], ["#BC13FE", "NViolet"]];
+  function neonName(h) { for (var i = 0; i < NEON.length; i++) if (NEON[i][0] === h) return t(NEON[i][1]); return h; }
+  // Alles Weiche (Schein, Kernmaske) wird auf halber Auflösung gerechnet, und während des Malens nur das neue Stück
+  // samt Umgebung (V.nbb): Unschärfe braucht keine feinen Pixel, und der Rest des Strichs bleibt, wie er war.
+  function neonOf(src) {
+    var K = 0.5;
+    if (!V.neo || V.neo.width !== F.ow || V.neo.height !== F.oh) { V.neo = canvas(F.ow, F.oh); V.neo2 = canvas(F.ow, F.oh); V.neoS = canvas(Math.ceil(F.ow * K), Math.ceil(F.oh * K)); V.neoM = canvas(Math.ceil(F.ow * K), Math.ceil(F.oh * K)); V.neoNew = true; }
+    var nx = V.neo.getContext("2d"), sx = V.neoS.getContext("2d"), mx = V.neoM.getContext("2d"), cx = V.neo2.getContext("2d");
+    if (V.neoNew) { [nx, sx, mx, cx].forEach(function (c) { c.clearRect(0, 0, c.canvas.width, c.canvas.height); }); V.neoNew = false; }
+    var bb = V.nbb; if (!bb) return V.neo; V.nbb = null;
+    var st = set(), sz = Math.max(3, st.size), g = S.glow / 100, R1 = sz * (0.5 + 2.3 * g), pad = R1 * 2 + 4;
+    var x0 = Math.max(0, Math.floor((bb.x0 - pad) / 2) * 2), y0 = Math.max(0, Math.floor((bb.y0 - pad) / 2) * 2), x1 = Math.min(F.ow, Math.ceil((bb.x1 + pad) / 2) * 2), y1 = Math.min(F.oh, Math.ceil((bb.y1 + pad) / 2) * 2), w = x1 - x0, h = y1 - y0;
+    if (w <= 0 || h <= 0) return V.neo;
+    var ix0 = Math.max(0, x0 - Math.ceil(pad / 2) * 2), iy0 = Math.max(0, y0 - Math.ceil(pad / 2) * 2), ix1 = Math.min(F.ow, x1 + Math.ceil(pad / 2) * 2), iy1 = Math.min(F.oh, y1 + Math.ceil(pad / 2) * 2), iw = ix1 - ix0, ih = iy1 - iy0;
+    var X = x0 * K, Y = y0 * K, Wk = w * K, Hk = h * K, off = V.neoS.width + 4 * R1 + 50;
+    function clip(c, a, b2, c2, d) { c.save(); c.beginPath(); c.rect(a, b2, c2, d); c.clip(); c.clearRect(a, b2, c2, d); }
+    // Schein: äußerer weiter und innerer enger Schatten, nur der Schatten wird gezeichnet
+    clip(sx, X, Y, Wk, Hk); sx.shadowColor = S.neon; sx.shadowOffsetX = off;
+    sx.shadowBlur = R1 * K; sx.globalAlpha = 0.5 + 0.5 * g; sx.drawImage(src, ix0, iy0, iw, ih, ix0 * K - off, iy0 * K, iw * K, ih * K);
+    if (g > 0.05) { sx.shadowBlur = R1 * 0.55 * K; sx.globalAlpha = 0.85 * g; sx.drawImage(src, ix0, iy0, iw, ih, ix0 * K - off, iy0 * K, iw * K, ih * K); }   // dichterer Schein nah am Strich
+    sx.shadowBlur = sz * 0.45 * K; sx.globalAlpha = 1; sx.drawImage(src, ix0, iy0, iw, ih, ix0 * K - off, iy0 * K, iw * K, ih * K); sx.restore();
+    // Kernmaske: die eigene unscharfe Form, zweimal übereinander, damit der Kern zur Mitte hin dichter wird
+    clip(mx, X, Y, Wk, Hk); mx.shadowColor = "#000"; mx.shadowOffsetX = off;
+    mx.shadowBlur = sz * 0.32 * K; mx.drawImage(src, ix0, iy0, iw, ih, ix0 * K - off, iy0 * K, iw * K, ih * K);
+    mx.shadowBlur = sz * 0.18 * K; mx.drawImage(src, ix0, iy0, iw, ih, ix0 * K - off, iy0 * K, iw * K, ih * K); mx.restore();
+    // Kern: Strich fast weiß getönt und mit der Maske zum Rand hin ausgeblendet
+    clip(cx, x0, y0, w, h); cx.drawImage(src, x0, y0, w, h, x0, y0, w, h);
+    cx.globalCompositeOperation = "source-in"; cx.fillStyle = shade(hexRgb(S.neon), 0.78); cx.fillRect(x0, y0, w, h);
+    cx.globalCompositeOperation = "destination-in"; cx.drawImage(V.neoM, X, Y, Wk, Hk, x0, y0, w, h); cx.drawImage(V.neoM, X, Y, Wk, Hk, x0, y0, w, h); cx.restore();
+    clip(nx, x0, y0, w, h); nx.imageSmoothingQuality = "high";
+    nx.drawImage(V.neoS, X, Y, Wk, Hk, x0, y0, w, h);   // Schein
+    nx.drawImage(src, x0, y0, w, h, x0, y0, w, h);      // Körper scharf in der Neonfarbe
+    nx.drawImage(V.neo2, x0, y0, w, h, x0, y0, w, h);   // heller Kern
+    nx.restore();
+    return V.neo;
+  }
+  function strokeImg() { var im = S.tool === "crayon" ? grainedStroke() : V.stroke; return S.neon && S.tool !== "eraser" ? neonOf(im) : im; }
+  function growBB(a, b) {
+    var pd = set().size * 0.75 + 6;
+    [V.bb || (V.bb = { x0: a.x, y0: a.y, x1: a.x, y1: a.y }), V.nbb || (V.nbb = { x0: a.x, y0: a.y, x1: a.x, y1: a.y })].forEach(function (bb) {
+      bb.x0 = Math.min(bb.x0, a.x - pd, b.x - pd); bb.y0 = Math.min(bb.y0, a.y - pd, b.y - pd); bb.x1 = Math.max(bb.x1, a.x + pd, b.x + pd); bb.y1 = Math.max(bb.y1, a.y + pd, b.y + pd);
+    });
+  }
   function pressureSize(st, p) { return Math.max(1, st.size * (V.pen ? 0.25 + 0.75 * p : 1)); }
   // ---------- Haarpinsel (übernommen aus Draw Space) ----------
   // Viele feine Haare, jedes folgt der Spitze leicht verzögert (träge), mit eigener Farbnuance und Farbmenge.
@@ -320,8 +396,9 @@
   // Ein Wegstück von a nach b auf die Strichebene
   function segment(a, b) {
     var st = set(), x = V.sx, col = inkColor();
+    growBB(a, b);
     if (S.tool === "hair") {
-      if (V.first) { V.hb = { o: st, pen: V.pen, R: rng((Math.random() * 2147483647) | 0), rgb: hexRgb(S.color) }; HAIR.begin(V.hb, a); V.first = false; }
+      if (V.first) { V.hb = { o: st, pen: V.pen, R: rng((Math.random() * 2147483647) | 0), rgb: hexRgb(inkColor()) }; HAIR.begin(V.hb, a); V.first = false; }
       if (b.x !== a.x || b.y !== a.y || b.p !== a.p) HAIR.step(V.hb, b);
       return;
     }
@@ -371,7 +448,7 @@
     var st = set();
     V.lx.globalAlpha = st.opacity / 100;
     V.lx.globalCompositeOperation = S.tool === "eraser" ? "destination-out" : "source-over";
-    V.lx.drawImage(S.tool === "crayon" ? grainedStroke() : V.stroke, 0, 0);
+    V.lx.drawImage(strokeImg(), 0, 0);
     V.lx.globalAlpha = 1; V.lx.globalCompositeOperation = "source-over";
     V.sx.clearRect(0, 0, F.ow, F.oh);
     V.dirty = true;
@@ -382,7 +459,7 @@
   function sample(p) { return sampleVideo(p); }
   function setPick(on) { V.picking = on; V.cv && V.cv.classList.toggle("pick", on); var b = V.root.querySelector('[data-fp="pick"]'); if (b) b.setAttribute("aria-pressed", String(on)); need(); }
   function takeColor(c) {
-    S.color = c;
+    S.color = c; S.neon = null; S.hsl = hexHsl(c);
     S.recent = [c].concat(S.recent.filter(function (q) { return q !== c; })).slice(0, 10);
     if (S.tool === "eraser") S.tool = V.lastPaintTool || "brush";
     updateSide();
@@ -436,7 +513,7 @@
     V.qp = { stage: "pick", key: null, hover: null, mask: null, sketch: null, gen: 0, done: {} };
     qpPanel(); need();
   }
-  function endQP() { V.qp = null; V.qView = null; var pn = V.root.querySelector("#fp-qp"); if (pn) pn.hidden = true; need(); }
+  function endQP() { V.qp = null; V.qView = null; var pn = V.root.querySelector("#fp-qp"); if (pn) { pn.hidden = true; pn.dataset.kind = ""; } need(); updateSide(); }
   function qpFix(p) {
     var G = qpGrids(); V.qp.key = labAt(G.m, p); V.qp.keyHex = sampleVideo(p); V.qp.stage = "tune"; calmReset();
     qpMask(); qpGenSoon(0); qpPanel();
@@ -1171,9 +1248,9 @@
       [".fp-mpl", ".fp-qb", ".fp-mpdesc", ".fp-mbatch"].forEach(function (sel) { var a = pn.querySelector(sel), b = tmp.querySelector(sel); if (a && b) a.innerHTML = b.innerHTML; });
       return;
     }
+    var first = pn.hidden || pn.dataset.kind !== "mp";
     pn.dataset.kind = "mp"; pn.innerHTML = html2;
-    if (V.qpPos) { pn.style.left = V.qpPos.l + "px"; pn.style.top = V.qpPos.t + "px"; pn.style.right = "auto"; }
-    pn.hidden = false;
+    pn.hidden = false; if (first) openAuto();
   }
   function flowSeg(attr, o, pre) {
     var cm = o.flow === "calm";
@@ -1193,14 +1270,14 @@
     var pn = V.root.querySelector("#fp-qp"); if (!pn) return;
     var q = V.qp; if (!q) { pn.hidden = true; return; }
     function sl(k, lab, min, max, u) { return '<div class="fp-row"><label for="fp-q-' + k + '">' + lab + '<span id="fp-q-' + k + '-v">' + S.qp[k] + u + '</span></label><input type="range" id="fp-q-' + k + '" data-qp="' + k + '" min="' + min + '" max="' + max + '" step="1" value="' + S.qp[k] + '"></div>'; }
-    pn.dataset.kind = "qp";
+    var wasQ = !pn.hidden && pn.dataset.kind === "qp";
     pn.innerHTML = '<div class="fp-qph"><b>' + t("qpH") + "</b>" + (q.keyHex ? '<span class="fp-qk" style="background:' + q.keyHex + '" title="' + t("qpKey") + '"></span>' : "") + '<span class="fp-qs">' + t(q.applied ? "qpApplied" : q.stage === "pick" ? "qpPick" : "qpTune") + '</span><button type="button" class="fp-x" data-fp="qpNo" aria-label="' + t("close") + '" title="' + t("close") + ' (Esc)">×</button></div>' +
       sl("hard", t("qpHard"), 0, 100, " %") + (q.stage === "tune" ? flowSeg("data-qflow", S.qp, "q") + typeSeg("data-qtype", S.qp.type) + guideSeg("data-qguide", S.qp.guide) + sl("human", t("qpHuman"), 0, 100, " %") + sl("angle", t("qpAngle"), 0, 180, "°") + sl("width", t("qpWidth"), 2, 40, "px") : '<p class="fp-desc">' + t("qpHardNote") + "</p>") +
       '<div class="fp-qb">' + (q.stage === "tune" ? '<button type="button" class="fp-save" data-fp="qpOk"' + (q.applied ? " disabled" : "") + ">" + t("qpOk") + '</button><button type="button" class="navbtn" data-fp="qpSeed">' + t("qpSeed") + '</button><button type="button" class="navbtn" data-fp="qpRepick">' + t("qpRepick") + "</button>" : "") + "</div>" +
       (q.stage === "tune" ? '<div class="fp-qbatch">' + (V.batch ? '<p class="fp-desc" id="fp-qbat">' + fmt(t("qpBatchRun"), { i: V.batch.i, n: V.batch.n }) + '</p><button type="button" class="fp-save" data-fp="batchStop">' + t("qpStop") + "</button>"
         : '<button type="button" class="fp-qpbtn" data-fp="qpNext">' + t("qpNext") + '</button><button type="button" class="navbtn" data-fp="qpAll">' + t("qpAll") + '</button><p class="fp-desc">' + t("qpBatchNote") + "</p>") + "</div>" : "");
-    if (V.qpPos) { pn.style.left = V.qpPos.l + "px"; pn.style.top = V.qpPos.t + "px"; pn.style.right = "auto"; }
-    pn.hidden = false;
+    pn.dataset.kind = "qp";
+    pn.hidden = false; if (!wasQ) openAuto();
   }
 
   // ---------- Darstellung ----------
@@ -1211,7 +1288,7 @@
     V.cv.style.width = cw + "px"; V.cv.style.height = ch + "px";
     V.cv.width = Math.round(cw * dpr); V.cv.height = Math.round(ch * dpr);
     var side = V.root.querySelector("#fp-side");
-    if (side) side.style.maxHeight = window.innerWidth >= 1100 ? V.root.querySelector(".fp-deskbox").offsetHeight + "px" : "";
+    if (side) side.style.maxHeight = window.innerWidth >= 1100 ? Math.max(360, V.root.querySelector(".fp-deskbox").offsetHeight) + "px" : "";
     drawStrip(); need();
   }
   function need() { if (V) V.need = true; }
@@ -1244,7 +1321,7 @@
       x.drawImage(V.tmp, 0, 0, W, H);
     } else {
       x.drawImage(V.layer, 0, 0, W, H);
-      if (V.down) { x.globalAlpha = st.opacity / 100; x.drawImage(S.tool === "crayon" ? grainedStroke() : V.stroke, 0, 0, W, H); x.globalAlpha = 1; }
+      if (V.down) { x.globalAlpha = st.opacity / 100; x.drawImage(strokeImg(), 0, 0, W, H); x.globalAlpha = 1; }
     }
     if (V.mp && V.mp.preview) x.drawImage(V.mp.preview, 0, 0, W, H);
     if (V.qp) {
@@ -1282,7 +1359,7 @@
     c.width = Math.max(1, Math.round(w * dpr)); c.height = Math.round(10 * dpr);
     var x = c.getContext("2d"); x.clearRect(0, 0, c.width, c.height);
     var fw = c.width / F.n;
-    x.fillStyle = "#E2621B";
+    x.fillStyle = "#95A78D";
     Object.keys(F.paints).forEach(function (k) { x.fillRect(Math.floor(+k * fw), 0, Math.max(Math.ceil(fw), Math.round(dpr)), c.height); });
     if (V.dirty || (V.layer && F.paints[F.idx])) { /* aktueller Frame wird beim Wechsel gespeichert */ }
   }
@@ -1439,71 +1516,134 @@
   }
 
   // ---------- Oberfläche ----------
-  var CSS = ".fp-ver{display:inline-block;margin-left:10px;padding:1px 8px;border:1px solid var(--line);font:600 .75rem var(--f-body);color:var(--soft);vertical-align:middle}" +
-    ".fp-wrap{display:grid;grid-template-columns:minmax(0,1fr);gap:20px;margin-top:22px}" +
-    ".fp-desk{position:relative;width:100%;aspect-ratio:16/9;min-height:300px;display:grid;place-items:center;padding:12px;overflow:hidden;background:#24221F;touch-action:none}" +
+  // Stylesheet v0.71: Farbschema Stein #D7D0C8 · Sand #C8C6AF · Schwarz #0A0908, Akzente Salbei #95A78D und Koralle #F87666
+  var CSS = "body.fp-theme{--bg:#D7D0C8;--head:#D7D0C8;--edge:#D7D0C8;--card:#C8C6AF;--ink:#0A0908;--soft:rgba(10,9,8,.62);--line:rgba(10,9,8,.16);--accent:#F87666;--sage:#95A78D;--shadow:rgba(10,9,8,.25);color-scheme:light}" +
+    "body.fp-theme .rate,body.fp-theme .back{color:var(--soft)}" +
+    "html.fp-noscroll,html.fp-noscroll body{overflow:hidden}" +
+    ".fp-ver{display:inline-block;margin-left:10px;padding:2px 8px;border-radius:999px;background:var(--ink);font:600 .75rem var(--f-body);color:var(--bg);vertical-align:middle}" +
+    ".fp-wrap{position:relative;display:grid;grid-template-columns:minmax(0,1fr);gap:16px;margin-top:22px}" +
+    ".fp-deskbox{position:relative;min-width:0}" +
+    ".fp-desk{position:relative;width:100%;aspect-ratio:16/9;min-height:300px;display:grid;place-items:center;padding:10px;overflow:hidden;background:var(--ink);border-radius:14px;touch-action:none}" +
     ".fp-desk.tall{aspect-ratio:4/5}" +
-    ".fp-desk.over{outline:3px dashed #E3B83F;outline-offset:-10px}" +
+    ".fp-desk.over{outline:3px dashed var(--accent);outline-offset:-10px}" +
     ".fp-desk canvas{display:block;cursor:none;touch-action:none}.fp-desk canvas.pick,.fp-desk canvas.qp{cursor:crosshair}" +
-    ".fp-qp{position:absolute;right:12px;top:12px;width:min(300px,calc(100% - 24px));max-height:calc(100% - 24px);overflow-y:auto;z-index:5;background:var(--bg);color:var(--ink);border:2px solid var(--ink);box-shadow:5px 5px 0 rgba(0,0,0,.45);padding:12px 14px;display:flex;flex-direction:column;gap:10px}" +
-    ".fp-x{order:1;margin-left:auto;width:30px;height:30px;border:1px solid var(--ink);background:transparent;color:var(--ink);font:600 1.2rem/1 var(--f-body);cursor:pointer}.fp-x:hover{background:var(--ink);color:var(--bg)}" +
-    ".fp-note2{margin:0;color:var(--soft);font-size:.86rem;line-height:1.45}.fp-qpbtn[disabled]{opacity:.4;cursor:default}.fp-qph::after{display:none!important}.fp-qbatch{display:flex;flex-direction:column;gap:8px;border-top:1px solid var(--line);padding-top:10px}" +
-    ".fp-slots{display:flex;flex-direction:column;gap:8px}.fp-slot{display:grid;grid-template-columns:auto 1fr;gap:6px 10px;align-items:center;border:1px solid var(--line);padding:8px 10px}" +
-    ".fp-slot b{font-size:.88rem}.fp-slot .fp-mpl span{width:14px;height:14px}.fp-slb{grid-column:1/3;display:flex;gap:6px}.fp-slb .navbtn{flex:1}.fp-slb .navbtn[disabled]{opacity:.4;cursor:default}" +
-    ".fp-qp[hidden]{display:none}.fp-mpl{display:flex;flex-wrap:wrap;gap:4px}.fp-mpl span{width:18px;height:18px;border:1px solid var(--line)}.fp-qb .fp-save[disabled]{opacity:.4;cursor:default}" +
-    ".fp-qph{display:flex;flex-wrap:wrap;align-items:center;gap:8px;cursor:move;user-select:none;-webkit-user-select:none;touch-action:none;margin:-12px -14px 0;padding:10px 14px 8px;border-bottom:1px solid var(--line)}.fp-qph::after{content:'';order:1;margin-left:auto;width:16px;height:8px;border-top:2px solid var(--soft);border-bottom:2px solid var(--soft)}.fp-qph b{font:600 1rem var(--f-display)}.fp-qk{width:20px;height:20px;border:1px solid var(--ink)}" +
-    ".fp-qs{order:2;flex-basis:100%;font-size:.84rem;color:var(--soft)}.fp-qb{display:flex;flex-wrap:wrap;gap:8px}.fp-qb .fp-save{padding:9px 14px;font-size:.92rem}" +
-    ".fp-qpbtn{font:600 .95rem var(--f-body);padding:10px 14px;border:2px solid var(--ink);background:transparent;color:var(--ink);cursor:pointer}.fp-qpbtn:hover{background:var(--ink);color:var(--bg)}" +
-    ".fp-drop{text-align:center;color:#F1EFEA;display:flex;flex-direction:column;align-items:center;gap:10px;padding:20px}" +
-    ".fp-drop b{font:600 1.4rem/1.2 var(--f-display)}.fp-drop span{color:rgba(241,239,234,.7)}" +
-    ".fp-pick{font:600 1rem var(--f-body);padding:12px 20px;border:0;background:#F1EFEA;color:#151715;cursor:pointer}" +
-    ".fp-load{position:absolute;left:12px;top:12px;padding:4px 10px;background:rgba(0,0,0,.6);color:#F1EFEA;font:600 .8rem var(--f-body)}" +
-    ".fp-bar{display:flex;align-items:center;gap:8px;margin-top:10px;flex-wrap:wrap}" +
-    ".fp-bar .fp-nav{font:600 .92rem var(--f-body);padding:9px 14px;border:0;background:var(--ink);color:var(--bg);cursor:pointer}" +
-    ".fp-bar .fp-nav[disabled]{opacity:.35;cursor:default}" +
-    ".fp-fr{font:600 .95rem var(--f-body);font-variant-numeric:tabular-nums;min-width:132px;text-align:center}" +
-    ".fp-tl{flex:1;min-width:200px;display:flex;flex-direction:column;gap:3px}" +
-    ".fp-tl input{width:100%;accent-color:#E2621B;margin:0}.fp-tl canvas{display:block;width:100%;height:10px;background:var(--line)}" +
-    ".fp-time{font:600 .88rem var(--f-body);font-variant-numeric:tabular-nums;color:var(--soft);min-width:96px;text-align:right}" +
-    ".fp-bar2{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;margin-top:10px}" +
-    ".fp-copy{font:600 .95rem var(--f-body);padding:10px 16px;border:2px solid var(--ink);background:var(--card,transparent);color:var(--ink);cursor:pointer}" +
-    ".fp-copy:hover{background:var(--ink);color:var(--bg)}.fp-copy[disabled]{opacity:.35;cursor:default;background:transparent;color:var(--ink)}" +
-    ".fp-chk{display:inline-flex;align-items:center;gap:8px;font-weight:500;font-size:.92rem;cursor:pointer}.fp-chk input{width:18px;height:18px;accent-color:var(--accent)}" +
-    ".fp-keys{margin:10px 0 0;color:var(--soft);font-size:.84rem}" +
-    ".fp-side{display:flex;flex-direction:column;gap:14px;min-width:0}" +
-    ".fp-box{border:1px solid var(--line);background:var(--card,transparent);padding:14px 16px;display:flex;flex-direction:column;gap:12px}" +
-    ".fp-box h3{font:600 .78rem/1 var(--f-body);letter-spacing:.12em;text-transform:uppercase;color:var(--soft);margin:0}" +
-    ".fp-col{display:flex;align-items:center;gap:12px}" +
-    ".fp-sw{width:56px;height:56px;flex:none;border:2px solid var(--ink);box-shadow:inset 0 0 0 3px var(--bg)}" +
-    ".fp-col b{font:600 1rem ui-monospace,SFMono-Regular,Menlo,monospace}" +
-    ".fp-pk{display:flex;align-items:center;gap:8px;font:600 .92rem var(--f-body);padding:10px 14px;border:1px solid var(--ink);background:transparent;color:var(--ink);cursor:pointer;margin-left:auto}" +
-    ".fp-pk svg{width:18px;height:18px}.fp-pk[aria-pressed=true]{background:#E2621B;border-color:#E2621B;color:#fff}" +
-    ".fp-rec{display:flex;flex-wrap:wrap;gap:6px}.fp-rec button{width:26px;height:26px;border:1px solid var(--line);cursor:pointer;padding:0}" +
-    ".fp-tools{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}" +
-    ".fp-tools button{display:flex;flex-direction:column;align-items:center;gap:4px;font:600 .78rem var(--f-body);padding:8px 2px;border:1px solid var(--line);background:transparent;color:var(--ink);cursor:pointer}" +
-    ".fp-tools button svg{width:22px;height:22px}.fp-tools button[aria-pressed=true]{background:var(--ink);color:var(--bg);border-color:var(--ink)}" +
-    ".fp-row{display:flex;flex-direction:column;gap:6px}" +
-    ".fp-row label{display:flex;justify-content:space-between;font-weight:600;font-size:.9rem}" +
-    ".fp-row label span{color:var(--soft);font-weight:500;font-variant-numeric:tabular-nums}" +
-    ".fp-row input{width:100%;accent-color:var(--accent)}.fp-row input:disabled{opacity:.4}" +
-    ".fp-ticks{display:flex;justify-content:space-between;font-size:.78rem;color:var(--soft)}" +
-    ".fp-desc{margin:0;color:var(--soft);font-size:.86rem;line-height:1.45}" +
-    ".fp-seg{display:flex;flex-wrap:wrap}.fp-seg button{flex:1 1 auto;font:600 .88rem var(--f-body);padding:8px 10px;border:1px solid var(--line);background:transparent;color:var(--ink);cursor:pointer}" +
-    ".fp-seg4{display:grid;grid-template-columns:1fr 1fr}.fp-seg4 button,.fp-seg4 button+button{border-left:1px solid var(--line);margin:0 -1px -1px 0}" +
-    ".fp-seg button+button{border-left:0}.fp-seg button[aria-pressed=true]{background:var(--ink);color:var(--bg);border-color:var(--ink)}" +
-    ".fp-save{font:600 1rem var(--f-body);padding:12px 18px;border:0;background:var(--ink);color:var(--bg);cursor:pointer}" +
-    ".fp-note{margin:0;color:var(--soft);font-size:.88rem;min-height:1.3em;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}" +
+    ".fp-drop{text-align:center;color:var(--bg);display:flex;flex-direction:column;align-items:center;gap:10px;padding:20px}" +
+    ".fp-drop b{font:600 1.4rem/1.2 var(--f-display)}.fp-drop span{color:rgba(215,208,200,.65)}" +
+    ".fp-pick{font:600 1rem var(--f-body);padding:12px 22px;border:0;border-radius:999px;background:var(--bg);color:var(--ink);cursor:pointer}" +
+    ".fp-load{position:absolute;left:14px;top:14px;padding:4px 10px;border-radius:999px;background:rgba(10,9,8,.7);color:var(--bg);font:600 .8rem var(--f-body)}" +
+    ".fp-bar{display:flex;align-items:center;gap:8px;margin-top:10px;padding:8px 10px;background:var(--ink);border-radius:12px;color:var(--bg)}" +
+    ".fp-bar .fp-nav{display:grid;place-items:center;min-width:38px;height:36px;font:600 .9rem var(--f-body);padding:0 12px;border:0;border-radius:8px;background:rgba(215,208,200,.1);color:var(--bg);cursor:pointer}" +
+    ".fp-bar .fp-nav:hover{background:rgba(215,208,200,.2)}.fp-bar .fp-nav[disabled]{opacity:.3;cursor:default}" +
+    ".fp-bar .fp-play{background:var(--accent);color:var(--ink);min-width:104px}.fp-bar .fp-play:hover{background:#FA8C7E}.fp-bar .fp-play.on{background:var(--sage)}" +
+    ".fp-bar .fp-fsb svg{width:18px;height:18px}.fp-bar .fp-fsb[aria-pressed=true]{background:var(--sage);color:var(--ink)}" +
+    ".fp-fr{font:600 .88rem var(--f-body);font-variant-numeric:tabular-nums;min-width:118px;text-align:center;color:var(--bg)}" +
+    ".fp-tl{flex:1;min-width:160px;display:flex;flex-direction:column;gap:4px}" +
+    ".fp-tl input{width:100%;accent-color:var(--accent);margin:0}.fp-tl canvas{display:block;width:100%;height:6px;border-radius:3px;background:rgba(215,208,200,.14)}" +
+    ".fp-time{font:600 .84rem var(--f-body);font-variant-numeric:tabular-nums;color:rgba(215,208,200,.7);min-width:92px;text-align:right}" +
+    ".fp-bar2{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;margin-top:10px}" +
+    ".fp-bar2 .navbtn{border-radius:999px;border-color:var(--line)}.fp-bar2 .navbtn:hover{border-color:var(--ink)}.fp-bar2 .navbtn[disabled]{opacity:.35;cursor:default}" +
+    ".fp-other{margin-left:auto}" +
+    ".fp-copy{font:600 .88rem var(--f-body);padding:7px 14px;border:0;border-radius:999px;background:var(--ink);color:var(--bg);cursor:pointer}" +
+    ".fp-copy[disabled]{opacity:.3;cursor:default}" +
+    ".fp-chk{display:inline-flex;align-items:center;gap:7px;font-weight:500;font-size:.88rem;cursor:pointer}.fp-chk input{width:16px;height:16px;accent-color:var(--ink)}" +
+    ".fp-bar3{display:flex;flex-wrap:wrap;gap:4px 16px;align-items:baseline;margin-top:8px}" +
+    ".fp-note{margin:0;color:var(--ink);font-size:.86rem;font-weight:600;min-height:1.3em;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}.fp-note:empty{display:none}" +
+    ".fp-keys{margin:0;color:var(--soft);font-size:.78rem}" +
     ".fp-sure{display:flex;flex-wrap:wrap;gap:8px;align-items:center;color:var(--ink)}" +
+    ".fp-side{display:flex;flex-direction:column;gap:12px;min-width:0}" +
+    ".fp-tabs{order:0;display:grid;grid-template-columns:repeat(3,1fr);gap:4px;padding:4px;background:var(--card);border-radius:12px;position:sticky;top:0;z-index:2}" +
+    ".fp-tabs button{position:relative;font:600 .9rem var(--f-body);padding:9px 6px;border:0;border-radius:9px;background:transparent;color:var(--ink);cursor:pointer}" +
+    ".fp-tabs button:hover{background:rgba(10,9,8,.07)}.fp-tabs button[aria-selected=true]{background:var(--ink);color:var(--bg)}" +
+    ".fp-dot{display:inline-block;width:7px;height:7px;margin-left:6px;border-radius:50%;background:var(--accent);vertical-align:middle}" +
+    ".fp-sc{order:2;display:flex;flex-direction:column;gap:12px}" +
+    ".fp-box{background:var(--card);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:12px}" +
+    ".fp-box h3{font:600 .72rem/1 var(--f-body);letter-spacing:.12em;text-transform:uppercase;color:var(--soft);margin:0}" +
+    ".fp-col{display:flex;align-items:center;gap:12px}" +
+    ".fp-sw{width:44px;height:44px;flex:none;border-radius:10px;box-shadow:inset 0 0 0 1px rgba(10,9,8,.25)}" +
+    ".fp-sw.fp-neon{background:var(--ink);box-shadow:inset 0 0 0 1px var(--ink)}" +
+    ".fp-sw.fp-neon::after{content:\"\";display:block;margin:13px;height:18px;border-radius:9px;background:#fff;box-shadow:0 0 4px 2px var(--n),0 0 12px 4px var(--n)}" +
+    ".fp-col b{font:600 .95rem ui-monospace,SFMono-Regular,Menlo,monospace}" +
+    ".fp-mtabs{display:grid;grid-template-columns:repeat(3,1fr);border:1px solid var(--ink);border-radius:999px;overflow:hidden}" +
+    ".fp-mtabs button{font:600 .82rem var(--f-body);padding:7px 4px;border:0;background:transparent;color:var(--ink);cursor:pointer}" +
+    ".fp-mtabs button+button{border-left:1px solid var(--ink)}.fp-mtabs button[aria-selected=true]{background:var(--ink);color:var(--bg)}" +
+    ".fp-mbody{display:flex;flex-direction:column;gap:12px}" +
+    ".fp-pk{display:flex;align-items:center;justify-content:center;gap:8px;font:600 .9rem var(--f-body);padding:10px 14px;border:0;border-radius:999px;background:var(--ink);color:var(--bg);cursor:pointer}" +
+    ".fp-pk svg{width:18px;height:18px}.fp-pk[aria-pressed=true]{background:var(--accent);color:var(--ink)}.fp-pk[disabled]{opacity:.35;cursor:default}" +
+    ".fp-rec{display:flex;flex-wrap:wrap;gap:6px}.fp-rec button{width:24px;height:24px;border:0;border-radius:6px;box-shadow:inset 0 0 0 1px rgba(10,9,8,.25);cursor:pointer;padding:0}" +
+    "input.fp-hsl{-webkit-appearance:none;appearance:none;height:14px;border-radius:7px;margin:4px 0;box-shadow:inset 0 0 0 1px rgba(10,9,8,.25)}" +
+    "input.fp-hsl::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:50%;background:var(--bg);border:2px solid var(--ink);cursor:pointer}" +
+    "input.fp-hsl::-moz-range-thumb{width:14px;height:14px;border-radius:50%;background:var(--bg);border:2px solid var(--ink);cursor:pointer}" +
+    ".fp-spec{display:flex;flex-direction:column;gap:12px;padding:12px;border-radius:10px;background:var(--ink);color:var(--bg)}" +
+    ".fp-spech{font:600 .72rem/1 var(--f-body);letter-spacing:.12em;text-transform:uppercase;color:rgba(215,208,200,.7)}.fp-spech em{font-style:normal;letter-spacing:0;text-transform:none;margin-left:6px;padding:2px 8px;border-radius:999px;border:1px solid rgba(215,208,200,.3)}" +
+    ".fp-neons{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}" +
+    ".fp-neons button{height:34px;border-radius:8px;border:1px solid rgba(215,208,200,.15);background:transparent;cursor:pointer;position:relative}" +
+    ".fp-neons button::after{content:\"\";position:absolute;left:22%;right:22%;top:13px;height:7px;border-radius:4px;background:#fff;box-shadow:0 0 3px 1px var(--n),0 0 10px 3px var(--n)}" +
+    ".fp-neons button[aria-pressed=true]{border-color:var(--bg);background:rgba(215,208,200,.1)}" +
+    ".fp-spec .fp-row label{color:var(--bg)}.fp-spec .fp-row label span{color:rgba(215,208,200,.7)}.fp-spec .fp-row input{accent-color:var(--bg)}" +
+    ".fp-tools{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}" +
+    ".fp-tools button{display:flex;flex-direction:column;align-items:center;gap:4px;font:600 .76rem var(--f-body);padding:9px 2px;border:0;border-radius:10px;background:rgba(10,9,8,.06);color:var(--ink);cursor:pointer}" +
+    ".fp-tools button:hover{background:rgba(10,9,8,.12)}.fp-tools button svg{width:22px;height:22px}.fp-tools button[aria-pressed=true]{background:var(--ink);color:var(--bg)}" +
+    ".fp-row{display:flex;flex-direction:column;gap:6px}" +
+    ".fp-row label{display:flex;justify-content:space-between;font-weight:600;font-size:.86rem}" +
+    ".fp-row label span{color:var(--soft);font-weight:500;font-variant-numeric:tabular-nums}" +
+    ".fp-row input{width:100%;accent-color:var(--ink)}.fp-row input:disabled{opacity:.4}" +
+    ".fp-ticks{display:flex;justify-content:space-between;font-size:.76rem;color:var(--soft)}" +
+    ".fp-desc{margin:0;color:var(--soft);font-size:.82rem;line-height:1.45}" +
+    ".fp-seg{display:flex;flex-wrap:wrap;border:1px solid var(--ink);border-radius:10px;overflow:hidden}" +
+    ".fp-seg button{flex:1 1 auto;font:600 .84rem var(--f-body);padding:8px 10px;border:0;background:transparent;color:var(--ink);cursor:pointer}" +
+    ".fp-seg button+button{border-left:1px solid var(--ink)}.fp-seg button[aria-pressed=true]{background:var(--ink);color:var(--bg)}" +
+    ".fp-seg4{display:grid;grid-template-columns:1fr 1fr}.fp-seg4 button:nth-child(3){border-left:0}.fp-seg4 button:nth-child(n+3){border-top:1px solid var(--ink)}" +
+    ".fp-save{font:600 .95rem var(--f-body);padding:11px 18px;border:0;border-radius:999px;background:var(--ink);color:var(--bg);cursor:pointer}.fp-save[disabled]{opacity:.35;cursor:default}" +
+    ".fp-qpbtn{font:600 .9rem var(--f-body);padding:10px 14px;border:1.5px solid var(--ink);border-radius:999px;background:transparent;color:var(--ink);cursor:pointer}.fp-qpbtn:hover{background:var(--ink);color:var(--bg)}.fp-qpbtn[disabled]{opacity:.35;cursor:default;background:transparent;color:var(--ink)}" +
+    ".fp-box .navbtn,.fp-qp .navbtn{border-radius:999px}" +
+    ".fp-auto{display:grid;grid-template-columns:1fr;gap:8px}" +
+    ".fp-abtn{display:flex;flex-direction:column;align-items:flex-start;gap:4px;text-align:left;padding:12px 14px;border:0;border-radius:10px;background:var(--bg);color:var(--ink);cursor:pointer;font:inherit}" +
+    ".fp-abtn:hover{background:#E1DBD4}.fp-abtn b{display:flex;align-items:center;gap:8px;width:100%;font:600 .98rem var(--f-display)}" +
+    ".fp-abtn kbd{margin-left:auto;font:600 .72rem var(--f-body);padding:2px 7px;border-radius:5px;border:1px solid var(--line)}" +
+    ".fp-abtn span{font-size:.82rem;line-height:1.4;color:var(--soft)}" +
+    ".fp-abtn[aria-pressed=true]{background:var(--ink);color:var(--bg)}.fp-abtn[aria-pressed=true] span{color:rgba(215,208,200,.7)}.fp-abtn[aria-pressed=true] kbd{border-color:rgba(215,208,200,.3)}" +
+    ".fp-abtn[disabled]{opacity:.45;cursor:default}" +
+    ".fp-slbox summary{font:600 .72rem/1 var(--f-body);letter-spacing:.12em;text-transform:uppercase;color:var(--soft);cursor:pointer;list-style:none;display:flex;justify-content:space-between}" +
+    ".fp-slbox summary::-webkit-details-marker{display:none}.fp-slbox summary::after{content:\"+\";font-size:1rem;line-height:.7}.fp-slbox[open] summary::after{content:\"\u2013\"}" +
+    ".fp-slots{display:flex;flex-direction:column;gap:8px}.fp-slot{display:grid;grid-template-columns:auto 1fr;gap:6px 10px;align-items:center;padding:8px 10px;border-radius:10px;background:var(--bg)}" +
+    ".fp-slot b{font-size:.86rem}.fp-slot .fp-mpl span{width:14px;height:14px}.fp-slb{grid-column:1/3;display:flex;gap:6px}.fp-slb .navbtn{flex:1}.fp-slb .navbtn[disabled]{opacity:.4;cursor:default}" +
+    ".fp-qp{order:1;display:none;flex-direction:column;gap:12px;background:var(--card);border-radius:12px;padding:14px;box-shadow:inset 0 0 0 2px var(--ink)}" +
+    ".fp-side[data-tab=auto] .fp-qp:not([hidden]){display:flex}" +
+    ".fp-x{order:1;margin-left:auto;width:30px;height:30px;border:0;border-radius:50%;background:var(--ink);color:var(--bg);font:600 1.1rem/1 var(--f-body);cursor:pointer}" +
+    ".fp-note2{margin:0;color:var(--soft);font-size:.82rem;line-height:1.45}.fp-qbatch{display:flex;flex-direction:column;gap:8px;border-top:1px solid var(--line);padding-top:12px}" +
+    ".fp-mpl{display:flex;flex-wrap:wrap;gap:4px}.fp-mpl span{width:18px;height:18px;border-radius:4px;box-shadow:inset 0 0 0 1px rgba(10,9,8,.2)}.fp-qb .fp-save[disabled]{opacity:.4;cursor:default}" +
+    ".fp-qph{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:-2px 0 0;padding-bottom:10px;border-bottom:1px solid var(--line)}.fp-qph b{font:600 1.05rem var(--f-display)}.fp-qk{width:20px;height:20px;border-radius:5px;box-shadow:inset 0 0 0 1px var(--ink)}" +
+    ".fp-qs{order:2;flex-basis:100%;font-size:.82rem;color:var(--soft)}.fp-qb{display:flex;flex-wrap:wrap;gap:8px}.fp-qb .fp-save{padding:9px 16px;font-size:.9rem}" +
+    ".fp-stog{display:none}" +
     "@media (min-width:1100px){" +
-      ".fp-wrap{width:min(calc(100vw - 48px),2200px);margin-left:calc((100% - min(calc(100vw - 48px),2200px)) / 2);grid-template-columns:minmax(0,3fr) minmax(300px,1fr);align-items:start}" +
-      ".fp-desk{max-height:calc(100vh - 190px)}.fp-desk.tall{aspect-ratio:auto;height:calc(100vh - 190px)}.fp-deskbox{position:sticky;top:20px}" +
-      ".fp-side{position:sticky;top:20px;overflow-y:auto;padding-right:4px;scrollbar-width:thin}" +
-    "}";
+    "  .fp-wrap{width:calc(100vw - 40px);margin-left:calc((100% - (100vw - 40px)) / 2);grid-template-columns:minmax(0,1fr) 340px;align-items:start;transition:grid-template-columns .25s ease}" +
+    "  .fp-wrap.fp-closed{grid-template-columns:minmax(0,1fr) 0px;column-gap:0}" +
+    "  .fp-wrap.fp-closed .fp-side{visibility:hidden;overflow:hidden}" +
+    "  .fp-desk{aspect-ratio:auto;height:calc(100vh - 150px);min-height:420px}.fp-desk.tall{aspect-ratio:auto}" +
+    "  .fp-deskbox{position:sticky;top:12px}" +
+    "  .fp-side{position:sticky;top:12px;overflow-y:auto;padding-right:2px;scrollbar-width:thin}" +
+    "  .fp-stog{display:grid;place-items:center;position:absolute;top:calc((100vh - 150px) / 2 - 32px);right:-15px;width:14px;height:64px;padding:0;border:0;border-radius:7px;background:var(--ink);color:var(--bg);cursor:pointer;z-index:3}" +
+    "  .fp-stog span{width:6px;height:6px;border-top:2px solid currentColor;border-right:2px solid currentColor;transform:translateX(-1px) rotate(45deg)}" +
+    "  .fp-wrap.fp-closed .fp-stog{right:-17px}.fp-wrap.fp-closed .fp-stog span{transform:translateX(1px) rotate(-135deg)}" +
+    "  .fp-stog:hover{background:var(--accent);color:var(--ink)}" +
+    "}" +
+    ".fp-wrap.fp-fs{position:fixed;inset:0;z-index:1000;width:100vw;height:100vh;margin:0;padding:12px 22px 12px 12px;background:var(--bg);overflow:hidden;grid-template-columns:minmax(0,1fr) 340px;align-items:start}" +
+    ".fp-wrap.fp-fs.fp-closed{grid-template-columns:minmax(0,1fr) 0px}" +
+    ".fp-wrap.fp-fs .fp-desk{height:calc(100vh - 118px);aspect-ratio:auto}" +
+    ".fp-wrap.fp-fs .fp-deskbox,.fp-wrap.fp-fs .fp-side{position:relative;top:0}" +
+    ".fp-wrap.fp-fs .fp-side{max-height:calc(100vh - 24px)!important}" +
+    ".fp-wrap.fp-fs .fp-keys{display:none}" +
+    ".fp-wrap.fp-fs .fp-stog{display:grid;place-items:center;position:absolute;top:calc((100vh - 118px) / 2 - 32px);right:-15px;width:14px;height:64px;padding:0;border:0;border-radius:7px;background:var(--ink);color:var(--bg);cursor:pointer;z-index:3}" +
+    ".fp-wrap.fp-fs .fp-stog span{width:6px;height:6px;border-top:2px solid currentColor;border-right:2px solid currentColor;transform:translateX(-1px) rotate(45deg)}" +
+    ".fp-wrap.fp-fs.fp-closed .fp-stog span{transform:translateX(1px) rotate(-135deg)}" +
+    ".fp-wrap.fp-fs.fp-closed .fp-side{visibility:hidden;overflow:hidden}" +
+    ".fp-wrap:fullscreen{background:var(--bg)}";
 
   function html() {
     return '<h1 class="ptitle">' + t("title") + '<span class="fp-ver">v' + VERSION + '</span></h1><p class="pintro">' + t("intro") + "</p>" +
-      '<div class="fp-wrap"><div class="fp-deskbox"><div class="fp-desk" id="fp-desk"></div><div id="fp-bar"></div><input type="file" id="fp-file" accept="video/*,.mp4,.mov,.m4v,.webm" hidden></div>' +
-      '<div class="fp-side" id="fp-side"></div></div>' +
+      '<div class="fp-wrap' + (S.sideOpen ? "" : " fp-closed") + '"><div class="fp-deskbox"><div class="fp-desk" id="fp-desk"></div><div id="fp-bar"></div><input type="file" id="fp-file" accept="video/*,.mp4,.mov,.m4v,.webm" hidden>' +
+      '<button type="button" class="fp-stog" data-fp="side" aria-label="' + t("sideTog") + '" title="' + t("sideTog") + '" aria-expanded="' + S.sideOpen + '"><span aria-hidden="true"></span></button></div>' +
+      '<aside class="fp-side" id="fp-side" data-tab="' + S.tab + '"><div class="fp-tabs" id="fp-tabs" role="tablist"></div><div class="fp-qp" id="fp-qp" hidden></div><div class="fp-sc" id="fp-sc"></div></aside></div>' +
       '<section class="phow"><h2>' + t("howH") + "</h2><p>" + t("how1") + "</p><p>" + t("how2") + "</p><p>" + t("how4") + "</p><p>" + t("how5") + "</p><p>" + t("how3") + "</p></section>";
   }
   function buildUI() {
@@ -1517,20 +1657,23 @@
       updateSide();
       return;
     }
-    desk.innerHTML = '<canvas id="fp-cv" aria-label="' + F.name + '"></canvas><div class="fp-qp" id="fp-qp" hidden></div><span class="fp-load" id="fp-load" hidden>' + t("loading") + "</span>";
+    desk.innerHTML = '<canvas id="fp-cv" aria-label="' + F.name + '"></canvas><span class="fp-load" id="fp-load" hidden>' + t("loading") + "</span>";
+    var pn0 = V.root.querySelector("#fp-qp"); if (pn0) { pn0.hidden = true; pn0.innerHTML = ""; pn0.dataset.kind = ""; }
     V.cv = desk.querySelector("#fp-cv");
-    bar.innerHTML = '<div class="fp-bar"><button type="button" class="fp-nav" data-fp="prev" aria-label="' + t("prev") + '" title="' + t("prev") + ' (←)">◀ ' + t("prev") + '</button>' +
+    bar.innerHTML = '<div class="fp-bar"><button type="button" class="fp-nav" data-fp="prev" aria-label="' + t("prev") + '" title="' + t("prev") + ' (←)">◀</button>' +
+      '<button type="button" class="fp-nav fp-play" data-fp="play" id="fp-play"></button>' +
+      '<button type="button" class="fp-nav" data-fp="next" aria-label="' + t("next") + '" title="' + t("next") + ' (→)">▶</button>' +
       '<span class="fp-fr" id="fp-fr"></span>' +
-      '<button type="button" class="fp-nav" data-fp="next" aria-label="' + t("next") + '" title="' + t("next") + ' (→)">' + t("next") + ' ▶</button>' +
-      '<button type="button" class="fp-nav" data-fp="play" id="fp-play"></button>' +
       '<div class="fp-tl"><input type="range" id="fp-pos" min="0" max="0" step="1" value="0" aria-label="Frame"><canvas id="fp-strip"></canvas></div>' +
-      '<span class="fp-time" id="fp-time"></span></div>' +
+      '<span class="fp-time" id="fp-time"></span>' +
+      '<button type="button" class="fp-nav fp-fsb" data-fp="fs" id="fp-fsb" title="' + t("fs") + ' (F)" aria-label="' + t("fs") + '"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5" fill="none" stroke="currentColor" stroke-width="2"/></svg></button></div>' +
       '<div class="fp-bar2"><button type="button" class="fp-copy" data-fp="copy" id="fp-copy">⧉ ' + t("copyPrev") + '</button>' +
       '<button type="button" class="navbtn" data-fp="undo" id="fp-undo">' + t("undo") + '</button><button type="button" class="navbtn" data-fp="redo" id="fp-redo">' + t("redo") + '</button>' +
       '<button type="button" class="navbtn" data-fp="clear">' + t("clearF") + "</button>" +
       '<label class="fp-chk"><input type="checkbox" data-opt="onion"' + (S.onion ? " checked" : "") + "> " + t("onion") + "</label>" +
-      '<label class="fp-chk"><input type="checkbox" data-opt="hideVid"' + (S.hideVid ? " checked" : "") + "> " + t("hideVid") + "</label></div>" +
-      '<p class="fp-keys">' + t("keys") + "</p>";
+      '<label class="fp-chk"><input type="checkbox" data-opt="hideVid"' + (S.hideVid ? " checked" : "") + "> " + t("hideVid") + "</label>" +
+      '<button type="button" class="navbtn fp-other" data-fp="file">' + t("other") + "</button></div>" +
+      '<div class="fp-bar3"><p class="fp-note" id="fp-note" aria-live="polite">' + (V.lastNote || "") + '</p><p class="fp-keys">' + t("keys") + "</p></div>";
     var v = document.createElement("video");
     v.muted = true; v.playsInline = true; v.preload = "auto"; v.src = F.url;
     v.addEventListener("loadedmetadata", function () { if (V && V.vid === v) { desk.classList.toggle("tall", v.videoHeight > v.videoWidth); } });
@@ -1546,36 +1689,86 @@
       return '<div class="fp-row"><label for="fp-s-' + k + '">' + t(k === "drop" ? "drop2" : k) + '<span id="fp-s-' + k + '-v">' + st[k] + r[2] + '</span></label><input type="range" id="fp-s-' + k + '" data-set="' + k + '" min="' + r[0] + '" max="' + max + '" step="1" value="' + st[k] + '"></div>';
     }).join("") + (S.tool === "hair" ? '<p class="fp-desc">' + t("hairNote") + "</p>" : "") + '<p class="fp-desc">' + t("smoothNote") + "</p>";
   }
+  function colorBox(ready) {
+    var cm = S.cmode, sw = S.neon ? '<span class="fp-sw fp-neon" style="--n:' + S.neon + '"></span><b>' + t("neonH") + " · " + neonName(S.neon) + "</b>" : '<span class="fp-sw" style="background:' + S.color + '"></span><b id="fp-hex">' + S.color + "</b>";
+    var tabs = '<div class="fp-mtabs" role="tablist">' + [["pick", "cmPick"], ["mix", "cmMix"], ["special", "cmSpecial"]].map(function (q) {
+      return '<button type="button" role="tab" data-cm="' + q[0] + '" aria-selected="' + (cm === q[0]) + '">' + t(q[1]) + "</button>"; }).join("") + "</div>";
+    var rec = S.recent.length ? '<div class="fp-rec">' + S.recent.map(function (c) { return '<button type="button" data-col="' + c + '" style="background:' + c + '" title="' + c + '" aria-label="' + c + '"></button>'; }).join("") + "</div>" : "";
+    var body = "";
+    if (cm === "pick") body = '<button type="button" class="fp-pk" data-fp="pick" aria-pressed="' + !!(V.picking) + '"' + (ready ? "" : " disabled") + ">" + ICONS.pick + t("picker") + "</button>" + rec + '<p class="fp-desc">' + t("colorNote") + "</p>";
+    else if (cm === "mix") {
+      var h = S.hsl || (S.hsl = hexHsl(S.color));
+      body = [["h", "hue", 360, "°"], ["l", "light", 100, " %"], ["s", "sat", 100, " %"]].map(function (q) {
+        var i = "hsl".indexOf(q[0]);
+        return '<div class="fp-row"><label for="fp-hsl-' + q[0] + '">' + t(q[1]) + '<span id="fp-hsl-' + q[0] + '-v">' + h[i] + q[3] + '</span></label><input type="range" class="fp-hsl" id="fp-hsl-' + q[0] + '" data-hsl="' + q[0] + '" min="0" max="' + q[2] + '" step="1" value="' + h[i] + '"></div>';
+      }).join("") + rec + '<p class="fp-desc">' + t("mixNote") + "</p>";
+    } else {
+      body = '<div class="fp-spec"><div class="fp-spech">' + t("neonH") + '</div><div class="fp-neons">' + NEON.map(function (n) {
+          return '<button type="button" data-neon="' + n[0] + '" style="--n:' + n[0] + '" aria-pressed="' + (S.neon === n[0]) + '" title="' + t(n[1]) + '" aria-label="' + t("neonH") + " " + t(n[1]) + '"></button>'; }).join("") + "</div>" +
+        '<div class="fp-row"><label for="fp-glow">' + t("glow") + '<span id="fp-glow-v">' + S.glow + ' %</span></label><input type="range" id="fp-glow" min="0" max="100" step="1" value="' + S.glow + '"></div>' +
+        '<div class="fp-spech">' + t("metalH") + ' <em>' + t("soon") + "</em></div></div>" + '<p class="fp-desc">' + t("neonNote") + "</p>";
+    }
+    return '<div class="fp-box"><h3>' + t("color") + '</h3><div class="fp-col">' + sw + "</div>" + tabs + '<div class="fp-mbody">' + body + "</div></div>";
+  }
   function updateSide() {
     if (!V) return;
-    var side = V.root.querySelector("#fp-side"), ready = F && V.layer;
-    var top = F ? '<div class="ez-btns" style="display:flex;gap:8px"><button type="button" class="navbtn" data-fp="file">' + t("other") + "</button></div>" : "";
-    var color = '<div class="fp-box"><h3>' + t("color") + '</h3><div class="fp-col"><span class="fp-sw" style="background:' + S.color + '"></span><b>' + S.color + "</b>" +
-      '<button type="button" class="fp-pk" data-fp="pick" aria-pressed="' + !!(V.picking) + '"' + (ready ? "" : " disabled") + ">" + ICONS.pick + t("picker") + "</button></div>" +
-      (S.recent.length ? '<div class="fp-desc">' + t("recent") + '</div><div class="fp-rec">' + S.recent.map(function (c) { return '<button type="button" data-col="' + c + '" style="background:' + c + '" title="' + c + '" aria-label="' + c + '"></button>'; }).join("") + "</div>" : "") +
-      '<p class="fp-desc">' + t("colorNote") + "</p></div>";
-    var tools = '<div class="fp-box"><h3>' + t("tool") + '</h3><div class="fp-tools">' + Object.keys(TOOLS).map(function (k) {
-      return '<button type="button" data-tool="' + k + '" aria-pressed="' + (S.tool === k) + '" title="' + t(k) + " (" + TOOLS[k].key.toUpperCase() + ')">' + ICONS[k] + t(k === "crayon" ? "crayonS" : k === "hair" ? "hairS" : k) + "</button>";
-    }).join("") + '</div><div id="fp-sl" style="display:flex;flex-direction:column;gap:12px">' + sliders() + "</div></div>";
-    var locked = !!(F && painted()) || busy;
-    var fps = '<div class="fp-box"><h3>' + t("fps") + '</h3><div class="fp-row"><label for="fp-fps">' + t("fps") + '<span id="fp-fps-v">' + RATES[S.fpsI] + ' fps</span></label>' +
-      '<input type="range" id="fp-fps" min="0" max="2" step="1" value="' + S.fpsI + '"' + (locked ? " disabled" : "") + '><div class="fp-ticks"><span>5</span><span>15</span><span>30</span></div></div>' +
-      '<p class="fp-desc">' + (F && F.vw ? fmt(t("fpsInfo"), { n: F.n.toLocaleString(lang === "de" ? "de-DE" : "en-GB"), f: F.fps }) + ". " : "") + (locked ? t("fpsLock") : "") + "</p></div>";
-    var ow = F ? F.ow : 1920, oh = F ? F.oh : 1080;
-    var exp = '<div class="fp-box"><h3>' + t("exportH") + '</h3><div class="fp-seg"><button type="button" data-mode="video" aria-pressed="' + (S.mode === "video") + '">' + t("withVid") + '</button><button type="button" data-mode="paint" aria-pressed="' + (S.mode === "paint") + '">' + t("onlyPaint") + "</button></div>" +
-      '<p class="fp-desc">' + t(S.mode === "video" ? "withNote" : "onlyNote") + "</p>" +
-      '<div class="fp-row"><label for="fp-br">' + t("bitrate") + '<span id="fp-br-v">' + S.mbit + ' Mbit/s</span></label><input type="range" id="fp-br" min="2" max="40" step="1" value="' + S.mbit + '"></div>' +
-      '<label class="fp-chk"><input type="checkbox" data-opt="audio"' + (S.audio ? " checked" : "") + "> " + t("audio") + "</label>" +
-      '<p class="fp-desc" id="fp-info">' + fmt(t("exportInfo"), { w: ow, h: oh, f: RATES[S.fpsI], br: S.mbit }) + "</p>" +
-      (busy ? '<button type="button" class="fp-save" data-fp="cancel">' + t("cancel") + "</button>" : '<button type="button" class="fp-save" data-fp="export"' + (ready ? "" : " disabled") + ">" + t("save") + "</button>") +
-      '<p class="fp-note" id="fp-note" aria-live="polite">' + (V.lastNote || "") + "</p></div>";
-    var vw0 = F && F.vw ? F.vw : 1920, vh0 = F && F.vh ? F.vh : 1080;
-    exp += '<div class="fp-box"><h3>' + t("frameH") + '</h3><p class="fp-desc">' + fmt(t("frameInfo"), { w: vw0, h: vh0 }) + '</p><button type="button" class="fp-qpbtn" data-fp="frame"' + (ready && !busy ? "" : " disabled") + ">" + t("frameSave") + "</button></div>";
-    var qpb = '<div class="fp-box"><h3>' + t("qpH") + '</h3><button type="button" class="fp-qpbtn" data-fp="qp"' + (ready ? "" : " disabled") + ">" + t("qpStart") + '</button><p class="fp-desc">' + t("qpNote") + "</p></div>";
-    var mpb = '<div class="fp-box"><h3>' + t("mpH") + '</h3><button type="button" class="fp-qpbtn" data-fp="mp"' + (ready ? "" : " disabled") + ">" + t("mpStart") + '</button><p class="fp-desc">' + t("mpNote") + "</p>" + slotsHTML() + '<p class="fp-desc">' + t("mpSlotsNote") + "</p></div>";
-    side.innerHTML = top + color + tools + qpb + mpb + fps + exp;
+    var side = V.root.querySelector("#fp-side"), sc = V.root.querySelector("#fp-sc"), ready = F && V.layer;
+    if (!side || !sc) return;
+    side.dataset.tab = S.tab;
+    V.root.querySelector("#fp-tabs").innerHTML = [["paint", "tabPaint"], ["auto", "tabAuto"], ["export", "tabExport"]].map(function (q) {
+      var dot = q[0] === "auto" && (V.qp || V.mp) ? '<i class="fp-dot"></i>' : "";
+      return '<button type="button" role="tab" data-tab="' + q[0] + '" aria-selected="' + (S.tab === q[0]) + '">' + t(q[1]) + dot + "</button>"; }).join("");
+    var html2 = "";
+    if (S.tab === "paint") {
+      var tools = '<div class="fp-box"><h3>' + t("tool") + '</h3><div class="fp-tools">' + Object.keys(TOOLS).map(function (k) {
+        return '<button type="button" data-tool="' + k + '" aria-pressed="' + (S.tool === k) + '" title="' + t(k) + " (" + TOOLS[k].key.toUpperCase() + ')">' + ICONS[k] + t(k === "crayon" ? "crayonS" : k === "hair" ? "hairS" : k) + "</button>";
+      }).join("") + '</div><div id="fp-sl" style="display:flex;flex-direction:column;gap:12px">' + sliders() + "</div></div>";
+      html2 = colorBox(ready) + tools;
+    } else if (S.tab === "auto") {
+      html2 = '<div class="fp-box"><h3>' + t("autoH") + '</h3><div class="fp-auto">' +
+        '<button type="button" class="fp-abtn" data-fp="qp" aria-pressed="' + !!V.qp + '"' + (ready ? "" : " disabled") + '><b>' + t("qpH") + '<kbd>Q</kbd></b><span>' + t("qpNote") + "</span></button>" +
+        '<button type="button" class="fp-abtn" data-fp="mp" aria-pressed="' + !!V.mp + '"' + (ready ? "" : " disabled") + '><b>' + t("mpH") + '<kbd>M</kbd></b><span>' + t("mpNote") + "</span></button></div></div>" +
+        '<details class="fp-box fp-slbox"' + (V.slOpen ? " open" : "") + '><summary>' + t("slotsH") + "</summary>" + slotsHTML() + '<p class="fp-desc">' + t("mpSlotsNote") + "</p></details>";
+    } else {
+      var locked = !!(F && painted()) || busy, ow = F ? F.ow : 1920, oh = F ? F.oh : 1080, vw0 = F && F.vw ? F.vw : 1920, vh0 = F && F.vh ? F.vh : 1080;
+      html2 = '<div class="fp-box"><h3>' + t("exportH") + '</h3><div class="fp-seg"><button type="button" data-mode="video" aria-pressed="' + (S.mode === "video") + '">' + t("withVid") + '</button><button type="button" data-mode="paint" aria-pressed="' + (S.mode === "paint") + '">' + t("onlyPaint") + "</button></div>" +
+        '<div class="fp-row"><label for="fp-br">' + t("bitrate") + '<span id="fp-br-v">' + S.mbit + ' Mbit/s</span></label><input type="range" id="fp-br" min="2" max="40" step="1" value="' + S.mbit + '"></div>' +
+        '<label class="fp-chk"><input type="checkbox" data-opt="audio"' + (S.audio ? " checked" : "") + "> " + t("audio") + "</label>" +
+        '<p class="fp-desc" id="fp-info">' + fmt(t("exportInfo"), { w: ow, h: oh, f: RATES[S.fpsI], br: S.mbit }) + "</p>" +
+        (busy ? '<button type="button" class="fp-save" data-fp="cancel">' + t("cancel") + "</button>" : '<button type="button" class="fp-save" data-fp="export"' + (ready ? "" : " disabled") + ">" + t("save") + "</button>") + "</div>" +
+        '<div class="fp-box"><h3>' + t("frameH") + '</h3><p class="fp-desc">' + fmt(t("frameInfo"), { w: vw0, h: vh0 }) + '</p><button type="button" class="fp-qpbtn" data-fp="frame"' + (ready && !busy ? "" : " disabled") + ">" + t("frameSave") + "</button></div>" +
+        '<div class="fp-box"><h3>' + t("fps") + '</h3><div class="fp-row"><label for="fp-fps">' + t("fps") + '<span id="fp-fps-v">' + RATES[S.fpsI] + ' fps</span></label>' +
+        '<input type="range" id="fp-fps" min="0" max="2" step="1" value="' + S.fpsI + '"' + (locked ? " disabled" : "") + '><div class="fp-ticks"><span>5</span><span>15</span><span>30</span></div></div>' +
+        '<p class="fp-desc">' + (F && F.vw ? fmt(t("fpsInfo"), { n: F.n.toLocaleString(lang === "de" ? "de-DE" : "en-GB"), f: F.fps }) + ". " : "") + (locked ? t("fpsLock") : "") + "</p></div>";
+    }
+    sc.innerHTML = html2;
+    if (S.tab === "paint" && S.cmode === "mix") hslTracks();
     if (V.pendingFile) noteSure();
   }
+  function sideState() {   // Seitenleiste auf- oder zuklappen, Zeichenfläche passt sich an
+    var w = V.root.querySelector(".fp-wrap"); if (!w) return;
+    w.classList.toggle("fp-closed", !S.sideOpen);
+    var b = V.root.querySelector(".fp-stog"); if (b) b.setAttribute("aria-expanded", String(S.sideOpen));
+    layout(); setTimeout(layout, 280);
+  }
+  function openAuto() { if (S.tab !== "auto" || !S.sideOpen) { S.tab = "auto"; if (!S.sideOpen) { S.sideOpen = true; sideState(); } } updateSide(); }
+  // Vollbild: echtes Vollbild über die Browser-API, sonst füllt die Fläche das Fenster
+  function fsEl() { return document.fullscreenElement || document.webkitFullscreenElement; }
+  function toggleFS() {
+    var w = V.root.querySelector(".fp-wrap"); if (!w) return;
+    if (w.classList.contains("fp-fs")) { if (fsEl()) { var ex = document.exitFullscreen || document.webkitExitFullscreen; try { var pr0 = ex.call(document); if (pr0 && pr0.catch) pr0.catch(function () {}); } catch (er) {} } w.classList.remove("fp-fs"); fsDone(); return; }
+    w.classList.add("fp-fs");
+    var rq = w.requestFullscreen || w.webkitRequestFullscreen;
+    if (rq) { try { var pr = rq.call(w); if (pr && pr.catch) pr.catch(function () {}); } catch (er2) {} }
+    fsDone();
+  }
+  function fsDone() {
+    var w = V.root.querySelector(".fp-wrap"), on = w && w.classList.contains("fp-fs"), b = V.root.querySelector("#fp-fsb");
+    if (b) { b.title = t(on ? "fsOff" : "fs") + " (F)"; b.setAttribute("aria-label", t(on ? "fsOff" : "fs")); b.setAttribute("aria-pressed", String(!!on)); }
+    document.documentElement.classList.toggle("fp-noscroll", !!on);
+    layout(); setTimeout(layout, 120); setTimeout(layout, 400);
+  }
+  function onFsChange() { if (!V) return; var w = V.root.querySelector(".fp-wrap"); if (w) w.classList.toggle("fp-fs", !!fsEl()); fsDone(); }
   function updateBar(light) {
     if (!V || !F) return;
     var fr = V.root.querySelector("#fp-fr"); if (!fr) return;
@@ -1583,7 +1776,7 @@
     var pos = V.root.querySelector("#fp-pos"); pos.max = F.n - 1; pos.value = F.idx;
     V.root.querySelector("#fp-time").textContent = tc(F.idx / F.fps) + " / " + tc(F.dur);
     if (light) return;
-    var pb = V.root.querySelector("#fp-play"); pb.textContent = V.playing ? "❚❚ " + t("pause") : "▶ " + t("play");
+    var pb = V.root.querySelector("#fp-play"); pb.textContent = V.playing ? "❚❚ " + t("pause") : "▶ " + t("play"); pb.classList.toggle("on", !!V.playing);
     V.root.querySelector('[data-fp="prev"]').disabled = F.idx === 0 || V.playing;
     V.root.querySelector('[data-fp="next"]').disabled = F.idx >= F.n - 1 || V.playing;
     V.root.querySelector("#fp-copy").disabled = F.idx === 0 || V.playing || !F.paints[F.idx - 1];
@@ -1615,7 +1808,7 @@
     try { V.cv.setPointerCapture(e.pointerId); } catch (er) {}
     V.down = true; V.pid = e.pointerId; V.pen = e.pointerType === "pen"; if (!V.pen) p.p = 0.5;
     V.sm = p; V.raw = p; V.rest = 0; V.first = true; V.hover = p;
-    V.sx.clearRect(0, 0, F.ow, F.oh);
+    V.sx.clearRect(0, 0, F.ow, F.oh); V.bb = null; V.nbb = null; V.neoNew = true;
     segment(p, p); need();
   }
   function onMove(e) {
@@ -1653,6 +1846,7 @@
     if (e.altKey) return;
     var k = e.key.toLowerCase();
     if (k === "d") { e.preventDefault(); if (!V.peek) { V.peek = true; need(); } return; }
+    if (k === "f") { e.preventDefault(); toggleFS(); return; }
     if (k === "m") { e.preventDefault(); if (V.mp) endMP(); else startMP(); return; }
     if (V.mp && k === "escape") { endMP(); return; }
     if (V.mp && k === "enter" && V.mp.result) { e.preventDefault(); mpApply(); return; }
@@ -1662,6 +1856,7 @@
     if (V.qp && V.qp.stage === "pick") return;
     if (k === "c") { e.preventDefault(); setPick(!V.picking); return; }
     if (k === "escape" && V.picking) { setPick(false); return; }
+    if (k === "escape") { var fw = V.root.querySelector(".fp-wrap"); if (fw && fw.classList.contains("fp-fs") && !fsEl()) { toggleFS(); return; } }
     for (var id in TOOLS) if (TOOLS[id].key === k) { e.preventDefault(); setTool(id); return; }
     if (e.key === "ArrowLeft" || e.key === "ArrowRight") { if (tag === "INPUT" && tg.type === "range") return; e.preventDefault(); if (!V.playing && !V.down) goFrame(F.idx + (e.key === "ArrowLeft" ? -1 : 1)); return; }
     if (e.key === " ") { if (tag === "BUTTON") return; e.preventDefault(); if (V.playing) stopPlay(); else startPlay(); return; }
@@ -1674,6 +1869,7 @@
   // Quickpaint-Fenster am Kopf verschieben
   var qpDrag = null;
   function onQPDown(e) {
+    return;   // seit v0.71 sitzt das Fenster fest in der Seitenleiste
     var hd = e.target.closest && e.target.closest(".fp-qph"); if (!hd) return;
     var pn = hd.parentNode, desk = V.root.querySelector("#fp-desk"), pr = pn.getBoundingClientRect(), dr = desk.getBoundingClientRect();
     qpDrag = { id: e.pointerId, ox: e.clientX - pr.left, oy: e.clientY - pr.top, pn: pn, dr: dr };
@@ -1696,7 +1892,13 @@
     if (V.qp.stage === "tune") { qpMask(); qpGenSoon(); } else V.qp.dirty = true;
   }
   function onClick(e) {
-    var b = e.target.closest("[data-fp],[data-tool],[data-mode],[data-col],[data-slot-load],[data-slot-save],[data-qtype],[data-mtype],[data-qflow],[data-mflow],[data-qguide],[data-mguide]"); if (!b) return;
+    var sm = e.target.closest && e.target.closest(".fp-slbox > summary"); if (sm) { V.slOpen = !sm.parentNode.open; return; }
+    var b = e.target.closest("[data-fp],[data-tool],[data-mode],[data-col],[data-slot-load],[data-slot-save],[data-qtype],[data-mtype],[data-qflow],[data-mflow],[data-qguide],[data-mguide],[data-tab],[data-cm],[data-neon]"); if (!b) return;
+    if (b.dataset.tab && b.getAttribute("role") === "tab" && b.closest(".fp-tabs")) { S.tab = b.dataset.tab; if (!S.sideOpen) { S.sideOpen = true; sideState(); } updateSide(); return; }
+    if (b.dataset.cm) { S.cmode = b.dataset.cm; if (S.cmode === "mix") S.hsl = hexHsl(S.color); updateSide(); return; }
+    if (b.dataset.neon) { S.neon = b.dataset.neon; if (S.tool === "eraser") S.tool = V.lastPaintTool || "brush"; updateSide(); need(); return; }
+    if (b.dataset.fp === "side") { S.sideOpen = !S.sideOpen; sideState(); return; }
+    if (b.dataset.fp === "fs") { toggleFS(); return; }
     if (V.batch) { if (b.dataset.fp === "batchStop") V.batch.stop = true; return; }
     if (b.dataset.qtype && !V.batch) { S.qp.type = b.dataset.qtype; if (V.qp) { V.qp.done = {}; qpPanel(); qpGenSoon(0); } return; }
     if (b.dataset.qguide && !V.batch) { S.qp.guide = b.dataset.qguide; if (V.qp) { V.qp.done = {}; qpPanel(); qpGenSoon(0); } return; }
@@ -1756,6 +1958,15 @@
       if (V.qp) { if (qk === "hard") { if (V.qp.stage === "tune") qpMask(); else V.qp.dirty = true; } if (V.qp.stage === "tune") qpGenSoon(); }
       return;
     }
+    if (el.dataset.hsl) {   // Farbe mischen: live malen, ohne die Leiste neu zu bauen
+      var hi = "hsl".indexOf(el.dataset.hsl), h = S.hsl || (S.hsl = hexHsl(S.color)); h[hi] = +el.value;
+      S.color = hslHex(h[0], h[1], h[2]); S.neon = null;
+      V.root.querySelector("#fp-hsl-" + el.dataset.hsl + "-v").textContent = el.value + (hi === 0 ? "°" : " %");
+      var sw = V.root.querySelector(".fp-col .fp-sw"), hx = V.root.querySelector("#fp-hex");
+      if (sw) { sw.classList.remove("fp-neon"); sw.style.background = S.color; } if (hx) hx.textContent = S.color;
+      hslTracks(); if (S.tool === "eraser") { S.tool = V.lastPaintTool || "brush"; updateSide(); } need(); return;
+    }
+    if (el.id === "fp-glow") { S.glow = +el.value; V.root.querySelector("#fp-glow-v").textContent = S.glow + " %"; need(); return; }
     if (el.dataset.set) {
       var k = el.dataset.set, r = RANGES[k]; set()[k] = +el.value;
       V.root.querySelector("#fp-s-" + k + "-v").textContent = el.value + r[2]; need(); return;
@@ -1773,6 +1984,7 @@
     var el = e.target;
     if (el.id === "fp-file" && el.files[0]) { loadFile(el.files[0]); el.value = ""; return; }
     if (el.id === "fp-fps") { updateSide(); return; }
+    if (el.dataset.hsl) { S.recent = [S.color].concat(S.recent.filter(function (q) { return q !== S.color; })).slice(0, 10); var rc = V.root.querySelector(".fp-mbody"); if (rc) updateSide(); return; }
     if (el.dataset.opt) {
       S[el.dataset.opt] = el.checked;
       if (el.dataset.opt === "onion") reloadOnion(); else need();
@@ -1790,12 +2002,14 @@
     unmount();
     lang = l === "en" ? "en" : "de";
     injectCSS();
+    document.body.classList.add("fp-theme");
     el.innerHTML = html();
     V = { root: el, undo: [], redo: [], need: true };
     el.addEventListener("pointerdown", onDown); window.addEventListener("pointermove", onMove); window.addEventListener("pointerup", onUp); window.addEventListener("pointercancel", onUp);
     el.addEventListener("pointerleave", onLeave, true);
     el.addEventListener("input", onInput); el.addEventListener("change", onChange); el.addEventListener("click", onClick);
     window.addEventListener("keydown", onKey); window.addEventListener("keyup", onKeyUp); window.addEventListener("blur", onBlurWin); window.addEventListener("resize", onResize);
+    document.addEventListener("fullscreenchange", onFsChange); document.addEventListener("webkitfullscreenchange", onFsChange);
     el.addEventListener("wheel", onWheel, { passive: false });
     el.addEventListener("pointerdown", onQPDown, true); window.addEventListener("pointermove", onQPMove); window.addEventListener("pointerup", onQPUp);
     var desk = el.querySelector("#fp-desk");
@@ -1806,6 +2020,9 @@
   // Beim erneuten Öffnen (z. B. Sprachwechsel) bleibt die Bemalung erhalten, das Video wird neu geladen
   function unmount() {
     if (raf) cancelAnimationFrame(raf); raf = 0;
+    document.body.classList.remove("fp-theme"); document.documentElement.classList.remove("fp-noscroll");
+    document.removeEventListener("fullscreenchange", onFsChange); document.removeEventListener("webkitfullscreenchange", onFsChange);
+    if (fsEl()) { try { var ex = document.exitFullscreen || document.webkitExitFullscreen; var pr = ex.call(document); if (pr && pr.catch) pr.catch(function () {}); } catch (er) {} }
     if (!V) return;
     cancelReq = true;
     storeCurrent();
