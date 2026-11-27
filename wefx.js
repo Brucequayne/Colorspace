@@ -14,6 +14,7 @@
      params: [ { k, type: "range" | "select" | "color" | "check", label: { de, en }, def, min, max, step, unit, options: [[wert, { de, en }], …] } ],
      init(state, c)  // optional: einmal je Effekt-Instanz und Auflösung
      render(c)       // Pflicht: zeichnet von c.src nach c.dst
+     dispose(state)  // optional: Zustand wird verworfen (z. B. Texturen auf der Grafikkarte freigeben)
    })
    c = { src, dst (Canvas gleicher Größe), w, h, scale (Breite / 1920, für Pixelangaben), t (Sekunden), frame, fps,
          p (Werte der Regler), state (bleibt je Instanz erhalten),
@@ -25,7 +26,7 @@
 (function () {
   "use strict";
 
-  var VERSION = "0.11", RATES = [24, 25, 30, 60];
+  var VERSION = "0.12", RATES = [24, 25, 30, 60], PQ = [854, 1280, 1920];
   // Je Effekt eine Datei: fx-<id>.js im Hauptverzeichnis. Neue Effekte hier eintragen.
   var FX_FILES = ["colorblur", "wave", "rgbsplit", "pixelate"];
   var STAMP = (function () { var s = document.currentScript && document.currentScript.src, m = s && /[?&]v=([^&]+)/.exec(s); return m ? m[1] : VERSION; })();
@@ -69,7 +70,7 @@
     noAudio: L2("Ohne Ton, das Video hat keinen lesbaren Ton oder der Browser kann ihn nicht kodieren.", "Without sound: the video has no readable sound or the browser cannot encode it."),
     noSupport: L2("Dieser Browser kann kein H.264 kodieren. Bitte einen aktuellen Chrome, Edge oder Safari nutzen.", "This browser cannot encode H.264. Please use a current Chrome, Edge or Safari."),
     failed: L2("Export fehlgeschlagen: {e}", "Export failed: {e}"), bad: L2("Diese Datei konnte nicht als Video geöffnet werden.", "This file could not be opened as a video."),
-    keys: L2("Tasten: Leertaste Abspielen · ← → Frame · I O Bereich · F Vollbild · D halten: Original", "Keys: Space play · ← → frame · I O range · F fullscreen · hold D: original"),
+    keys: L2("Tasten: Leertaste Abspielen · ← → Frame · I O Bereich · B Baken · F Vollbild · D halten: Original", "Keys: Space play · ← → frame · I O range · B bake · F fullscreen · hold D: original"),
     howH: L2("So funktioniert’s", "How it works"),
     how1: L2("Ein Effekt ist ein Baustein in einer Kette. Das Video läuft von oben nach unten durch alle eingeschalteten Effekte, jeder arbeitet mit dem Ergebnis des vorigen. Darum zählt die Reihenfolge: Erst Pixel und dann Welle verbiegt die Pixelblöcke, erst Welle und dann Pixel macht aus der Welle grobe Treppen.",
               "An effect is a building block in a chain. The video runs from top to bottom through every effect that is switched on, each works on the result of the one before. That is why the order matters: pixel first and then wave bends the pixel blocks, wave first and then pixel turns the wave into coarse steps."),
@@ -77,8 +78,16 @@
               "Each effect has a “Mix” slider that blends its result with the image before it, and can be switched off on its own. Drag it by the handle on the left to another place, with the handle focused the arrow keys work too. Hold D to see the original."),
     how4: L2("Jeder Effekt kann auf einen Bereich begrenzt werden, dazu gibt es einen Master-Bereich für die ganze Kette. Das Rechteck ziehst du im Bild frei auf, innen verschieben, an Kanten und Ecken die Größe ändern. Hältst du die Maus beim Abspielen gedrückt, wird die Bewegung als Keyframes aufgenommen, wie bei EZ Crop. „Umkehren“ lässt den Effekt außerhalb wirken.",
               "Every effect can be limited to an area, and there is a master area for the whole chain. Drag the rectangle freely in the image, move it from inside, resize at edges and corners. Hold the mouse during playback and the move is recorded as keyframes, like in EZ Crop. “Invert” makes the effect work outside."),
-    how3: L2("Die Vorschau rechnet in geringerer Auflösung, damit sie flüssig bleibt. Der Export rechnet jeden Frame in Full HD neu, nur im I/O-Bereich, wenn einer gesetzt ist.",
-              "The preview works at a lower resolution so it stays smooth. The export renders every frame again in Full HD, only inside the I/O range if one is set.")
+    how3: L2("Die Live-Vorschau rechnet in geringerer Auflösung, damit sie flüssig bleibt (unter „Vorschau“ einstellbar). Baken rechnet den I/O-Bereich einmal in Full HD und bester Qualität, danach spielt die Vorschau genau dieses Ergebnis flüssig ab. Änderst du etwas, zeigt die Vorschau wieder live, bis du neu bäckst. Der Export speichert einen aktuellen Bake sofort, sonst rechnet er jeden Frame in Full HD neu.",
+              "The live preview works at a lower resolution so it stays smooth (set it under “Preview”). Baking renders the I/O range once in Full HD at top quality, then the preview plays exactly that result smoothly. If you change something, the preview goes back to live until you bake again. The export saves an up-to-date bake right away, otherwise it renders every frame again in Full HD."),
+    pq: L2("Vorschau", "Preview"), pq0: L2("Schnell", "Fast"), pq1: L2("Standard", "Standard"), pq2: L2("Voll", "Full"),
+    pqTip: L2("Auflösung der Live-Vorschau: Schnell 854 px, Standard 1280 px, Voll bis Full HD", "Live preview resolution: fast 854 px, standard 1280 px, full up to Full HD"),
+    bake: L2("Baken", "Bake"), bakeNew: L2("Neu baken", "Bake again"), bakeCancel: L2("Baken abbrechen", "Cancel baking"), bakeDrop: L2("Bake verwerfen", "Discard bake"),
+    bakeTip: L2("Rechnet den I/O-Bereich in Full HD mit allen Effekten, danach spielt die Vorschau das Ergebnis flüssig ab (B)", "Renders the I/O range in Full HD with all effects, then the preview plays the result smoothly (B)"),
+    bakeOk: L2("Gebacken · Full HD · Frame {a}–{b}", "Baked · Full HD · frames {a}–{b}"), bakeOld: L2("Bake veraltet · Vorschau live", "Bake out of date · preview live"),
+    baking: L2("Baken: Frame {i} von {n} · {p} %", "Baking: frame {i} of {n} · {p}%"), bakeDone: L2("Gebacken: {n} Frames in Full HD. Die Vorschau spielt jetzt das gebackene Video.", "Baked: {n} frames in Full HD. The preview now plays the baked video."),
+    bakeCancelled: L2("Baken abgebrochen.", "Baking cancelled."), exportBake: L2("Aktueller Bake vorhanden: Der Export speichert ihn sofort.", "Up-to-date bake available: the export saves it right away."),
+    doneBake: L2("Fertig: Bake gespeichert ({mb} MB).", "Done: bake saved ({mb} MB)."),
   };
   function t(k) { return TX[k][lang]; }
   function tl(o) { return o ? o[lang] || o.de || "" : ""; }
@@ -119,7 +128,7 @@
   // F: Projekt { file, url, name, dur, vw, vh, ow, oh, n, idx, inF, outF }
   // S.chain: [{ uid, id, on, open, mix, p }] in Verarbeitungsreihenfolge (oben zuerst)
   var F = null, V = null, uidN = 0;
-  var S = { chain: [], tab: "fx", sideOpen: true, mbit: 16, audio: true, fpsI: 2, master: newCrop() };
+  var S = { chain: [], tab: "fx", sideOpen: true, mbit: 16, audio: true, fpsI: 2, pq: 1, master: newCrop() };
   function fps() { return RATES[S.fpsI]; }
 
   // ---------- Laden ----------
@@ -158,7 +167,10 @@
     if (!F || !V || !V.ready) return;
     i = clamp(i, 0, F.n - 1);
     var tok = ++loadTok; F.idx = i; V.loading = true; updateBar();
-    await seek(V.vid, tFrame(i));
+    var w8 = [seek(V.vid, tFrame(i))];
+    if (V.bake && V.bake.ready && i >= V.bake.a && i <= V.bake.b && bakeFresh()) { V.bake.want = i; w8.push(seek(V.bake.el, bakeTime(i))); }
+    await Promise.all(w8);
+    if (V && V.bake && V.bake.want === i) V.bake.want = null;
     if (tok !== loadTok || !V) return;
     V.loading = false; updateBar(); need();
   }
@@ -230,9 +242,15 @@
 
   // ---------- Effektkette ----------
   // Läuft in der Reihenfolge der Liste. Drei Puffer: A (Eingang), B (Ausgang des Effekts), C (für den Mix).
+  var GENC = 0;
   function chainBuffers(store, w, h) {
-    if (!store.a || store.a.width !== w || store.a.height !== h) { store.a = canvas(w, h); store.b = canvas(w, h); store.c = canvas(w, h); store.gen = (store.gen || 0) + 1; }
+    if (!store.a || store.a.width !== w || store.a.height !== h) { store.a = canvas(w, h); store.b = canvas(w, h); store.c = canvas(w, h); store.gen = ++GENC; }
     return store;
+  }
+  // Zustand eines Effekts verwerfen (Vorschau "st", Export "stx"), Effekte mit dispose() geben dabei Speicher frei
+  function dropState(it, key) {
+    var d = REG[it.id], keys = key ? [key] : ["st", "stx"];
+    keys.forEach(function (k) { if (it[k] && d && d.dispose) { try { d.dispose(it[k]); } catch (e) { console.error(e); } } it[k] = null; it[k + "G"] = null; });
   }
   // inp: Canvas mit dem Videobild (Größe w × h). Gibt das Canvas mit dem Ergebnis zurück.
   function runChain(inp, store, info) {
@@ -242,7 +260,7 @@
     S.chain.forEach(function (it) {
       var def = REG[it.id]; if (!def || !it.on || it.mix <= 0) return;
       var key = info.export ? "stx" : "st";
-      if (!it[key] || it[key + "G"] !== B.gen) { it[key] = {}; it[key + "G"] = B.gen; if (def.init) try { def.init(it[key], { w: w, h: h, scale: w / 1920, util: util }); } catch (e) { console.error(e); } }
+      if (!it[key] || it[key + "G"] !== B.gen) { dropState(it, key); it[key] = {}; it[key + "G"] = B.gen; if (def.init) try { def.init(it[key], { w: w, h: h, scale: w / 1920, util: util }); } catch (e) { console.error(e); } }
       var dst = outs[k % 3] === cur ? outs[(k + 1) % 3] : outs[k % 3];
       var dx = dst.getContext("2d"); dx.setTransform(1, 0, 0, 1, 0, 0); dx.globalAlpha = 1; dx.globalCompositeOperation = "source-over"; dx.filter = "none"; dx.clearRect(0, 0, w, h);
       try {
@@ -281,8 +299,8 @@
     var cw = Math.max(50, Math.floor(F.ow * sc)), ch = Math.max(50, Math.floor(F.oh * sc)), dpr = window.devicePixelRatio || 1;
     V.cv.style.width = cw + "px"; V.cv.style.height = ch + "px";
     V.cv.width = Math.round(cw * dpr); V.cv.height = Math.round(ch * dpr);
-    // Vorschau rechnet höchstens mit 1280 px Breite (Hochkant: Höhe), damit sie flüssig bleibt
-    var pw = Math.min(V.cv.width, F.ow, F.ow >= F.oh ? 1280 : Math.round(1280 * F.ow / F.oh));
+    // Live-Vorschau rechnet höchstens mit 854, 1280 oder 1920 px Breite (Hochkant: Höhe), je nach Einstellung „Vorschau“
+    var cap = PQ[S.pq], pw = Math.min(S.pq === 2 ? F.ow : V.cv.width, F.ow, F.ow >= F.oh ? cap : Math.round(cap * F.ow / F.oh));
     V.pw = Math.max(2, pw); V.ph = Math.max(2, Math.round(pw * F.oh / F.ow));
     var side = V.root.querySelector("#wx-side");
     if (side) side.style.maxHeight = window.innerWidth >= 1100 ? Math.max(360, V.root.querySelector(".wx-deskbox").offsetHeight) + "px" : "";
@@ -292,10 +310,10 @@
     raf = requestAnimationFrame(loop);
     if (!V || !F || !V.ready) return;
     if (V.playing) {
-      var k = Math.min(F.n - 1, Math.floor(V.vid.currentTime * fps()));
-      if (V.vid.ended || F.outF != null && k > F.outF) { stopPlay(); return; }
+      var tm = playTime(), k = Math.min(F.n - 1, Math.floor(tm * fps())), bk = V.psrc !== V.vid;
+      if (bk && !bakeShows(k)) { toLive(tm); bk = false; }   // Bake wurde durch eine Änderung ungültig: live weiterspielen
+      if (V.psrc.ended || F.outF != null && k > F.outF || bk && k > V.bake.b) { stopPlay(); return; }
       if (k !== F.idx) { F.idx = k; updateBar(true); }
-      var tm = V.vid.currentTime;
       if (V.cdrag && tm - (V.lastRec || -1) >= 1 / 30) { cropRecord(V.cdrag.cr, tm, V.cdrag.r); V.lastRec = tm; V.cdrag.rec = true; }
       if (k !== V.shown || V.need || V.cdrag) { V.shown = k; V.need = false; render(tm, k); }   // Effekte mit Gedächtnis brauchen jeden Frame genau einmal
       return;
@@ -303,6 +321,12 @@
     if (V.need && !V.loading) { V.need = false; V.shown = F.idx; render(tFrame(F.idx), F.idx); }
   }
   function render(tm, frame) {
+    bakeUI();
+    if (bakeShows(frame) && (V.playing || bakeAt(frame))) {   // gebackenes Video zeigen
+      var bx = V.cv.getContext("2d"); bx.imageSmoothingQuality = "high"; bx.drawImage(V.bake.el, 0, 0, V.cv.width, V.cv.height);
+      if (V.editCrop) drawCropUI(bx, tm);
+      return;
+    }
     var pv = V.pv || (V.pv = canvas(V.pw, V.ph));
     if (pv.width !== V.pw || pv.height !== V.ph) { pv.width = V.pw; pv.height = V.ph; }
     drawVideo(pv.getContext("2d"), V.vid, V.pw, V.ph);
@@ -310,6 +334,68 @@
     var x = V.cv.getContext("2d"); x.imageSmoothingQuality = "high"; x.drawImage(out, 0, 0, V.cv.width, V.cv.height);
     if (V.editCrop) drawCropUI(x, tm);
   }
+  // ---------- Baken (seit v0.12) ----------
+  // Der I/O-Bereich wird einmal in Full HD gerechnet (wie der Export) und als Video im Speicher gehalten.
+  // Solange sich an Effekten, Bereichen, Bildrate und I/O nichts ändert, zeigt und spielt die Vorschau dieses Video.
+  function bakeSig() {
+    var io = ioRange();
+    return JSON.stringify([S.chain.map(function (it) { return [it.id, it.on, it.mix, it.p, it.crop]; }), S.master, S.fpsI, io.a, io.b]);
+  }
+  function bakeFresh() { return !!(V && V.bake && V.bake.sig === bakeSig()); }
+  function bakeShows(frame) { var b = V.bake; return !!(b && b.ready && !V.peek && !V.allOff && frame >= b.a && frame <= b.b && bakeFresh()); }
+  function bakeTime(frame) { return (frame - V.bake.a + 0.5) / fps(); }
+  // Steht das gebackene Video auf diesem Frame? Wenn nicht, dorthin springen und danach neu zeichnen.
+  function bakeAt(frame) {
+    var el = V.bake.el, tm = bakeTime(frame);
+    if (Math.abs(el.currentTime - tm) < 0.45 / fps() && !el.seeking) return true;
+    if (V.bake.want !== frame) { V.bake.want = frame; seek(el, tm).then(function () { if (V && V.bake && V.bake.el === el) { V.bake.want = null; need(); } }); }
+    return false;
+  }
+  function dropBake() {
+    if (!V || !V.bake) return;
+    var b = V.bake; V.bake = null;
+    if (V.playing && V.psrc === b.el) toLive(playTime());
+    b.el.pause(); b.el.removeAttribute("src"); b.el.load(); URL.revokeObjectURL(b.url);
+    bakeUI(true); drawStrip(); need();
+  }
+  function setBake(r) {
+    dropBake();
+    var el = document.createElement("video"), url = URL.createObjectURL(r.blob);
+    el.muted = true; el.playsInline = true; el.preload = "auto"; el.src = url;
+    V.bake = { sig: r.sig, a: r.a, b: r.b, mbit: r.mbit, audio: r.audio, blob: r.blob, url: url, el: el, ready: false, want: null };
+    el.addEventListener("loadeddata", function () { if (V && V.bake && V.bake.el === el) { V.bake.ready = true; bakeUI(true); drawStrip(); need(); } }, { once: true });
+    bakeUI(true); drawStrip();
+  }
+  // Knopf und Status unter dem Player, nur neu zeichnen, wenn sich etwas geändert hat
+  function bakeUI(force) {
+    if (!V || !F) return;
+    var box = V.root.querySelector("#wx-bake"); if (!box) return;
+    var st = V.baking ? "run" : !V.bake ? "none" : bakeFresh() ? (V.bake.ready ? "ok" : "load") : "old";
+    var key = st + (st === "ok" ? V.bake.a + "-" + V.bake.b : "") + (busy ? "b" : "");
+    if (!force && box.dataset.k === key) return;
+    var was = box.dataset.k ? box.dataset.k.slice(0, 2) : ""; box.dataset.k = key;
+    var h;
+    if (st === "run") h = '<button type="button" class="navbtn wx-bk on" data-wx="cancel">' + t("bakeCancel") + "</button>";
+    else h = '<button type="button" class="navbtn wx-bk' + (st === "ok" ? " ok" : "") + '" data-wx="bake" title="' + t("bakeTip") + '"' + (busy || !V.ready ? " disabled" : "") + ">" + t(st === "none" ? "bake" : "bakeNew") + "</button>" +
+      (st !== "none" ? '<button type="button" class="wx-ib wx-bkx" data-wx="unbake" title="' + t("bakeDrop") + '" aria-label="' + t("bakeDrop") + '">' + ICO.x + "</button>" : "") +
+      (st === "ok" ? '<span class="wx-bks ok">' + fmt(t("bakeOk"), { a: V.bake.a + 1, b: V.bake.b + 1 }) + "</span>" : st === "old" ? '<span class="wx-bks">' + t("bakeOld") + "</span>" : "");
+    box.innerHTML = h;
+    if (was.slice(0, 2) !== key.slice(0, 2)) drawStrip();
+  }
+  async function doBake() {
+    if (busy || !F || !V.ready) return;
+    var r = await renderVideo("bake");
+    if (r && V) { setBake(r); note(fmt(t("bakeDone"), { n: r.b - r.a + 1 })); goFrame(clamp(F.idx, r.a, r.b)); }
+  }
+  // Abspielen: Quelle ist das Originalvideo (live) oder das gebackene Video
+  function playTime() { return V.playing && V.psrc && V.psrc !== V.vid ? V.poff + V.psrc.currentTime : V.vid.currentTime; }
+  function toLive(tm) {
+    var b = V.psrc; if (!b || b === V.vid) return;
+    b.pause(); b.muted = true; V.psrc = V.vid; V.poff = 0; if (V.store) V.store.lastFrame = null;
+    V.vid.currentTime = tm; V.vid.muted = false;
+    var p = V.vid.play(); if (p && p.catch) p.catch(function () { V.vid.muted = true; V.vid.play().catch(function () {}); });
+  }
+
   // Rahmen des Bereichs, der gerade bearbeitet wird: außen abgedunkelt, Griffe an Ecken und Kanten
   function drawCropUI(x, tm) {
     var cr = cropOf(V.editCrop); if (!cr || !cr.on) return;
@@ -337,25 +423,35 @@
     var x = c.getContext("2d"); x.clearRect(0, 0, c.width, c.height);
     var ec = V.editCrop && cropOf(V.editCrop);
     if (ec && ec.keys.length && F.dur) { x.fillStyle = "#95A78D"; ec.keys.forEach(function (q) { x.fillRect(Math.floor(q.t / F.dur * c.width), 0, Math.max(1, Math.round(dpr)), c.height); }); }
-    if (F.inF == null && F.outF == null) return;
-    var fw = c.width / F.n, io = ioRange(), lw = Math.max(2, Math.round(2 * dpr));
-    x.fillStyle = "rgba(248,118,102,.6)"; x.fillRect(Math.floor(io.a * fw), 0, Math.ceil((io.b - io.a + 1) * fw), c.height);
-    x.fillStyle = "#F87666"; x.fillRect(Math.floor(io.a * fw), 0, lw, c.height); x.fillRect(Math.ceil((io.b + 1) * fw) - lw, 0, lw, c.height);
+    if (F.inF != null || F.outF != null) {
+      var fw = c.width / F.n, io = ioRange(), lw = Math.max(2, Math.round(2 * dpr));
+      x.fillStyle = "rgba(248,118,102,.6)"; x.fillRect(Math.floor(io.a * fw), 0, Math.ceil((io.b - io.a + 1) * fw), c.height);
+      x.fillStyle = "#F87666"; x.fillRect(Math.floor(io.a * fw), 0, lw, c.height); x.fillRect(Math.ceil((io.b + 1) * fw) - lw, 0, lw, c.height);
+    }
+    if (V.bake && F.n) {   // gebackener Bereich: Salbei = aktuell, gestrichelt = veraltet
+      var bfw = c.width / F.n, bh = Math.max(2, Math.round(c.height * 0.5)), fr0 = bakeFresh();
+      x.fillStyle = fr0 ? "#95A78D" : "rgba(215,208,200,.35)";
+      if (fr0) x.fillRect(Math.floor(V.bake.a * bfw), c.height - bh, Math.ceil((V.bake.b - V.bake.a + 1) * bfw), bh);
+      else for (var q0 = Math.floor(V.bake.a * bfw), q1 = Math.ceil((V.bake.b + 1) * bfw); q0 < q1; q0 += 6 * dpr) x.fillRect(q0, c.height - bh, Math.min(3 * dpr, q1 - q0), bh);
+    }
   }
 
   // ---------- Abspielen ----------
   function startPlay() {
     if (!F || !V.ready || V.playing) return;
     var io = ioRange(); if (F.idx < io.a || F.idx >= io.b) F.idx = io.a;
-    V.playing = true; if (V.store) V.store.lastFrame = null;
-    V.vid.currentTime = F.idx / fps(); V.vid.muted = false;
-    var p = V.vid.play(); if (p && p.catch) p.catch(function () { V.vid.muted = true; V.vid.play().catch(function () {}); });
+    if (V.store) V.store.lastFrame = null;
+    var bk = bakeShows(F.idx) && F.idx < V.bake.b, src = bk ? V.bake.el : V.vid;
+    V.psrc = src; V.poff = bk ? V.bake.a / fps() : 0; V.playing = true;
+    src.currentTime = bk ? (F.idx - V.bake.a) / fps() : F.idx / fps(); src.muted = false;
+    var p = src.play(); if (p && p.catch) p.catch(function () { src.muted = true; src.play().catch(function () {}); });
     updateBar();
   }
   function stopPlay() {
     if (!V || !V.playing) return;
-    V.playing = false; V.vid.pause(); V.vid.muted = true;
-    goFrame(Math.min(F.n - 1, Math.floor(V.vid.currentTime * fps())));
+    var tm = playTime(), src = V.psrc || V.vid;
+    V.playing = false; src.pause(); src.muted = true; V.psrc = null; V.vid.pause();
+    goFrame(Math.min(F.n - 1, Math.floor(tm * fps())));
   }
 
   // ---------- Export ----------
@@ -408,16 +504,18 @@
     }
     return null;
   }
-  async function doExport() {
-    if (busy || !F || !V.ready) return;
+  // Rendert den I/O-Bereich mit allen Effekten in Full HD als MP4, für Export und Baken. Gibt { blob, a, b, sig, … } zurück oder null.
+  async function renderVideo(kind) {
+    if (busy || !F || !V.ready) return null;
+    var bake = kind === "bake", sig = bakeSig();
     if (typeof VideoEncoder === "undefined" || typeof VideoFrame === "undefined") { note(t("noSupport")); return; }
-    stopPlay(); busy = true; cancelReq = false; updateSide();
+    stopPlay(); busy = true; cancelReq = false; V.baking = bake; updateSide(); bakeUI();
     var notes = [];
     try {
       await loadMuxer();
       var OW = F.ow, OH = F.oh, FPS = fps(), br = S.mbit * 1e6, io = ioRange(), i0 = io.a, n = io.b - io.a + 1, us = 1e6 / FPS;
       var vcfg = await pickVideoCodec(OW, OH, br, FPS);
-      if (!vcfg) { note(t("noSupport")); return; }
+      if (!vcfg) { note(t("noSupport")); return null; }
       var audio = null, acfg = null, ach = 0;
       if (S.audio) {
         audio = await readAudio(); ach = audio ? Math.min(2, audio.numberOfChannels) : 0; acfg = audio ? await pickAudio(ach) : null;
@@ -430,7 +528,7 @@
       var venc = new VideoEncoder({ output: function (c, m) { muxer.addVideoChunk(c, m); }, error: function (e) { encErr = e; } });
       venc.configure(vcfg);
       var ev = await openVideo(), base = canvas(OW, OH), bx = base.getContext("2d"), store = exportCtx().store;
-      S.chain.forEach(function (it) { it.stx = null; });   // Effekte mit Gedächtnis starten beim Export frisch
+      S.chain.forEach(function (it) { dropState(it, "stx"); });   // Effekte mit Gedächtnis starten beim Export frisch
       for (var i = 0; i < n; i++) {
         if (cancelReq || encErr) break;
         var fi = i0 + i; await seek(ev, tFrame(fi)); drawVideo(bx, ev, OW, OH);
@@ -438,11 +536,11 @@
         var vf = new VideoFrame(out, { timestamp: Math.round(i * us), duration: Math.round(us) });
         venc.encode(vf, { keyFrame: i % (FPS * 2) === 0 }); vf.close();
         while (venc.encodeQueueSize > 6) await new Promise(function (r2) { setTimeout(r2, 4); });
-        if (i % 3 === 0) note(fmt(t("working"), { i: i + 1, n: n, p: Math.round(i / n * (audio ? 94 : 100)) }));
+        if (i % 3 === 0) note(fmt(t(bake ? "baking" : "working"), { i: i + 1, n: n, p: Math.round(i / n * (audio ? 94 : 100)) }));
       }
       closeVideo(ev);
       if (encErr) throw encErr;
-      if (cancelReq) { venc.close(); note(t("cancelled")); return; }
+      if (cancelReq) { venc.close(); note(t(bake ? "bakeCancelled" : "cancelled")); return null; }
       await venc.flush(); venc.close();
       if (audio) {
         note(t("audioW"));
@@ -462,12 +560,22 @@
       }
       muxer.finalize();
       var blob = new Blob([target.buffer], { type: "video/mp4" });
-      download(blob, F.name + "-wefx.mp4", 10000);
-      note([fmt(t("done"), { mb: dec(blob.size / 1048576, 1) })].concat(notes).join(" "));
+      S.chain.forEach(function (it) { dropState(it, "stx"); });   // Speicher der Export-Zustände freigeben
+      return { blob: blob, a: io.a, b: io.b, sig: sig, mbit: S.mbit, audio: S.audio, notes: notes };
     } catch (e) {
-      note(fmt(t("failed"), { e: (e && e.message) || e }));
-    } finally { busy = false; updateSide(); }
+      note(fmt(t("failed"), { e: (e && e.message) || e })); return null;
+    } finally { busy = false; if (V) { V.baking = false; updateSide(); bakeUI(true); } }
   }
+  async function doExport() {
+    if (busy || !F || !V.ready) return;
+    if (bakeFresh() && V.bake.mbit === S.mbit && V.bake.audio === S.audio) {   // aktueller Bake mit gleichen Einstellungen: direkt speichern
+      download(V.bake.blob, F.name + "-wefx.mp4", 10000); note(fmt(t("doneBake"), { mb: dec(V.bake.blob.size / 1048576, 1) })); return;
+    }
+    var r = await renderVideo("export"); if (!r) return;
+    download(r.blob, F.name + "-wefx.mp4", 10000);
+    note([fmt(t("done"), { mb: dec(r.blob.size / 1048576, 1) })].concat(r.notes).join(" "));
+  }
+
 
   // ---------- Oberfläche ----------
   // Gleiches Farbschema wie Frame Painter: Stein #D7D0C8 · Sand #C8C6AF · Schwarz #0A0908, Akzente Salbei #95A78D und Koralle #F87666
@@ -487,11 +595,16 @@
     ".wx-bar .wx-play{background:var(--accent);color:var(--ink);min-width:104px}.wx-bar .wx-play:hover{background:#FA8C7E}.wx-bar .wx-play.on{background:var(--sage)}",
     ".wx-bar .wx-fsb svg{width:18px;height:18px}.wx-bar .wx-fsb[aria-pressed=true]{background:var(--sage);color:var(--ink)}",
     ".wx-fr{font:600 .88rem var(--f-body);font-variant-numeric:tabular-nums;min-width:118px;text-align:center}",
-    ".wx-tl{flex:1;min-width:160px;display:flex;flex-direction:column;gap:4px}.wx-tl input{width:100%;accent-color:var(--accent);margin:0}.wx-tl canvas{display:block;width:100%;height:6px;border-radius:3px;background:rgba(215,208,200,.14)}",
+    ".wx-tl{flex:1;min-width:160px;display:flex;flex-direction:column;gap:4px}.wx-tl input{width:100%;accent-color:var(--accent);margin:0}.wx-tl canvas{display:block;width:100%;height:8px;border-radius:3px;background:rgba(215,208,200,.14)}",
     ".wx-time{font:600 .84rem var(--f-body);font-variant-numeric:tabular-nums;color:rgba(215,208,200,.7);min-width:92px;text-align:right}",
     ".wx-io{display:flex;gap:4px}.wx-bar .wx-io .wx-nav{min-width:32px;padding:0 8px;font-weight:700}.wx-bar .wx-ioc{color:var(--accent)}.wx-ioc[hidden]{display:none!important}",
     ".wx-bar2{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;margin-top:10px}.wx-bar2 .navbtn{border-radius:999px;border-color:var(--line)}.wx-bar2 .navbtn:hover{border-color:var(--ink)}",
     ".wx-bar2 .navbtn[aria-pressed=true]{background:var(--ink);color:var(--bg);border-color:var(--ink)}.wx-other{margin-left:auto}",
+    ".wx-bake{display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap}.wx-bar2 .wx-bk{background:var(--ink);color:var(--bg);border-color:var(--ink);font-weight:600}",
+    ".wx-bar2 .wx-bk:hover:not(:disabled):not(.ok):not(.on){background:#2A2826;border-color:#2A2826}.wx-bar2 .wx-bk.ok:hover,.wx-bar2 .wx-bk.on:hover{filter:brightness(1.07)}.wx-bar2 .wx-bk.ok{background:var(--sage);border-color:var(--sage);color:var(--ink)}.wx-bar2 .wx-bk.on{background:var(--accent);border-color:var(--accent);color:var(--ink)}",
+    ".wx-bkx{width:28px;height:28px}.wx-bks{font-size:.8rem;color:var(--soft);font-variant-numeric:tabular-nums}.wx-bks.ok{color:var(--ink);font-weight:600}.wx-bkn{color:var(--ink)!important;font-weight:600}",
+    ".wx-pq{display:inline-flex;align-items:center;gap:2px;padding:3px;border:1px solid var(--line);border-radius:999px}.wx-pq b{font:600 .72rem var(--f-body);letter-spacing:.08em;text-transform:uppercase;color:var(--soft);padding:0 8px 0 9px}",
+    ".wx-pq button{border:0;background:none;color:var(--ink);font:500 .8rem var(--f-body);padding:5px 10px;border-radius:999px;cursor:pointer}.wx-pq button:hover{background:rgba(10,9,8,.08)}.wx-pq button[aria-pressed=true]{background:var(--ink);color:var(--bg)}",
     ".wx-bar3{display:flex;flex-wrap:wrap;gap:4px 16px;align-items:baseline;margin-top:8px}",
     ".wx-note{margin:0;color:var(--ink);font-size:.86rem;font-weight:600;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}.wx-note:empty{display:none}.wx-keys{margin:0;color:var(--soft);font-size:.78rem}",
     ".wx-side{display:flex;flex-direction:column;gap:12px;min-width:0}",
@@ -572,6 +685,7 @@
   }
   function buildUI() {
     var desk = V.root.querySelector("#wx-desk"), bar = V.root.querySelector("#wx-bar");
+    dropBake();
     if (V.vid) { V.vid.pause(); V.vid.removeAttribute("src"); V.vid.load(); V.vid = null; }
     V.ready = false; V.cv = null; V.store = null; V.editCrop = null; V.picking = null; V.cdrag = null;
     if (!F) {
@@ -589,7 +703,9 @@
       '<span class="wx-time" id="wx-time"></span>' +
       '<span class="wx-io"><button type="button" class="wx-nav" data-wx="ioIn" title="' + t("ioIn") + '" aria-label="' + t("ioIn") + '">I</button><button type="button" class="wx-nav" data-wx="ioOut" title="' + t("ioOut") + '" aria-label="' + t("ioOut") + '">O</button><button type="button" class="wx-nav wx-ioc" data-wx="ioClear" id="wx-ioc" title="' + t("ioClear") + '" aria-label="' + t("ioClear") + '" hidden>×</button></span>' +
       '<button type="button" class="wx-nav wx-fsb" data-wx="fs" id="wx-fsb" title="' + t("fs") + ' (F)" aria-label="' + t("fs") + '"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5" fill="none" stroke="currentColor" stroke-width="2"/></svg></button></div>' +
-      '<div class="wx-bar2"><button type="button" class="navbtn" data-wx="allOff" id="wx-alloff" aria-pressed="false">' + t("allOff") + '</button>' +
+      '<div class="wx-bar2"><span class="wx-bake" id="wx-bake"></span>' +
+      '<span class="wx-pq" title="' + t("pqTip") + '"><b>' + t("pq") + "</b>" + [0, 1, 2].map(function (i) { return '<button type="button" data-pq="' + i + '" aria-pressed="' + (S.pq === i) + '">' + t("pq" + i) + "</button>"; }).join("") + "</span>" +
+      '<button type="button" class="navbtn" data-wx="allOff" id="wx-alloff" aria-pressed="false">' + t("allOff") + '</button>' +
       '<button type="button" class="navbtn wx-other" data-wx="file">' + t("other") + "</button></div>" +
       '<div class="wx-bar3"><p class="wx-note" id="wx-note" aria-live="polite">' + esc(V.lastNote || "") + '</p><p class="wx-keys">' + t("keys") + "</p></div>";
     var v = document.createElement("video");
@@ -661,6 +777,7 @@
         '<div class="wx-row"><label for="wx-br">' + t("bitrate") + '<span id="wx-br-v">' + S.mbit + ' Mbit/s</span></label><input type="range" id="wx-br" min="2" max="60" step="1" value="' + S.mbit + '"></div>' +
         '<label class="wx-chk"><input type="checkbox" data-opt="audio"' + (S.audio ? " checked" : "") + "> " + t("audio") + "</label>" +
         '<p class="wx-desc" id="wx-info">' + fmt(t("exportInfo"), { w: ow, h: oh, f: fps(), br: S.mbit }) + "</p>" + (F ? '<p class="wx-iot">' + ioTxt + "</p>" : "") +
+        (F && bakeFresh() && V.bake.mbit === S.mbit && V.bake.audio === S.audio ? '<p class="wx-desc wx-bkn">' + t("exportBake") + "</p>" : "") +
         (busy ? '<button type="button" class="wx-save" data-wx="cancel">' + t("cancel") + "</button>" : '<button type="button" class="wx-save" data-wx="export"' + (ready ? "" : " disabled") + ">" + t("save") + "</button>") + "</div>" +
         '<div class="wx-box"><h3>' + t("frameH") + '</h3><p class="wx-desc">' + fmt(t("frameInfo"), { w: ow, h: oh }) + '</p><button type="button" class="wx-qpbtn" data-wx="frame"' + (ready && !busy ? "" : " disabled") + ">" + t("frameSave") + "</button></div>";
     }
@@ -741,7 +858,7 @@
   // ---------- Maus im Bild: Pipette und Bereich bearbeiten ----------
   function cvPos(e) { var r = V.cv.getBoundingClientRect(); return { x: (e.clientX - r.left) / r.width, y: (e.clientY - r.top) / r.height, pw: r.width, ph: r.height }; }
   function cropHit(cr, p) {   // was liegt unter dem Zeiger: Kanten (l, r, t, b) oder innen (move)
-    var r = cropAt(cr, V.playing ? V.vid.currentTime : tFrame(F.idx)), tx = 10 / p.pw, ty = 10 / p.ph;
+    var r = cropAt(cr, V.playing ? playTime() : tFrame(F.idx)), tx = 10 / p.pw, ty = 10 / p.ph;
     var l = r.x - r.w / 2, rr = r.x + r.w / 2, tp = r.y - r.h / 2, bt = r.y + r.h / 2;
     if (p.x < l - tx || p.x > rr + tx || p.y < tp - ty || p.y > bt + ty) return null;
     var e = { l: Math.abs(p.x - l) <= tx, r: Math.abs(p.x - rr) <= tx, t: Math.abs(p.y - tp) <= ty, b: Math.abs(p.y - bt) <= ty };
@@ -760,7 +877,8 @@
     var p = cvPos(e);
     if (V.picking) {   // Pipette: Farbe aus dem Video (vor allen Effekten) nehmen
       e.preventDefault();
-      var pv = V.pv, x = clamp(Math.floor(p.x * pv.width), 0, pv.width - 1), y = clamp(Math.floor(p.y * pv.height), 0, pv.height - 1);
+      var pv = V.pv || (V.pv = canvas(V.pw, V.ph)); drawVideo(pv.getContext("2d"), V.vid, pv.width, pv.height);
+      var x = clamp(Math.floor(p.x * pv.width), 0, pv.width - 1), y = clamp(Math.floor(p.y * pv.height), 0, pv.height - 1);
       var dd = pv.getContext("2d", { willReadFrequently: true }).getImageData(x, y, 1, 1).data, hx = "#" + [dd[0], dd[1], dd[2]].map(function (v) { return (v < 16 ? "0" : "") + v.toString(16); }).join("").toUpperCase();
       var it = findIt(V.picking.uid); if (it) it.p[V.picking.k] = hx;
       V.picking = null; cursorState(); updateSide(); need(); return;
@@ -791,13 +909,14 @@
   function onCvUp(e) {
     if (!V || !V.cdrag || e.pointerId !== V.cdrag.id) return;
     var d = V.cdrag; V.cdrag = null;
-    if (V.playing) cropRecord(d.cr, V.vid.currentTime, d.r);
+    if (V.playing) cropRecord(d.cr, playTime(), d.r);
     updateSide(); drawStrip(); need();
   }
 
   // ---------- Eingaben ----------
   function onClick(e) {
-    var b = e.target.closest("[data-wx],[data-tab],[data-add],[data-v],[data-fps],[data-pick],[data-cropedit],[data-cropclear]"); if (!b) return;
+    var b = e.target.closest("[data-wx],[data-tab],[data-add],[data-v],[data-fps],[data-pq],[data-pick],[data-cropedit],[data-cropclear]"); if (!b) return;
+    if (b.dataset.pq !== undefined) { S.pq = +b.dataset.pq; Array.prototype.forEach.call(b.parentNode.querySelectorAll("[data-pq]"), function (q) { q.setAttribute("aria-pressed", String(q === b)); }); if (V.store) V.store.lastFrame = null; layout(); return; }
     if (b.dataset.pick) { var pk = { uid: +b.dataset.pick, k: b.dataset.k }; V.picking = V.picking && V.picking.uid === pk.uid && V.picking.k === pk.k ? null : pk; if (V.picking) V.editCrop = null; cursorState(); updateSide(); need(); return; }
     if (b.dataset.cropedit) { V.editCrop = V.editCrop === b.dataset.cropedit ? null : b.dataset.cropedit; V.picking = null; cursorState(); updateSide(); drawStrip(); need(); return; }
     if (b.dataset.cropclear) { var cc = cropOf(b.dataset.cropclear); if (cc) { cc.cur = cropAt(cc, F && V.ready ? tFrame(F.idx) : 0); cc.keys = []; } updateSide(); drawStrip(); need(); return; }
@@ -811,7 +930,7 @@
     if (a === "file") { if (!busy) V.root.querySelector("#wx-file").click(); return; }
     if (a === "on" && it) { it.on = !it.on; updateSide(); need(); return; }
     if (a === "open" && it) { it.open = !it.open; updateSide(); return; }
-    if (a === "del" && it) { S.chain = S.chain.filter(function (q) { return q !== it; }); if (V.editCrop === String(it.uid)) V.editCrop = null; if (V.picking && V.picking.uid === it.uid) V.picking = null; cursorState(); updateSide(); need(); return; }
+    if (a === "del" && it) { dropState(it); S.chain = S.chain.filter(function (q) { return q !== it; }); if (V.editCrop === String(it.uid)) V.editCrop = null; if (V.picking && V.picking.uid === it.uid) V.picking = null; cursorState(); updateSide(); need(); return; }
     if (a === "dup" && it) { var i = S.chain.indexOf(it), cp = { uid: ++uidN, id: it.id, on: it.on, open: true, mix: it.mix, p: Object.assign({}, it.p), crop: JSON.parse(JSON.stringify(it.crop)) }; it.open = false; S.chain.splice(i + 1, 0, cp); updateSide(); need(); return; }
     if (a === "reset" && it && REG[it.id]) { it.p = defaults(REG[it.id]); it.mix = 100; updateSide(); need(); return; }
     if (a === "allOff") { V.allOff = !V.allOff; b.setAttribute("aria-pressed", String(V.allOff)); need(); return; }
@@ -825,6 +944,8 @@
     else if (a === "export") doExport();
     else if (a === "frame") exportFrame();
     else if (a === "cancel") cancelReq = true;
+    else if (a === "bake") doBake();
+    else if (a === "unbake") dropBake();
   }
   function onInput(e) {
     var el = e.target;
@@ -865,6 +986,7 @@
     var k = e.key.toLowerCase();
     if (k === "d") { e.preventDefault(); if (!V.peek) { V.peek = true; var pk = V.root.querySelector("#wx-peek"); if (pk) pk.hidden = false; need(); } return; }
     if (k === "f") { e.preventDefault(); toggleFS(); return; }
+    if (k === "b" && !busy) { e.preventDefault(); doBake(); return; }
     if (k === "escape" && (V.picking || V.editCrop)) { V.picking = null; V.editCrop = null; cursorState(); updateSide(); drawStrip(); need(); return; }
     if (k === "escape") { var w = V.root.querySelector(".wx-wrap"); if (w && w.classList.contains("wx-fs") && !fsEl()) { toggleFS(); return; } }
     if ((k === "i" || k === "o") && !V.playing) { e.preventDefault(); ioSet(k === "i" ? "in" : "out"); return; }
@@ -904,6 +1026,7 @@
     if (fsEl()) { try { var ex = document.exitFullscreen || document.webkitExitFullscreen; var p = ex.call(document); if (p && p.catch) p.catch(function () {}); } catch (e) {} }
     if (!V) return;
     cancelReq = true;
+    dropBake(); S.chain.forEach(function (it) { dropState(it); });
     if (V.vid) V.vid.pause();
     window.removeEventListener("pointermove", onGripMove); window.removeEventListener("pointerup", onGripUp); window.removeEventListener("pointercancel", onGripUp);
     window.removeEventListener("pointermove", onCvMove); window.removeEventListener("pointerup", onCvUp); window.removeEventListener("pointercancel", onCvUp); V.root.removeEventListener("pointerdown", onCvDown);
