@@ -3,6 +3,15 @@
    Die Versionsnummer auf den Kacheln kommt aus dem obersten Eintrag. */
 window.PATCHNOTES = {
   wefx: [
+    { v: "0.13", t: "2026-11-27T07:30:00+01:00",
+      de: ["Neuer Effekt: Datamosh (I-Frame-Removal / P-Frame-Datamoshing). Ab einem Auslöser fehlt das Vollbild: Das alte Bild wird von den Bewegungsvektoren der neuen Szene weitergeschoben und gemorpht, Makroblock für Makroblock wie in einem echten Codec, nur ohne kaputte Datei.",
+        "Datamosh-Auslöser: bei Schnitten (Szene A zerfließt in Szene B, mit einstellbarer Empfindlichkeit), an Markern, im Intervall oder ab Start. Mit Dauer und Auflösen kehrt das echte Bild weich zurück.",
+        "Datamosh-Regler: Bewegung (bis 300 %), Nachlauf (Bloom, wie ein wiederholtes P-Frame), Restbild (Umrisse der neuen Szene), Heilen, Makroblock 8/16/32 px, Blockig (harte Blöcke bis weiches Fließen), ruhige Flächen einfrieren, Farbbluten und Fehlerblöcke.",
+        "Marker: Effekte können jetzt Zeitpunkte speichern. Taste M setzt oder entfernt einen Marker am aktuellen Frame, die Marker erscheinen als Striche in der Zeitleiste, solange der Effekt aufgeklappt ist."],
+      en: ["New effect: Datamosh (I-frame removal / P-frame datamoshing). From a trigger on the full frame is missing: the old image is pushed along and morphed by the motion vectors of the new scene, macroblock by macroblock like a real codec, just without a broken file.",
+        "Datamosh triggers: at cuts (scene A melts into scene B, adjustable sensitivity), at markers, at intervals or from the start. With duration and resolve the real image returns smoothly.",
+        "Datamosh sliders: motion (up to 300%), carry-over (bloom, like a repeated P-frame), residual (outlines of the new scene), heal, macroblock 8/16/32 px, blocky (hard blocks to smooth flow), freeze calm areas, colour bleed and error blocks.",
+        "Markers: effects can now store points in time. Key M sets or removes a marker at the current frame, markers show as ticks in the timeline while the effect is open."] },
     { v: "0.12", t: "2026-11-27T06:00:00+01:00",
       de: ["Color Blur neu gebaut: Der Schweif wird jetzt auf der Grafikkarte in voller Auflösung gerechnet. Zwischen zwei Frames wird die Bewegung lückenlos abgetastet, dabei geht die Form weich vom vorigen in den aktuellen Frame über. Keine sichtbaren Stufen von Frame zu Frame mehr, keine Lücken oder Linien im Schweif.",
         "Color Blur: neuer Regler „Kurven glätten“ (statt Zwischenbilder). Der Schweif folgt Kurven weich statt in geraden Stücken. Turbulenz verwirbelt jetzt stufenlos, ohne Streifen.",

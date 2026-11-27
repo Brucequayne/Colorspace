@@ -22,13 +22,15 @@
          same (true, wenn derselbe Frame noch einmal gerechnet wird, etwa nach einer Regleränderung im Stand),
          export (true beim Export), util }
    Parametertyp "pick": Farbe, die man mit der Pipette aus dem Video nimmt (Wert "#RRGGBB").
+   Parametertyp "marks" (seit v0.13): Liste von Zeitpunkten in Sekunden, gesetzt mit Knopf oder Taste M am aktuellen Frame,
+   als Striche in der Zeitleiste zu sehen, solange der Effekt aufgeklappt ist.
    Den Regler „Mix“, das Ein-/Ausschalten und den Bereich (Cropper) übernimmt der Kern für jeden Effekt. */
 (function () {
   "use strict";
 
-  var VERSION = "0.12", RATES = [24, 25, 30, 60], PQ = [854, 1280, 1920];
+  var VERSION = "0.13", RATES = [24, 25, 30, 60], PQ = [854, 1280, 1920];
   // Je Effekt eine Datei: fx-<id>.js im Hauptverzeichnis. Neue Effekte hier eintragen.
-  var FX_FILES = ["colorblur", "wave", "rgbsplit", "pixelate"];
+  var FX_FILES = ["colorblur", "datamosh", "wave", "rgbsplit", "pixelate"];
   var STAMP = (function () { var s = document.currentScript && document.currentScript.src, m = s && /[?&]v=([^&]+)/.exec(s); return m ? m[1] : VERSION; })();
   var lang = "de";
   function L2(de, en) { return { de: de, en: en }; }
@@ -70,7 +72,7 @@
     noAudio: L2("Ohne Ton, das Video hat keinen lesbaren Ton oder der Browser kann ihn nicht kodieren.", "Without sound: the video has no readable sound or the browser cannot encode it."),
     noSupport: L2("Dieser Browser kann kein H.264 kodieren. Bitte einen aktuellen Chrome, Edge oder Safari nutzen.", "This browser cannot encode H.264. Please use a current Chrome, Edge or Safari."),
     failed: L2("Export fehlgeschlagen: {e}", "Export failed: {e}"), bad: L2("Diese Datei konnte nicht als Video geöffnet werden.", "This file could not be opened as a video."),
-    keys: L2("Tasten: Leertaste Abspielen · ← → Frame · I O Bereich · B Baken · F Vollbild · D halten: Original", "Keys: Space play · ← → frame · I O range · B bake · F fullscreen · hold D: original"),
+    keys: L2("Tasten: Leertaste Abspielen · ← → Frame · I O Bereich · B Baken · M Marker · F Vollbild · D halten: Original", "Keys: Space play · ← → frame · I O range · B bake · M marker · F fullscreen · hold D: original"),
     howH: L2("So funktioniert’s", "How it works"),
     how1: L2("Ein Effekt ist ein Baustein in einer Kette. Das Video läuft von oben nach unten durch alle eingeschalteten Effekte, jeder arbeitet mit dem Ergebnis des vorigen. Darum zählt die Reihenfolge: Erst Pixel und dann Welle verbiegt die Pixelblöcke, erst Welle und dann Pixel macht aus der Welle grobe Treppen.",
               "An effect is a building block in a chain. The video runs from top to bottom through every effect that is switched on, each works on the result of the one before. That is why the order matters: pixel first and then wave bends the pixel blocks, wave first and then pixel turns the wave into coarse steps."),
@@ -87,6 +89,7 @@
     bakeOk: L2("Gebacken · Full HD · Frame {a}–{b}", "Baked · Full HD · frames {a}–{b}"), bakeOld: L2("Bake veraltet · Vorschau live", "Bake out of date · preview live"),
     baking: L2("Baken: Frame {i} von {n} · {p} %", "Baking: frame {i} of {n} · {p}%"), bakeDone: L2("Gebacken: {n} Frames in Full HD. Die Vorschau spielt jetzt das gebackene Video.", "Baked: {n} frames in Full HD. The preview now plays the baked video."),
     bakeCancelled: L2("Baken abgebrochen.", "Baking cancelled."), exportBake: L2("Aktueller Bake vorhanden: Der Export speichert ihn sofort.", "Up-to-date bake available: the export saves it right away."),
+    markAdd: L2("Marker hier setzen (M)", "Set marker here (M)"), markDel: L2("Marker hier entfernen (M)", "Remove marker here (M)"), markClear: L2("Alle Marker löschen", "Clear all markers"),
     doneBake: L2("Fertig: Bake gespeichert ({mb} MB).", "Done: bake saved ({mb} MB)."),
   };
   function t(k) { return TX[k][lang]; }
@@ -122,7 +125,32 @@
       document.head.appendChild(s);
     });
   }
-  function defaults(def) { var p = {}; def.params.forEach(function (q) { p[q.k] = q.def; }); return p; }
+  function defaults(def) { var p = {}; def.params.forEach(function (q) { p[q.k] = Array.isArray(q.def) ? q.def.slice() : q.def; }); return p; }
+
+  // Marker (Parametertyp "marks"): Index des Markers am aktuellen Frame oder -1
+  function markAt(ms) { var tm = tFrame(F.idx), tol = 0.5 / fps(); for (var i = 0; i < ms.length; i++) if (Math.abs(ms[i] - tm) < tol) return i; return -1; }
+  function markEdit(it, k, op) {
+    if (!it || !F || !V.ready) return;
+    var ms = Array.isArray(it.p[k]) ? it.p[k].slice() : [], i = markAt(ms);
+    if (op === "clear") ms = [];
+    else if (op === "del" || op === "toggle" && i >= 0) { if (i >= 0) ms.splice(i, 1); }
+    else if (i < 0) { ms.push(tFrame(F.idx)); ms.sort(function (a, b) { return a - b; }); }
+    it.p[k] = ms; updateSide(); drawStrip(); need();
+  }
+  // Beschriftung der Marker-Knöpfe nach einem Framewechsel anpassen (ohne die Seitenleiste neu zu bauen)
+  function markBtns() {
+    if (!V || !F) return;
+    Array.prototype.forEach.call(V.root.querySelectorAll('[data-mark][data-op="add"],[data-mark][data-op="del"]'), function (b) {
+      var it = findIt(+b.dataset.mark), ms = it && Array.isArray(it.p[b.dataset.k]) ? it.p[b.dataset.k] : [], h = markAt(ms) >= 0;
+      b.dataset.op = h ? "del" : "add"; b.textContent = t(h ? "markDel" : "markAdd");
+    });
+  }
+  // Effekt, dessen Marker die Taste M bearbeitet: der erste aufgeklappte mit Markern, sonst der erste mit Markern
+  function markTarget() {
+    var pick = null;
+    S.chain.forEach(function (it) { var d = REG[it.id], q = d && d.params.filter(function (x) { return x.type === "marks"; })[0]; if (q && (!pick || it.open && !pick.it.open)) pick = { it: it, k: q.k }; });
+    return pick;
+  }
 
   // ---------- Zustand ----------
   // F: Projekt { file, url, name, dur, vw, vh, ow, oh, n, idx, inF, outF }
@@ -172,7 +200,7 @@
     await Promise.all(w8);
     if (V && V.bake && V.bake.want === i) V.bake.want = null;
     if (tok !== loadTok || !V) return;
-    V.loading = false; updateBar(); need();
+    V.loading = false; updateBar(); markBtns(); need();
   }
 
   // ---------- I/O-Bereich ----------
@@ -423,6 +451,10 @@
     var x = c.getContext("2d"); x.clearRect(0, 0, c.width, c.height);
     var ec = V.editCrop && cropOf(V.editCrop);
     if (ec && ec.keys.length && F.dur) { x.fillStyle = "#95A78D"; ec.keys.forEach(function (q) { x.fillRect(Math.floor(q.t / F.dur * c.width), 0, Math.max(1, Math.round(dpr)), c.height); }); }
+    S.chain.forEach(function (it) {   // Marker aufgeklappter Effekte als Sand-Striche
+      var d = REG[it.id]; if (!it.open || !d || !F.dur) return;
+      d.params.forEach(function (q) { if (q.type !== "marks" || !Array.isArray(it.p[q.k])) return; x.fillStyle = "#C8C6AF"; it.p[q.k].forEach(function (m) { x.fillRect(Math.floor(m / F.dur * c.width) - Math.round(dpr), 0, Math.max(2, Math.round(2 * dpr)), c.height); }); });
+    });
     if (F.inF != null || F.outF != null) {
       var fw = c.width / F.n, io = ioRange(), lw = Math.max(2, Math.round(2 * dpr));
       x.fillStyle = "rgba(248,118,102,.6)"; x.fillRect(Math.floor(io.a * fw), 0, Math.ceil((io.b - io.a + 1) * fw), c.height);
@@ -723,6 +755,13 @@
       return '<button type="button" data-uid="' + it.uid + '" data-k="' + q.k + '" data-v="' + esc(o[0]) + '" aria-pressed="' + (v === o[0]) + '">' + tl(o[1]) + "</button>"; }).join("") + "</div></div>";
     if (q.type === "color") return '<div class="wx-row"><label for="' + id + '">' + lab + '<span>' + v + '</span></label><input type="color" id="' + id + '" data-uid="' + it.uid + '" data-k="' + q.k + '" value="' + v + '"></div>';
     if (q.type === "pick") return '<div class="wx-row"><label>' + lab + '</label><div class="wx-pickr"><span class="wx-sw" style="background:' + v + '"></span><code>' + v + '</code><button type="button" class="wx-pk" data-pick="' + it.uid + '" data-k="' + q.k + '" aria-pressed="' + !!(V.picking && V.picking.uid === it.uid && V.picking.k === q.k) + '">' + t("pickBtn") + "</button></div>" + (V.picking && V.picking.uid === it.uid && V.picking.k === q.k ? '<p class="wx-hint">' + t("pickOn") + "</p>" : "") + "</div>";
+    if (q.type === "marks") {
+      var ms = Array.isArray(v) ? v : [], here = F && V.ready ? markAt(ms) : -1;
+      return '<div class="wx-row"><label>' + lab + "<span>" + ms.length + '</span></label><div class="wx-acts">' +
+        '<button type="button" class="navbtn" data-mark="' + it.uid + '" data-k="' + q.k + '" data-op="' + (here >= 0 ? "del" : "add") + '"' + (F && V.ready ? "" : " disabled") + ">" + t(here >= 0 ? "markDel" : "markAdd") + "</button>" +
+        (ms.length ? '<button type="button" class="navbtn" data-mark="' + it.uid + '" data-k="' + q.k + '" data-op="clear">' + t("markClear") + "</button>" : "") + "</div>" +
+        (q.hint ? '<p class="wx-hint">' + tl(q.hint) + "</p>" : "") + "</div>";
+    }
     if (q.type === "check") return '<label class="wx-chk"><input type="checkbox" data-uid="' + it.uid + '" data-k="' + q.k + '"' + (v ? " checked" : "") + "> " + lab + "</label>";
     return "";
   }
@@ -915,7 +954,8 @@
 
   // ---------- Eingaben ----------
   function onClick(e) {
-    var b = e.target.closest("[data-wx],[data-tab],[data-add],[data-v],[data-fps],[data-pq],[data-pick],[data-cropedit],[data-cropclear]"); if (!b) return;
+    var b = e.target.closest("[data-wx],[data-tab],[data-add],[data-v],[data-fps],[data-pq],[data-mark],[data-pick],[data-cropedit],[data-cropclear]"); if (!b) return;
+    if (b.dataset.mark) { markEdit(findIt(+b.dataset.mark), b.dataset.k, b.dataset.op); return; }
     if (b.dataset.pq !== undefined) { S.pq = +b.dataset.pq; Array.prototype.forEach.call(b.parentNode.querySelectorAll("[data-pq]"), function (q) { q.setAttribute("aria-pressed", String(q === b)); }); if (V.store) V.store.lastFrame = null; layout(); return; }
     if (b.dataset.pick) { var pk = { uid: +b.dataset.pick, k: b.dataset.k }; V.picking = V.picking && V.picking.uid === pk.uid && V.picking.k === pk.k ? null : pk; if (V.picking) V.editCrop = null; cursorState(); updateSide(); need(); return; }
     if (b.dataset.cropedit) { V.editCrop = V.editCrop === b.dataset.cropedit ? null : b.dataset.cropedit; V.picking = null; cursorState(); updateSide(); drawStrip(); need(); return; }
@@ -929,9 +969,9 @@
     if (a === "fs") { if (F && V.ready) toggleFS(); return; }
     if (a === "file") { if (!busy) V.root.querySelector("#wx-file").click(); return; }
     if (a === "on" && it) { it.on = !it.on; updateSide(); need(); return; }
-    if (a === "open" && it) { it.open = !it.open; updateSide(); return; }
+    if (a === "open" && it) { it.open = !it.open; updateSide(); drawStrip(); return; }
     if (a === "del" && it) { dropState(it); S.chain = S.chain.filter(function (q) { return q !== it; }); if (V.editCrop === String(it.uid)) V.editCrop = null; if (V.picking && V.picking.uid === it.uid) V.picking = null; cursorState(); updateSide(); need(); return; }
-    if (a === "dup" && it) { var i = S.chain.indexOf(it), cp = { uid: ++uidN, id: it.id, on: it.on, open: true, mix: it.mix, p: Object.assign({}, it.p), crop: JSON.parse(JSON.stringify(it.crop)) }; it.open = false; S.chain.splice(i + 1, 0, cp); updateSide(); need(); return; }
+    if (a === "dup" && it) { var i = S.chain.indexOf(it), cp = { uid: ++uidN, id: it.id, on: it.on, open: true, mix: it.mix, p: JSON.parse(JSON.stringify(it.p)), crop: JSON.parse(JSON.stringify(it.crop)) }; it.open = false; S.chain.splice(i + 1, 0, cp); updateSide(); need(); return; }
     if (a === "reset" && it && REG[it.id]) { it.p = defaults(REG[it.id]); it.mix = 100; updateSide(); need(); return; }
     if (a === "allOff") { V.allOff = !V.allOff; b.setAttribute("aria-pressed", String(V.allOff)); need(); return; }
     if (!F || !V.ready) return;
@@ -987,6 +1027,7 @@
     if (k === "d") { e.preventDefault(); if (!V.peek) { V.peek = true; var pk = V.root.querySelector("#wx-peek"); if (pk) pk.hidden = false; need(); } return; }
     if (k === "f") { e.preventDefault(); toggleFS(); return; }
     if (k === "b" && !busy) { e.preventDefault(); doBake(); return; }
+    if (k === "m" && !V.playing) { var mt = markTarget(); if (mt) { e.preventDefault(); markEdit(mt.it, mt.k, "toggle"); } return; }
     if (k === "escape" && (V.picking || V.editCrop)) { V.picking = null; V.editCrop = null; cursorState(); updateSide(); drawStrip(); need(); return; }
     if (k === "escape") { var w = V.root.querySelector(".wx-wrap"); if (w && w.classList.contains("wx-fs") && !fsEl()) { toggleFS(); return; } }
     if ((k === "i" || k === "o") && !V.playing) { e.preventDefault(); ioSet(k === "i" ? "in" : "out"); return; }
