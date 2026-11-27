@@ -9,14 +9,16 @@ const SKY = { day: [C("#3C83D4"), C("#BBD7EE")], low: [C("#4A5F96"), C("#F2A970"
 // Feine, weltfeste Körnung für Beton-Look: nichts wird gestreckt, egal wie hoch eine Struktur gezogen wird
 const MATS = new Map();
 export function concrete(hex, opts) {
-  const key = hex + (opts && opts.grain != null ? "/" + opts.grain : "");
+  const key = hex + (opts && opts.grain != null ? "/" + opts.grain : "") + (opts && opts.ao === 0 ? "/n" : "");
   if (MATS.has(key)) return MATS.get(key);
   const m = new THREE.MeshStandardMaterial({ color: new THREE.Color(hex), roughness: 0.94, metalness: 0 });
-  const grain = opts && opts.grain != null ? opts.grain : 1;
+  // Schatten von den der Sonne zugewandten Flächen werfen: kein heller Lichtsaum am Fuß der Strukturen
+  m.shadowSide = THREE.FrontSide;
+  const grain = opts && opts.grain != null ? opts.grain : 1, ao = opts && opts.ao != null ? opts.ao : 1;
   m.onBeforeCompile = (sh) => {
-    sh.uniforms.uGrain = { value: grain };
-    sh.vertexShader = "varying vec3 vPRUw;\n" + sh.vertexShader.replace("#include <project_vertex>", "#include <project_vertex>\n vPRUw = (modelMatrix * vec4(transformed, 1.0)).xyz;");
-    sh.fragmentShader = "varying vec3 vPRUw;\nuniform float uGrain;\n" +
+    sh.uniforms.uGrain = { value: grain }; sh.uniforms.uAO = { value: ao };
+    sh.vertexShader = "varying vec3 vPRUw;\nvarying vec3 vPRUn;\n" + sh.vertexShader.replace("#include <project_vertex>", "#include <project_vertex>\n vPRUw = (modelMatrix * vec4(transformed, 1.0)).xyz;\n vPRUn = normalize(mat3(modelMatrix) * objectNormal);");
+    sh.fragmentShader = "varying vec3 vPRUw;\nvarying vec3 vPRUn;\nuniform float uGrain;\nuniform float uAO;\n" +
       "float pruH(vec3 p){ p = mod(p, 289.0); return fract(sin(dot(p, vec3(127.1, 311.7, 74.7))) * 43758.5453); }\n" +
       "float pruN(vec3 x){ vec3 i = floor(x), f = fract(x); f = f*f*(3.0-2.0*f);" +
       " return mix(mix(mix(pruH(i), pruH(i+vec3(1,0,0)), f.x), mix(pruH(i+vec3(0,1,0)), pruH(i+vec3(1,1,0)), f.x), f.y)," +
@@ -24,7 +26,9 @@ export function concrete(hex, opts) {
       sh.fragmentShader.replace("#include <color_fragment>", "#include <color_fragment>\n" +
         " float pruD = length(vPRUw - cameraPosition);\n" +
         " float pruG = ((pruN(vPRUw * 0.45) - 0.5) * 0.07 + (pruN(vPRUw * 3.1) - 0.5) * 0.05 * clamp(1.0 - pruD / 40.0, 0.0, 1.0)) * clamp(1.0 - pruD / 160.0, 0.0, 1.0);\n" +
-        " diffuseColor.rgb *= 1.0 + pruG * uGrain;");
+        " diffuseColor.rgb *= 1.0 + pruG * uGrain;\n" +
+        // Kontaktschatten: senkrechte Wände werden zum Boden hin dunkler (kein Lichtsaum am Fuß)
+        " diffuseColor.rgb *= 1.0 - uAO * (1.0 - smoothstep(0.0, 0.6, vPRUw.y)) * (1.0 - abs(vPRUn.y)) * 0.3;");
   };
   m.customProgramCacheKey = () => "pru-concrete"; m.userData.shared = true;
   MATS.set(key, m);
@@ -63,12 +67,12 @@ export class Engine {
     const s = this.sun = new THREE.DirectionalLight(0xFFFFFF, 2.4);
     s.castShadow = true; s.shadow.mapSize.set(2048, 2048);
     const sc = s.shadow.camera; sc.left = -55; sc.right = 55; sc.top = 55; sc.bottom = -55; sc.near = 1; sc.far = 600;
-    s.shadow.bias = -0.0004; s.shadow.normalBias = 0.06;
+    s.shadow.bias = -0.0006; s.shadow.normalBias = 0.03;
     this.scene.add(s); this.scene.add(s.target);
     this.scene.fog = new THREE.FogExp2(0xBBD7EE, 0.0036);
     // Boden: eine große, ruhige Fläche
     const g = new THREE.PlaneGeometry(6000, 6000); g.rotateX(-Math.PI / 2);
-    this.ground = new THREE.Mesh(g, concrete("#D6D1C6", { grain: 0.8 }));
+    this.ground = new THREE.Mesh(g, concrete("#D6D1C6", { grain: 0.8, ao: 0 }));
     this.ground.receiveShadow = true; this.ground.name = "ground"; this.scene.add(this.ground);
     this.focusAt = new THREE.Vector3();
     this.sunDir = new THREE.Vector3(0, 1, 0);

@@ -63,6 +63,17 @@ Das Modell kommt später als SkinnedMesh mit denselben Knochen (oder wird auf si
 - Gangzyklus in `runner.js` (Zweig `loco`): Frequenz `cad` und Kontaktanteil `beta` aus dem Tempo, Schrittlänge = v·beta/cad (Standfuß steht).
   Gehen/Laufen wird über `rf` überblendet. Neigung aus Grundhaltung + Längsbeschleunigung `acc`, Kurvenlage aus Querbeschleunigung `lat`.
 
+## Neu in v0.13
+
+- Wand hochlaufen (`climb`): `startWallUp(tempo)` — Schritte ab `wallStep1`/`wallStep2` m/s, Schub `wallStepV + wallStepK·tempo` je Schritt,
+  Auslöser am Boden (Sprung frontal an der Wand) oder in der Luft kurz nach dem Absprung (`airT < 0.5`).
+- Wallrun: `sideFromContact` / `sideWall` (Strahlen zur Seite, Figur wird herangezogen), Winkel ≤ ~50°. Am Boden an der Wand: `brush` → Hand-IK.
+- Absprung: `jumpId`, `jumpBoth` (linke Maustaste → `inp.both`, oder aus dem Stand); das Sprungbein wählt `runner.js` aus der Gangphase.
+- Hängen: `hangDrop` 1,78 m, Körper optisch 20 cm näher an der Wand (`pivZ`), Pendel `pendulum()`/`applyPendulum()` aus `hang.v0` (Geschwindigkeit vor dem Aufprall), nur wenn `feetFree`.
+- Animation: Gelenke als Federn (`j(name, x, y, z, w, zeta)`), Feder-Werte `spring(key, …)` für Neigung, Kurvenlage, Hüfte, Oberkörper-Nachschwingen.
+  Kurzes Überblenden bei Moduswechsel (`blend`). Slide-Beine per `limbIK` an Bodenpunkte.
+- Licht: Strukturen werfen Schatten mit den Vorderseiten (`shadowSide = FrontSide`), Kontaktschatten unten an senkrechten Wänden (`uAO`).
+
 ## Bewegung (Stand v0.12)
 
 - Tasten: WASD (relativ zur Kamera), Shift sprinten, Leertaste: springen / Wandsprung / an der Kante hochziehen / beim Aufkommen abrollen,

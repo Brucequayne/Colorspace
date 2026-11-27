@@ -11,8 +11,8 @@ addTexts({
   pDone: L2("Ziel!", "Finish!"), pNew: L2("Neue Bestzeit", "New best time"), pTop: L2("Deine besten Zeiten", "Your best times"),
   pNoFinish: L2("Kein Ziel gesetzt – freies Testen", "No finish placed – free testing"),
   pPause: L2("Pause", "Paused"), pCont: L2("Weiter", "Continue"), pRestart: L2("Neu starten (R)", "Restart (R)"), pBack: L2("Zurück zum Editor (Esc)", "Back to the editor (Esc)"),
-  pKeys: L2("WASD laufen (Blick = Maus) · Shift sprinten · Leertaste springen, an der Wand abstoßen, an der Kante hochziehen, beim Aufkommen abrollen · Q/E Slide auf linker/rechter Hüfte · Strg/C ducken, Kante loslassen · R neu · Esc Pause",
-    "WASD run (look = mouse) · Shift sprint · Space jump, kick off walls, pull up on a ledge, roll on landing · Q/E slide on left/right hip · Ctrl/C crouch, let go of a ledge · R restart · Esc pause"),
+  pKeys: L2("WASD laufen (Blick = Maus) · Shift sprinten · Leertaste springen, an der Wand abstoßen, an der Kante hochziehen, beim Aufkommen abrollen · Linke Maustaste kurz vor dem Sprung: beidbeinig · Q/E Slide auf linker/rechter Hüfte · Strg/C ducken, Kante loslassen · R neu · Esc Pause",
+    "WASD run (look = mouse) · Shift sprint · Space jump, kick off walls, pull up on a ledge, roll on landing · left mouse button just before a jump: two-footed · Q/E slide on left/right hip · Ctrl/C crouch, let go of a ledge · R restart · Esc pause"),
   pBroken: L2("Beine gebrochen", "Broken legs"), pBrokenSub: L2("Zu tief gefallen. Ab 3 m: Leertaste beim Aufkommen zum Abrollen, ab 10 m hilft auch das nicht mehr.", "Fell too far. From 3 m: press Space on landing to roll; from 10 m even that won't help.")
 });
 
@@ -37,7 +37,7 @@ export class Play {
     app.ui.appendChild(this.ui);
     this.$ = (q) => this.ui.querySelector(q);
     this.h = {
-      down: (e) => { if (!this.locked() && e.button === 0 && this.$("#pru-over").hidden) this.lock(); },
+      down: (e) => { if (!this.locked() && e.button === 0 && this.$("#pru-over").hidden) this.lock(); else if (this.locked() && e.button === 0) this.inp.both = true; },
       move: (e) => { if (!this.locked()) return; this.camYaw -= e.movementX * 0.0024 * this.sens; this.camPitch = clamp(this.camPitch + e.movementY * 0.0022 * this.sens * (this.invert ? -1 : 1), -0.9, 1.25); },
       lock: () => { const L = this.locked(), end = this.state === "done" || (this.state === "fail" && !this.$("#pru-over").hidden); this.$("#pru-click").hidden = L || end; if (!L && !end && this.wasLocked) this.pause(true); this.wasLocked = L; },
       kup: (e) => { this.keys[e.code] = false; }, blur: () => { this.keys = {}; }
@@ -112,7 +112,7 @@ export class Play {
       this.inp.sprint = !!(k.ShiftLeft || k.ShiftRight); this.inp.aim = this.camYaw + Math.PI; this.inp.crouchHeld = !!(k.ControlLeft || k.ControlRight || k.KeyC); this.inp.slideHeld = !!(k.KeyQ || k.KeyE);
       if (this.state === "ready" && (w.lengthSq() > 0.01 || this.inp.jump)) { this.state = "run"; if (this.world.map.finish && this.from === "start") this.$("#pru-sub").textContent = this.best.length ? t("pBest") + " " + ftime(this.best[0]) : ""; }
       const s = mv.update(dt, this.inp);
-      this.inp.jump = false; this.inp.crouch = false; this.inp.slide = null;
+      this.inp.jump = false; this.inp.crouch = false; this.inp.slide = null; this.inp.both = false;
       this.runner.place(mv.view, mv.yaw);
       this.runner.update(dt, s);
       if (mv.mode === "broken" && this.state !== "fail") { this.state = "fail"; this.shake = 1; this.$("#pru-hurt").style.opacity = 1; }
