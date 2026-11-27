@@ -3,7 +3,7 @@
 (function () {
   "use strict";
 
-  var VERSION = "0.71", RATES = [5, 15, 30];
+  var VERSION = "0.72", RATES = [5, 15, 30];
   var lang = "de";
   function L2(de, en) { return { de: de, en: en }; }
 
@@ -11,9 +11,19 @@
     title: L2("Frame Painter", "Frame Painter"),
     intro: L2("Zieh ein Video auf die Fläche und mal Bild für Bild darüber. Farben nimmst du mit der Pipette direkt aus dem Video. Am Ende exportierst du deine Animation als MP4, auf Wunsch über dem Video. Das Video verlässt dein Gerät nicht.",
               "Drop a video onto the area and paint over it frame by frame. You take colours straight from the video with the picker. Finally export your animation as MP4, over the video if you like. The video never leaves your device."),
-    drop: L2("Video hierher ziehen", "Drop a video here"), or: L2("oder", "or"), pick: L2("Video auswählen", "Choose video"),
-    dropNote: L2("MP4, MOV oder WebM · bleibt auf deinem Gerät", "MP4, MOV or WebM · stays on your device"),
-    other: L2("Anderes Video", "Other video"),
+    drop: L2("Video oder Foto hierher ziehen", "Drop a video or photo here"), or: L2("oder", "or"), pick: L2("Video oder Foto wählen", "Choose video or photo"),
+    dropNote: L2("MP4, MOV, WebM, JPEG oder PNG · bleibt auf deinem Gerät", "MP4, MOV, WebM, JPEG or PNG · stays on your device"),
+    photo: L2("Foto", "Photo"), photoH: L2("Bild exportieren", "Export image"), photoSave: L2("Als PNG speichern", "Save as PNG"),
+    photoInfo: L2("PNG · {w} × {h} · Originalgröße, kleine Fotos in Malauflösung", "PNG · {w} × {h} · original size, small photos at painting resolution"), photoDone: L2("Bild gespeichert: {w} × {h}.", "Image saved: {w} × {h}."),
+    ioIn: L2("In-Punkt hier setzen (I)", "Set in point here (I)"), ioOut: L2("Out-Punkt hier setzen (O)", "Set out point here (O)"), ioClear: L2("Bereich zurücksetzen", "Clear range"),
+    ioAll: L2("Bereich: ganzes Video · mit I und O eingrenzen", "Range: whole video · narrow it with I and O"), ioInfo: L2("Bereich: Frame {a} bis {b} ({n} Frames)", "Range: frame {a} to {b} ({n} frames)"),
+    laysH: L2("Layer", "Layers"), layN: L2("Layer {n}", "Layer {n}"), layDraft: L2("neuer Layer", "new layer"),
+    laySave: L2("Als Layer speichern", "Save as layer"), layNew: L2("Neuer Layer", "New layer"), layDel: L2("Layer löschen", "Delete layer"),
+    layClear: L2("Alle Layer entfernen", "Remove all layers"), laySure: L2("Wirklich alle entfernen? Nochmal klicken", "Really remove all? Click again"),
+    layNote: L2("Gespeicherte Layer siehst du alle zusammen in der Vorschau. Klick auf eine Kugel rechts im Bild öffnet ihre Einstellung.", "You see all saved layers together in the preview. Click a ball on the right of the image to open its settings."),
+    rendH: L2("Rendern", "Render"), rendCount: L2("{n} Layer zusammen", "{n} layers together"), rendFrame: L2("Auf diesen Frame (Enter)", "On this frame (Enter)"),
+    rendNext: L2("Ab hier bis zum Ende des Bereichs", "From here to the end of the range"), rendAll: L2("Ganzen Bereich rendern", "Render the whole range"),
+    other: L2("Andere Datei", "Other file"),
     sure: L2("Neues Video verwirft die ganze Bemalung.", "A new video discards all painting."), sureYes: L2("Trotzdem laden", "Load anyway"), sureNo: L2("Abbrechen", "Cancel"),
     prev: L2("Frame zurück", "Previous frame"), next: L2("Frame vor", "Next frame"),
     frame: L2("Frame {i} / {n}", "Frame {i} / {n}"),
@@ -93,7 +103,7 @@
     mpSaved: L2("Magic-Paint-Palette in Slot {n} gespeichert.", "Magic Paint palette saved to slot {n}."),
     mpSlotsNote: L2("Merkt sich Palette, Strichmuster und Regler für diese Sitzung.", "Keeps palette, stroke pattern and sliders for this session."),
     mpWidth: L2("Strichstärke (Basis)", "Stroke width (base)"), mpAngle: L2("Winkel (Basis)", "Angle (base)"),
-    keys: L2("Tasten: C Pipette · Q Quickpaint · M Magic Paint · F Vollbild · D halten: Bemalung aus · P B H S W E Werkzeuge · ← → Frame · Leertaste Abspielen · [ ] Größe · Strg+Z Rückgängig", "Keys: C picker · Q Quickpaint · M Magic Paint · F fullscreen · hold D: hide paint · P B H S W E tools · ← → frame · Space play · [ ] size · Ctrl+Z undo"),
+    keys: L2("Tasten: C Pipette · Q Quickpaint · M Magic Paint · F Vollbild · I O Bereich · D halten: Bemalung aus · P B H S W E Werkzeuge · ← → Frame · Leertaste Abspielen · [ ] Größe · Strg+Z Rückgängig", "Keys: C picker · Q Quickpaint · M Magic Paint · F fullscreen · I O range · hold D: hide paint · P B H S W E tools · ← → frame · Space play · [ ] size · Ctrl+Z undo"),
     howH: L2("So funktioniert’s", "How it works"),
     how1: L2("Das Video wird in Frames zerlegt, je nach Bildrate 5, 15 oder 30 pro Sekunde. Jeder Frame hat seine eigene Malebene. Mit den Pfeilen springst du von Frame zu Frame, und in jedem Frame siehst du genau das, was du dort gemalt hast. Mit „Vom letzten Frame übernehmen“ holst du die Zeichnung des vorherigen Frames, um sie für die Animation nur leicht anzupassen. Die Zwiebelhaut zeigt den letzten Frame blass darunter.",
               "The video is split into frames, 5, 15 or 30 per second depending on the frame rate. Each frame has its own paint layer. The arrows jump from frame to frame, and each frame shows exactly what you painted there. “Copy previous frame” brings over the drawing of the frame before, so you only adjust it slightly for the animation. Onion skin shows the previous frame faintly underneath."),
@@ -139,6 +149,16 @@
   Object.keys(TOOLS).forEach(function (k) { S.sets[k] = Object.assign({}, TOOLS[k].set); });
   function set() { return S.sets[S.tool]; }
   function painted() { return Object.keys(F ? F.paints : {}).length + (V && V.dirty ? 1 : 0); }
+  // I/O-Bereich (seit v0.72): Export und „auf alle Frames“ laufen nur von In bis Out
+  function ioRange() { if (!F) return { a: 0, b: 0 }; var a = F.inF == null ? 0 : F.inF, b = F.outF == null ? F.n - 1 : F.outF; a = clamp(a, 0, F.n - 1); b = clamp(b, a, F.n - 1); return { a: a, b: b }; }
+  function ioSet(which) {
+    if (!F || F.photo) return;
+    if (which === "in") { F.inF = F.idx; if (F.outF != null && F.outF < F.idx) F.outF = null; }
+    else if (which === "out") { F.outF = F.idx; if (F.inF != null && F.inF > F.idx) F.inF = null; }
+    else { F.inF = null; F.outF = null; }
+    if (F.inF === 0) F.inF = null; if (F.outF === F.n - 1) F.outF = null;
+    updateBar(); if (S.tab === "export") updateSide();
+  }
   function tFrame(i) { return Math.min((i + 0.5) / F.fps, Math.max(0, F.dur - 0.001)); }
 
   // ---------- Laden ----------
@@ -148,18 +168,25 @@
     loadFile(file);
   }
   function loadFile(file) {
-    if (!file || !/^video\//.test(file.type || "") && !/\.(mp4|mov|m4v|webm|mkv)$/i.test(file.name || "")) { note(t("bad")); return; }
+    var isImg = !!file && (/^image\/(jpeg|png|webp)$/.test(file.type || "") || /\.(jpe?g|png|webp)$/i.test(file.name || ""));
+    if (!file || !isImg && !/^video\//.test(file.type || "") && !/\.(mp4|mov|m4v|webm|mkv)$/i.test(file.name || "")) { note(t("bad")); return; }
     stopPlay();
     if (F && F.url) URL.revokeObjectURL(F.url);
-    F = { file: file, url: URL.createObjectURL(file), name: (file.name || "video").replace(/\.[^.]+$/, ""), dur: 0, vw: 0, vh: 0, fps: RATES[S.fpsI], n: 1, ow: 1920, oh: 1080, idx: 0, paints: {} };
+    F = { file: file, url: URL.createObjectURL(file), name: (file.name || "video").replace(/\.[^.]+$/, ""), dur: 0, vw: 0, vh: 0, fps: RATES[S.fpsI], n: 1, ow: 1920, oh: 1080, idx: 0, paints: {}, photo: isImg, inF: null, outF: null };
     buildUI();
   }
   function onMeta() {
-    var v = V.vid;
-    F.dur = v.duration || 0; F.vw = v.videoWidth; F.vh = v.videoHeight;
-    if (!F.vw || !isFinite(F.dur)) { note(t("bad")); return; }
-    if (F.vh > F.vw) { F.ow = 1080; F.oh = 1920; } else { F.ow = 1920; F.oh = 1080; }
-    F.n = Math.max(1, Math.floor(F.dur * F.fps));
+    if (F.photo) {   // Foto (seit v0.72): ein einziger Frame, die Malfläche hat das Seitenverhältnis des Fotos, lange Seite 1920
+      var im = V.img; F.vw = im.naturalWidth; F.vh = im.naturalHeight; F.dur = 0; F.n = 1;
+      if (!F.vw || !F.vh) { note(t("bad")); return; }
+      var ps = 1920 / Math.max(F.vw, F.vh); F.ow = Math.max(2, Math.round(F.vw * ps / 2) * 2); F.oh = Math.max(2, Math.round(F.vh * ps / 2) * 2);
+    } else {
+      var v = V.vid;
+      F.dur = v.duration || 0; F.vw = v.videoWidth; F.vh = v.videoHeight;
+      if (!F.vw || !isFinite(F.dur)) { note(t("bad")); return; }
+      if (F.vh > F.vw) { F.ow = 1080; F.oh = 1920; } else { F.ow = 1920; F.oh = 1080; }
+      F.n = Math.max(1, Math.floor(F.dur * F.fps));
+    }
     V.layer = canvas(F.ow, F.oh); V.stroke = canvas(F.ow, F.oh); V.tmp = canvas(F.ow, F.oh); V.frameCv = canvas(F.ow, F.oh);
     V.lx = V.layer.getContext("2d"); V.sx = V.stroke.getContext("2d");
     layout(); updateSide(); goFrame(F.idx || 0);
@@ -167,8 +194,9 @@
 
   // Videobild "contain" auf Schwarz in die Full-HD-Fläche
   function drawVideo(ctx, vid, W, H) {
-    ctx.fillStyle = "#000"; ctx.fillRect(0, 0, W, H);
-    var s = Math.min(W / vid.videoWidth, H / vid.videoHeight), w = vid.videoWidth * s, h = vid.videoHeight * s;
+    var vw = vid.videoWidth || vid.naturalWidth, vh = vid.videoHeight || vid.naturalHeight;
+    ctx.fillStyle = F && F.photo ? "#fff" : "#000"; ctx.fillRect(0, 0, W, H);
+    var s = Math.min(W / vw, H / vh), w = vw * s, h = vh * s;
     ctx.imageSmoothingQuality = "high"; ctx.drawImage(vid, (W - w) / 2, (H - h) / 2, w, h);
   }
   function seek(v, tm) {
@@ -211,14 +239,14 @@
     var tok = ++loadTok;
     F.idx = i; V.loading = true; V.undo = []; V.redo = [];
     updateBar();
-    var res = await Promise.all([paintSource(i), S.onion && i > 0 ? paintSource(i - 1) : null, seek(V.vid, tFrame(i))]);
+    var res = await Promise.all([paintSource(i), S.onion && i > 0 ? paintSource(i - 1) : null, F.photo ? null : seek(V.vid, tFrame(i))]);
     if (tok !== loadTok || !V) { [res[0], res[1]].forEach(function (b) { if (b && b.close) b.close(); }); return; }
     V.lx.globalCompositeOperation = "source-over"; V.lx.globalAlpha = 1;
     V.lx.clearRect(0, 0, F.ow, F.oh);
     if (res[0]) { V.lx.drawImage(res[0], 0, 0); if (res[0].close) res[0].close(); }
     if (V.onionBmp && V.onionBmp.close) V.onionBmp.close();
     V.onionBmp = res[1] || null;
-    drawVideo(V.frameCv.getContext("2d"), V.vid, F.ow, F.oh);
+    drawVideo(V.frameCv.getContext("2d"), F.photo ? V.img : V.vid, F.ow, F.oh);
     V.loading = false; V.dirty = false;
     updateBar(); need();
     if (V.mp) mpRefresh();
@@ -460,6 +488,7 @@
   function setPick(on) { V.picking = on; V.cv && V.cv.classList.toggle("pick", on); var b = V.root.querySelector('[data-fp="pick"]'); if (b) b.setAttribute("aria-pressed", String(on)); need(); }
   function takeColor(c) {
     S.color = c; S.neon = null; S.hsl = hexHsl(c);
+    if (V.qp && V.qp.stage === "tune") { qpSync(); qpGenSoon(); layUI(); }
     S.recent = [c].concat(S.recent.filter(function (q) { return q !== c; })).slice(0, 10);
     if (S.tool === "eraser") S.tool = V.lastPaintTool || "brush";
     updateSide();
@@ -482,7 +511,7 @@
     return { w: w, h: h, L: L, rgb: d };
   }
   function qpGrids() {
-    if (!V.qg || V.qg.idx !== F.idx) V.qg = { idx: F.idx, s: labGrid(480), m: labGrid(960) };
+    if (!V.qg || V.qg.idx !== F.idx || V.qg.F !== F || V.qg.fps !== F.fps) V.qg = { idx: F.idx, F: F, fps: F.fps, s: labGrid(480), m: labGrid(960) };   // an Datei und Bildrate gebunden, nicht nur an die Frame-Nummer
     return V.qg;
   }
   // Maske 0..1: weich um den Schwellwert, Härte 100 = nur fast exakt die Farbe
@@ -510,29 +539,110 @@
     if (!F || !V.layer || V.loading || V.playing || V.down) return;
     if (V.mp) endMP();
     setPick(false); qpGrids();
-    V.qp = { stage: "pick", key: null, hover: null, mask: null, sketch: null, gen: 0, done: {} };
-    qpPanel(); need();
+    qpNewPick();
+    qpPanel(); layUI(); need();
   }
-  function endQP() { V.qp = null; V.qView = null; var pn = V.root.querySelector("#fp-qp"); if (pn) { pn.hidden = true; pn.dataset.kind = ""; } need(); updateSide(); }
+  // ---------- Quickpaint-Layer (seit v0.72) ----------
+  // V.qpl: gespeicherte Layer { id, key, keyHex, color, set }. Der Layer, der gerade offen ist (V.qp.edit), wird live
+  // bearbeitet; ein neuer Layer ist ein Entwurf, bis er gespeichert wird. Vorschau und Rendern malen alle Layer in ihrer
+  // Reihenfolge übereinander, der Entwurf kommt obenauf.
+  function layFind(id) { for (var i = 0; i < V.qpl.length; i++) if (V.qpl[i].id === id) return V.qpl[i]; return null; }
+  function laySig(L) { return L.key.join(",") + "|" + L.color + "|" + JSON.stringify(L.set); }
+  function layOpts(set, color, key) { return { color: color, width: set.width, human: set.human, angle: set.angle, seed: set.seed * 7919, type: set.type, guide: set.guide, calm: set.flow === "calm" ? set.calm : null, key: key }; }
+  function layBuild(L) {   // Skizze eines gespeicherten Layers für den aktuellen Frame
+    var G = qpGrids().m; L.sk = L.sk && L.sk.width === F.ow && L.sk.height === F.oh ? L.sk : canvas(F.ow, F.oh);
+    sketch(maskOf(G, L.key, L.set.hard), layOpts(L.set, L.color, "ql" + L.id), L.sk);
+    L.skIdx = F.idx; L.skSig = laySig(L); L.skF = F;
+  }
+  function layFresh(L) { return L.sk && L.skIdx === F.idx && L.skF === F && L.skSig === laySig(L); }
+  function qpStack() {   // Reihenfolge fürs Malen: null steht für die Einstellung, die gerade offen ist
+    var q = V.qp, out = V.qpl.map(function (L) { return q && q.edit === L.id ? null : L; });
+    if (q && q.stage === "tune" && !q.edit) out.push(null);
+    return out;
+  }
+  function qpNewPick() { V.qp = { stage: "pick", key: null, hover: null, mask: null, sketch: null, gen: 0, done: {}, edit: null }; calmReset(); }
+  function laySaveDraft() {
+    var q = V.qp; if (!q || q.stage !== "tune" || q.edit) return null;
+    var L = { id: ++V.qplN, key: q.key, keyHex: q.keyHex, color: S.color, set: Object.assign({}, S.qp) };
+    V.qpl.push(L); return L;
+  }
+  function qpSync() {   // offene Layer-Einstellung live in den Layer schreiben
+    if (!V.qp) return; V.qp.done = {};
+    var L = V.qp.edit && layFind(V.qp.edit); if (!L) return;
+    L.set = Object.assign({}, S.qp); L.color = S.color; if (V.qp.key) { L.key = V.qp.key; L.keyHex = V.qp.keyHex; }
+    layUI();
+  }
+  function laySave() { if (!laySaveDraft()) return; qpNewPick(); qpPanel(); layUI(); need(); }
+  function layNew() {
+    if (!F || !V.layer || V.batch) return;
+    if (!V.qp) { startQP(); return; }
+    laySaveDraft(); qpNewPick(); qpPanel(); layUI(); need();
+  }
+  function layEdit(id) {
+    if (!F || !V.layer || V.batch) return;
+    var L = layFind(id); if (!L) return;
+    if (V.mp) endMP();
+    if (V.qp) laySaveDraft();
+    setPick(false); qpGrids();
+    Object.assign(S.qp, L.set); S.color = L.color; S.neon = null; S.hsl = hexHsl(L.color);
+    V.qp = { stage: "tune", key: L.key, keyHex: L.keyHex, hover: null, mask: null, sketch: null, gen: 0, done: {}, edit: L.id };
+    qpMask(); qpGenSoon(0); qpPanel(); layUI(); updateSide(); need();
+  }
+  function layDel() {
+    if (!V.qp || !V.qp.edit || V.batch) return;
+    V.qpl = V.qpl.filter(function (L) { return L.id !== V.qp.edit; });
+    qpNewPick(); qpPanel(); layUI(); need();
+  }
+  function layClear() {
+    if (V.batch) return;
+    var now = performance.now();
+    if (!V.layArm || now - V.layArm > 3000) { V.layArm = now; layUI(); setTimeout(function () { if (V && V.layArm === now) { V.layArm = 0; layUI(); } }, 3000); return; }
+    V.layArm = 0; V.qpl = [];
+    if (V.qp && V.qp.edit) qpNewPick();
+    if (V.qp) { V.qp.done = {}; qpPanel(); }
+    layUI(); need();
+  }
+  // Farbkugeln am rechten Rand der Zeichenfläche
+  function layUI() {
+    var el = V && V.root.querySelector("#fp-lay"); if (!el) return;
+    var q = V.qp, show = !!(F && V.layer) && (V.qpl.length || q);
+    el.hidden = !show; if (!show) { el.innerHTML = ""; return; }
+    var TN = { stroke: "tStroke", spray: "tSpray", crayon: "tCrayon", hair: "tHair" };
+    function tip(n, set) { return fmt(t("layN"), { n: n }) + " · " + t(TN[set.type] || "tStroke") + " · " + t(set.guide === "organic" ? "gOrganic" : "gClassic"); }
+    var h = V.qpl.map(function (L, i) {
+      return '<button type="button" class="fp-ball" data-lay="' + L.id + '" style="--c:' + L.color + '" aria-pressed="' + !!(q && q.edit === L.id) + '" title="' + tip(i + 1, L.set) + '" aria-label="' + tip(i + 1, L.set) + '"></button>';
+    }).join("");
+    if (q && q.stage === "tune" && !q.edit) h += '<span class="fp-ball fp-draft" style="--c:' + S.color + '" title="' + t("layDraft") + '"></span>';
+    h += '<button type="button" class="fp-ball fp-add" data-fp="layNew" title="' + t("layNew") + '" aria-label="' + t("layNew") + '">+</button>';
+    if (V.qpl.length) h += '<button type="button" class="fp-ball fp-del' + (V.layArm ? " arm" : "") + '" data-fp="layClear" title="' + t(V.layArm ? "laySure" : "layClear") + '" aria-label="' + t(V.layArm ? "laySure" : "layClear") + '"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M10 7V4h4v3M7 7l1 13h8l1-13" fill="none" stroke="currentColor" stroke-width="2"/></svg></button>';
+    el.innerHTML = h;
+  }
+  function endQP() { V.qp = null; V.qView = null; var pn = V.root.querySelector("#fp-qp"); if (pn) { pn.hidden = true; pn.dataset.kind = ""; } layUI(); need(); updateSide(); }
   function qpFix(p) {
     var G = qpGrids(); V.qp.key = labAt(G.m, p); V.qp.keyHex = sampleVideo(p); V.qp.stage = "tune"; calmReset();
-    qpMask(); qpGenSoon(0); qpPanel();
+    qpSync(); qpMask(); qpGenSoon(0); qpPanel(); layUI();
   }
   function qpMask() { var G = qpGrids(), k = V.qp.stage === "tune" ? V.qp.key : V.qp.hover; V.qp.mask = k ? maskView(maskOf(G.s, k, S.qp.hard), G.s, V.qp.stage === "tune" ? 0.16 : 0.85) : null; need(); }
   function qpGenSoon(ms) { if (V.qp.applied) { V.qp.applied = false; qpPanel(); } V.qp.gen = performance.now() + (ms === undefined ? 90 : ms); }
+  function qpCanRender() { var q = V.qp; return !!q && !q.applied && (q.stage === "tune" || V.qpl.length > 0); }
+  function qpPaintFrame() {   // alle Layer in ihrer Reihenfolge auf den aktuellen Frame malen
+    V.lx.globalAlpha = 1; V.lx.globalCompositeOperation = "source-over";
+    qpStack().forEach(function (L) {
+      if (!L) { if (V.qp.stage !== "tune") return; if (V.qp.gen || !V.qp.sketch || V.qp.skIdx !== F.idx) { buildSketch(); V.qp.gen = 0; } V.lx.drawImage(V.qp.sketch, 0, 0); }
+      else { if (!layFresh(L)) layBuild(L); V.lx.drawImage(L.sk, 0, 0); }
+    });
+  }
   function qpApply() {
-    if (!V.qp || V.qp.stage !== "tune" || V.qp.applied) return;
-    if (V.qp.gen) { buildSketch(); V.qp.gen = 0; }
-    pushUndo();
-    V.lx.globalAlpha = 1; V.lx.globalCompositeOperation = "source-over"; V.lx.drawImage(V.qp.sketch, 0, 0);
+    if (!qpCanRender()) return;
+    pushUndo(); qpPaintFrame();
     V.dirty = true; V.qp.applied = true; V.qp.done[F.idx] = true;   // Fenster bleibt offen, Einstellung gilt im nächsten Frame weiter
     qpPanel(); need(); updateBar();
   }
   // Stapel: dieselbe Quickpaint-Einstellung Frame für Frame anwenden, ohne jedes Mal zu bestätigen.
   // Frames, die in dieser Sitzung schon damit bemalt wurden, werden übersprungen.
   async function qpBatch(all) {
-    if (!V.qp || V.qp.stage !== "tune" || V.batch) return;
-    var q = V.qp, from = all ? 0 : F.idx, to = F.n - 1, start = F.idx, list = [];
+    if (!V.qp || !(V.qp.stage === "tune" || V.qpl.length) || V.batch) return;
+    var io = ioRange(), q = V.qp, from = all ? io.a : Math.max(F.idx, io.a), to = io.b, start = F.idx, list = [];
     for (var i = from; i <= to; i++) if (!q.done[i]) list.push(i);
     if (!list.length) { note(t("qpAllDone")); return; }
     V.batch = { stop: false, i: 0, n: list.length }; qpPanel();
@@ -542,8 +652,8 @@
         V.batch.i = k + 1; qpBatchNote();
         if (F.idx !== list[k]) await goFrame(list[k]);
         if (!V || V.qp !== q || F.idx !== list[k]) break;
-        q.gen = 0; buildSketch();
-        V.lx.globalAlpha = 1; V.lx.globalCompositeOperation = "source-over"; V.lx.drawImage(q.sketch, 0, 0);
+        if (q.stage === "tune") { q.gen = 0; buildSketch(); }
+        qpPaintFrame();
         V.dirty = true; q.done[F.idx] = true; q.applied = true; need();
         await new Promise(function (r) { setTimeout(r, 0); });
       }
@@ -562,7 +672,7 @@
     if (!V.qp) return;
     V.qp.hover = null; V.qp.mask = null;
     if (V.batch) { V.qp.applied = true; return; }   // Stapel malt selbst
-    V.qp.applied = !!V.qp.done[F.idx] && V.qp.stage === "tune";
+    V.qp.applied = !!V.qp.done[F.idx] && (V.qp.stage === "tune" || V.qpl.length > 0);
     if (V.qp.stage === "tune" && !V.qp.applied) { qpMask(); V.qp.gen = performance.now() + 60; }
     qpPanel();
   }
@@ -636,8 +746,8 @@
   // auf die Farbfläche gekürzt und darf nur ein kleines Stück überstehen, am Ende beschneidet die leicht erweiterte Maske alles.
   function buildSketch() {
     var G = qpGrids().m;
-    V.qp.sketch = V.qp.sketch && V.qp.sketch.width === F.ow ? V.qp.sketch : canvas(F.ow, F.oh);
-    sketch(maskOf(G, V.qp.key, S.qp.hard), { color: S.color, width: S.qp.width, human: S.qp.human, angle: S.qp.angle, seed: S.qp.seed * 7919, type: S.qp.type, guide: S.qp.guide, calm: S.qp.flow === "calm" ? S.qp.calm : null, key: "q" }, V.qp.sketch);
+    V.qp.sketch = V.qp.sketch && V.qp.sketch.width === F.ow && V.qp.sketch.height === F.oh ? V.qp.sketch : canvas(F.ow, F.oh); V.qp.skIdx = F.idx;
+    sketch(maskOf(G, V.qp.key, S.qp.hard), { color: S.color, width: S.qp.width, human: S.qp.human, angle: S.qp.angle, seed: S.qp.seed * 7919, type: S.qp.type, guide: S.qp.guide, calm: S.qp.flow === "calm" ? S.qp.calm : null, key: V.qp.edit ? "ql" + V.qp.edit : "q" }, V.qp.sketch);
     need();
   }
   // ---------- Strukturfeld für die organische Strichführung (seit v0.65) ----------
@@ -1094,7 +1204,8 @@
   async function mpBatch(all) {
     if (!V.mp || !V.mp.pal || V.batch) return;
     var mp = V.mp, start = F.idx, list = [];
-    for (var i = all ? 0 : F.idx; i < F.n; i++) if (!mp.done[i]) list.push(i);
+    var io = ioRange();
+    for (var i = all ? io.a : Math.max(F.idx, io.a); i <= io.b; i++) if (!mp.done[i]) list.push(i);
     if (!list.length) { note(t("qpAllDone")); return; }
     mpTok++; mp.gen = 0;
     V.batch = { stop: false, i: 0, n: list.length }; mpPanel(true);
@@ -1271,11 +1382,14 @@
     var q = V.qp; if (!q) { pn.hidden = true; return; }
     function sl(k, lab, min, max, u) { return '<div class="fp-row"><label for="fp-q-' + k + '">' + lab + '<span id="fp-q-' + k + '-v">' + S.qp[k] + u + '</span></label><input type="range" id="fp-q-' + k + '" data-qp="' + k + '" min="' + min + '" max="' + max + '" step="1" value="' + S.qp[k] + '"></div>'; }
     var wasQ = !pn.hidden && pn.dataset.kind === "qp";
-    pn.innerHTML = '<div class="fp-qph"><b>' + t("qpH") + "</b>" + (q.keyHex ? '<span class="fp-qk" style="background:' + q.keyHex + '" title="' + t("qpKey") + '"></span>' : "") + '<span class="fp-qs">' + t(q.applied ? "qpApplied" : q.stage === "pick" ? "qpPick" : "qpTune") + '</span><button type="button" class="fp-x" data-fp="qpNo" aria-label="' + t("close") + '" title="' + t("close") + ' (Esc)">×</button></div>' +
+    var lidx = q.edit ? V.qpl.findIndex(function (L) { return L.id === q.edit; }) : -1;
+    pn.innerHTML = '<div class="fp-qph"><b>' + t("qpH") + '</b><span class="fp-lname">' + (lidx >= 0 ? fmt(t("layN"), { n: lidx + 1 }) : fmt(t("layN"), { n: V.qpl.length + 1 }) + " · " + t("layDraft")) + "</span>" + (q.keyHex ? '<span class="fp-qk" style="background:' + q.keyHex + '" title="' + t("qpKey") + '"></span>' : "") + '<span class="fp-qs">' + t(q.applied ? "qpApplied" : q.stage === "pick" ? "qpPick" : "qpTune") + '</span><button type="button" class="fp-x" data-fp="qpNo" aria-label="' + t("close") + '" title="' + t("close") + ' (Esc)">×</button></div>' +
       sl("hard", t("qpHard"), 0, 100, " %") + (q.stage === "tune" ? flowSeg("data-qflow", S.qp, "q") + typeSeg("data-qtype", S.qp.type) + guideSeg("data-qguide", S.qp.guide) + sl("human", t("qpHuman"), 0, 100, " %") + sl("angle", t("qpAngle"), 0, 180, "°") + sl("width", t("qpWidth"), 2, 40, "px") : '<p class="fp-desc">' + t("qpHardNote") + "</p>") +
-      '<div class="fp-qb">' + (q.stage === "tune" ? '<button type="button" class="fp-save" data-fp="qpOk"' + (q.applied ? " disabled" : "") + ">" + t("qpOk") + '</button><button type="button" class="navbtn" data-fp="qpSeed">' + t("qpSeed") + '</button><button type="button" class="navbtn" data-fp="qpRepick">' + t("qpRepick") + "</button>" : "") + "</div>" +
-      (q.stage === "tune" ? '<div class="fp-qbatch">' + (V.batch ? '<p class="fp-desc" id="fp-qbat">' + fmt(t("qpBatchRun"), { i: V.batch.i, n: V.batch.n }) + '</p><button type="button" class="fp-save" data-fp="batchStop">' + t("qpStop") + "</button>"
-        : '<button type="button" class="fp-qpbtn" data-fp="qpNext">' + t("qpNext") + '</button><button type="button" class="navbtn" data-fp="qpAll">' + t("qpAll") + '</button><p class="fp-desc">' + t("qpBatchNote") + "</p>") + "</div>" : "");
+      '<div class="fp-qb">' + (q.stage === "tune" ? (q.edit ? '<button type="button" class="fp-save" data-fp="layNew">' + t("layNew") + '</button><button type="button" class="navbtn" data-fp="qpSeed">' + t("qpSeed") + '</button><button type="button" class="navbtn" data-fp="qpRepick">' + t("qpRepick") + '</button><button type="button" class="navbtn" data-fp="layDel">' + t("layDel") + "</button>"
+        : '<button type="button" class="fp-save" data-fp="laySave">' + t("laySave") + '</button><button type="button" class="navbtn" data-fp="qpSeed">' + t("qpSeed") + '</button><button type="button" class="navbtn" data-fp="qpRepick">' + t("qpRepick") + "</button>") : "") + "</div>" +
+      (V.qpl.length ? '<p class="fp-note2">' + t("layNote") + "</p>" : "") +
+      (q.stage === "tune" || V.qpl.length ? '<div class="fp-qbatch"><b class="fp-rh">' + t("rendH") + " · " + fmt(t("rendCount"), { n: qpStack().length }) + "</b>" + (V.batch ? '<p class="fp-desc" id="fp-qbat">' + fmt(t("qpBatchRun"), { i: V.batch.i, n: V.batch.n }) + '</p><button type="button" class="fp-save" data-fp="batchStop">' + t("qpStop") + "</button>"
+        : '<button type="button" class="fp-qpbtn fp-rmain" data-fp="qpOk"' + (q.applied ? " disabled" : "") + ">" + t("rendFrame") + "</button>" + (F.n > 1 ? '<button type="button" class="navbtn" data-fp="qpNext">' + t("rendNext") + '</button><button type="button" class="navbtn" data-fp="qpAll">' + t("rendAll") + '</button><p class="fp-desc">' + t("qpBatchNote") + " " + (F.inF != null || F.outF != null ? fmt(t("ioInfo"), { a: ioRange().a + 1, b: ioRange().b + 1, n: ioRange().b - ioRange().a + 1 }) : t("ioAll")) + "</p>" : "")) + "</div>" : "");
     pn.dataset.kind = "qp";
     pn.hidden = false; if (!wasQ) openAuto();
   }
@@ -1305,6 +1419,9 @@
     if (V.qp) {
       if (V.qp.stage === "pick" && V.qp.dirty) { V.qp.dirty = false; qpMask(); }
       if (V.qp.stage === "tune" && V.qp.gen && performance.now() >= V.qp.gen) { V.qp.gen = 0; buildSketch(); }
+      else if (!V.qp.applied && !V.batch && !V.loading) {   // je Durchlauf höchstens eine Layer-Vorschau neu, damit es flüssig bleibt
+        for (var li = 0; li < V.qpl.length; li++) { var LL = V.qpl[li]; if (V.qp.edit !== LL.id && !layFresh(LL)) { layBuild(LL); V.need = true; break; } }
+      }
     }
     if (V.need) { V.need = false; render(); }
   }
@@ -1327,7 +1444,10 @@
     if (V.qp) {
       if (!V.qp.applied) {
         if (V.qp.mask) x.drawImage(V.qp.mask, 0, 0, W, H);
-        if (V.qp.stage === "tune" && V.qp.sketch) x.drawImage(V.qp.sketch, 0, 0, W, H);
+        qpStack().forEach(function (L) {
+          if (!L) { if (V.qp.stage === "tune" && V.qp.sketch) x.drawImage(V.qp.sketch, 0, 0, W, H); }
+          else if (layFresh(L)) x.drawImage(L.sk, 0, 0, W, H);
+        });
       }
     }
     // Zeiger
@@ -1358,7 +1478,11 @@
     var w = c.clientWidth, dpr = window.devicePixelRatio || 1;
     c.width = Math.max(1, Math.round(w * dpr)); c.height = Math.round(10 * dpr);
     var x = c.getContext("2d"); x.clearRect(0, 0, c.width, c.height);
-    var fw = c.width / F.n;
+    var fw = c.width / F.n, io = ioRange();
+    if (F.inF != null || F.outF != null) {   // Bereich in Koralle, Grenzen als Striche
+      x.fillStyle = "rgba(248,118,102,.6)"; x.fillRect(Math.floor(io.a * fw), 0, Math.ceil((io.b - io.a + 1) * fw), c.height);
+      x.fillStyle = "#F87666"; x.fillRect(Math.floor(io.a * fw), 0, Math.max(2, Math.round(2 * dpr)), c.height); x.fillRect(Math.ceil((io.b + 1) * fw) - Math.max(2, Math.round(2 * dpr)), 0, Math.max(2, Math.round(2 * dpr)), c.height);
+    }
     x.fillStyle = "#95A78D";
     Object.keys(F.paints).forEach(function (k) { x.fillRect(Math.floor(+k * fw), 0, Math.max(Math.ceil(fw), Math.round(dpr)), c.height); });
     if (V.dirty || (V.layer && F.paints[F.idx])) { /* aktueller Frame wird beim Wechsel gespeichert */ }
@@ -1366,10 +1490,10 @@
 
   // ---------- Abspielen (Vorschau mit der Bemalung) ----------
   function startPlay() {
-    if (!F || !V.layer || V.playing) return;
+    if (!F || !V.layer || V.playing || F.photo) return;
     storeCurrent(); setPick(false);
     V.playing = true; V.cache = {}; V.lastShown = null;
-    if (F.idx >= F.n - 1) F.idx = 0;
+    var io = ioRange(); if (F.idx < io.a || F.idx >= io.b) F.idx = io.a;
     V.vid.currentTime = F.idx / F.fps; V.vid.muted = false;
     var p = V.vid.play(); if (p && p.catch) p.catch(function () { V.vid.muted = true; V.vid.play().catch(function () {}); });
     updateBar();
@@ -1383,7 +1507,7 @@
   }
   function playFrame() {
     var v = V.vid, k = Math.min(F.n - 1, Math.floor(v.currentTime * F.fps));
-    if (v.ended || k >= F.n - 1 && v.currentTime >= F.dur - 0.05) { stopPlay(); return; }
+    if (v.ended || k >= F.n - 1 && v.currentTime >= F.dur - 0.05 || F.outF != null && k > F.outF) { stopPlay(); return; }
     for (var j = k; j < Math.min(F.n, k + 8); j++) {
       if (F.paints[j] && !(j in V.cache)) {
         V.cache[j] = null;
@@ -1406,10 +1530,13 @@
   async function exportFrame() {
     if (!F || !V.layer || V.loading || busy || !F.vw) return;
     if (V.playing) stopPlay();
-    var W = F.vw, H = F.vh, i = F.idx, cv = canvas(W, H), x = cv.getContext("2d");
+    var W = F.vw, H = F.vh, i = F.idx;
+    if (F.photo && F.vw < F.ow) { W = F.ow; H = F.oh; }   // kleine Fotos in Malauflösung, damit die Bemalung nicht verkleinert wird
+    var cv = canvas(W, H), x = cv.getContext("2d");
     var sc = Math.min(F.ow / W, F.oh / H), w = W * sc, h = H * sc, ox = (F.ow - w) / 2, oy = (F.oh - h) / 2;
     try {
-      if (S.mode === "video") {
+      if (S.mode === "video" && F.photo) { x.fillStyle = "#fff"; x.fillRect(0, 0, W, H); x.drawImage(V.img, 0, 0, W, H); }
+      else if (S.mode === "video") {
         var ev = document.createElement("video"); ev.muted = true; ev.playsInline = true; ev.preload = "auto"; ev.src = F.url;
         await new Promise(function (res, rej) { ev.onloadeddata = res; ev.onerror = function () { rej(new Error("video")); }; });
         await seek(ev, tFrame(i)); x.drawImage(ev, 0, 0, W, H); ev.removeAttribute("src"); ev.load();
@@ -1418,9 +1545,9 @@
       var blob = await new Promise(function (res) { cv.toBlob(res, "image/png"); });
       if (!blob) throw new Error("PNG");
       var url = URL.createObjectURL(blob), a = document.createElement("a"), num = String(i + 1); while (num.length < String(F.n).length) num = "0" + num;
-      a.href = url; a.download = F.name + "-frame-" + num + (S.mode === "video" ? "" : "-nur-painting") + ".png"; document.body.appendChild(a); a.click(); a.remove();
+      a.href = url; a.download = F.name + (F.photo ? "-framepaint" : "-frame-" + num) + (S.mode === "video" ? "" : "-nur-painting") + ".png"; document.body.appendChild(a); a.click(); a.remove();
       setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
-      note(fmt(t("frameDone"), { i: i + 1, w: W, h: H }));
+      note(F.photo ? fmt(t("photoDone"), { w: W, h: H }) : fmt(t("frameDone"), { i: i + 1, w: W, h: H }));
     } catch (e) { note(fmt(t("failed"), { e: e && e.message || e })); }
   }
   function loadMuxer() {
@@ -1448,14 +1575,14 @@
     return null;
   }
   async function doExport() {
-    if (busy || !F || !V.layer) return;
+    if (busy || !F || !V.layer || F.photo) return;
     if (typeof VideoEncoder === "undefined" || typeof VideoFrame === "undefined") { note(t("noSupport")); return; }
     stopPlay(); storeCurrent();
     busy = true; cancelReq = false; updateSide();
     var notes = [];
     try {
       await loadMuxer();
-      var OW = F.ow, OH = F.oh, FPS = F.fps, br = S.mbit * 1e6, n = F.n, us = 1e6 / FPS;
+      var OW = F.ow, OH = F.oh, FPS = F.fps, br = S.mbit * 1e6, io = ioRange(), i0 = io.a, n = io.b - io.a + 1, us = 1e6 / FPS;
       var vcfg = await pickVideoCodec(OW, OH, br, FPS);
       if (!vcfg) { note(t("noSupport")); return; }
       var audio = null, acfg = null, ach = 0;
@@ -1477,9 +1604,9 @@
       var cv = canvas(OW, OH), x = cv.getContext("2d");
       for (var i = 0; i < n; i++) {
         if (cancelReq || encErr) break;
-        if (ev) { await seek(ev, tFrame(i)); drawVideo(x, ev, OW, OH); }
+        if (ev) { await seek(ev, tFrame(i0 + i)); drawVideo(x, ev, OW, OH); }
         else { x.fillStyle = "#fff"; x.fillRect(0, 0, OW, OH); }
-        var p = await paintSource(i);
+        var p = await paintSource(i0 + i);
         if (p) { x.drawImage(p, 0, 0); if (p.close) p.close(); }
         var vf = new VideoFrame(cv, { timestamp: Math.round(i * us), duration: Math.round(us) });
         venc.encode(vf, { keyFrame: i % (FPS * 2) === 0 }); vf.close();
@@ -1493,11 +1620,11 @@
         note(t("audioW"));
         var aenc = new AudioEncoder({ output: function (c, m) { muxer.addAudioChunk(c, m); }, error: function (e) { encErr = e; } });
         aenc.configure(acfg.cfg);
-        var total = Math.min(audio.length, Math.round(n / FPS * 48000)), step = 1024, chans = [];
+        var a0 = Math.min(audio.length, Math.round(i0 / FPS * 48000)), total = Math.max(0, Math.min(audio.length - a0, Math.round(n / FPS * 48000))), step = 1024, chans = [];
         for (var c2 = 0; c2 < ach; c2++) chans.push(audio.getChannelData(c2));
         for (var s = 0; s < total; s += step) {
           var len = Math.min(step, total - s), buf = new Float32Array(len * ach);
-          for (var c3 = 0; c3 < ach; c3++) buf.set(chans[c3].subarray(s, s + len), c3 * len);
+          for (var c3 = 0; c3 < ach; c3++) buf.set(chans[c3].subarray(a0 + s, a0 + s + len), c3 * len);
           var ad = new AudioData({ format: "f32-planar", sampleRate: 48000, numberOfFrames: len, numberOfChannels: ach, timestamp: Math.round(s / 48000 * 1e6), data: buf });
           aenc.encode(ad); ad.close();
           if (aenc.encodeQueueSize > 50) await new Promise(function (r3) { setTimeout(r3, 2); });
@@ -1543,6 +1670,15 @@
     ".fp-bar2{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;margin-top:10px}" +
     ".fp-bar2 .navbtn{border-radius:999px;border-color:var(--line)}.fp-bar2 .navbtn:hover{border-color:var(--ink)}.fp-bar2 .navbtn[disabled]{opacity:.35;cursor:default}" +
     ".fp-other{margin-left:auto}" +
+    ".fp-io{display:flex;gap:4px}.fp-bar .fp-io .fp-nav{min-width:32px;padding:0 8px;font-weight:700}.fp-bar .fp-ioc{color:var(--accent)}.fp-ioc[hidden]{display:none!important}" +
+    ".fp-lay{position:absolute;right:14px;top:50%;transform:translateY(-50%);display:flex;flex-direction:column;align-items:center;gap:10px;max-height:calc(100% - 28px);overflow-y:auto;padding:10px 7px;border-radius:999px;background:rgba(10,9,8,.72);z-index:4;scrollbar-width:none}.fp-lay[hidden]{display:none}" +
+    ".fp-ball{flex:none;width:30px;height:30px;padding:0;border:0;border-radius:50%;background:radial-gradient(circle at 35% 30%,rgba(255,255,255,.45),transparent 45%),var(--c);box-shadow:inset 0 0 0 1px rgba(215,208,200,.35);cursor:pointer;display:grid;place-items:center;color:var(--bg);font:600 1.1rem/1 var(--f-body)}" +
+    ".fp-ball[aria-pressed=true]{box-shadow:0 0 0 2px var(--ink),0 0 0 4px var(--bg)}.fp-ball:hover{transform:scale(1.08)}" +
+    ".fp-draft{cursor:default;box-shadow:0 0 0 2px var(--ink),0 0 0 4px var(--accent)}.fp-draft:hover{transform:none}" +
+    ".fp-add{background:transparent;box-shadow:inset 0 0 0 1.5px rgba(215,208,200,.6)}.fp-del{background:transparent;box-shadow:none;color:rgba(215,208,200,.75)}.fp-del svg{width:18px;height:18px}.fp-del.arm{background:var(--accent);color:var(--ink)}" +
+    ".fp-lname{font-size:.8rem;font-weight:600;padding:2px 8px;border-radius:999px;background:var(--bg)}.fp-rh{font-size:.86rem}.fp-rmain{background:var(--ink);color:var(--bg)}" +
+    ".fp-iot{margin:0;padding:8px 10px;border-radius:8px;background:var(--bg);font-size:.82rem;font-weight:600}" +
+    ".fp-photo .fp-bar [data-fp=prev],.fp-photo .fp-bar [data-fp=next],.fp-photo .fp-play,.fp-photo .fp-tl,.fp-photo .fp-time,.fp-photo .fp-io,.fp-photo #fp-copy,.fp-photo .fp-chk:has([data-opt=onion]){display:none!important}.fp-photo .fp-fr{text-align:left;flex:1}" +
     ".fp-copy{font:600 .88rem var(--f-body);padding:7px 14px;border:0;border-radius:999px;background:var(--ink);color:var(--bg);cursor:pointer}" +
     ".fp-copy[disabled]{opacity:.3;cursor:default}" +
     ".fp-chk{display:inline-flex;align-items:center;gap:7px;font-weight:500;font-size:.88rem;cursor:pointer}.fp-chk input{width:16px;height:16px;accent-color:var(--ink)}" +
@@ -1641,7 +1777,7 @@
 
   function html() {
     return '<h1 class="ptitle">' + t("title") + '<span class="fp-ver">v' + VERSION + '</span></h1><p class="pintro">' + t("intro") + "</p>" +
-      '<div class="fp-wrap' + (S.sideOpen ? "" : " fp-closed") + '"><div class="fp-deskbox"><div class="fp-desk" id="fp-desk"></div><div id="fp-bar"></div><input type="file" id="fp-file" accept="video/*,.mp4,.mov,.m4v,.webm" hidden>' +
+      '<div class="fp-wrap' + (S.sideOpen ? "" : " fp-closed") + '"><div class="fp-deskbox"><div class="fp-desk" id="fp-desk"></div><div id="fp-bar"></div><input type="file" id="fp-file" accept="video/*,.mp4,.mov,.m4v,.webm,image/jpeg,image/png,.jpg,.jpeg,.png" hidden>' +
       '<button type="button" class="fp-stog" data-fp="side" aria-label="' + t("sideTog") + '" title="' + t("sideTog") + '" aria-expanded="' + S.sideOpen + '"><span aria-hidden="true"></span></button></div>' +
       '<aside class="fp-side" id="fp-side" data-tab="' + S.tab + '"><div class="fp-tabs" id="fp-tabs" role="tablist"></div><div class="fp-qp" id="fp-qp" hidden></div><div class="fp-sc" id="fp-sc"></div></aside></div>' +
       '<section class="phow"><h2>' + t("howH") + "</h2><p>" + t("how1") + "</p><p>" + t("how2") + "</p><p>" + t("how4") + "</p><p>" + t("how5") + "</p><p>" + t("how3") + "</p></section>";
@@ -1649,6 +1785,7 @@
   function buildUI() {
     var desk = V.root.querySelector("#fp-desk"), bar = V.root.querySelector("#fp-bar");
     if (V.vid) { V.vid.pause(); V.vid.removeAttribute("src"); V.vid.load(); V.vid = null; }
+    V.img = null; V.qpl = []; V.qplN = 0; V.qp = null; if (V.mp) { mpTok++; V.mp = null; }
     V.layer = null; V.cv = null; V.undo = []; V.redo = []; V.dirty = false;
     if (!F) {
       desk.classList.remove("tall");
@@ -1657,7 +1794,7 @@
       updateSide();
       return;
     }
-    desk.innerHTML = '<canvas id="fp-cv" aria-label="' + F.name + '"></canvas><span class="fp-load" id="fp-load" hidden>' + t("loading") + "</span>";
+    desk.innerHTML = '<canvas id="fp-cv" aria-label="' + F.name + '"></canvas><div class="fp-lay" id="fp-lay" hidden></div><span class="fp-load" id="fp-load" hidden>' + t("loading") + "</span>";
     var pn0 = V.root.querySelector("#fp-qp"); if (pn0) { pn0.hidden = true; pn0.innerHTML = ""; pn0.dataset.kind = ""; }
     V.cv = desk.querySelector("#fp-cv");
     bar.innerHTML = '<div class="fp-bar"><button type="button" class="fp-nav" data-fp="prev" aria-label="' + t("prev") + '" title="' + t("prev") + ' (←)">◀</button>' +
@@ -1666,6 +1803,7 @@
       '<span class="fp-fr" id="fp-fr"></span>' +
       '<div class="fp-tl"><input type="range" id="fp-pos" min="0" max="0" step="1" value="0" aria-label="Frame"><canvas id="fp-strip"></canvas></div>' +
       '<span class="fp-time" id="fp-time"></span>' +
+      '<span class="fp-io"><button type="button" class="fp-nav" data-fp="ioIn" title="' + t("ioIn") + '" aria-label="' + t("ioIn") + '">I</button><button type="button" class="fp-nav" data-fp="ioOut" title="' + t("ioOut") + '" aria-label="' + t("ioOut") + '">O</button><button type="button" class="fp-nav fp-ioc" data-fp="ioClear" id="fp-ioc" title="' + t("ioClear") + '" aria-label="' + t("ioClear") + '" hidden>×</button></span>' +
       '<button type="button" class="fp-nav fp-fsb" data-fp="fs" id="fp-fsb" title="' + t("fs") + ' (F)" aria-label="' + t("fs") + '"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5" fill="none" stroke="currentColor" stroke-width="2"/></svg></button></div>' +
       '<div class="fp-bar2"><button type="button" class="fp-copy" data-fp="copy" id="fp-copy">⧉ ' + t("copyPrev") + '</button>' +
       '<button type="button" class="navbtn" data-fp="undo" id="fp-undo">' + t("undo") + '</button><button type="button" class="navbtn" data-fp="redo" id="fp-redo">' + t("redo") + '</button>' +
@@ -1674,6 +1812,13 @@
       '<label class="fp-chk"><input type="checkbox" data-opt="hideVid"' + (S.hideVid ? " checked" : "") + "> " + t("hideVid") + "</label>" +
       '<button type="button" class="navbtn fp-other" data-fp="file">' + t("other") + "</button></div>" +
       '<div class="fp-bar3"><p class="fp-note" id="fp-note" aria-live="polite">' + (V.lastNote || "") + '</p><p class="fp-keys">' + t("keys") + "</p></div>";
+    V.root.querySelector(".fp-wrap").classList.toggle("fp-photo", !!F.photo);
+    if (F.photo) {
+      var im = new Image();
+      im.onload = function () { if (V && V.img === im) { desk.classList.toggle("tall", im.naturalHeight > im.naturalWidth); onMeta(); } };
+      im.onerror = function () { note(t("bad")); };
+      V.img = im; im.src = F.url; updateSide(); return;
+    }
     var v = document.createElement("video");
     v.muted = true; v.playsInline = true; v.preload = "auto"; v.src = F.url;
     v.addEventListener("loadedmetadata", function () { if (V && V.vid === v) { desk.classList.toggle("tall", v.videoHeight > v.videoWidth); } });
@@ -1729,12 +1874,16 @@
         '<button type="button" class="fp-abtn" data-fp="qp" aria-pressed="' + !!V.qp + '"' + (ready ? "" : " disabled") + '><b>' + t("qpH") + '<kbd>Q</kbd></b><span>' + t("qpNote") + "</span></button>" +
         '<button type="button" class="fp-abtn" data-fp="mp" aria-pressed="' + !!V.mp + '"' + (ready ? "" : " disabled") + '><b>' + t("mpH") + '<kbd>M</kbd></b><span>' + t("mpNote") + "</span></button></div></div>" +
         '<details class="fp-box fp-slbox"' + (V.slOpen ? " open" : "") + '><summary>' + t("slotsH") + "</summary>" + slotsHTML() + '<p class="fp-desc">' + t("mpSlotsNote") + "</p></details>";
+    } else if (F && F.photo) {
+      html2 = '<div class="fp-box"><h3>' + t("photoH") + '</h3><div class="fp-seg"><button type="button" data-mode="video" aria-pressed="' + (S.mode === "video") + '">' + t("withVid").replace("Video", t("photo")) + '</button><button type="button" data-mode="paint" aria-pressed="' + (S.mode === "paint") + '">' + t("onlyPaint") + "</button></div>" +
+        '<p class="fp-desc">' + fmt(t("photoInfo"), { w: F.vw < F.ow ? F.ow : F.vw || 0, h: F.vw < F.ow ? F.oh : F.vh || 0 }) + '</p><button type="button" class="fp-save" data-fp="frame"' + (ready && !busy ? "" : " disabled") + ">" + t("photoSave") + "</button></div>";
     } else {
+      var io0 = ioRange(), ioTxt = F && (F.inF != null || F.outF != null) ? fmt(t("ioInfo"), { a: io0.a + 1, b: io0.b + 1, n: io0.b - io0.a + 1 }) : t("ioAll");
       var locked = !!(F && painted()) || busy, ow = F ? F.ow : 1920, oh = F ? F.oh : 1080, vw0 = F && F.vw ? F.vw : 1920, vh0 = F && F.vh ? F.vh : 1080;
       html2 = '<div class="fp-box"><h3>' + t("exportH") + '</h3><div class="fp-seg"><button type="button" data-mode="video" aria-pressed="' + (S.mode === "video") + '">' + t("withVid") + '</button><button type="button" data-mode="paint" aria-pressed="' + (S.mode === "paint") + '">' + t("onlyPaint") + "</button></div>" +
         '<div class="fp-row"><label for="fp-br">' + t("bitrate") + '<span id="fp-br-v">' + S.mbit + ' Mbit/s</span></label><input type="range" id="fp-br" min="2" max="40" step="1" value="' + S.mbit + '"></div>' +
         '<label class="fp-chk"><input type="checkbox" data-opt="audio"' + (S.audio ? " checked" : "") + "> " + t("audio") + "</label>" +
-        '<p class="fp-desc" id="fp-info">' + fmt(t("exportInfo"), { w: ow, h: oh, f: RATES[S.fpsI], br: S.mbit }) + "</p>" +
+        '<p class="fp-desc" id="fp-info">' + fmt(t("exportInfo"), { w: ow, h: oh, f: RATES[S.fpsI], br: S.mbit }) + "</p>" + (F ? '<p class="fp-iot">' + ioTxt + "</p>" : "") +
         (busy ? '<button type="button" class="fp-save" data-fp="cancel">' + t("cancel") + "</button>" : '<button type="button" class="fp-save" data-fp="export"' + (ready ? "" : " disabled") + ">" + t("save") + "</button>") + "</div>" +
         '<div class="fp-box"><h3>' + t("frameH") + '</h3><p class="fp-desc">' + fmt(t("frameInfo"), { w: vw0, h: vh0 }) + '</p><button type="button" class="fp-qpbtn" data-fp="frame"' + (ready && !busy ? "" : " disabled") + ">" + t("frameSave") + "</button></div>" +
         '<div class="fp-box"><h3>' + t("fps") + '</h3><div class="fp-row"><label for="fp-fps">' + t("fps") + '<span id="fp-fps-v">' + RATES[S.fpsI] + ' fps</span></label>' +
@@ -1772,7 +1921,8 @@
   function updateBar(light) {
     if (!V || !F) return;
     var fr = V.root.querySelector("#fp-fr"); if (!fr) return;
-    fr.textContent = fmt(t("frame"), { i: F.idx + 1, n: F.n });
+    fr.textContent = F.photo ? t("photo") : fmt(t("frame"), { i: F.idx + 1, n: F.n });
+    var ioc = V.root.querySelector("#fp-ioc"); if (ioc) ioc.hidden = F.inF == null && F.outF == null;
     var pos = V.root.querySelector("#fp-pos"); pos.max = F.n - 1; pos.value = F.idx;
     V.root.querySelector("#fp-time").textContent = tc(F.idx / F.fps) + " / " + tc(F.dur);
     if (light) return;
@@ -1847,12 +1997,13 @@
     var k = e.key.toLowerCase();
     if (k === "d") { e.preventDefault(); if (!V.peek) { V.peek = true; need(); } return; }
     if (k === "f") { e.preventDefault(); toggleFS(); return; }
+    if ((k === "i" || k === "o") && !V.playing) { e.preventDefault(); ioSet(k === "i" ? "in" : "out"); return; }
     if (k === "m") { e.preventDefault(); if (V.mp) endMP(); else startMP(); return; }
     if (V.mp && k === "escape") { endMP(); return; }
     if (V.mp && k === "enter" && V.mp.result) { e.preventDefault(); mpApply(); return; }
     if (k === "q") { e.preventDefault(); if (V.qp) endQP(); else startQP(); return; }
     if (k === "escape" && V.qp) { endQP(); return; }
-    if (k === "enter" && V.qp && V.qp.stage === "tune" && !V.qp.applied) { e.preventDefault(); qpApply(); return; }
+    if (k === "enter" && V.qp && qpCanRender()) { e.preventDefault(); qpApply(); return; }
     if (V.qp && V.qp.stage === "pick") return;
     if (k === "c") { e.preventDefault(); setPick(!V.picking); return; }
     if (k === "escape" && V.picking) { setPick(false); return; }
@@ -1893,17 +2044,18 @@
   }
   function onClick(e) {
     var sm = e.target.closest && e.target.closest(".fp-slbox > summary"); if (sm) { V.slOpen = !sm.parentNode.open; return; }
-    var b = e.target.closest("[data-fp],[data-tool],[data-mode],[data-col],[data-slot-load],[data-slot-save],[data-qtype],[data-mtype],[data-qflow],[data-mflow],[data-qguide],[data-mguide],[data-tab],[data-cm],[data-neon]"); if (!b) return;
+    var b = e.target.closest("[data-lay],[data-fp],[data-tool],[data-mode],[data-col],[data-slot-load],[data-slot-save],[data-qtype],[data-mtype],[data-qflow],[data-mflow],[data-qguide],[data-mguide],[data-tab],[data-cm],[data-neon]"); if (!b) return;
     if (b.dataset.tab && b.getAttribute("role") === "tab" && b.closest(".fp-tabs")) { S.tab = b.dataset.tab; if (!S.sideOpen) { S.sideOpen = true; sideState(); } updateSide(); return; }
     if (b.dataset.cm) { S.cmode = b.dataset.cm; if (S.cmode === "mix") S.hsl = hexHsl(S.color); updateSide(); return; }
     if (b.dataset.neon) { S.neon = b.dataset.neon; if (S.tool === "eraser") S.tool = V.lastPaintTool || "brush"; updateSide(); need(); return; }
+    if (b.dataset.lay) { if (!V.batch) layEdit(+b.dataset.lay); return; }
     if (b.dataset.fp === "side") { S.sideOpen = !S.sideOpen; sideState(); return; }
     if (b.dataset.fp === "fs") { toggleFS(); return; }
     if (V.batch) { if (b.dataset.fp === "batchStop") V.batch.stop = true; return; }
-    if (b.dataset.qtype && !V.batch) { S.qp.type = b.dataset.qtype; if (V.qp) { V.qp.done = {}; qpPanel(); qpGenSoon(0); } return; }
-    if (b.dataset.qguide && !V.batch) { S.qp.guide = b.dataset.qguide; if (V.qp) { V.qp.done = {}; qpPanel(); qpGenSoon(0); } return; }
+    if (b.dataset.qtype && !V.batch) { S.qp.type = b.dataset.qtype; if (V.qp) { V.qp.done = {}; qpSync(); qpPanel(); qpGenSoon(0); } return; }
+    if (b.dataset.qguide && !V.batch) { S.qp.guide = b.dataset.qguide; if (V.qp) { V.qp.done = {}; qpSync(); qpPanel(); qpGenSoon(0); } return; }
     if (b.dataset.mguide && !V.batch) { S.mp.guide = b.dataset.mguide; if (V.mp) { V.mp.done = {}; mpTok++; V.mp.busy = true; V.mp.applied = false; V.mp.result = null; V.mp.gen = performance.now(); mpPanel(true); } return; }
-    if (b.dataset.qflow && !V.batch) { S.qp.flow = b.dataset.qflow; calmReset(); if (V.qp) { V.qp.done = {}; qpPanel(); qpGenSoon(0); } return; }
+    if (b.dataset.qflow && !V.batch) { S.qp.flow = b.dataset.qflow; calmReset(); if (V.qp) { V.qp.done = {}; qpSync(); qpPanel(); qpGenSoon(0); } return; }
     if (b.dataset.mflow && !V.batch) { S.mp.flow = b.dataset.mflow; calmReset(); if (V.mp) { V.mp.done = {}; mpTok++; V.mp.busy = true; V.mp.applied = false; V.mp.result = null; V.mp.gen = performance.now(); mpPanel(true); } return; }
     if (b.dataset.mtype && !V.batch) { S.mp.type = b.dataset.mtype; if (V.mp) { V.mp.done = {}; mpTok++; V.mp.busy = true; V.mp.applied = false; V.mp.result = null; V.mp.gen = performance.now(); mpPanel(true); } return; }
     if (b.dataset.slotLoad !== undefined) { if (F && V.layer) slotLoad(+b.dataset.slotLoad); return; }
@@ -1926,6 +2078,10 @@
     else if (a === "pick") { if (V.qp) endQP(); setPick(!V.picking); }
     else if (a === "qp") { if (V.mp) endMP(); if (V.qp) endQP(); else startQP(); }
     else if (a === "qpOk") qpApply();
+    else if (a === "laySave") laySave();
+    else if (a === "layNew") { if (V.mp) endMP(); layNew(); }
+    else if (a === "layDel") layDel();
+    else if (a === "layClear") layClear();
     else if (a === "qpNo") endQP();
     else if (a === "mp") { if (V.mp) endMP(); else startMP(); }
     else if (a === "mpOk") mpApply();
@@ -1936,7 +2092,10 @@
     else if (a === "qpRepick") { if (V.qp) { V.qp.stage = "pick"; V.qp.done = {}; V.qp.key = null; V.qp.keyHex = null; V.qp.applied = false; V.qp.mask = null; V.qp.sketch = null; qpPanel(); need(); } }
     else if (a === "qpNext") qpBatch(false);
     else if (a === "qpAll") qpBatch(true);
-    else if (a === "qpSeed") { if (V.qp) V.qp.done = {}; S.qp.seed = 1 + Math.floor(Math.random() * 9999); qpGenSoon(0); }
+    else if (a === "qpSeed") { if (V.qp) { V.qp.done = {}; } S.qp.seed = 1 + Math.floor(Math.random() * 9999); qpSync(); qpGenSoon(0); }
+    else if (a === "ioIn") ioSet("in");
+    else if (a === "ioOut") ioSet("out");
+    else if (a === "ioClear") ioSet("clear");
     else if (a === "export") doExport();
     else if (a === "frame") exportFrame();
     else if (a === "cancel") cancelReq = true;
@@ -1953,7 +2112,7 @@
     if (el.dataset.qp) {
       var qk = el.dataset.qp; S.qp[qk] = +el.value;
       V.root.querySelector("#fp-q-" + qk + "-v").textContent = el.value + (qk === "angle" ? "°" : qk === "width" ? "px" : " %");
-      if (V.qp) V.qp.done = {};   // neue Einstellung: alle Frames gelten wieder als offen
+      if (V.qp) qpSync();   // neue Einstellung: alle Frames gelten wieder als offen, offener Layer übernimmt sie
       if (V.qp && V.qp.applied && V.qp.stage === "tune") { V.qp.applied = false; qpPanel(); }
       if (V.qp) { if (qk === "hard") { if (V.qp.stage === "tune") qpMask(); else V.qp.dirty = true; } if (V.qp.stage === "tune") qpGenSoon(); }
       return;
@@ -1964,6 +2123,7 @@
       V.root.querySelector("#fp-hsl-" + el.dataset.hsl + "-v").textContent = el.value + (hi === 0 ? "°" : " %");
       var sw = V.root.querySelector(".fp-col .fp-sw"), hx = V.root.querySelector("#fp-hex");
       if (sw) { sw.classList.remove("fp-neon"); sw.style.background = S.color; } if (hx) hx.textContent = S.color;
+      if (V.qp && V.qp.stage === "tune") { qpSync(); qpGenSoon(250); }
       hslTracks(); if (S.tool === "eraser") { S.tool = V.lastPaintTool || "brush"; updateSide(); } need(); return;
     }
     if (el.id === "fp-glow") { S.glow = +el.value; V.root.querySelector("#fp-glow-v").textContent = S.glow + " %"; need(); return; }
