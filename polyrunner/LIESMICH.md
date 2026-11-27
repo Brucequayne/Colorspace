@@ -54,9 +54,18 @@ Knochennamen wie gängige Humanoid-Rigs: `Hips, Spine, Chest, Neck, Head`, je Se
 Arme und Beine hängen gerade nach unten. Figur 1,8 m, Hüfte 0,9 m, Ober-/Unterschenkel je 0,415 m.
 Das Modell kommt später als SkinnedMesh mit denselben Knochen (oder wird auf sie umgemappt); die Animation in `runner.js` bleibt.
 
+## Laufen (seit v0.11)
+
+- Tempo und Richtung sind getrennt (`Mover.groundMove`): Antritt `push` mit nachlassender Kraft (`1 − (v/vmax)²`), Auslaufen `friction`,
+  Gegenrichtung `brake`, Tempoverlust in Kurven `bleed`. Drehrate = Grip / Tempo, Grip sinkt mit dem Tempo (`gripLow`, `gripLoss`, `gripMin`).
+- Blickrichtung `inp.aim` kommt von der Kamera. `Mover.face`: Hüfte (`yaw`) folgt der Laufrichtung, höchstens ±70° (rückwärts ±57°) neben dem Blick;
+  der Oberkörper dreht in `runner.js` zurück (`twist`). Seitlich `side` (74 %), rückwärts ~48 %, Sprint nur im Kegel `sprintCone`.
+- Gangzyklus in `runner.js` (Zweig `loco`): Frequenz `cad` und Kontaktanteil `beta` aus dem Tempo, Schrittlänge = v·beta/cad (Standfuß steht).
+  Gehen/Laufen wird über `rf` überblendet. Neigung aus Grundhaltung + Längsbeschleunigung `acc`, Kurvenlage aus Querbeschleunigung `lat`.
+
 ## Bewegung (Stand v0.1)
 
-WASD, Shift sprinten (baut sich langsam auf), Leertaste springen. Strg/C: rutschen ab Sprinttempo, sonst ducken;
+WASD (relativ zur Kamera), Shift sprinten, Leertaste springen. Strg/C: rutschen ab Sprinttempo, sonst ducken;
 kurz vor der Landung nach hohem Fall: abrollen (sonst ab ~4,9 m stolpern). In der Luft an einer Wand entlang: Wallrun,
 Leertaste stößt ab. Frontal an der Wand in der Luft: Wandsprung (nicht zweimal hintereinander an derselben Wand, zwischen
 zwei Wänden hin und her geht). Am Boden frontal an der Wand + Sprung: Wand hochlaufen. Kanten bis 2,15 m über den Füßen:

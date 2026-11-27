@@ -11,7 +11,7 @@ addTexts({
   pDone: L2("Ziel!", "Finish!"), pNew: L2("Neue Bestzeit", "New best time"), pTop: L2("Deine besten Zeiten", "Your best times"),
   pNoFinish: L2("Kein Ziel gesetzt – freies Testen", "No finish placed – free testing"),
   pPause: L2("Pause", "Paused"), pCont: L2("Weiter", "Continue"), pRestart: L2("Neu starten (R)", "Restart (R)"), pBack: L2("Zurück zum Editor (Esc)", "Back to the editor (Esc)"),
-  pKeys: L2("WASD laufen · Shift sprinten · Leertaste springen / an der Wand abstoßen · Strg/C rutschen, vor der Landung: abrollen · R neu · Esc Pause", "WASD run · Shift sprint · Space jump / kick off walls · Ctrl/C slide, before landing: roll · R restart · Esc pause")
+  pKeys: L2("WASD laufen (Blick = Maus) · Shift sprinten · Leertaste springen / an der Wand abstoßen · Strg/C rutschen, vor der Landung: abrollen · R neu · Esc Pause", "WASD run (look = mouse) · Shift sprint · Space jump / kick off walls · Ctrl/C slide, before landing: roll · R restart · Esc pause")
 });
 
 export class Play {
@@ -100,7 +100,7 @@ export class Play {
       const fx = (k.KeyW || k.ArrowUp ? 1 : 0) - (k.KeyS || k.ArrowDown ? 1 : 0), sx = (k.KeyD || k.ArrowRight ? 1 : 0) - (k.KeyA || k.ArrowLeft ? 1 : 0);
       const f = new THREE.Vector3(-Math.sin(this.camYaw), 0, -Math.cos(this.camYaw)), r = new THREE.Vector3(-f.z, 0, f.x);
       const w = this.inp.wish.set(0, 0, 0).addScaledVector(f, fx).addScaledVector(r, sx); if (w.lengthSq() > 1) w.normalize();
-      this.inp.sprint = !!(k.ShiftLeft || k.ShiftRight); this.inp.crouchHeld = !!(k.ControlLeft || k.ControlRight || k.KeyC);
+      this.inp.sprint = !!(k.ShiftLeft || k.ShiftRight); this.inp.aim = this.camYaw + Math.PI; this.inp.crouchHeld = !!(k.ControlLeft || k.ControlRight || k.KeyC);
       if (this.state === "ready" && (w.lengthSq() > 0.01 || this.inp.jump)) { this.state = "run"; if (this.world.map.finish && this.from === "start") this.$("#pru-sub").textContent = this.best.length ? t("pBest") + " " + ftime(this.best[0]) : ""; }
       const s = mv.update(dt, this.inp);
       this.inp.jump = false; this.inp.crouch = false;

@@ -70,26 +70,79 @@ export class Runner {
   // s: Zustand aus der Bewegung (move.js)
   update(dt, s) {
     this.t += dt;
-    const sp = s.speed, mode = s.mode, K = mode === "roll" ? 30 : mode === "mantle" ? 24 : 16;
+    const sp = s.speed, mode = s.mode, loco = mode === "run" || mode === "idle";
+    const K = loco ? 30 : mode === "roll" ? 30 : mode === "mantle" ? 24 : 16;
     const P = {};   // Ziel-Pose: Name → [x, y, z]
     let lean = 0, roll = 0, hipY = 0, flip = 0, comp = 0, grounded = false;
-    // Bein per IK: Fuß f vor / d unter der Hüfte (Weltlage); Neigung des Körpers wird herausgerechnet, Hüftsenkung bei Bodenkontakt
-    const leg = (side, f, d) => {
+    // Bein per IK: Fuß f vor / d unter der Hüfte, lat seitlich (+ = links), wp = Fußneigung in der Welt (+ = Zehen runter).
+    // Die Neigung des Körpers wird herausgerechnet, bei Bodenkontakt auch die Hüftsenkung.
+    const leg = (side, f, d, lat, wp) => {
       if (grounded) d += hipY;
       const c = Math.cos(comp), sn = Math.sin(comp), a = legIK(f * c + d * sn, d * c - f * sn);
-      P[side + "UpperLeg"] = [a[0], 0, 0]; P[side + "LowerLeg"] = [a[1], 0, 0]; P[side + "Foot"] = [clamp(-(a[0] + a[1]) - comp, -0.9, 0.9) * 0.7, 0, 0];
+      P[side + "UpperLeg"] = [a[0], 0, lat ? Math.atan2(lat, Math.max(0.3, d)) : 0]; P[side + "LowerLeg"] = [a[1], 0, 0];
+      P[side + "Foot"] = [wp != null ? clamp(wp - (a[0] + a[1]) - comp, -1.3, 1.3) : clamp(-(a[0] + a[1]) - comp, -0.9, 0.9) * 0.7, 0, 0];
     };
     const arm = (side, sh, el, out) => { const sg = side === "Left" ? 1 : -1; P[side + "UpperArm"] = [sh, 0, sg * (out || 0.12)]; P[side + "LowerArm"] = [el, 0, 0]; };
     const stand = HIP_H - ANKLE;
 
-    if (mode === "run" || mode === "wallrun" || mode === "climb") {
-      // Laufzyklus: Frequenz und Schrittlänge steigen mit dem Tempo
+    if (loco) {
+      // ---- Gehen, Laufen, Sprinten, Stehen: ein durchgehender Gangzyklus ----
+      // Schrittfrequenz und Bodenkontakt-Anteil hängen vom Tempo ab; die Schrittlänge folgt daraus,
+      // damit der Standfuß auf dem Boden stehen bleibt (kein Rutschen). Unter ~2 m/s Gehen (Doppelstand), darüber Laufen (Flugphase).
+      const v = s.turning ? Math.max(sp, 0.9) : sp;
+      const rf = smoothK((v - 1.9) / 1.1), mv = clamp(v / 0.9, 0, 1), kv = clamp(v / 9.6, 0, 1);
+      const cad = lerp(0.62 + 0.27 * v, 1.25 + 0.115 * Math.max(0, v - 3), rf);
+      const bMax = lerp(0.6, clamp(0.42 - 0.02 * v, 0.24, 0.42), rf), SLmax = lerp(0.72, 0.84, rf);
+      const beta = clamp(Math.min(bMax, SLmax * cad / Math.max(v, 0.05)), 0.17, 0.62);
+      const SL = s.turning && sp < 0.3 ? 0.14 : v * beta / cad;
+      if (v > 0.04) this.phase = (this.phase + dt * cad) % 1;
+      const H = lerp(0.06 + 0.035 * v, 0.14 + 0.045 * v, rf) * mv, Lf = SL * 0.42, Lb = SL * 0.58;
+      const ga = s.back ? wrapA((s.moveRel || 0) - Math.PI) : (s.moveRel || 0), cg = Math.cos(ga), sg = Math.sin(ga);
+      const pL = this.phase, br = Math.sin(this.t * 1.7), still = 1 - mv;
+      // Körper: beim Gehen am höchsten über dem Standbein, beim Laufen am tiefsten (federt ein); Bremsen senkt die Hüfte
+      const bobA = (0.016 * (1 - rf) - (0.022 + 0.0035 * v) * rf) * mv;
+      hipY = bobA * Math.cos(4 * Math.PI * (pL - beta / 2)) - (0.03 + 0.004 * v) * rf * mv - clamp(-s.acc * 0.007, 0, 0.06) * mv - s.land * 0.22 + (br * 0.005 - 0.006) * still;
+      // Neigung: Grundhaltung nach Tempo, Antritt drückt nach vorne, Bremsen nach hinten; Kurven: in die Kurve legen
+      const leanT = (s.back ? -0.07 : lerp(0.02, 0.07, rf) + 0.13 * kv * kv) * mv + clamp(s.acc * 0.05, -0.34, 0.36) + s.land * 0.2;
+      this.lean = damp(this.lean, leanT, 10, dt); lean = this.lean; comp = lean; grounded = true;
+      roll = clamp(-s.lat / 9.81, -0.42, 0.42) * 0.9 + Math.sin(this.t * 0.5) * 0.012 * still;
+      const xs = [];
+      ["Left", "Right"].forEach((side, i) => {
+        const p = (pL + i * 0.5) % 1; let x, h, wp;
+        if (p < beta) {
+          // Standphase: Fuß wandert unter dem Körper nach hinten, am Ende hebt die Ferse ab (Abdruck über die Zehen)
+          const k = p / beta; x = Lf - (Lf + Lb) * k;
+          const ho = Math.max(0, -x - 0.06); h = ho * lerp(0.12, 0.34, rf); wp = Math.min(0.95, ho * 2.6);
+          if (rf < 1 && k < 0.18) wp -= (1 - rf) * 0.22 * (1 - k / 0.18);   // Gehen: Fersenaufsatz
+        } else {
+          // Schwungphase: Ferse zieht hoch (beim Sprint bis zum Po), Knie nach vorne, Fuß setzt wieder auf
+          // Laufen: Oberschenkel schwingt früh nach vorne, Unterschenkel klappt ein (Ferse unter den Po), dann Knie vor und Fuß greift
+          const q = (p - beta) / (1 - beta), xq = lerp((1 - Math.cos(Math.PI * q)) / 2, 1 - Math.pow(1 - q, 2.2), rf);
+          x = -Lb + (Lf + Lb + 0.05 * rf * mv) * xq - 0.05 * rf * mv * smoothK((q - 0.75) / 0.25);
+          h = H * Math.sin(Math.PI * Math.pow(q, lerp(0.8, 0.62, rf))); wp = (0.8 * Math.pow(1 - q, 1.5) - (1 - rf) * 0.22 * Math.pow(q, 4)) * mv;
+        }
+        if (s.back) x = -x;
+        xs.push(x);
+        const out = i === 0 ? 1 : -1;
+        const lat = x * sg + out * (lerp(0.03, -0.012, rf) * mv + 0.035 * still);
+        leg(side, x * cg + still * (i === 0 ? 0.04 : -0.03), stand - h, lat, wp);
+      });
+      // Becken dreht mit dem vorderen Bein, Schultern dagegen; Arme schwingen gegengleich zu den Beinen
+      const pr = -0.24 * (xs[0] - xs[1]) * (0.35 + 0.65 * rf), nR = clamp((xs[1] - xs[0]) / Math.max(Lf + Lb, 0.25), -1, 1);
+      const A = lerp(0.26, 0.48 + 0.05 * v, rf) * mv, eb = lerp(0.3, 1.15 + 0.04 * v, rf) * mv + 0.18 * still;
+      arm("Left", -A * nR + 0.05 * still + br * 0.015 * still, -(eb + 0.35 * Math.max(0, nR) * rf), lerp(0.09, 0.15, rf));
+      arm("Right", A * nR + 0.05 * still + br * 0.015 * still, -(eb + 0.35 * Math.max(0, -nR) * rf), lerp(0.09, 0.15, rf));
+      P.Hips = [0, pr, 0];
+      P.Spine = [lean * 0.22 + br * 0.012 * still, -pr * 0.5, 0]; P.Chest = [0.03 - br * 0.008 * still, -pr * 0.8, 0];
+      P.Neck = [-lean * 0.7, -pr * 0.2, -roll * 0.5]; P.Head = [-0.03, 0, 0];
+    } else if (mode === "wallrun" || mode === "climb") {
+      // Laufzyklus an der Wand
       const cad = mode === "climb" ? 2.6 : 0.75 + sp * 0.15, stride = mode === "climb" ? 0.16 : clamp(0.1 + sp * 0.045, 0.12, 0.5);
       this.phase = (this.phase + dt * cad) % 1;
       const k = clamp(sp / 9, 0, 1), th = this.phase * Math.PI * 2;
       hipY = -Math.abs(Math.cos(th)) * 0.05 * (0.3 + k) - 0.04 * k;
-      lean = mode === "climb" ? -0.1 : 0.06 + 0.22 * k; comp = lean; grounded = mode === "run";
-      if (mode === "wallrun") { roll = s.wallSide * 0.42; lean = 0.12; comp = lean; }
+      lean = mode === "climb" ? -0.1 : 0.12; comp = lean;
+      if (mode === "wallrun") roll = s.wallSide * 0.42;
       ["Left", "Right"].forEach((side, i) => {
         const a = th + i * Math.PI, f = stride * Math.sin(a), sw = Math.max(0, Math.cos(a));
         const lift = sw * (0.08 + 0.22 * k) + (mode === "climb" ? sw * 0.28 : 0);
@@ -98,12 +151,6 @@ export class Runner {
         arm(side, mode === "climb" ? -2.3 + as * 0.4 : as, -0.35 - 1.05 * k - (mode === "climb" ? 0.3 : 0), 0.1);
       });
       P.Spine = [lean * 0.3, Math.sin(th) * 0.12 * k, 0]; P.Chest = [0.04, -Math.sin(th) * 0.18 * k, 0]; P.Neck = [-lean * 0.6, 0, -roll * 0.6]; P.Head = [-0.05, 0, 0];
-    } else if (mode === "idle") {
-      const br = Math.sin(this.t * 1.7); grounded = true; hipY = -0.006 + br * 0.006;
-      leg("Left", 0.03, stand - 0.004); leg("Right", -0.02, stand - 0.004);
-      P.LeftUpperLeg[2] = 0.05; P.RightUpperLeg[2] = -0.05;
-      arm("Left", 0.05 + br * 0.02, -0.18, 0.1); arm("Right", 0.05 + br * 0.02, -0.18, 0.1);
-      P.Spine = [0.02 + br * 0.015, 0, 0]; P.Chest = [-0.02, 0, 0]; P.Head = [0.02, Math.sin(this.t * 0.4) * 0.15, 0];
     } else if (mode === "crouch") {
       const th = (this.phase = (this.phase + dt * (0.4 + sp * 0.6)) % 1) * Math.PI * 2, m = clamp(sp / 2, 0, 1);
       lean = 0.5; comp = lean; hipY = -0.38; grounded = true;
@@ -139,15 +186,14 @@ export class Runner {
       const ar = -0.3 - tuck * 0.9; arm("Left", ar - 0.4, -0.5, 0.35 + (1 - tuck) * 0.4); arm("Right", ar + 0.3, -0.7, 0.35 + (1 - tuck) * 0.4);
       P.Neck = [-0.1, 0, 0];
     }
-    // Landestoß: kurz einfedern
-    if (s.land > 0 && (mode === "run" || mode === "idle")) {
-      const L = s.land; hipY -= L * 0.24; lean += L * 0.22; comp = lean; grounded = true;
-      leg("Left", 0.08, stand); leg("Right", -0.04, stand);
-    }
+    // Oberkörper zur Blickrichtung drehen (Hüfte zeigt in Laufrichtung)
+    const tw = s.twist || 0;
+    if (tw) [["Spine", 0.3], ["Chest", 0.35], ["Neck", 0.2], ["Head", 0.15]].forEach(([n, k]) => { const p = P[n] || (P[n] = [0, 0, 0]); p[1] += tw * k; });
 
     for (const n in this.b) { const p = P[n] || [0, 0, 0]; this.j(n, p[0], p[1], p[2], K, dt); }
-    this.lean = damp(this.lean, lean, mode === "mantle" ? 20 : 12, dt); this.roll = damp(this.roll, roll, 9, dt);
-    this.hipY = damp(this.hipY, hipY, mode === "roll" || mode === "slide" ? 22 : 16, dt);
+    if (!loco) this.lean = damp(this.lean, lean, mode === "mantle" ? 20 : 12, dt);
+    this.roll = damp(this.roll, roll, 7, dt);
+    this.hipY = damp(this.hipY, hipY, loco ? 40 : mode === "roll" || mode === "slide" ? 22 : 16, dt);
     this.flip = mode === "roll" ? flip : damp(this.flip, 0, 30, dt);
     this.pivot.position.y = HIP_H + this.hipY;
     this.pivot.rotation.set(this.lean + this.flip, 0, this.roll, "YXZ");
@@ -159,4 +205,5 @@ export class Runner {
     this.mat.dispose(); this.dark.dispose();
   }
 }
+function wrapA(a) { return ((a + Math.PI) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2) - Math.PI; }
 function smoothK(k) { k = clamp(k, 0, 1); return k * k * (3 - 2 * k); }

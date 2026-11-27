@@ -7,7 +7,7 @@ addTexts({
   mBack: L2("Zurück zu Color Space", "Back to Color Space"), mCode: L2("Zugangscode", "Access code"), mWrong: L2("Falscher Code", "Wrong code"), mOk: L2("Öffnen", "Open"),
   sShadow: L2("Schatten", "Shadows"), sScale: L2("Auflösung", "Resolution"), sSens: L2("Mausempfindlichkeit", "Mouse sensitivity"), sInv: L2("Maus Y umkehren", "Invert mouse Y"),
   sFov: L2("Sichtfeld", "Field of view"), sDist: L2("Kamera-Abstand", "Camera distance"), sOn: L2("An", "On"), sOff: L2("Aus", "Off"),
-  mFoot: L2("Version {v} · Map Editor und erster Testlauf mit dem Platzhalter-Runner", "Version {v} · map editor and a first test run with the placeholder runner")
+  mFoot: L2("Version {v} · Map Editor und Testlauf mit dem Platzhalter-Runner", "Version {v} · map editor and test run with the placeholder runner")
 });
 
 export class Menu {

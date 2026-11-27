@@ -4,7 +4,10 @@ import * as THREE from "three";
 import { clamp, lerp, dampAngle } from "pru/core.js";
 
 export const TUNE = {
-  run: 6.6, sprint: 9.6, crouch: 2.6, accel: 34, sprintAccel: 7, decel: 30, air: 11,
+  run: 6.6, sprint: 9.6, crouch: 2.6, air: 11,
+  // Schwere: Antritt wie ein Sprinter (Kraft lässt mit dem Tempo nach), Bremsen, Kurven
+  push: 6.2, friction: 7.5, brake: 11, bleed: 6, gripLow: 16, gripLoss: 0.95, gripMin: 7.5,
+  side: 0.74, sprintCone: 0.9,
   gravity: 23, jump: 7.4, coyote: 0.12, buffer: 0.13,
   slideMin: 5.2, slideBoost: 1.6, slideFric: 3.2, slideMax: 1.25,
   wallMin: 4.2, wallTime: 1.35, wallGrav: 0.32, wallKick: 5.6, wallUp: 7.0,
@@ -25,6 +28,7 @@ export class Mover {
     this.coyote = 0; this.jumpBuf = 0; this.crouchBuf = 9; this.acc = 0;
     this.timer = 0; this.land = 0; this.wallJump = 0; this.lastKick = null; this.kickT = 9; this.slideCd = 0;
     this.mantle = null; this.anim = "idle"; this.events = [];
+    this.accL = 0; this.accT = 0; this.back = false; this.turning = false; this.turnLeft = 0; this.braking = false; this.aim = 0;
   }
   spawn(p, yaw) {
     this.pos.set(p[0], p[1] + 0.02, p[2]); this.vel.set(0, 0, 0); this.yaw = yaw || 0;
@@ -93,6 +97,7 @@ export class Mover {
     this.timer += dt; this.wallT += dt; this.kickT += dt; this.crouchBuf += dt; this.slideCd -= dt;
     this.jumpBuf -= dt; this.land = Math.max(0, this.land - dt * 3.2); this.wallJump = Math.max(0, this.wallJump - dt);
     const wasG = this.grounded; let jumped = false;
+    this.track(dt);
     if (wasG) this.coyote = T.coyote; else this.coyote -= dt;
     const m = this.mode;
 
@@ -144,15 +149,8 @@ export class Mover {
       const wantLow = inp.crouchHeld && wasG;
       if (wantLow) this.low = true;
       else if (this.low && this.free(this.pos, H_STAND)) this.low = false;
-      if (wasG) {
-        const top = this.low ? T.crouch : inp.sprint ? T.sprint : T.run;
-        const target = wish.clone().multiplyScalar(top * Math.min(1, wl));
-        // Sprint baut sich langsam auf, Richtungswechsel gehen schnell
-        let a = wl > 0.1 ? T.accel : T.decel;
-        if (wl > 0.1 && sp > T.run - 0.2 && target.length() > sp && vh.dot(target) > 0) a = T.sprintAccel;
-        approach(vh, target, a * dt);
-        this.vel.x = vh.x; this.vel.z = vh.z;
-      } else {
+      if (wasG) this.groundMove(dt, inp, vh, sp);
+      else {
         // Luft: etwas Kontrolle, Tempo bleibt erhalten
         if (wl > 0.1) {
           const cap = Math.max(sp, T.run * 0.75), target = wish.clone().multiplyScalar(cap);
@@ -251,8 +249,57 @@ export class Mover {
 
     // Blickrichtung
     const vh2 = new THREE.Vector3(this.vel.x, 0, this.vel.z);
-    if (this.mode === "normal" && vh2.lengthSq() > 0.25) this.yaw = dampAngle(this.yaw, Math.atan2(vh2.x, vh2.z), this.grounded ? 16 : 4, dt);
+    if (this.mode === "normal") this.face(dt, inp);
     if (this.mode === "slide" && vh2.lengthSq() > 0.25) this.yaw = dampAngle(this.yaw, Math.atan2(vh2.x, vh2.z), 8, dt);
+  }
+  // Laufen mit Masse: Tempo und Richtung getrennt. Antritt baut sich langsam auf, je schneller, desto träger in Kurven.
+  groundMove(dt, inp, vh, sp) {
+    const T = TUNE, wish = inp.wish, wl = Math.min(1, wish.length()), aim = inp.aim != null ? inp.aim : this.yaw;
+    let dir = sp > 1e-4 ? vh.clone().multiplyScalar(1 / sp) : new THREE.Vector3(Math.sin(this.yaw), 0, Math.cos(this.yaw));
+    let s = sp, target = 0, top = T.run;
+    if (wl > 0.1) {
+      const w = wish.clone().normalize(), wy = Math.atan2(w.x, w.z), psi = Math.abs(wrap(wy - aim));
+      // seitlich und rückwärts (zur Blickrichtung) ist man langsamer, sprinten geht nur nach vorne
+      const dirK = T.side + (1 - T.side) * Math.cos(psi);
+      top = this.low ? T.crouch : (inp.sprint && psi < T.sprintCone ? T.sprint : T.run * dirK);
+      const th = s > 0.4 ? Math.acos(clamp(dir.dot(w), -1, 1)) : 0;
+      if (s < 0.4) dir.copy(w);
+      else if (th > 2.4 && s > 1.6) { /* Kehrtwende: erst die Füße stemmen und abbremsen */ }
+      else {
+        // begrenzte Drehrate: Querbeschleunigung (Grip) nimmt mit dem Tempo ab
+        const grip = clamp(T.gripLow - T.gripLoss * s, T.gripMin, T.gripLow), om = grip / Math.max(s, 1.2);
+        const ang = Math.min(th, om * dt), sg = Math.sign(dir.x * w.z - dir.z * w.x) || 1;
+        const c = Math.cos(ang), sn = Math.sin(ang) * sg;
+        dir.set(dir.x * c - dir.z * sn, 0, dir.x * sn + dir.z * c).normalize();
+      }
+      // scharfe Kurven kosten Tempo
+      const tf = th > 2.4 ? 0 : clamp(1 - Math.max(0, th - 0.5) / 2.2, 0.3, 1);
+      target = top * wl * tf;
+      this.braking = th > 2.0 && s > 1.6;
+    } else this.braking = false;
+    if (s < target) {
+      const k = clamp(1 - (s / Math.max(top, 0.1)) ** 2, 0.12, 1);
+      s = Math.min(target, s + T.push * k * dt);
+    } else {
+      const d = wl < 0.1 ? T.friction : this.braking ? T.brake : T.bleed;
+      s = Math.max(target, s - d * dt);
+    }
+    this.vel.x = dir.x * s; this.vel.z = dir.z * s;
+  }
+  // Ausrichtung: Hüfte folgt der Laufrichtung (begrenzt), der Oberkörper bleibt zur Blickrichtung
+  face(dt, inp) {
+    const aim = inp.aim != null ? inp.aim : this.yaw, sp = Math.hypot(this.vel.x, this.vel.z);
+    this.turning = false;
+    if (sp > 0.5) {
+      const rel = wrap(Math.atan2(this.vel.x, this.vel.z) - aim);
+      if (this.back ? Math.abs(rel) < 1.8 : Math.abs(rel) > 2.05) this.back = !this.back;
+      const off = this.back ? clamp(wrap(rel - Math.PI), -1.0, 1.0) : clamp(rel, -1.2, 1.2);
+      this.yaw = dampAngle(this.yaw, aim + off, this.grounded ? clamp(16 - sp, 6, 14) : 3, dt);
+    } else if (this.grounded) {
+      this.back = false;
+      const d = wrap(aim - this.yaw);
+      if (Math.abs(d) > 0.85 || this.turnLeft > 0) { this.turnLeft = Math.abs(d) > 0.08 ? 1 : 0; this.yaw = dampAngle(this.yaw, aim, 4.5, dt); this.turning = this.turnLeft > 0; }
+    }
   }
   // auf dem Boden kleben bleiben (Rampen abwärts, kleine Kanten)
   snap(wasG) {
@@ -272,6 +319,20 @@ export class Mover {
       this.mode = "stun"; this.stunT = 0.55; this.land = 1; this.events.push("hard");
     } else if (fall > 4) { this.land = clamp((fall - 4) / 8, 0.15, 0.8); this.events.push("land"); }
   }
+  // Längs- und Querbeschleunigung für die Animation (geglättet)
+  track(dt) {
+    const vx = this.vel.x, vz = this.vel.z, sp = Math.hypot(vx, vz);
+    if (this._tv) {
+      const ax = (vx - this._tv.x) / dt, az = (vz - this._tv.z) / dt;
+      const fx = Math.sin(this.yaw), fz = Math.cos(this.yaw);
+      const d = sp > 0.3 ? [vx / sp, vz / sp] : [fx, fz];
+      let lo = ax * d[0] + az * d[1], la = ax * d[1] - az * d[0];   // la > 0: nach links (+X lokal)
+      if (!this.grounded || this.mode !== "normal") { lo = 0; la = 0; }
+      const k = 1 - Math.exp(-7 * dt);
+      this.accL += (clamp(lo, -14, 10) - this.accL) * k; this.accT += (clamp(la, -12, 12) - this.accT) * k;
+    } else this._tv = { x: 0, z: 0 };
+    this._tv.x = vx; this._tv.z = vz;
+  }
   // Zustand für die Animation
   animState(inp) {
     const sp = Math.hypot(this.vel.x, this.vel.z);
@@ -280,10 +341,15 @@ export class Mover {
     else if (this.mode === "mantle") a = "mantle"; else if (this.mode === "roll") a = "roll"; else if (this.mode === "stun") a = "stun";
     else if (this.grounded) a = this.low ? "crouch" : sp > 0.6 ? "run" : "idle";
     this.anim = a;
-    return { mode: a, speed: a === "wallrun" ? this.wallSpeed : a === "climb" ? 5 : sp, vy: this.vel.y, wallSide: this.wallSide || 1, land: this.land, wallJump: this.wallJump,
+    const aim = inp && inp.aim != null ? inp.aim : this.yaw, vy0 = Math.atan2(this.vel.x, this.vel.z);
+    const twist = this.mode === "normal" ? clamp(wrap(aim - this.yaw), -1.35, 1.35) : 0;
+    return { mode: a, speed: a === "wallrun" ? this.wallSpeed : a === "climb" ? 5 : sp, vy: this.vel.y,
+      acc: this.accL, lat: this.accT, twist: twist, back: this.back, turning: this.turning, braking: this.braking,
+      moveRel: sp > 0.3 ? wrap(vy0 - this.yaw) : 0, sprint: !!(inp && inp.sprint), wallSide: this.wallSide || 1, land: this.land, wallJump: this.wallJump,
       mantleK: this.mantle ? clamp(this.mantle.t / this.mantle.dur, 0, 1) : 0, rollK: this.roll ? clamp(this.roll.t / this.roll.dur, 0, 1) : 0 };
   }
 }
+function wrap(a) { return ((a + Math.PI) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2) - Math.PI; }
 function approach(v, target, maxD) {
   const dx = target.x - v.x, dz = target.z - v.z, L = Math.hypot(dx, dz);
   if (L <= maxD || L < 1e-6) { v.x = target.x; v.z = target.z; } else { v.x += dx / L * maxD; v.z += dz / L * maxD; }

@@ -1,5 +1,5 @@
 // ===== core.js · Namensraum, Texte, Speicher, Mathe, DOM-Hilfen =====
-export const PRU = { lang: "de", VERSION: "0.1", stamp: "" };
+export const PRU = { lang: "de", VERSION: "0.11", stamp: "" };
 export const KEYS = { map: "polyrunner-map-v1", settings: "polyrunner-settings-v1", dev: "polyrunner-dev", best: "polyrunner-best-v1", ui: "polyrunner-ui-v1" };
 export const DEV_CODE = "282828";
 
