@@ -1,7 +1,7 @@
 // ===== play.js · Spielen: Figur im Hub (3rd Person), Türen, Schreibtisch → Lernmodus, Geld-Anzeige =====
 import * as THREE from "three";
 import { t, addTexts, L2, tl, clamp, lerp, el, esc, store, KEYS, DEV_CODE, PR } from "le/core.js";
-import { Player, camHit } from "le/player.js";
+import { Player, camHit, SCALE } from "le/player.js";
 import { Learn } from "le/learn.js";
 import { Inventory } from "le/inventory.js";
 import { Musik } from "le/musik.js";
@@ -313,7 +313,7 @@ export class Play {
     // drinnen: Kamera steiler und näher, damit sie über die Wände ins Zimmer schaut
     c.inside = lerp(c.inside, p.house ? 1 : 0, 1 - Math.exp(-dt * 4));
     const pitch = lerp(c.pitch, Math.max(c.pitch, 0.98), c.inside), dist = lerp(c.dist, clamp(c.dist, 3.6, 6.5), c.inside);
-    const tgt = new THREE.Vector3(p.p.x, p.p.y + 1.45 + (p.sit ? p.sit.dy : 0), p.p.z), cp = Math.cos(pitch);
+    const tgt = new THREE.Vector3(p.p.x, p.p.y + 1.45 * SCALE + (p.sit ? p.sit.dy : 0), p.p.z), cp = Math.cos(pitch);
     const want = new THREE.Vector3(tgt.x + Math.sin(c.yaw) * cp * dist, tgt.y + Math.sin(pitch) * dist, tgt.z + Math.cos(c.yaw) * cp * dist);
     // Wände zwischen Figur und Kamera: Kamera davor ziehen
     const th = camHit(this.world, tgt, want);

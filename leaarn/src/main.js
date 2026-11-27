@@ -213,6 +213,7 @@ const CSS = `
 .le-ighost{position:fixed;width:44px;height:44px;z-index:9999;pointer-events:none}.le-ighost svg{width:44px;height:44px;filter:drop-shadow(0 4px 6px rgba(0,0,0,.5))}
 .le-music{position:absolute;left:50%;top:50%;transform:translate(-50%,-55%);z-index:8}.le-mbox2{width:min(420px,90vw);background:#1B1C1F;border:1px solid #ED6A5E;padding:16px}.le-mbox2 h3{margin:0 0 6px}.le-now{color:#C6C5B9;font-weight:700;margin:0 0 10px}
 .le-cds{display:flex;flex-direction:column;gap:6px}.le-cd{display:grid;grid-template-columns:36px 1fr auto;gap:10px;align-items:center;background:#26302F;padding:6px}.le-cd svg{width:36px;height:36px}.le-cd small{display:block;color:#A9ACB2}
+.le-pal{display:grid;grid-template-columns:repeat(10,1fr);gap:3px;margin:6px 0 8px}.le-pal button{aspect-ratio:1;min-width:0;padding:0;border:1px solid rgba(0,0,0,.35)}.le-pal button[aria-pressed=true]{outline:2px solid #ED6A5E;outline-offset:1px}.le-pstil{flex-wrap:wrap}.le-paintp p{font-size:12px}
 .le-plotb[aria-pressed=true]{background:#62929E!important;border-color:#62929E!important;color:#141518!important}.le-cats .le-plotb{grid-column:1/3}
 .le-plotp{padding:10px!important;gap:8px!important}.le-plotp p{margin:0;color:#C6C5B9;font-size:12px;line-height:1.45}
 /* v0.15: Stufen statt Jahrgänge, Vokabeltest Englisch */

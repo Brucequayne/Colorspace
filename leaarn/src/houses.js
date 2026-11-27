@@ -3,7 +3,8 @@
 //   { v: 1, name: "Starterhaus", parts: [[id, x, z, r, etage, stufe, spiegeln], …] }
 // Zellen-Teile (Boden, Dach, Möbel) liegen in Zelle (x, z), r = Drehung in 90°-Schritten.
 // Kanten-Teile (Wände, Fenster, Türen, Giebel) liegen auf einer Kante der Zelle: r 0 = Norden (z klein), 1 = Osten, 2 = Süden, 3 = Westen.
-// stufe: Höhe von Dachschrägen und Giebeln (je Stufe 1 m höher). spiegeln: Giebel steigt in die andere Richtung.
+// stufe: Höhe von Dachschrägen und Giebeln (je Stufe eine Zelle Steigung: 1 m bei 45°, 0,41 m bei 22,5°). spiegeln: Giebel steigt in die andere Richtung, 2 = Giebelspitze (seit v0.21.1).
+// farbe (seit v0.21.1, Index 7 bei Wänden): [Seite außen entlang der Kanten-Normale, andere Seite], je null oder [Farbe, Stil] – Stil siehe WSTIL
 // Etage: Teile auf Etage 1 liegen auf den Wänden der Etage 0 (Decke/Dach). Wer im Haus steht, sieht alles darüber nicht.
 import * as THREE from "three";
 import { L2, tl, hash2 } from "le/core.js";
@@ -17,6 +18,7 @@ function part(geo, color, m, jit, seed) {
 }
 
 export const CELL = 1, LH = 2.8, FLOOR = 0.12, WT = 0.14;   // Zelle, Etagenhöhe, Bodendicke, Wanddicke
+const R22 = Math.tan(Math.PI / 8);   // Steigung je Zelle bei 22,5° (seit v0.21.1)
 
 // Farben (Palette: Stein, Petrol, Stahlblau, Koralle, Schiefer + Holz/Ziegel)
 const COL = { putz: "#D9D6CC", ziegel: "#A9533F", holz: "#8A6142", holzd: "#5E4330", rahmen: "#ECEAE4", glas: "#7FB4C4", schiefer: "#475657", terra: "#B4583F",
@@ -35,6 +37,7 @@ export const PARTS = {
   "boden-beton": { kind: "floor", cat: "floor", n: L2("Beton", "Concrete"), c: COL.beton },
   "boden-teppich": { kind: "floor", cat: "floor", n: L2("Teppichboden", "Carpet"), c: COL.teppich },
   "boden-platten": { kind: "floor", cat: "floor", n: L2("Steinplatten (Terrasse)", "Paving (terrace)"), c: COL.platten, tile: true },
+  "pool": { kind: "floor", cat: "floor", n: L2("Pool (1 m tief)", "Pool (1 m deep)"), c: "#3FA7C9", pool: true },   // seit v0.21.1: Zellen nebeneinander werden ein Becken
   // Wände (Putz, Ziegel, Holz) mit Fenster und Tür
   "wand-putz": { kind: "wall", cat: "wall", n: L2("Wand Putz", "Wall plaster"), c: COL.putz },
   "fenster-putz": { kind: "wall", cat: "wall", n: L2("Fenster Putz", "Window plaster"), c: COL.putz, win: true },
@@ -46,13 +49,30 @@ export const PARTS = {
   "fenster-holz": { kind: "wall", cat: "wall", n: L2("Fenster Holz", "Window wood"), c: COL.holz, plank: true, win: true },
   "tuer-holz": { kind: "wall", cat: "wall", n: L2("Tür Holz", "Door wood"), c: COL.holz, plank: true, door: true },
   "gelaender": { kind: "wall", cat: "wall", n: L2("Geländer", "Railing"), c: COL.holzd, rail: true },
+  // seit v0.21.1: Wand in 1/4 Höhe (0,7 m, z. B. Brüstung, Theke, Schaufenster-Podest) und Säulen (stehen in der Zellmitte, reichen bis zur Decke)
+  "wand-viertel-putz": { kind: "wall", cat: "wall", n: L2("Wand 1/4 Höhe Putz", "Wall 1/4 height plaster"), c: COL.putz, quarter: true },
+  "wand-viertel-ziegel": { kind: "wall", cat: "wall", n: L2("Wand 1/4 Höhe Ziegel", "Wall 1/4 height brick"), c: COL.ziegel, quarter: true, brick: true },
+  "wand-viertel-holz": { kind: "wall", cat: "wall", n: L2("Wand 1/4 Höhe Holz", "Wall 1/4 height wood"), c: COL.holz, quarter: true, plank: true },
+  "saeule-rund": { kind: "obj", cat: "wall", n: L2("Säule rund (klassisch)", "Column round (classic)"), c: COL.weiss, box: [0.4, 0.4], col: 1 },
+  "saeule-eckig": { kind: "obj", cat: "wall", n: L2("Säule eckig (Putz)", "Column square (plaster)"), c: COL.putz, box: [0.38, 0.38], col: 2 },
+  "saeule-holz": { kind: "obj", cat: "wall", n: L2("Holzpfosten", "Wooden post"), c: COL.holz, box: [0.22, 0.22], col: 3 },
   // Dach
   "dach-flach": { kind: "roof", cat: "roof", n: L2("Flachdach / Decke", "Flat roof / ceiling"), c: COL.beton, flat: true },
-  "dach-schiefer": { kind: "roof", cat: "roof", n: L2("Dachschräge Schiefer", "Roof slope slate"), c: COL.schiefer },
-  "dach-rot": { kind: "roof", cat: "roof", n: L2("Dachschräge Ziegelrot", "Roof slope red"), c: COL.terra },
-  "giebel-putz": { kind: "gable", cat: "roof", n: L2("Giebel Putz", "Gable plaster"), c: COL.putz },
-  "giebel-ziegel": { kind: "gable", cat: "roof", n: L2("Giebel Ziegel", "Gable brick"), c: COL.ziegel },
-  "giebel-holz": { kind: "gable", cat: "roof", n: L2("Giebel Holz", "Gable wood"), c: COL.holz },
+  "dach-schiefer": { kind: "roof", cat: "roof", n: L2("Dachschräge Schiefer 45°", "Roof slope slate 45°"), c: COL.schiefer },
+  "dach-rot": { kind: "roof", cat: "roof", n: L2("Dachschräge Ziegelrot 45°", "Roof slope red 45°"), c: COL.terra },
+  // seit v0.21.1: flache Neigung 22,5° (je Zelle 0,41 m) und Firststück (Dachspitze in der Zellmitte, für ungerade Hausbreiten; R dreht den First)
+  "dach-schiefer-22": { kind: "roof", cat: "roof", n: L2("Dachschräge Schiefer 22,5°", "Roof slope slate 22.5°"), c: COL.schiefer, rise: R22 },
+  "dach-rot-22": { kind: "roof", cat: "roof", n: L2("Dachschräge Ziegelrot 22,5°", "Roof slope red 22.5°"), c: COL.terra, rise: R22 },
+  "first-schiefer": { kind: "roof", cat: "roof", n: L2("Dachspitze Schiefer 45°", "Ridge slate 45°"), c: COL.schiefer, ridge: true },
+  "first-rot": { kind: "roof", cat: "roof", n: L2("Dachspitze Ziegelrot 45°", "Ridge red 45°"), c: COL.terra, ridge: true },
+  "first-schiefer-22": { kind: "roof", cat: "roof", n: L2("Dachspitze Schiefer 22,5°", "Ridge slate 22.5°"), c: COL.schiefer, ridge: true, rise: R22 },
+  "first-rot-22": { kind: "roof", cat: "roof", n: L2("Dachspitze Ziegelrot 22,5°", "Ridge red 22.5°"), c: COL.terra, ridge: true, rise: R22 },
+  "giebel-putz": { kind: "gable", cat: "roof", n: L2("Giebel Putz 45°", "Gable plaster 45°"), c: COL.putz },
+  "giebel-ziegel": { kind: "gable", cat: "roof", n: L2("Giebel Ziegel 45°", "Gable brick 45°"), c: COL.ziegel },
+  "giebel-holz": { kind: "gable", cat: "roof", n: L2("Giebel Holz 45°", "Gable wood 45°"), c: COL.holz },
+  "giebel-putz-22": { kind: "gable", cat: "roof", n: L2("Giebel Putz 22,5°", "Gable plaster 22.5°"), c: COL.putz, rise: R22 },
+  "giebel-ziegel-22": { kind: "gable", cat: "roof", n: L2("Giebel Ziegel 22,5°", "Gable brick 22.5°"), c: COL.ziegel, rise: R22 },
+  "giebel-holz-22": { kind: "gable", cat: "roof", n: L2("Giebel Holz 22,5°", "Gable wood 22.5°"), c: COL.holz, rise: R22 },
   // Möbel
   "schreibtisch": { kind: "obj", cat: "obj", n: L2("Schreibtisch mit Laptop (Lernen)", "Desk with laptop (learning)"), box: [1.2, 0.62], act: "lernen" },
   "stuhl": { kind: "obj", cat: "obj", n: L2("Stuhl", "Chair"), box: null, sit: [[0, 0.02, 0, -1, 0.49]] },
@@ -73,6 +93,7 @@ export const PARTS = {
   "schaufenster-markt": { kind: "wall", cat: "wall", n: L2("Schaufenster Supermarkt", "Shop window supermarket"), c: COL.stahl, shopwin: 1 },
   "schaufenster-boutique": { kind: "wall", cat: "wall", n: L2("Schaufenster Boutique", "Shop window boutique"), c: COL.schiefer, shopwin: 2 },
   "schaufenster-laden": { kind: "wall", cat: "wall", n: L2("Schaufenster Laden", "Shop window store"), c: COL.fliese, shopwin: 3 },
+  "schaufenster-glas": { kind: "wall", cat: "wall", n: L2("Schaufenster Ganzglas (schlicht)", "Shop window full glass (plain)"), c: COL.putz, shopwin: 4 },   // seit v0.21.1, Wandteile färbbar
   // Automatik-Schiebetür (seit v0.19.7): zwei Glasflügel, öffnet nach beiden Seiten, sobald der Spieler vor der Tür steht
   "tuer-schiebe": { kind: "wall", cat: "wall", n: L2("Automatik-Schiebetür (Supermarkt)", "Automatic sliding door (supermarket)"), c: COL.stahl, door: true, auto: true },
   // Objekte (seit v0.19.7): Markisen hängen an der Hauswand (Kante, wie Wände; ragen in die angeklickte Zelle), dazu Supermarkt-Ausstattung
@@ -122,9 +143,27 @@ function edgeBox(E, u0, u1, y0, y1, d, o) {
 function bx(list, E, u0, u1, y0, y1, d, col, o, seed) { const b = edgeBox(E, u0, u1, y0, y1, d, o); list.push(part(b.g, col, b.m, 0, seed)); }
 function shade(c, k) { const x = new THREE.Color(c); x.multiplyScalar(k); return "#" + x.getHexString(); }
 
+// Wandfarben (seit v0.21.1): Stile je Wandseite
+export const WSTIL = [L2("Einfarbig", "Plain"), L2("Weißer Absatz unten", "White dado below"), L2("Zweifarbig dezent", "Subtle two-tone"), L2("Dunkler Sockel", "Dark plinth")];
+// Farbschicht auf einer Wandseite: dünne Platte vor dem Wandstück, nach Stil in Bänder geteilt. Reicht an den Wandenden über den Eckpfosten.
+function paintOver(out, E, u0, u1, ya, yb, y0, paint, seed) {
+  const t = WT, a = t / 2, b = 1 - t / 2, e0 = u0 <= a + 1e-4 ? -t / 2 - 0.012 : u0, e1 = u1 >= b - 1e-4 ? 1 + t / 2 + 0.012 : u1;
+  [0, 1].forEach((si) => {
+    const P = paint[si]; if (!P) return; const col = P[0], st = P[1] | 0, o = (si ? -1 : 1) * (t / 2 + 0.006);
+    const box = (ua, ub, q0, q1, cc, dd) => bx(out, E, ua, ub, q0, q1, dd, cc, o + (si ? -1 : 1) * (dd - 0.012) / 2, seed + 90 + si);
+    // Mitte in voller Stärke, Verlängerung über den Eckpfosten etwas flacher → keine flimmernden Überlappungen mit der Nachbarwand
+    const band = (lo, hi, cc, d) => { const q0 = Math.max(ya, y0 + lo), q1 = Math.min(yb, y0 + hi), dd = d || 0.012; if (q1 - q0 <= 0.002) return; box(u0, u1, q0, q1, cc, dd); if (e0 < u0) box(e0, u0, q0, q1, cc, dd - 0.003); if (e1 > u1) box(u1, e1, q0, q1, cc, dd - 0.006); };   // verschiedene Tiefen: zwei Verlängerungen auf demselben Pfosten flimmern nicht
+    if (st === 1) { band(-1, 0.95, "#F2F0EA"); band(0.95, 0.99, "#E4E0D6", 0.026); band(0.99, 99, col); }
+    else if (st === 2) { band(-1, 1.0, shade(col, 0.86)); band(1.0, 1.025, shade(col, 0.72), 0.02); band(1.025, 99, col); }
+    else if (st === 3) { band(-1, 0.35, shade(col, 0.55)); band(0.35, 99, col); }
+    else band(-1, 99, col);
+  });
+}
 // Wand mit Fenster/Tür/Geländer. Wandstücke laufen von t/2 bis 1 - t/2, die Ecken füllen Pfosten.
-function wallParts(def, E, y0, seed, out) {
-  const t = WT, H = LH, a = t / 2, b = 1 - t / 2, c = def.c;
+function wallParts(def, E, y0, seed, out, paint) {
+  const t = WT, H = def.quarter ? LH / 4 : LH, a = t / 2, b = 1 - t / 2, c = def.c;
+  // Wandstück mit Farbschicht (seit v0.21.1)
+  const W = (u0, u1, ya, yb, sd) => { bx(out, E, u0, u1, ya, yb, t, c, 0, sd); if (paint) paintOver(out, E, u0, u1, ya, yb, y0, paint, sd); };
   if (def.fence) {   // Holzzaun: zwei Pfosten, zwei Querlatten, senkrechte Latten (1 m hoch)
     bx(out, E, 0, 0.09, y0, y0 + 1.05, 0.09, shade(c, 0.85), 0, seed); bx(out, E, 0.91, 1, y0, y0 + 1.05, 0.09, shade(c, 0.85), 0, seed + 1);
     bx(out, E, 0, 1, y0 + 0.28, y0 + 0.34, 0.04, shade(c, 0.78), -0.035, seed + 2); bx(out, E, 0, 1, y0 + 0.72, y0 + 0.78, 0.04, shade(c, 0.78), -0.035, seed + 3);
@@ -137,14 +176,14 @@ function wallParts(def, E, y0, seed, out) {
     bx(out, E, 0.1, 0.9, y0 + 0.35, y0 + 0.75, 0.58, shade(c, 0.9), 0, seed + 5);
     return;
   }
-  if (def.rail) {
-    bx(out, E, a, b, y0 + 0.92, y0 + 1.0, 0.07, c, 0, seed);
+  if (def.rail) {   // seit v0.21.1: Handlauf über die ganze Kante, an den Enden Pfosten (buildHouse) → Geländer schließen bündig an
+    bx(out, E, 0, 1, y0 + 0.92, y0 + 1.0, 0.07, c, 0, seed);
     for (let k = 0; k < 4; k++) { const u = a + 0.08 + k * (b - a - 0.16) / 3; bx(out, E, u - 0.025, u + 0.025, y0, y0 + 0.92, 0.05, c, 0, seed + k); }
     return;
   }
   if (def.auto) {   // Automatik-Schiebetür (seit v0.19.7): feste Teile; die zwei Glasflügel baut buildHouse (beweglich)
     const d0 = 0.1, d1 = 0.9, top = 2.2;
-    bx(out, E, a, d0, y0, y0 + H, t, c, 0, seed); bx(out, E, d1, b, y0, y0 + H, t, c, 0, seed + 1); bx(out, E, d0, d1, y0 + top, y0 + H, t, c, 0, seed + 2);
+    W(a, d0, y0, y0 + H, seed); W(d1, b, y0, y0 + H, seed + 1); W(d0, d1, y0 + top, y0 + H, seed + 2);
     bx(out, E, d0, d0 + 0.04, y0, y0 + top, t + 0.03, COL.stahl, 0, seed + 3); bx(out, E, d1 - 0.04, d1, y0, y0 + top, t + 0.03, COL.stahl, 0, seed + 4);
     bx(out, E, -0.3, 1.3, y0 + top - 0.14, y0 + top, 0.26, COL.stahl, 0, seed + 5);   // Laufschiene über der Tür, ragt zu beiden Seiten, damit die offenen Flügel darunter laufen
     bx(out, E, 0.44, 0.56, y0 + top + 0.02, y0 + top + 0.1, 0.1, COL.dunkel, 0, seed + 6);   // Bewegungsmelder
@@ -155,7 +194,12 @@ function wallParts(def, E, y0, seed, out) {
     const glass = (u0, u1, ya, yb) => { bx(out, E, u0, u1, y0 + ya, y0 + yb, 0.02, COL.glas, 0, seed + 30); out[out.length - 1].userData.glass = true; };
     const stick = (u0, u1, ya, yb, col) => { bx(out, E, u0, u1, y0 + ya, y0 + yb, 0.004, col, 0.013, seed + 40); bx(out, E, u0, u1, y0 + ya, y0 + yb, 0.004, col, -0.013, seed + 41); };
     const cx = E.ax + E.ux * 0.5, cz = E.az + E.uz * 0.5, cyl = (r0, r1, h, yc, col, n) => out.push(part(new THREE.CylinderGeometry(r0, r1, h, n || 6), col, M(cx, y0 + yc, cz, 1), 0, seed + 50));
-    if (kind === 1) {   // Supermarkt: Sockel, große Scheibe mit Aluminiumrahmen, Angebots-Folien, Schild oben
+    if (kind === 4) {   // Ganzglas (seit v0.21.1): dunkler Sockel, schmaler Rahmen, Wand oben und an den Seiten färbbar
+      W(a, 0.05, y0, y0 + H, seed); W(0.95, b, y0, y0 + H, seed + 1); W(0.05, 0.95, y0 + 2.42, y0 + H, seed + 2);
+      bx(out, E, 0.05, 0.95, y0, y0 + 0.3, t, COL.dunkel, 0, seed + 3); glass(0.08, 0.92, 0.33, 2.39);
+      bx(out, E, 0.05, 0.95, y0 + 0.3, y0 + 0.33, t + 0.02, COL.dunkel, 0, seed + 4); bx(out, E, 0.05, 0.95, y0 + 2.39, y0 + 2.42, t + 0.02, COL.dunkel, 0, seed + 5);
+      bx(out, E, 0.05, 0.08, y0 + 0.33, y0 + 2.39, t + 0.02, COL.dunkel, 0, seed + 6); bx(out, E, 0.92, 0.95, y0 + 0.33, y0 + 2.39, t + 0.02, COL.dunkel, 0, seed + 7);
+    } else if (kind === 1) {   // Supermarkt: Sockel, große Scheibe mit Aluminiumrahmen, Angebots-Folien, Schild oben
       bx(out, E, a, 0.05, y0, y0 + H, t, c, 0, seed); bx(out, E, 0.95, b, y0, y0 + H, t, c, 0, seed + 1);
       bx(out, E, 0.05, 0.95, y0, y0 + 0.4, t, COL.schiefer, 0, seed + 2); bx(out, E, 0.05, 0.95, y0 + 2.3, y0 + H, t, COL.schiefer, 0, seed + 3);
       glass(0.07, 0.93, 0.45, 2.25);
@@ -188,54 +232,60 @@ function wallParts(def, E, y0, seed, out) {
   }
   if (def.door) {
     const d0 = 0.12, d1 = 0.88, top = 2.12;
-    bx(out, E, a, d0, y0, y0 + H, t, c, 0, seed); bx(out, E, d1, b, y0, y0 + H, t, c, 0, seed + 1); bx(out, E, d0, d1, y0 + top, y0 + H, t, c, 0, seed + 2);
+    W(a, d0, y0, y0 + H, seed); W(d1, b, y0, y0 + H, seed + 1); W(d0, d1, y0 + top, y0 + H, seed + 2);
     // Zarge
     bx(out, E, d0, d0 + 0.04, y0, y0 + top, t + 0.03, COL.rahmen, 0, seed + 3); bx(out, E, d1 - 0.04, d1, y0, y0 + top, t + 0.03, COL.rahmen, 0, seed + 4); bx(out, E, d0, d1, y0 + top - 0.04, y0 + top, t + 0.03, COL.rahmen, 0, seed + 5);
     return;
   }
   if (def.win) {
     const w0 = 0.2, w1 = 0.8, lo = 0.95, hi = 2.05;
-    bx(out, E, a, w0, y0, y0 + H, t, c, 0, seed); bx(out, E, w1, b, y0, y0 + H, t, c, 0, seed + 1);
-    bx(out, E, w0, w1, y0, y0 + lo, t, c, 0, seed + 2); bx(out, E, w0, w1, y0 + hi, y0 + H, t, c, 0, seed + 3);
+    W(a, w0, y0, y0 + H, seed); W(w1, b, y0, y0 + H, seed + 1);
+    W(w0, w1, y0, y0 + lo, seed + 2); W(w0, w1, y0 + hi, y0 + H, seed + 3);
     bx(out, E, w0, w1, y0 + lo - 0.05, y0 + lo, t + 0.1, COL.rahmen, 0, seed + 4);   // Fensterbank
     bx(out, E, w0, w0 + 0.04, y0 + lo, y0 + hi, t * 0.6, COL.rahmen, 0, seed + 5); bx(out, E, w1 - 0.04, w1, y0 + lo, y0 + hi, t * 0.6, COL.rahmen, 0, seed + 6);
     bx(out, E, w0, w1, y0 + hi - 0.04, y0 + hi, t * 0.6, COL.rahmen, 0, seed + 7); bx(out, E, 0.48, 0.52, y0 + lo, y0 + hi, t * 0.5, COL.rahmen, 0, seed + 8);
     bx(out, E, w0 + 0.04, w1 - 0.04, y0 + lo, y0 + hi - 0.04, 0.02, COL.glas, 0, seed + 9); out[out.length - 1].userData.glass = true;   // Glas: eigenes Netz, lässt Sonnenlicht durch
     return;
   }
-  bx(out, E, a, b, y0, y0 + H, t, c, 0, seed);
+  W(a, b, y0, y0 + H, seed);
   if (def.brick || def.plank) {   // leichte Fugen: zwei dunklere Streifen auf beiden Seiten
-    const sc = shade(c, 0.82);
-    for (let k = 1; k <= (def.brick ? 6 : 4); k++) { const yy = y0 + k * H / (def.brick ? 7 : 5); bx(out, E, a, b, yy - 0.012, yy + 0.012, t + 0.012, sc, 0, seed + 10 + k); }
+    const sc = shade(c, 0.82), n = def.quarter ? 2 : def.brick ? 6 : 4;
+    for (let k = 1; k <= n; k++) { const yy = y0 + k * H / (n + 1); bx(out, E, a, b, yy - 0.012, yy + 0.012, t + 0.012, sc, 0, seed + 10 + k); }
   }
+  if (def.quarter) bx(out, E, a - 0.02, b + 0.02, y0 + H, y0 + H + 0.04, t + 0.06, shade(c, 0.9), 0, seed + 30);   // Abdeckung oben (1/4-Wand)
 }
 function floorParts(def, x, z, y0, seed, out) {
   out.push(part(new THREE.BoxGeometry(1, FLOOR, 1), def.c, M(x + 0.5, y0 + FLOOR / 2, z + 0.5, 1), 0, seed));
   if (def.plank) for (let k = 1; k < 5; k++) out.push(part(new THREE.BoxGeometry(1, 0.006, 0.012), shade(def.c, 0.78), M(x + 0.5, y0 + FLOOR + 0.002, z + k / 5, 1), 0, seed + k));
   if (def.tile) { out.push(part(new THREE.BoxGeometry(1, 0.006, 0.014), shade(def.c, 0.8), M(x + 0.5, y0 + FLOOR + 0.002, z + 0.5, 1), 0, seed + 1)); out.push(part(new THREE.BoxGeometry(0.014, 0.006, 1), shade(def.c, 0.8), M(x + 0.5, y0 + FLOOR + 0.002, z + 0.5, 1), 0, seed + 2)); }
 }
-// Dachschräge: steigt in Richtung r (0 = nach Norden, 1 = Osten, 2 = Süden, 3 = Westen) um 1 m je Zelle
+// Dachschräge: steigt in Richtung r (0 = nach Norden, 1 = Osten, 2 = Süden, 3 = Westen) um eine Stufe je Zelle (45°: 1 m, 22,5°: 0,41 m)
+// Firststück (seit v0.21.1): zwei halbe Schrägen steigen von beiden Seiten zur Zellmitte, r gerade = First läuft Ost–West, ungerade = Nord–Süd
 const RISE = [[0, -1], [1, 0], [0, 1], [-1, 0]];
+function roofPlate(def, out, seed, hl, R, dir, cx, cy, cz) {   // Dachplatte: horizontale Länge hl in Richtung dir, Mitte (cx, cy, cz) auf der Dachfläche
+  const th = 0.12, ang = Math.atan(R), L = Math.hypot(hl, hl * R), rotY = Math.atan2(dir[0], dir[1]), lift = th / 2 / Math.cos(ang);
+  const base = () => new THREE.Matrix4().makeTranslation(cx, cy + lift, cz).multiply(new THREE.Matrix4().makeRotationY(rotY)).multiply(new THREE.Matrix4().makeRotationX(-ang));
+  out.push(part(new THREE.BoxGeometry(1.02, th, L + 0.04), def.c, base(), 0, seed));
+  const n = Math.max(1, Math.round(L / 0.47));   // Ziegelreihen
+  for (let k = 0; k < n; k++) out.push(part(new THREE.BoxGeometry(1.02, 0.03, 0.05), shade(def.c, 0.8), base().multiply(new THREE.Matrix4().makeTranslation(0, th / 2 + 0.01, ((k + 0.5) / n - 0.5) * L)), 0, seed + k + 1));
+}
 function roofParts(def, x, z, y0, r, s, seed, out) {
   if (def.flat) { out.push(part(new THREE.BoxGeometry(1, 0.16, 1), def.c, M(x + 0.5, y0 + 0.08, z + 0.5, 1), 0, seed)); return; }
-  const d = RISE[r & 3], th = 0.12, L = Math.SQRT2;
-  const g = new THREE.BoxGeometry(1.02, th, L + 0.04);
-  const m = new THREE.Matrix4().makeRotationX(-Math.PI / 4);   // kippt die lange Seite (z): steigt in +z
-  const rot = new THREE.Matrix4().makeRotationY(Math.atan2(d[0], d[1]));   // +z zeigt in Steigrichtung
-  const tr = new THREE.Matrix4().makeTranslation(x + 0.5, y0 + s + 0.5 + th * 0.7, z + 0.5);
-  out.push(part(g, def.c, tr.multiply(rot).multiply(m), 0, seed));
-  // Ziegelreihen
-  for (let k = 0; k < 3; k++) {
-    const g2 = new THREE.BoxGeometry(1.02, 0.03, 0.05), f = (k + 0.5) / 3 - 0.5;
-    const m2 = new THREE.Matrix4().makeTranslation(0, th / 2 + 0.01, f * L).premultiply(new THREE.Matrix4().makeRotationX(-Math.PI / 4));
-    const tr2 = new THREE.Matrix4().makeTranslation(x + 0.5, y0 + s + 0.5 + th * 0.7, z + 0.5).multiply(new THREE.Matrix4().makeRotationY(Math.atan2(d[0], d[1]))).multiply(m2);
-    out.push(part(g2, shade(def.c, 0.8), tr2, 0, seed + k + 1));
+  const R = def.rise || 1, y = y0 + s * R;
+  if (def.ridge) {
+    const ax = r & 1, d = ax ? [1, 0] : [0, 1];   // Richtung quer zum First
+    [-1, 1].forEach((sg) => roofPlate(def, out, seed + 10 * (sg + 1), 0.5, R, [-sg * d[0], -sg * d[1]], x + 0.5 + sg * 0.25 * d[0], y + R / 4, z + 0.5 + sg * 0.25 * d[1]));
+    const cap = ax ? new THREE.BoxGeometry(0.14, 0.08, 1.04) : new THREE.BoxGeometry(1.04, 0.08, 0.14);
+    out.push(part(cap, shade(def.c, 0.72), M(x + 0.5, y + R / 2 + 0.12 / Math.cos(Math.atan(R)) + 0.01, z + 0.5, 1), 0, seed + 30));   // Firstziegel
+    return;
   }
+  roofPlate(def, out, seed, 1, R, RISE[r & 3], x + 0.5, y + R / 2, z + 0.5);
 }
-// Giebel: Fläche unter einer Dachschräge, auf einer Kante. Steigt entlang der Kante (f = 1: in die andere Richtung)
+// Giebel: Fläche unter einer Dachschräge, auf einer Kante. Steigt entlang der Kante (f = 1: in die andere Richtung, f = 2: Giebelspitze in der Mitte, seit v0.21.1)
 function gableParts(def, E, y0, s, f, seed, out) {
-  const sh = new THREE.Shape(), lo = s, hi = s + 1;
-  if (!f) { sh.moveTo(0, 0); sh.lineTo(1, 0); sh.lineTo(1, hi); sh.lineTo(0, lo); }
+  const sh = new THREE.Shape(), R = def.rise || 1, lo = s * R, hi = (s + 1) * R;
+  if (f === 2) { sh.moveTo(0, 0); sh.lineTo(1, 0); sh.lineTo(1, lo); sh.lineTo(0.5, lo + R / 2); sh.lineTo(0, lo); }
+  else if (!f) { sh.moveTo(0, 0); sh.lineTo(1, 0); sh.lineTo(1, hi); sh.lineTo(0, lo); }
   else { sh.moveTo(0, 0); sh.lineTo(1, 0); sh.lineTo(1, lo); sh.lineTo(0, hi); }
   sh.closePath();
   const g = new THREE.ExtrudeGeometry(sh, { depth: WT, bevelEnabled: false });
@@ -268,7 +318,13 @@ function awningParts(def, E, y0, f, seed, out) {
 function objParts(id, seed) {
   const P = [], B = (w, h, d, x, y, z, c, ry) => P.push(part(new THREE.BoxGeometry(w, h, d), c, M(x, y, z, 1, 1, 1, ry || 0), 0, seed + P.length));
   const Cy = (r0, r1, h, x, y, z, c, n) => P.push(part(new THREE.CylinderGeometry(r0, r1, h, n || 8), c, M(x, y, z, 1), 0, seed + P.length));
-  if (id === "schreibtisch") {
+  const col = PARTS[id] && PARTS[id].col;
+  if (col) {   // Säulen (seit v0.21.1): vom Boden bis unter die Decke (2,68 m)
+    const c = PARTS[id].c, sc = shade(c, 0.9), H = LH - FLOOR;
+    if (col === 1) { B(0.44, 0.1, 0.44, 0, 0.05, 0, sc); Cy(0.19, 0.21, 0.08, 0, 0.14, 0, c, 14); Cy(0.15, 0.165, H - 0.38, 0, 0.18 + (H - 0.38) / 2, 0, c, 14); Cy(0.2, 0.15, 0.1, 0, H - 0.15, 0, c, 14); B(0.46, 0.1, 0.46, 0, H - 0.05, 0, sc); }
+    else if (col === 2) { B(0.38, 0.12, 0.38, 0, 0.06, 0, sc); B(0.3, H - 0.24, 0.3, 0, H / 2, 0, c); B(0.38, 0.12, 0.38, 0, H - 0.06, 0, sc); }
+    else { B(0.18, H, 0.18, 0, H / 2, 0, c); B(0.22, 0.08, 0.22, 0, 0.04, 0, COL.beton); B(0.5, 0.12, 0.14, 0, H - 0.06, 0, sc); }
+  } else if (id === "schreibtisch") {
     B(1.2, 0.05, 0.62, 0, 0.75, 0, COL.holz);
     [[-0.56, -0.27], [0.56, -0.27], [-0.56, 0.27], [0.56, 0.27]].forEach((q) => B(0.05, 0.73, 0.05, q[0], 0.365, q[1], COL.dunkel));
     B(0.4, 0.5, 0.55, -0.37, 0.48, 0, shade(COL.holz, 0.9));   // Schubladen
@@ -434,12 +490,49 @@ function objParts(id, seed) {
   return P;
 }
 
+// ---------- Pool (seit v0.21.1) ----------
+// Becken 1 m tief unter dem Boden. Der Boden der Welt liegt darüber, deshalb: Öffnung in den Stencil schreiben, dort die Tiefe auf „ganz hinten“
+// zurücksetzen und erst dann das Becken-Innere und das Wasser zeichnen. Rand (Beckenkopf) aus Stein auf den Seiten ohne Nachbar-Pool.
+const POOL_M = new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false, stencilWrite: true, stencilRef: 1, stencilFunc: THREE.AlwaysStencilFunc, stencilZPass: THREE.ReplaceStencilOp });
+const POOL_F = new THREE.ShaderMaterial({ vertexShader: "void main(){ gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); gl_Position.z = gl_Position.w * 0.99999; }", fragmentShader: "void main(){ gl_FragColor = vec4(0.0); }",
+  colorWrite: false, depthWrite: true, depthFunc: THREE.AlwaysDepth, stencilWrite: true, stencilRef: 1, stencilFunc: THREE.EqualStencilFunc, stencilFail: THREE.KeepStencilOp, stencilZFail: THREE.KeepStencilOp, stencilZPass: THREE.KeepStencilOp });
+const POOL_I = new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true, stencilWrite: true, stencilRef: 1, stencilFunc: THREE.EqualStencilFunc, stencilFail: THREE.KeepStencilOp, stencilZFail: THREE.KeepStencilOp, stencilZPass: THREE.KeepStencilOp });
+const POOL_W = new THREE.MeshLambertMaterial({ color: 0x3FA7C9, transparent: true, opacity: 0.5, depthWrite: false });
+function poolParts(pools, L) {
+  const has = new Set(pools.map((p) => p.x + "," + p.z + "," + p.l)), byL = {}, RIM = 0.22, D = 1.0, top = FLOOR;
+  pools.forEach((p) => {
+    const y0 = p.l * LH, nb = [[0, -1], [1, 0], [0, 1], [-1, 0]].map((d) => has.has((p.x + d[0]) + "," + (p.z + d[1]) + "," + p.l));
+    const x0 = p.x + (nb[3] ? 0 : RIM), x1 = p.x + 1 - (nb[1] ? 0 : RIM), z0 = p.z + (nb[0] ? 0 : RIM), z1 = p.z + 1 - (nb[2] ? 0 : RIM), w = x1 - x0, d = z1 - z0, cx = (x0 + x1) / 2, cz = (z0 + z1) / 2;
+    const B = byL[p.l] || (byL[p.l] = { mask: [], inner: [], water: [] }), tag = (g) => { g.userData.pi = p.pi; return g; }, seed = p.x * 31 + p.z * 17;
+    // Rand aus Stein (normales Hausnetz)
+    const rim = (bw, bd, rx, rz) => L(p.l).push(tag(part(new THREE.BoxGeometry(bw, top + 0.05, bd), COL.weiss, M(rx, y0 + (top + 0.05) / 2, rz, 1), 0, seed)));
+    if (!nb[0]) rim(1, RIM, p.x + 0.5, p.z + RIM / 2); if (!nb[2]) rim(1, RIM, p.x + 0.5, p.z + 1 - RIM / 2);
+    if (!nb[3]) rim(RIM, 1, p.x + RIM / 2, p.z + 0.5); if (!nb[1]) rim(RIM, 1, p.x + 1 - RIM / 2, p.z + 0.5);
+    // Öffnung (Maske), Inneres (Boden hellblau mit Fugen, Wände), Wasser
+    B.mask.push(tag(part(new THREE.PlaneGeometry(w, d), "#000000", M(cx, y0 + top, cz, 1).multiply(new THREE.Matrix4().makeRotationX(-Math.PI / 2)), 0, 0)));
+    const yb = y0 + top - D;
+    B.inner.push(tag(part(new THREE.BoxGeometry(w, 0.05, d), "#9FD3E0", M(cx, yb - 0.025, cz, 1), 0, seed)));
+    B.inner.push(tag(part(new THREE.BoxGeometry(w, 0.006, 0.02), "#7DBCCB", M(cx, yb + 0.003, cz, 1), 0, seed)));
+    B.inner.push(tag(part(new THREE.BoxGeometry(0.02, 0.006, d), "#7DBCCB", M(cx, yb + 0.003, cz, 1), 0, seed)));
+    const wall = (bw, bd, wx, wz) => B.inner.push(tag(part(new THREE.BoxGeometry(bw, D, bd), "#C9E8EF", M(wx, yb + D / 2, wz, 1), 0, seed)));
+    if (!nb[0]) wall(w, 0.04, cx, z0 - 0.02); if (!nb[2]) wall(w, 0.04, cx, z1 + 0.02); if (!nb[3]) wall(0.04, d, x0 - 0.02, cz); if (!nb[1]) wall(0.04, d, x1 + 0.02, cz);
+    B.water.push(tag(part(new THREE.PlaneGeometry(w, d), "#3FA7C9", M(cx, y0 + top - 0.14, cz, 1).multiply(new THREE.Matrix4().makeRotationX(-Math.PI / 2)), 0, 0)));
+  });
+  const res = {};
+  Object.keys(byL).forEach((l) => {
+    const B = byL[l], mk = (arr, mat, ro) => { const m = new THREE.Mesh(mergeAny(arr), mat); m.renderOrder = ro; m.castShadow = false; m.receiveShadow = false; m.userData.ranges = ranges(arr); return m; };
+    const mask = mk(B.mask, POOL_M, 5), far = new THREE.Mesh(mask.geometry, POOL_F); far.renderOrder = 6; far.castShadow = false; far.userData.ranges = mask.userData.ranges; far.raycast = () => {};
+    res[l] = [mask, far, mk(B.inner, POOL_I, 7), mk(B.water, POOL_W, 9)];
+  });
+  return res;
+}
+
 // ---------- Haus aus Bauteilen bauen ----------
 // Ergebnis: group (Etagen-Gruppen levels[l]), Türen, Kollisions-Strecken, Kästen, Interaktionen, Bodenzellen, Grundfläche
 export const MAT = new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true });
 export function buildHouse(def, opts) {
   const o = opts || {}, parts = (def && def.parts) || [];
-  const per = {}, posts = {}, out = { group: new THREE.Group(), levels: {}, doors: [], segs: [], boxes: [], acts: [], cells: new Set(), cover: new Set(), min: [1e9, 1e9], max: [-1e9, -1e9], top: 0 };
+  const per = {}, posts = {}, rposts = {}, pools = [], out = { group: new THREE.Group(), levels: {}, doors: [], segs: [], boxes: [], acts: [], cells: new Set(), cover: new Set(), min: [1e9, 1e9], max: [-1e9, -1e9], top: 0 };
   const L = (l) => per[l] || (per[l] = []);
   const ext = (x, z) => { out.min[0] = Math.min(out.min[0], x); out.min[1] = Math.min(out.min[1], z); out.max[0] = Math.max(out.max[0], x); out.max[1] = Math.max(out.max[1], z); ext2(x, z); };
   out.min2 = [1e9, 1e9]; out.max2 = [-1e9, -1e9];   // alles inkl. Zaun/Hecke (Kollision)
@@ -447,12 +540,14 @@ export function buildHouse(def, opts) {
   parts.forEach((p, i) => {
     const id = p[0], def2 = PARTS[id]; if (!def2) return;
     const x = p[1] | 0, z = p[2] | 0, r = (p[3] | 0) & 3, l = p[4] | 0, s = p[5] | 0, f = p[6] | 0, y0 = l * LH, seed = (x * 73 + z * 151 + l * 37 + i) | 0, list = L(l), n0 = list.length;
-    if (def2.kind === "floor") { floorParts(def2, x, z, y0, seed, list); out.cells.add(cellKey(x, z, l)); for (let k = 0; k < l; k++) out.cover.add(cellKey(x, z, k)); ext(x, z); ext(x + 1, z + 1); }
+    if (def2.kind === "floor" && def2.pool) { pools.push({ x: x, z: z, l: l, pi: i }); out.boxes.push({ cx: x + 0.5, cz: z + 0.5, hw: 0.5, hd: 0.5, l: l, y1: y0 + 1, pool: true }); for (let k = 0; k < l; k++) out.cover.add(cellKey(x, z, k)); ext(x, z); ext(x + 1, z + 1); }   // Pool (seit v0.21.1): Becken nach der Schleife, nicht begehbar
+    else if (def2.kind === "floor") { floorParts(def2, x, z, y0, seed, list); out.cells.add(cellKey(x, z, l)); for (let k = 0; k < l; k++) out.cover.add(cellKey(x, z, k)); ext(x, z); ext(x + 1, z + 1); }
     else if (def2.kind === "wall") {
-      const E = edgeOf(x, z, r), gard = def2.fence || def2.hedge; wallParts(def2, E, y0, seed, list);
+      const E = edgeOf(x, z, r), gard = def2.fence || def2.hedge; wallParts(def2, E, y0, seed, list, Array.isArray(p[7]) ? p[7] : null);
       if (!gard) { ext(E.ax, E.az); ext(E.ax + E.ux, E.az + E.uz); }   // Zaun/Hecke zählen nicht zur Grundfläche des Hauses (Drehpunkt bleibt gleich)
       ext2(E.ax, E.az); ext2(E.ax + E.ux, E.az + E.uz);
-      if (!def2.rail && !gard) { [[E.ax, E.az], [E.ax + E.ux, E.az + E.uz]].forEach((v) => { const k = v[0] + "," + v[1] + "," + l; if (!posts[k]) posts[k] = def2.c; }); }
+      if (!def2.rail && !gard) { const ph = def2.quarter ? LH / 4 : LH; [[E.ax, E.az], [E.ax + E.ux, E.az + E.uz]].forEach((v) => { const k = v[0] + "," + v[1] + "," + l; if (!posts[k]) posts[k] = { c: def2.c, h: ph }; else posts[k].h = Math.max(posts[k].h, ph); }); }
+      if (def2.rail) [[E.ax, E.az], [E.ax + E.ux, E.az + E.uz]].forEach((v) => { rposts[v[0] + "," + v[1] + "," + l] = def2.c; });   // Geländer-Pfosten an den Enden (seit v0.21.1)
       if (def2.auto) {
         // Automatik-Schiebetür (seit v0.19.7): zwei Glasflügel auf einer Schiene, laufen nach außen auseinander (weg von der Mitte, vor der Nachbarwand)
         const pv = new THREE.Group(); pv.position.set(E.ax, y0, E.az); pv.rotation.y = Math.atan2(-E.uz, E.ux);
@@ -482,10 +577,10 @@ export function buildHouse(def, opts) {
         out.segs.push({ ax: E.ax, az: E.az, bx: E.ax + E.ux * 0.12, bz: E.az + E.uz * 0.12, l: l, y1: y0 + LH });
         out.segs.push({ ax: E.ax + E.ux * 0.88, az: E.az + E.uz * 0.88, bx: E.ax + E.ux, bz: E.az + E.uz, l: l, y1: y0 + LH });
         out.segs.push({ ax: door.ax, az: door.az, bx: door.bx, bz: door.bz, l: l, y1: y0 + LH, door: door });
-      } else out.segs.push({ ax: E.ax, az: E.az, bx: E.ax + E.ux, bz: E.az + E.uz, l: l, y1: y0 + (def2.rail || def2.fence ? 1 : def2.hedge ? 1.3 : LH), rail: !!(def2.rail || def2.fence), th: def2.hedge ? 0.28 : def2.fence ? 0.05 : undefined, win: !!def2.win, garden: !!gard });
-    } else if (def2.kind === "roof") { roofParts(def2, x, z, y0, r, s, seed, list); for (let k = 0; k < l; k++) out.cover.add(cellKey(x, z, k)); ext(x, z); ext(x + 1, z + 1); out.top = Math.max(out.top, y0 + s + 1.2); if (def2.flat) out.cells.add(cellKey(x, z, l)); }
+      } else out.segs.push({ ax: E.ax, az: E.az, bx: E.ax + E.ux, bz: E.az + E.uz, l: l, y1: y0 + (def2.rail || def2.fence ? 1 : def2.hedge ? 1.3 : def2.quarter ? LH / 4 + 0.04 : LH), rail: !!(def2.rail || def2.fence), th: def2.hedge ? 0.28 : def2.fence ? 0.05 : undefined, win: !!def2.win, garden: !!gard });
+    } else if (def2.kind === "roof") { roofParts(def2, x, z, y0, r, s, seed, list); for (let k = 0; k < l; k++) out.cover.add(cellKey(x, z, k)); ext(x, z); ext(x + 1, z + 1); out.top = Math.max(out.top, y0 + (s + 1) * (def2.rise || 1) + 0.2); if (def2.flat) out.cells.add(cellKey(x, z, l)); }
     else if (def2.kind === "deco") { awningParts(def2, edgeOf(x, z, r), y0, f, seed, list); }
-    else if (def2.kind === "gable") { const E = edgeOf(x, z, r); gableParts(def2, E, y0, s, f, seed, list); out.top = Math.max(out.top, y0 + s + 1); }
+    else if (def2.kind === "gable") { const E = edgeOf(x, z, r); gableParts(def2, E, y0, s, f, seed, list); out.top = Math.max(out.top, y0 + (s + 1) * (def2.rise || 1)); }
     else if (def2.kind === "obj") {
       const ps = objParts(id, seed), g = merge(ps), m = new THREE.Matrix4().makeTranslation(x + 0.5, y0 + FLOOR, z + 0.5).multiply(new THREE.Matrix4().makeRotationY(-r * Math.PI / 2));
       g.applyMatrix4(m); g.deleteAttribute("normal"); list.push(g);
@@ -508,13 +603,16 @@ export function buildHouse(def, opts) {
     if (best) { best.desk = true; a.seat = best; }
   });
   // Eckpfosten
-  Object.keys(posts).forEach((k) => { const v = k.split(",").map(Number); L(v[2]).push(part(new THREE.BoxGeometry(WT, LH, WT), posts[k], M(v[0], v[2] * LH + LH / 2, v[1], 1), 0, v[0] * 7 + v[1] * 3)); });
+  Object.keys(posts).forEach((k) => { const v = k.split(",").map(Number), P = posts[k]; L(v[2]).push(part(new THREE.BoxGeometry(WT, P.h, WT), P.c, M(v[0], v[2] * LH + P.h / 2, v[1], 1), 0, v[0] * 7 + v[1] * 3)); });
+  Object.keys(rposts).forEach((k) => { if (posts[k]) return; const v = k.split(",").map(Number); L(v[2]).push(part(new THREE.BoxGeometry(0.08, 1.02, 0.08), rposts[k], M(v[0], v[2] * LH + 0.51, v[1], 1), 0, v[0] * 5 + v[1] * 11)); });
+  const poolMesh = pools.length ? poolParts(pools, L) : null;   // Pool-Becken (seit v0.21.1)
   Object.keys(per).forEach((l) => {
     const all = per[l], arr = all.filter((g) => !g.userData.glass), gl = all.filter((g) => g.userData.glass); if (!all.length) return;
     const grp = new THREE.Group(); grp.userData.l = +l;
     if (arr.length) { const mesh = new THREE.Mesh(mergeAny(arr), o.mat || MAT); mesh.castShadow = true; mesh.receiveShadow = true; mesh.userData.ranges = ranges(arr); grp.add(mesh); }
     // Fensterglas: halb durchsichtig, wirft keinen Schatten → Sonnenlicht fällt durchs Fenster ins Zimmer
     if (gl.length) { const gm = new THREE.Mesh(mergeAny(gl), o.mat || GLASS); gm.castShadow = false; gm.receiveShadow = false; gm.renderOrder = 2; gm.userData.ranges = ranges(gl); grp.add(gm); }
+    if (poolMesh && poolMesh[l]) poolMesh[l].forEach((m) => grp.add(m));
     out.levels[l] = grp; out.group.add(grp);
   });
   if (out.min[0] > out.max[0]) { out.min = [0, 0]; out.max = [1, 1]; }

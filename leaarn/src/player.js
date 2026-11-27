@@ -7,7 +7,7 @@ import { LH, FLOOR, WT } from "le/houses.js";
 
 // Aussehen und Kleidung (seit v0.21): Körperteile kommen aus kleidung.js (koerper), hier werden daraus die beweglichen Glieder
 export { LOOK } from "le/kleidung.js";
-export const RADIUS = 0.28, HEIGHT = 1.78;
+export const SCALE = 0.9, RADIUS = 0.26, HEIGHT = 1.78 * SCALE;   // seit v0.21.1: Figur 10 % kleiner (Maßstab passt besser zu Häusern und Möbeln)
 
 // Figur aus einzelnen Gliedern (Drehpunkte an Hüfte und Schultern), vorne = +z
 export function figure(look) {
@@ -22,6 +22,7 @@ export function figure(look) {
   // Beine mit Kniegelenk (seit v0.16, fürs Sitzen): Oberschenkel am Hüft-Drehpunkt, Unterschenkel + Schuh am Knie
   const leg = (x, th, sh) => { const pv = limb(x, 0.92, th), knee = new THREE.Group(); knee.position.set(0, -0.42, 0); knee.add(mk(sh)); pv.add(knee); pv.userData.knee = knee; return pv; };
   const legL = leg(-0.1, S.thighL, S.shinL), legR = leg(0.1, S.thighR, S.shinR);
+  g.scale.setScalar(SCALE);
   return { group: g, body: body, head: head, armL: armL, armR: armR, legL: legL, legR: legR, kneeL: legL.userData.knee, kneeR: legR.userData.knee };
 }
 
@@ -33,7 +34,7 @@ export class Player {
     this.sit = null;   // Sitzen (seit v0.16): { dy: Höhe der Figur über dem Boden, pose: "rest" | "lap" }
   }
   // hinsetzen: Figur auf den Sitzplatz (x, z, Boden y), Blick face, Sitzhöhe h über dem Boden
-  sitDown(x, z, y, face, h, pose) { this.p.set(x, y, z); this.face = face; this.v.set(0, 0, 0); this.vy = 0; this.speed = 0; this.onGround = true; this.sit = { dy: h + 0.08 - 0.92, pose: pose || "rest", t: 0 }; this.frozen = true; this.sync(0); }
+  sitDown(x, z, y, face, h, pose) { this.p.set(x, y, z); this.face = face; this.v.set(0, 0, 0); this.vy = 0; this.speed = 0; this.onGround = true; this.sit = { dy: h + (0.08 - 0.92) * SCALE, pose: pose || "rest", t: 0 }; this.frozen = true; this.sync(0); }
   standUp(x, z, y) { this.sit = null; this.frozen = false; this.p.set(x, y, z); this.v.set(0, 0, 0); this.vy = 0; this.onGround = true; this.sync(0); }
   dispose() { this.m.group.traverse((o) => { if (o.geometry) o.geometry.dispose(); }); this.m.group.removeFromParent(); }
   // neues Aussehen (Outfit gewechselt, seit v0.21): Figur neu bauen, Stellung bleibt

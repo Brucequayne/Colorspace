@@ -31,7 +31,7 @@ export class Terrain {
       g.setAttribute("position", new THREE.BufferAttribute(new Float32Array(nv * 3), 3));
       g.setAttribute("normal", new THREE.BufferAttribute(new Float32Array(nv * 3), 3));
       g.setAttribute("color", new THREE.BufferAttribute(new Float32Array(nv * 3), 3));
-      const m = new THREE.Mesh(g, this.mat); m.receiveShadow = true; m.castShadow = false; m.userData.terrain = true;
+      const m = new THREE.Mesh(g, this.mat); m.receiveShadow = true; m.castShadow = true; m.userData.terrain = true;   // seit v0.21.1: Hügel werfen Schatten
       this.group.add(m); this.chunks.push({ m: m, cx: cx, cz: cz });
     }
   }

@@ -275,7 +275,8 @@ export function koerper(look, opt) {
 // Schaufensterpuppe als feste Teile (Möbelkoordinaten, vorne = +z): Figur auf einem Sockel mit Stange
 export function puppeParts(outfit, seed) {
   const S = koerper({ outfit: outfit }, { puppe: true }), out = [], y0 = 0.06;
-  const put = (list, m) => list.forEach((g) => { const c = g.clone(); c.applyMatrix4(m); out.push(c); });
+  const SC = new THREE.Matrix4().makeScale(0.9, 0.9, 0.9);   // wie die Spielfigur 10 % kleiner (seit v0.21.1)
+  const put = (list, m) => list.forEach((g) => { const c = g.clone(); c.applyMatrix4(m); c.applyMatrix4(SC); out.push(c); });
   const T = (x, y, z, rz) => { const m = new THREE.Matrix4().makeTranslation(x, y + y0, z); if (rz) m.multiply(new THREE.Matrix4().makeRotationZ(rz)); return m; };
   put(S.torso, T(0, 0, 0)); put(S.head, T(0, 1.55, 0));
   put(S.armL, T(-0.26, 1.42, 0, -0.1)); put(S.armR, T(0.26, 1.42, 0, 0.1));

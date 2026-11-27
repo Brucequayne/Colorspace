@@ -28,6 +28,18 @@ export class World {
     this.addRoad();
     engine.scene.add(this.terrain.group); engine.scene.add(this.roadGroup); engine.scene.add(this.veg.group); engine.scene.add(this.houseGroup); engine.scene.add(this.objs.group);
     this.n = new THREE.Vector3();
+    engine.occluder = (o, d) => this.sunBlocked(o, d);   // Linsenreflex nur bei freier Sicht zur Sonne (seit v0.21.1)
+  }
+  // Ist die Sonne von hier aus verdeckt? Strahl über das Gelände und die Häuser (Bäume zählen nicht)
+  sunBlocked(o, d) {
+    if (!this.terrain.group.visible) return false;
+    for (let t = 1.5, st = 1; t < 500; t += st, st = t < 60 ? 1 : 4) {
+      const x = o.x + d.x * t, z = o.z + d.z * t, y = o.y + d.y * t;
+      if (this.terrain.heightAt(x, z) > y) return true;
+      if (t < 80) for (const h of this.houses) if (y < h.e.y + h.b.top && h.contains(x, z, 0)) return true;
+      if (y > 400) break;
+    }
+    return false;
   }
   // ---------- Häuser (Leaarn) ----------
   // Eintrag: { k: "starter" | "lokal", d: Hausdaten (nur lokal), x, z, y (Bodenhöhe), a (Drehung in Grad), home (Spielstart) }

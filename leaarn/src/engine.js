@@ -3,13 +3,24 @@ import * as THREE from "three";
 import { clamp, lerp, DEG } from "le/core.js";
 
 const C = (h) => new THREE.Color(h);
+// weicher Lichtschein und Ring für Sonne und Linsenreflex (Canvas-Texturen, seit v0.21.1)
+function glowTexture() {
+  const cv = document.createElement("canvas"); cv.width = cv.height = 128; const g = cv.getContext("2d"), gr = g.createRadialGradient(64, 64, 0, 64, 64, 64);
+  gr.addColorStop(0, "rgba(255,255,255,1)"); gr.addColorStop(0.18, "rgba(255,250,235,0.75)"); gr.addColorStop(0.5, "rgba(255,240,210,0.18)"); gr.addColorStop(1, "rgba(255,240,210,0)");
+  g.fillStyle = gr; g.fillRect(0, 0, 128, 128); const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; return t;
+}
+function ringTexture() {
+  const cv = document.createElement("canvas"); cv.width = cv.height = 128; const g = cv.getContext("2d"), gr = g.createRadialGradient(64, 64, 0, 64, 64, 64);
+  gr.addColorStop(0, "rgba(255,255,255,0.08)"); gr.addColorStop(0.62, "rgba(255,255,255,0.12)"); gr.addColorStop(0.78, "rgba(255,255,255,0.6)"); gr.addColorStop(0.88, "rgba(255,255,255,0.1)"); gr.addColorStop(1, "rgba(255,255,255,0)");
+  g.fillStyle = gr; g.fillRect(0, 0, 128, 128); const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; return t;
+}
 // Himmelsfarben je Sonnenhöhe: [Zenit, Horizont]
 const SKY = { day: [C("#4F8FD0"), C("#C4DCEC")], low: [C("#3E5C8E"), C("#F2B27A")], dusk: [C("#1E2648"), C("#7A4E5E")], night: [C("#05070F"), C("#121A2C")] };
 
 export class Engine {
   constructor(host) {
     this.host = host;
-    const r = this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+    const r = this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance", stencil: true });   // Stencil: Pool-Becken (seit v0.21.1)
     r.outputColorSpace = THREE.SRGBColorSpace;
     r.shadowMap.enabled = true; r.shadowMap.type = THREE.PCFSoftShadowMap;
     r.domElement.className = "le-cv"; host.appendChild(r.domElement);
@@ -22,13 +33,26 @@ export class Engine {
     sg.setAttribute("color", new THREE.Float32BufferAttribute(new Float32Array(sg.attributes.position.count * 3), 3));
     this.sky = new THREE.Mesh(sg, new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.BackSide, fog: false, depthWrite: false }));
     this.sky.renderOrder = -1; this.scene.add(this.sky);
-    this.sunDisc = new THREE.Mesh(new THREE.CircleGeometry(0.025, 20), new THREE.MeshBasicMaterial({ color: 0xFFF4D6, fog: false }));
+    // Sonne (seit v0.21.1): Low-Poly-Kugel mit Strahlenkranz und weichem Schein; Linsenreflex siehe flare()
+    this.sunDisc = new THREE.Group();
+    const sunM = new THREE.MeshBasicMaterial({ color: 0xFFF4D6, fog: false });
+    this.sunCore = new THREE.Mesh(new THREE.IcosahedronGeometry(0.016, 1), sunM); this.sunDisc.add(this.sunCore);
+    const rays = new THREE.Group(); for (let i = 0; i < 12; i++) { const m = new THREE.Mesh(new THREE.ConeGeometry(0.0035, 0.012, 3), sunM); const a = i / 12 * Math.PI * 2; m.position.set(Math.cos(a) * 0.022, Math.sin(a) * 0.022, 0); m.rotation.z = a - Math.PI / 2; rays.add(m); }
+    this.sunRays = rays; this.sunDisc.add(rays);
+    this.glowTex = glowTexture(); this.ringTex = ringTexture();
+    this.sunGlow = new THREE.Sprite(new THREE.SpriteMaterial({ map: this.glowTex, color: 0xFFE7B0, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false, fog: false }));
+    this.sunGlow.scale.setScalar(0.16); this.sunDisc.add(this.sunGlow);
+    this.sunDisc.traverse((o) => { o.renderOrder = -0.5; });
     this.scene.add(this.sunDisc);
+    // Linsenreflex: eigene Szene über dem Bild (Bildschirm-Koordinaten), additiv
+    this.flareScene = new THREE.Scene(); this.flareCam = new THREE.OrthographicCamera(-1, 1, 1, -1, -1, 1); this.flareVis = 0; this.occluder = null; this.occT = 0; this.occ = false;
+    this.flares = [[0, 0.5, 0, "#FFF2CF", 0.55], [0.32, 0.05, 0, "#ED6A5E", 0.35], [0.5, 0.11, 1, "#62929E", 0.35], [0.72, 0.035, 0, "#F2E6A0", 0.45], [1.0, 0.16, 1, "#C6C5B9", 0.22], [1.25, 0.07, 0, "#62929E", 0.3], [1.55, 0.24, 1, "#ED6A5E", 0.16], [1.8, 0.05, 0, "#FFF2CF", 0.25]]
+      .map((f) => { const m = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ map: f[2] ? this.ringTex : this.glowTex, color: f[3], transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthTest: false, depthWrite: false })); this.flareScene.add(m); return { m: m, t: f[0], s: f[1], o: f[4] }; });
     this.hemi = new THREE.HemisphereLight(0xBFD8F0, 0x4A4636, 1.0); this.scene.add(this.hemi);
     const s = this.sun = new THREE.DirectionalLight(0xFFFFFF, 2.4);
     s.castShadow = true; s.shadow.mapSize.set(2048, 2048);
     const sc = s.shadow.camera; sc.left = -90; sc.right = 90; sc.top = 90; sc.bottom = -90; sc.near = 1; sc.far = 700;
-    s.shadow.bias = -0.0004; s.shadow.normalBias = 0.6;
+    s.shadow.bias = -0.0003; s.shadow.normalBias = 0.5;
     this.scene.add(s); this.scene.add(s.target);
     this.scene.fog = new THREE.Fog(0xC4DCEC, 200, 1400);
     this.focusAt = new THREE.Vector3();
@@ -55,8 +79,8 @@ export class Engine {
     // Licht
     const warm = new THREE.Color(0xFFFFFF).lerp(new THREE.Color(0xFF9A50), 1 - k);
     if (night) { this.sun.color.set(0x8FA6D8); this.sun.intensity = 0.35; this.hemi.intensity = 0.35; this.hemi.color.set(0x41507A); this.hemi.groundColor.set(0x14161C); }
-    else { this.sun.color.copy(warm); this.sun.intensity = lerp(0.6, 2.5, kd * (0.3 + 0.7 * k)); this.hemi.intensity = lerp(0.45, 1.05, kd); this.hemi.color.copy(zen).lerp(new THREE.Color(0xFFFFFF), 0.45); this.hemi.groundColor.set(0x4A4636).lerp(new THREE.Color(0x1A1814), 1 - kd); }
-    this.sunDisc.visible = !night && up > -0.05; this.sunDisc.material.color.copy(warm).lerp(new THREE.Color(0xFFFFFF), 0.4);
+    else { this.sun.color.copy(warm); this.sun.intensity = lerp(0.6, 2.9, kd * (0.3 + 0.7 * k)); this.hemi.intensity = lerp(0.42, 0.85, kd); /* seit v0.21.1: mehr Sonne, weniger Umgebungslicht → deutlichere Schatten */ this.hemi.color.copy(zen).lerp(new THREE.Color(0xFFFFFF), 0.45); this.hemi.groundColor.set(0x4A4636).lerp(new THREE.Color(0x1A1814), 1 - kd); }
+    this.sunDisc.visible = !night && up > -0.05; this.sunCore.material.color.copy(warm).lerp(new THREE.Color(0xFFFFFF), 0.4); this.sunGlow.material.color.copy(warm).lerp(new THREE.Color(0xFFE7B0), 0.5); this.night = night || up < -0.02;
     const dens = this.env.fog / 100, far = this.env.view;
     this.scene.fog.color.copy(hor); this.scene.fog.near = lerp(far * 0.9, 40, dens); this.scene.fog.far = lerp(far * 1.2, far * 0.35 + 150, dens);
     this.camera.far = Math.max(600, far * 1.3); this.camera.updateProjectionMatrix();
@@ -72,6 +96,22 @@ export class Engine {
     const c = this.camera, r = c.far * 0.9;
     this.sky.position.copy(c.position); this.sky.scale.setScalar(r);
     this.sunDisc.position.copy(c.position).addScaledVector(this.sunDir, r * 0.95); this.sunDisc.scale.setScalar(r); this.sunDisc.lookAt(c.position);
+    this.sunRays.rotation.z = performance.now() * 0.00004;
+  }
+  // Linsenreflex (seit v0.21.1): Sonne im Bild und nicht verdeckt → Lichtflecken entlang der Linie Sonne → Bildmitte
+  flare() {
+    const c = this.camera, v = this.sunDisc.position.clone().project(c), front = c.getWorldDirection(new THREE.Vector3()).dot(this.sunDir) > 0;
+    let want = 0;
+    if (front && !this.night && this.sunDisc.visible && Math.abs(v.x) < 1.15 && Math.abs(v.y) < 1.15) {
+      const now = performance.now(); if (now - this.occT > 120) { this.occT = now; this.occ = this.occluder ? !!this.occluder(c.position, this.sunDir) : false; }
+      if (!this.occ) want = Math.max(0, 1 - Math.max(Math.abs(v.x), Math.abs(v.y)) / 1.15) * clamp(this.sunDir.y * 6, 0, 1);
+    }
+    this.flareVis = lerp(this.flareVis, want, want > this.flareVis ? 0.18 : 0.4);
+    if (this.flareVis < 0.01) return false;
+    const asp = c.aspect; this.flareCam.left = -asp; this.flareCam.right = asp; this.flareCam.updateProjectionMatrix();
+    const sx = v.x * asp, sy = v.y;
+    this.flares.forEach((f) => { const k = 1 - f.t; f.m.position.set(sx * k, sy * k, 0); f.m.scale.setScalar(f.s); f.m.material.opacity = f.o * this.flareVis; });
+    return true;
   }
   quality(q) {
     Object.assign(this.q, q);
@@ -85,7 +125,10 @@ export class Engine {
     this.renderer.setSize(w, h, false);
     this.camera.aspect = w / Math.max(1, h); this.camera.updateProjectionMatrix();
   }
-  render() { this.place(); this.renderer.render(this.scene, this.camera); }
+  render() {
+    this.place(); const r = this.renderer; r.render(this.scene, this.camera);
+    if (this.flare()) { r.autoClear = false; r.clearDepth(); r.render(this.flareScene, this.flareCam); r.autoClear = true; }
+  }
   dispose() {
     this.scene.traverse((o) => { if (o.geometry) o.geometry.dispose(); if (o.material) [].concat(o.material).forEach((m) => m.dispose()); });
     this.renderer.dispose(); this.renderer.domElement.remove();

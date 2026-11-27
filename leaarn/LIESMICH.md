@@ -213,6 +213,12 @@ Das Fach mit der ID `fremdsprache` heißt jetzt Spanisch (ID bleibt wegen Statis
 `src/kleidung.js`: 48 Formen (`FORMEN`, je Slot kopf/hals/ober/jacke/hose/schuhe) × 2 Varianten (`V`, Farben/Muster streifen, karo, tarn, block) = 96 Artikel mit IDs `kl_<form>_<n>` (nie umbenennen). Muster sind Teilkästen, keine Texturen. `koerper(look)` baut die Figur je Glied (player.js `figure`, Schaufensterpuppen über `puppeParts`). Getragen: `save.char.outfit` (Item-IDs), geändert mit F am Kleiderschrank (`src/outfit.js`). Läden: Regale/Ständer in houses.js mit `laden` kl-acc, kl-pulli, kl-mantel, kl-hose, kl-schuhe (shop.js).
 Steckbrief: großes Periodensystem `bigPse()` in learn.js.
 
+## Dächer, Säulen, Wandfarben, Pool (seit v0.21.1)
+Dach/Giebel: `rise` (Steigung je Zelle, 22,5° = tan 22,5°), `ridge` = Firststück (zwei halbe Schrägen zur Zellmitte, r gerade/ungerade = First-Richtung). Giebel f = 2 = Spitze. Säulen: obj mit `col` (eigener Platz „c“). 1/4-Wand: `quarter`. Geländer: Handlauf über die ganze Kante, Pfosten (`rposts`) an den Enden.
+Wandfarben: Index 7 eines Wandteils `[[Farbe, Stil] | null (Seite entlang der Kanten-Normale = außen), [Farbe, Stil] | null]`, Stile `WSTIL`, gebaut als dünne Farbschicht (`paintOver`). Werkzeug im Haus-Editor: Kategorie „paint“, Palette `PAL`.
+Pool: Bodenteil `pool`; `poolParts` baut Rand + Becken. Becken liegt unter dem Weltboden: Maske schreibt Stencil, `POOL_F` setzt dort die Tiefe zurück, dann Inneres und Wasser (Renderer mit `stencil: true`). Nicht begehbar (Kasten-Kollision).
+Licht: Gelände `castShadow`, Sonne in engine.js (Kern, Strahlen, Schein), Linsenreflex `flare()` mit Verdeckung über `world.sunBlocked`. Figur: `SCALE` 0,9 in player.js.
+
 ## Speicher im Browser
 
 `leaarn-scene-v1` (Map), `leaarn-save-v1` (Geld, Lernstatistik), `leaarn-houses-v1` (Häuser aus dem Haus-Editor),
