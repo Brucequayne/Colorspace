@@ -85,6 +85,7 @@ Raumschiff-Baukasten: Editor (Schiff und Raumstation), Testflug mit Kampf gegen 
 - **Sounds** (seit v0.58, `59-sound.js`): Noahs .mp3 unter `spacerogue-sounds/<bereich>/` (bisher `handwaffen/`). Seine Lautstärken nicht verändern; Stille am Anfang wird beim Abspielen übersprungen. Ordner `spacerogue-sounds` gehört mit ins Zip.
 
 ## Andere Apps (Kurzüberblick)
+- **PolyRunner** (seit v0.1, 27.11.2026): Parkour-Zeitfahren in 3D, Lader `polyrunner.js`, Module in `polyrunner/src/` (Three.js aus `polyracer/lib/`). Aufbau, Map-Format und Skelett in `polyrunner/LIESMICH.md`. Map Editor mit Code 282828; Noah schickt Level als `PolyRunner_<Name>.json` mit Nummer. Das echte Figurenmodell kommt später von Noah und bekommt das vorhandene Rig.
 - **Flughafen**: Flughafen-Aufbauspiel (v0.69: Wolkenschatten). Große Einzeldatei.
 - **Gigachess**, **Weltmacht**, **No Aim**, **CityGenerator**: Spiele.
 - **EZ Crop** (v0.2): Video im Browser auf 9:16 / 4:5 / 1:1 zuschneiden, Rahmen live mit der Maus führen, MP4-Export über WebCodecs + `mp4-muxer.js`.

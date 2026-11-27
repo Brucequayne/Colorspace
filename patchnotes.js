@@ -2,6 +2,25 @@
    Neueste Version jeweils oben. t = Zeitpunkt des Updates (deutsche Zeit).
    Die Versionsnummer auf den Kacheln kommt aus dem obersten Eintrag. */
 window.PATCHNOTES = {
+  polyrunner: [
+    { v: "0.1", t: "2026-11-27T08:00:00+01:00",
+      de: ["PolyRunner ist da: Parkour-Zeitfahren in minimalistischem 3D. Blauer Himmel mit Sonne und Tageszyklus, eine ruhige Ebene, graue Strukturen aus mattem Beton.",
+        "Hauptmenü mit Spielen (noch gesperrt), Map Editor (Zugangscode) und Einstellungen: Schatten, Auflösung, Mausempfindlichkeit, Sichtfeld, Kamera-Abstand, Maus umkehren.",
+        "Map Editor, Bauwerkzeug: Viereck, Dreieck, Kreis oder Hexagon frei auf den Boden zeichnen (kein Raster), loslassen und mit der Maus wie einen wachsenden Turm herausziehen, Klick setzt die Höhe. Auf Dächern geht es nach oben, an Wänden zieht die neue Struktur seitlich heraus.",
+        "Ecken und Kanten rasten an vorhandenen Strukturen ein, die Höhe rastet an den Höhen der Nachbarn ein. Zahl tippen gibt eine genaue Höhe, Strg zieht in 0,25-m-Schritten, Alt baut ganz frei, Q/E dreht die Form auf dem Boden.",
+        "Farbe: jede Struktur bekommt ihre eigene Füllfarbe aus einer Palette oder frei gewählt, Alt+Klick nimmt eine Farbe auf. Löschen, Rückgängig und Wiederholen.",
+        "Start, Ziel und ein eigener Test-Start: Testen startet am Test-Start, wenn einer gesetzt ist, sonst am Start. Die Zeit läuft ab der ersten Bewegung bis ins Ziel, Bestzeit und die 5 besten Zeiten werden gespeichert (nur Läufe vom echten Start).",
+        "Test-Runner: Low-Poly-Strichmännchen auf einem Skelett mit Standard-Knochennamen, damit später das echte Modell dasselbe Rig bekommt. Laufen, Sprinten, Springen, Rutschen, Ducken, Wallrun, Wandsprung (auch hin und her zwischen zwei Wänden), Wand hochlaufen, Hochziehen an Kanten, Abrollen nach hohen Sprüngen.",
+        "Export und Import der Map als .json-Datei, die Map wird außerdem automatisch im Browser gespeichert."],
+      en: ["PolyRunner is here: parkour time trials in minimalist 3D. A blue sky with a sun and a day cycle, a calm plane, grey structures of matte concrete.",
+        "Main menu with Play (still locked), map editor (access code) and settings: shadows, resolution, mouse sensitivity, field of view, camera distance, invert mouse.",
+        "Map editor, build tool: draw a rectangle, triangle, circle or hexagon freely on the ground (no grid), release and pull it out with the mouse like a growing tower, a click sets the height. On roofs it goes up, on walls the new structure pulls out sideways.",
+        "Corners and edges snap to existing structures, the height snaps to the heights of neighbours. Type a number for an exact height, Ctrl pulls in 0.25 m steps, Alt builds completely freely, Q/E rotates the shape on the ground.",
+        "Paint: every structure gets its own fill colour from a palette or picked freely, Alt+click picks up a colour. Erase, undo and redo.",
+        "Start, finish and a separate test start: Test starts at the test start if one is placed, otherwise at the start. The clock runs from the first move to the finish, the best time and the top 5 are saved (only runs from the real start).",
+        "Test runner: a low-poly stick figure on a skeleton with standard bone names, so the real model can get the same rig later. Run, sprint, jump, slide, crouch, wallrun, wall jump (also back and forth between two walls), run up walls, pull up on ledges, roll after high drops.",
+        "Export and import the map as a .json file, the map is also saved automatically in the browser."] }
+  ],
   wefx: [
     { v: "0.13", t: "2026-11-27T07:30:00+01:00",
       de: ["Neuer Effekt: Datamosh (I-Frame-Removal / P-Frame-Datamoshing). Ab einem Auslöser fehlt das Vollbild: Das alte Bild wird von den Bewegungsvektoren der neuen Szene weitergeschoben und gemorpht, Makroblock für Makroblock wie in einem echten Codec, nur ohne kaputte Datei.",
