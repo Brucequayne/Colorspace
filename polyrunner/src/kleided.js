@@ -5,7 +5,8 @@ import * as THREE from "three";
 import { t, addTexts, L2, el, esc, store, KEYS, clamp, damp, download } from "pru/core.js";
 import { Runner } from "pru/runner.js";
 import { Figur, loadFigur, cloneLook } from "pru/figur.js";
-import { newDesign, cloneDesign, CLOTHC } from "pru/kleidung.js";
+import { newDesign, cloneDesign, designList, CLOTHC } from "pru/kleidung.js";
+import { MalEd } from "pru/malen.js";
 import { charCSS } from "pru/chared.js";
 import { PunktEd } from "pru/punkte.js";
 
@@ -17,7 +18,7 @@ addTexts({
   kStiffLo: L2("dehnbar", "stretchy"), kStiffHi: L2("straff", "firm"),
   kRings: L2("Ringe", "Rings"), kSel: L2("Gewählter Ring", "Selected ring"), kAdd: L2("+ Ring", "+ Ring"), kRem: L2("Ring entfernen", "Remove ring"),
   kLen: L2("Position / Länge", "Position / length"), kEase: L2("Weite (eng ↔ locker)", "Width (tight ↔ loose)"), kDepth: L2("Ausschnitt-Tiefe (− = Kragen)", "Neckline depth (− = collar)"), kNW: L2("Ausschnitt-Breite", "Neckline width"),
-  kArm: L2("Armausschnitt", "Armhole"),
+  kArm: L2("Armausschnitt", "Armhole"), kRough: L2("Stoff-Roughness (100 % = matt)", "Fabric roughness (100 % = matt)"), kMetal: L2("Stoff-Metallic", "Fabric metallic"), kEdit: L2("Bearbeiten", "Edit"),
   r_neck: L2("Hals", "Neck"), r_hem: L2("Saum (Hüfte)", "Hem (hips)"), r_torso: L2("Rumpf-Ring {n}", "Body ring {n}"), r_sleeve: L2("Ärmel-Ring {n}", "Sleeve ring {n}"), r_send: L2("Ärmelende", "Sleeve end"),
   r_waist: L2("Bund", "Waistband"), r_leg: L2("Bein-Ring {n}", "Leg ring {n}"), r_lend: L2("Beinöffnung", "Leg opening"),
   kOther: L2("Restliche Kleidung zeigen", "Show the other clothes"), kHair: L2("Haare zeigen", "Show hair"), kRingsShow: L2("Ringe zeigen", "Show rings"),
@@ -33,6 +34,7 @@ const CSS = `
 .pru-klist{display:flex;flex-direction:column;gap:3px;max-height:150px;overflow:auto}.pru-klist button{display:flex!important;align-items:center;gap:8px;text-align:left}.pru-klist i{width:14px;height:14px;border:1px solid rgba(0,0,0,.4);flex:none}.pru-klist small{margin-left:auto;opacity:.6;font-weight:500}
 .pru-rl{display:flex;flex-direction:column;gap:3px}.pru-rl button{text-align:left}
 .pru-lr{display:flex;justify-content:space-between;color:#8A8E96;font-size:11px;margin-top:-4px}
+.pru-mtools{display:grid;grid-template-columns:repeat(5,1fr);gap:3px}.pru-mtools button{display:flex!important;flex-direction:column;align-items:center;gap:2px;padding:5px 2px!important;font-size:9.5px!important;line-height:1.1}.pru-mtools svg{width:20px;height:20px}
 .pru-kinfo{position:absolute;left:50%;top:14px;transform:translateX(-50%);background:rgba(20,21,24,.86);padding:7px 12px;font-weight:700;font-variant-numeric:tabular-nums;pointer-events:none!important}.pru-kinfo[hidden]{display:none}
 `;
 const ANIMS = { idle: 0, walk: 1.4, run: 4.2, sprint: 7.2 };
@@ -47,7 +49,7 @@ export class KleidEd {
     this.world.group.visible = false; this.markVis = Object.values(this.world.markers).map((m) => { const v = m.visible; m.visible = false; return [m, v]; });
     this.envOld = Object.assign({}, this.engine.env); this.engine.setEnv({ time: 15.2, cycle: false });
     const ui = store.get(KEYS.ui, {});
-    this.designs = (store.get(KEYS.kleider, []) || []).map(cloneDesign);
+    this.designs = designList();
     this.cur = this.designs.find((d) => d.id === ui.kid) || this.designs[0] || null;
     this.mode = "ringe"; this.sel = null; this.anim = "idle"; this.view = "top"; this.opt = Object.assign({ other: true, hair: true, rings: true }, ui.kopt || {});
     this.cam = Object.assign({ yaw: 0.45 }, VIEWS.top); this.camT = Object.assign({}, this.cam);
@@ -55,13 +57,13 @@ export class KleidEd {
     this.runner = new Runner(this.engine.scene); this.runner.setVisible(false); this.runner.world = FAKEWORLD;
     this.state = { mode: "idle", speed: 0, acc: 0, lat: 0, land: 0, moveRel: 0, turning: false, back: false, jumpId: 0, jumpBoth: false, twist: 0, vy: 0, airT: 0 };
     this.wind = new THREE.Vector3(); this.rings = new THREE.Group(); this.engine.scene.add(this.rings); this.ringObjs = [];
-    this.pe = new PunktEd(this);
+    this.pe = new PunktEd(this); this.ma = new MalEd(this);
     this.buildUI(); this.bind();
     loadFigur().then((d) => { if (this.dead) return; this.fig = new Figur(this.engine.scene, d, this.figLook()); this.$("#pru-cload").hidden = true; }).catch((e) => { this.$("#pru-cload").textContent = String(e && e.message); });
   }
   // Figur trägt den aktuellen Entwurf (+ auf Wunsch das andere getragene Teil), Haare auf Wunsch
   figLook() {
-    const pm = this.mode === "punkte", L = cloneLook(this.look); if (!this.opt.hair || pm) L.hair = { groups: L.hair.groups, roots: [] };
+    const pm = this.mode !== "ringe", L = cloneLook(this.look); if (!this.opt.hair || pm) L.hair = { groups: L.hair.groups, roots: [] };
     const w = { top: this.opt.other && !pm ? L.wear.top : null, bottom: this.opt.other && !pm ? L.wear.bottom : null };
     if (this.cur) w[this.cur.kind === "bottom" ? "bottom" : "top"] = this.cur;
     L.wear = w; return L;
@@ -101,10 +103,12 @@ export class KleidEd {
       "<h4>" + t("kName") + '</h4><input type="text" data-kn="1" maxlength="40" value="' + esc(D.name) + '">' +
       "<h4>" + t("kFabric") + '</h4><div class="pru-sws">' + CLOTHC.map((c) => '<button class="pru-sw" style="background:' + c + '" data-kc="' + c + '" aria-pressed="' + (c.toLowerCase() === D.color.toLowerCase()) + '"></button>').join("") + '<label class="pru-sw pru-cust" title="' + t("cCustom") + '"><input type="color" data-kci="1" value="' + D.color + '"></label></div>' +
       rng("thick", t("kThick"), 0.3, 8, 0.1, D.thick, (v) => v.toFixed(1) + " mm") +
-      rng("stiff", t("kStiff"), 0, 1, 0.01, D.stiff, (v) => pct(v) + " %") + '<div class="pru-lr"><span>' + t("kStiffLo") + "</span><span>" + t("kStiffHi") + "</span></div>";
+      rng("stiff", t("kStiff"), 0, 1, 0.01, D.stiff, (v) => pct(v) + " %") + '<div class="pru-lr"><span>' + t("kStiffLo") + "</span><span>" + t("kStiffHi") + "</span></div>" +
+      rng("rough", t("kRough"), 0.05, 1, 0.01, D.rough == null ? 0.86 : D.rough, (v) => pct(v) + " %") + rng("metal", t("kMetal"), 0, 1, 0.01, D.metal || 0, (v) => pct(v) + " %");
     if (D.kind !== "bottom") h += rng("arm", t("kArm"), 0, 0.06, 0.001, D.arm, (v) => Math.round(v * 1000) + " mm");
-    h += '<h4>' + t("kRings") + " / " + t("pTitle") + '</h4><div class="pru-seg"><button data-km="ringe" aria-pressed="' + (this.mode !== "punkte") + '">' + t("pRings") + '</button><button data-km="punkte" aria-pressed="' + (this.mode === "punkte") + '">' + t("pTitle") + "</button></div>";
+    h += '<h4>' + t("kEdit") + '</h4><div class="pru-seg">' + [["ringe", t("pRings")], ["punkte", t("pTitle")], ["malen", t("mTitle")]].map(([k, l]) => '<button data-km="' + k + '" aria-pressed="' + (this.mode === k) + '">' + l + "</button>").join("") + "</div>";
     if (this.mode === "punkte") { this.$("#pru-kbody").innerHTML = h + this.pe.html(); return; }
+    if (this.mode === "malen") { this.$("#pru-kbody").innerHTML = h + this.ma.html(); return; }
     if (D.mesh) { this.$("#pru-kbody").innerHTML = h + "<p>" + t("pOwn") + '</p><div class="pru-col"><button data-pe="discard">' + t("pDiscard") + "</button></div>"; return; }
     h += '<div class="pru-rl" style="margin-top:6px">' + this.ringList().map((r) => '<button data-kr="' + r.k + "|" + (r.i || 0) + '" aria-pressed="' + this.same(r, this.sel) + '">' + r.lab + "</button>").join("") + "</div>";
     const S = this.sel && this.ringRef(this.sel);
@@ -123,7 +127,7 @@ export class KleidEd {
     this.$("#pru-kbody").innerHTML = h;
     function rng(key, lab, min, max, step, val, f) { return "<h4>" + lab + ' <em data-kout="' + key + '">' + f(val) + '</em></h4><input type="range" data-ks="' + key + '" min="' + min + '" max="' + max + '" step="' + step + '" value="' + val + '">'; }
   }
-  fmtOut(key, v) { return key === "thick" ? v.toFixed(1) + " mm" : key === "stiff" || key === "r.w" ? Math.round(v * 100) + " %" : key === "arm" || key === "r.d" ? Math.round(v * 1000) + " mm" : key === "r.ease" ? (v * 1000).toFixed(1) + " mm" : Math.round(v * 100) + " cm"; }
+  fmtOut(key, v) { return key === "thick" ? v.toFixed(1) + " mm" : key === "stiff" || key === "r.w" || key === "rough" || key === "metal" ? Math.round(v * 100) + " %" : key === "arm" || key === "r.d" ? Math.round(v * 1000) + " mm" : key === "r.ease" ? (v * 1000).toFixed(1) + " mm" : Math.round(v * 100) + " cm"; }
   ringRef(s) { const D = this.cur; if (!D || !s) return null; if (s.k === "neck") return D.neck; if (s.k === "waist") return D.waist; const L = D[s.k]; return L ? L[s.i] : null; }
   coordKey(s) { return s.k === "torso" || s.k === "waist" ? "y" : s.k === "sleeve" ? "t" : s.k === "leg" ? "L" : "d"; }
   limits(s) {
@@ -144,7 +148,7 @@ export class KleidEd {
   }
   save() { store.set(KEYS.kleider, this.designs); const u = store.get(KEYS.ui, {}); u.kid = this.cur && this.cur.id; u.kopt = this.opt; store.set(KEYS.ui, u); }
   apply() { if (this.fig) { this.fig.setLook(this.figLook()); } this.dirty = false; this.lastApply = performance.now(); }
-  select(d) { this.cur = d; this.sel = null; this.mode = "ringe"; this.pe.sel.clear(); this.pe.undo = []; this.pe.g.visible = false; this.save(); this.render(); if (this.fig) this.fig.setLook(this.figLook()); if (d) { this.view = d.kind === "bottom" ? "legs" : "top"; Object.assign(this.camT, VIEWS[this.view]); this.syncButtons(); } }
+  select(d) { this.cur = d; this.sel = null; this.mode = "ringe"; this.pe.sel.clear(); this.pe.undo = []; this.ma.undo = []; this.ma.leave(); this.pe.g.visible = false; this.save(); this.render(); if (this.fig) this.fig.setLook(this.figLook()); if (d) { this.view = d.kind === "bottom" ? "legs" : "top"; Object.assign(this.camT, VIEWS[this.view]); this.syncButtons(); } }
   addRing() {
     const D = this.cur, s = this.sel; if (!s || s.k === "neck" || s.k === "waist") return;
     const L = D[s.k], key = this.coordKey(s), i = s.i, r = L[i];
@@ -166,9 +170,13 @@ export class KleidEd {
       else if (b.dataset.k) this.action(b.dataset.k);
       else if (b.dataset.km) this.setMode(b.dataset.km);
       else if (b.dataset.pe) this.pe.cmd(b.dataset.pe);
+      else if (b.dataset.mt) this.ma.tool(b.dataset.mt);
+      else if (b.dataset.mc) this.ma.colorPick(b.dataset.mc);
+      else if (b.dataset.ma) this.ma.cmd(b.dataset.ma);
     });
     this.root.addEventListener("input", (e) => {
       const i = e.target, D = this.cur; if (!D) return;
+      if (i.dataset.mo) { this.ma.input(i); return; }
       if (i.dataset.po || i.dataset.pi) { if (i.dataset.pi && e.type === "input") return; this.pe.input(i); return; }
       if (i.dataset.kn) { D.name = i.value || "?"; clearTimeout(this.saveT); this.saveT = setTimeout(() => { this.save(); this.render(); }, 600); return; }
       if (i.dataset.kci) { D.color = i.value; this.changed(false); return; }
@@ -186,6 +194,7 @@ export class KleidEd {
       down: (e) => {
         e.preventDefault(); const ray = this.ray(e);
         if (this.mode === "punkte") { if (this.pe.down(e)) return; this.drag = { b: e.button, x: e.clientX, y: e.clientY }; return; }
+        if (this.mode === "malen") { if (this.ma.down(e)) return; this.drag = { b: e.button, x: e.clientX, y: e.clientY }; return; }
         if (e.button === 0 && this.cur && this.fig) {
           // 1. Ring getroffen? → Ring ziehen
           if (this.opt.rings && this.ringObjs.length) { rc.ray.copy(ray); rc.params.Line.threshold = 0.012 * (this.cam.dist / 1.2); const h = rc.intersectObjects(this.ringObjs, false)[0]; if (h) { this.sel = h.object.userData.ref; this.render(); this.ringDrag = { x: e.clientX, y: e.clientY, dist: h.distance }; return; } }
@@ -197,6 +206,7 @@ export class KleidEd {
       },
       move: (e) => {
         if (this.mode === "punkte" && this.pe.move(e)) return;
+        if (this.mode === "malen" && this.ma.move(e)) return;
         if (this.ringDrag) {
           const dx = e.clientX - this.ringDrag.x, dy = e.clientY - this.ringDrag.y; this.ringDrag.x = e.clientX; this.ringDrag.y = e.clientY;
           const cam = this.engine.camera, wpp = 2 * this.ringDrag.dist * Math.tan(cam.fov * Math.PI / 360) / Math.max(1, this.cv.clientHeight);
@@ -213,7 +223,7 @@ export class KleidEd {
         if (this.drag.b === 0) { this.camT.yaw -= dx * 0.008; this.camT.pitch = clamp(this.camT.pitch + dy * 0.006, -0.6, 1.2); }
         else this.camT.ty = clamp(this.camT.ty + dy * 0.002 * this.camT.dist, 0.1, 1.6);
       },
-      up: () => { if (this.mode === "punkte" && this.pe.up()) { this.drag = null; return; } this.drag = null; if (this.ringDrag) { this.ringDrag = null; this.render(); } if (this.grab) { this.grab.C.release(); this.grab = null; this.$("#pru-kinfo").hidden = true; } },
+      up: () => { if (this.mode === "punkte" && this.pe.up()) { this.drag = null; return; } if (this.mode === "malen" && this.ma.up()) { this.drag = null; return; } this.drag = null; if (this.ringDrag) { this.ringDrag = null; this.render(); } if (this.grab) { this.grab.C.release(); this.grab = null; this.$("#pru-kinfo").hidden = true; } },
       wheel: (e) => { e.preventDefault(); this.camT.dist = clamp(this.camT.dist * Math.exp(e.deltaY * 0.0012), 0.35, 6); },
       ctx: (e) => e.preventDefault()
     };
@@ -246,6 +256,7 @@ export class KleidEd {
   key(e) {
     if (e.target && /INPUT|TEXTAREA/.test(e.target.tagName) && e.target.type !== "range" && e.target.type !== "checkbox") return false;
     if (this.mode === "punkte" && this.pe.key(e)) return true;
+    if (this.mode === "malen" && this.ma.key(e)) return true;
     if (e.key === "Escape") { this.app.go("char"); return true; }
     if ((e.key === "+" || e.code === "NumpadAdd") && this.sel) { this.addRing(); return true; }
     if ((e.key === "Delete" || e.key === "Backspace") && this.sel) { this.remRing(); return true; }
@@ -293,7 +304,7 @@ export class KleidEd {
     S.speed = damp(S.speed, v, 3.5, dt); S.mode = S.speed > 0.05 || v > 0 ? "run" : "idle";
     this.runner.place(new THREE.Vector3(0, 0, 0), 0); this.runner.update(dt, S);
     if (this.dirty && (!this.lastApply || performance.now() - this.lastApply > 110)) this.apply();
-    if (this.fig && this.mode === "punkte") { this.ringObjs.forEach((o) => { this.rings.remove(o); o.geometry.dispose(); }); this.ringObjs = []; this.pe.frame(); }
+    if (this.fig && this.mode !== "ringe") { this.ringObjs.forEach((o) => { this.rings.remove(o); o.geometry.dispose(); }); this.ringObjs = []; if (this.mode === "punkte") this.pe.frame(); else { this.pe.g.visible = false; this.ma.frame(); } }
     else if (this.fig) {
       this.fig.follow(this.runner); this.wind.set(0, 0, -S.speed); this.fig.simulate(dt, this.wind);
       // Ringe neu (Ruhezustand: Schleifen folgen dem Stoff)
@@ -310,8 +321,9 @@ export class KleidEd {
   // Ringe ↔ Punkte
   setMode(m) {
     if (m === "punkte" && this.cur && !this.cur.mesh && this.fig) { this.mode = "punkte"; if (!this.pe.take()) { this.mode = "ringe"; this.render(); return; } }
-    this.mode = m === "punkte" && this.cur ? "punkte" : "ringe";
-    if (this.mode === "punkte") { this.pe.prep(); this.anim = "idle"; this.syncButtons(); this.pe.commit(false); } else { this.pe.g.visible = false; if (this.fig) this.fig.setLook(this.figLook()); }
+    this.mode = (m === "punkte" || m === "malen") && this.cur ? m : "ringe"; this.ma.leave();
+    if (this.mode === "punkte") { this.pe.prep(); this.anim = "idle"; this.syncButtons(); this.pe.commit(false); }
+    else { this.pe.g.visible = false; if (this.mode === "malen") { this.anim = "idle"; this.syncButtons(); } if (this.fig) this.fig.setLook(this.figLook()); }
     this.render();
   }
   dispose() {

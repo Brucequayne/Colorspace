@@ -9,14 +9,14 @@ import * as THREE from "three";
 import { PRU } from "pru/core.js";
 import { BONES, HIP_H } from "pru/runner.js";
 import { Hair, cloneHair } from "pru/haare.js";
-import { Cloth, cloneDesign } from "pru/kleidung.js";
+import { Cloth, cloneDesign, BASE_BOTTOM } from "pru/kleidung.js";
 
 export const LOOK_DEFAULT = {
   v: 1,
   skin: "#F2CBAE",
   eyes: { type: "glanz", iris: "#3F7CAC", size: 1, pupil: 1, shine: true },
   brows: { type: "bogen", color: "#3B2A22", size: 1, thick: 1, y: 0, gap: 0, tilt: 0 },
-  wear: { top: null, bottom: null },   // getragene Kleidungsstücke (Entwürfe aus dem Kleidungs-Editor, als Kopie)
+  wear: { top: null, bottom: null },   // getragene Kleidungsstücke (Entwürfe aus dem Kleidungs-Editor, als Kopie); ganz neuer Look (ohne wear) trägt seit v0.20 die Badehose
   hair: { groups: [{ id: 1, len: 0.14, type: "glatt", color: "#3B2A22", thick: 1 }], roots: [] }
 };
 export const SKINS = ["#FBE6D6", "#F2CBAE", "#E6B38E", "#CF9670", "#A86E4C", "#7A4D33", "#4E3122"];
@@ -26,7 +26,7 @@ export const EYE_TYPES = ["glanz", "rund", "schlitz", "stern", "ring", "raute", 
 export const BROW_TYPES = ["bogen", "gerade", "duenn", "kraeftig", "wuetend", "besorgt", "kurz"];
 export function cloneLook(l) {
   const d = LOOK_DEFAULT, o = l || {};
-  return { v: 1, skin: o.skin || d.skin, eyes: Object.assign({}, d.eyes, o.eyes || {}), brows: Object.assign({}, d.brows, o.brows || {}), wear: { top: o.wear && o.wear.top ? cloneDesign(o.wear.top) : null, bottom: o.wear && o.wear.bottom ? cloneDesign(o.wear.bottom) : null }, hair: cloneHair(o.hair || d.hair) };
+  return { v: 1, skin: o.skin || d.skin, eyes: Object.assign({}, d.eyes, o.eyes || {}), brows: Object.assign({}, d.brows, o.brows || {}), wear: o.wear ? { top: o.wear.top ? cloneDesign(o.wear.top) : null, bottom: o.wear.bottom ? cloneDesign(o.wear.bottom) : null } : { top: null, bottom: cloneDesign(BASE_BOTTOM) }, hair: cloneHair(o.hair || d.hair) };
 }
 
 // ---------- Modelldatei laden (einmal, dann zwischengespeichert) ----------

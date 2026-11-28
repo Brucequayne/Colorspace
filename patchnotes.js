@@ -3,6 +3,23 @@
    Die Versionsnummer auf den Kacheln kommt aus dem obersten Eintrag. */
 window.PATCHNOTES = {
   polyrunner: [
+    { v: "0.20", t: "2026-11-28T06:05:00+01:00",
+      de: ["Deine Badehose aus dem Punkt-Editor ist jetzt die Grundform: Jede neue Hose („+ Hose“) startet als Kopie davon. Beim ersten Start liegt sie als „Badehose“ in den Entwürfen, und ein neuer Charakter trägt sie.",
+        "Neu im Kleidungs-Editor: Malen (Stoffpinsel). Umschalter „Ringe / Punkte / Malen“. Gemalt wird nicht in Pixeln, sondern mit Formen – alles bleibt scharf, auch ganz nah, und läuft beim Rennen mit dem Stoff mit.",
+        "Werkzeuge: Pinsel rund und eckig, Radierer, Linie, Streifen (1–6 nebeneinander), Zickzack, Punkte, Pfeil (jeweils von A nach B ziehen), Stempel Kreis, Ring, Quadrat, Dreieck, Stern, Raute (klicken, mit Drehung) und Fülleimer (ganzer Stoff).",
+        "Je Strich einstellbar: Farbe, Größe, Weichheit der Kante, Roughness und Metallic. Symmetrie spiegelt jeden Strich auf die andere Seite. Rückgängig mit Strg+Z, „Alles abmalen“ entfernt alle Striche.",
+        "Stoff hat jetzt auch Roughness und Metallic (Regler unter Stoff, oder per Fülleimer). Metallic spiegelt eine kleine Umgebung, statt schwarz zu wirken.",
+        "Die Bemalung gehört zum Kleidungsstück und wird mit exportiert.",
+        "Punkt-Editor: „Kante ausfahren“ (Taste E). Punkte an einer offenen Kante wählen (z. B. Beinöffnung), dann wächst dort eine neue Reihe Stoff heraus – mehrmals hintereinander wird aus der Badehose eine Shorts oder lange Hose. Länge einstellbar.",
+        "Punkt-Editor: „Lockerheit der Auswahl“ – 0 % sitzt fest auf der Haut, höher hängt der Stoff lockerer und schwingt beim Laufen (für weite Hosenbeine)."],
+      en: ["Your swim briefs from the point editor are now the base shape: every new pair of bottoms starts as a copy. On first start they are in the designs as “Badehose”, and a new character wears them.",
+        "New in the clothing editor: Paint (fabric brush). Switch “Rings / Points / Paint”. Painting uses shapes instead of pixels – everything stays sharp up close and moves with the fabric while running.",
+        "Tools: round and square brush, eraser, line, stripes (1–6 side by side), zigzag, dots, arrow (drag from A to B), stamps circle, ring, square, triangle, star, diamond (click, with rotation) and bucket (whole fabric).",
+        "Per stroke: colour, size, edge softness, roughness and metallic. Symmetry mirrors every stroke to the other side. Undo with Ctrl+Z, “Clear paint” removes all strokes.",
+        "Fabric now has roughness and metallic too (sliders under fabric, or via bucket). Metallic reflects a small environment instead of looking black.",
+        "The paint belongs to the garment and is exported with it.",
+        "Point editor: “Extrude edge” (key E). Select points on an open edge (e.g. the leg opening) and a new row of fabric grows out – repeat to turn the briefs into shorts or long trousers. Length adjustable.",
+        "Point editor: “Looseness of the selection” – 0 % sits fixed on the skin, higher lets the fabric hang looser and swing while running (for wide legs)."] },
     { v: "0.19", t: "2026-11-28T05:45:00+01:00",
       de: ["Neu im Kleidungs-Editor: Punkt-Editor. Umschalter „Ringe / Punkte“: Das Kleidungsstück wird als eigenes Netz übernommen, alle Punkte und Kanten sind sichtbar und lassen sich einzeln bearbeiten.",
         "Auswählen: Klick wählt einen Punkt, Shift+Klick fügt hinzu oder nimmt weg, Shift+Ziehen zieht einen Rahmen. Dazu „Alles wählen“, „Alles abwählen“ und „Auswahl erweitern“.",

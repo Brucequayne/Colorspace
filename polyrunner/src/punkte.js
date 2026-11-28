@@ -15,16 +15,18 @@ addTexts({
   pSel: L2("{n} Punkte gewählt", "{n} points selected"), pPos: L2("Position (Mitte der Auswahl, mm)", "Position (centre of selection, mm)"),
   pSym: L2("Symmetrie (links = rechts)", "Symmetry (left = right)"), pSkin: L2("Auf die Haut legen", "Stick to the skin"), pSoft: L2("Weiche Auswahl", "Soft selection"),
   pNone: L2("Alles abwählen", "Select none"), pAll: L2("Alles wählen", "Select all"), pDel: L2("Löschen", "Delete"), pSub: L2("Unterteilen", "Subdivide"), pUndo: L2("Rückgängig", "Undo"),
-  pGrow: L2("Auswahl erweitern", "Grow selection"),
-  pHint: L2("Klick: Punkt wählen · Shift+Klick: dazu/weg · Shift+Ziehen: Rahmen · Pfeile ziehen: verschieben (rot X, grün Y, blau Z) · Entf: löschen · Strg+Z: rückgängig · daneben ziehen: drehen",
-    "Click: select point · Shift+click: add/remove · Shift+drag: box · drag arrows: move (red X, green Y, blue Z) · Del: delete · Ctrl+Z: undo · drag beside: orbit"),
+  pGrow: L2("Auswahl erweitern", "Grow selection"), pExt: L2("Kante ausfahren", "Extrude edge"), pExtLen: L2("Ausfahr-Länge", "Extrude length"),
+  pExtNo: L2("Wähle Punkte an einer offenen Kante (Bund, Beinöffnung), dann „Kante ausfahren“.", "Select points on an open edge (waistband, leg opening), then “Extrude edge”."),
+  pPin: L2("Lockerheit der Auswahl (0 % = fest auf der Haut)", "Looseness of the selection (0 % = fixed to the skin)"),
+  pHint: L2("Klick: Punkt wählen · Shift+Klick: dazu/weg · Shift+Ziehen: Rahmen · Pfeile ziehen: verschieben (rot X, grün Y, blau Z) · E: Kante ausfahren · Entf: löschen · Strg+Z: rückgängig · daneben ziehen: drehen",
+    "Click: select point · Shift+click: add/remove · Shift+drag: box · drag arrows: move (red X, green Y, blue Z) · E: extrude edge · Del: delete · Ctrl+Z: undo · drag beside: orbit"),
   pCount: L2("{n} Punkte, {t} Dreiecke", "{n} points, {t} triangles")
 });
 
 const AX = [[1, 0, 0, 0xE5484D], [0, 1, 0, 0x46A758], [0, 0, 1, 0x3E8EF7]];
 export class PunktEd {
   constructor(ed) {
-    this.ed = ed; this.sel = new Set(); this.undo = []; this.o = { sym: true, skin: true, soft: 0 };
+    this.ed = ed; this.sel = new Set(); this.undo = []; this.o = { sym: true, skin: true, soft: 0, ext: 0.02 };
     this.g = new THREE.Group(); this.g.visible = false; ed.engine.scene.add(this.g);
     this.pts = new THREE.Points(new THREE.BufferGeometry(), new THREE.PointsMaterial({ size: 6, sizeAttenuation: false, vertexColors: true, depthTest: true }));
     this.wire = new THREE.LineSegments(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: 0xECEAE4, transparent: true, opacity: 0.35 }));
@@ -74,11 +76,14 @@ export class PunktEd {
     const c = this.center(), M = D.mesh, mm = (v) => Math.round(v * 1000);
     return "<p>" + t("pOwn") + " " + t("pCount").replace("{n}", M.pos.length / 3).replace("{t}", M.tris.length / 3) + "</p>" +
       "<h4>" + t("pSel").replace("{n}", this.sel.size) + "</h4>" +
-      (this.sel.size ? "<h4>" + t("pPos") + '</h4><div class="pru-hrow">' + ["x", "y", "z"].map((k, i) => '<input type="number" step="1" data-pi="' + k + '" value="' + mm(c.getComponent(i)) + '" style="width:33%;background:#1B1C1F;color:#ECEAE4;border:1px solid #3A3D42;padding:5px">').join("") + "</div>" : "") +
+      (this.sel.size ? "<h4>" + t("pPos") + '</h4><div class="pru-hrow">' + ["x", "y", "z"].map((k, i) => '<input type="number" step="1" data-pi="' + k + '" value="' + mm(c.getComponent(i)) + '" style="width:33%;background:#1B1C1F;color:#ECEAE4;border:1px solid #3A3D42;padding:5px">').join("") + "</div>" +
+        "<h4>" + t("pPin") + ' <em data-pout="pin">' + Math.round((1 - this.pinAvg()) * 100) + ' %</em></h4><input type="range" data-pi="pin" min="0" max="0.95" step="0.01" value="' + (1 - this.pinAvg()).toFixed(2) + '">' : "") +
       '<label class="pru-chk"><input type="checkbox" data-po="sym"' + (this.o.sym ? " checked" : "") + "> " + t("pSym") + "</label>" +
       '<label class="pru-chk"><input type="checkbox" data-po="skin"' + (this.o.skin ? " checked" : "") + "> " + t("pSkin") + "</label>" +
       "<h4>" + t("pSoft") + ' <em data-pout="soft">' + Math.round(this.o.soft * 1000) + ' mm</em></h4><input type="range" data-po="soft" min="0" max="0.08" step="0.001" value="' + this.o.soft + '">' +
       '<div class="pru-hrow"><button data-pe="none">' + t("pNone") + '</button><button data-pe="all">' + t("pAll") + '</button></div><div class="pru-hrow"><button data-pe="grow">' + t("pGrow") + '</button><button data-pe="sub"' + (this.sel.size ? "" : " disabled") + ">" + t("pSub") + "</button></div>" +
+      "<h4>" + t("pExtLen") + ' <em data-pout="ext">' + Math.round(this.o.ext * 1000) + ' mm</em></h4><input type="range" data-po="ext" min="0.005" max="0.08" step="0.001" value="' + this.o.ext + '">' +
+      '<div class="pru-col"><button data-pe="ext"' + (this.sel.size ? "" : " disabled") + ">" + t("pExt") + "</button></div>" +
       '<div class="pru-hrow"><button data-pe="del"' + (this.sel.size ? "" : " disabled") + ">" + t("pDel") + '</button><button data-pe="undo"' + (this.undo.length ? "" : " disabled") + ">" + t("pUndo") + "</button></div>" +
       '<div class="pru-col"><button data-pe="discard">' + t("pDiscard") + "</button></div><p>" + t("pHint") + "</p>";
   }
@@ -91,11 +96,17 @@ export class PunktEd {
     else if (a === "grow") { const add = []; for (let t2 = 0; t2 < M.tris.length; t2 += 3) { const tr = [M.tris[t2], M.tris[t2 + 1], M.tris[t2 + 2]]; if (tr.some((i) => this.sel.has(i))) add.push(...tr); } add.forEach((i) => this.sel.add(i)); }
     else if (a === "del") { this.push(); this.del(); }
     else if (a === "sub") { this.push(); this.subdivide(); }
+    else if (a === "ext") { this.push(); if (!this.extrude()) { this.undo.pop(); this.ed.app.toast(t("pExtNo")); return; } }
     else if (a === "undo") { this.popUndo(); return; }
     this.commit(true);
   }
   input(i) {
-    if (i.dataset.po) { this.o[i.dataset.po] = i.type === "checkbox" ? i.checked : +i.value; const o = this.ed.root.querySelector('[data-pout="' + i.dataset.po + '"]'); if (o) o.textContent = Math.round(this.o.soft * 1000) + " mm"; this.colors(); return; }
+    if (i.dataset.po) { this.o[i.dataset.po] = i.type === "checkbox" ? i.checked : +i.value; const o = this.ed.root.querySelector('[data-pout="' + i.dataset.po + '"]'); if (o) o.textContent = Math.round(this.o[i.dataset.po] * 1000) + " mm"; this.colors(); return; }
+    if (i.dataset.pi === "pin" && this.sel.size) {
+      // Lockerheit: 0 % = sitzt fest auf der Haut (wie bisher), höher = der Stoff hängt lockerer und schwingt mehr
+      const M = this.D().mesh, v = Math.round((1 - +i.value) * 1000) / 1000, S = new Set(this.sel); if (this.o.sym) [...S].forEach((j) => { const m = this.mir[j]; if (m >= 0) S.add(m); });
+      this.push(); S.forEach((j) => { M.pin[j] = v; }); M.rev = (M.rev || 0) + 1; this.commit(true); return;
+    }
     if (i.dataset.pi && this.sel.size) {
       const k = "xyz".indexOf(i.dataset.pi), c = this.center(), d = new THREE.Vector3(); d.setComponent(k, (+i.value) / 1000 - c.getComponent(k));
       this.push(); this.beginMove(); this.moveBy(d); this.endMove();
@@ -140,6 +151,31 @@ export class PunktEd {
     M.pos = pos2; M.src = src2; M.pin = pin2; M.tris = tris.map((i) => map2[i]);
     M.extra = (M.extra || []).map((i) => (map[i] >= 0 ? map2[map[i]] : -1)).filter((i) => i >= 0);
     M.rev = (M.rev || 0) + 1; this.sel.clear(); this.prep();
+  }
+  pinAvg() { const M = this.D().mesh; let s = 0; this.sel.forEach((i) => { s += M.pin[i]; }); return this.sel.size ? s / this.sel.size : 0.98; }
+  // Kante ausfahren: offene Kanten zwischen gewählten Punkten bekommen eine neue Reihe Punkte nach außen (weg vom Stoff, entlang der Haut),
+  // die neue Reihe ist danach gewählt → mit den Pfeilen weiterziehen oder nochmal ausfahren (z. B. Badehose → Shorts → lange Hose)
+  extrude() {
+    const M = this.D().mesh, P = M.pos, T = M.tris, sel = new Set(this.sel); if (this.o.sym) [...sel].forEach((i) => { const m = this.mir[i]; if (m >= 0) sel.add(m); });
+    const E = new Map(); for (let t2 = 0; t2 < T.length; t2 += 3) for (let k = 0; k < 3; k++) E.set(T[t2 + k] + "_" + T[t2 + (k + 1) % 3], T[t2 + (k + 2) % 3]);
+    const bnd = []; E.forEach((c, key) => { const ab = key.split("_"), a = +ab[0], b = +ab[1]; if (!E.has(b + "_" + a) && sel.has(a) && sel.has(b)) bnd.push([a, b, c]); });
+    if (!bnd.length) return false;
+    const V = (i) => new THREE.Vector3(P[i * 3], P[i * 3 + 1], P[i * 3 + 2]), out = new Map();
+    bnd.forEach(([a, b, c]) => {
+      const A = V(a), B = V(b), e = B.clone().sub(A).normalize(), o = A.clone().add(B).multiplyScalar(0.5).sub(V(c)); o.addScaledVector(e, -o.dot(e)); o.normalize();
+      [a, b].forEach((i) => { if (!out.has(i)) out.set(i, new THREE.Vector3()); out.get(i).add(o); });
+    });
+    const S = bodySearch(this.data()), v = new THREE.Vector3(), nid = new Map();
+    out.forEach((o, i) => {
+      o.normalize(); v.copy(V(i)).addScaledVector(o, this.o.ext); if (this.mir[i] === i) v.x = 0;
+      // nur aus der Haut heraus schieben (nie hineinziehen): so überbrückt der Stoff Lücken wie echte Shorts, statt sich in den Schritt zu legen
+      const r = S.project(v, 0), off = Math.max(this.off[i], 0.004);
+      if (r && this.o.skin) { const d = v.clone().sub(r.skin).dot(r.n); if (d < off) v.addScaledVector(r.n, off - d); if (this.mir[i] === i) v.x = 0; }
+      const id = P.length / 3; P.push(Math.round(v.x * 1e5) / 1e5, Math.round(v.y * 1e5) / 1e5, Math.round(v.z * 1e5) / 1e5);
+      M.src.push(S.nearest(v.x, v.y, v.z)); M.pin.push(M.pin[i]); nid.set(i, id);
+    });
+    bnd.forEach(([a, b]) => { const a2 = nid.get(a), b2 = nid.get(b); T.push(b, a, a2, b, a2, b2); });   // gleiche Drehrichtung wie das Dreieck an der Kante
+    this.sel = new Set(nid.values()); M.rev = (M.rev || 0) + 1; this.prep(); return true;
   }
   // Dreiecke, deren Kanten zwischen gewählten Punkten liegen, teilen (Kantenmitten, ohne Lücken zu den Nachbarn)
   subdivide() {
@@ -230,6 +266,7 @@ export class PunktEd {
   key(e) {
     if (!this.active()) return false;
     if (e.key === "Delete" || e.key === "Backspace") { if (this.sel.size) this.cmd("del"); return true; }
+    if (e.code === "KeyE" && !e.ctrlKey && !e.metaKey && this.sel.size) { this.cmd("ext"); return true; }
     if ((e.ctrlKey || e.metaKey) && e.code === "KeyZ") { this.popUndo(); return true; }
     return false;
   }

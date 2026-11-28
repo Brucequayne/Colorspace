@@ -10,13 +10,15 @@
 // nie unter die Haut, Beine/Arme schieben losen Stoff weg. Mit grab()/drag()/release() kann man den Stoff mit der Maus ziehen.
 import * as THREE from "three";
 import { BONES } from "pru/runner.js";
+import { store, KEYS } from "pru/core.js";
+import { BASE_BOTTOM } from "pru/kleider_basis.js";
 
 export const CLOTHC = ["#E9E5DC", "#C6C5B9", "#9EA1A5", "#3A3C40", "#1E1F22", "#ED6A5E", "#E2621B", "#E8C547", "#7A9E7E", "#2F5D50", "#62929E", "#4A6D7C", "#3F7CAC", "#14457A", "#8E6C8A", "#C97B84", "#B5835A"];
 let NEXT = 1;
 export function newDesign(kind, name) {
   const id = "k" + Date.now().toString(36) + (NEXT++);
-  if (kind === "bottom") return { format: "polyrunner-kleid", v: 1, id: id, name: name || "Hose", kind: "bottom", color: "#14457A", thick: 1.2, stiff: 0.35,
-    waist: { y: 0.786, ease: 0 }, leg: [{ L: 0, ease: 0 }] };
+  // Hosen starten seit v0.20 als Noahs Badehosen-Netz (kleider_basis.js); „Netz verwerfen“ führt zurück zu den Ringen
+  if (kind === "bottom") return Object.assign(cloneDesign(BASE_BOTTOM), { id: id, name: name || "Hose" });
   return { format: "polyrunner-kleid", v: 1, id: id, name: name || "Oberteil", kind: "top", color: "#E9E5DC", thick: 1.5, stiff: 0.5,
     neck: { d: 0.02, w: 0.5, ease: 0.004 }, arm: 0.015, torso: [{ y: 0.865, ease: 0.008 }, { y: 0.97, ease: 0.004 }], sleeve: [{ t: 0, ease: 0.008 }] };
 }
@@ -25,7 +27,108 @@ export function cloneDesign(d) {
   if (o.kind === "bottom") { o.leg = (o.leg && o.leg.length ? o.leg : [{ L: 0, ease: 0 }]).sort((a, b) => a.L - b.L); o.waist = Object.assign({ y: 0.786, ease: 0 }, o.waist); }
   else { o.torso = (o.torso && o.torso.length ? o.torso : [{ y: 0.865, ease: 0.008 }]).sort((a, b) => a.y - b.y); o.sleeve = (o.sleeve && o.sleeve.length ? o.sleeve : [{ t: 0, ease: 0.008 }]).sort((a, b) => a.t - b.t); o.neck = Object.assign({ d: 0.02, w: 0.5, ease: 0.004 }, o.neck); if (o.arm == null) o.arm = 0.015; }
   o.thick = o.thick == null ? 1.5 : o.thick; o.stiff = o.stiff == null ? 0.5 : o.stiff; o.color = o.color || "#E9E5DC";
+  if (o.rough == null) o.rough = 0.86; if (o.metal == null) o.metal = 0; if (!Array.isArray(o.paint)) o.paint = [];
   return o;
+}
+// Entwurfsliste aus dem Speicher; beim allerersten Mal kommt die Badehose dazu (danach nicht wieder, auch wenn man sie löscht)
+export function designList() {
+  let L = store.get(KEYS.kleider, null); const u = store.get(KEYS.ui, {}) || {};
+  if (!u.kbase) { L = L || []; if (!L.some((d) => d.id === BASE_BOTTOM.id)) L.unshift(cloneDesign(BASE_BOTTOM)); store.set(KEYS.kleider, L); u.kbase = 1; store.set(KEYS.ui, u); }
+  return (L || []).map(cloneDesign);
+}
+export { BASE_BOTTOM };
+
+// ---------- Stoffpinsel (seit v0.20): Striche als Formen auf der Ruheform des Stoffs ----------
+// Ein Element: [art, cx, cy, cz, ux, uy, uz, nx, ny, nz, L, s, weich, wert, spiegel, farbe|null (= Radierer), rough, metal]
+//   c = Mitte auf dem Stoff, u = Richtung, n = Normale (Projektion), L = halbe Länge (Linien), s = halbe Größe, wert = Streifen-Anzahl.
+export const PAINT_T = { kreis: 0, ring: 1, quadrat: 2, raute: 3, dreieck: 4, stern: 5, rund: 10, eckig: 11, linie: 10, streifen: 12, zickzack: 13, pfeil: 14, punkte: 15 };
+const PAINT_MAX = 2048;
+const PAINT_GLSL = `
+uniform sampler2D uPaint; uniform int uPaintN; uniform vec3 uBaseC;
+varying vec3 vRest; varying vec3 vRestN;
+float pBox(vec2 p, vec2 b) { vec2 d = abs(p) - b; return length(max(d, 0.0)) + min(max(d.x, d.y), 0.0); }
+float pSeg(vec2 p, vec2 a, vec2 b) { vec2 pa = p - a, ba = b - a; float h = clamp(dot(pa, ba) / max(dot(ba, ba), 1e-10), 0.0, 1.0); return length(pa - ba * h); }
+float pTri(vec2 p, vec2 p0, vec2 p1, vec2 p2) {
+  vec2 e0 = p1 - p0, e1 = p2 - p1, e2 = p0 - p2, v0 = p - p0, v1 = p - p1, v2 = p - p2;
+  vec2 pq0 = v0 - e0 * clamp(dot(v0, e0) / dot(e0, e0), 0.0, 1.0), pq1 = v1 - e1 * clamp(dot(v1, e1) / dot(e1, e1), 0.0, 1.0), pq2 = v2 - e2 * clamp(dot(v2, e2) / dot(e2, e2), 0.0, 1.0);
+  float s = sign(e0.x * e2.y - e0.y * e2.x);
+  vec2 d = min(min(vec2(dot(pq0, pq0), s * (v0.x * e0.y - v0.y * e0.x)), vec2(dot(pq1, pq1), s * (v1.x * e1.y - v1.y * e1.x))), vec2(dot(pq2, pq2), s * (v2.x * e2.y - v2.y * e2.x)));
+  return -sqrt(d.x) * sign(d.y);
+}
+float pStar(vec2 p, float r) {
+  const vec2 k1 = vec2(0.809016994375, -0.587785252292), k2 = vec2(-0.809016994375, -0.587785252292);
+  p.x = abs(p.x); p -= 2.0 * max(dot(k1, p), 0.0) * k1; p -= 2.0 * max(dot(k2, p), 0.0) * k2; p.x = abs(p.x); p.y -= r;
+  vec2 ba = 0.45 * vec2(-k1.y, k1.x) - vec2(0.0, 1.0); float h = clamp(dot(p, ba) / dot(ba, ba), 0.0, r);
+  return length(p - ba * h) * sign(p.y * ba.x - p.x * ba.y);
+}
+float pShape(int ty, vec2 q, float L, float s, float w) {
+  if (ty == 0) return length(q) - s;
+  if (ty == 1) return abs(length(q) - s * 0.8) - s * 0.2;
+  if (ty == 2) return pBox(q, vec2(s));
+  if (ty == 3) return (abs(q.x) + abs(q.y) * 1.35 - s) * 0.6;
+  if (ty == 4) return pTri(q, vec2(0.0, s), vec2(-s * 0.95, -s * 0.72), vec2(s * 0.95, -s * 0.72));
+  if (ty == 5) return pStar(q, s);
+  if (ty == 10) return pSeg(q, vec2(-L, 0.0), vec2(L, 0.0)) - s;
+  if (ty == 11) return pBox(q, vec2(L + s * 0.7, s));
+  if (ty == 12) { int n = int(w + 0.5); float g = s * 3.2, d = 1e5; for (int k = 0; k < 6; k++) { if (k >= n) break; d = min(d, pBox(q - vec2(0.0, (float(k) - float(n - 1) * 0.5) * g), vec2(L, s))); } return d; }
+  if (ty == 13) { float A = s * 2.2, P = s * 5.0, tw = A * (4.0 * abs(fract(q.x / P - 0.25) - 0.5) - 1.0); return max(abs(q.y - tw) * 0.52 - s * 0.45, abs(q.x) - L); }
+  if (ty == 14) { float H = min(s * 3.5, L * 1.6), W = s * 2.6; float sh = pBox(q - vec2(-H * 0.5, 0.0), vec2(max(0.0, L - H * 0.5), s * 0.6)); return min(sh, pTri(q, vec2(L, 0.0), vec2(L - H, W), vec2(L - H, -W))); }
+  if (ty == 15) { float sp = s * 3.0, m = floor(L / sp + 0.5) * sp, cx = clamp(floor(q.x / sp + 0.5) * sp, -m, m); return length(vec2(q.x - cx, q.y)) - s; }
+  return 1.0;
+}
+void paintApply(vec3 base, out vec3 pc, out float pr, out float pm) {
+  pc = base; pr = roughness; pm = metalness;
+  for (int i = 0; i < ${PAINT_MAX}; i++) {
+    if (i >= uPaintN) break;
+    vec4 t0 = texelFetch(uPaint, ivec2(0, i), 0), t2 = texelFetch(uPaint, ivec2(2, i), 0);
+    vec3 dp = vRest - t0.xyz; float dep = dot(dp, t2.xyz);
+    vec4 t1 = texelFetch(uPaint, ivec2(1, i), 0); float L = t1.w, s = t2.w;
+    if (abs(dep) > max(L, s) * 0.7 + 0.012 || dot(vRestN, t2.xyz) < 0.08) continue;
+    vec4 t3 = texelFetch(uPaint, ivec2(3, i), 0), t4 = texelFetch(uPaint, ivec2(4, i), 0), t5 = texelFetch(uPaint, ivec2(5, i), 0);
+    vec3 v = cross(t2.xyz, t1.xyz) * t5.y; vec2 q = vec2(dot(dp, t1.xyz), dot(dp, v));
+    float d = pShape(int(t0.w + 0.5), q, L, s, t5.x), aw = max(fwidth(d) * 0.8, t4.z * s + 1e-5);
+    float a = 1.0 - smoothstep(-aw, aw, d); if (a <= 0.0) continue;
+    bool er = t3.a < 0.0;
+    pc = mix(pc, er ? uBaseC : t3.rgb, a); pr = mix(pr, er ? roughness : t4.x, a); pm = mix(pm, er ? metalness : t4.y, a);
+  }
+}
+`;
+const _pc = new THREE.Color();
+// kleine Umgebung (Himmel oben, Boden unten), damit Metallic-Stoff etwas spiegelt statt schwarz zu wirken
+let ENV = null;
+function envTex() {
+  if (ENV) return ENV;
+  const c = document.createElement("canvas"); c.width = 64; c.height = 32; const g = c.getContext("2d"), gr = g.createLinearGradient(0, 0, 0, 32);
+  gr.addColorStop(0, "#9DBBD8"); gr.addColorStop(0.45, "#DCE6EE"); gr.addColorStop(0.52, "#B4B2AC"); gr.addColorStop(1, "#5E5D5A"); g.fillStyle = gr; g.fillRect(0, 0, 64, 32);
+  ENV = new THREE.CanvasTexture(c); ENV.mapping = THREE.EquirectangularReflectionMapping; ENV.colorSpace = THREE.SRGBColorSpace; return ENV;
+}
+function paintMaterial() {
+  const mat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.86, metalness: 0, side: THREE.FrontSide, envMap: envTex(), envMapIntensity: 0.45 });
+  const tex = new THREE.DataTexture(new Float32Array(6 * 4), 6, 1, THREE.RGBAFormat, THREE.FloatType); tex.minFilter = tex.magFilter = THREE.NearestFilter; tex.needsUpdate = true;
+  const U = mat.userData.U = { uPaint: { value: tex }, uPaintN: { value: 0 }, uBaseC: { value: mat.color } };
+  mat.onBeforeCompile = (sh) => {
+    Object.assign(sh.uniforms, U);
+    sh.vertexShader = sh.vertexShader.replace("#include <common>", "#include <common>\nattribute vec3 aRest; attribute vec3 aRestN; varying vec3 vRest; varying vec3 vRestN;")
+      .replace("#include <begin_vertex>", "#include <begin_vertex>\nvRest = aRest; vRestN = aRestN;");
+    sh.fragmentShader = sh.fragmentShader.replace("#include <common>", "#include <common>\n" + PAINT_GLSL)
+      .replace("#include <color_fragment>", "#include <color_fragment>\nvec3 pCol; float pRgh, pMet; paintApply(diffuseColor.rgb, pCol, pRgh, pMet); diffuseColor.rgb = pCol;")
+      .replace("#include <roughnessmap_fragment>", "#include <roughnessmap_fragment>\nroughnessFactor = pRgh;")
+      .replace("#include <metalnessmap_fragment>", "#include <metalnessmap_fragment>\nmetalnessFactor = pMet;");
+  };
+  mat.customProgramCacheKey = () => "pru-paint-1";
+  return mat;
+}
+// Striche in die Datentextur schreiben (6 Texel je Element)
+function paintUpload(mat, list) {
+  const U = mat.userData.U, n = Math.min(PAINT_MAX, list.length), cap = Math.max(1, Math.pow(2, Math.ceil(Math.log2(Math.max(1, n)))));
+  let tex = U.uPaint.value;
+  if (tex.image.height !== cap) { tex.dispose(); tex = new THREE.DataTexture(new Float32Array(6 * 4 * cap), 6, cap, THREE.RGBAFormat, THREE.FloatType); tex.minFilter = tex.magFilter = THREE.NearestFilter; U.uPaint.value = tex; }
+  const A = tex.image.data;
+  for (let i = 0; i < n; i++) {
+    const e = list[i], o = i * 24; _pc.set(e[15] || "#000000");
+    A.set([e[1], e[2], e[3], e[0], e[4], e[5], e[6], e[10], e[7], e[8], e[9], e[11], _pc.r, _pc.g, _pc.b, e[15] ? 1 : -1, e[16], e[17], e[12], 0, e[13], e[14], 0, 0], o);
+  }
+  tex.needsUpdate = true; U.uPaintN.value = n;
 }
 // stückweise linear über Ringe (k = Koordinate, e = Weite)
 function interp(list, key, x) {
@@ -240,7 +343,7 @@ const _v = new THREE.Vector3();
 export class Cloth {
   constructor(fig, design) {
     this.fig = fig;
-    this.mat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.86, metalness: 0, side: THREE.FrontSide });
+    this.mat = paintMaterial();
     this.mesh = new THREE.Mesh(new THREE.BufferGeometry(), this.mat); this.mesh.frustumCulled = false; this.mesh.castShadow = true; this.mesh.receiveShadow = true;
     fig.scene.add(this.mesh);
     this.M = BONES.map(() => new THREE.Matrix4()); this.grabbed = -1; this.grabAt = new THREE.Vector3(); this.key = "";
@@ -250,7 +353,8 @@ export class Cloth {
   }
   setDesign(d) {
     const D = d.mesh ? Object.assign({}, d, { mesh: d.mesh }) : cloneDesign(d), k = JSON.stringify([D.kind, D.waist, D.leg, D.neck, D.arm, D.torso, D.sleeve, D.thick, D.mesh ? D.mesh.rev + "/" + D.mesh.pos.length : 0]);
-    this.D = D; this.mat.color.set(D.color);
+    this.D = D; this.mat.color.set(D.color); this.mat.roughness = D.rough == null ? 0.86 : D.rough; this.mat.metalness = D.metal == null ? 0 : D.metal;
+    const pk = JSON.stringify(D.paint || []); if (pk !== this.pk) { this.pk = pk; paintUpload(this.mat, D.paint || []); }
     if (k === this.key) return; this.key = k;
     const data = this.fig.data, B = this.B = buildGarment(data, D), m = this.m = B.pos.length / 3;
     const g = data.geo, SI = g.attributes.skinIndex.array, SW = g.attributes.skinWeight.array, BP = g.attributes.position.array, BN = g.attributes.normal.array;
@@ -271,6 +375,11 @@ export class Cloth {
     for (let r = 0; r < rim.length; r += 2) { const a = rim[r], b = rim[r + 1]; ix.push(b, a, a + m, b, a + m, b + m); }
     geo.setAttribute("position", new THREE.BufferAttribute(gp, 3).setUsage(THREE.DynamicDrawUsage));
     geo.setAttribute("normal", new THREE.BufferAttribute(new Float32Array(m * 6), 3).setUsage(THREE.DynamicDrawUsage));
+    // Ruheform (für den Stoffpinsel): Position und Normale vor jeder Bewegung, außen und innen gleich
+    const rg = new THREE.BufferGeometry(); rg.setAttribute("position", new THREE.BufferAttribute(Float32Array.from(B.pos), 3)); rg.setIndex(Array.from(T)); rg.computeVertexNormals();
+    this.rn = rg.attributes.normal.array; rg.dispose();
+    const ar = new Float32Array(m * 6), an = new Float32Array(m * 6); ar.set(B.pos); ar.set(B.pos, m * 3); an.set(this.rn); an.set(this.rn, m * 3);
+    geo.setAttribute("aRest", new THREE.BufferAttribute(ar, 3)); geo.setAttribute("aRestN", new THREE.BufferAttribute(an, 3));
     geo.setIndex(ix);
     this.mesh.geometry.dispose(); this.mesh.geometry = geo; this.first = true; this.grabbed = -1;
     this.outer = new THREE.BufferGeometry(); this.outer.setAttribute("position", new THREE.BufferAttribute(this.p, 3)); this.outer.setIndex(Array.from(T));
@@ -354,14 +463,15 @@ export class Cloth {
     g.attributes.position.needsUpdate = true; g.computeVertexNormals();
   }
   // ---------- Greifen mit der Maus ----------
-  pick(ray) {
+  pick(ray, front) {
     const rc = new THREE.Raycaster(); rc.ray.copy(ray);
     if (!this._pm) this._pm = new THREE.Mesh(this.outer, new THREE.MeshBasicMaterial({ side: THREE.DoubleSide }));
     this._pm.geometry = this.outer; this.outer.computeBoundingSphere();
-    const h = rc.intersectObject(this._pm, false)[0]; if (!h) return null;
+    const hs = rc.intersectObject(this._pm, false), h = front ? hs.find((x) => x.face.normal.dot(ray.direction) < 0) : hs[0]; if (!h) return null;
     const f = h.face, P = this.p; let best = f.a, bd = 1e9;
     [f.a, f.b, f.c].forEach((i) => { const d = _v.set(P[i * 3], P[i * 3 + 1], P[i * 3 + 2]).distanceToSquared(h.point); if (d < bd) { bd = d; best = i; } });
-    return { i: best, point: h.point.clone(), dist: h.distance };
+    const RN = this.rn, nr = new THREE.Vector3(); [f.a, f.b, f.c].forEach((i) => nr.add(_v.set(RN[i * 3], RN[i * 3 + 1], RN[i * 3 + 2]))); nr.normalize();
+    return { i: best, point: h.point.clone(), dist: h.distance, normal: nr };
   }
   // eine Handvoll Stoff greifen: Punkte bis 3 cm um den Griff gehen mit (nach außen schwächer)
   grab(i, at) {
@@ -371,6 +481,8 @@ export class Cloth {
     this.near = []; for (let e = 0; e < this.el.length; e++) { const a = this.ea[e] * 3; if (_v.set(p[a], p[a + 1], p[a + 2]).distanceTo(g) < 0.07) this.near.push(e); }
   }
   drag(at) { this.grabAt.copy(at); }
+  // Stoffpinsel: Striche sofort zeigen (ohne neuen Entwurf), beim nächsten setDesign wird wieder der Entwurf geladen
+  previewPaint(list) { paintUpload(this.mat, list); this.pk = null; }
   release() { this.grabbed = -1; this.hand = []; }
   // Dehnung rund um den Griff (Mittel der Kanten bis 7 cm), 1 = ungedehnt
   strain() { if (!this.near || !this.near.length) return 1; const p = this.p; let s = 0; for (const e of this.near) { const a = this.ea[e] * 3, b = this.eb[e] * 3; s += Math.hypot(p[b] - p[a], p[b + 1] - p[a + 1], p[b + 2] - p[a + 2]) / this.el[e]; } return s / this.near.length; }

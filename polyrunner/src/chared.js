@@ -6,7 +6,7 @@ import { t, addTexts, L2, el, esc, store, KEYS, clamp, damp, download } from "pr
 import { Runner } from "pru/runner.js";
 import { Figur, loadFigur, cloneLook, LOOK_DEFAULT, SKINS, IRIS, BROWC, EYE_TYPES, BROW_TYPES } from "pru/figur.js";
 import { HAIR_TYPES, HAIRC, newGroup } from "pru/haare.js";
-import { cloneDesign } from "pru/kleidung.js";
+import { cloneDesign, designList } from "pru/kleidung.js";
 
 addTexts({
   cTitle: L2("Charakter", "Character"), cLoading: L2("Figur wird geladen …", "Loading the character …"), cFail: L2("Figur konnte nicht geladen werden", "Could not load the character"),
@@ -71,7 +71,7 @@ export class CharEd {
     this.tab = ui.ctab || "skin"; this.anim = "idle"; this.spin = false; this.view = "body";
     this.cam = { yaw: 0.45, pitch: 0.1, dist: 2.7, ty: 0.72 }; this.camT = Object.assign({}, this.cam);
     this.look = cloneLook(store.get(KEYS.char, null));
-    { const ds = store.get(KEYS.kleider, []) || []; ["top", "bottom"].forEach((k) => { const w = this.look.wear[k]; if (!w) return; const d = ds.find((x) => x.id === w.id); this.look.wear[k] = d ? cloneDesign(d) : null; }); }
+    { const ds = designList(); ["top", "bottom"].forEach((k) => { const w = this.look.wear[k]; if (!w) return; const d = ds.find((x) => x.id === w.id); this.look.wear[k] = d ? cloneDesign(d) : null; }); }
     this.hb = Object.assign({ tool: "brush", size: 0.025, gap: 0.024, sym: true, gid: this.look.hair.groups[0].id }, ui.hb || {}); if (!this.look.hair.groups.some((g) => g.id === this.hb.gid)) this.hb.gid = this.look.hair.groups[0].id;
     this.undo = []; this.wind = new THREE.Vector3();
     this.runner = new Runner(this.engine.scene); this.runner.setVisible(false); this.runner.world = FAKEWORLD;
@@ -118,7 +118,7 @@ export class CharEd {
       rng("brows.size", "cBSize", 0.7, 1.35, 0.01, L.brows.size, " %", pct) + rng("brows.thick", "cBThick", 0.5, 1.8, 0.01, L.brows.thick, " %", pct) +
       rng("brows.y", "cBY", -4, 6, 0.1, L.brows.y, " mm") + rng("brows.gap", "cBGap", -4, 6, 0.1, L.brows.gap, " mm") + rng("brows.tilt", "cBTilt", -18, 18, 0.5, L.brows.tilt, "°");
     else if (this.tab === "clothes") {
-      const ds = (store.get(KEYS.kleider, []) || []), W = L.wear, list = (slot, kind) => '<div class="pru-col"><button data-wear="' + slot + '|" aria-pressed="' + !W[slot] + '">' + t("cNoneW") + "</button>" +
+      const ds = designList(), W = L.wear, list = (slot, kind) => '<div class="pru-col"><button data-wear="' + slot + '|" aria-pressed="' + !W[slot] + '">' + t("cNoneW") + "</button>" +
         ds.filter((d) => (d.kind === "bottom") === (kind === "bottom")).map((d) => '<button data-wear="' + slot + "|" + d.id + '" aria-pressed="' + !!(W[slot] && W[slot].id === d.id) + '">' + esc(d.name) + "</button>").join("") + "</div>";
       h = "<h4>" + t("cTop") + "</h4>" + list("top", "top") + "<h4>" + t("cLegs") + "</h4>" + list("bottom", "bottom") +
         '<div class="pru-col"><button class="pru-pri" data-c="kleid">' + t("cOpenK") + "</button></div><p>" + t("cClothNote") + "</p>";
@@ -232,7 +232,7 @@ export class CharEd {
       else if (b.dataset.spin) { this.spin = !this.spin; this.syncButtons(); }
       else if (b.dataset.set && b.dataset.v != null) { this.set(b.dataset.set, b.dataset.v); this.renderTab(); }
       else if (b.dataset.c) this.action(b.dataset.c);
-      else if (b.dataset.wear != null) { const [slot, id] = b.dataset.wear.split("|"), d = (store.get(KEYS.kleider, []) || []).find((x) => x.id === id); this.look.wear[slot] = d ? cloneDesign(d) : null; this.set("v", 1); this.renderTab(); }
+      else if (b.dataset.wear != null) { const [slot, id] = b.dataset.wear.split("|"), d = designList().find((x) => x.id === id); this.look.wear[slot] = d ? cloneDesign(d) : null; this.set("v", 1); this.renderTab(); }
       else if (b.dataset.hb) { this.hb[b.dataset.hb] = b.dataset.v; this.saveHB(); this.renderTab(); }
       else if (b.dataset.hg) { this.hb.gid = +b.dataset.hg; this.saveHB(); this.renderTab(); }
       else if (b.dataset.hc) this.hairCmd(b.dataset.hc);
