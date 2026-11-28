@@ -1,7 +1,7 @@
 /* Monsters Arc – character.js
    Figur auf der Map. Modell, Laufen, Kollision, Schritte und Haare sind 1:1 aus Shizukus Samurai (player.js)
    übernommen – ohne Kampf. Grundlage für alle Figuren: Spieler (Steuerung über Tastatur) und später NPCs
-   (Steuerung über Skript, z. B. ch.moveTo / ch.face). Aussehen über look ("samurai", "ronin", … aus art-samurai.js).
+   (Steuerung über Skript, z. B. ch.moveTo / ch.face). Aussehen über look ("kid" = Spielfigur seit v0.28, "samurai", "ronin", … aus art-samurai.js).
    Laufen: WASD oder Pfeiltasten. Blickrichtung = Laufrichtung (8 Richtungen). */
 (function () {
   var MA = window.MA, m = MA.m, TAU = Math.PI * 2;
@@ -12,14 +12,15 @@
 
   function Character(world, x, y, opt) {
     opt = opt || {};
-    this.world = world; this.look = opt.look || "samurai";
+    this.world = world; this.look = opt.look || "kid";
+    var LK = MA.samurai.LOOKS[this.look] || {};
     this.x = x; this.y = y; this.vx = 0; this.vy = 0;
     this.face = Math.PI / 2; this.dir = 2; this.bodyAng = this.face;
     this.walkPh = 0; this.stepT = 0; this.idleT = 0;
     this.appear = 1; this.control = true; this.moving = false;
     this.speed = opt.speed || WALK;
-    this.sword = opt.sword !== false;   // Katana an der Hüfte zeigen (wie Shizuku)
-    this.hair = new MA.samurai.Hair(8, 2.1);
+    this.sword = LK.kid ? false : opt.sword !== false;   // Katana an der Hüfte zeigen (wie Shizuku; die Spielfigur hat keins)
+    this.hair = LK.kid ? null : new MA.samurai.Hair(8, 2.1);   // langer Zopf nur beim Samurai, die Spielfigur hat mittellange Haare im Modell
     this.input = { x: 0, y: 0 };        // gewünschte Richtung (-1..1), von Tastatur oder Skript
   }
   var P = Character.prototype;
@@ -72,7 +73,7 @@
     this.idleT += dt;
     this.bodyAng = this.face;
     this.dir = m.dir8(this.bodyAng);
-    this.hair.update(dt, this.hair.anchor(this.bodyAng, this.x, this.y, 0), w.wind + Math.min(2, Math.hypot(this.vx, this.vy) / 80), w.clock);
+    if (this.hair) this.hair.update(dt, this.hair.anchor(this.bodyAng, this.x, this.y, 0), w.wind + Math.min(2, Math.hypot(this.vx, this.vy) / 80), w.clock);
   };
 
   P.sprite = function () {
@@ -95,7 +96,7 @@
     ctx.beginPath(); ctx.ellipse(x, y, 6, 2.6, 0, 0, TAU); ctx.fill();
     var hairBehind = this.dir >= 0 && this.dir <= 4;
     ctx.globalAlpha = this.appear;
-    if (hairBehind) this.hair.draw(ctx, this.appear);
+    if (hairBehind && this.hair) this.hair.draw(ctx, this.appear);
     ctx.drawImage(s.cv, x - A.AX, y - A.AY);
     if (this.sword) {
       var f2 = this.face, fx2 = Math.cos(f2), fy2 = Math.sin(f2), rx2 = -fy2, ry2 = fx2;
@@ -104,7 +105,7 @@
       var hidden = Math.sin(f2) < -0.3;   // von hinten verdeckt der Körper den Griff
       if (!hidden) { var pen = MA.pen(ctx); pen.line(x + p0.x, y + p0.y, x + p1.x, y + p1.y, KATANA.grip); pen.px(x + (p0.x + p1.x) / 2, y + (p0.y + p1.y) / 2, KATANA.wrap); pen.px(x + p0.x, y + p0.y, KATANA.guard); }
     }
-    if (!hairBehind) this.hair.draw(ctx, this.appear);
+    if (!hairBehind && this.hair) this.hair.draw(ctx, this.appear);
     ctx.globalAlpha = 1;
   };
 

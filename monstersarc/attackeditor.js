@@ -92,12 +92,20 @@
     S.sprites = { key: key, atk: atk || fallback.atk, def: def || fallback.def };
     return S.sprites;
   }
-  function spriteScale(cv, target) { return Math.max(1, Math.round(target / Math.max(1, cv.width))); }
+  // Größe im Kampf (seit v0.28): wie bei Pokémon stark zusammengestaucht – kleine Monster werden größer, riesige kleiner gezeigt.
+  // Zielhöhe des sichtbaren Monsters in Pixeln aus der echten Größe h (m); der Angreifer steht näher und ist etwas größer.
+  function arenaH(h, which) { var t = Math.max(48, Math.min(124, 96 * Math.pow(Math.max(0.05, h || 1), 0.33))); return which === "atk" ? Math.min(160, t * 1.22) : t; }
+  function bbox(cv) {   // sichtbarer Bereich des Sprites (zwischengespeichert, Bilder laden evtl. noch)
+    if (!cv._bb || cv._bb.w0 !== cv.width || cv._bb.none) { var b = MO.alphaBox(cv); cv._bb = b ? { x: b.x, y: b.y, w: b.w, h: b.h, w0: cv.width } : { x: 0, y: 0, w: cv.width || 1, h: cv.height || 1, w0: cv.width, none: 1 }; }
+    return cv._bb;
+  }
+  function spriteScale(cv, which, h) { var k = arenaH(h, which) / bbox(cv).h, r = Math.round(k); return r >= 1 && Math.abs(r - k) / k < 0.14 ? r : k; }   // ganze Faktoren, wenn sie fast passen (saubere Pixel)
   function monXf(which, f) { return AT.sample(S.a.tracks[which], f, DEF0); }
+  function testMon(which) { var ids = S.a.test || [], id = ids[which === "atk" ? 0 : 1]; return id ? MO.byId(id) : null; }
   function monBox(which, f) {   // Mittelpunkt und Halbmaße des Sprites (für Griffe)
-    var sp = testSprites(), cv = which === "atk" ? sp.atk : sp.def, k = spriteScale(cv, which === "atk" ? 150 : 124), P = which === "atk" ? ATK_P : DEF_P, o = monXf(which, f);
-    var h = cv.height * k * o.s, w = cv.width * k * o.s, by = which === "atk" ? P.y + cv.height * k * 0.15 : P.y;
-    return { cx: P.x + o.x, cy: by + o.y - h / 2, w: w / 2, h: h / 2, k: k, cv: cv, px: P.x + o.x, py: by + o.y, o: o };
+    var sp = testSprites(), cv = which === "atk" ? sp.atk : sp.def, mo = testMon(which), k = spriteScale(cv, which, mo ? mo.h : 1), P = which === "atk" ? ATK_P : DEF_P, o = monXf(which, f), bb = bbox(cv);
+    var h = bb.h * k * o.s, w = bb.w * k * o.s, by = which === "atk" ? Math.min(P.y + bb.h * k * 0.15, 240 + bb.h * k * 0.3) : P.y;   // kleine Angreifer stehen ganz im Bild
+    return { cx: P.x + o.x, cy: by + o.y - h / 2, w: w / 2, h: h / 2, k: k, cv: cv, bb: bb, px: P.x + o.x, py: by + o.y, o: o };
   }
   function defE(f) { var o = monXf("atk", f); return { x: AT.A0.x + o.x, y: AT.A0.y + o.y, r: 0, s: 1 }; }
   function defT(f) { var o = monXf("def", f); return { x: AT.T0.x + o.x, y: AT.T0.y + o.y, r: 0, s: 1 }; }
@@ -124,7 +132,7 @@
   function drawMon(g, which, f) {
     var b = monBox(which, f), cv = b.cv; if (!cv || !cv.width) return;
     g.save(); g.imageSmoothingEnabled = false; g.translate(b.px, b.py); g.rotate(b.o.r * Math.PI / 180); g.scale(b.o.s, b.o.s);
-    g.drawImage(cv, -cv.width * b.k / 2, -cv.height * b.k, cv.width * b.k, cv.height * b.k); g.restore();
+    var bb = b.bb; g.drawImage(cv, bb.x, bb.y, bb.w, bb.h, -bb.w * b.k / 2, -bb.h * b.k, bb.w * b.k, bb.h * b.k); g.restore();
   }
   var FXB = null, FXC = null;
   function fxBuf(ps) { var w = Math.round(480 / ps), h = Math.round(272 / ps); if (!FXB || FXB.w !== w || FXB.h !== h) { FXB = new AT.Buf(w, h); FXC = MA.canvas(w, h); } FXB.d.fill(0); return FXB; }

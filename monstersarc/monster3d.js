@@ -639,7 +639,7 @@
       vol += vv; mass += vv * d; y0 = Math.min(y0, p[1] - st[1] / 2); y1 = Math.max(y1, p[1] + st[1] / 2);
     }
     var u = 0.5 * (size || 1), h = Math.max(0.1, (y1 - y0) * u), kg = mass * u * u * u * RHO;
-    return { h: Math.round(h * 10) / 10, kg: kg < 10 ? Math.round(kg * 10) / 10 : Math.round(kg), vol: vol, y0: y0 };
+    return { h: Math.round(h * 10) / 10, kg: kg < 10 ? Math.round(kg * 10) / 10 : Math.round(kg), vol: vol, y0: y0, h1: Math.max(0.01, (y1 - y0) * 0.5), kg1: mass * 0.125 * RHO };
   }
 
   MA.m3d = {

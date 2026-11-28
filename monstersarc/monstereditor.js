@@ -34,6 +34,7 @@
     ".ma-me .pals{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin:6px 0}.ma-me .pals button{height:22px;padding:0;display:flex;border:1px solid #434543}.ma-me .pals span{flex:1;height:100%}" +
     ".ma-me .st{margin:6px 0 8px;padding-bottom:6px;border-bottom:1px solid #2E302E}.ma-me .st b{display:flex;justify-content:space-between;font-size:.76rem;color:#E4E0D8;font-weight:600}.ma-me .st b i{font-style:normal;color:#ACA89F;font-weight:400;font-variant-numeric:tabular-nums}" +
     ".ma-me .st .ma-ed-row label{flex:0 0 70px;font-size:.72rem}.ma-me .tot{font-size:.76rem;color:#C6C5B9;margin:4px 0}" +
+    ".ma-me img.cmp{display:block;width:100%;aspect-ratio:200/110;image-rendering:pixelated;background:linear-gradient(#C8DCC8,#98B888);margin:4px 0}" +
     ".ma-me .box{border:1px solid #62929E;background:#1E2A2C;padding:8px;margin:8px 0;font-size:.76rem;line-height:1.45;color:#C6D8DA}.ma-me .box b{color:#E4E0D8}" +
     ".ma-me .sw{display:grid;grid-template-columns:repeat(8,1fr);gap:2px;margin:4px 0}.ma-me .sw button{height:18px;padding:0;border:1px solid #434543}.ma-me .sw button[aria-pressed=true]{outline:2px solid #ED6A5E;outline-offset:-1px}" +
     ".ma-me kbd{font:inherit;font-size:.68rem;border:1px solid #434543;padding:0 3px;color:#C6C5B9}";
@@ -77,10 +78,25 @@
     BH = nbh; K = MA.H / BH; BW = Math.max(30, Math.round(MA.W / K)); S.res = r;
     S.vc = MA.canvas(BW, BH); S.vhit = null; S.needView = true;
   }
-  function measured() {   // Größe und Gewicht aus dem Modell (seit v0.26.2), zwischengespeichert
-    var key = JSON.stringify(M()) + "|" + S.m.size;
-    if (!S.meas || S.meas.key !== key) S.meas = { key: key, r: D.measure(M(), S.m.size) };
-    S.m.h = S.meas.r.h; S.m.kg = S.meas.r.kg; return S.meas.r;
+  function measured() {   // Größe und Gewicht aus dem Modell (seit v0.26.2), mal Gesamtgröße (seit v0.28), zwischengespeichert
+    var key = JSON.stringify(M());
+    if (!S.meas || S.meas.key !== key) S.meas = { key: key, r: D.measure(M(), 1) };
+    var r = S.meas.r, sc = S.m.scale || 1, h = r.h1 * sc, kg = r.kg1 * sc * sc * sc;
+    S.m.h = h < 0.5 ? Math.max(0.05, Math.round(h * 100) / 100) : Math.round(h * 10) / 10;
+    S.m.kg = kg < 10 ? Math.max(0.1, Math.round(kg * 10) / 10) : Math.round(kg);
+    return { h: S.m.h, kg: S.m.kg };
+  }
+  function sclFmt(v) { var sc = Math.pow(2, +v), r = S.meas && S.meas.r, h = r ? r.h1 * sc : 0; return "×" + dec(Math.round(sc * 100) / 100) + (r ? " · " + dec(h < 0.5 ? Math.round(h * 100) / 100 : Math.round(h * 10) / 10) + " m" : ""); }
+  function dec(v) { return String(v).replace(".", MA.lang === "en" ? "." : ","); }
+  // Größenvergleich mit der Spielfigur (1,50 m) als Bild für die Seitenleiste
+  function compareImg() {
+    var m = S.m, me = measured(), key = JSON.stringify(M()) + JSON.stringify(m.pal) + me.h + (m.img ? m.img.front.length : 0);
+    if (S.cmp && S.cmp.key === key) return S.cmp.url;
+    var src = m.img ? m.img.front : D.modelThumb(M(), palObj(), "cmp");
+    S.cmp = { key: key, url: "" };
+    var im = new Image();
+    im.onload = function () { if (!S.cmp || S.cmp.key !== key) return; S.cmp.url = MO.compareCanvas(im, me.h, 200, 110).toDataURL(); var el = S.host && S.host.querySelector("img[data-o=cmp]"); if (el) el.src = S.cmp.url; };
+    im.src = src; return "";
   }
   function fit() {
     var B = D.build(M()); S.cam.t = [B.bs[0], B.bs[1], B.bs[2]]; S.cam.zoom = BH * 0.94 / (2 * B.bs[3]); S.needView = true;
@@ -158,8 +174,12 @@
     h += '<div class="hint">' + L2("So viele Pixel hoch ist das Monster in der 3D-Ansicht (16 = sehr grob, 256 = sehr fein). Ändert nur die Ansicht, nicht das Spielbild. Hohe Werte brauchen mehr Rechenleistung.", "How many pixels tall the monster is in the 3D view (16 = very coarse, 256 = very fine). Only changes the view, not the game sprite. High values need more computing power.") + '</div>';
     h += '<h4>' + L2("Kamera", "Camera") + '</h4><div class="row3"><button type="button" data-a="v_front">' + L2("Vorne", "Front") + '</button><button type="button" data-a="v_side">' + L2("Seite", "Side") + '</button><button type="button" data-a="v_back">' + L2("Hinten", "Back") + '</button></div>';
     h += '<div class="hint">' + L2("Mausrad gedrückt + ziehen (oder Ziehen auf leerer Fläche, oder <kbd>Alt</kbd> + linke Maustaste) = drehen · <kbd>Shift</kbd> + Mausrad gedrückt = verschieben · Mausrad auf leerer Fläche = Zoom · Pfeiltasten drehen · <kbd>F</kbd> zentrieren.", "Hold wheel + drag (or drag on empty space, or <kbd>Alt</kbd> + left mouse) = rotate · <kbd>Shift</kbd> + held wheel = pan · wheel on empty space = zoom · arrow keys rotate · <kbd>F</kbd> centre.") + '</div>';
-    h += '<h4>' + L2("Bildgröße im Spiel", "Sprite size in game") + '</h4>' + slider("size", L2("Größe", "Size"), 0.5, 4, 0.05, S.m.size, function (v) { return Math.round(64 * v) + " px"; });
-    h += '<div class="hint">' + L2("Größere Monster bekommen mehr Pixel, die Pixel selbst bleiben gleich groß.", "Bigger monsters get more pixels; the pixels stay the same size.") + '</div>';
+    measured();
+    h += '<h4>' + L2("Gesamtgröße", "Overall size") + '</h4>' + slider("scl", L2("Größe", "Size"), -3.3, 4.3, 0.01, Math.log(S.m.scale || 1) / Math.LN2, sclFmt);
+    h += '<img alt="" data-o="cmp" class="cmp" src="' + compareImg() + '">';
+    h += '<div class="hint">' + L2("Skaliert das ganze Monster im Verhältnis: Größe in Metern und Gewicht (Gewicht wächst mit dem Volumen). Zum Vergleich die Spielfigur mit 1,50 m. Die Form und die Pixel bleiben gleich.", "Scales the whole monster proportionally: height in metres and weight (weight grows with volume). For comparison the player character at 1.50 m. Shape and pixels stay the same.") + '</div>';
+    h += '<h4>' + L2("Bildgröße im Spiel", "Sprite size in game") + '</h4>' + slider("size", L2("Pixel", "Pixels"), 0.5, 4, 0.05, S.m.size, function (v) { return Math.round(64 * v) + " px"; });
+    h += '<div class="hint">' + L2("Nur die Pixelzahl des Spielbilds (mehr Pixel = mehr Details). In der Monsterliste und im Kampf werden alle Monster ähnlich groß gezeigt, die echte Größe kommt von der Gesamtgröße.", "Only the pixel count of the game sprite (more pixels = more detail). In the monster list and in battle all monsters are shown at a similar size; the real size comes from the overall size.") + '</div>';
     return h;
   }
   function genPanel(list) {
@@ -180,7 +200,7 @@
     h += '<h4>' + L2("Größe und Gewicht (automatisch)", "Height and weight (automatic)") + '</h4>';
     h += '<div class="ma-ed-row"><label>' + L2("Größe", "Height") + '</label><b style="flex:1">' + dec(me.h) + ' m</b></div>';
     h += '<div class="ma-ed-row"><label>' + L2("Gewicht", "Weight") + '</label><b style="flex:1">' + dec(me.kg) + ' kg</b></div>';
-    h += '<div class="hint">' + L2("Größe aus der Höhe des Modells und der Bildgröße, Gewicht aus dem Volumen. Stein wiegt doppelt, Feder nur die Hälfte (Vögel sind leicht), Haut und Fell normal.", "Height from the model's height and the sprite size, weight from the volume. Stone weighs double, feathers only half (birds are light), skin and fur normal.") + '</div>';
+    h += '<div class="hint">' + L2("Größe aus der Höhe des Modells mal Gesamtgröße (Reiter Bauen), Gewicht aus dem Volumen. Stein wiegt doppelt, Feder nur die Hälfte (Vögel sind leicht), Haut und Fell normal.", "Height from the model's height times the overall size (Build tab), weight from the volume. Stone weighs double, feathers only half (birds are light), skin and fur normal.") + '</div>';
     return h;
   }
   function colPanel() {
@@ -194,6 +214,8 @@
   }
   function statsPanel() {
     var m = S.m, h = '<div class="hint">' + L2("Grundwert = Wert auf Level 1. Potenzial = wie stark der Wert bis Level 100 wächst.", "Base = value at level 1. Potential = how much it grows until level 100.") + '</div>', tot1 = 0, tot100 = 0;
+    h += '<button type="button" class="big" data-a="rndstats">' + L2("Werte vorschlagen (Element + Größe)", "Suggest stats (element + size)") + '</button>';
+    h += '<div class="hint">' + L2("Grob wie bei Pokémon: Gestein und Stahl verteidigen gut, Flug und Elektro sind schnell, Kampf ist stark im Nahkampf und in der Abwehr, Psycho im Fernkampf. Große Monster haben mehr KP und Verteidigung, sind aber langsamer. Entwicklungen bekommen mehr Gesamtwerte. Jeder Klick würfelt eine leichte Abweichung. Neue Monster bekommen beim ersten Speichern automatisch einen Vorschlag.", "Roughly like Pokémon: Rock and Steel defend well, Flying and Electric are fast, Fighting is strong in melee and defence, Psychic at range. Big monsters have more HP and defence but are slower. Evolutions get higher totals. Every click rolls a slight variation. New monsters get a suggestion automatically on their first save.") + '</div>';
     MO.STATS.forEach(function (s) {
       var v = m.stats[s.k]; tot1 += v[0]; tot100 += MO.statAt(v, 100);
       h += '<div class="st"><b>' + L2(s.de, s.en) + '<i data-o="sv_' + s.k + '">Lv1 ' + v[0] + ' · Lv50 ' + MO.statAt(v, 50) + ' · Lv100 ' + MO.statAt(v, 100) + '</i></b>' +
@@ -609,6 +631,7 @@
     m.snap = { f: [S.snap.front.yaw, S.snap.front.pitch], b: [S.snap.back.yaw, S.snap.back.pitch] };
     measured();
     var isNew = !MO.byId(m.id), parent = m.pre && isNew ? MO.byId(m.pre) : null;
+    if (isNew && MO.isBlankStats(m.stats)) m.stats = MO.suggestStats(m);   // seit v0.28: Werte nach Element und Größe
     S.m = MO.put(m);
     if (parent) { parent = MO.byId(parent.id); if (parent) { parent.evoLvl = Math.max(2, Math.min(100, Math.round(S.evoLvl || 16))); parent.evo = S.m.id; MO.put(parent); S.m = MO.byId(S.m.id); } }
     if (!S.m.model) S.m.model = D.sanitize(m.model);
@@ -641,6 +664,7 @@
       MO.remove(m.id); S.delArm = null; S.lastSaved = null; say(L2("Gelöscht: ", "Deleted: ") + (m.name || "?") + L2(" – das Modell bleibt im Editor.", " – the model stays in the editor.")); changed(true); return;
     }
     if (a === "save") { startFlow(); return; }
+    if (a === "rndstats") { measured(); m.stats = MO.suggestStats(m); keep(); say(L2("Werte vorgeschlagen – nach Element, Größe und Entwicklungsstufe.", "Stats suggested – by element, size and evolution stage.")); renderPanel(); return; }
     if (a === "saveinfo") { measured(); S.m = MO.put(m); if (!S.m.model) S.m.model = Mo; say(L2("Daten gespeichert (Bilder unverändert).", "Data saved (images unchanged).")); changed(true); return; }
     if (a === "evo") {
       var par = MO.byId(m.id); if (!par) return;
@@ -691,6 +715,7 @@
     if (k === "cseed") { m.cry.seed = Math.max(1, Math.min(99999, Math.round(+v || 1))); keep(); return; }
     if (k === "pitch" || k === "stretch") { m.cry[k] = +v; if (o) o.textContent = (+v).toFixed(2); keep(); return; }
     if (k === "size") { m.size = +v; if (o) o.textContent = Math.round(64 * v) + " px"; S.fprev = null; keep(); return; }
+    if (k === "scl") { m.scale = Math.round(Math.pow(2, +v) * 1000) / 1000; measured(); if (o) o.textContent = sclFmt(v); keep(); return; }
     if (k === "res") { setRes(v); if (o) o.textContent = S.res + " px"; keep(); return; }
     if (k === "br_r") { S.brush.r = +v; if (o) o.textContent = Math.round(v * 100); return; }
     if (k === "st_s" || k === "st_rot" || k === "st_tilt") {
@@ -721,7 +746,7 @@
     if (k === "pre" || k === "evo") { m[k] = t.value || null; keep(); return; }
     if (k === "no") { renderPanel(); return; }
     if (k === "cseed" || k === "evoLvl" || k === "h" || k === "kg") { var mdl = m.model, im = m.img, sn = m.snap; S.m = MO.sanitize(m); S.m.model = mdl; S.m.img = im; S.m.snap = sn; keep(); renderPanel(); return; }
-    if (k === "size") { renderPanel(); return; }
+    if (k === "size" || k === "scl") { renderPanel(); return; }
     if (k === "file") {
       var f = t.files && t.files[0]; if (!f) return;
       var rd = new FileReader();

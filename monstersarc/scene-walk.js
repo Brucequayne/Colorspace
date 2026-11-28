@@ -47,7 +47,7 @@
       var map = opt.map ? new MA.maps.GameMap(opt.map) : MA.maps.start();
       var w = S.world = new MA.World(map);
       w.time = opt.time != null ? opt.time : map.time; w.wind = opt.wind != null ? opt.wind : 1;
-      S.pc = new MA.Character(w, map.spawn[0], map.spawn[1], { look: "samurai" });
+      S.pc = new MA.Character(w, map.spawn[0], map.spawn[1], { look: "kid" });
       w.player = S.pc;
       w.follow(S.pc.x, S.pc.y - 10);
       S.back = opt.back || "menu"; S.zone = null; S.out = null; S.room = null; S.house = null; S.fade = null; S.door = null;

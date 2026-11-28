@@ -50,6 +50,35 @@
     heavy: { torso: "armor", sleeve: "armor", legs: "ash", wings: null, sode: true, kusazuri: true, saya: true, hat: false, hachimaki: true, scale: 1.3 }
   };
 
+  // ---------- Spielfigur (seit v0.28): ca. 12-jähriger Junge, 1,50 m ----------
+  // Aufbau als Baukasten, damit Spieler später Outfit, Frisur und Farben anpassen können (Open World):
+  //   body:   "boy" (später "girl")
+  //   hair:   "mid" (mittellang)            – weitere Frisuren als neue Fälle in modelKid/materialKid
+  //   top:    "hoodie" (offen, T-Shirt drunter)
+  //   bottom: "joggers"
+  //   shoes:  "sneaker"
+  //   band:   true/false (Stirnband mit Knoten hinten)
+  //   col:    Farben je Teil (hair, top, top2 = Bündchen, tee, pants, shoe, sole, acc = Akzent, band, skin)
+  // makeLook(id, spec) legt ein Aussehen an (oder ersetzt es) und leert dessen Bilder-Zwischenspeicher.
+  var KID0 = { body: "boy", hair: "mid", top: "hoodie", bottom: "joggers", shoes: "sneaker", band: true,
+    col: { hair: "#A4A7AE", top: "#4A6178", top2: "#34465A", tee: "#ECE9E0", pants: "#2A2C32", shoe: "#ECE9E2", sole: "#3A3A42", acc: "#ED6A5E", band: "#ED6A5E", skin: "#D29C78" } };
+  function hexRgb(h) { return [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)]; }
+  function rgbHex(c) { return "#" + c.map(function (v) { return ("0" + Math.max(0, Math.min(255, Math.round(v))).toString(16)).slice(-2); }).join(""); }
+  function ramp(h) {   // 4 Tonstufen dunkel → hell aus einer Grundfarbe (Schatten leicht kühl)
+    var c = hexRgb(h), mx = function (a, b, t) { return rgbHex([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t]); };
+    return [mx(c, [14, 12, 24], 0.6), mx(c, [24, 22, 40], 0.3), h, mx(c, [255, 250, 236], 0.24)];
+  }
+  function makeLook(id, spec) {
+    var o = JSON.parse(JSON.stringify(KID0)); spec = spec || {};
+    Object.keys(spec).forEach(function (k) { if (k !== "col") o[k] = spec[k]; });
+    Object.keys(spec.col || {}).forEach(function (k) { o.col[k] = spec.col[k]; });
+    var pal = {}; Object.keys(o.col).forEach(function (k) { pal["k_" + k] = k === "skin" && o.col.skin === KID0.col.skin ? PAL.skin : ramp(o.col[k]); });
+    pal.k_cuff = ramp(rgbHex(hexRgb(o.col.pants).map(function (v) { return v * 0.7; })));
+    LOOKS[id] = { kid: o, pal: pal, scale: 1, lift: { skin: 1, k_tee: 1, k_hair: 0 } };
+    Object.keys(cache).forEach(function (k) { if (k.indexOf(id + ":") === 0) delete cache[k]; });
+    return LOOKS[id];
+  }
+
   // ---------- SDF-Grundformen ----------
   function len(x, y, z) { return Math.sqrt(x * x + y * y + z * z); }
   function ell(cx, cy, cz, rx, ry, rz) {
@@ -118,6 +147,7 @@
 
   // Modell aus Grundformen, je mit Material
   function model(P, L) {
+    if (L.kid) return modelKid(P, L);
     var cz = -P.crouch, ln = P.lean, prims = [];
     function add(f, m) { prims.push([f, m]); }
     // Füße (Waraji-Sandalen mit Tabi)
@@ -172,8 +202,70 @@
     return { prims: prims, ln: ln, cz: cz, P: P, L: L };
   }
 
+
+  // Spielfigur: Maße in den gleichen Einheiten wie der Samurai, aber ca. 15 % kleiner und mit kindlichen Proportionen
+  function modelKid(P, L) {
+    var K = L.kid, cz = -P.crouch * 0.8, ln = P.lean * 0.8, br = P.breathe * 0.8, prims = [];
+    function add(f, m) { prims.push([f, m]); }
+    // Schuhe und Beine (Jogginghose mit Bündchen)
+    [[-1, P.lf, P.ll], [1, P.rf, P.rl]].forEach(function (G) {
+      var x = G[0] * P.spread * 0.72, y = G[1] * 0.8, lift = G[2] * 0.8;
+      add(box(x, y + 0.6, 0.42 + lift, 1.0, 1.65, 0.42), "k_sole");
+      add(ell(x, y + 0.45, 1.25 + lift, 1.0, 1.6, 0.78), "k_shoe");
+      add(cone([x * 0.55, ln * 0.35, 9.4 + cz], [x * 0.95, y * 0.85, 2.0 + lift], 1.7, 1.25), "k_pants");
+    });
+    add(ecyl(0, ln * 0.45, 2.9, 2.0, 8.4 + cz, 10.2 + cz), "k_pants");
+    // Hoodie (offen, T-Shirt darunter), Schultern, Kapuze im Nacken
+    add(ecyl(0, ln * 0.55, 3.1, 2.15, 9.4 + cz, 15.4 + cz + br), "k_top");
+    add(ell(0, ln * 0.55, 15.2 + cz + br, 3.35, 2.25, 1.35), "k_top");
+    add(ell(0, ln * 0.6 - 1.95, 15.9 + cz + br, 2.4, 1.2, 1.3), "k_top");
+    // Arme (Ärmel) und Hände
+    [[-1, P.hl], [1, P.hr]].forEach(function (A) {
+      var sh = [A[0] * 3.4, ln * 0.55, 14.8 + cz + br], h = [A[1][0] * 0.78, A[1][1] * 0.8 + ln * 0.5, A[1][2] * 0.8 + cz];
+      add(cone(sh, h, 1.2, 1.0), "k_top");
+      add(ell(h[0], h[1], h[2] - 0.25, 0.78, 0.78, 0.78), "skin");
+    });
+    // Hals, Kopf, Haare
+    var hz = 19.9 + cz + br, hy = ln * 0.75 + 0.1;
+    add(ecyl(0, ln * 0.65, 0.95, 0.85, 15.4 + cz, 17.2 + cz), "skin");
+    add(ell(0, hy, hz, 3.7, 3.45, 3.75), "k_head");
+    if (K.hair === "mid") {
+      add(ell(0, hy - 0.4, hz + 1.35, 3.95, 3.7, 2.65), "k_hair");                  // Oberkopf, Pony bis zur Stirn
+      add(ell(0, hy - 1.6, hz - 0.5, 3.8, 2.5, 3.5), "k_hair");                     // Hinterkopf, fällt bis in den Nacken
+      add(cone([-3.3, hy - 0.1, hz + 0.9], [-3.1, hy - 0.8, hz - 1.9], 1.0, 0.55), "k_hair");   // seitliche Strähnen über den Ohren
+      add(cone([3.3, hy - 0.1, hz + 0.9], [3.1, hy - 0.8, hz - 1.9], 1.0, 0.55), "k_hair");
+    }
+    if (K.band) {   // Knoten hinten, zwei Bandenden hängen herab
+      add(ell(0, hy - 4.05, hz + 1.3, 0.85, 0.6, 0.7), "k_band");
+      add(cone([-0.4, hy - 4.3, hz + 1.1], [-1.2, hy - 4.9, hz - 1.6], 0.34, 0.26), "k_band");
+      add(cone([0.4, hy - 4.3, hz + 1.1], [0.9, hy - 4.7, hz - 1.0], 0.34, 0.26), "k_band");
+    }
+    return { prims: prims, ln: ln, cz: cz, P: P, L: L, kid: { hz: hz, hy: hy, ty: ln * 0.55 } };
+  }
+  function materialKid(name, x, y, z, M) {
+    var K = M.L.kid, k = M.kid;
+    if (name === "k_head" || name === "k_hair") {
+      var hy = y - k.hy, hz = z - k.hz;
+      if (K.band && Math.abs(hz - (1.4 + Math.max(0, -hy) * 0.1)) < 0.42) return "k_band";
+      if (name === "k_hair") return "k_hair";
+      if (hy > 1.6 && Math.abs(hz + 0.35) < 0.6 && Math.abs(Math.abs(x) - 1.3) < 0.42) return "eye";
+      return "skin";
+    }
+    if (name === "k_top") {
+      var ty = y - k.ty, tz = z - M.cz;
+      if (ty > 0.7 && tz > 10.2 && tz < 15.8 && Math.abs(x) < 0.8) return "k_tee";                        // offener Reißverschluss, T-Shirt
+      if (ty > 0.9 && tz > 12.6 && tz < 15 && Math.abs(Math.abs(x) - 1.15) < 0.22) return "k_tee";        // Kordeln
+      if (tz < 10.3 && tz > 8.8) return "k_top2";                                                         // Bündchen
+      return "k_top";
+    }
+    if (name === "k_pants" && z < 2.9) return "k_cuff";                                                     // Bündchen am Knöchel
+    if (name === "k_shoe" && Math.abs(x) > 0.6 && Math.abs(z - 1.1) < 0.18) return "k_acc";                 // Streifen am Turnschuh
+    return name;
+  }
+
   // Material mit Details (Gesicht, V-Kragen, Wappen)
   function material(name, x, y, z, M) {
+    if (M.L.kid) return materialKid(name, x, y, z, M);
     // Rüstungsplatten mit waagerechter Schnürung
     if (name === "armor") return (((z - M.cz) * 1.15) % 1 + 1) % 1 < 0.2 ? "lace" : "armor";
     if (name === "head") {
@@ -244,8 +336,9 @@
       var wnx = (n0 * rx + n1 * fx) / nl, wny = (n0 * ry + n1 * fy) / nl, wnz = n2 / nl;
       var lam = Math.max(0, wnx * Lx + wny * Ly + wnz * Lz);
       var v = 0.22 + lam * 0.85;
-      var mat = material(prims[hit][1], hx, hy, hz, M), pal = PAL[mat] || PAL.red;
+      var mat = material(prims[hit][1], hx, hy, hz, M), pal = (L.pal && L.pal[mat]) || PAL[mat] || PAL.red;
       var tone = v < 0.42 ? 0 : v < 0.68 ? 1 : v < 0.92 ? 2 : 3;
+      if (L.lift && L.lift[mat]) tone = Math.min(3, tone + L.lift[mat]);   // Spielfigur: Gesicht und Shirt eine Stufe heller
       var c = MA.hex(pal[tone]), i = (py * sw + px) * 4;
       d[i] = c[0]; d[i + 1] = c[1]; d[i + 2] = c[2]; d[i + 3] = 255;
     }
@@ -255,8 +348,9 @@
   }
 
   var FRAMES = { idle: 2, walk: 6, block: 1, parry: 1, atk: 1, dash: 1, bow: 1, windup: 1, stagger: 1, blockwalk: 6, bowwalk: 6, cast_up: 1, cast_flow: 1, cast_flow2: 1, cast_push: 1, cast_low: 1, punch_l: 1, punch_r: 1 };
-  var USE = { samurai: ["idle", "walk"], ronin: ["idle", "walk"] };   // Monsters Arc: nur Laufen/Stehen vorbereiten (Shizuku: alle Kampf-Posen)
+  var USE = { kid: ["idle", "walk"] };   // Monsters Arc: nur Laufen/Stehen vorbereiten (Shizuku: alle Kampf-Posen)
   var cache = {}, queue = [];
+  makeLook("kid");   // Standard-Spielfigur
   function frame(dir, anim, k, look) {
     look = look || "samurai";
     var n = FRAMES[anim] || 1; k = ((k % n) + n) % n;
@@ -380,5 +474,5 @@
     return { x: tx, y: ty };
   }
 
-  MA.samurai = { Hair: Hair, drawBow: drawBow, drawArrow: drawArrow, frame: frame, FRAMES: FRAMES, prewarm: prewarm, work: work, proj: proj, drawSword: drawSword, AX: AX, AY: AY, W: SW, H: SH, PAL: PAL };
+  MA.samurai = { makeLook: makeLook, KID0: KID0, LOOKS: LOOKS, Hair: Hair, drawBow: drawBow, drawArrow: drawArrow, frame: frame, FRAMES: FRAMES, prewarm: prewarm, work: work, proj: proj, drawSword: drawSword, AX: AX, AY: AY, W: SW, H: SH, PAL: PAL };
 })();

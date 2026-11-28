@@ -19,7 +19,7 @@
   var EL_COL = ["#A8A08A", "#E0703C", "#4A86C8", "#5E9A4A", "#E8C048", "#8AC8D8", "#B04A3C", "#8A5AA8", "#C8A060", "#8EA6E0", "#E0608A", "#9AB040", "#A89050", "#6A5A98", "#6A50D8", "#5E5048", "#A8A8B8"];
   var STATS = [
     { k: "hp", de: "KP", en: "HP" }, { k: "atk", de: "Angriff", en: "Attack" }, { k: "def", de: "Verteidigung", en: "Defense" },
-    { k: "spa", de: "Sp.-Angriff", en: "Sp. Atk" }, { k: "spd", de: "Sp.-Vert.", en: "Sp. Def" }, { k: "ini", de: "Initiative", en: "Speed" }
+    { k: "spa", de: "Fernkampf", en: "Ranged" }, { k: "spd", de: "Fern-Abwehr", en: "Ranged def." }, { k: "ini", de: "Initiative", en: "Speed" }
   ];
   // Wert auf einem Level: Grundwert (Lv 1) wächst linear bis zum Endwert (Lv 100) = Grundwert + Potenzial × 4
   function statAt(s, lvl) { var b = s[0], f = s[0] + s[1] * 4; return Math.round(b + (f - b) * (Math.max(1, Math.min(100, lvl)) - 1) / 99); }
@@ -29,7 +29,7 @@
   var PAL0 = { main: "#C8A060", sec: "#F0E0B8", acc: "#8A5A3A", eye: "#3A2A20", extra: "#E8C048" };
   function blank() {
     return { id: "m" + Date.now().toString(36) + Math.floor(Math.random() * 1e4).toString(36), no: 1, name: "", el: [0, -1], pre: null, evo: null, evoLvl: 16,
-      look: JSON.parse(JSON.stringify(LOOK0)), pal: JSON.parse(JSON.stringify(PAL0)), size: 1, h: 0.5, kg: 8,
+      look: JSON.parse(JSON.stringify(LOOK0)), pal: JSON.parse(JSON.stringify(PAL0)), size: 1, scale: 1, h: 0.5, kg: 8,
       stats: { hp: [12, 45], atk: [7, 45], def: [7, 45], spa: [7, 45], spd: [7, 45], ini: [7, 45] }, cry: { seed: 1, pitch: 1, stretch: 1 } };
   }
   var CH = {   // erlaubte Auswahlwerte
@@ -46,7 +46,8 @@
     var o = { id: typeof m.id === "string" ? m.id : b.id, no: Math.round(clamp(m.no, 0, 9999, 1)), name: String(m.name || "").slice(0, 24),
       el: [Math.round(clamp(m.el && m.el[0], 0, ELEMENTS.length - 1, 0)), Math.round(clamp(m.el && m.el[1], -1, ELEMENTS.length - 1, -1))],
       pre: typeof m.pre === "string" ? m.pre : null, evo: typeof m.evo === "string" ? m.evo : null, evoLvl: Math.round(clamp(m.evoLvl, 2, 100, 16)),
-      size: clamp(m.size, 0.5, 4, 1), h: clamp(m.h, 0.1, 60, 0.5), kg: clamp(m.kg, 0.1, 99999, 8), look: {}, pal: {}, stats: {}, cry: {} };
+      size: clamp(m.size, 0.5, 4, 1), h: clamp(m.h, 0.05, 99, 0.5), kg: clamp(m.kg, 0.1, 99999, 8), look: {}, pal: {}, stats: {}, cry: {} };
+    o.scale = clamp(m.scale, 0.1, 20, o.size);   // Gesamtgröße (seit v0.28); alte Monster: bisher steckte sie in size
     var L = m.look || {};
     Object.keys(LOOK0).forEach(function (k) {
       if (CH[k]) o.look[k] = CH[k].indexOf(L[k]) >= 0 ? L[k] : LOOK0[k];
@@ -428,10 +429,95 @@
   }
   function nextNo() { var mx = 0; load().forEach(function (q) { mx = Math.max(mx, q.no); }); return mx + 1; }
 
+
+  // ---------- Kampfwerte vorschlagen (seit v0.28) ----------
+  // Grob nach dem Pokémon-Balancing: Basiswert B je Wert (≈ 20–160), Summe nach Entwicklungsstufe, Verteilung nach Element
+  // (Hauptelement 60 %, Zweitelement 40 %) und Größe (groß = mehr KP und Verteidigung, dafür langsamer), dazu ±12 % Zufall.
+  // Umrechnung: Grundwert Lv 1 = 5 + B/12 (KP 10 + B/8), Potenzial = B/2 → Lv 100 ≈ 2 × B.
+  //            KP    Nah   Abw   Fern  FAbw  Init
+  var EL_PROF = [[1.15, 1.00, 0.90, 0.85, 0.90, 1.00],   // Normal
+    [0.95, 1.05, 0.90, 1.20, 0.95, 1.05],   // Feuer
+    [1.10, 0.95, 1.05, 1.05, 1.05, 0.90],   // Wasser
+    [1.00, 0.95, 1.00, 1.10, 1.05, 0.85],   // Pflanze
+    [0.85, 0.95, 0.85, 1.15, 0.95, 1.30],   // Elektro
+    [1.05, 0.95, 0.95, 1.10, 1.05, 0.85],   // Eis
+    [1.05, 1.35, 1.15, 0.65, 0.90, 0.95],   // Kampf: Nahkampf und Abwehr
+    [1.00, 0.95, 0.95, 1.00, 1.10, 0.95],   // Gift
+    [1.10, 1.15, 1.15, 0.80, 0.85, 0.80],   // Boden
+    [0.90, 1.00, 0.80, 0.95, 0.90, 1.40],   // Flug: schnell
+    [0.90, 0.70, 0.85, 1.35, 1.20, 1.05],   // Psycho
+    [0.90, 1.05, 1.00, 0.85, 0.95, 1.00],   // Käfer
+    [1.05, 1.10, 1.45, 0.75, 0.90, 0.60],   // Gestein: Verteidigung
+    [0.85, 0.90, 0.95, 1.20, 1.15, 1.00],   // Geist
+    [1.10, 1.20, 1.00, 1.15, 1.00, 1.05],   // Drache
+    [0.95, 1.20, 0.90, 1.00, 0.90, 1.15],   // Unlicht
+    [0.95, 1.05, 1.50, 0.85, 1.05, 0.65]];  // Stahl: Verteidigung
+  // Wirkung der Größe je Wert pro Verdopplung der Höhe (Bezug 1 m)
+  var SIZE_EFF = [0.16, 0.05, 0.08, 0.02, 0.04, -0.13];
+  function stage(m) {   // 0 = Basis mit Entwicklung, 1 = Mitte, 2 = Endstufe, 3 = ohne Entwicklung
+    var pre = m.pre && byId(m.pre), prepre = pre && pre.pre && byId(pre.pre);
+    if (!pre) return m.evo ? 0 : 3;
+    if (m.evo) return 1;
+    return prepre ? 2 : 1.5;
+  }
+  var STAGE_SUM = { 0: 310, 1: 410, 1.5: 480, 2: 520, 3: 440 };
+  function suggestStats(m, rnd) {
+    rnd = rnd || Math.random;
+    var e0 = EL_PROF[m.el[0]] || EL_PROF[0], e1 = m.el[1] >= 0 ? EL_PROF[m.el[1]] : null;
+    var z = Math.max(-3, Math.min(3.5, Math.log((m.h || 0.5) / 1) / Math.LN2));
+    var dens = Math.max(-1, Math.min(1.2, Math.log(Math.max(0.1, m.kg || 8) / (40 * Math.pow(Math.max(0.05, m.h || 0.5), 3)) + 1e-9) / Math.LN2 / 3));   // schwer für seine Größe → robuster, langsamer
+    var sum = (STAGE_SUM[stage(m)] || 440) * (1 + 0.035 * z) * (0.95 + rnd() * 0.1);
+    var w = [], tw = 0;
+    for (var i = 0; i < 6; i++) {
+      var p = e1 ? e0[i] * 0.6 + e1[i] * 0.4 : e0[i];
+      var sz = Math.max(0.45, 1 + SIZE_EFF[i] * z + (i === 2 ? 0.08 : i === 5 ? -0.08 : 0) * dens);
+      w[i] = Math.max(0.25, p * sz * (0.88 + rnd() * 0.24)); tw += w[i];
+    }
+    var st = {};
+    STATS.forEach(function (s, i) {
+      var B = Math.max(15, Math.min(190, sum * w[i] / tw));
+      st[s.k] = [Math.round(Math.max(1, Math.min(60, i === 0 ? 10 + B / 8 : 5 + B / 12))), Math.round(Math.max(0, Math.min(100, B / 2)))];
+    });
+    return st;
+  }
+  function isBlankStats(st) { var b = blank().stats; return STATS.every(function (s) { return st[s.k][0] === b[s.k][0] && st[s.k][1] === b[s.k][1]; }); }
+
+  // ---------- Größenvergleich mit einem 1,50 m großen Menschen (seit v0.28) ----------
+  function alphaBox(src) {   // Rechteck der sichtbaren Pixel eines Bildes/Canvas
+    var w = src.width, h = src.height; if (!w || !h) return null;
+    var c = MA.canvas(w, h); c.ctx.drawImage(src, 0, 0);
+    var d = c.ctx.getImageData(0, 0, w, h).data, x0 = w, y0 = h, x1 = -1, y1 = -1;
+    for (var y = 0; y < h; y++) for (var x = 0; x < w; x++) if (d[(y * w + x) * 4 + 3] > 40) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+    return x1 < 0 ? null : { x: x0, y: y0, w: x1 - x0 + 1, h: y1 - y0 + 1 };
+  }
+  var HUMAN = null;
+  function human() {   // schwarze Silhouette der Spielfigur (1,50 m), von vorn
+    if (HUMAN) return HUMAN;
+    var f = MA.samurai && MA.samurai.frame(2, "idle", 0, "kid"); if (!f) return null;
+    var c = MA.canvas(f.cv.width, f.cv.height); c.ctx.drawImage(f.cv, 0, 0); c.ctx.globalCompositeOperation = "source-in"; c.ctx.fillStyle = "#1C1D1C"; c.ctx.fillRect(0, 0, c.width, c.height);
+    HUMAN = { cv: c, bb: alphaBox(c) }; return HUMAN;
+  }
+  // zeichnet das Monsterbild (farbig) neben die Menschen-Silhouette, beide im echten Größenverhältnis
+  function compareCanvas(src, hm, W, H) {
+    W = W || 200; H = H || 110;
+    var c = MA.canvas(W, H), g = c.ctx, gy = H - 16, top = 6, hu = human(), bb = src && alphaBox(src);
+    g.imageSmoothingEnabled = false;
+    var mpp = Math.max(hm || 0.5, 1.5) / (gy - top);   // Meter pro Pixel
+    g.fillStyle = "rgba(28,29,28,.25)"; g.fillRect(0, gy, W, 1);
+    var hx = W * 0.3, mx = W * 0.68;
+    if (hu && hu.bb) { var k = 1.5 / mpp / hu.bb.h, w = hu.bb.w * k; g.drawImage(hu.cv, hu.bb.x, hu.bb.y, hu.bb.w, hu.bb.h, Math.round(hx - w / 2), Math.round(gy - hu.bb.h * k), Math.max(1, Math.round(w)), Math.max(1, Math.round(hu.bb.h * k))); }
+    if (bb) { var k2 = (hm || 0.5) / mpp / bb.h, w2 = bb.w * k2; mx = Math.min(W - w2 / 2 - 4, Math.max(mx, hx + w2 / 2 + 14)); g.drawImage(src, bb.x, bb.y, bb.w, bb.h, Math.round(mx - w2 / 2), Math.round(gy - bb.h * k2), Math.max(1, Math.round(w2)), Math.max(1, Math.round(bb.h * k2))); }
+    g.font = "600 9px system-ui, sans-serif"; g.textAlign = "center"; g.textBaseline = "top"; g.fillStyle = "#2A3A2A";
+    var dec = function (v) { return (Math.round(v * 100) / 100).toLocaleString(MA.lang === "en" ? "en-GB" : "de-DE") + " m"; };
+    g.fillText(MA.lang === "en" ? "1.50 m" : "1,50 m", hx, gy + 3); g.fillText(dec(hm || 0.5), mx, gy + 3);
+    return c;
+  }
+
   MA.monsters = {
     ELEMENTS: ELEMENTS, EL_COL: EL_COL, STATS: STATS, CH: CH,
     elName: function (i) { return i < 0 ? "–" : L2(ELEMENTS[i], ELEMENTS_EN[i]); },
     statAt: statAt, blank: blank, sanitize: sanitize, render: render, playCry: playCry,
-    list: load, sorted: sorted, byId: byId, put: put, remove: remove, exportList: exportList, importList: importList, nextNo: nextNo
+    list: load, sorted: sorted, byId: byId, put: put, remove: remove, exportList: exportList, importList: importList, nextNo: nextNo,
+    suggestStats: suggestStats, isBlankStats: isBlankStats, alphaBox: alphaBox, compareCanvas: compareCanvas
   };
 })();
