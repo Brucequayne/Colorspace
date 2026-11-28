@@ -394,6 +394,13 @@ window.PATCHNOTES = {
         "House editor (separate from the map editor) with floors, walls in plaster, brick and wood with windows and doors, a roof with slopes and gables, and furniture. Houses are exported as .txt."] }
   ],
   monstersarc: [
+    { v: "0.28.1", t: "2026-11-28T02:00:00+01:00",
+      de: ["Monster-Editor, „Zur Liste hinzufügen“: Nach den Fotos von vorne und hinten kommt als 3. Bild das Vergleichsbild für die Monsterliste. Es ist standardmäßig von der Seite aufgenommen, damit die Perspektive zur Menschen-Silhouette passt, lässt sich aber frei drehen. Eine Vorschau zeigt, wie es neben dem 1,50 m großen Menschen steht.",
+        "Beim Nachzeichnen kannst du das Vergleichsbild genauso bearbeiten wie die beiden Kampfbilder. Die Bildgröße stellst du jetzt nur noch beim ersten Foto ein, damit alle drei Bilder gleich groß sind.",
+        "Bisherige Monster zeigen in der Liste weiter das Bild von vorne. Mit „Änderungen speichern (neue Fotos)“ bekommen sie ein Vergleichsbild."],
+      en: ["Monster editor, “Add to list”: after the front and back snapshots, the 3rd picture is the comparison picture for the monster list. By default it is taken from the side so the perspective matches the human silhouette, but you can rotate it freely. A preview shows how it stands next to the 1.50 m person.",
+        "While touching up you can edit the comparison picture just like the two battle sprites. The sprite size is now only set at the first snapshot, so all three pictures have the same size.",
+        "Existing monsters keep showing the front picture in the list. “Save changes (new snapshots)” gives them a comparison picture."] },
     { v: "0.28", t: "2026-11-28T01:30:00+01:00",
       de: ["Neue Spielfigur: ein ca. 12-jähriger Junge, 1,50 m groß (kleiner als der Samurai) – graue, mittellange Haare, rotes Stirnband mit Knoten, offener Hoodie mit weißem Shirt, dunkle Jogginghose und weiße Sneaker. Sie ist als Baukasten angelegt, damit später Outfit, Frisur und Farben anpassbar werden (und ein Mädchen wählbar ist).",
         "Monsterliste: Alle Monster werden gleich groß gezeigt. Darunter ein Größenvergleich mit einem 1,50 m großen Menschen (schwarze Silhouette der Spielfigur) im echten Verhältnis.",

@@ -90,9 +90,9 @@
   function dec(v) { return String(v).replace(".", MA.lang === "en" ? "." : ","); }
   // Größenvergleich mit der Spielfigur (1,50 m) als Bild für die Seitenleiste
   function compareImg() {
-    var m = S.m, me = measured(), key = JSON.stringify(M()) + JSON.stringify(m.pal) + me.h + (m.img ? m.img.front.length : 0);
+    var m = S.m, me = measured(), ci = m.img ? m.img.side || m.img.front : null, key = JSON.stringify(M()) + JSON.stringify(m.pal) + me.h + (ci ? ci.length : 0);
     if (S.cmp && S.cmp.key === key) return S.cmp.url;
-    var src = m.img ? m.img.front : D.modelThumb(M(), palObj(), "cmp");
+    var src = ci || D.modelThumb(M(), palObj(), "cmp");
     S.cmp = { key: key, url: "" };
     var im = new Image();
     im.onload = function () { if (!S.cmp || S.cmp.key !== key) return; S.cmp.url = MO.compareCanvas(im, me.h, 200, 110).toDataURL(); var el = S.host && S.host.querySelector("img[data-o=cmp]"); if (el) el.src = S.cmp.url; };
@@ -233,22 +233,23 @@
   }
   function flowPanel() {
     var h = '<h3>' + L2("Zur Liste hinzufügen", "Add to list") + ' – ' + esc(S.m.name || "?") + '</h3>';
-    if (S.flow === "front" || S.flow === "back") {
-      var fr = S.flow === "front";
-      h += '<div class="box"><b>' + (fr ? L2("Schritt 1 von 3: Foto von vorne", "Step 1 of 3: front snapshot") : L2("Schritt 2 von 3: Foto von hinten", "Step 2 of 3: back snapshot")) + '</b><br>' +
-        L2("Dreh das Monster so, wie es im Spiel zu sehen sein soll (Ziehen mit linker oder mittlerer Maustaste, Pfeiltasten). Rechts siehst du das fertige Spielbild.", "Rotate the monster the way it should look in the game (drag with left or middle mouse, arrow keys). On the right you see the final game sprite.") +
-        (fr ? "" : L2(" Das Foto von hinten nutzt den gleichen Maßstab wie vorne.", " The back snapshot uses the same scale as the front.")) + '</div>';
-      h += slider("size", L2("Bildgröße", "Sprite size"), 0.5, 4, 0.05, S.m.size, function (v) { return Math.round(64 * v) + " px"; });
+    if (isShotStep()) {
+      var fr = S.flow === "front", sd = S.flow === "side";
+      h += '<div class="box"><b>' + (fr ? L2("Schritt 1 von 4: Foto von vorne", "Step 1 of 4: front snapshot") : sd ? L2("Schritt 3 von 4: Vergleichsbild", "Step 3 of 4: comparison picture") : L2("Schritt 2 von 4: Foto von hinten", "Step 2 of 4: back snapshot")) + '</b><br>' +
+        (sd ? L2("Dieses Bild steht in der Monsterliste neben dem 1,50 m großen Menschen. Am besten von der Seite (Standard), damit die Perspektive zur Silhouette passt – du kannst es aber frei drehen.", "This picture stands next to the 1.50 m person in the monster list. Best from the side (default) so the perspective matches the silhouette – but you can rotate it freely.")
+          : L2("Dreh das Monster so, wie es im Spiel zu sehen sein soll (Ziehen mit linker oder mittlerer Maustaste, Pfeiltasten). Rechts siehst du das fertige Spielbild.", "Rotate the monster the way it should look in the game (drag with left or middle mouse, arrow keys). On the right you see the final game sprite.")) +
+        (fr ? "" : L2(" Gleicher Maßstab wie vorne.", " Same scale as the front.")) + '</div>';
+      if (fr) h += slider("size", L2("Bildgröße", "Sprite size"), 0.5, 4, 0.05, S.m.size, function (v) { return Math.round(64 * v) + " px"; });
       h += '<div class="row3"><button type="button" data-a="f_l">⟲ 15°</button><button type="button" data-a="f_reset">' + L2("Standard", "Default") + '</button><button type="button" data-a="f_r">15° ⟳</button></div>';
       h += '<button type="button" class="big" data-a="shot">' + L2("Foto aufnehmen", "Take snapshot") + '</button>';
-      h += '<div class="row2"><button type="button" data-a="f_back">' + (fr ? L2("Abbrechen", "Cancel") : L2("Zurück zu vorne", "Back to front")) + '</button><span></span></div>';
+      h += '<div class="row2"><button type="button" data-a="f_back">' + (fr ? L2("Abbrechen", "Cancel") : sd ? L2("Zurück zu hinten", "Back to back view") : L2("Zurück zu vorne", "Back to front")) + '</button>' + (sd ? '<button type="button" data-a="noside">' + L2("Ohne Vergleichsbild", "Skip comparison") + '</button>' : '<span></span>') + '</div>';
     } else {
       var P = S.pix, T = D.palTones(S.m.pal), sw = [];
       for (var s = 0; s < 5; s++) for (var t = 0; t < 4; t++) sw.push(T[s][t]);
       sw.push([26, 20, 30], [255, 255, 255], [14, 10, 18], [200, 70, 84]);
-      h += '<div class="box"><b>' + L2("Schritt 3 von 3: Nachzeichnen", "Step 3 of 3: touch up") + '</b><br>' + L2("Mit Stift und Pipette Pixel für Pixel nachbessern – links vorne, rechts hinten. Rechtsklick = Pipette.", "Touch up pixel by pixel with pen and picker – front left, back right. Right click = picker.") + '</div>';
+      h += '<div class="box"><b>' + L2("Schritt 4 von 4: Nachzeichnen", "Step 4 of 4: touch up") + '</b><br>' + L2("Mit Stift und Pipette Pixel für Pixel nachbessern – vorne, hinten und das Vergleichsbild. Rechtsklick = Pipette.", "Touch up pixel by pixel with pen and picker – front, back and the comparison picture. Right click = picker.") + '</div>';
       h += '<div class="seg c4">' + [["pen", "Stift", "Pen"], ["erase", "Radierer", "Eraser"], ["pick", "Pipette", "Picker"], ["fill", "Füllen", "Fill"]].map(function (q) { return '<button type="button" data-ptool="' + q[0] + '" aria-pressed="' + (P.tool === q[0]) + '">' + L2(q[1], q[2]) + '</button>'; }).join("") + '</div>';
-      if (S.pix.img && S.pix.img.front.width > 225) h += '<div class="seg c2">' + [["front", "Vorne", "Front"], ["back", "Hinten", "Back"]].map(function (q) { return '<button type="button" data-pview="' + q[0] + '" aria-pressed="' + ((S.pix.cur || "front") === q[0]) + '">' + L2(q[1], q[2]) + '</button>'; }).join("") + '</div>';
+      if (S.pix.img && pixLayout().single) h += '<div class="seg c' + pixViews().length + '">' + [["front", "Vorne", "Front"], ["back", "Hinten", "Back"], ["side", "Vergleich", "Comparison"]].filter(function (q) { return S.pix.img[q[0]]; }).map(function (q) { return '<button type="button" data-pview="' + q[0] + '" aria-pressed="' + ((S.pix.cur || "front") === q[0]) + '">' + L2(q[1], q[2]) + '</button>'; }).join("") + '</div>';
       h += '<label class="colr"><input type="color" data-k="pcol" value="' + P.col + '"><span>' + L2("Aktuelle Farbe", "Current colour") + '</span><code>' + P.col + '</code></label>';
       h += '<div class="sw">' + sw.map(function (c) { var hx = toHex(c); return '<button type="button" data-sw="' + hx + '" aria-pressed="' + (hx === P.col) + '" style="background:' + hx + '"></button>'; }).join("") + '</div>';
       h += '<div class="row2"><button type="button" data-a="pundo">' + L2("Rückgängig", "Undo") + ' <kbd>Strg+Z</kbd></button><button type="button" data-a="preshoot">' + L2("Fotos neu machen", "Retake snapshots") + '</button></div>';
@@ -564,32 +565,40 @@
     S.pend = -1; S.flow = "front"; S.snap = {};
     var sn = m.snap && m.snap.f; S.fcam = { yaw: sn ? sn[0] : 0.55, pitch: sn ? sn[1] : 0.22 }; S.fprev = null; say(""); renderPanel();
   }
+  function isShotStep() { return S.flow === "front" || S.flow === "back" || S.flow === "side"; }
+  function shotZoom() { return S.flow !== "front" && S.snap.front ? S.snap.front.zoom : 0; }   // hinten und Vergleichsbild im Maßstab von vorne
   function shot() {
-    var r = D.snapshot(M(), S.m.pal, S.fcam.yaw, S.fcam.pitch, px(), S.flow === "back" && S.snap.front ? S.snap.front.zoom : 0);
+    var r = D.snapshot(M(), S.m.pal, S.fcam.yaw, S.fcam.pitch, px(), shotZoom());
     if (!r) return;
     if (S.flow === "front") {
       S.snap.front = { cv: r.cv, yaw: S.fcam.yaw, pitch: S.fcam.pitch, zoom: r.zoom }; S.flow = "back";
       var sb = S.m.snap && S.m.snap.b; S.fcam = { yaw: sb ? sb[0] : S.fcam.yaw + Math.PI, pitch: sb ? sb[1] : S.fcam.pitch }; S.fprev = null;
-    } else {
-      S.snap.back = { cv: r.cv, yaw: S.fcam.yaw, pitch: S.fcam.pitch, zoom: r.zoom }; S.flow = "pixel";
-      S.pix.img = { front: S.snap.front.cv.ctx.getImageData(0, 0, S.snap.front.cv.width, S.snap.front.cv.height), back: r.cv.ctx.getImageData(0, 0, r.cv.width, r.cv.height) };
-      S.pix.undo = []; S.pix.cv = { front: MA.canvas(r.cv.width, r.cv.height), back: MA.canvas(r.cv.width, r.cv.height) }; pixSync();
-    }
+    } else if (S.flow === "back") {
+      S.snap.back = { cv: r.cv, yaw: S.fcam.yaw, pitch: S.fcam.pitch, zoom: r.zoom }; S.flow = "side";   // seit v0.28.1: 3. Bild = Vergleichsbild
+      var ss = S.m.snap && S.m.snap.s; S.fcam = { yaw: ss ? ss[0] : Math.PI / 2, pitch: ss ? ss[1] : 0.1 }; S.fprev = null;
+    } else { S.snap.side = { cv: r.cv, yaw: S.fcam.yaw, pitch: S.fcam.pitch, zoom: r.zoom }; toPix(); }
     renderPanel();
   }
-  function pixSync() { ["front", "back"].forEach(function (v) { S.pix.cv[v].ctx.putImageData(S.pix.img[v], 0, 0); }); }
+  function toPix() {
+    S.flow = "pixel"; S.pix.img = {}; S.pix.cv = {}; S.pix.cur = "front";
+    ["front", "back", "side"].forEach(function (v) { var c = S.snap[v] && S.snap[v].cv; if (!c) return; S.pix.img[v] = c.ctx.getImageData(0, 0, c.width, c.height); S.pix.cv[v] = MA.canvas(c.width, c.height); });
+    S.pix.undo = []; pixSync();
+  }
+  function pixViews() { return ["front", "back", "side"].filter(function (v) { return S.pix.img && S.pix.img[v]; }); }
+  function pixSync() { pixViews().forEach(function (v) { S.pix.cv[v].ctx.putImageData(S.pix.img[v], 0, 0); }); }
   function pixLayout() {
-    var W = S.pix.img.front.width;
-    if (W > 225) {   // große Bilder (seit v0.26.4): nur eine Ansicht, umschaltbar
+    var W = S.pix.img.front.width, vs = pixViews(), n = vs.length, colW = MA.W / n;
+    if (W > colW - 10 || W > 225) {   // große Bilder (seit v0.26.4): nur eine Ansicht, umschaltbar
       var k1 = Math.max(1, Math.floor(270 / W)), o = {}, cur = S.pix.cur || "front"; o[cur] = [Math.round(MA.W / 2 - W * k1 / 2), Math.max(0, Math.round((MA.H - W * k1) / 2))];
       return Object.assign({ k: k1, W: W, single: true }, o);
     }
-    var k = Math.max(1, Math.floor(Math.min(210 / W, 230 / W))), y = Math.round((MA.H - W * k) / 2) + 6;
-    return { k: k, W: W, front: [Math.round(MA.W / 4 - W * k / 2), y], back: [Math.round(MA.W * 3 / 4 - W * k / 2), y] };
+    var k = Math.max(1, Math.floor(Math.min((colW - 10) / W, 230 / W))), y = Math.round((MA.H - W * k) / 2) + 6, L = { k: k, W: W };
+    vs.forEach(function (v, i) { L[v] = [Math.round(colW * (i + 0.5) - W * k / 2), y]; });
+    return L;
   }
   function pixUpdate(I) {
     var P = S.pix, Lo = pixLayout(), mx = I.mx, my = I.my, hit = null;
-    ["front", "back"].forEach(function (v) { var o = Lo[v]; if (!o) return; var x = Math.floor((mx - o[0]) / Lo.k), y = Math.floor((my - o[1]) / Lo.k); if (x >= 0 && y >= 0 && x < Lo.W && y < Lo.W) hit = { v: v, x: x, y: y }; });
+    pixViews().forEach(function (v) { var o = Lo[v]; if (!o) return; var x = Math.floor((mx - o[0]) / Lo.k), y = Math.floor((my - o[1]) / Lo.k); if (x >= 0 && y >= 0 && x < Lo.W && y < Lo.W) hit = { v: v, x: x, y: y }; });
     P.hov = hit;
     if (S.ctrlZ) { S.ctrlZ = 0; pixUndo(); }
     if (!hit) { if (!I.lmb) P.stroke = false; return; }
@@ -612,7 +621,7 @@
     if (!I.lmb) P.stroke = false;
   }
   function hexRgb(h) { var n = parseInt(h.slice(1), 16); return [n >> 16 & 255, n >> 8 & 255, n & 255]; }
-  function pixPush() { var P = S.pix; P.undo.push({ front: new ImageData(new Uint8ClampedArray(P.img.front.data), P.img.front.width), back: new ImageData(new Uint8ClampedArray(P.img.back.data), P.img.back.width) }); if (P.undo.length > 40) P.undo.shift(); }
+  function pixPush() { var P = S.pix, u = {}; pixViews().forEach(function (v) { u[v] = new ImageData(new Uint8ClampedArray(P.img[v].data), P.img[v].width); }); P.undo.push(u); if (P.undo.length > 40) P.undo.shift(); }
   function pixUndo() { var P = S.pix; if (!P.undo.length) return; P.img = P.undo.pop(); pixSync(); }
   function flood(img, x, y, col) {
     var W = img.width, H = img.height, d = img.data, i0 = (y * W + x) * 4, t = [d[i0], d[i0 + 1], d[i0 + 2], d[i0 + 3]], c = hexRgb(col);
@@ -628,7 +637,9 @@
     var m = S.m, P = S.pix;
     pixSync();
     m.img = { front: P.cv.front.toDataURL(), back: P.cv.back.toDataURL(), w: P.cv.front.width };
+    if (P.cv.side) m.img.side = P.cv.side.toDataURL();   // Vergleichsbild (seit v0.28.1)
     m.snap = { f: [S.snap.front.yaw, S.snap.front.pitch], b: [S.snap.back.yaw, S.snap.back.pitch] };
+    if (S.snap.side) m.snap.s = [S.snap.side.yaw, S.snap.side.pitch];
     measured();
     var isNew = !MO.byId(m.id), parent = m.pre && isNew ? MO.byId(m.pre) : null;
     if (isNew && MO.isBlankStats(m.stats)) m.stats = MO.suggestStats(m);   // seit v0.28: Werte nach Element und Größe
@@ -697,8 +708,12 @@
     // Fotos
     if (a === "shot") { shot(); return; }
     if (a === "f_l" || a === "f_r") { S.fcam.yaw += a === "f_l" ? -0.26 : 0.26; S.fprev = null; return; }
-    if (a === "f_reset") { S.fcam = { yaw: (S.flow === "back" ? Math.PI : 0) + 0.55, pitch: 0.22 }; S.fprev = null; return; }
-    if (a === "f_back") { if (S.flow === "front") { S.flow = null; renderPanel(); } else { S.flow = "front"; S.fcam = { yaw: S.snap.front.yaw, pitch: S.snap.front.pitch }; S.fprev = null; renderPanel(); } return; }
+    if (a === "f_reset") { S.fcam = S.flow === "side" ? { yaw: Math.PI / 2, pitch: 0.1 } : { yaw: (S.flow === "back" ? Math.PI : 0) + 0.55, pitch: 0.22 }; S.fprev = null; return; }
+    if (a === "f_back") {
+      if (S.flow === "front") { S.flow = null; renderPanel(); return; }
+      var to = S.flow === "side" ? "back" : "front"; S.flow = to; S.fcam = { yaw: S.snap[to].yaw, pitch: S.snap[to].pitch }; S.fprev = null; renderPanel(); return;
+    }
+    if (a === "noside") { S.snap.side = null; toPix(); renderPanel(); return; }
     if (a === "preshoot") { S.flow = "front"; S.fcam = { yaw: S.snap.front.yaw, pitch: S.snap.front.pitch }; S.fprev = null; renderPanel(); return; }
     if (a === "pundo") { pixUndo(); return; }
     if (a === "finish") { finish(); return; }
@@ -828,22 +843,26 @@
   }
   function renderFlow(ctx) {
     ctx.drawImage(background(), 0, 0);
-    if (!S.fprev) S.fprev = D.snapshot(M(), S.m.pal, S.fcam.yaw, S.fcam.pitch, px(), S.flow === "back" && S.snap.front ? S.snap.front.zoom : 0);
+    if (!S.fprev) S.fprev = D.snapshot(M(), S.m.pal, S.fcam.yaw, S.fcam.pitch, px(), shotZoom());
     var cv = S.fprev && S.fprev.cv; if (!cv) return;
     var k = Math.max(1, Math.floor(Math.min(240 / cv.width, 240 / cv.height))), x = Math.round(MA.W / 2 - cv.width * k / 2), y = Math.max(0, Math.round(MA.H / 2 - cv.height * k / 2) + (cv.height * k > 240 ? 0 : 8));
     ctx.fillStyle = "rgba(28,29,28,.18)"; ctx.fillRect(x - 4, y - 4, cv.width * k + 8, cv.height * k + 8);
     ctx.save(); ctx.imageSmoothingEnabled = false; ctx.drawImage(cv, x, y, cv.width * k, cv.height * k); ctx.restore();
-    txt(ctx, (S.flow === "front" ? L2("VORNE", "FRONT") : L2("HINTEN", "BACK")) + " · " + px() + " px · ×" + k + L2(" · ziehen zum Drehen", " · drag to rotate"), 8, 8);
+    txt(ctx, (S.flow === "front" ? L2("VORNE", "FRONT") : S.flow === "side" ? L2("VERGLEICHSBILD", "COMPARISON") : L2("HINTEN", "BACK")) + " · " + px() + " px · ×" + k + L2(" · ziehen zum Drehen", " · drag to rotate"), 8, 8);
+    if (S.flow === "side") {   // Vorschau: so steht das Bild neben dem Menschen
+      var cc = MO.compareCanvas(cv, measured().h, 150, 84); ctx.fillStyle = "rgba(200,220,200,.9)"; ctx.fillRect(MA.W - cc.width - 10, MA.H - cc.height - 10, cc.width, cc.height); ctx.drawImage(cc, MA.W - cc.width - 10, MA.H - cc.height - 10);
+      txt(ctx, L2("in der Monsterliste", "in the monster list"), MA.W - cc.width - 10, MA.H - cc.height - 24);
+    }
     if (S.flow === "back" && S.snap.front) { var f = S.snap.front.cv; ctx.save(); ctx.imageSmoothingEnabled = false; ctx.drawImage(f, MA.W - f.width - 10, MA.H - f.height - 10); ctx.restore(); txt(ctx, L2("vorne", "front"), MA.W - f.width - 10, MA.H - f.height - 24); }
   }
   function renderPix(ctx) {
     ctx.fillStyle = "#2A2C2B"; ctx.fillRect(0, 0, MA.W, MA.H);
     var Lo = pixLayout(), P = S.pix;
-    ["front", "back"].forEach(function (v) {
+    pixViews().forEach(function (v) {
       var o = Lo[v]; if (!o) return; var W = Lo.W * Lo.k;
       for (var y = 0; y < Lo.W; y += 2) for (var x = 0; x < Lo.W; x += 2) { ctx.fillStyle = ((x + y) / 2) % 2 ? "#9AAE9E" : "#A8BCAC"; ctx.fillRect(o[0] + x * Lo.k, o[1] + y * Lo.k, Lo.k * 2, Lo.k * 2); }
       ctx.save(); ctx.imageSmoothingEnabled = false; ctx.drawImage(P.cv[v], o[0], o[1], W, W); ctx.restore();
-      txt(ctx, v === "front" ? L2("vorne", "front") : L2("hinten", "back"), o[0], o[1] - 16);
+      txt(ctx, { front: L2("vorne", "front"), back: L2("hinten", "back"), side: L2("Vergleich", "comparison") }[v], o[0], o[1] - 16);
       if (P.hov && P.hov.v === v) { ctx.strokeStyle = "#ED6A5E"; ctx.lineWidth = 1; ctx.strokeRect(o[0] + P.hov.x * Lo.k + 0.5, o[1] + P.hov.y * Lo.k + 0.5, Lo.k - 1, Lo.k - 1); }
     });
     ctx.fillStyle = P.col; ctx.fillRect(8, MA.H - 22, 14, 14); txt(ctx, { pen: L2("Stift", "Pen"), erase: L2("Radierer", "Eraser"), pick: L2("Pipette", "Picker"), fill: L2("Füllen", "Fill") }[P.tool] + " · " + L2("Rechtsklick = Pipette", "Right click = picker"), 28, MA.H - 20);
@@ -869,7 +888,7 @@
       var I = MA.input, dx = I.mx - S.pmx, dy = I.my - S.pmy; S.pmx = I.mx; S.pmy = I.my;
       var typing = document.activeElement && /INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName) && document.activeElement.type !== "range";
       if (!D.ok()) return;
-      if (S.flow === "front" || S.flow === "back") {
+      if (isShotStep()) {
         var ch = false;
         if ((I.lmb || I.mmb) && onCanvas(I) && (dx || dy)) { S.fcam.yaw -= dx * 0.012; S.fcam.pitch = Math.max(-1.2, Math.min(1.2, S.fcam.pitch + dy * 0.012)); ch = true; }
         if (!typing) { if (I.down("ArrowLeft")) { S.fcam.yaw += 0.03; ch = true; } if (I.down("ArrowRight")) { S.fcam.yaw -= 0.03; ch = true; } if (I.down("ArrowUp")) { S.fcam.pitch = Math.min(1.2, S.fcam.pitch + 0.03); ch = true; } if (I.down("ArrowDown")) { S.fcam.pitch = Math.max(-1.2, S.fcam.pitch - 0.03); ch = true; } }
@@ -893,7 +912,7 @@
     render: function (ctx) {
       ensure();
       if (!D.ok()) { ctx.fillStyle = "#1C1D1C"; ctx.fillRect(0, 0, MA.W, MA.H); ctx.fillStyle = "#ED9A8E"; ctx.font = "600 11px system-ui"; ctx.fillText(L2("WebGL2 nicht verfügbar – der 3D-Baukasten braucht es.", "WebGL2 not available – the 3D builder needs it."), 20, 130); return; }
-      if (S.flow === "front" || S.flow === "back") renderFlow(ctx);
+      if (isShotStep()) renderFlow(ctx);
       else if (S.flow === "pixel") renderPix(ctx);
       else renderBuild(ctx);
     }

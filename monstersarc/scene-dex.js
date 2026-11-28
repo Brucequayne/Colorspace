@@ -48,7 +48,7 @@
     h += '<div style="font-size:.7rem;color:#8E8A82;margin-top:4px">' + L2("blau = Level 1, rot = Level 100", "blue = level 1, red = level 100") + '</div>';
     r.innerHTML = h;
     // Größenvergleich: Bild laden, dann neben die Silhouette zeichnen (seit v0.28)
-    var ci = r.querySelector("img[data-o=cmp]"), id = m.id, src = m.img ? m.img.front : MO.render(m, "front").toDataURL(), im = new Image();
+    var ci = r.querySelector("img[data-o=cmp]"), id = m.id, src = m.img ? m.img.side || m.img.front : MO.render(m, "front").toDataURL(), im = new Image();
     im.onload = function () { if (S.sel === id && ci.isConnected) ci.src = MO.compareCanvas(im, m.h, 200, 110).toDataURL(); };
     im.src = src;
   }

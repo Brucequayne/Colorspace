@@ -62,8 +62,10 @@
     o.model = m.model && MA.m3d ? MA.m3d.sanitize(m.model) : null;
     var im = m.img, okI = function (u) { return typeof u === "string" && u.indexOf("data:image/png;base64,") === 0 && u.length < 600000; };
     o.img = im && okI(im.front) && okI(im.back) ? { front: im.front, back: im.back, w: Math.round(clamp(im.w, 8, 300, 66)) } : null;
+    if (o.img && okI(im.side)) o.img.side = im.side;   // Vergleichsbild für die Monsterliste (seit v0.28.1)
     var sn = m.snap, okS = function (a) { return Array.isArray(a) && a.length === 2 && isFinite(+a[0]) && isFinite(+a[1]); };
     o.snap = sn && okS(sn.f) && okS(sn.b) ? { f: [+sn.f[0], +sn.f[1]], b: [+sn.b[0], +sn.b[1]] } : null;
+    if (o.snap && okS(sn.s)) o.snap.s = [+sn.s[0], +sn.s[1]];
     return o;
   }
 
