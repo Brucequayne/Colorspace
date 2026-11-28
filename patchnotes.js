@@ -3,6 +3,19 @@
    Die Versionsnummer auf den Kacheln kommt aus dem obersten Eintrag. */
 window.PATCHNOTES = {
   polyrunner: [
+    { v: "0.15", t: "2026-11-28T04:15:00+01:00",
+      de: ["Neu im Charakter-Editor: Haare. Im Reiter „Haare“ malst du mit der linken Maus direkt auf den Kopf. Jeder Tupfer setzt Strähnen im Anime-Stil: breite, spitz zulaufende Strähnen statt vieler einzelner Haare.",
+        "Gruppen: Jede Gruppe hat ihre eigene Haarlänge (2–70 cm), Strähnen-Breite, Haartyp und Haarfarbe. Gemalt wird immer in die gewählte Gruppe, so lassen sich z. B. kurzer Pony und lange Haare hinten trennen.",
+        "Sieben Haartypen: glatt, Wellen, Locken, wild, Braids, Dreads dünn und Dreads dick.",
+        "Pinsel und Radierer mit einstellbarer Größe und Strähnen-Abstand, Symmetrie an/aus, „Kopf füllen“ bis zum Haaransatz, „Alle Haare löschen“, Strg+Z macht den letzten Strich rückgängig.",
+        "Haarphysik: Die Strähnen halten ihre Form, schwingen beim Gehen nach und wehen beim Laufen und Sprinten nach hinten. Sie stoßen an Kopf, Hals, Schultern und Oberkörper an, statt hindurchzugehen.",
+        "Unter den Strähnen wird die Kopfhaut in Haarfarbe getönt, damit keine kahlen Lücken entstehen. Die Frisur wird mit dem Aussehen gespeichert und exportiert."],
+      en: ["New in the character editor: hair. In the “Hair” tab you paint straight onto the head with the left mouse button. Every dab places anime-style strands: wide, pointed clumps instead of many single hairs.",
+        "Groups: each group has its own hair length (2–70 cm), strand width, hair type and hair colour. You always paint into the selected group, so e.g. short bangs and long hair at the back can be kept apart.",
+        "Seven hair types: straight, waves, curls, wild, braids, thin dreads and thick dreads.",
+        "Brush and eraser with adjustable size and strand spacing, symmetry on/off, “Fill the head” up to the hairline, “Delete all hair”, Ctrl+Z undoes the last stroke.",
+        "Hair physics: strands keep their shape, swing along when walking and blow back when running and sprinting. They bump into the head, neck, shoulders and upper body instead of passing through.",
+        "The scalp under the strands is tinted in the hair colour so no bald gaps show. The hairstyle is saved and exported with the look."] },
     { v: "0.14", t: "2026-11-28T03:35:00+01:00",
       de: ["Neu: Charakter-Editor (vorerst im Map Editor, Knopf „Charakter“). Die echte Spielfigur ist da: dein Modell, automatisch auf das Runner-Skelett geriggt, mit Vorschau Stehen, Gehen, Laufen und Sprinten.",
         "Haut: sieben Hautfarben und eine eigene Farbe.",

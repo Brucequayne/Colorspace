@@ -8,13 +8,15 @@
 import * as THREE from "three";
 import { PRU } from "pru/core.js";
 import { BONES, HIP_H } from "pru/runner.js";
+import { Hair, cloneHair } from "pru/haare.js";
 
 export const LOOK_DEFAULT = {
   v: 1,
   skin: "#F2CBAE",
   eyes: { type: "glanz", iris: "#3F7CAC", size: 1, pupil: 1, shine: true },
   brows: { type: "bogen", color: "#3B2A22", size: 1, thick: 1, y: 0, gap: 0, tilt: 0 },
-  bottom: "speedo"
+  bottom: "speedo",
+  hair: { groups: [{ id: 1, len: 0.14, type: "glatt", color: "#3B2A22", thick: 1 }], roots: [] }
 };
 export const SKINS = ["#FBE6D6", "#F2CBAE", "#E6B38E", "#CF9670", "#A86E4C", "#7A4D33", "#4E3122"];
 export const IRIS = ["#3F7CAC", "#5FC2CF", "#4E8F5A", "#7A9E7E", "#8A5A35", "#3A2A22", "#8E6C8A", "#C24A3A", "#E8C547", "#9EA1A5"];
@@ -23,7 +25,7 @@ export const EYE_TYPES = ["glanz", "rund", "schlitz", "stern", "ring", "raute", 
 export const BROW_TYPES = ["bogen", "gerade", "duenn", "kraeftig", "wuetend", "besorgt", "kurz"];
 export function cloneLook(l) {
   const d = LOOK_DEFAULT, o = l || {};
-  return { v: 1, skin: o.skin || d.skin, eyes: Object.assign({}, d.eyes, o.eyes || {}), brows: Object.assign({}, d.brows, o.brows || {}), bottom: o.bottom || d.bottom };
+  return { v: 1, skin: o.skin || d.skin, eyes: Object.assign({}, d.eyes, o.eyes || {}), brows: Object.assign({}, d.brows, o.brows || {}), bottom: o.bottom || d.bottom, hair: cloneHair(o.hair || d.hair) };
 }
 
 // ---------- Modelldatei laden (einmal, dann zwischengespeichert) ----------
@@ -158,9 +160,9 @@ function makeMaterial(head) {
   };
   m.onBeforeCompile = (sh) => {
     Object.assign(sh.uniforms, U);
-    sh.vertexShader = "attribute float aPart;\nvarying vec3 vRP;\nvarying vec3 vRN;\nvarying float vPart;\n" +
-      sh.vertexShader.replace("#include <begin_vertex>", "#include <begin_vertex>\n vRP = position; vRN = normal; vPart = aPart;");
-    sh.fragmentShader = "varying vec3 vRP;\nvarying vec3 vRN;\nvarying float vPart;\nuniform vec3 uSkin;\nuniform sampler2D uEye;\nuniform sampler2D uBrow;\n" +
+    sh.vertexShader = "attribute float aPart;\nattribute vec4 aHair;\nvarying vec3 vRP;\nvarying vec3 vRN;\nvarying float vPart;\nvarying vec4 vHair;\n" +
+      sh.vertexShader.replace("#include <begin_vertex>", "#include <begin_vertex>\n vRP = position; vRN = normal; vPart = aPart; vHair = aHair;");
+    sh.fragmentShader = "varying vec3 vRP;\nvarying vec3 vRN;\nvarying float vPart;\nvarying vec4 vHair;\nuniform vec3 uSkin;\nuniform sampler2D uEye;\nuniform sampler2D uBrow;\n" +
       "uniform vec3 uEcL, uErL, uEuL, uEgL, uEcR, uErR, uEuR, uEgR;\nuniform float uErad;\nuniform vec4 uFace;\nuniform float uBottom;\n" +
       "float pruRough = -1.0;\n" +
       // Speedo nach Noahs Skizze: blau, dunkler Bund, türkise Kanten, seitlich Rot/Orange/Gelb (schräg)
@@ -197,7 +199,7 @@ function makeMaterial(head) {
           "   vec3 sk = uSkin;\n" +
           "   vec2 fu = (vRP.xy - uFace.xy) / uFace.zw;\n" +
           "   if (fu.x > 0.0 && fu.x < 1.0 && fu.y > 0.0 && fu.y < 1.0 && vRN.z > 0.2 && vRP.z > 0.0) { vec4 br = texture2D(uBrow, fu); sk = mix(sk, br.rgb, br.a * smoothstep(0.2, 0.45, vRN.z)); }\n" +
-          "   diffuseColor.rgb = sk;\n" +
+          "   diffuseColor.rgb = mix(sk, vHair.rgb, vHair.a);\n" +
           "   if (uBottom > 0.5) { vec4 sp = pruSpeedo(vRP); if (sp.a < 0.0) diffuseColor.rgb *= sp.r; else if (sp.a > 0.0) { diffuseColor.rgb = mix(diffuseColor.rgb, sp.rgb, sp.a); pruRough = mix(0.62, 0.38, sp.a); } }\n" +
           " }")
         .replace("#include <roughnessmap_fragment>", "#include <roughnessmap_fragment>\n if (pruRough >= 0.0) roughnessFactor = pruRough;");
@@ -232,7 +234,8 @@ export class Figur {
       (p ? this.b[p] : this.pivot).add(bone);
     });
     this.mat = makeMaterial(H);
-    this.mesh = new THREE.SkinnedMesh(data.geo, this.mat);
+    const geo = data.geo.clone(); geo.setAttribute("aHair", new THREE.BufferAttribute(new Float32Array(geo.attributes.position.count * 4), 4));   // Kopfhaut-Tönung unter den Haaren
+    this.mesh = new THREE.SkinnedMesh(geo, this.mat);
     this.mesh.castShadow = true; this.mesh.receiveShadow = true; this.mesh.frustumCulled = false;
     this.root.add(this.mesh);
     this.root.updateMatrixWorld(true);
@@ -240,6 +243,7 @@ export class Figur {
     this.mesh.bind(this.skeleton);
     this.rest();
     scene.add(this.root);
+    this.hair = new Hair(this);
     this.look = null; this.setLook(look);
   }
   // Ruhe wie der Runner: alle Drehungen 0 → Arme und Beine gerade nach unten
@@ -248,9 +252,11 @@ export class Figur {
     const L = this.look = cloneLook(look), U = this.mat.userData.U;
     U.uSkin.value.set(L.skin);
     const tx = (cv, old) => { if (old) old.dispose(); const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; t.wrapS = t.wrapT = THREE.ClampToEdgeWrapping; return t; };
-    U.uEye.value = tx(eyeCanvas(L.eyes), U.uEye.value);
-    U.uBrow.value = tx(browCanvas(L.brows), U.uBrow.value);
+    const ke = JSON.stringify(L.eyes), kb = JSON.stringify(L.brows);   // Leinwände nur neu zeichnen, wenn sich etwas geändert hat
+    if (ke !== this.ke) { this.ke = ke; U.uEye.value = tx(eyeCanvas(L.eyes), U.uEye.value); }
+    if (kb !== this.kb) { this.kb = kb; U.uBrow.value = tx(browCanvas(L.brows), U.uBrow.value); }
     U.uBottom.value = L.bottom === "speedo" ? 1 : 0;
+    this.hair.setData(L.hair);
   }
   // Pose vom (unsichtbaren) Runner übernehmen: lokale Drehungen 1:1, Becken skaliert
   follow(r) {
@@ -264,7 +270,7 @@ export class Figur {
   }
   setVisible(v) { this.root.visible = v; }
   dispose() {
-    this.scene.remove(this.root); this.mesh.skeleton.dispose && this.mesh.skeleton.dispose();
+    this.hair.dispose(); this.scene.remove(this.root); this.mesh.geometry.dispose();
     const U = this.mat.userData.U; if (U.uEye.value) U.uEye.value.dispose(); if (U.uBrow.value) U.uBrow.value.dispose(); this.mat.dispose();
   }
 }

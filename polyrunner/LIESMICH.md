@@ -18,6 +18,7 @@ Neue Module: in `MODULES` in `polyrunner.js` eintragen. Modul-Präfix: `pru/`.
 | `move.js` | Bewegung und Parkour (feste 120 Schritte/s), alle Zahlen in `TUNE` |
 | `play.js` | Testlauf: Verfolgerkamera mit Pointer-Lock, Zeitfahren, Bestzeiten, Pause |
 | `editor.js` | Map Editor: Bauen, Start/Ziel/Test-Start, Farbe, Löschen, Himmel, Datei, Rückgängig |
+| `haare.js` | Haare: Strähnen aus Wurzeln (Look `hair`), Ruheform am Kopf entlang, Federkette mit Kollision, Malen (`pick`) |
 | `figur.js` | Spielfigur: lädt `model/figur.bin`, SkinnedMesh auf dem Runner-Skelett, Shader für Haut, Augen, Brauen, enge Kleidung (Speedo), `follow(runner)` |
 | `chared.js` | Charakter-Editor (Modus `char`, Knopf „Charakter“ im Map Editor): Haut, Augen, Brauen, Kleidung, Vorschau-Animation |
 | `menu.js` | Hauptmenü (Spielen noch gesperrt), Code-Abfrage, Einstellungen |
@@ -121,3 +122,16 @@ automatisch hochziehen, niedrige Hindernisse bis 1,25 m im Lauf überklettern.
 - Look (`LOOK_DEFAULT`): `{ v, skin, eyes: { type, iris, size, pupil, shine }, brows: { type, color, size, thick, y, gap, tilt }, bottom }`.
   Export `PolyRunner_Figur.json` mit `format: "polyrunner-look"`.
 - Vorschau im Editor: Runner läuft unsichtbar auf der Stelle (Laufband), Boden-Strahlen über eine Ersatz-Welt (`FAKEWORLD`).
+
+## Haare (seit v0.15)
+
+- Look `hair = { groups: [{ id, len (m), type, color, thick }], roots: [[x, y, z, nx, ny, nz, gruppe], …] }`, Wurzeln in Ruhe-Koordinaten.
+  Typen: `glatt, wellen, locken, wild, braids, dreads, dreadsdick`. Jede Wurzel = eine Strähne (flache, spitz zulaufende Anime-Strähne, Braids/Dreads rund).
+- Kopf-Höhenkarte (`headMap`): größter Hautabstand vom Kopfmittelpunkt `HC` je Richtung (64 × 40), dient für Ruheform, Kollision und „auf die Haut legen“.
+  Malen: Strahl wird mit der Kopf-Matrix in Ruhe-Koordinaten gedreht und gegen das Kopf-Teilnetz (Haut über y 1,13) getestet.
+- Ruheform (`makeStrand`): Startrichtung = Schwerkraft entlang der Kopfhaut (oben: nach hinten) + Abheben, Schritt für Schritt aus dem Kopf geschoben, fällt dann;
+  Typ-Verformung quer zur Strähne. Zufall je Wurzel fest (Samen aus der Position).
+- Physik (`update`): Federkette wie VRM-Spring-Bones — Trägheit mit Dämpfung, Zug zur mit dem Kopf gedrehten Ruherichtung (Wurzel steif, Spitze weich),
+  Schwerkraft, Fahrtwind (`wind`, im Editor = Laufband-Tempo), Länge zum Vorgänger exakt, Kollision Kopf + Kapseln `COLL` (Hals, Brust, Schultern, Bauch).
+- Kopfhaut-Tönung: Attribut `aHair` (Farbe + Anteil) auf der Figur, im Shader über die Haut gemischt.
+- Editor: Reiter „Haare“ (Ansicht springt auf den Kopf, Animation Stehen). Linke Maus auf dem Kopf malt/radiert, daneben dreht. Einstellungen des Pinsels in `polyrunner-ui-v1` (`hb`).

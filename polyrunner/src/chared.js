@@ -5,6 +5,7 @@ import * as THREE from "three";
 import { t, addTexts, L2, el, esc, store, KEYS, clamp, damp, download } from "pru/core.js";
 import { Runner } from "pru/runner.js";
 import { Figur, loadFigur, cloneLook, LOOK_DEFAULT, SKINS, IRIS, BROWC, EYE_TYPES, BROW_TYPES } from "pru/figur.js";
+import { HAIR_TYPES, HAIRC, newGroup } from "pru/haare.js";
 
 addTexts({
   cTitle: L2("Charakter", "Character"), cLoading: L2("Figur wird geladen …", "Loading the character …"), cFail: L2("Figur konnte nicht geladen werden", "Could not load the character"),
@@ -16,7 +17,14 @@ addTexts({
   b_bogen: L2("Bogen", "Arched"), b_gerade: L2("Gerade", "Straight"), b_duenn: L2("Dünn", "Thin"), b_kraeftig: L2("Kräftig", "Bold"), b_wuetend: L2("Wütend", "Angry"), b_besorgt: L2("Besorgt", "Worried"), b_kurz: L2("Kurz", "Short"),
   cBottom: L2("Unten", "Bottom"), cSpeedo: L2("Badehose (Standard)", "Swim briefs (default)"),
   cClothNote: L2("Weitere Kleidung (Tanktop, Shirts, Crop Top, Baggy-Hose, Shorts, Leggings) mit Stoffphysik folgt in v0.16.", "More clothes (tank top, shirts, crop top, baggy trousers, shorts, leggings) with cloth physics follow in v0.16."),
-  cHairNote: L2("Haarpinsel mit Gruppen, Haartypen und Haarphysik folgt in v0.15.", "Hair brush with groups, hair types and hair physics follows in v0.15."),
+  hTool: L2("Werkzeug", "Tool"), hBrush: L2("Pinsel", "Brush"), hErase: L2("Radierer", "Eraser"), hSize: L2("Pinselgröße", "Brush size"), hGap: L2("Abstand der Strähnen", "Strand spacing"),
+  hSym: L2("Symmetrie (links = rechts)", "Symmetry (left = right)"), hGroups: L2("Gruppen", "Groups"), hGroup: L2("Gruppe {n}", "Group {n}"), hAdd: L2("+ Gruppe", "+ Group"), hDel: L2("Gruppe löschen", "Delete group"),
+  hStrands: L2("{n} Strähnen", "{n} strands"), hLen: L2("Haarlänge", "Hair length"), hThick: L2("Strähnen-Breite", "Strand width"), hType: L2("Haartyp", "Hair type"), hCol: L2("Haarfarbe", "Hair colour"),
+  hFill: L2("Kopf füllen (Haaransatz)", "Fill the head (hairline)"), hClear: L2("Alle Haare löschen", "Delete all hair"), hClearQ: L2("Alle Haare löschen?", "Delete all hair?"),
+  hHint: L2("Linke Maus auf dem Kopf: malen (Gruppe oben gewählt) · daneben: drehen · Strg+Z: rückgängig. Gemalt wird in die gewählte Gruppe, Länge/Typ/Farbe gelten für die ganze Gruppe.",
+    "Left mouse on the head: paint (into the selected group) · beside it: orbit · Ctrl+Z: undo. Length/type/colour apply to the whole group."),
+  hDelLast: L2("Die letzte Gruppe bleibt.", "The last group stays."),
+  ht_glatt: L2("Glatt", "Straight"), ht_wellen: L2("Wellen", "Waves"), ht_locken: L2("Locken", "Curls"), ht_wild: L2("Wild", "Wild"), ht_braids: L2("Braids", "Braids"), ht_dreads: L2("Dreads dünn", "Dreads thin"), ht_dreadsdick: L2("Dreads dick", "Dreads thick"),
   cAnim: L2("Vorschau", "Preview"), aIdle: L2("Stehen", "Stand"), aWalk: L2("Gehen", "Walk"), aRun: L2("Laufen", "Run"), aSprint: L2("Sprinten", "Sprint"),
   cView: L2("Ansicht", "View"), vBody: L2("Ganz", "Full"), vFace: L2("Gesicht", "Face"), cSpin: L2("Drehen", "Turn"),
   cExport: L2("Exportieren", "Export"), cImport: L2("Importieren …", "Import …"), cReset: L2("Zurücksetzen", "Reset"), cBack: L2("Zum Editor", "To the editor"),
@@ -37,11 +45,13 @@ const CSS = `
 .pru-opts canvas{display:block;width:100%;height:auto;margin:0 0 3px;background:#F6F4EF}
 .pru-cbl{position:absolute;left:14px;bottom:14px;display:flex;flex-direction:column;gap:6px}
 .pru-cbl .pru-seg button{padding:8px 12px!important}.pru-cbl b{align-self:flex-start;background:rgba(20,21,24,.86);color:#C6C5B9;font-size:11px;font-weight:700;padding:3px 7px;letter-spacing:.03em}
+.pru-hg{display:flex;flex-direction:column;gap:3px}.pru-hg button{display:flex!important;align-items:center;gap:8px;text-align:left}.pru-hg i{width:16px;height:16px;border:1px solid rgba(0,0,0,.4);flex:none}.pru-hg small{margin-left:auto;opacity:.65;font-weight:500}
+.pru-hrow{display:flex;gap:4px;margin-top:6px}.pru-hrow button{flex:1}
 .pru-cload{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);background:rgba(20,21,24,.86);padding:10px 16px;font-weight:700}.pru-cload[hidden]{display:none}
 .pru-chint{position:absolute;left:14px;top:52px;color:#ECEAE4;opacity:.75;font-size:11.5px;text-shadow:0 1px 5px rgba(0,0,0,.6);pointer-events:none!important}
 `;
 const ANIMS = { idle: 0, walk: 1.4, run: 4.2, sprint: 7.2 };
-const VIEWS = { body: { ty: 0.72, dist: 2.7, pitch: 0.1 }, face: { ty: 1.27, dist: 0.62, pitch: 0.02 } };
+const VIEWS = { body: { ty: 0.72, dist: 2.7, pitch: 0.1 }, face: { ty: 1.27, dist: 0.62, pitch: 0.02 }, hair: { ty: 1.22, dist: 1.05, pitch: 0.28 } };
 const FAKEWORLD = { ray: (o) => (o.y >= 0 && o.y < 1.25 ? { point: new THREE.Vector3(o.x, 0, o.z) } : null) };
 
 export class CharEd {
@@ -55,6 +65,8 @@ export class CharEd {
     this.tab = ui.ctab || "skin"; this.anim = "idle"; this.spin = false; this.view = "body";
     this.cam = { yaw: 0.45, pitch: 0.1, dist: 2.7, ty: 0.72 }; this.camT = Object.assign({}, this.cam);
     this.look = cloneLook(store.get(KEYS.char, null));
+    this.hb = Object.assign({ tool: "brush", size: 0.025, gap: 0.024, sym: true, gid: this.look.hair.groups[0].id }, ui.hb || {}); if (!this.look.hair.groups.some((g) => g.id === this.hb.gid)) this.hb.gid = this.look.hair.groups[0].id;
+    this.undo = []; this.wind = new THREE.Vector3();
     this.runner = new Runner(this.engine.scene); this.runner.setVisible(false); this.runner.world = FAKEWORLD;
     this.state = { mode: "idle", speed: 0, acc: 0, lat: 0, land: 0, moveRel: 0, turning: false, back: false, jumpId: 0, jumpBoth: false, twist: 0, vy: 0, airT: 0 };
     this.buildUI();
@@ -99,9 +111,82 @@ export class CharEd {
       rng("brows.size", "cBSize", 0.7, 1.35, 0.01, L.brows.size, " %", pct) + rng("brows.thick", "cBThick", 0.5, 1.8, 0.01, L.brows.thick, " %", pct) +
       rng("brows.y", "cBY", -4, 6, 0.1, L.brows.y, " mm") + rng("brows.gap", "cBGap", -4, 6, 0.1, L.brows.gap, " mm") + rng("brows.tilt", "cBTilt", -18, 18, 0.5, L.brows.tilt, "°");
     else if (this.tab === "clothes") h = "<h4>" + t("cBottom") + '</h4><div class="pru-col"><button aria-pressed="true">' + t("cSpeedo") + "</button></div><p>" + t("cClothNote") + "</p>";
-    else h = "<p>" + t("cHairNote") + "</p>";
+    else h = this.hairHTML(rng, sw, pct);
     this.$("#pru-cbody").innerHTML = h;
     if (this.tab === "eyes") this.drawIcons();
+  }
+  hairHTML(rng, sw, pct) {
+    const H = this.look.hair, B = this.hb, G = H.groups.find((g) => g.id === B.gid) || H.groups[0], cnt = (id) => H.roots.filter((r) => r[6] === id).length;
+    return "<h4>" + t("hTool") + '</h4><div class="pru-seg"><button data-hb="tool" data-v="brush" aria-pressed="' + (B.tool === "brush") + '">' + t("hBrush") + '</button><button data-hb="tool" data-v="erase" aria-pressed="' + (B.tool === "erase") + '">' + t("hErase") + "</button></div>" +
+      '<h4>' + t("hSize") + ' <em data-hout="size">' + Math.round(B.size * 1000) + ' mm</em></h4><input type="range" data-hb="size" min="0.008" max="0.06" step="0.001" value="' + B.size + '">' +
+      '<h4>' + t("hGap") + ' <em data-hout="gap">' + Math.round(B.gap * 1000) + ' mm</em></h4><input type="range" data-hb="gap" min="0.008" max="0.035" step="0.001" value="' + B.gap + '">' +
+      '<label class="pru-chk"><input type="checkbox" data-hb="sym"' + (B.sym ? " checked" : "") + "> " + t("hSym") + "</label>" +
+      "<h4>" + t("hGroups") + '</h4><div class="pru-hg">' + H.groups.map((g, i) => '<button data-hg="' + g.id + '" aria-pressed="' + (g.id === G.id) + '"><i style="background:' + g.color + '"></i>' + t("hGroup").replace("{n}", i + 1) + " · " + t("ht_" + g.type) + "<small>" + t("hStrands").replace("{n}", cnt(g.id)) + "</small></button>").join("") + "</div>" +
+      '<div class="pru-hrow"><button data-hc="add">' + t("hAdd") + '</button><button data-hc="del">' + t("hDel") + "</button></div>" +
+      '<h4>' + t("hLen") + ' <em data-hout="len">' + Math.round(G.len * 100) + ' cm</em></h4><input type="range" data-hg-set="len" min="0.02" max="0.7" step="0.005" value="' + G.len + '">' +
+      '<h4>' + t("hThick") + ' <em data-hout="thick">' + Math.round(G.thick * 100) + ' %</em></h4><input type="range" data-hg-set="thick" min="0.5" max="2" step="0.01" value="' + G.thick + '">' +
+      "<h4>" + t("hType") + '</h4><div class="pru-opts">' + HAIR_TYPES.map((k) => '<button data-hg-set="type" data-v="' + k + '" aria-pressed="' + (k === G.type) + '">' + t("ht_" + k) + "</button>").join("") + "</div>" +
+      "<h4>" + t("hCol") + '</h4><div class="pru-sws">' + HAIRC.map((c) => '<button class="pru-sw" style="background:' + c + '" data-hg-set="color" data-v="' + c + '" aria-pressed="' + (c.toLowerCase() === G.color.toLowerCase()) + '"></button>').join("") +
+        '<label class="pru-sw pru-cust" title="' + t("cCustom") + '"><input type="color" data-hg-set="color" value="' + G.color + '"></label></div>' +
+      '<div class="pru-col"><button data-hc="fill">' + t("hFill") + '</button><button data-hc="clear">' + t("hClear") + "</button></div><p>" + t("hHint") + "</p>";
+  }
+  hairChanged(full) {
+    if (this.fig) this.fig.setLook(this.look);
+    clearTimeout(this.saveT); this.saveT = setTimeout(() => store.set(KEYS.char, this.look), 300);
+    if (full !== false) this.renderTab();
+  }
+  saveHB() { const u = store.get(KEYS.ui, {}); u.hb = this.hb; store.set(KEYS.ui, u); }
+  pushUndo() { this.undo.push(JSON.stringify(this.look.hair)); if (this.undo.length > 40) this.undo.shift(); }
+  hairCmd(c) {
+    const H = this.look.hair;
+    if (c === "add") { this.pushUndo(); const id = Math.max(0, ...H.groups.map((g) => g.id)) + 1, cur = H.groups.find((g) => g.id === this.hb.gid); H.groups.push(Object.assign({}, cur || newGroup(id), { id: id })); this.hb.gid = id; this.saveHB(); }
+    else if (c === "del") { if (H.groups.length < 2) { this.app.toast(t("hDelLast")); return; } this.pushUndo(); H.roots = H.roots.filter((r) => r[6] !== this.hb.gid); H.groups = H.groups.filter((g) => g.id !== this.hb.gid); this.hb.gid = H.groups[0].id; this.saveHB(); }
+    else if (c === "clear") { if (!confirm(t("hClearQ"))) return; this.pushUndo(); H.roots = []; }
+    else if (c === "fill") { this.pushUndo(); this.fillHead(); }
+    this.hairChanged();
+  }
+  // Kopfhaut bis zum Haaransatz mit Wurzeln der gewählten Gruppe füllen
+  fillHead() {
+    if (!this.fig) return;
+    const P = this.fig.data.geo.attributes.position.array, part = this.fig.data.geo.attributes.aPart.array, N = this.fig.data.geo.attributes.normal.array, n = P.length / 3, cand = [];
+    for (let i = 0; i < n; i++) {
+      const x = P[i * 3], y = P[i * 3 + 1], z = P[i * 3 + 2]; if (y < 1.18 || part[i] > 0.5) continue;
+      const phi = Math.abs(Math.atan2(x, z + 0.012)) * 180 / Math.PI;
+      const yl = phi < 38 ? 1.336 : phi < 95 ? 1.336 + (1.302 - 1.336) * (phi - 38) / 57 : phi < 150 ? 1.302 + (1.2 - 1.302) * (phi - 95) / 55 : 1.2;
+      if (y > yl) cand.push(i);
+    }
+    for (let i = cand.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); const tmp = cand[i]; cand[i] = cand[j]; cand[j] = tmp; }
+    cand.forEach((i) => {
+      const p = new THREE.Vector3(P[i * 3], P[i * 3 + 1], P[i * 3 + 2]), nn = new THREE.Vector3(N[i * 3], N[i * 3 + 1], N[i * 3 + 2]);
+      this.addRoot(p, nn, false);
+    });
+  }
+  addRoot(p, n, sym) {
+    const H = this.look.hair, gap = this.hb.gap, r5 = (v) => Math.round(v * 1e5) / 1e5;
+    const free = (q) => !H.roots.some((r) => (r[0] - q.x) ** 2 + (r[1] - q.y) ** 2 + (r[2] - q.z) ** 2 < gap * gap);
+    const add = (q, m) => { if (!free(q)) return; H.roots.push([r5(q.x), r5(q.y), r5(q.z), r5(m.x), r5(m.y), r5(m.z), this.hb.gid]); };
+    add(p, n); if (sym && Math.abs(p.x) > gap * 0.5) add(new THREE.Vector3(-p.x, p.y, p.z), new THREE.Vector3(-n.x, n.y, n.z));
+  }
+  // ein Pinseltupfer an der Trefferstelle (Ruhe-Koordinaten)
+  dab(hit) {
+    const H = this.look.hair, B = this.hb, R = B.size;
+    if (B.tool === "erase") {
+      const near = (r, q) => (r[0] - q.x) ** 2 + (r[1] - q.y) ** 2 + (r[2] - q.z) ** 2 < R * R, m = new THREE.Vector3(-hit.p.x, hit.p.y, hit.p.z), n0 = H.roots.length;
+      H.roots = H.roots.filter((r) => !(near(r, hit.p) || (B.sym && near(r, m))));
+      return H.roots.length !== n0;
+    }
+    const n0 = H.roots.length, t1 = new THREE.Vector3(), t2 = new THREE.Vector3();
+    t1.crossVectors(hit.n, Math.abs(hit.n.y) < 0.9 ? new THREE.Vector3(0, 1, 0) : new THREE.Vector3(1, 0, 0)).normalize(); t2.crossVectors(hit.n, t1);
+    this.addRoot(hit.p, hit.n, B.sym);
+    for (let k = 0; k < 10; k++) {
+      const a = Math.random() * Math.PI * 2, r = Math.sqrt(Math.random()) * R, q = hit.p.clone().addScaledVector(t1, Math.cos(a) * r).addScaledVector(t2, Math.sin(a) * r);
+      const s = this.fig.hair.onSkin(q); if (s.y < 1.15) continue; this.addRoot(s, hit.n, B.sym);
+    }
+    return H.roots.length !== n0;
+  }
+  ray(e) {
+    const r = this.cv.getBoundingClientRect(), m = new THREE.Vector2((e.clientX - r.left) / r.width * 2 - 1, -(e.clientY - r.top) / r.height * 2 + 1);
+    const rc = new THREE.Raycaster(); rc.setFromCamera(m, this.engine.camera); return rc.ray;
   }
   // kleine Vorschaubilder der Pupillen-Arten
   drawIcons() {
@@ -126,28 +211,56 @@ export class CharEd {
   bind() {
     this.root.addEventListener("click", (e) => {
       const b = e.target.closest("button"); if (!b) return;
-      if (b.dataset.tab) { this.tab = b.dataset.tab; const u = store.get(KEYS.ui, {}); u.ctab = this.tab; store.set(KEYS.ui, u); this.renderTab(); this.syncButtons(); }
+      if (b.dataset.tab) {
+        this.tab = b.dataset.tab; const u = store.get(KEYS.ui, {}); u.ctab = this.tab; store.set(KEYS.ui, u); this.renderTab(); this.syncButtons();
+        if (this.tab === "hair") { this.anim = "idle"; this.view = "hair"; Object.assign(this.camT, VIEWS.hair); this.spin = false; this.syncButtons(); }
+      }
       else if (b.dataset.anim) { this.anim = b.dataset.anim; this.syncButtons(); }
       else if (b.dataset.view) { this.view = b.dataset.view; Object.assign(this.camT, VIEWS[this.view]); this.syncButtons(); }
       else if (b.dataset.spin) { this.spin = !this.spin; this.syncButtons(); }
       else if (b.dataset.set && b.dataset.v != null) { this.set(b.dataset.set, b.dataset.v); this.renderTab(); }
       else if (b.dataset.c) this.action(b.dataset.c);
+      else if (b.dataset.hb) { this.hb[b.dataset.hb] = b.dataset.v; this.saveHB(); this.renderTab(); }
+      else if (b.dataset.hg) { this.hb.gid = +b.dataset.hg; this.saveHB(); this.renderTab(); }
+      else if (b.dataset.hc) this.hairCmd(b.dataset.hc);
+      else if (b.dataset.hgSet) { const G = this.look.hair.groups.find((g) => g.id === this.hb.gid); if (G) { this.pushUndo(); G[b.dataset.hgSet] = b.dataset.v; this.hairChanged(); } }
     });
     this.root.addEventListener("input", (e) => {
-      const i = e.target; if (!i.dataset || !i.dataset.set) return;
+      const i = e.target; if (!i.dataset) return;
+      if (i.dataset.hb) { this.hb[i.dataset.hb] = i.type === "checkbox" ? i.checked : +i.value; this.saveHB(); const o = this.root.querySelector('[data-hout="' + i.dataset.hb + '"]'); if (o) o.textContent = Math.round(+i.value * 1000) + " mm"; this.cursorSize(); return; }
+      if (i.dataset.hgSet) {
+        const G = this.look.hair.groups.find((g) => g.id === this.hb.gid); if (!G) return;
+        G[i.dataset.hgSet] = i.type === "range" ? +i.value : i.value; this.hairChanged(false);
+        const o = this.root.querySelector('[data-hout="' + i.dataset.hgSet + '"]'); if (o) o.textContent = i.dataset.hgSet === "len" ? Math.round(+i.value * 100) + " cm" : Math.round(+i.value * 100) + " %";
+        if (i.type === "color") { const sw = this.root.querySelector('[data-hg="' + G.id + '"] i'); if (sw) sw.style.background = i.value; }
+        return;
+      }
+      if (!i.dataset.set) return;
       if (i.type === "checkbox") this.set(i.dataset.set, i.checked);
       else if (i.dataset.num) { const v = +i.value; this.set(i.dataset.set, v); const o = this.root.querySelector('[data-out="' + i.dataset.set + '"]'); if (o) { const pct = /size|pupil|thick/.test(i.dataset.set); o.textContent = (pct ? Math.round(v * 100) + " %" : v + (/tilt/.test(i.dataset.set) ? "°" : " mm")); } }
       else if (i.type === "color") { this.set(i.dataset.set, i.value); if (/eyes\.iris/.test(i.dataset.set)) this.drawIcons(); this.root.querySelectorAll('.pru-sw[data-set="' + i.dataset.set + '"]').forEach((s) => s.setAttribute("aria-pressed", "false")); }
     });
     this.root.addEventListener("change", (e) => { if (e.target.id === "pru-cfile") this.importFile(e.target.files[0]); });
     this.h = {
-      down: (e) => { this.drag = { b: e.button, x: e.clientX, y: e.clientY }; e.preventDefault(); },
+      down: (e) => {
+        e.preventDefault();
+        if (this.tab === "hair" && e.button === 0 && this.fig) {
+          const hit = this.fig.hair.pick(this.ray(e));
+          if (hit) { this.pushUndo(); this.paint = { changed: false }; if (this.dab(hit)) { this.paint.changed = true; this.hairChanged(false); } return; }
+        }
+        this.drag = { b: e.button, x: e.clientX, y: e.clientY };
+      },
       move: (e) => {
+        if (this.tab === "hair" && this.fig && !this.drag) {
+          const hit = this.fig.hair.pick(this.ray(e)); this.showCursor(hit);
+          if (this.paint && hit && this.dab(hit)) { this.paint.changed = true; this.hairChanged(false); }
+          return;
+        }
         if (!this.drag) return; const dx = e.clientX - this.drag.x, dy = e.clientY - this.drag.y; this.drag.x = e.clientX; this.drag.y = e.clientY;
         if (this.drag.b === 0) { this.camT.yaw -= dx * 0.008; this.camT.pitch = clamp(this.camT.pitch + dy * 0.006, -0.6, 1.2); }
         else this.camT.ty = clamp(this.camT.ty + dy * 0.002 * this.camT.dist, 0.1, 1.6);
       },
-      up: () => { this.drag = null; },
+      up: () => { this.drag = null; if (this.paint) { if (!this.paint.changed) this.undo.pop(); this.paint = null; this.renderTab(); } },
       wheel: (e) => { e.preventDefault(); this.camT.dist = clamp(this.camT.dist * Math.exp(e.deltaY * 0.0012), 0.35, 6); },
       ctx: (e) => e.preventDefault()
     };
@@ -172,6 +285,7 @@ export class CharEd {
   key(e) {
     if (e.target && /INPUT|TEXTAREA/.test(e.target.tagName) && e.target.type !== "range" && e.target.type !== "checkbox") return false;
     if (e.key === "Escape") { this.app.go("editor"); return true; }
+    if ((e.ctrlKey || e.metaKey) && e.code === "KeyZ" && this.undo.length) { this.look.hair = JSON.parse(this.undo.pop()); this.hairChanged(); return true; }
     return false;
   }
   update(dt) {
@@ -179,7 +293,11 @@ export class CharEd {
     const S = this.state, v = ANIMS[this.anim];
     S.speed = damp(S.speed, v, 3.5, dt); S.mode = S.speed > 0.05 || v > 0 ? "run" : "idle";
     this.runner.place(new THREE.Vector3(0, 0, 0), 0); this.runner.update(dt, S);
-    if (this.fig) this.fig.follow(this.runner);
+    if (this.fig) {
+      this.fig.follow(this.runner);
+      // Laufband: die Figur bleibt stehen, die Luft strömt mit dem Tempo von vorne
+      this.wind.set(0, 0, -S.speed); this.fig.hair.update(dt, this.wind);
+    }
     // Kamera
     if (this.spin && !this.drag) this.camT.yaw += dt * 0.5;
     const c = this.cam, T = this.camT;
@@ -192,8 +310,20 @@ export class CharEd {
     cam.lookAt(ox, c.ty, oz);
     this.engine.focus(new THREE.Vector3(0, 0.7, 0));
   }
+  // Pinsel-Ring auf der Kopfhaut
+  showCursor(hit) {
+    if (!this.ring) {
+      this.ring = new THREE.Mesh(new THREE.RingGeometry(0.92, 1, 40), new THREE.MeshBasicMaterial({ color: 0xE2621B, depthTest: false, transparent: true, opacity: 0.9, side: THREE.DoubleSide }));
+      this.ring.renderOrder = 30; this.engine.scene.add(this.ring);
+    }
+    this.ring.visible = !!hit && this.tab === "hair"; if (!hit) return;
+    const M = this.fig.hair.headMatrix(), p = hit.p.clone().applyMatrix4(M), n = hit.n.clone().transformDirection(M);
+    this.ring.position.copy(p).addScaledVector(n, 0.002); this.ring.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), n);
+    this.ring.material.color.set(this.hb.tool === "erase" ? 0xFFFFFF : 0xE2621B); this.cursorSize();
+  }
+  cursorSize() { if (this.ring) this.ring.scale.setScalar(this.hb.size); }
   dispose() {
-    this.dead = true; clearTimeout(this.saveT); store.set(KEYS.char, this.look);
+    this.dead = true; if (this.ring) { this.engine.scene.remove(this.ring); this.ring.geometry.dispose(); this.ring.material.dispose(); } clearTimeout(this.saveT); store.set(KEYS.char, this.look);
     this.cv.removeEventListener("mousedown", this.h.down); window.removeEventListener("mousemove", this.h.move); window.removeEventListener("mouseup", this.h.up);
     this.cv.removeEventListener("wheel", this.h.wheel); this.cv.removeEventListener("contextmenu", this.h.ctx);
     if (this.fig) this.fig.dispose(); this.runner.dispose(); this.root.remove();
