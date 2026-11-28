@@ -19,7 +19,8 @@ Neue Module: in `MODULES` in `polyrunner.js` eintragen. Modul-Präfix: `pru/`.
 | `play.js` | Testlauf: Verfolgerkamera mit Pointer-Lock, Zeitfahren, Bestzeiten, Pause |
 | `editor.js` | Map Editor: Bauen, Start/Ziel/Test-Start, Farbe, Löschen, Himmel, Datei, Rückgängig |
 | `haare.js` | Haare: Strähnen aus Wurzeln (Look `hair`), Ruheform am Kopf entlang, Federkette mit Kollision, Malen (`pick`) |
-| `kleidung.js` | Weite Kleidung: Schnitt aus der Haut, Lockerheit/Saum, Stoffphysik (`Cloth`); Listen `TOPS`, `LEGS`, Farben |
+| `kleidung.js` | Kleidung: Entwurf aus Ringen (`newDesign`, `cloneDesign`), Netz bauen (`buildGarment`), Stoff mit Dicke, Physik und Greifen (`Cloth`) |
+| `kleided.js` | Kleidungs-Editor (Modus `kleid`, aus dem Charakter-Editor): Entwürfe, Ringe ziehen, Stoff, Dehnen, Export |
 | `figur.js` | Spielfigur: lädt `model/figur.bin`, SkinnedMesh auf dem Runner-Skelett, Shader für Haut, Augen, Brauen, enge Kleidung (Speedo), `follow(runner)` |
 | `chared.js` | Charakter-Editor (Modus `char`, Knopf „Charakter“ im Map Editor): Haut, Augen, Brauen, Kleidung, Vorschau-Animation |
 | `menu.js` | Hauptmenü (Spielen noch gesperrt), Code-Abfrage, Einstellungen |
@@ -137,15 +138,17 @@ automatisch hochziehen, niedrige Hindernisse bis 1,25 m im Lauf überklettern.
 - Kopfhaut-Tönung: Attribut `aHair` (Farbe + Anteil) auf der Figur, im Shader über die Haut gemischt.
 - Editor: Reiter „Haare“ (Ansicht springt auf den Kopf, Animation Stehen). Linke Maus auf dem Kopf malt/radiert, daneben dreht. Einstellungen des Pinsels in `polyrunner-ui-v1` (`hb`).
 
-## Kleidung (seit v0.16)
+## Kleidung (seit v0.17: echte Stoffnetze, Kleidungs-Editor)
 
-- Look `clothes = { top, topCol, legs, legsCol }`. `top`: none, tanktop, croptop, shirt, longshirt; `legs`: none, baggy, shorts, leggings. Badehose (`bottom: "speedo"`) immer drunter.
-- **Eng** (tanktop, croptop, leggings): im Haut-Shader wie die Badehose (`pruTop`, `pruLeg` in figur.js, Felder auf der Ruhe-Position), Reihenfolge Haut → Badehose → Leggings → Oberteil.
-- **Weit** (shirt, longshirt, baggy, shorts) = `Cloth` in kleidung.js:
-  - `cut`: Feld je Hautpunkt (> 0 innen), Dreiecke mit einem inneren Punkt werden kopiert, äußere Punkte auf die Schnittlinie geschoben. Arm/Bein/Rumpf über den stärksten Knochen.
-  - `buildLoose`: Shirt fällt unter der Brust senkrecht (Hülle `hull` je Richtung um die Körperachse, von oben aufaddiert) + 11 mm, Ärmel über die Normale weiter;
-    Hosenbeine um die Beinachse (x ±0,077), Hülle ab dem Oberschenkel + 12…42 mm, nie über die Mitte. Saum-Verlängerung (Shirt lang bis y 0,575 in 4 Reihen, Baggy 1 Reihe über den Fuß).
-    `pin` je Punkt = wie fest am Körper (Bund/Schultern fest, Saum lose). Ergebnis wird je Figur-Daten zwischengespeichert (`data.cloth`).
-  - Physik: CPU-Skinning der Ankerpunkte mit den Gewichten des Haut-Ursprungs, Verlet + Zug zum Anker (`pin²`), Stofflängen nur gegen Dehnen,
-    Mindestabstand zur gehäuteten Hautstelle entlang ihrer Normale (`mn`, Shirt unter y 0,84 = 17 mm, damit der Saum über dem Hosenbund bleibt), Kapseln Beine/Unterarme für lose Punkte.
-- `Figur.simulate(dt, wind)` rechnet Haare und Stoff (nach `follow`).
+- Keine Kleidung mehr im Haut-Shader (Badehose, Tanktop usw. aus v0.14–v0.16 entfernt). Look: `wear = { top: Entwurf|null, bottom: Entwurf|null }` (Kopien).
+- Entwürfe in `polyrunner-kleider-v1` (Liste), Format `polyrunner-kleid`:
+  - Oberteil `{ kind: "top", color, thick (mm), stiff (0–1), neck: { d (Tiefe, − = Kragen), w (Breite 0–1), ease }, arm (Armausschnitt m), torso: [{ y, ease }] (aufsteigend, [0] = Saum), sleeve: [{ t, ease }] (t = m entlang des Arms ab Schulter, letzter = Ärmelende, 0 = ärmellos) }`
+  - Hose `{ kind: "bottom", …, waist: { y, ease }, leg: [{ L, ease }] }` — L: 0 = T-Badehose, bis 0,15 wandert die Seite zum Schritt (Panty), darüber waagrechte Öffnung bei y = 0,622 − (L − 0,15), über den Knöchel hinaus angesetzt.
+  - `ease` = Weite in m über der Haut (zwischen den Ringen linear), Hals-Weite oben im Rumpf eingeblendet.
+- `buildGarment`: Feld je Hautpunkt (Klasse Rumpf/Arm/Bein/Kopf über den stärksten Knochen, `bodyInfo` einmal je Modell), Dreiecke mit einem inneren Punkt kopiert, äußere Punkte auf die Schnittlinie geschoben;
+  Weite über die Normale, Rumpf unter der Brust und Hosenbeine fallen zusätzlich von der breitesten Stelle innerhalb der Falllänge (≈ 8–9 × Weite) darüber (Radien-Tabellen `tor`, `legs`);
+  Ansetzen (`extend`) für Saum unter 0,70, Ärmel über 0,315 m, Hose über den Knöchel. `pin` = wie fest am Körper (eng/oben fest, weit/unten lose).
+- `Cloth`: CPU-Skinning der Anker, Verlet, Zug zum Anker, Stofflängen mit Straffheit (`slack` 1–1,35, Stärke, Durchgänge), Abstand zur Haut `mn` (+ `setLayer` = Oberteil über der Hose),
+  Kapseln Beine/Unterarme. Netz = Außenhaut + Innenhaut (− Normale × Dicke) + Rand an den Öffnungen. Greifen: `pick(ray)`, `grab(i, punkt)` (Handvoll bis 3 cm), `drag`, `release`, `strain()`.
+- Editor: Ringe = Randschleifen (Öffnungen) bzw. äußerster Stoffpunkt je Richtung im Band (Zwischenringe), anklicken → ziehen (dy = Länge, dx = Weite), Neubau höchstens alle 110 ms.
+- Ablauf mit Noah: er exportiert `PolyRunner_Kleid_<Name>.json`, Claude legt sie als feste Kleidung ins Spiel (Ordner/Liste noch festzulegen).

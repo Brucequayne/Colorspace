@@ -2,22 +2,21 @@
 // Das Modell selbst wird nie verändert. Alles Aussehen entsteht im Shader auf der Ruhe-Position der Punkte (position vor dem Skinning):
 //  - Augen: die Augäpfel sind eigene Teile im Modell; Iris/Pupille/Glanz kommen aus einer Leinwand-Textur, projiziert in Blickrichtung.
 //  - Brauen: zweite Leinwand, von vorne aufs Gesicht projiziert.
-//  - Enge Kleidung (Speedo): Bereiche aus Feldern der Ruhe-Position → liegt exakt auf der Haut, bewegt sich mit, keine Durchdringung.
+//  - Kleidung ist seit v0.17 kein Shader mehr, sondern echte Stoffnetze (kleidung.js, Kleidungs-Editor).
 // Animation: Die Knochen haben dieselben Namen wie im Runner (runner.js). In Ruhe (alle Drehungen 0) hängen Arme und Beine gerade nach unten,
 // das Modell steht in A-Pose → follow(runner) kopiert einfach die lokalen Drehungen, die Beckenhöhe wird mit der Körpergröße skaliert.
 import * as THREE from "three";
 import { PRU } from "pru/core.js";
 import { BONES, HIP_H } from "pru/runner.js";
 import { Hair, cloneHair } from "pru/haare.js";
-import { Cloth, cloneClothes, TIGHT_TOP, TIGHT_LEG } from "pru/kleidung.js";
+import { Cloth, cloneDesign } from "pru/kleidung.js";
 
 export const LOOK_DEFAULT = {
   v: 1,
   skin: "#F2CBAE",
   eyes: { type: "glanz", iris: "#3F7CAC", size: 1, pupil: 1, shine: true },
   brows: { type: "bogen", color: "#3B2A22", size: 1, thick: 1, y: 0, gap: 0, tilt: 0 },
-  bottom: "speedo",
-  clothes: { top: "none", topCol: "#E9E5DC", legs: "none", legsCol: "#3A3C40" },
+  wear: { top: null, bottom: null },   // getragene Kleidungsstücke (Entwürfe aus dem Kleidungs-Editor, als Kopie)
   hair: { groups: [{ id: 1, len: 0.14, type: "glatt", color: "#3B2A22", thick: 1 }], roots: [] }
 };
 export const SKINS = ["#FBE6D6", "#F2CBAE", "#E6B38E", "#CF9670", "#A86E4C", "#7A4D33", "#4E3122"];
@@ -27,7 +26,7 @@ export const EYE_TYPES = ["glanz", "rund", "schlitz", "stern", "ring", "raute", 
 export const BROW_TYPES = ["bogen", "gerade", "duenn", "kraeftig", "wuetend", "besorgt", "kurz"];
 export function cloneLook(l) {
   const d = LOOK_DEFAULT, o = l || {};
-  return { v: 1, skin: o.skin || d.skin, eyes: Object.assign({}, d.eyes, o.eyes || {}), brows: Object.assign({}, d.brows, o.brows || {}), bottom: o.bottom || d.bottom, clothes: cloneClothes(o.clothes), hair: cloneHair(o.hair || d.hair) };
+  return { v: 1, skin: o.skin || d.skin, eyes: Object.assign({}, d.eyes, o.eyes || {}), brows: Object.assign({}, d.brows, o.brows || {}), wear: { top: o.wear && o.wear.top ? cloneDesign(o.wear.top) : null, bottom: o.wear && o.wear.bottom ? cloneDesign(o.wear.bottom) : null }, hair: cloneHair(o.hair || d.hair) };
 }
 
 // ---------- Modelldatei laden (einmal, dann zwischengespeichert) ----------
@@ -158,62 +157,15 @@ function makeMaterial(head) {
     uSkin: { value: new THREE.Color() }, uEye: { value: null }, uBrow: { value: null },
     uEcL: { value: A.c }, uErL: { value: A.r }, uEuL: { value: A.u }, uEgL: { value: A.g },
     uEcR: { value: B.c }, uErR: { value: B.r }, uEuR: { value: B.u }, uEgR: { value: B.g }, uErad: { value: A.rad },
-    uFace: { value: new THREE.Vector4(FACE.x0, FACE.y0, FACE.x1 - FACE.x0, FACE.y1 - FACE.y0) }, uBottom: { value: 1 },
-    uTop: { value: 0 }, uTopC: { value: new THREE.Color() }, uLeg: { value: 0 }, uLegC: { value: new THREE.Color() }
+    uFace: { value: new THREE.Vector4(FACE.x0, FACE.y0, FACE.x1 - FACE.x0, FACE.y1 - FACE.y0) }
   };
   m.onBeforeCompile = (sh) => {
     Object.assign(sh.uniforms, U);
     sh.vertexShader = "attribute float aPart;\nattribute vec4 aHair;\nvarying vec3 vRP;\nvarying vec3 vRN;\nvarying float vPart;\nvarying vec4 vHair;\n" +
       sh.vertexShader.replace("#include <begin_vertex>", "#include <begin_vertex>\n vRP = position; vRN = normal; vPart = aPart; vHair = aHair;");
     sh.fragmentShader = "varying vec3 vRP;\nvarying vec3 vRN;\nvarying float vPart;\nvarying vec4 vHair;\nuniform vec3 uSkin;\nuniform sampler2D uEye;\nuniform sampler2D uBrow;\n" +
-      "uniform vec3 uEcL, uErL, uEuL, uEgL, uEcR, uErR, uEuR, uEgR;\nuniform float uErad;\nuniform vec4 uFace;\nuniform float uBottom;\n" +
+      "uniform vec3 uEcL, uErL, uEuL, uEgL, uEcR, uErR, uEuR, uEgR;\nuniform float uErad;\nuniform vec4 uFace;\n" +
       "float pruRough = -1.0;\n" +
-      // Speedo nach Noahs Skizze: blau, dunkler Bund, türkise Kanten, seitlich Rot/Orange/Gelb (schräg)
-      "vec4 pruSpeedo(vec3 p){\n" +
-      " if (abs(p.x) > 0.17 || p.y > 0.82 || p.y < 0.58) return vec4(0.0);\n" +
-      // Bund: vorne 0,772, zur Seite über die Hüfte hoch 0,797, hinten 0,787
-      " float ax = abs(p.x), fr = smoothstep(-0.05, 0.0, p.z + 0.03);\n" +
-      " float yTop = mix(0.787, 0.772, fr) + (0.797 - mix(0.787, 0.772, fr)) * smoothstep(0.02, 0.12, ax);\n" +
-      // Beinausschnitt (T-Form): vom Schritt (schmaler Steg) steil zur Seite hoch; hinten bedeckt er mehr
-      " float yS = yTop - 0.026, yC = 0.622, tt = clamp((ax - 0.014) / (0.123 - 0.014), 0.0, 1.0);\n" +
-      " float yOpen = yC + (yS - yC) * mix(pow(tt, 1.2), pow(tt, 0.8), fr);\n" +
-      " float dTop = yTop - p.y, dOpen = p.y - yOpen, d = min(dTop, dOpen);\n" +
-      " float aa = max(fwidth(d), 1e-5);\n" +
-      " float inside = smoothstep(-aa, aa, d);\n" +
-      " if (inside <= 0.0) { float sh = 1.0 - 0.22 * (1.0 - smoothstep(0.0, 0.004, -d)); return vec4(sh, sh, sh, -1.0); }\n" +
-      " vec3 blue = vec3(0.016, 0.13, 0.30), band = vec3(0.008, 0.06, 0.15), trim = vec3(0.02, 0.38, 0.72);\n" +
-      " vec3 red = vec3(0.78, 0.016, 0.02), ora = vec3(0.92, 0.24, 0.012), yel = vec3(0.95, 0.62, 0.012);\n" +
-      " vec3 col = blue;\n" +
-      // Seitenteile: Rot ganz außen, Orange, Gelb schräg zur Mitte hin
-      " float phi = degrees(abs(atan(p.x, p.z + 0.03))); float s = clamp(dTop / 0.03, 0.0, 1.0); float rr = 0.13 * 0.01745;\n" +
-      " float b1 = 60.0 - 10.0 * s, b2 = 69.0 - 10.0 * s, b3 = 82.0 - 4.0 * s, b4 = 104.0;\n" +
-      " if (dTop > 0.011 && ax > 0.05 && phi > b1 && phi < b4) { col = phi < b2 ? yel : phi < b3 ? ora : red;\n" +
-      "   float e = min(min(abs(phi - b1), abs(phi - b2)), min(abs(phi - b3), abs(phi - b4))) * rr; float ea = max(fwidth(e), 1e-5); col = mix(trim, col, smoothstep(0.0011 - ea, 0.0011 + ea, e)); }\n" +
-      " if (dTop < 0.011) col = band;\n" +
-      " float t1 = abs(dTop - 0.011); col = mix(trim, col, smoothstep(0.0009 - aa, 0.0009 + aa, t1));\n" +
-      " col = mix(trim, col, smoothstep(0.0018 - aa, 0.0018 + aa, d));\n" +
-      " return vec4(col, inside);\n}\n" +
-      // Enge Kleidung oben (1 Tanktop, 2 Crop Top) und unten (1 Leggings kurz): liegt wie die Badehose direkt auf der Haut
-      "uniform float uTop; uniform vec3 uTopC; uniform float uLeg; uniform vec3 uLegC;\n" +
-      "vec4 pruTop(vec3 p){\n" +
-      " if (uTop < 0.5) return vec4(0.0);\n" +
-      " float ax = abs(p.x), crop = uTop > 1.5 ? 1.0 : 0.0, fr = p.z > -0.03 ? 1.0 : 0.0;\n" +
-      " float yHem = crop > 0.5 ? 0.885 : 0.776;\n" +
-      " float aw = mix(0.15, mix(0.085, 0.1, crop) + (0.118 - mix(0.085, 0.1, crop)) * (1.0 - smoothstep(0.952, 1.0, p.y)), smoothstep(0.9, 0.94, p.y));\n" +
-      " float yNeck = mix(1.052, 1.034, fr) + 18.0 * p.x * p.x;\n" +
-      " float d = min(min(p.y - yHem, aw - ax), yNeck - p.y);\n" +
-      " float aa = max(fwidth(d), 1e-5), inside = smoothstep(-aa, aa, d);\n" +
-      " if (inside <= 0.0) return vec4(0.0);\n" +
-      " vec3 c = uTopC; c = mix(c * 0.72, c, smoothstep(0.0016 - aa, 0.0016 + aa, d));\n" +
-      " return vec4(c, inside);\n}\n" +
-      "vec4 pruLeg(vec3 p){\n" +
-      " if (uLeg < 0.5 || abs(p.x) > 0.16 || p.y > 0.82) return vec4(0.0);\n" +
-      " float fr = smoothstep(-0.05, 0.0, p.z + 0.03), yTop = mix(0.79, 0.778, fr) + 0.012 * smoothstep(0.02, 0.12, abs(p.x));\n" +
-      " float d = min(yTop - p.y, p.y - 0.505);\n" +
-      " float aa = max(fwidth(d), 1e-5), inside = smoothstep(-aa, aa, d);\n" +
-      " if (inside <= 0.0) return vec4(0.0);\n" +
-      " vec3 c = uLegC; if (yTop - p.y < 0.014) c *= 0.8; c = mix(c * 0.7, c, smoothstep(0.0016 - aa, 0.0016 + aa, d));\n" +
-      " return vec4(c, inside);\n}\n" +
       sh.fragmentShader
         .replace("#include <color_fragment>", "#include <color_fragment>\n" +
           " if (vPart > 1.5 && vPart < 3.5) {\n" +
@@ -227,9 +179,6 @@ function makeMaterial(head) {
           "   vec2 fu = (vRP.xy - uFace.xy) / uFace.zw;\n" +
           "   if (fu.x > 0.0 && fu.x < 1.0 && fu.y > 0.0 && fu.y < 1.0 && vRN.z > 0.2 && vRP.z > 0.0) { vec4 br = texture2D(uBrow, fu); sk = mix(sk, br.rgb, br.a * smoothstep(0.2, 0.45, vRN.z)); }\n" +
           "   diffuseColor.rgb = mix(sk, vHair.rgb, vHair.a);\n" +
-          "   if (uBottom > 0.5) { vec4 sp = pruSpeedo(vRP); if (sp.a < 0.0) diffuseColor.rgb *= sp.r; else if (sp.a > 0.0) { diffuseColor.rgb = mix(diffuseColor.rgb, sp.rgb, sp.a); pruRough = mix(0.62, 0.38, sp.a); } }\n" +
-          "   vec4 lg = pruLeg(vRP); if (lg.a > 0.0) { diffuseColor.rgb = mix(diffuseColor.rgb, lg.rgb, lg.a); pruRough = mix(0.62, 0.7, lg.a); }\n" +
-          "   vec4 tp = pruTop(vRP); if (tp.a > 0.0) { diffuseColor.rgb = mix(diffuseColor.rgb, tp.rgb, tp.a); pruRough = mix(0.62, 0.8, tp.a); }\n" +
           " }")
         .replace("#include <roughnessmap_fragment>", "#include <roughnessmap_fragment>\n if (pruRough >= 0.0) roughnessFactor = pruRough;");
   };
@@ -272,7 +221,7 @@ export class Figur {
     this.mesh.bind(this.skeleton);
     this.rest();
     scene.add(this.root);
-    this.hair = new Hair(this);
+    this.hair = new Hair(this); this.cloth = { top: null, bottom: null };
     this.look = null; this.setLook(look);
   }
   // Ruhe wie der Runner: alle Drehungen 0 → Arme und Beine gerade nach unten
@@ -284,24 +233,21 @@ export class Figur {
     const ke = JSON.stringify(L.eyes), kb = JSON.stringify(L.brows);   // Leinwände nur neu zeichnen, wenn sich etwas geändert hat
     if (ke !== this.ke) { this.ke = ke; U.uEye.value = tx(eyeCanvas(L.eyes), U.uEye.value); }
     if (kb !== this.kb) { this.kb = kb; U.uBrow.value = tx(browCanvas(L.brows), U.uBrow.value); }
-    U.uBottom.value = L.bottom === "speedo" ? 1 : 0;
     this.hair.setData(L.hair);
-    // Kleidung: eng = Shader, weit = Stoffnetz mit Physik
-    const C = L.clothes;
-    U.uTop.value = TIGHT_TOP[C.top] || 0; U.uTopC.value.set(C.topCol); U.uLeg.value = TIGHT_LEG[C.legs] || 0; U.uLegC.value.set(C.legsCol);
-    const loose = (slot, kind, col) => {
-      const want = kind && !TIGHT_TOP[kind] && !TIGHT_LEG[kind] && kind !== "none" ? kind : null, cur = this[slot];
-      if (cur && (!want || cur.kind !== want)) { cur.c.dispose(); this[slot] = null; }
-      if (want && !this[slot]) { this[slot] = { kind: want, c: new Cloth(this, want, col) }; }
-      if (this[slot]) this[slot].c.setColor(col);
-    };
-    loose("clTop", C.top, C.topCol); loose("clLeg", C.legs, C.legsCol);
+    // Kleidung: echte Stoffnetze aus dem Kleidungs-Editor (kleidung.js)
+    ["top", "bottom"].forEach((slot) => {
+      const d = L.wear[slot], cur = this.cloth[slot];
+      if (!d) { if (cur) { cur.dispose(); this.cloth[slot] = null; } return; }
+      if (cur) cur.setDesign(d); else this.cloth[slot] = new Cloth(this, d);
+    });
+    // Lagen: Oberteil über der Hose
+    if (this.cloth.top) { const b = L.wear.bottom; this.cloth.top.setLayer(b ? (b.thick + L.wear.top.thick) / 1000 + 0.006 + (b.waist ? b.waist.ease : 0) : 0, b && b.waist ? b.waist.y + 0.05 : 0.84); }
   }
   // Haare und Stoff simulieren (nach follow), wind = Luftstrom in m/s
   simulate(dt, wind) {
     this.hair.update(dt, wind);
-    if (this.clLeg) this.clLeg.c.update(dt, wind);
-    if (this.clTop) this.clTop.c.update(dt, wind);
+    if (this.cloth.bottom) this.cloth.bottom.update(dt, wind);
+    if (this.cloth.top) this.cloth.top.update(dt, wind);
   }
   // Pose vom (unsichtbaren) Runner übernehmen: lokale Drehungen 1:1, Becken skaliert
   follow(r) {
@@ -315,7 +261,7 @@ export class Figur {
   }
   setVisible(v) { this.root.visible = v; }
   dispose() {
-    this.hair.dispose(); if (this.clTop) this.clTop.c.dispose(); if (this.clLeg) this.clLeg.c.dispose(); this.scene.remove(this.root); this.mesh.geometry.dispose();
+    this.hair.dispose(); if (this.cloth.top) this.cloth.top.dispose(); if (this.cloth.bottom) this.cloth.bottom.dispose(); this.scene.remove(this.root); this.mesh.geometry.dispose();
     const U = this.mat.userData.U; if (U.uEye.value) U.uEye.value.dispose(); if (U.uBrow.value) U.uBrow.value.dispose(); this.mat.dispose();
   }
 }

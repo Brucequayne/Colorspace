@@ -6,7 +6,7 @@ import { t, addTexts, L2, el, esc, store, KEYS, clamp, damp, download } from "pr
 import { Runner } from "pru/runner.js";
 import { Figur, loadFigur, cloneLook, LOOK_DEFAULT, SKINS, IRIS, BROWC, EYE_TYPES, BROW_TYPES } from "pru/figur.js";
 import { HAIR_TYPES, HAIRC, newGroup } from "pru/haare.js";
-import { TOPS, LEGS, CLOTHC } from "pru/kleidung.js";
+import { cloneDesign } from "pru/kleidung.js";
 
 addTexts({
   cTitle: L2("Charakter", "Character"), cLoading: L2("Figur wird geladen …", "Loading the character …"), cFail: L2("Figur konnte nicht geladen werden", "Could not load the character"),
@@ -17,10 +17,9 @@ addTexts({
   cBShape: L2("Form", "Shape"), cBCol: L2("Farbe", "Colour"), cBSize: L2("Länge", "Length"), cBThick: L2("Dicke", "Thickness"), cBY: L2("Höhe", "Height"), cBGap: L2("Abstand", "Spacing"), cBTilt: L2("Winkel", "Angle"),
   b_bogen: L2("Bogen", "Arched"), b_gerade: L2("Gerade", "Straight"), b_duenn: L2("Dünn", "Thin"), b_kraeftig: L2("Kräftig", "Bold"), b_wuetend: L2("Wütend", "Angry"), b_besorgt: L2("Besorgt", "Worried"), b_kurz: L2("Kurz", "Short"),
   cBottom: L2("Unten", "Bottom"), cSpeedo: L2("Badehose (Standard)", "Swim briefs (default)"),
-  cClothNote: L2("Die Badehose ist immer drunter. Enge Teile liegen direkt auf der Haut, weite Teile (locker) haben Stoffphysik: Probier „Laufen“ und „Sprinten“ unten links.", "The swim briefs are always underneath. Tight items sit directly on the skin, loose items have cloth physics: try “Run” and “Sprint” at the bottom left."),
-  cTop: L2("Oberteil", "Top"), cLegs: L2("Hose", "Bottoms"), cCol: L2("Farbe", "Colour"),
-  k_none: L2("Keins", "None"), k_tanktop: L2("Tanktop · eng", "Tank top · tight"), k_croptop: L2("Crop Top · eng", "Crop top · tight"), k_shirt: L2("Shirt · locker", "Shirt · loose"), k_longshirt: L2("Shirt lang · locker", "Long shirt · loose"),
-  l_none: L2("Keine (nur Badehose)", "None (swim briefs only)"), l_baggy: L2("Baggy-Hose lang", "Baggy trousers"), l_shorts: L2("Baggy-Shorts", "Baggy shorts"), l_leggings: L2("Leggings kurz · eng", "Short leggings · tight"),
+  cClothNote: L2("Kleidung entwirfst du im Kleidungs-Editor: Ringe ziehen, Stoff wählen, dehnen. Fertige Teile exportieren und an Claude schicken, dann kommen sie als feste Kleidung ins Spiel.",
+    "Design clothes in the clothing editor: drag rings, pick the fabric, stretch it. Export finished pieces and send them to Claude, then they come into the game as fixed clothing."),
+  cTop: L2("Oberteil", "Top"), cLegs: L2("Hose", "Bottoms"), cNoneW: L2("Nichts", "Nothing"), cOpenK: L2("Kleidungs-Editor öffnen", "Open the clothing editor"),
   hTool: L2("Werkzeug", "Tool"), hBrush: L2("Pinsel", "Brush"), hErase: L2("Radierer", "Eraser"), hSize: L2("Pinselgröße", "Brush size"), hGap: L2("Abstand der Strähnen", "Strand spacing"),
   hSym: L2("Symmetrie (links = rechts)", "Symmetry (left = right)"), hGroups: L2("Gruppen", "Groups"), hGroup: L2("Gruppe {n}", "Group {n}"), hAdd: L2("+ Gruppe", "+ Group"), hDel: L2("Gruppe löschen", "Delete group"),
   hStrands: L2("{n} Strähnen", "{n} strands"), hLen: L2("Haarlänge", "Hair length"), hThick: L2("Strähnen-Breite", "Strand width"), hType: L2("Haartyp", "Hair type"), hCol: L2("Haarfarbe", "Hair colour"),
@@ -58,10 +57,13 @@ const ANIMS = { idle: 0, walk: 1.4, run: 4.2, sprint: 7.2 };
 const VIEWS = { body: { ty: 0.72, dist: 2.7, pitch: 0.1 }, face: { ty: 1.27, dist: 0.62, pitch: 0.02 }, hair: { ty: 1.22, dist: 1.05, pitch: 0.28 } };
 const FAKEWORLD = { ray: (o) => (o.y >= 0 && o.y < 1.25 ? { point: new THREE.Vector3(o.x, 0, o.z) } : null) };
 
+// Gestaltung der Editor-Felder (auch vom Kleidungs-Editor genutzt)
+export function charCSS() { if (!document.getElementById("pru-css-char")) { const s = document.createElement("style"); s.id = "pru-css-char"; s.textContent = CSS; document.head.appendChild(s); } }
+
 export class CharEd {
   constructor(app) {
     this.app = app; this.engine = app.engine; this.world = app.world; this.cv = app.engine.renderer.domElement;
-    if (!document.getElementById("pru-css-char")) { const s = document.createElement("style"); s.id = "pru-css-char"; s.textContent = CSS; document.head.appendChild(s); }
+    charCSS();
     // Map ausblenden, feste Tageszeit
     this.world.group.visible = false; this.markVis = Object.values(this.world.markers).map((m) => { const v = m.visible; m.visible = false; return [m, v]; });
     this.envOld = Object.assign({}, this.engine.env); this.engine.setEnv({ time: 15.2, cycle: false });
@@ -69,6 +71,7 @@ export class CharEd {
     this.tab = ui.ctab || "skin"; this.anim = "idle"; this.spin = false; this.view = "body";
     this.cam = { yaw: 0.45, pitch: 0.1, dist: 2.7, ty: 0.72 }; this.camT = Object.assign({}, this.cam);
     this.look = cloneLook(store.get(KEYS.char, null));
+    { const ds = store.get(KEYS.kleider, []) || []; ["top", "bottom"].forEach((k) => { const w = this.look.wear[k]; if (!w) return; const d = ds.find((x) => x.id === w.id); this.look.wear[k] = d ? cloneDesign(d) : null; }); }
     this.hb = Object.assign({ tool: "brush", size: 0.025, gap: 0.024, sym: true, gid: this.look.hair.groups[0].id }, ui.hb || {}); if (!this.look.hair.groups.some((g) => g.id === this.hb.gid)) this.hb.gid = this.look.hair.groups[0].id;
     this.undo = []; this.wind = new THREE.Vector3();
     this.runner = new Runner(this.engine.scene); this.runner.setVisible(false); this.runner.world = FAKEWORLD;
@@ -115,9 +118,10 @@ export class CharEd {
       rng("brows.size", "cBSize", 0.7, 1.35, 0.01, L.brows.size, " %", pct) + rng("brows.thick", "cBThick", 0.5, 1.8, 0.01, L.brows.thick, " %", pct) +
       rng("brows.y", "cBY", -4, 6, 0.1, L.brows.y, " mm") + rng("brows.gap", "cBGap", -4, 6, 0.1, L.brows.gap, " mm") + rng("brows.tilt", "cBTilt", -18, 18, 0.5, L.brows.tilt, "°");
     else if (this.tab === "clothes") {
-      const C = L.clothes, list = (key, arr, cur, pre) => '<div class="pru-col">' + arr.map((k) => '<button data-set="clothes.' + key + '" data-v="' + k + '" aria-pressed="' + (k === cur) + '">' + t(pre + k) + "</button>").join("") + "</div>";
-      h = "<h4>" + t("cTop") + "</h4>" + list("top", TOPS, C.top, "k_") + (C.top !== "none" ? "<h4>" + t("cCol") + "</h4>" + sw(CLOTHC, C.topCol, "clothes.topCol") : "") +
-        "<h4>" + t("cLegs") + "</h4>" + list("legs", LEGS, C.legs, "l_") + (C.legs !== "none" ? "<h4>" + t("cCol") + "</h4>" + sw(CLOTHC, C.legsCol, "clothes.legsCol") : "") + "<p>" + t("cClothNote") + "</p>";
+      const ds = (store.get(KEYS.kleider, []) || []), W = L.wear, list = (slot, kind) => '<div class="pru-col"><button data-wear="' + slot + '|" aria-pressed="' + !W[slot] + '">' + t("cNoneW") + "</button>" +
+        ds.filter((d) => (d.kind === "bottom") === (kind === "bottom")).map((d) => '<button data-wear="' + slot + "|" + d.id + '" aria-pressed="' + !!(W[slot] && W[slot].id === d.id) + '">' + esc(d.name) + "</button>").join("") + "</div>";
+      h = "<h4>" + t("cTop") + "</h4>" + list("top", "top") + "<h4>" + t("cLegs") + "</h4>" + list("bottom", "bottom") +
+        '<div class="pru-col"><button class="pru-pri" data-c="kleid">' + t("cOpenK") + "</button></div><p>" + t("cClothNote") + "</p>";
     }
     else h = this.hairHTML(rng, sw, pct);
     this.$("#pru-cbody").innerHTML = h;
@@ -228,6 +232,7 @@ export class CharEd {
       else if (b.dataset.spin) { this.spin = !this.spin; this.syncButtons(); }
       else if (b.dataset.set && b.dataset.v != null) { this.set(b.dataset.set, b.dataset.v); this.renderTab(); }
       else if (b.dataset.c) this.action(b.dataset.c);
+      else if (b.dataset.wear != null) { const [slot, id] = b.dataset.wear.split("|"), d = (store.get(KEYS.kleider, []) || []).find((x) => x.id === id); this.look.wear[slot] = d ? cloneDesign(d) : null; this.set("v", 1); this.renderTab(); }
       else if (b.dataset.hb) { this.hb[b.dataset.hb] = b.dataset.v; this.saveHB(); this.renderTab(); }
       else if (b.dataset.hg) { this.hb.gid = +b.dataset.hg; this.saveHB(); this.renderTab(); }
       else if (b.dataset.hc) this.hairCmd(b.dataset.hc);
@@ -277,6 +282,7 @@ export class CharEd {
   }
   action(a) {
     if (a === "back") this.app.go("editor");
+    else if (a === "kleid") { store.set(KEYS.char, this.look); this.app.go("kleid"); }
     else if (a === "reset") { if (confirm(t("cResetQ"))) { this.look = cloneLook(LOOK_DEFAULT); if (this.fig) this.fig.setLook(this.look); store.set(KEYS.char, this.look); this.renderTab(); } }
     else if (a === "export") download("PolyRunner_Figur.json", JSON.stringify(Object.assign({ format: "polyrunner-look" }, this.look), null, 1));
     else if (a === "import") this.$("#pru-cfile").click();

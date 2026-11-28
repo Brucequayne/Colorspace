@@ -3,6 +3,23 @@
    Die Versionsnummer auf den Kacheln kommt aus dem obersten Eintrag. */
 window.PATCHNOTES = {
   polyrunner: [
+    { v: "0.17", t: "2026-11-28T04:20:00+01:00",
+      de: ["Kleidung neu gedacht: Keine aufgemalten Texturen mehr. Die Badehose und die bisherigen Kleidungsstücke sind entfernt, die Figur startet ohne Kleidung.",
+        "Neu: Kleidungs-Editor (im Charakter-Editor, Reiter „Kleidung“ → „Kleidungs-Editor öffnen“). Jedes Kleidungsstück ist ein echtes Stoffnetz mit Dicke, das um den Körper gelegt wird.",
+        "Ringe wie in Flyout: Ein neues Oberteil beginnt als Crop-/Tanktop mit den Öffnungen Hals, Ärmel und Hüfte. Ring im Bild anklicken und ziehen: hoch/runter macht länger oder kürzer, links/rechts enger oder weiter. „+ Ring“ (oder +) setzt einen Zwischenring mit eigener Weite, Entf entfernt ihn.",
+        "Ärmel lassen sich vom Armloch bis über die Hand ausfahren, der Saum bis weit unter den Po, der Ausschnitt tiefer oder als Kragen nach oben. Dazu Ausschnitt-Breite und Armausschnitt.",
+        "Hosen beginnen als T-Badehose (spitz zwischen den Beinen, an den Seiten hoch über die Hüfte). Den Bund ziehst du hoch oder runter, die Beinöffnung runter: Badehose, Panty, Shorts bis zur langen Hose.",
+        "Stoff: Farbe, Stoffdicke (0,3–8 mm, sichtbar an jeder Öffnung) und Straffheit (dehnbar bis straff). Weite Teile fallen von der breitesten Stelle locker herunter, enge liegen am Körper.",
+        "Stoff greifen: Klick auf den Stoff und ziehen, dann zieht man an einer Handvoll Stoff. Oben steht, wie stark er gedehnt ist, so testest du die Straffheit.",
+        "Entwürfe: anlegen, duplizieren, löschen, umbenennen, als .json exportieren und importieren. Im Charakter-Editor ziehst du deine Entwürfe an (Oberteil und Hose zusammen, das Oberteil liegt über der Hose)."],
+      en: ["Clothing rethought: no more painted-on textures. The swim briefs and the previous clothes are removed, the character starts without clothes.",
+        "New: clothing editor (in the character editor, “Clothes” tab → “Open the clothing editor”). Every garment is a real piece of fabric with thickness, laid around the body.",
+        "Rings like in Flyout: a new top starts as a crop/tank top with the openings neck, sleeves and hips. Click a ring in the view and drag: up/down makes it longer or shorter, left/right tighter or looser. “+ Ring” (or +) adds an intermediate ring with its own width, Del removes it.",
+        "Sleeves extend from the armhole to past the hand, the hem to well below the hips, the neckline deeper or up as a collar. Plus neckline width and armhole.",
+        "Bottoms start as T-shaped swim briefs (pointed between the legs, high over the hips at the sides). Pull the waistband up or down and the leg opening down: briefs, boy shorts, shorts up to long trousers.",
+        "Fabric: colour, thickness (0.3–8 mm, visible at every opening) and firmness (stretchy to firm). Loose pieces hang from the widest point, tight ones hug the body.",
+        "Grab the fabric: click it and drag to pull on a handful of fabric. The top shows how far it stretches, so you can test the firmness.",
+        "Designs: create, duplicate, delete, rename, export and import as .json. In the character editor you put your designs on (top and bottoms together, the top lies over the bottoms)."] },
     { v: "0.16", t: "2026-11-28T03:55:00+01:00",
       de: ["Badehose neu gelegt: Sie sitzt jetzt richtig hoch in T-Form, läuft vorne spitz zwischen den Beinen zusammen und geht an den Seiten hoch über die Hüfte. Hinten bedeckt sie mehr, der Bund verläuft gerade.",
         "Neu im Charakter-Editor, Reiter „Kleidung“: Oberteile Tanktop (eng), Crop Top (eng), Shirt (locker) und Shirt lang (locker, lange Ärmel, bis über den Po), Hosen Baggy-Hose lang, Baggy-Shorts und Leggings kurz (eng). Jedes Teil in 16 Farben.",
