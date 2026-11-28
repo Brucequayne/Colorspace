@@ -285,6 +285,24 @@ body.home .foot{background:transparent;box-shadow:none}
 .pitem{max-width:62ch;padding:16px 0;border-bottom:1px solid var(--line)}
 .pitem h2{font:600 1.15rem/1.3 var(--f-display);margin-bottom:4px}
 .pitem p{margin:0;color:var(--soft)}
+/* Versteckter Bereich: Feld unten rechts ist durchsichtig (= exakt die Hintergrundfarbe), Code-Abfrage und Bereichsseite */
+.vkey{position:fixed;right:0;bottom:0;width:26px;height:26px;margin:0;padding:0;border:0;background:transparent;cursor:default;z-index:20;-webkit-tap-highlight-color:transparent;outline:0}
+body:not(.home) .vkey{display:none}
+.vm{position:fixed;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(15,20,21,.78)}
+.vm form{width:min(340px,100%);background:#283334;border:1px solid #3B4A4C;padding:22px 22px 20px;display:flex;flex-direction:column;gap:14px;box-shadow:0 18px 50px rgba(0,0,0,.5)}
+.vm label{font-weight:600;color:var(--ink)}
+.vm input{font:600 1.25rem var(--f-body);letter-spacing:.3em;text-align:center;padding:10px 12px;background:#1F2829;color:var(--ink);border:1px solid #3B4A4C;border-radius:0;outline:0;width:100%}
+.vm input:focus{border-color:#62929E}
+.vm.bad input{border-color:#ED6A5E;animation:vshake .32s}
+.vm .vb{display:flex;gap:10px}
+.vm button{flex:1;font:600 .92rem var(--f-body);padding:9px 12px;border-radius:0;border:1px solid #62929E;background:#62929E;color:#1F2829;cursor:pointer}
+.vm button.vx{background:transparent;color:var(--soft);border-color:#3B4A4C}
+@keyframes vshake{0%,100%{transform:translateX(0)}25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+.vault{padding:36px 0 8px}
+.vault h1{margin:0 0 6px;font-size:clamp(2rem,6vw,3.4rem);line-height:1.05}
+.vault p.vd{color:var(--soft);margin:0 0 26px;max-width:52ch}
+.vlock{font:600 .88rem var(--f-body);padding:7px 13px;border:1px solid var(--line);background:transparent;color:var(--ink);cursor:pointer;border-radius:0}
+.vlock:hover{border-color:var(--ink)}
 .foot{margin-top:56px;padding-top:16px;border-top:1px solid var(--line);font-size:.92rem;color:var(--soft);background:var(--head);box-shadow:0 0 0 100vmax var(--head);clip-path:inset(0 -100vmax -80px -100vmax)}
 .foot a{color:inherit}
 
@@ -325,31 +343,32 @@ body.home .foot{background:transparent;box-shadow:none}
     </div>
   </header>
   <main id="app"></main>
+  <button type="button" class="vkey" id="vkey" tabindex="-1" aria-hidden="true"></button>
   <footer class="foot"><a id="plink" href="#datenschutz">Datenschutz</a></footer>
 </div>
 
-<script src="patchnotes.js?v=20261128-0300"></script>
-<script src="flughafen.js?v=20261128-0300"></script>
-<script src="gigachess.js?v=20261128-0300"></script>
-<script src="colorspin.js?v=20261128-0300"></script>
-<script src="pixellab.js?v=20261128-0300"></script>
-<script src="ezcrop.js?v=20261128-0300"></script>
-<script src="framepaint.js?v=20261128-0300"></script>
-<script src="wefx.js?v=20261128-0300"></script>
-<script src="drawspace.js?v=20261128-0300"></script>
-<script src="citygen.js?v=20261128-0300"></script>
-<script src="spacerogue.js?v=20261128-0300"></script>
-<script src="channels.js?v=20261128-0300"></script>
-<script src="noaim.js?v=20261128-0300"></script>
-<script src="weltmacht.js?v=20261128-0300"></script>
-<script src="shizuku.js?v=20261128-0300"></script>
-<script src="rapstreets.js?v=20261128-0300"></script>
-<script src="skapeform.js?v=20261128-0300"></script>
-<script src="anarchyfrankfurt.js?v=20261128-0300"></script>
-<script src="polyracer.js?v=20261128-0300"></script>
-<script src="leaarn.js?v=20261128-0300"></script>
-<script src="monstersarc.js?v=20261128-0300"></script>
-<script src="polyrunner.js?v=20261128-0300"></script>
+<script src="patchnotes.js?v=20261128-0345"></script>
+<script src="flughafen.js?v=20261128-0345"></script>
+<script src="gigachess.js?v=20261128-0345"></script>
+<script src="colorspin.js?v=20261128-0345"></script>
+<script src="pixellab.js?v=20261128-0345"></script>
+<script src="ezcrop.js?v=20261128-0345"></script>
+<script src="framepaint.js?v=20261128-0345"></script>
+<script src="wefx.js?v=20261128-0345"></script>
+<script src="drawspace.js?v=20261128-0345"></script>
+<script src="citygen.js?v=20261128-0345"></script>
+<script src="spacerogue.js?v=20261128-0345"></script>
+<script src="channels.js?v=20261128-0345"></script>
+<script src="noaim.js?v=20261128-0345"></script>
+<script src="weltmacht.js?v=20261128-0345"></script>
+<script src="shizuku.js?v=20261128-0345"></script>
+<script src="rapstreets.js?v=20261128-0345"></script>
+<script src="skapeform.js?v=20261128-0345"></script>
+<script src="anarchyfrankfurt.js?v=20261128-0345"></script>
+<script src="polyracer.js?v=20261128-0345"></script>
+<script src="leaarn.js?v=20261128-0345"></script>
+<script src="monstersarc.js?v=20261128-0345"></script>
+<script src="polyrunner.js?v=20261128-0345"></script>
 <script>
 (function () {
   var T = {
@@ -369,6 +388,8 @@ body.home .foot{background:transparent;box-shadow:none}
     pnSub: { de: "{n} Versionen · letztes Update {a}", en: "{n} versions · last update {a}" }, pnSub1: { de: "1 Version · veröffentlicht {a}", en: "1 version · released {a}" },
     pnNew: { de: "Aktuell", en: "Current" }, pnLast: { de: "Letztes Update {a}", en: "Last update {a}" },
     privacy: { de: "Datenschutz", en: "Privacy" },
+    vTitle: { de: "Intern", en: "Private" }, vCode: { de: "Code eingeben", en: "Enter code" }, vOk: { de: "Öffnen", en: "Open" }, vNo: { de: "Abbrechen", en: "Cancel" },
+    vSub: { de: "Geschützter Bereich. Nur mit Code erreichbar.", en: "Protected area. Reachable with a code only." }, vEmpty: { de: "Hier liegen noch keine Anwendungen.", en: "No apps in here yet." }, vLock: { de: "Sperren", en: "Lock" },
     flughafen: { de: "Flughafen", en: "Airport" },
     gigachess: { de: "Gigachess", en: "Gigachess" },
     channels: { de: "Channel Exporter", en: "Channel Exporter" },
@@ -455,6 +476,10 @@ body.home .foot{background:transparent;box-shadow:none}
   function U(k) { return T[k][S.lang]; }
 
   // Kategorien: Spiele und Werkzeuge
+  // Anwendungen nur im geschützten Bereich: ID hier eintragen (die App steht trotzdem in APPS und braucht einen Eintrag in setView/render)
+  var SECRET = [];
+  var VCODE = "199682";
+  function unlocked() { try { return sessionStorage.getItem("cs-vault") === "1"; } catch (e) { return false; } }
   var GAMES = ["polyrunner", "leaarn", "monstersarc", "polyracer", "anarchyfrankfurt", "rapstreets", "shizuku", "spacerogue", "weltmacht", "gigachess", "flughafen", "noaim", "citygen"];
   function catOf(a) { return GAMES.indexOf(a.id) >= 0 ? "games" : "tools"; }
   var ICON = {
@@ -547,8 +572,8 @@ body.home .foot{background:transparent;box-shadow:none}
   }
   function homeHTML() {
     OPEN = null;
-    var main = APPS.filter(function (a) { return PRE.indexOf(a.id) < 0; }), games = main.filter(function (a) { return catOf(a) === "games"; }), tools = main.filter(function (a) { return catOf(a) === "tools"; });
-    var pre = PRE.map(appOf).filter(Boolean), k = 0;
+    var main = APPS.filter(function (a) { return PRE.indexOf(a.id) < 0 && SECRET.indexOf(a.id) < 0; }), games = main.filter(function (a) { return catOf(a) === "games"; }), tools = main.filter(function (a) { return catOf(a) === "tools"; });
+    var pre = PRE.filter(function (i) { return SECRET.indexOf(i) < 0; }).map(appOf).filter(Boolean), k = 0;
     return '<section class="hero2"><h1 class="ctitle">Color Space</h1><p>' + U("heroSub") + '</p><span class="bar"></span></section>' +
       '<section class="sec"><h2 class="sech"><b>' + U("games") + "</b>" + games.length + '</h2><div class="tiles">' + games.map(function (a) { return tileHTML(a, k++); }).join("") + "</div></section>" +
       '<section class="sec"><h2 class="sech"><b>' + U("tools") + "</b>" + tools.length + '</h2><div class="tiles">' + tools.map(function (a) { return tileHTML(a, k++); }).join("") + "</div></section>" +
@@ -558,6 +583,34 @@ body.home .foot{background:transparent;box-shadow:none}
           '<span class="pr">' + verOf(a) + (n.length ? '<span class="pn" role="button" tabindex="0" data-pn="' + a.id + '">' + U("pn") + "</span>" : "") + "</span></a>";
       }).join("") + "</div></section>";
   }
+  function vaultHTML() {
+    OPEN = null;
+    var list = SECRET.map(appOf).filter(Boolean), k = 0;
+    return '<div class="appbar"><a class="back" href="#">' + U("back") + '</a><button type="button" class="vlock" id="vlock">' + U("vLock") + '</button></div>' +
+      '<section class="vault"><h1>' + U("vTitle") + '</h1><p class="vd">' + U("vSub") + '</p>' +
+      (list.length ? '<div class="tiles">' + list.map(function (a) { return tileHTML(a, k++); }).join("") + '</div>' : '<p class="vd">' + U("vEmpty") + '</p>') + '</section>';
+  }
+  // Code-Abfrage (Feld unten rechts)
+  function openVault() {
+    if (document.getElementById("vm")) return;
+    var m = document.createElement("div"); m.className = "vm"; m.id = "vm";
+    m.innerHTML = '<form autocomplete="off"><label for="vin">' + U("vCode") + '</label><input id="vin" type="password" inputmode="numeric" maxlength="12" autocomplete="off" spellcheck="false"><div class="vb"><button type="button" class="vx">' + U("vNo") + '</button><button type="submit">' + U("vOk") + '</button></div></form>';
+    document.body.appendChild(m);
+    var inp = m.querySelector("input"); inp.focus();
+    function close() { m.remove(); }
+    m.addEventListener("mousedown", function (e) { if (e.target === m) close(); });
+    m.querySelector(".vx").addEventListener("click", close);
+    m.addEventListener("keydown", function (e) { e.stopPropagation(); if (e.key === "Escape") close(); });
+    m.querySelector("form").addEventListener("submit", function (e) {
+      e.preventDefault();
+      if (inp.value.trim() === VCODE) { try { sessionStorage.setItem("cs-vault", "1"); } catch (x) {} close(); location.hash = "#intern"; }
+      else { m.classList.remove("bad"); void m.offsetWidth; m.classList.add("bad"); inp.value = ""; inp.focus(); }
+    });
+  }
+  document.getElementById("vkey").addEventListener("click", openVault);
+  document.addEventListener("click", function (e) {
+    if (e.target.closest && e.target.closest("#vlock")) { try { sessionStorage.removeItem("cs-vault"); } catch (x) {} location.hash = ""; }
+  });
   // Feld hinter der letzten Kachel der Zeile einsetzen, in der die geklickte Kachel steht
   function rowEnd(tile) {
     var grid = tile.parentNode, list = Array.prototype.filter.call(grid.children, function (c) { return c.classList.contains("tile"); }), top = tile.offsetTop, last = tile;
@@ -792,7 +845,7 @@ body.home .foot{background:transparent;box-shadow:none}
     if (window.Leaarn) window.Leaarn.unmount();
     if (window.PolyRunner) window.PolyRunner.unmount();
     var v = S.view;
-    document.body.classList.toggle("home", v === "home" || v === "privacy");
+    document.body.classList.toggle("home", v === "home" || v === "privacy" || v === "vault");
     if (v === "flughafen" || v === "gigachess" || v === "colorspin" || v === "pixellab" || v === "ezcrop" || v === "framepaint" || v === "wefx" || v === "drawspace" || v === "citygen" || v === "spacerogue" || v === "channels" || v === "noaim" || v === "weltmacht" || v === "shizuku" || v === "rapstreets" || v === "skapeform" || v === "anarchyfrankfurt" || v === "polyracer" || v === "monstersarc" || v === "leaarn" || v === "polyrunner") {
       var full = FULL.indexOf(v) >= 0;
       app.innerHTML = '<div class="appbar"><a class="back" href="#">' + U("back") + '</a>' + (full ? "" : '<div class="abr">' + pnButton(v) + '<div class="rate" id="rate" hidden></div></div>') + '</div><div id="approot"></div>';
@@ -800,7 +853,8 @@ body.home .foot{background:transparent;box-shadow:none}
       var mod = { flughafen: window.Flughafen, gigachess: window.Gigachess, colorspin: window.Colorspin, pixellab: window.Pixellab, ezcrop: window.EzCrop, framepaint: window.FramePainter, wefx: window.WeFX, drawspace: window.DrawSpace, citygen: window.CityGen, spacerogue: window.SpaceRogue, channels: window.Channels, noaim: window.NoAim, weltmacht: window.Weltmacht, shizuku: window.Shizuku, rapstreets: window.RapStreets, skapeform: window.SkapeForm, anarchyfrankfurt: window.AnarchyFrankfurt, polyracer: window.PolyRacer, monstersarc: window.MonstersArc, leaarn: window.Leaarn, polyrunner: window.PolyRunner }[v];
       if (mod) mod.mount(document.getElementById("approot"), S.lang);
       loadRating(v);
-    } else if (v === "privacy") app.innerHTML = privacyHTML();
+    } else if (v === "vault") app.innerHTML = vaultHTML();
+    else if (v === "privacy") app.innerHTML = privacyHTML();
     else app.innerHTML = homeHTML();
 
   }
@@ -819,7 +873,8 @@ body.home .foot{background:transparent;box-shadow:none}
   function setView() {
     var id = location.hash.replace("#", "");
     if (id === "fotoprojekt") { id = "channels"; history.replaceState(null, "", "#channels"); }
-    S.view = id === "datenschutz" ? "privacy" : ["flughafen", "gigachess", "pixellab", "colorspin", "ezcrop", "framepaint", "wefx", "drawspace", "citygen", "spacerogue", "channels", "noaim", "weltmacht", "shizuku", "rapstreets", "skapeform", "anarchyfrankfurt", "polyracer", "monstersarc", "leaarn", "polyrunner"].indexOf(id) >= 0 ? id : "home";
+    if (id === "intern" && !unlocked()) { id = ""; history.replaceState(null, "", location.pathname + location.search); }
+    S.view = id === "intern" ? "vault" : id === "datenschutz" ? "privacy" : ["flughafen", "gigachess", "pixellab", "colorspin", "ezcrop", "framepaint", "wefx", "drawspace", "citygen", "spacerogue", "channels", "noaim", "weltmacht", "shizuku", "rapstreets", "skapeform", "anarchyfrankfurt", "polyracer", "monstersarc", "leaarn", "polyrunner"].indexOf(id) >= 0 ? id : "home";
   }
   function route() { setView(); render(); window.scrollTo(0, 0); }
 
