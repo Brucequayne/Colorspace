@@ -21,6 +21,19 @@ export const TUNE = {
   // Fallhöhen in Metern: bis safe nichts, bis stumble Stolpern ohne Abrollen, darüber Beinbruch ohne Abrollen, ab deadly hilft auch Abrollen nicht
   safe: 3.0, stumble: 5.5, deadly: 10, rollWin: 0.35, lateRoll: 0.13
 };
+export const TUNE_DEF = Object.assign({}, TUNE);
+// Welt im Maßstab der Bewegung: Die Bewegung rechnet in 1,8-m-Einheiten, die Figur ist k-mal so groß (k = Größe / 1,8).
+// Alle Abfragen an die Welt werden umgerechnet (Punkte × k hin, ÷ k zurück), Richtungen bleiben gleich.
+export class ScaledWorld {
+  constructor(world, k) { this.w = world; this.k = k; this.map = world.map; }
+  collideSphere(c, r, contacts) {
+    const k = this.k, n0 = contacts ? contacts.length : 0; c.multiplyScalar(k);
+    const hit = this.w.collideSphere(c, r * k, contacts); c.multiplyScalar(1 / k);
+    if (contacts) for (let i = n0; i < contacts.length; i++) contacts[i].d /= k;
+    return hit;
+  }
+  ray(o, dir, far, ig) { const h = this.w.ray(o.clone().multiplyScalar(this.k), dir, (far || 100) * this.k, ig); if (!h) return null; return { point: h.point.clone().multiplyScalar(1 / this.k), distance: h.distance / this.k, face: h.face, object: h.object }; }
+}
 const R = 0.32, H_STAND = 1.8, H_LOW = 1.0, STEP = 1 / 120;
 const DOWN = new THREE.Vector3(0, -1, 0);
 

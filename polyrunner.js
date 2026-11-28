@@ -9,6 +9,7 @@
     "world.js",   // Map-Daten, Strukturen (Prismen), Kollision, Start/Ziel/Test-Start
     "runner.js",  // Test-Runner: Skelett (Rig) + Low-Poly-Strichmännchen, Animation
     "move.js",    // Bewegung und Parkour
+    "tweak.js",   // Tweaker: Bewegung, Größe, Animation live einstellen, Presets, Export
     "play.js",    // Testlauf: Kamera, Zeitfahren, Bestzeiten
     "editor.js",  // Map Editor
     "menu.js",    // Hauptmenü, Einstellungen

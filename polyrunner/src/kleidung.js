@@ -40,7 +40,9 @@ const CL_LEG = new Set(["LeftUpperLeg", "LeftLowerLeg", "LeftFoot", "LeftToes", 
 const CL_HEAD = BI.Head;
 const TAX = [0, -0.02], LEGX = 0.077, LEGZ = -0.045, CROTCH = 0.622;
 // Brief-Beinausschnitt: Höhe der Öffnung bei x/z (Seite hoch, Schritt schmal, hinten mehr Stoff), yS = Höhe an der Seite
-function briefOpen(x, z, yS) { const ax = Math.abs(x), fr = Math.max(0, Math.min(1, (z + 0.08) / 0.05)), tt = Math.max(0, Math.min(1, (ax - 0.014) / 0.109)); return CROTCH + (yS - CROTCH) * (Math.pow(tt, 1.2) * (1 - fr) + Math.pow(tt, 0.8) * fr); }
+// Brief-Beinausschnitt (T-Form): schmaler Steg zwischen den Beinen, vorne steil entlang der Leiste zur Seite hoch, hinten etwas mehr Stoff
+const GUSSET = 0.643;
+function briefOpen(x, z, yS) { const ax = Math.abs(x), fr = Math.max(0, Math.min(1, (z + 0.08) / 0.05)), tt = Math.max(0, Math.min(1, (ax - 0.011) / 0.11)); return GUSSET + (yS - GUSSET) * (Math.pow(tt, 0.95) * (1 - fr) + Math.pow(tt, 0.5) * fr); }
 export function waistTop(W, x, z) { const fr = Math.max(0, Math.min(1, (z + 0.08) / 0.05)), c = W.y + (1 - fr) * 0.011 - fr * 0.004; return c + (W.y + 0.011 - c) * Math.max(0, Math.min(1, (Math.abs(x) - 0.02) / 0.1)); }
 export function neckLine(N, x, z) { const base = z > -0.03 ? 1.072 : 1.094; return base - N.d + (30 - 22 * N.w) * x * x; }
 
@@ -68,7 +70,10 @@ function bodyInfo(data) {
     if ((cls[i] === 2 || (cls[i] === 0 && y < LY1)) && y <= LY1) { const s = x >= 0 ? 0 : 1, cx = s ? -LEGX : LEGX, a = binA(x - cx, z - LEGZ, NL), r = Math.max(0, Math.round(y / 0.01)); if (r < LR) legs[s][r * NL + a] = Math.max(legs[s][r * NL + a], Math.hypot(x - cx, z - LEGZ)); }
   }
   fillBins(tor, NT, TR); fillBins(legs[0], NL, LR); fillBins(legs[1], NL, LR);
-  return data.kinfo = { cls: cls, armT: armT, arm: arm, tor: tor, NT: NT, TY0: TY0, TR: TR, legs: legs, NL: NL, LR: LR };
+  // Achsel: wie tief der Arm am Rumpf ansetzt (größtes armT eines Armpunkts neben einem Rumpfpunkt) → Ärmellänge wird ab dort gemessen
+  const idx = g.index.array; let t0 = 0;
+  for (let t = 0; t < idx.length; t += 3) { const a = idx[t], b = idx[t + 1], c = idx[t + 2], tri = [a, b, c]; if (!tri.some((q) => cls[q] === 0) || !tri.some((q) => cls[q] === 1)) continue; tri.forEach((q) => { if (cls[q] === 1) t0 = Math.max(t0, armT[q]); }); }
+  return data.kinfo = { t0: t0, cls: cls, armT: armT, arm: arm, tor: tor, NT: NT, TY0: TY0, TR: TR, legs: legs, NL: NL, LR: LR };
 }
 function binA(dx, dz, N) { return Math.min(N - 1, Math.floor((Math.atan2(dx, dz) + Math.PI) / (Math.PI * 2) * N)); }
 function fillBins(A, N, R) { for (let it = 0; it < 8; it++) for (let r = 0; r < R; r++) for (let a = 0; a < N; a++) if (!A[r * N + a]) { const l = A[r * N + (a + N - 1) % N], rr = A[r * N + (a + 1) % N]; A[r * N + a] = Math.max(l, rr); } }
@@ -81,11 +86,18 @@ export function buildGarment(data, D) {
   // Bereich: Feld > 0 innen (≈ Meter bis zur Schnittlinie)
   const hem = top ? D.torso[0].y : 0, sEnd = top ? D.sleeve[D.sleeve.length - 1].t : 0, Lend = top ? 0 : D.leg[D.leg.length - 1].L;
   const yS = (W) => waistTop(W, 0.12, -0.03) - 0.026;
-  const legOpen = (x, z) => {   // Höhe der Beinöffnung
-    if (Lend <= 0.15) { const ys = yS(D.waist) + (CROTCH + 0.01 - yS(D.waist)) * (Lend / 0.15); return briefOpen(x, z, ys); }
-    return Math.max(0.075, CROTCH - (Lend - 0.15));
+  // Beinöffnung als Feld (> 0 = Stoff): bis Länge 0,15 eine schräge Ebene je Bein durch den Steg (Leistenlinie, Seite hoch, hinten tiefer),
+  // die mit der Länge flacher wird (Panty); darüber waagrecht um das Bein, Höhe sinkt mit der Länge.
+  const legField = (x, y, z) => {
+    const sx = x >= 0 ? 1 : -1;
+    if (Lend <= 0.15) {
+      const k = Lend / 0.15, yS = waistTop(D.waist, sx * 0.125, -0.03) - 0.026 - k * 0.02, ta = Math.max(0, (yS - GUSSET) / 0.114) * (1 - k), al = Math.atan(ta);
+      let nx = -sx * Math.sin(al), ny = Math.cos(al), nz = -0.3 * (1 - k); const l = Math.hypot(nx, ny, nz); nx /= l; ny /= l; nz /= l;
+      return (x - sx * 0.011) * nx + (y - GUSSET) * ny + (z - 0.03) * nz;   // Neigung um die Vorderseite: vorne Leistenlinie, hinten mehr Stoff
+    }
+    return y - Math.max(0.075, GUSSET - (Lend - 0.15));
   };
-  const armCut = D.arm ? D.arm * (1 - Math.max(0, Math.min(1, sEnd / 0.03))) : 0;   // Armausschnitt nur ohne Ärmel
+  const hasSleeve = sEnd > 0.004, armCut = hasSleeve ? 0 : D.arm || 0, T0 = K.t0;   // Armausschnitt nur ohne Ärmel; Ärmellänge ab der Achsel (T0)
   for (let i = 0; i < n; i++) {
     const c = K.cls[i]; if (c === 9) continue;
     const x = P[i * 3], y = P[i * 3 + 1], z = P[i * 3 + 2];
@@ -94,16 +106,16 @@ export function buildGarment(data, D) {
       if (c === 0 || c === 3 || c === 2) {
         let d = Math.min(y - Math.max(hem, 0.7), neckLine(D.neck, x, z) - y);
         if (c === 3 && y > 1.16) d = Math.min(d, -0.01);
-        if (armCut > 0 || sEnd <= 0.004) { const A = x > 0 ? K.arm.L : K.arm.R; d = Math.min(d, Math.hypot(x - A.s.x, (y - A.s.y) * 1.25, z - A.s.z) - (0.05 + armCut)); }
+        if (!hasSleeve) { const A = x > 0 ? K.arm.L : K.arm.R; d = Math.min(d, Math.hypot(x - A.s.x, (y - A.s.y) * 1.25, z - A.s.z) - (0.05 + armCut)); }
         f[i] = d;
       } else if (c === 1) {
         if (sEnd <= 0.004) continue;
-        let d = Math.min(sEnd, 0.315) - K.armT[i];
+        let d = Math.min(T0 + sEnd, 0.315) - K.armT[i];
         f[i] = d;
       }
     } else {
       if (c === 1 || c === 3) continue; if (part[i] > 0.5 && y < 0.1) continue;
-      f[i] = Math.min(waistTop(D.waist, x, z) - y, y - legOpen(x, z));
+      f[i] = Math.min(waistTop(D.waist, x, z) - y, legField(x, y, z));
     }
   }
   // Dreiecke mit mindestens einem inneren Punkt, äußere Punkte auf die Schnittlinie
@@ -128,7 +140,7 @@ export function buildGarment(data, D) {
     let e;
     if (top) {
       if (c === 1) {
-        const t = K.armT[i]; e = interp(D.sleeve, "t", t);
+        const t = K.armT[i]; e = interp(D.sleeve, "t", t - T0);
         v.addScaledVector(nn, base + e);
         pin[j] = 0.98 - 0.55 * Math.min(1, e / 0.03) * Math.min(1, Math.max(0, t) / 0.12);
       } else {
@@ -174,8 +186,8 @@ export function buildGarment(data, D) {
     const eh = D.torso[0].ease;
     extend(([a, b]) => yOf(a) < 0.78 && yOf(b) < 0.78 && K.cls[S2[a]] !== 1 && K.cls[S2[b]] !== 1, (a) => Math.max(0.005, yOf(a) - hem), () => down, (a, t) => { const x = P2[a * 3] - TAX[0], z = P2[a * 3 + 2] - TAX[1], r = Math.hypot(x, z) || 1, k = eh * 0.6 * t; return new THREE.Vector3(x / r * k, 0, z / r * k); });
   }
-  if (top && sEnd > 0.315) {
-    extend(([a, b]) => K.cls[S2[a]] === 1 && K.armT[S2[a]] > 0.28 && K.cls[S2[b]] === 1 && K.armT[S2[b]] > 0.28, sEnd - 0.315, (a) => (P2[a * 3] > 0 ? K.arm.L.d2 : K.arm.R.d2), () => new THREE.Vector3());
+  if (top && T0 + sEnd > 0.315) {
+    extend(([a, b]) => K.cls[S2[a]] === 1 && K.armT[S2[a]] > 0.28 && K.cls[S2[b]] === 1 && K.armT[S2[b]] > 0.28, T0 + sEnd - 0.315, (a) => (P2[a * 3] > 0 ? K.arm.L.d2 : K.arm.R.d2), () => new THREE.Vector3());
   }
   if (!top && Lend > 0.15 + CROTCH - 0.075) {
     const el = D.leg[D.leg.length - 1].ease;

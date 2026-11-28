@@ -8,6 +8,9 @@
 import * as THREE from "three";
 import { damp, clamp, lerp } from "pru/core.js";
 
+// Stellschrauben der Animation (Faktoren, 1 = Standard), im Tweaker des Testlaufs einstellbar
+export const ANIM = { stride: 1, lift: 1, bob: 1, lean: 1, roll: 1, arms: 1, elbow: 1, sway: 1, twist: 1, spring: 1, damp: 1 };
+export const ANIM_DEF = Object.assign({}, ANIM);
 export const HIP_H = 0.9, L_THIGH = 0.415, L_SHIN = 0.415, ANKLE = 0.07, L_UARM = 0.28, L_LARM = 0.3;
 // [Name, Elternknochen, Position relativ zum Eltern]
 export const BONES = [
@@ -47,7 +50,7 @@ export class Runner {
     this.buildBody(color || "#E8622C");
     this.root.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = false; } });
     scene.add(this.root);
-    this.scene = scene; this.world = null;
+    this.scene = scene; this.world = null; this.ws = 1;   // ws = Weltmaßstab (Runner rechnet in 1,8-m-Einheiten, hängt dann in einer skalierten Gruppe)
     this.cur = {}; this.jv = {}; this.sp = {};    // Gelenkwinkel und -geschwindigkeiten (Federn)
     this.t = 0; this.phase = 0; this.lean = 0; this.roll = 0; this.flip = 0; this.hipY = 0; this.armPh = 0; this.airPh = 0;
     this.pelOff = 0; this.foot = { Left: { o: 0, p: 0 }, Right: { o: 0, p: 0 } }; this.ikW = 0; this.rag = null;
@@ -107,7 +110,7 @@ export class Runner {
   limbIK(upper, lower, l1, l2, target, pole, w) {
     if (w <= 0.001) return;
     const A = this.b[upper], B = this.b[lower];
-    const pA = A.getWorldPosition(new THREE.Vector3()), toT = target.clone().sub(pA);
+    const pA = A.getWorldPosition(new THREE.Vector3()).divideScalar(this.ws), toT = target.clone().sub(pA);
     const dist = clamp(toT.length(), 0.08, l1 + l2 - 0.002), dirT = toT.normalize();
     let n = new THREE.Vector3().crossVectors(dirT, pole); if (n.lengthSq() < 1e-5) n.crossVectors(dirT, UPV); n.normalize();
     const al = Math.acos(clamp((l1 * l1 + dist * dist - l2 * l2) / (2 * l1 * dist), -1, 1));
@@ -141,7 +144,7 @@ export class Runner {
     if (this.jump) { this.jump.t += dt; if (this.jump.t > 1.2 || (mode !== "air" && this.jump.t > 0.05)) this.jump = null; }
     const MP = { run: [32, 0.92], idle: [22, 0.85], crouch: [24, 0.85], air: [20, 0.7], wallrun: [26, 0.75], climb: [28, 0.75], hang: [17, 0.6],
       vault: [22, 0.8], pullup: [19, 0.82], slide: [24, 0.8], getup: [26, 0.78], roll: [34, 1], impact: [28, 0.7], stun: [22, 0.7] }[mode] || [22, 0.8];
-    const W = MP[0] * (1 - 0.4 * this.blend), Z = MP[1];
+    const W = MP[0] * (1 - 0.4 * this.blend) * ANIM.spring, Z = Math.min(1.3, MP[1] * ANIM.damp);
     const P = {};   // Ziel-Pose: Name → [x, y, z]
     let lean = 0, roll = 0, hipY = 0, flip = 0, comp = 0, grounded = false, terrain = false, hands = null, spineBend = 0, bob = 0, pivZ = 0;
     let leanW = 13, leanZ = 0.6, rollW = 13, rollZ = 0.65, hipW = 26, hipZ = 0.5, legIKs = null;
@@ -164,21 +167,21 @@ export class Runner {
       // ---- Gehen, Laufen, Sprinten, Stehen: ein durchgehender Gangzyklus ----
       const v = s.turning ? Math.max(sp, 0.9) : sp;
       const rf = smoothK((v - 1.9) / 1.1), mv = clamp(v / 0.9, 0, 1), kv = clamp(v / 9.6, 0, 1);
-      const cad = lerp(0.62 + 0.27 * v, 1.28 + 0.1 * Math.max(0, v - 3), rf);
+      const cad = lerp(0.62 + 0.27 * v, 1.28 + 0.1 * Math.max(0, v - 3), rf) / ANIM.stride;
       const bMax = lerp(0.6, clamp(0.44 - 0.02 * v, 0.26, 0.44), rf), SLmax = lerp(0.72, 0.86, rf);
       const beta = clamp(Math.min(bMax, SLmax * cad / Math.max(v, 0.05)), 0.18, 0.62); this.gaitBeta = beta;
       const SL = s.turning && sp < 0.3 ? 0.14 : v * beta / cad;
       if (v > 0.04) this.phase = (this.phase + dt * cad) % 1;
-      const H = lerp(0.05 + 0.03 * v, 0.03 + 0.012 * v + 0.028 * kv * kv * 9.6, rf) * mv, Lf = SL * 0.4, Lb = SL * 0.6;
+      const H = lerp(0.05 + 0.03 * v, 0.03 + 0.012 * v + 0.028 * kv * kv * 9.6, rf) * mv * ANIM.lift, Lf = SL * 0.4, Lb = SL * 0.6;
       const ga = s.back ? wrapA((s.moveRel || 0) - Math.PI) : (s.moveRel || 0), cg = Math.cos(ga), sg = Math.sin(ga);
       const pL = this.phase, br = Math.sin(this.t * 1.7), still = 1 - mv;
-      const bobA = (0.016 * (1 - rf) - (0.018 + 0.0028 * v) * rf) * mv;
+      const bobA = (0.016 * (1 - rf) - (0.018 + 0.0028 * v) * rf) * mv * ANIM.bob;
       bob = bobA * Math.cos(4 * Math.PI * (pL - beta / 2));
       hipY = -(0.012 + 0.0022 * v) * rf * mv - clamp(-s.acc * 0.007, 0, 0.06) * mv - s.land * 0.24 + (br * 0.005 - 0.006) * still;
-      lean = (s.back ? -0.07 : lerp(0.02, 0.06, rf) + 0.12 * kv * kv) * mv + clamp(s.acc * 0.05, -0.34, 0.36) + s.land * 0.2;
+      lean = ((s.back ? -0.07 : lerp(0.02, 0.06, rf) + 0.12 * kv * kv) * mv + clamp(s.acc * 0.05, -0.34, 0.36)) * ANIM.lean + s.land * 0.2;
       // die Neigung verteilt sich: gut die Hälfte kippt das Becken, der Rest biegt die Wirbelsäule (kein steifes Brett)
       grounded = true; terrain = true;
-      roll = clamp(-s.lat / 9.81, -0.42, 0.42) * 0.9 + Math.sin(this.t * 0.5) * 0.012 * still;
+      roll = clamp(-s.lat / 9.81, -0.42, 0.42) * 0.9 * ANIM.roll + Math.sin(this.t * 0.5) * 0.012 * still;
       const leanNow = this.sp.lean ? this.sp.lean.x : lean; comp = leanNow * 0.6; spineBend = leanNow * 0.4;
       const xs = [];
       ["Left", "Right"].forEach((side, i) => {
@@ -201,10 +204,10 @@ export class Runner {
       });
       // Becken dreht mit dem vorderen Bein, Schultern dagegen, die Wirbelsäule biegt sich mit jedem Schritt etwas zur Standseite
       const pr = -0.22 * (xs[0] - xs[1]) * (0.35 + 0.65 * rf), nR = clamp((xs[1] - xs[0]) / Math.max(Lf + Lb, 0.25), -1, 1);
-      const A = lerp(0.24, 0.36 + 0.05 * v, rf) * mv, eb = lerp(0.3, 1.2 + 0.03 * v, rf) * mv + 0.18 * still;
+      const A = lerp(0.24, 0.36 + 0.05 * v, rf) * mv * ANIM.arms, eb = (lerp(0.3, 1.2 + 0.03 * v, rf) * mv + 0.18 * still) * ANIM.elbow;
       arm("Left", -A * nR + 0.05 * still + br * 0.015 * still, -(eb + 0.3 * Math.max(0, nR) * rf), lerp(0.09, 0.14, rf));
       arm("Right", A * nR + 0.05 * still + br * 0.015 * still, -(eb + 0.3 * Math.max(0, -nR) * rf), lerp(0.09, 0.14, rf));
-      const sway = Math.sin(Math.PI * 2 * pL) * 0.045 * mv * (0.4 + 0.6 * rf);
+      const sway = Math.sin(Math.PI * 2 * pL) * 0.045 * mv * (0.4 + 0.6 * rf) * ANIM.sway;
       P.Hips = [0, pr, -sway * 0.4];
       P.Spine = [spineBend * 0.45 + br * 0.012 * still, -pr * 0.55, sway]; P.Chest = [spineBend * 0.55 + 0.03 - br * 0.008 * still, -pr * 0.9, sway * 0.6];
       P.Neck = [-leanNow * 0.75, -pr * 0.25, -roll * 0.5 - sway * 1.2]; P.Head = [-0.03, 0, 0];
@@ -354,7 +357,7 @@ export class Runner {
       }
     }
     // Oberkörper zur Blickrichtung drehen (Hüfte zeigt in Laufrichtung)
-    const tw = s.twist || 0;
+    const tw = (s.twist || 0) * ANIM.twist;
     if (tw) [["Spine", 0.3], ["Chest", 0.35], ["Neck", 0.2], ["Head", 0.15]].forEach(([n, k]) => add(n, 0, tw * k, 0));
 
     // ---- Federn für den ganzen Körper ----
@@ -424,7 +427,7 @@ export class Runner {
   // ---------- leichte Ragdoll: Punkte an den Gelenken, Stäbe dazwischen, Schwerkraft, Kollision mit der Welt ----------
   startRagdoll(vel) {
     this.root.updateMatrixWorld(true);
-    const W = (n, dy) => { const p = this.b[n].getWorldPosition(new THREE.Vector3()); if (dy) p.y += dy; return p; };
+    const W = (n, dy) => { const p = this.b[n].getWorldPosition(new THREE.Vector3()).divideScalar(this.ws); if (dy) p.y += dy; return p; };
     const names = ["pelvis", "neck", "head", "lSh", "lEl", "lHa", "rSh", "rEl", "rHa", "lHip", "lKn", "lFt", "rHip", "rKn", "rFt"];
     const pos = [W("Hips"), W("Neck"), W("Head", 0.11), W("LeftUpperArm"), W("LeftLowerArm"), W("LeftHand"), W("RightUpperArm"), W("RightLowerArm"), W("RightHand"),
       W("LeftUpperLeg"), W("LeftLowerLeg"), W("LeftFoot"), W("RightUpperLeg"), W("RightLowerLeg"), W("RightFoot")];
@@ -487,7 +490,7 @@ export class Runner {
     ["LeftFoot", "RightFoot"].forEach((n) => { this.b[n].quaternion.setFromAxisAngle(new THREE.Vector3(1, 0, 0), 0.4); });
   }
   dispose() {
-    this.scene.remove(this.root);
+    if (this.root.parent) this.root.parent.remove(this.root);
     this.root.traverse((o) => { if (o.geometry) o.geometry.dispose(); });
     this.mat.dispose(); this.dark.dispose();
   }

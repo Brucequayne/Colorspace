@@ -3,6 +3,19 @@
    Die Versionsnummer auf den Kacheln kommt aus dem obersten Eintrag. */
 window.PATCHNOTES = {
   polyrunner: [
+    { v: "0.18", t: "2026-11-28T05:10:00+01:00",
+      de: ["Testlauf mit deinem Charakter: Mit F (oder im Tweaker) wechselst du zwischen Test-Dummy und Charakter. Der Charakter läuft mit Frisur und getragener Kleidung, Haare und Stoff schwingen bei jeder Bewegung echt mit.",
+        "Beide Figuren sind jetzt 1,40 m groß: Dummy, Skelett und alle Bewegungen (Sprunghöhe, Stufen, Kanten, Hängen, Fallhöhen, Kamera) sind gemeinsam auf die Größe des Charakters skaliert.",
+        "Neu: Tweaker (Taste T im Testlauf). Über 50 Regler in den Gruppen Größe, Laufen, Sprint, Sprung, Slide, Wand, Kanten, Fallen und Animation (Schrittlänge, Fuß anheben, Auf und Ab, Vorneigung, Kurvenlage, Armschwung, Ellbogen, Hüftschwung, Oberkörper, Gelenk-Tempo und -Dämpfung). Werte wirken sofort, jeder mit kurzer Erklärung und ↺ für Standard.",
+        "Zeitlupe (½×, ¼×, ⅒×), Presets speichern und laden, alles auf Standard, Export und Import als .json. Die Einstellungen werden gespeichert.",
+        "Messanzeige unten links: Tempo, letzter Sprung (Höhe und Weite) und letzter Fall in Metern.",
+        "Kleidungs-Editor: Kurze Ärmel schließen jetzt sauber unter der Achsel (Ärmellänge wird ab der Achsel gemessen). Die Hose als Badehose endet direkt an der Leiste, zwischen den Beinen bleibt nur ein schmaler Steg."],
+      en: ["Test run with your character: press F (or use the tweaker) to switch between the test dummy and the character. The character runs with hairstyle and worn clothes, hair and fabric swing with every move.",
+        "Both figures are now 1.40 m tall: dummy, skeleton and all movement (jump height, steps, ledges, hanging, fall heights, camera) are scaled together to the character's size.",
+        "New: tweaker (T in the test run). More than 50 sliders in the groups size, running, sprint, jump, slide, walls, ledges, falling and animation (stride, foot lift, bounce, lean, banking, arm swing, elbows, hip sway, torso, joint speed and damping). Values apply instantly, each with a short explanation and ↺ for default.",
+        "Slow motion (½×, ¼×, ⅒×), save and load presets, everything to default, export and import as .json. Settings are saved.",
+        "Measurements at the bottom left: speed, last jump (height and distance) and last fall in metres.",
+        "Clothing editor: short sleeves now close cleanly under the armpit (sleeve length is measured from the armpit). Bottoms as swim briefs end right at the groin, only a narrow strip between the legs."] },
     { v: "0.17", t: "2026-11-28T04:20:00+01:00",
       de: ["Kleidung neu gedacht: Keine aufgemalten Texturen mehr. Die Badehose und die bisherigen Kleidungsstücke sind entfernt, die Figur startet ohne Kleidung.",
         "Neu: Kleidungs-Editor (im Charakter-Editor, Reiter „Kleidung“ → „Kleidungs-Editor öffnen“). Jedes Kleidungsstück ist ein echtes Stoffnetz mit Dicke, das um den Körper gelegt wird.",

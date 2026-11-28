@@ -16,6 +16,7 @@ Neue Module: in `MODULES` in `polyrunner.js` eintragen. Modul-Präfix: `pru/`.
 | `world.js` | Map-Daten, `Prism` (Netz, Flächen zum Weiterbauen, Kugel-Kollision), Marker Start/Ziel/Test-Start, `collideSphere`, `ray`, Verlauf über `snapshot`/`restore` |
 | `runner.js` | Test-Runner: **Skelett** (`BONES`) + Low-Poly-Strichmännchen, prozedurale Animation je Zustand, Bein-IK |
 | `move.js` | Bewegung und Parkour (feste 120 Schritte/s), alle Zahlen in `TUNE` |
+| `tweak.js` | Tweaker im Testlauf (T): Regler-Liste `P` (Bewegung `TUNE`, Animation `ANIM`, Größe `TW.size`), Presets, Export `polyrunner-tune`, Messanzeige |
 | `play.js` | Testlauf: Verfolgerkamera mit Pointer-Lock, Zeitfahren, Bestzeiten, Pause |
 | `editor.js` | Map Editor: Bauen, Start/Ziel/Test-Start, Farbe, Löschen, Himmel, Datei, Rückgängig |
 | `haare.js` | Haare: Strähnen aus Wurzeln (Look `hair`), Ruheform am Kopf entlang, Federkette mit Kollision, Malen (`pick`) |
@@ -152,3 +153,14 @@ automatisch hochziehen, niedrige Hindernisse bis 1,25 m im Lauf überklettern.
   Kapseln Beine/Unterarme. Netz = Außenhaut + Innenhaut (− Normale × Dicke) + Rand an den Öffnungen. Greifen: `pick(ray)`, `grab(i, punkt)` (Handvoll bis 3 cm), `drag`, `release`, `strain()`.
 - Editor: Ringe = Randschleifen (Öffnungen) bzw. äußerster Stoffpunkt je Richtung im Band (Zwischenringe), anklicken → ziehen (dy = Länge, dx = Weite), Neubau höchstens alle 110 ms.
 - Ablauf mit Noah: er exportiert `PolyRunner_Kleid_<Name>.json`, Claude legt sie als feste Kleidung ins Spiel (Ordner/Liste noch festzulegen).
+
+## Größe, Tweaker, Charakter im Testlauf (seit v0.18)
+
+- Bewegung (`move.js`) und Runner rechnen weiter in 1,8-m-Einheiten. Figurgröße `TW.size` (Standard 1,40 m) → Maßstab `k = size / 1,8`.
+  `ScaledWorld` (move.js) rechnet Welt-Abfragen um (`collideSphere`, `ray`: Punkte × k hin, ÷ k zurück). Der Runner hängt in einer Gruppe mit Maßstab k
+  (`runner.ws = k`, Weltpositionen im Runner werden durch `ws` geteilt). Play rechnet Kamera, Ziel, Spawn und Messung mit k um.
+- Charakter im Testlauf: `Figur.follow(runner, k)`, Wind = −Geschwindigkeit (echt) für Haare/Stoff. Umschalten F oder im Tweaker, gemerkt in `polyrunner-ui-v1` (`fig`).
+- Tweaker: Werte roh in `polyrunner-tune-v1` ({size, T, A}), Presets in `polyrunner-tune-presets-v1`. Längen/Tempi/Beschleunigungen werden in echten Metern gezeigt (roh × k).
+  Export `PolyRunner_Einstellungen.json` (`format: "polyrunner-tune"`, `werte` echt, `raw` roh) → Claude übernimmt sie als Standard in `TUNE`/`ANIM`/`SIZE_DEF`.
+- Animations-Faktoren `ANIM` in runner.js (Gangzyklus, Federn der Gelenke); neue Stellschrauben dort ergänzen und in `P` (tweak.js) eintragen.
+- Kleidung: Ärmellänge ab der Achsel (`kinfo.t0`), Badehosen-Beinöffnung als schräge Ebene je Bein durch den Steg (`legField`, `GUSSET`).

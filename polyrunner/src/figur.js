@@ -250,14 +250,14 @@ export class Figur {
     if (this.cloth.top) this.cloth.top.update(dt, wind);
   }
   // Pose vom (unsichtbaren) Runner übernehmen: lokale Drehungen 1:1, Becken skaliert
-  follow(r) {
+  follow(r, ws) {
     for (const n in this.b) this.b[n].quaternion.copy(r.b[n].quaternion);
     // Arme etwas weiter vom Körper (breitere Hüfte als beim Runner), sonst streifen die Hände die Oberschenkel
     this.b.LeftUpperArm.quaternion.premultiply(_q.setFromAxisAngle(_v.set(0, 0, 1), 0.12));
     this.b.RightUpperArm.quaternion.premultiply(_q.setFromAxisAngle(_v.set(0, 0, 1), -0.12));
     this.pivot.position.copy(r.pivot.position).multiplyScalar(this.k);
     this.pivot.quaternion.copy(r.pivot.quaternion);
-    this.root.position.copy(r.root.position); this.root.quaternion.copy(r.root.quaternion);
+    this.root.position.copy(r.root.position).multiplyScalar(ws || 1); this.root.quaternion.copy(r.root.quaternion);
   }
   setVisible(v) { this.root.visible = v; }
   dispose() {

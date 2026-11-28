@@ -274,7 +274,7 @@ export class KleidEd {
     if (D.kind === "bottom") D.leg.forEach((r, i) => { if (i === D.leg.length - 1 || r.L <= 0.16) return; const y = 0.622 - (r.L - 0.15); [1, -1].forEach((s) => band((j) => K.cls[src[j]] !== 1 && Math.abs(rest[j * 3 + 1] - y) < 0.007 && rest[j * 3] * s > 0, () => s * 0.077, () => -0.045, { k: "leg", i: i })); });
     else {
       D.torso.forEach((r, i) => { if (i === 0) return; band((j) => K.cls[src[j]] === 0 && Math.abs(B.pos[j * 3 + 1] - r.y) < 0.006 && Math.abs(rest[j * 3]) < 0.16, () => 0, () => -0.02, { k: "torso", i: i }); });
-      D.sleeve.forEach((r, i) => { if (i === D.sleeve.length - 1) return; [1, -1].forEach((s) => { const A = s > 0 ? K.arm.L : K.arm.R; band((j) => K.cls[src[j]] === 1 && rest[j * 3] * s > 0 && Math.abs(K.armT[src[j]] - r.t) < 0.007, () => A.s.x, () => A.s.z, { k: "sleeve", i: i }); }); });
+      D.sleeve.forEach((r, i) => { if (i === D.sleeve.length - 1) return; [1, -1].forEach((s) => { const A = s > 0 ? K.arm.L : K.arm.R; band((j) => K.cls[src[j]] === 1 && rest[j * 3] * s > 0 && Math.abs(K.armT[src[j]] - (r.t + K.t0)) < 0.007, () => A.s.x, () => A.s.z, { k: "sleeve", i: i }); }); });
     }
   }
   update(dt) {
