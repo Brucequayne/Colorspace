@@ -523,6 +523,9 @@
   }
 
   MA.buildEditor = {
+    // Arbeitsstand für „Gesamten Arbeitsstand exportieren“ (seit v0.28.2) und zurückspielen
+    state: function () { if (S) return { p: S.p, name: S.name, inn: S.inn, mode: S.mode }; try { return JSON.parse(MA.store.get(KEY) || "null"); } catch (e) { return null; } },
+    restore: function (j) { if (!j || typeof j !== "object") return false; MA.store.set(KEY + ".backup", MA.store.get(KEY) || ""); MA.store.set(KEY, JSON.stringify(j)); S = null; return true; },
     // Seitenleiste aufbauen (host = Körper des Dev-Kit-Reiters, api = { status })
     mount: function (host, api) {
       ensure(); S.host = host; S.api = api;

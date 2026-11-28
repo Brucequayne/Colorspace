@@ -124,7 +124,7 @@
 
   // ---------- Liste ----------
   var LIST = null;
-  function load() { if (LIST) return LIST; var j = null; try { j = JSON.parse(MA.store.get(KEY) || "null"); } catch (e) {} LIST = j && Array.isArray(j.list) ? j.list.map(sanitize) : []; return LIST; }
+  function load() { if (LIST) return LIST; var j = null; try { j = JSON.parse(MA.store.get(KEY) || "null"); } catch (e) {} LIST = (j && Array.isArray(j.list) ? j.list : (MA.ATTACK_LIST || [])).map(sanitize); return LIST; }
   function save() { try { return MA.store.set(KEY, JSON.stringify({ v: 1, list: LIST })); } catch (e) { return false; } }
   function list() { return load(); }
   function byId(id) { var l = load(); for (var i = 0; i < l.length; i++) if (l[i].id === id) return l[i]; return null; }

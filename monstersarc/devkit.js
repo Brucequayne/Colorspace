@@ -49,7 +49,7 @@
     { id: "buildings", name: function () { return L2("Gebäude-Editor", "Building editor"); }, ver: "v0.22" },   // seit v0.2: buildeditor.js
     { id: "attacks", name: function () { return L2("Attacken", "Attacks"); }, ver: "v0.28" },   // seit v0.27: attackeditor.js
     { id: "missions", name: function () { return L2("Missionen", "Missions"); }, soon: true },
-    { id: "monsters", name: function () { return L2("Monster-Editor", "Monster editor"); }, ver: "v0.28.1" }   // seit v0.25: monstereditor.js, 3D-Baukasten seit v0.26 (monster3d.js)
+    { id: "monsters", name: function () { return L2("Monster-Editor", "Monster editor"); }, ver: "v0.28.2" }   // seit v0.25: monstereditor.js, 3D-Baukasten seit v0.26 (monster3d.js)
   ];
 
   var TOOLS = ["tile", "brush", "obj", "deco", "walls", "move", "erase", "spawn", "zones"];
@@ -107,6 +107,27 @@
     var b = new Blob([text], { type: type || "application/json" }), a = document.createElement("a");
     a.href = URL.createObjectURL(b); a.download = name; document.body.appendChild(a); a.click();
     setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 500);
+  }
+
+  // ---------- Gesamter Arbeitsstand (seit v0.28.2) ----------
+  // Eine Datei mit Karte (aktuelle Map im Editor), Monsterliste, Attackenliste und Gebäude-Arbeitsstand.
+  function exportAll() {
+    E.arena.time = E.world.time;
+    var mons = MA.monsters.sorted(), atks = MA.attacks.list(), bld = MA.buildEditor && MA.buildEditor.state ? MA.buildEditor.state() : null;
+    var d = new Date(), p2 = function (n) { return (n < 10 ? "0" : "") + n; };
+    var data = { format: "monstersarc-workstate", version: 1, game: MA.VERSION, saved: d.toISOString(), map: E.arena.serialize(), monsters: mons, attacks: atks, building: bld };
+    var txt = JSON.stringify(data);
+    download("monstersarc-arbeitsstand-" + d.getFullYear() + p2(d.getMonth() + 1) + p2(d.getDate()) + "-" + p2(d.getHours()) + p2(d.getMinutes()) + ".json", txt);
+    status(L2("Gesamter Arbeitsstand exportiert: Map „" + (E.arena.name || "?") + "“, " + mons.length + " Monster, " + atks.length + " Attacken" + (bld ? ", Gebäude" : "") + " (" + Math.round(txt.length / 1024) + " KB). Diese eine Datei an Claude schicken.",
+      "Entire work state exported: map “" + (E.arena.name || "?") + "”, " + mons.length + " monsters, " + atks.length + " attacks" + (bld ? ", building" : "") + " (" + Math.round(txt.length / 1024) + " KB). Send this one file to Claude."));
+  }
+  function importAll(d) {
+    var parts = [];
+    if (d.map) { snapshot(); loadArena(new MA.maps.GameMap(fromShizuku(d.map))); parts.push(L2("Map", "map")); }
+    if (Array.isArray(d.monsters)) { MA.monsters.importList(JSON.stringify({ list: d.monsters })); parts.push(d.monsters.length + L2(" Monster", " monsters")); }
+    if (Array.isArray(d.attacks)) { MA.attacks.importList(JSON.stringify({ list: d.attacks })); parts.push(d.attacks.length + L2(" Attacken", " attacks")); }
+    if (d.building && MA.buildEditor && MA.buildEditor.restore(d.building)) parts.push(L2("Gebäude", "building"));
+    status(L2("Arbeitsstand importiert: ", "Work state imported: ") + parts.join(", ") + L2(". Die vorherigen Listen sind als Sicherung im Browser (Map: Rückgängig).", ". The previous lists are kept as a backup in the browser (map: undo)."));
   }
 
   function snapshot() { E.undo.push(JSON.stringify(E.arena.serialize())); if (E.undo.length > 30) E.undo.shift(); }
@@ -176,7 +197,8 @@
       '<button type="button" data-a="blank">' + L2("Neue Map (Meer)", "New map (sea)") + '</button>' +
       '<button type="button" class="w" data-a="save">' + L2("Arbeitsstand speichern", "Save work in progress") + '</button>' +
       '<button type="button" class="w go2" data-a="export">' + L2("Map exportieren (.json)", "Export map (.json)") + '</button>' +
-      '<button type="button" data-a="import">' + L2("Import", "Import") + '</button>' +
+      '<button type="button" data-a="import">' + L2("Import (Map oder Arbeitsstand)", "Import (map or work state)") + '</button>' +
+      '<button type="button" class="w go" data-a="exportall">' + L2("GESAMTEN ARBEITSSTAND EXPORTIEREN", "EXPORT ENTIRE WORK STATE") + '</button>' +
       '<button type="button" data-a="forget">' + L2("Arbeitsstand löschen", "Discard work in progress") + '</button>' +
       '<button type="button" class="w" data-a="menu">' + L2("← Hauptmenü", "← Main menu") + '</button>' +
       '</div><input type="file" accept=".json,.js,application/json" hidden data-k="file">' +
@@ -346,6 +368,7 @@
     }
     else if (a === "forget") { MA.maps.clearLocal(); status(L2("Arbeitsstand gelöscht. Beim nächsten Öffnen startet das Dev-Kit mit der Start-Map.", "Work in progress discarded. Next time the dev kit opens with the start map.")); }
     else if (a === "export") { E.arena.time = E.world.time; download("monstersarc-map-" + (E.arena.name || "map").replace(/[^a-z0-9]+/gi, "-").toLowerCase() + ".json", JSON.stringify(E.arena.serialize())); }
+    else if (a === "exportall") exportAll();
     else if (a === "import") E.ui.querySelector("[data-k=file]").click();
     else if (a === "test") { E.arena.time = E.world.time; MA.main.go("walk", { map: E.arena.serialize(), back: "devkit", time: E.world.time, wind: E.wind }); }
     else if (a === "menu") MA.main.go("menu");
@@ -371,7 +394,9 @@
     r.onload = function () {
       try {
         var txt = String(r.result), i = txt.indexOf("{"), j = txt.lastIndexOf("}");
-        var data = fromShizuku(JSON.parse(txt.slice(i, j + 1)));
+        var raw = JSON.parse(txt.slice(i, j + 1));
+        if (raw && raw.format === "monstersarc-workstate") { importAll(raw); e.target.value = ""; return; }
+        var data = fromShizuku(raw);
         snapshot(); loadArena(new MA.maps.GameMap(data));
         status(L2("Importiert: ", "Imported: ") + E.arena.name + " (" + E.arena.cols + " × " + E.arena.rows + ")");
       } catch (er) { status(L2("Datei konnte nicht gelesen werden.", "Could not read the file.")); }

@@ -26,6 +26,7 @@
     "monsters.js",      // Monster: Bild-Generator (vorne/hinten), Schrei, Werte, Monsterliste (seit v0.25)
     "monstertpl.js",    // 25 Grundmonster als Vorlagen
     "monster3d.js",     // 3D-Baukasten für Monster (seit v0.26): Modell, WebGL-Renderer, Stempel-Assets, Pixel-Look
+    "attacks/liste.js", // feste Attackenliste des Spiels (null = nur Browser-Liste, seit v0.28.2)
     "attackfx.js",      // Attacken (seit v0.27): Datensatz, Attackenliste, Effekt-Kit (Partikel/Physik, Pixel-Renderer)
     "world.js",         // Spielwelt mit Kamera: zeichnet Boden, Pflanzen, Objekte, Figuren
     "character.js",     // Figur: Laufen, Kollision, Schritte (Spieler und später NPCs)

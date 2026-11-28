@@ -394,6 +394,13 @@ window.PATCHNOTES = {
         "House editor (separate from the map editor) with floors, walls in plaster, brick and wood with windows and doors, a roof with slopes and gables, and furniture. Houses are exported as .txt."] }
   ],
   monstersarc: [
+    { v: "0.28.2", t: "2026-11-28T02:30:00+01:00",
+      de: ["Neuer Knopf im Map-Editor: „GESAMTEN ARBEITSSTAND EXPORTIEREN“. Eine einzige Datei enthält die Map, die ganze Monsterliste, alle Attacken und den Gebäude-Stand. Diese Datei reicht, damit dein Stand ins Spiel eingebaut werden kann.",
+        "„Import“ im Map-Editor erkennt diese Datei und spielt alles wieder zurück (zum Beispiel auf einem anderen Rechner oder nach dem Leeren des Browsers). Die vorherigen Listen bleiben als Sicherung im Browser.",
+        "Die Attacken haben jetzt wie die Monster eine feste Liste im Spiel (attacks/liste.js)."],
+      en: ["New button in the map editor: “EXPORT ENTIRE WORK STATE”. A single file holds the map, the whole monster list, all attacks and the building state. That file is all that's needed to build your state into the game.",
+        "“Import” in the map editor recognises this file and restores everything (for example on another computer or after clearing the browser). The previous lists stay as a backup in the browser.",
+        "Attacks now have a fixed list in the game like monsters do (attacks/liste.js)."] },
     { v: "0.28.1", t: "2026-11-28T02:00:00+01:00",
       de: ["Monster-Editor, „Zur Liste hinzufügen“: Nach den Fotos von vorne und hinten kommt als 3. Bild das Vergleichsbild für die Monsterliste. Es ist standardmäßig von der Seite aufgenommen, damit die Perspektive zur Menschen-Silhouette passt, lässt sich aber frei drehen. Eine Vorschau zeigt, wie es neben dem 1,50 m großen Menschen steht.",
         "Beim Nachzeichnen kannst du das Vergleichsbild genauso bearbeiten wie die beiden Kampfbilder. Die Bildgröße stellst du jetzt nur noch beim ersten Foto ein, damit alle drei Bilder gleich groß sind.",
