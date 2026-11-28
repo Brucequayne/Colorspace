@@ -22,6 +22,8 @@ Neue Module: in `MODULES` in `polyrunner.js` eintragen. Modul-Präfix: `pru/`.
 | `haare.js` | Haare: Strähnen aus Wurzeln (Look `hair`), Ruheform am Kopf entlang, Federkette mit Kollision, Malen (`pick`) |
 | `kleidung.js` | Kleidung: Entwurf aus Ringen (`newDesign`, `cloneDesign`), Netz bauen (`buildGarment`), Stoff mit Dicke, Physik und Greifen (`Cloth`) |
 | `kleider_basis.js` | Grundformen neuer Kleidung: `BASE_BOTTOM` = Noahs Badehose als Punkt-Netz (id `kbasis1`) |
+| `rig.js` | Rig der Figur: `RIG_DEFAULT` (Gelenke links + Mitte, Regeln), `computeWeights` (wie figur_bauen.js), `rigData` |
+| `riged.js` | Reiter „Rig“ im Charakter-Editor: Gelenke ziehen/eintippen, Gewichte-Ansicht, Röntgen, Beugetest, Export/Import |
 | `punkte.js` | Punkt-Editor im Kleidungs-Editor: eigenes Netz Punkt für Punkt (Auswahl, Pfeile, Symmetrie, auf die Haut legen, weiche Auswahl, löschen, unterteilen, Kante ausfahren, Lockerheit) |
 | `malen.js` | Stoffpinsel im Kleidungs-Editor: Striche als Formen (Pinsel, Linien, Stempel, Fülleimer, Radierer), Symmetrie, rückgängig |
 | `kleided.js` | Kleidungs-Editor (Modus `kleid`, aus dem Charakter-Editor): Entwürfe, Ringe ziehen, Stoff, Dehnen, Export |
@@ -191,4 +193,14 @@ automatisch hochziehen, niedrige Hindernisse bis 1,25 m im Lauf überklettern.
   Pinsel = kurze Linien-Stücke (Abstand 0,35 × Größe), Sprung > 8 cm = neu ansetzen. Symmetrie spiegelt x, u, n und dreht das Spiegel-Vorzeichen (Form wird gespiegelt).
 - Punkt-Editor: „Kante ausfahren“ (E) – offene Kanten zwischen gewählten Punkten bekommen eine neue Reihe (Länge `o.ext`), Richtung weg vom Dreieck in der Fläche,
   nur aus der Haut heraus geschoben (min. 4 mm), Vierecke mit der Drehrichtung der Kante; neue Reihe ist danach gewählt. „Lockerheit“ setzt `pin` der Auswahl (1 − Wert).
+
+## Rig (seit v0.21)
+
+- Rig = `{ format: "polyrunner-rig", joints, soft, armY, legY, spread }`, Gelenke nur links + Mitte (rechts gespiegelt, Mitte x = 0), Speicher `polyrunner-rig-v1` (`KEYS.rig`).
+  Zusatzpunkte: `_HipsLow` (Anfang Becken-Segment), `_HeadEnd`, `_LeftHandEnd`, `_LeftToesEnd` (Enden der Segmente, nur für die Gewichte).
+- `loadFigur` lädt figur.bin als `BASE`; ist das gespeicherte Rig = `RIG_DEFAULT`, gelten die Gewichte aus der Datei, sonst `rigData` (Gewichte im Browser, ca. 0,1 s).
+  `setRig(rig)` ersetzt die Figur-Daten (`DATA.rig`, `DATA.base`). `Figur.follow` nimmt `rig.spread` für den Armabstand.
+- Gewichte: Port aus figur_bauen.js (nächstes Segment, eigene Körperseite, Höhengrenzen, Hand/Fuß-Bonus, dann `soft` Runden Glättung – ab Runde 2 an Ort und Stelle wie im Original).
+  Mit dem Standard-Rig weichen ~2 % der Punkte (Hals/Kopf) leicht von figur.bin ab: figur.bin wurde aus den ungerundeten FBX-Punkten gerechnet. Neues Standard-Rig → `RIG_DEFAULT` + figur.bin mit derselben Rechnung neu bauen.
+- Figur-Shader: `uWB`/`uWB2` färbt die Gewichte eines Knochens (+ Spiegel), `Figur.xray(on)`. Im Rig-Reiter ohne Haare/Kleidung (`CharEd.figLook`). Posen: A-Pose (`bindPose`), Animation, Beugetest (`RigEd.frame`).
 

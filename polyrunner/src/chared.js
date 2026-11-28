@@ -7,6 +7,7 @@ import { Runner } from "pru/runner.js";
 import { Figur, loadFigur, cloneLook, LOOK_DEFAULT, SKINS, IRIS, BROWC, EYE_TYPES, BROW_TYPES } from "pru/figur.js";
 import { HAIR_TYPES, HAIRC, newGroup } from "pru/haare.js";
 import { cloneDesign, designList } from "pru/kleidung.js";
+import { RigEd } from "pru/riged.js";
 
 addTexts({
   cTitle: L2("Charakter", "Character"), cLoading: L2("Figur wird geladen …", "Loading the character …"), cFail: L2("Figur konnte nicht geladen werden", "Could not load the character"),
@@ -76,9 +77,10 @@ export class CharEd {
     this.undo = []; this.wind = new THREE.Vector3();
     this.runner = new Runner(this.engine.scene); this.runner.setVisible(false); this.runner.world = FAKEWORLD;
     this.state = { mode: "idle", speed: 0, acc: 0, lat: 0, land: 0, moveRel: 0, turning: false, back: false, jumpId: 0, jumpBoth: false, twist: 0, vy: 0, airT: 0 };
+    this.rg = new RigEd(this);
     this.buildUI();
     this.bind();
-    loadFigur().then((d) => { if (this.dead) return; this.fig = new Figur(this.engine.scene, d, this.look); this.$("#pru-cload").hidden = true; })
+    loadFigur().then((d) => { if (this.dead) return; this.fig = new Figur(this.engine.scene, d, this.figLook()); this.$("#pru-cload").hidden = true; if (this.tab === "rig") this.rg.enter(); })
       .catch((e) => { this.$("#pru-cload").textContent = t("cFail") + " (" + (e && e.message) + ")"; });
   }
   // ---------- Oberfläche ----------
@@ -88,7 +90,7 @@ export class CharEd {
       '<div class="pru-chint">' + esc(t("cHint")) + "</div>" +
       '<div class="pru-right"><button class="pru-tb" data-c="export">' + t("cExport") + '</button><button class="pru-tb" data-c="import">' + t("cImport") + '</button>' +
         '<button class="pru-tb" data-c="reset">' + t("cReset") + '</button><button class="pru-tb pru-pri" data-c="back">' + t("cBack") + "</button></div>" +
-      '<div class="pru-cp"><div class="pru-ctab">' + ["skin", "eyes", "brows", "clothes", "hair"].map((k) => '<button data-tab="' + k + '">' + t("c" + k[0].toUpperCase() + k.slice(1)) + "</button>").join("") + '</div><div class="pru-cbody" id="pru-cbody"></div></div>' +
+      '<div class="pru-cp"><div class="pru-ctab">' + ["skin", "eyes", "brows", "clothes", "hair", "rig"].map((k) => '<button data-tab="' + k + '">' + t("c" + k[0].toUpperCase() + k.slice(1)) + "</button>").join("") + '</div><div class="pru-cbody" id="pru-cbody"></div></div>' +
       '<div class="pru-cbl"><b>' + t("cAnim") + '</b><div class="pru-seg" id="pru-anim">' + Object.keys(ANIMS).map((k) => '<button data-anim="' + k + '">' + t("a" + k[0].toUpperCase() + k.slice(1)) + "</button>").join("") + "</div>" +
         '<b>' + t("cView") + '</b><div class="pru-seg"><button data-view="body">' + t("vBody") + '</button><button data-view="face">' + t("vFace") + '</button><button data-spin="1">' + t("cSpin") + "</button></div></div>" +
       '<div class="pru-cload" id="pru-cload">' + t("cLoading") + "</div>" +
@@ -123,6 +125,7 @@ export class CharEd {
       h = "<h4>" + t("cTop") + "</h4>" + list("top", "top") + "<h4>" + t("cLegs") + "</h4>" + list("bottom", "bottom") +
         '<div class="pru-col"><button class="pru-pri" data-c="kleid">' + t("cOpenK") + "</button></div><p>" + t("cClothNote") + "</p>";
     }
+    else if (this.tab === "rig") h = this.rg.html();
     else h = this.hairHTML(rng, sw, pct);
     this.$("#pru-cbody").innerHTML = h;
     if (this.tab === "eyes") this.drawIcons();
@@ -142,6 +145,8 @@ export class CharEd {
         '<label class="pru-sw pru-cust" title="' + t("cCustom") + '"><input type="color" data-hg-set="color" value="' + G.color + '"></label></div>' +
       '<div class="pru-col"><button data-hc="fill">' + t("hFill") + '</button><button data-hc="clear">' + t("hClear") + "</button></div><p>" + t("hHint") + "</p>";
   }
+  // im Rig-Reiter ohne Haare und Kleidung (man soll Haut und Gelenke sehen)
+  figLook() { return this.tab === "rig" ? Object.assign({}, this.look, { wear: { top: null, bottom: null }, hair: Object.assign({}, this.look.hair, { roots: [] }) }) : this.look; }
   hairChanged(full) {
     if (this.fig) this.fig.setLook(this.look);
     clearTimeout(this.saveT); this.saveT = setTimeout(() => store.set(KEYS.char, this.look), 300);
@@ -217,14 +222,17 @@ export class CharEd {
   }
   set(key, v) {
     const p = key.split("."), o = p.length > 1 ? this.look[p[0]] : this.look; o[p[p.length - 1]] = v;
-    if (this.fig) this.fig.setLook(this.look);
+    if (this.fig) this.fig.setLook(this.figLook());
     clearTimeout(this.saveT); this.saveT = setTimeout(() => store.set(KEYS.char, this.look), 250);
   }
   bind() {
     this.root.addEventListener("click", (e) => {
       const b = e.target.closest("button"); if (!b) return;
+      if (this.tab === "rig" && this.rg.click(b)) return;
       if (b.dataset.tab) {
+        const was = this.tab;
         this.tab = b.dataset.tab; const u = store.get(KEYS.ui, {}); u.ctab = this.tab; store.set(KEYS.ui, u); this.renderTab(); this.syncButtons();
+        if ((was === "rig") !== (this.tab === "rig") && this.fig) { this.fig.setLook(this.figLook()); if (this.tab === "rig") { this.rg.enter(); this.view = "body"; Object.assign(this.camT, VIEWS.body); this.spin = false; this.syncButtons(); } else this.rg.leave(); }
         if (this.tab === "hair") { this.anim = "idle"; this.view = "hair"; Object.assign(this.camT, VIEWS.hair); this.spin = false; this.syncButtons(); }
       }
       else if (b.dataset.anim) { this.anim = b.dataset.anim; this.syncButtons(); }
@@ -240,6 +248,7 @@ export class CharEd {
     });
     this.root.addEventListener("input", (e) => {
       const i = e.target; if (!i.dataset) return;
+      if (this.tab === "rig" && this.rg.input(i, "input")) return;
       if (i.dataset.hb) { this.hb[i.dataset.hb] = i.type === "checkbox" ? i.checked : +i.value; this.saveHB(); const o = this.root.querySelector('[data-hout="' + i.dataset.hb + '"]'); if (o) o.textContent = Math.round(+i.value * 1000) + " mm"; this.cursorSize(); return; }
       if (i.dataset.hgSet) {
         const G = this.look.hair.groups.find((g) => g.id === this.hb.gid); if (!G) return;
@@ -253,10 +262,11 @@ export class CharEd {
       else if (i.dataset.num) { const v = +i.value; this.set(i.dataset.set, v); const o = this.root.querySelector('[data-out="' + i.dataset.set + '"]'); if (o) { const pct = /size|pupil|thick/.test(i.dataset.set); o.textContent = (pct ? Math.round(v * 100) + " %" : v + (/tilt/.test(i.dataset.set) ? "°" : " mm")); } }
       else if (i.type === "color") { this.set(i.dataset.set, i.value); if (/eyes\.iris/.test(i.dataset.set)) this.drawIcons(); this.root.querySelectorAll('.pru-sw[data-set="' + i.dataset.set + '"]').forEach((s) => s.setAttribute("aria-pressed", "false")); }
     });
-    this.root.addEventListener("change", (e) => { if (e.target.id === "pru-cfile") this.importFile(e.target.files[0]); });
+    this.root.addEventListener("change", (e) => { if (this.tab === "rig" && this.rg.input(e.target, "change")) return; if (e.target.id === "pru-cfile") this.importFile(e.target.files[0]); });
     this.h = {
       down: (e) => {
         e.preventDefault();
+        if (this.tab === "rig" && this.rg.down(e)) return;
         if (this.tab === "hair" && e.button === 0 && this.fig) {
           const hit = this.fig.hair.pick(this.ray(e));
           if (hit) { this.pushUndo(); this.paint = { changed: false }; if (this.dab(hit)) { this.paint.changed = true; this.hairChanged(false); } return; }
@@ -264,6 +274,7 @@ export class CharEd {
         this.drag = { b: e.button, x: e.clientX, y: e.clientY };
       },
       move: (e) => {
+        if (this.rg.move(e)) return;
         if (this.tab === "hair" && this.fig && !this.drag) {
           const hit = this.fig.hair.pick(this.ray(e)); this.showCursor(hit);
           if (this.paint && hit && this.dab(hit)) { this.paint.changed = true; this.hairChanged(false); }
@@ -273,7 +284,7 @@ export class CharEd {
         if (this.drag.b === 0) { this.camT.yaw -= dx * 0.008; this.camT.pitch = clamp(this.camT.pitch + dy * 0.006, -0.6, 1.2); }
         else this.camT.ty = clamp(this.camT.ty + dy * 0.002 * this.camT.dist, 0.1, 1.6);
       },
-      up: () => { this.drag = null; if (this.paint) { if (!this.paint.changed) this.undo.pop(); this.paint = null; this.renderTab(); } },
+      up: () => { if (this.rg.up()) { this.drag = null; return; } this.drag = null; if (this.paint) { if (!this.paint.changed) this.undo.pop(); this.paint = null; this.renderTab(); } },
       wheel: (e) => { e.preventDefault(); this.camT.dist = clamp(this.camT.dist * Math.exp(e.deltaY * 0.0012), 0.35, 6); },
       ctx: (e) => e.preventDefault()
     };
@@ -283,7 +294,7 @@ export class CharEd {
   action(a) {
     if (a === "back") this.app.go("editor");
     else if (a === "kleid") { store.set(KEYS.char, this.look); this.app.go("kleid"); }
-    else if (a === "reset") { if (confirm(t("cResetQ"))) { this.look = cloneLook(LOOK_DEFAULT); if (this.fig) this.fig.setLook(this.look); store.set(KEYS.char, this.look); this.renderTab(); } }
+    else if (a === "reset") { if (confirm(t("cResetQ"))) { this.look = cloneLook(LOOK_DEFAULT); if (this.fig) this.fig.setLook(this.figLook()); store.set(KEYS.char, this.look); this.renderTab(); } }
     else if (a === "export") download("PolyRunner_Figur.json", JSON.stringify(Object.assign({ format: "polyrunner-look" }, this.look), null, 1));
     else if (a === "import") this.$("#pru-cfile").click();
   }
@@ -292,13 +303,14 @@ export class CharEd {
     f.text().then((s) => {
       let o = null; try { o = JSON.parse(s); } catch (e) {}
       if (!o || o.format !== "polyrunner-look") { this.app.toast(t("cBad")); return; }
-      this.look = cloneLook(o); if (this.fig) this.fig.setLook(this.look); store.set(KEYS.char, this.look); this.renderTab(); this.app.toast(t("cLoaded"));
+      this.look = cloneLook(o); if (this.fig) this.fig.setLook(this.figLook()); store.set(KEYS.char, this.look); this.renderTab(); this.app.toast(t("cLoaded"));
     });
     this.$("#pru-cfile").value = "";
   }
   key(e) {
     if (e.target && /INPUT|TEXTAREA/.test(e.target.tagName) && e.target.type !== "range" && e.target.type !== "checkbox") return false;
     if (e.key === "Escape") { this.app.go("editor"); return true; }
+    if (this.rg.key(e)) return true;
     if ((e.ctrlKey || e.metaKey) && e.code === "KeyZ" && this.undo.length) { this.look.hair = JSON.parse(this.undo.pop()); this.hairChanged(); return true; }
     return false;
   }
@@ -307,7 +319,7 @@ export class CharEd {
     const S = this.state, v = ANIMS[this.anim];
     S.speed = damp(S.speed, v, 3.5, dt); S.mode = S.speed > 0.05 || v > 0 ? "run" : "idle";
     this.runner.place(new THREE.Vector3(0, 0, 0), 0); this.runner.update(dt, S);
-    if (this.fig) {
+    if (this.fig && !this.rg.frame(dt)) {
       this.fig.follow(this.runner);
       // Laufband: die Figur bleibt stehen, die Luft strömt mit dem Tempo von vorne
       this.wind.set(0, 0, -S.speed); this.fig.simulate(dt, this.wind);
@@ -337,7 +349,7 @@ export class CharEd {
   }
   cursorSize() { if (this.ring) this.ring.scale.setScalar(this.hb.size); }
   dispose() {
-    this.dead = true; if (this.ring) { this.engine.scene.remove(this.ring); this.ring.geometry.dispose(); this.ring.material.dispose(); } clearTimeout(this.saveT); store.set(KEYS.char, this.look);
+    this.dead = true; this.rg.dispose(); if (this.ring) { this.engine.scene.remove(this.ring); this.ring.geometry.dispose(); this.ring.material.dispose(); } clearTimeout(this.saveT); store.set(KEYS.char, this.look);
     this.cv.removeEventListener("mousedown", this.h.down); window.removeEventListener("mousemove", this.h.move); window.removeEventListener("mouseup", this.h.up);
     this.cv.removeEventListener("wheel", this.h.wheel); this.cv.removeEventListener("contextmenu", this.h.ctx);
     if (this.fig) this.fig.dispose(); this.runner.dispose(); this.root.remove();

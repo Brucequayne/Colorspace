@@ -3,6 +3,19 @@
    Die Versionsnummer auf den Kacheln kommt aus dem obersten Eintrag. */
 window.PATCHNOTES = {
   polyrunner: [
+    { v: "0.21", t: "2026-11-28T07:26:00+01:00",
+      de: ["Neu im Charakter-Editor: Reiter „Rig“. Dort setzt du die Gelenke der Figur selbst: Kugel anklicken und ziehen, oder die Lage genau in Millimetern eintippen. Links und rechts bleiben gleich, die Wirbelsäule bleibt in der Mitte.",
+        "Alle 17 Gelenke einstellbar: Kopf oben, Kopf, Hals, Brust, Bauch, Becken, Becken unten, Schlüsselbein, Schulter, Ellbogen, Handgelenk, Fingerspitzen, Hüftgelenk, Knie, Sprunggelenk, Zehenballen, Zehenspitzen.",
+        "Nach jeder Änderung rechnet das Spiel die Gewichte neu (welcher Hautpunkt mit welchem Knochen mitgeht). Anzeige „Gewichte“ färbt die Haut des gewählten Gelenks ein (blau wenig, rot voll), Röntgen macht den Körper durchsichtig.",
+        "Prüfen in drei Posen: A-Pose (zum Ziehen), Animation (Gehen/Laufen/Sprinten unten links) und Beugetest (Knie, Hüfte, Ellbogen, Schultern, Rumpf und Kopf bis an die Grenzen).",
+        "Regeln für die Gewichte: Weichheit der Übergänge, ab welcher Höhe die Arme Haut nehmen, bis zu welcher Höhe die Beine, und wie weit die Arme im Spiel vom Körper weg sind.",
+        "Rückgängig (Strg+Z), Standard-Rig, Rig exportieren als PolyRunner_Rig.json und importieren. Ein eigenes Rig gilt sofort auch im Testlauf."],
+      en: ["New in the character editor: “Rig” tab. Set the joints of the character yourself: click and drag a ball, or type the position in millimetres. Left and right stay the same, the spine stays centred.",
+        "All 17 joints adjustable: head top, head, neck, chest, belly, pelvis, pelvis bottom, collarbone, shoulder, elbow, wrist, fingertips, hip joint, knee, ankle, ball of foot, toe tips.",
+        "After every change the game recomputes the weights (which skin point moves with which bone). “Weights” colours the skin of the selected joint (blue little, red full), x-ray makes the body see-through.",
+        "Check in three poses: A pose (for dragging), animation (walk/run/sprint bottom left) and bend test (knees, hips, elbows, shoulders, torso and head to their limits).",
+        "Rules for the weights: softness of the transitions, from which height the arms take skin, up to which height the legs, and how far the arms are held away from the body in game.",
+        "Undo (Ctrl+Z), default rig, export the rig as PolyRunner_Rig.json and import it. Your own rig is used in the test run right away."] },
     { v: "0.20", t: "2026-11-28T06:05:00+01:00",
       de: ["Deine Badehose aus dem Punkt-Editor ist jetzt die Grundform: Jede neue Hose („+ Hose“) startet als Kopie davon. Beim ersten Start liegt sie als „Badehose“ in den Entwürfen, und ein neuer Charakter trägt sie.",
         "Neu im Kleidungs-Editor: Malen (Stoffpinsel). Umschalter „Ringe / Punkte / Malen“. Gemalt wird nicht in Pixeln, sondern mit Formen – alles bleibt scharf, auch ganz nah, und läuft beim Rennen mit dem Stoff mit.",

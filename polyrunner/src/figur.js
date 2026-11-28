@@ -6,7 +6,8 @@
 // Animation: Die Knochen haben dieselben Namen wie im Runner (runner.js). In Ruhe (alle Drehungen 0) hängen Arme und Beine gerade nach unten,
 // das Modell steht in A-Pose → follow(runner) kopiert einfach die lokalen Drehungen, die Beckenhöhe wird mit der Körpergröße skaliert.
 import * as THREE from "three";
-import { PRU } from "pru/core.js";
+import { PRU, store, KEYS } from "pru/core.js";
+import { RIG_DEFAULT, cloneRig, sameRig, rigData } from "pru/rig.js";
 import { BONES, HIP_H } from "pru/runner.js";
 import { Hair, cloneHair } from "pru/haare.js";
 import { Cloth, cloneDesign, BASE_BOTTOM } from "pru/kleidung.js";
@@ -30,7 +31,10 @@ export function cloneLook(l) {
 }
 
 // ---------- Modelldatei laden (einmal, dann zwischengespeichert) ----------
-let DATA = null, LOADING = null;
+let DATA = null, LOADING = null, BASE = null;
+// Rig (seit v0.21): ohne eigenes Rig gelten die Gewichte aus figur.bin, sonst werden sie im Browser neu berechnet (rig.js)
+function withRig(rig) { const r = cloneRig(rig); DATA = sameRig(r, RIG_DEFAULT) ? Object.assign({}, BASE, { rig: cloneRig(RIG_DEFAULT), base: BASE }) : rigData(BASE, r); return DATA; }
+export function setRig(rig) { if (!BASE) return null; return withRig(rig); }
 export function loadFigur() {
   if (DATA) return Promise.resolve(DATA);
   if (LOADING) return LOADING;
@@ -56,8 +60,8 @@ export function loadFigur() {
     g.setAttribute("skinWeight", new THREE.BufferAttribute(new Float32Array(Array.from(sw, (v) => v / 255)), 4));
     g.setAttribute("aPart", new THREE.BufferAttribute(new Float32Array(part), 1));
     g.computeBoundingSphere();
-    DATA = { head: head, geo: g };
-    return DATA;
+    BASE = { head: head, geo: g };
+    return withRig(store.get(KEYS.rig, null));
   });
   LOADING.catch(() => { LOADING = null; });
   return LOADING;
@@ -157,14 +161,15 @@ function makeMaterial(head) {
     uSkin: { value: new THREE.Color() }, uEye: { value: null }, uBrow: { value: null },
     uEcL: { value: A.c }, uErL: { value: A.r }, uEuL: { value: A.u }, uEgL: { value: A.g },
     uEcR: { value: B.c }, uErR: { value: B.r }, uEuR: { value: B.u }, uEgR: { value: B.g }, uErad: { value: A.rad },
-    uFace: { value: new THREE.Vector4(FACE.x0, FACE.y0, FACE.x1 - FACE.x0, FACE.y1 - FACE.y0) }
+    uFace: { value: new THREE.Vector4(FACE.x0, FACE.y0, FACE.x1 - FACE.x0, FACE.y1 - FACE.y0) },
+    uWB: { value: -1 }, uWB2: { value: -1 },   // Rig-Editor: Gewichte dieses Knochens zeigen (Index in BONES), -1 = aus
   };
   m.onBeforeCompile = (sh) => {
     Object.assign(sh.uniforms, U);
-    sh.vertexShader = "attribute float aPart;\nattribute vec4 aHair;\nvarying vec3 vRP;\nvarying vec3 vRN;\nvarying float vPart;\nvarying vec4 vHair;\n" +
-      sh.vertexShader.replace("#include <begin_vertex>", "#include <begin_vertex>\n vRP = position; vRN = normal; vPart = aPart; vHair = aHair;");
+    sh.vertexShader = "attribute float aPart;\nattribute vec4 aHair;\nvarying vec3 vRP;\nvarying vec3 vRN;\nvarying float vPart;\nvarying vec4 vHair;\nuniform float uWB;\nuniform float uWB2;\nvarying float vW;\n" +
+      sh.vertexShader.replace("#include <begin_vertex>", "#include <begin_vertex>\n vRP = position; vRN = normal; vPart = aPart; vHair = aHair;\n vW = 0.0;\n#ifdef USE_SKINNING\n if (uWB >= 0.0) { vec4 m = vec4(lessThan(abs(skinIndex - uWB), vec4(0.5))) + vec4(lessThan(abs(skinIndex - uWB2), vec4(0.5))); vW = dot(min(m, vec4(1.0)), skinWeight); }\n#endif");
     sh.fragmentShader = "varying vec3 vRP;\nvarying vec3 vRN;\nvarying float vPart;\nvarying vec4 vHair;\nuniform vec3 uSkin;\nuniform sampler2D uEye;\nuniform sampler2D uBrow;\n" +
-      "uniform vec3 uEcL, uErL, uEuL, uEgL, uEcR, uErR, uEuR, uEgR;\nuniform float uErad;\nuniform vec4 uFace;\n" +
+      "uniform vec3 uEcL, uErL, uEuL, uEgL, uEcR, uErR, uEuR, uEgR;\nuniform float uErad;\nuniform vec4 uFace;\nuniform float uWB;\nvarying float vW;\n" +
       "float pruRough = -1.0;\n" +
       sh.fragmentShader
         .replace("#include <color_fragment>", "#include <color_fragment>\n" +
@@ -179,7 +184,8 @@ function makeMaterial(head) {
           "   vec2 fu = (vRP.xy - uFace.xy) / uFace.zw;\n" +
           "   if (fu.x > 0.0 && fu.x < 1.0 && fu.y > 0.0 && fu.y < 1.0 && vRN.z > 0.2 && vRP.z > 0.0) { vec4 br = texture2D(uBrow, fu); sk = mix(sk, br.rgb, br.a * smoothstep(0.2, 0.45, vRN.z)); }\n" +
           "   diffuseColor.rgb = mix(sk, vHair.rgb, vHair.a);\n" +
-          " }")
+          " }\n" +
+          " if (uWB >= 0.0) { vec3 hc = vW < 0.5 ? mix(vec3(0.15, 0.3, 0.85), vec3(0.2, 0.85, 0.35), vW * 2.0) : mix(vec3(0.2, 0.85, 0.35), vec3(0.95, 0.25, 0.12), vW * 2.0 - 2.0 * 0.5); diffuseColor.rgb = vW > 0.003 ? hc : vec3(0.42); pruRough = 0.9; }")
         .replace("#include <roughnessmap_fragment>", "#include <roughnessmap_fragment>\n if (pruRough >= 0.0) roughnessFactor = pruRough;");
   };
   m.customProgramCacheKey = () => "pru-figur";
@@ -256,13 +262,17 @@ export class Figur {
   follow(r, ws) {
     for (const n in this.b) this.b[n].quaternion.copy(r.b[n].quaternion);
     // Arme etwas weiter vom Körper (breitere Hüfte als beim Runner), sonst streifen die Hände die Oberschenkel
-    this.b.LeftUpperArm.quaternion.premultiply(_q.setFromAxisAngle(_v.set(0, 0, 1), 0.12));
-    this.b.RightUpperArm.quaternion.premultiply(_q.setFromAxisAngle(_v.set(0, 0, 1), -0.12));
+    const sp = this.data.rig ? this.data.rig.spread : 0.12;
+    this.b.LeftUpperArm.quaternion.premultiply(_q.setFromAxisAngle(_v.set(0, 0, 1), sp));
+    this.b.RightUpperArm.quaternion.premultiply(_q.setFromAxisAngle(_v.set(0, 0, 1), -sp));
     this.pivot.position.copy(r.pivot.position).multiplyScalar(this.k);
     this.pivot.quaternion.copy(r.pivot.quaternion);
     this.root.position.copy(r.root.position).multiplyScalar(ws || 1); this.root.quaternion.copy(r.root.quaternion);
   }
   setVisible(v) { this.root.visible = v; }
+  // Rig-Editor: Gewichte eines Knochens einfärben (blau wenig → rot voll), Röntgen = halb durchsichtig, damit man die Gelenke sieht
+  showWeights(bone) { const U = this.mat.userData.U, ix = (n) => BONES.findIndex((b) => b[0] === n); U.uWB.value = bone ? ix(bone) : -1; U.uWB2.value = bone && /Left/.test(bone) ? ix(bone.replace("Left", "Right")) : -1; }
+  xray(on) { this.mat.transparent = !!on; this.mat.opacity = on ? 0.42 : 1; this.mat.depthWrite = !on; this.mat.needsUpdate = true; }
   dispose() {
     this.hair.dispose(); if (this.cloth.top) this.cloth.top.dispose(); if (this.cloth.bottom) this.cloth.bottom.dispose(); this.scene.remove(this.root); this.mesh.geometry.dispose();
     const U = this.mat.userData.U; if (U.uEye.value) U.uEye.value.dispose(); if (U.uBrow.value) U.uBrow.value.dispose(); this.mat.dispose();

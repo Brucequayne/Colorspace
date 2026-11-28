@@ -14,9 +14,11 @@
     "editor.js",  // Map Editor
     "menu.js",    // Hauptmenü, Einstellungen
     "haare.js",   // Haare: Anime-Strähnen mit Physik, Malen auf der Kopfhaut
+    "rig.js",     // Rig der Spielfigur: Gelenke + Gewichte
     "kleider_basis.js", // Grundformen für neue Kleidung (Badehose als Punkt-Netz)
     "kleidung.js",// Kleidung: Entwürfe aus Ringen → Stoffnetz mit Dicke und Physik
     "figur.js",   // Spielfigur: Modell (model/figur.bin) auf dem Skelett, Haut, Augen, Brauen, enge Kleidung
+    "riged.js",   // Reiter „Rig“ im Charakter-Editor
     "chared.js",  // Charakter-Editor
     "punkte.js",  // Punkt-Editor für Kleidung (Netz Punkt für Punkt)
     "malen.js",   // Stoffpinsel: Formen, Linien, Pinsel auf dem Stoff
