@@ -13,8 +13,8 @@ addTexts({
   pDone: L2("Ziel!", "Finish!"), pNew: L2("Neue Bestzeit", "New best time"), pTop: L2("Deine besten Zeiten", "Your best times"),
   pNoFinish: L2("Kein Ziel gesetzt – freies Testen", "No finish placed – free testing"),
   pPause: L2("Pause", "Paused"), pCont: L2("Weiter", "Continue"), pRestart: L2("Neu starten (R)", "Restart (R)"), pBack: L2("Zurück zum Editor (Esc)", "Back to the editor (Esc)"),
-  pKeys: L2("WASD laufen (Blick = Maus) · Shift sprinten · Leertaste springen, an der Wand abstoßen, an der Kante hochziehen, beim Aufkommen abrollen · Linke Maustaste kurz vor dem Sprung: beidbeinig · Q/E Slide auf linker/rechter Hüfte · Strg/C ducken, Kante loslassen · R neu · Esc Pause · T Tweaker · F Dummy/Charakter",
-    "WASD run (look = mouse) · Shift sprint · Space jump, kick off walls, pull up on a ledge, roll on landing · left mouse button just before a jump: two-footed · Q/E slide on left/right hip · Ctrl/C crouch, let go of a ledge · R restart · Esc pause · T tweaker · F dummy/character"),
+  pKeys: L2("WASD laufen (Blick = Maus) · Shift sprinten · Leertaste springen, an der Wand abstoßen, an der Kante hochziehen, beim Aufkommen abrollen · Linke Maustaste halten: Hindernisse bis Hüfthöhe automatisch (Mini-Hüpfer, Schwung-Klettern), kurz vor dem Sprung: beidbeinig · Q/E Slide auf linker/rechter Hüfte · Strg/C ducken, Kante loslassen · R neu · Esc Pause · T Tweaker · F Dummy/Charakter",
+    "WASD run (look = mouse) · Shift sprint · Space jump, kick off walls, pull up on a ledge, roll on landing · hold left mouse button: obstacles up to hip height automatically (mini hop, swing vault), just before a jump: two-footed · Q/E slide on left/right hip · Ctrl/C crouch, let go of a ledge · R restart · Esc pause · T tweaker · F dummy/character"),
   pBroken: L2("Beine gebrochen", "Broken legs"), pBrokenSub: L2("Zu tief gefallen. Ab 3 m: Leertaste beim Aufkommen zum Abrollen, ab 10 m hilft auch das nicht mehr.", "Fell too far. From 3 m: press Space on landing to roll; from 10 m even that won't help.")
 });
 
@@ -44,12 +44,13 @@ export class Play {
     app.ui.appendChild(this.ui);
     this.$ = (q) => this.ui.querySelector(q);
     this.h = {
-      down: (e) => { if (!this.locked() && e.button === 0 && this.$("#pru-over").hidden) this.lock(); else if (this.locked() && e.button === 0) this.inp.both = true; },
+      down: (e) => { if (!this.locked() && e.button === 0 && this.$("#pru-over").hidden) this.lock(); else if (this.locked() && e.button === 0) { this.inp.both = true; this.lmb = true; } },
+      up: (e) => { if (e.button === 0) this.lmb = false; },
       move: (e) => { if (!this.locked()) return; this.camYaw -= e.movementX * 0.0024 * this.sens; this.camPitch = clamp(this.camPitch + e.movementY * 0.0022 * this.sens * (this.invert ? -1 : 1), -0.9, 1.25); },
       lock: () => { const L = this.locked(), end = this.state === "done" || (this.state === "fail" && !this.$("#pru-over").hidden); this.$("#pru-click").hidden = L || end; if (!L && !end && this.wasLocked && !(this.tw && this.tw.open)) this.pause(true); this.wasLocked = L; },
-      kup: (e) => { this.keys[e.code] = false; }, blur: () => { this.keys = {}; }
+      kup: (e) => { this.keys[e.code] = false; }, blur: () => { this.keys = {}; this.lmb = false; }
     };
-    this.cv.addEventListener("mousedown", this.h.down); document.addEventListener("mousemove", this.h.move);
+    this.cv.addEventListener("mousedown", this.h.down); document.addEventListener("mousemove", this.h.move); window.addEventListener("mouseup", this.h.up);
     document.addEventListener("pointerlockchange", this.h.lock); window.addEventListener("keyup", this.h.kup); window.addEventListener("blur", this.h.blur);
     this.ui.addEventListener("click", (e) => { const b = e.target.closest("[data-p]"); if (!b) return; const a = b.getAttribute("data-p"); if (a === "cont") { this.pause(false); this.lock(); } else if (a === "restart") { this.restart(); this.lock(); } else if (a === "back") this.back(); });
     this.tw = new Tweak(this);
@@ -136,7 +137,7 @@ export class Play {
       const fx = (k.KeyW || k.ArrowUp ? 1 : 0) - (k.KeyS || k.ArrowDown ? 1 : 0), sx = (k.KeyD || k.ArrowRight ? 1 : 0) - (k.KeyA || k.ArrowLeft ? 1 : 0);
       const f = new THREE.Vector3(-Math.sin(this.camYaw), 0, -Math.cos(this.camYaw)), r = new THREE.Vector3(-f.z, 0, f.x);
       const w = this.inp.wish.set(0, 0, 0).addScaledVector(f, fx).addScaledVector(r, sx); if (w.lengthSq() > 1) w.normalize();
-      this.inp.sprint = !!(k.ShiftLeft || k.ShiftRight); this.inp.aim = this.camYaw + Math.PI; this.inp.crouchHeld = !!(k.ControlLeft || k.ControlRight || k.KeyC); this.inp.slideHeld = !!(k.KeyQ || k.KeyE);
+      this.inp.sprint = !!(k.ShiftLeft || k.ShiftRight); this.inp.lmb = !!this.lmb || !!this.botLmb; this.inp.aim = this.camYaw + Math.PI; this.inp.crouchHeld = !!(k.ControlLeft || k.ControlRight || k.KeyC); this.inp.slideHeld = !!(k.KeyQ || k.KeyE);
       if (this.state === "ready" && (w.lengthSq() > 0.01 || this.inp.jump)) { this.state = "run"; if (this.world.map.finish && this.from === "start") this.$("#pru-sub").textContent = this.best.length ? t("pBest") + " " + ftime(this.best[0]) : ""; }
       const s = mv.update(dt, this.inp);
       this.inp.jump = false; this.inp.crouch = false; this.inp.slide = null; this.inp.both = false;
@@ -193,7 +194,7 @@ export class Play {
     this.mt = (this.mt || 0) + dt; if (this.mt > 0.1) { this.mt = 0; this.tw.measure(M); }
   }
   dispose() {
-    this.cv.removeEventListener("mousedown", this.h.down); document.removeEventListener("mousemove", this.h.move);
+    this.cv.removeEventListener("mousedown", this.h.down); document.removeEventListener("mousemove", this.h.move); window.removeEventListener("mouseup", this.h.up);
     document.removeEventListener("pointerlockchange", this.h.lock); window.removeEventListener("keyup", this.h.kup); window.removeEventListener("blur", this.h.blur);
     if (this.locked() && document.exitPointerLock) document.exitPointerLock();
     this.dead = true; this.tw.dispose(); if (this.fig) this.fig.dispose();

@@ -6,20 +6,24 @@ import * as THREE from "three";
 import { clamp, lerp, dampAngle, damp } from "pru/core.js";
 
 export const TUNE = {
-  run: 6.6, sprint: 9.6, crouch: 2.6, air: 11,
+  // Standard = Noahs Tweaker-Werte vom 28.11.2026 (PolyRunner_Einstellungen.json), intern in 1,8-m-Einheiten (echte Meter = Wert × Größe / 1,8)
+  run: 6.3071, sprint: 9.9786, crouch: 2.8786, air: 11.5143,
   // Schwere: Antritt wie ein Sprinter (Kraft lässt mit dem Tempo nach), Bremsen, Kurven
-  push: 6.2, friction: 7.5, brake: 11, bleed: 6, gripLow: 17.5, gripLoss: 0.95, gripMin: 7.5,
-  side: 0.74, sprintCone: 0.9,
-  gravity: 23, jump: 6.3, coyote: 0.12, buffer: 0.13,
-  slideMin: 5.0, slideBoost: 1.4, slideFric: 3.0, slideMax: 1.3,
+  push: 10.5, friction: 7.5, brake: 14.5, bleed: 6.9, gripLow: 26.8, gripLoss: 0.95, gripMin: 7.5,
+  side: 0.83, sprintCone: 1.58,
+  gravity: 22.1429, jump: 6.95, coyote: 0.13, buffer: 0.13,
+  slideMin: 5.3071, slideBoost: 2.1857, slideFric: 2.55, slideMax: 1.4,
   wallMin: 4.2, wallTime: 1.35, wallGrav: 0.32, wallKick: 5.6, wallUp: 7.0,
   kick: 6.4,
   // Wand hochlaufen: Schritte je nach Anlauf (ab wallStep1 einer, ab wallStep2 zwei), Schub je Schritt
   wallStep1: 3.5, wallStep2: 7.5, wallStepV: 4.3, wallStepK: 0.25, wallStepT: 0.26,
-  // Stufen und Klettern (Höhen über den Füßen)
-  step: 0.45, vaultHands: 1.3, reach: 2.3, hangDrop: 1.78, shimmy: 1.3,
+  // Hindernisse im Lauf (seit v0.22, Höhe über den Füßen): bis step Korrekturschritt (immer), mit gehaltener linker Maus
+  // bis hop Mini-Hüpfer und bis swing Schwung-Klettern. Tempo-Anteile: über Hindernisse (rough), Treppe hoch (up), Treppe runter ohne Sprint (down)
+  step: 0.3, hop: 0.6, swing: 1.1, roughK: 0.62, upK: 0.78, downK: 0.72,
+  // Klettern (Höhen über den Füßen)
+  vaultHands: 1.5643, reach: 3.1457, hangDrop: 1.78, shimmy: 1.3,
   // Fallhöhen in Metern: bis safe nichts, bis stumble Stolpern ohne Abrollen, darüber Beinbruch ohne Abrollen, ab deadly hilft auch Abrollen nicht
-  safe: 3.0, stumble: 5.5, deadly: 10, rollWin: 0.35, lateRoll: 0.13
+  safe: 3.3143, stumble: 5.6, deadly: 10.4286, rollWin: 0.37, lateRoll: 0.13
 };
 export const TUNE_DEF = Object.assign({}, TUNE);
 // Welt im Maßstab der Bewegung: Die Bewegung rechnet in 1,8-m-Einheiten, die Figur ist k-mal so groß (k = Größe / 1,8).
@@ -35,7 +39,7 @@ export class ScaledWorld {
   ray(o, dir, far, ig) { const h = this.w.ray(o.clone().multiplyScalar(this.k), dir, (far || 100) * this.k, ig); if (!h) return null; return { point: h.point.clone().multiplyScalar(1 / this.k), distance: h.distance / this.k, face: h.face, object: h.object }; }
 }
 const R = 0.32, H_STAND = 1.8, H_LOW = 1.0, STEP = 1 / 120;
-const DOWN = new THREE.Vector3(0, -1, 0);
+const DOWN = new THREE.Vector3(0, -1, 0), _o = new THREE.Vector3();
 
 export class Mover {
   constructor(world) {
@@ -54,6 +58,8 @@ export class Mover {
     this.accL = 0; this.accT = 0; this.back = false; this.turning = false; this.turnLeft = 0; this.braking = false;
     this.breakVel = new THREE.Vector3(); this.fallH = 0; this.groundY = this.pos.y;
     this.preVel = new THREE.Vector3(); this.jumpId = 0; this.jumpBoth = false; this.bothBuf = 0; this.brush = null; this.climbSteps = 0; this.climbStep = 0;
+    // Gelände (seit v0.22): Treppe hoch/runter, unruhiger Boden, Mini-Hüpfer
+    this.upT = 0; this.downT = 0; this.roughT = 0; this.hopCd = 0; this.jumpAge = 9; this.hopId = 0; this.hop = null; this.stepH = 0; this.stepId = 0; this.smoothK = 13;
   }
   spawn(p, yaw) {
     this.reset();
@@ -61,7 +67,35 @@ export class Mover {
     this.resolve(); this.apex = this.pos.y; this.prev.copy(this.pos); this.view.copy(this.pos); this.acc = 0; this._tv = null;
   }
   height() { return this.low ? H_LOW : H_STAND; }
-  offs(h) { const o = [R], n = Math.max(1, Math.ceil((h - 2 * R) / (R * 1.1))); for (let i = 1; i <= n; i++) o.push(R + (h - 2 * R) * i / n); return o; }
+  // Am Boden (und im normalen Sprung) beginnt die Kapsel erst lift über den Füßen: alles darunter (Stufen, Wurzeln, Baumstämme) trägt nur über Strahlen
+  // unter den Füßen (support) und wird einfach überlaufen. Klettern, Hängen, Wallrun nutzen die ganze Kapsel.
+  liftNow() { const m = this.mode; return m === "normal" || m === "slide" || m === "roll" || m === "getup" || m === "stun" || m === "impact" ? TUNE.step : 0; }
+  offs(h) { const L = this.liftNow(), b = R + L, o = [b], n = Math.max(1, Math.ceil((h - 2 * R - L) / (R * 1.1))); for (let i = 1; i <= n; i++) o.push(b + Math.max(0, h - 2 * R - L) * i / n); return o; }
+  // Halt unter den Füßen: höchster begehbarer Punkt unter der Standfläche (9 Strahlen), zwischen up über und down unter den Füßen
+  support(up, down) {
+    let by = -Infinity, bn = null; const p = this.pos, r1 = R * 0.5, r2 = R * 0.9 * 0.7071;
+    for (let i = 0; i < 9; i++) {
+      const dx = i === 0 ? 0 : i < 5 ? [r1, -r1, 0, 0][i - 1] : [r2, -r2, r2, -r2][i - 5], dz = i === 0 ? 0 : i < 5 ? [0, 0, r1, -r1][i - 1] : [r2, r2, -r2, -r2][i - 5];
+      _o.set(p.x + dx, p.y + up + 0.02, p.z + dz);
+      const h = this.world.ray(_o, DOWN, up + down + 0.02, false); if (!h) continue;
+      let n = null; if (h.face) { n = h.face.normal.clone().transformDirection(h.object.matrixWorld); if (n.y < 0.3) continue; }
+      if (h.point.y > by + 1e-4) { by = h.point.y; bn = n; }
+    }
+    return by > -Infinity ? { y: by, n: bn || new THREE.Vector3(0, 1, 0) } : null;
+  }
+  // Stufen optisch glätten: je schneller, desto schneller holt der Körper die Stufe ein (sonst hinkt er auf Treppen hinterher und geht in die Hocke)
+  stepSmooth() { return clamp(5 + Math.hypot(this.vel.x, this.vel.z) * 2, 9, 22); }
+  // nach resolve(): auf den Halt unter den Füßen stellen. Am Boden: hoch bis lift (Korrekturschritt), runter bis lift (Treppe), in der Luft: Landung
+  ground(wasG, jumped) {
+    const L = this.liftNow(); if (L <= 0 || jumped || this.vel.y > 0.3) return;
+    const down = wasG ? L + 0.06 : Math.max(0.03, -this.vel.y * STEP * 1.5 + 0.02), S = this.support(L, down);
+    if (!S) { if (wasG && this.grounded && this.groundN.y > 0.62) return; this.grounded = false; return; }
+    const dy = S.y - this.pos.y;
+    this.pos.y = S.y; this.grounded = true; this.groundN.copy(S.n); if (this.vel.y < 0) this.vel.y = 0;
+    if (Math.abs(dy) > 0.02) this.smooth.y -= dy;
+    if (wasG && dy > 0.05) { this.upT = 0.75; if (this.downT > 0) this.roughT = 0.9; this.stepH = dy; this.stepId++; this.smoothK = this.stepSmooth(); this.events.push("stepup"); }
+    else if (wasG && dy < -0.05) { this.downT = 0.75; if (this.upT > 0) this.roughT = 0.9; this.stepH = dy; this.stepId++; this.smoothK = this.stepSmooth(); this.events.push("stepdown"); }
+  }
   // Kapsel auflösen, Kontakte auswerten
   resolve() {
     const contacts = [], c = new THREE.Vector3(), offs = this.offs(this.height());
@@ -87,8 +121,8 @@ export class Mover {
   }
   fwd() { return new THREE.Vector3(Math.sin(this.yaw), 0, Math.cos(this.yaw)); }
   // Kante vor der Figur: Oberfläche zwischen minUp und maxUp über den Füßen, dazu die Wandkante und ihre Normale
-  probe(dir, minUp, maxUp) {
-    for (const d of [R + 0.16, R + 0.36]) {
+  probe(dir, minUp, maxUp, dists) {
+    for (const d of dists || [R + 0.16, R + 0.36]) {
       const o = new THREE.Vector3(this.pos.x + dir.x * d, this.pos.y + maxUp + 0.25, this.pos.z + dir.z * d);
       const hit = this.world.ray(o, DOWN, maxUp + 0.25 - minUp + 0.02, true);
       if (!hit || !hit.face) continue;
@@ -96,10 +130,12 @@ export class Mover {
       if (n.y < 0.75) continue;
       const top = hit.point.y, up = top - this.pos.y; if (up < minUp || up > maxUp) continue;
       // Wandfläche knapp unter der Kante suchen
-      const wo = new THREE.Vector3(this.pos.x, top - 0.08, this.pos.z), wh = this.world.ray(wo, dir, R + 0.7, true);
+      const wo = new THREE.Vector3(this.pos.x, top - 0.08, this.pos.z), wh = this.world.ray(wo, dir, Math.max(R + 0.7, d + 0.35), true);
       let edge, wn;
       if (wh && wh.face) { wn = wh.face.normal.clone().transformDirection(wh.object.matrixWorld); wn.y = 0; if (wn.lengthSq() < 0.3) wn = dir.clone().negate(); wn.normalize(); edge = new THREE.Vector3(wh.point.x, top, wh.point.z); }
       else { wn = dir.clone().negate(); edge = new THREE.Vector3(this.pos.x + dir.x * R, top, this.pos.z + dir.z * R); }
+      // Normale muss uns zugewandt sein (an Ecken trifft der Strahl sonst eine Seitenfläche → falsche Richtung, Rückwurf)
+      if (wn.dot(dir) > -0.35) wn = dir.clone().negate();
       return { top: top, up: up, edge: edge, n: wn };
     }
     return null;
@@ -129,7 +165,7 @@ export class Mover {
     if (n >= 12) this.acc = 0;
     // Anzeige zwischen den Physik-Schritten glätten, Stufen weich ausgleichen
     if (this.prev.distanceToSquared(this.pos) > 4) this.prev.copy(this.pos);
-    const kd = Math.exp(-13 * dt); this.smooth.multiplyScalar(kd);
+    this.smoothK = damp(this.smoothK, 13, 3, dt); const kd = Math.exp(-this.smoothK * dt); this.smooth.multiplyScalar(kd);
     this.view.copy(this.prev).lerp(this.pos, clamp(this.acc / STEP, 0, 1)).add(this.smooth);
     return this.animState(inp);
   }
@@ -138,7 +174,9 @@ export class Mover {
     this.wallT += dt; this.kickT += dt; this.slideCd -= dt; this.regrab -= dt; this.rollBuf -= dt; this.bothBuf -= dt;
     if (this.slideBuf) { this.slideBuf.t += dt; if (this.slideBuf.t > 0.15) this.slideBuf = null; }
     this.jumpBuf -= dt; this.land = Math.max(0, this.land - dt * 3.2); this.wallJump = Math.max(0, this.wallJump - dt);
+    this.upT -= dt; this.downT -= dt; this.roughT -= dt; this.hopCd -= dt; this.jumpAge += dt;
     const wasG = this.grounded; let jumped = false;
+    if (this.hop) { this.hop.t += dt; if ((wasG && this.hop.t > 0.05) || this.mode !== "normal") this.hop = null; }
     this.track(dt);
     if (wasG) { this.coyote = T.coyote; this.groundY = this.pos.y; } else this.coyote -= dt;
     // Höchster Punkt seit dem letzten Bodenkontakt (für die Fallhöhe)
@@ -154,21 +192,21 @@ export class Mover {
       const Ro = this.roll; Ro.t += dt;
       const s = Math.max(Ro.speed - Ro.t * Ro.loss, 3.5);
       this.vel.x = Math.sin(this.yaw) * s; this.vel.z = Math.cos(this.yaw) * s; this.vel.y -= T.gravity * dt;
-      this.pos.addScaledVector(this.vel, dt); this.resolve(); this.snap(wasG);
+      this.pos.addScaledVector(this.vel, dt); this.resolve(); this.ground(wasG, false);
       if (Ro.t >= Ro.dur) { this.mode = "normal"; this.low = !this.free(this.pos, H_STAND); }
       return;
     }
     if (m === "impact") {
       // ganz kurzes Zeitfenster nach dem Aufprall: Leertaste rollt noch ab
       const I = this.impact; I.t += dt; vh.multiplyScalar(Math.exp(-6 * dt)); this.vel.x = vh.x; this.vel.z = vh.z;
-      this.pos.addScaledVector(this.vel, dt); this.resolve();
+      this.pos.addScaledVector(this.vel, dt); this.resolve(); this.ground(true, false);
       if (I.roll) { this.startRoll(I.fall, I.speed); this.events.push("lateroll"); }
       else if (I.t >= T.lateRoll) { if (I.fall > T.stumble) this.breakLegs(I.vel); else { this.mode = "stun"; this.stunT = 0.5 + (I.fall - T.safe) * 0.12; this.land = 1; this.events.push("hard"); } }
       return;
     }
     if (m === "stun") {
       this.stunT -= dt; vh.multiplyScalar(Math.exp(-8 * dt)); this.vel.x = vh.x; this.vel.z = vh.z; this.vel.y -= T.gravity * dt;
-      this.pos.addScaledVector(this.vel, dt); this.resolve(); this.snap(wasG);
+      this.pos.addScaledVector(this.vel, dt); this.resolve(); this.ground(wasG, false);
       if (this.stunT <= 0) this.mode = "normal";
       return;
     }
@@ -178,7 +216,7 @@ export class Mover {
       this.yaw = dampAngle(this.yaw, Math.atan2(G.dir.x, G.dir.z), 14, dt);
       const s = lerp(G.s0, G.s1, k);
       this.vel.x = G.dir.x * s; this.vel.z = G.dir.z * s; this.vel.y -= T.gravity * dt;
-      this.pos.addScaledVector(this.vel, dt); this.resolve(); this.snap(wasG);
+      this.pos.addScaledVector(this.vel, dt); this.resolve(); this.ground(wasG, false);
       if (k >= 1) { this.mode = "normal"; this.low = !this.free(this.pos, H_STAND); }
       return;
     }
@@ -214,6 +252,13 @@ export class Mover {
       }
     }
 
+    // --- Hindernisse mit gehaltener linker Maus: Mini-Hüpfer (bis hop) oder Schwung-Klettern (bis swing) ---
+    if (this.mode === "normal" && wasG && inp.lmb && !this.low && this.hopCd <= 0 && this.jumpBuf <= 0 && wl > 0.1) {
+      const vh2 = new THREE.Vector3(this.vel.x, 0, this.vel.z), sp2 = vh2.length(), wn = wish.clone().normalize(), dir = sp2 > 0.4 ? vh2.multiplyScalar(1 / sp2) : wn.clone();
+      // erst in Laufrichtung, dann (an einer Wand entlang rutschend) in Wunschrichtung
+      if ((dir.dot(wn) > 0.5 && this.obstacle(dir, sp2)) || (dir.dot(wn) < 0.94 && this.obstacle(wn, Math.max(sp2, 2)))) return;
+    }
+
     // --- Springen ---
     if (this.jumpBuf > 0 && (this.mode === "normal" || this.mode === "slide")) {
       if (this.coyote > 0) {
@@ -232,7 +277,7 @@ export class Mover {
           this.jumpId++; this.events.push(this.jumpBoth ? "jump2" : "jump");
         }
         this.low = !this.free(this.pos, H_STAND) && this.low;
-        this.jumpBuf = 0; this.coyote = 0; jumped = true; this.grounded = false;
+        this.jumpBuf = 0; this.coyote = 0; jumped = true; this.grounded = false; this.jumpAge = 0;
       } else if (this.wallT < 0.1 && !(this.lastKick === this.wallId && this.kickT < 0.6)) {
         // Wandsprung: von der Wand abstoßen (auch hin und her zwischen zwei Wänden)
         const along = vh.clone().addScaledVector(this.wallN, -vh.dot(this.wallN)).multiplyScalar(0.6);
@@ -287,11 +332,9 @@ export class Mover {
     const vy0 = this.vel.y, vhBefore = new THREE.Vector3(this.vel.x, 0, this.vel.z); this.preVel.copy(this.vel);
     this.pos.addScaledVector(this.vel, dt);
     this.resolve();
-    if (!jumped) this.snap(wasG);
-    // kleine Stufen: einfach draufsteigen
-    if ((this.mode === "normal" || this.mode === "slide") && (wasG || this.grounded) && vhBefore.lengthSq() > 0.04 && Math.hypot(this.vel.x, this.vel.z) < vhBefore.length() * 0.9) this.stepUp(vhBefore);
+    this.ground(wasG, jumped);
     // frontal in der Luft an die Wand (kurz nach dem Absprung, mit Anlauf): die Wand hochlaufen
-    if (this.mode === "normal" && !this.grounded && this.wallT === 0 && this.airT < 0.5 && this.vel.y > -1.5 && this.regrab <= 0) {
+    if (this.mode === "normal" && !this.grounded && this.wallT === 0 && this.airT < 0.5 && this.jumpAge < 0.5 && this.vel.y > -1.5 && this.regrab <= 0) {
       const into = vhBefore.dot(this.wallN.clone().negate()), f = wl > 0.1 ? wish.clone().normalize().dot(this.wallN) : 0;
       if (into > T.wallStep1 && f < -0.6 && vhBefore.length() * 0.75 < into + 0.5) this.startWallUp(vhBefore.length());
     }
@@ -342,15 +385,27 @@ export class Mover {
     }
     return null;
   }
-  stepUp(vh) {
-    const dir = vh.clone().normalize();
-    const L = this.probe(dir, 0.04, TUNE.step); if (!L) return;
-    // so weit vor, dass die Figur wirklich auf der Stufe steht (Kante + ein paar cm), Sprung optisch weich
-    const toEdge = Math.max(0, L.edge.clone().sub(this.pos).dot(dir));
-    const tgt = this.pos.clone().addScaledVector(dir, toEdge + 0.08); tgt.y = L.top + 0.01;
-    if (!this.free(tgt, this.height())) return;
-    this.smooth.sub(tgt.clone().sub(this.pos)); this.pos.copy(tgt); this.vel.x = vh.x; this.vel.z = vh.z; this.vel.y = 0; this.grounded = true;
-    this.events.push("step");
+  // Hindernis voraus (linke Maus gehalten): Höhe messen, rechtzeitig Mini-Hüpfer oder Schwung-Klettern starten
+  obstacle(dir, sp) {
+    const T = TUNE, reach = R + 0.1 + clamp(sp, 1.5, 10) * 0.075;
+    const L = this.probe(dir, T.step - 0.02, T.swing, [R + 0.12, R + 0.3, reach]); if (!L) return false;
+    const dist = L.edge.clone().sub(this.pos).dot(dir); if (dist > reach || dist < 0) return false;
+    const onTop = L.edge.clone().addScaledVector(dir, 0.42); onTop.y = L.top + 0.01;
+    if (L.up <= T.hop) {
+      // Mini-Hüpfer: so hoch, dass die Füße die Kante knapp frei haben, so weit, dass er oben landet
+      const vy = Math.sqrt(2 * T.gravity * (L.up + 0.12)), tAir = vy / T.gravity * 1.6;
+      const need = (dist + 0.3) / tAir, s = clamp(Math.max(sp * 0.92, need), 1.8, Math.max(sp, 3));
+      this.vel.set(dir.x * s, vy, dir.z * s); this.yaw = Math.atan2(dir.x, dir.z);
+      this.grounded = false; this.coyote = 0; this.hopCd = 0.35; this.hopId++; this.hop = { h: L.up, t: 0 };
+      this.jumpId++; this.jumpBoth = false; this.events.push("hop");
+      this.pos.addScaledVector(this.vel, STEP); this.resolve();
+      return true;
+    }
+    if (!this.free(onTop, H_LOW)) return false;
+    // Schwung-Klettern: Hände kurz auf die Kante, Beine schwingen hoch, oben weiterlaufen
+    this.startVault("swing", onTop, L, 0.3 + L.up * 0.13, Math.max(sp * 0.85, 2.4), dir);
+    this.yaw = Math.atan2(dir.x, dir.z); this.hopCd = 0.4;
+    return true;
   }
   // Kante greifen: niedrig → drauf, bis Brust → mit den Händen hoch, höher → festhalten
   grabLedge(dir) {
@@ -363,7 +418,8 @@ export class Mover {
       if (L.up <= 0.55 && this.vel.y > 1.5) return false;   // steigt noch: einfach weiterfliegen und landen
       if (!this.free(onTop, H_LOW)) return false;
       const hands = rel > 0.55;
-      this.startVault(hands ? "hands" : "step", onTop, L, hands ? 0.36 + L.up * 0.14 : 0.2, Math.hypot(this.vel.x, this.vel.z) * (hands ? 0.55 : 0.85));
+      const hv = new THREE.Vector3(this.vel.x, 0, this.vel.z), hs = hv.length();
+      this.startVault(hands ? "hands" : "step", onTop, L, hands ? 0.36 + L.up * 0.14 : 0.2, hs * (hands ? 0.55 : 0.85), hs > 0.5 ? hv.multiplyScalar(1 / hs) : dir);
       this.yaw = yaw; return true;
     }
     // festhalten: Körper hängt unter der Kante
@@ -376,22 +432,24 @@ export class Mover {
     this.vel.set(0, 0, 0); this.yaw = yaw; this.low = false; this.events.push("grab");
     return true;
   }
-  startVault(kind, target, L, dur, keep) {
+  startVault(kind, target, L, dur, keep, dir) {
     this.mode = "vault";
-    this.climbing = { kind: kind, t: 0, dur: dur, a: this.pos.clone(), b: target, edge: L.edge.clone(), n: L.n.clone(), top: L.top, keep: clamp(keep, kind === "pullup" ? 0 : 1.5, TUNE.run) };
+    // Richtung danach: die Laufrichtung, wenn sie zur Kante passt, sonst von der Kante weg nach innen (nie zurück)
+    const d = dir ? dir.clone() : L.n.clone().negate(); d.y = 0; d.normalize(); if (d.dot(L.n) > -0.3) d.copy(L.n).negate().setY(0).normalize();
+    this.climbing = { kind: kind, t: 0, dur: dur, a: this.pos.clone(), b: target, edge: L.edge.clone(), n: L.n.clone(), top: L.top, dir: d, keep: clamp(keep, kind === "pullup" ? 0 : 1.5, kind === "swing" ? TUNE.sprint : TUNE.run) };
     this.vel.set(0, 0, 0); this.events.push(kind);
   }
   stepVault(dt) {
     const C = this.climbing; C.t += dt; const k = clamp(C.t / C.dur, 0, 1);
     // erst hoch (Körper an der Wand), dann nach vorne auf die Kante
-    const up = C.kind === "pullup" ? 0.62 : C.kind === "hands" ? 0.55 : 0.45;
+    const up = C.kind === "pullup" ? 0.62 : C.kind === "hands" ? 0.55 : C.kind === "swing" ? 0.5 : 0.45;
     const ku = clamp(k / up, 0, 1), kf = clamp((k - up * 0.7) / (1 - up * 0.7), 0, 1);
     const eu = C.kind === "pullup" ? ku * ku * (3 - 2 * ku) : 1 - (1 - ku) * (1 - ku), ef = kf * kf * (3 - 2 * kf);
     this.pos.set(lerp(C.a.x, C.b.x, ef), lerp(C.a.y, C.b.y, eu), lerp(C.a.z, C.b.z, ef));
     this.vel.set(0, 0, 0);
     if (k >= 1) {
       this.mode = "normal"; this.low = !this.free(this.pos, H_STAND);
-      const d = C.n.clone().negate(); this.vel.copy(d).multiplyScalar(C.keep); this.grounded = true; this.coyote = TUNE.coyote; this.resolve(); this.apex = this.pos.y;
+      this.vel.copy(C.dir).multiplyScalar(C.keep); this.grounded = true; this.coyote = TUNE.coyote; this.resolve(); this.ground(true, false); this.apex = this.pos.y;
     }
   }
   // Hängen an der Kante: hangeln (links/rechts), hochziehen (Leertaste oder vorwärts), loslassen (Strg/C oder rückwärts), Rücksprung (rückwärts + Leertaste)
@@ -461,6 +519,10 @@ export class Mover {
       const w = wish.clone().normalize(), wy = Math.atan2(w.x, w.z), psi = Math.abs(wrap(wy - aim));
       const dirK = T.side + (1 - T.side) * Math.cos(psi);
       top = this.low ? T.crouch : (inp.sprint && psi < T.sprintCone ? T.sprint : T.run * dirK);
+      // Gelände: über Hindernisse nur gehen/locker laufen, Treppe hoch langsamer, runter (ohne Sprint) vorsichtig
+      if (this.roughT > 0) top = Math.min(top, T.run * T.roughK);
+      else if (this.upT > 0) top = Math.min(top, inp.sprint ? T.sprint * 0.62 : T.run * T.upK);
+      if (this.downT > 0) top = Math.min(top, inp.sprint ? T.sprint * 0.85 : T.run * T.downK);
       const th = s > 0.4 ? Math.acos(clamp(dir.dot(w), -1, 1)) : 0;
       if (s < 0.4) dir.copy(w);
       else if (th > 2.4 && s > 1.6) { /* Kehrtwende: erst die Füße stemmen und abbremsen */ }
@@ -492,14 +554,6 @@ export class Mover {
       const d = wrap(aim - this.yaw);
       if (Math.abs(d) > 0.85 || this.turnLeft > 0) { this.turnLeft = Math.abs(d) > 0.08 ? 1 : 0; this.yaw = dampAngle(this.yaw, aim, 4.5, dt); this.turning = this.turnLeft > 0; }
     }
-  }
-  // auf dem Boden kleben bleiben (Rampen abwärts, Stufen hinunter), weich ausgeglichen
-  snap(wasG) {
-    if (!wasG || this.grounded || this.vel.y > 0.1) return;
-    const save = this.pos.clone(), sv = this.vel.clone();
-    this.pos.y -= TUNE.step; this.resolve();
-    if (!this.grounded) { this.pos.copy(save); this.vel.copy(sv); this.grounded = false; }
-    else this.smooth.y += save.y - this.pos.y;
   }
   landed(vy) {
     const T = TUNE, fall = Math.max(0, this.apex - this.pos.y), vh = new THREE.Vector3(this.vel.x, 0, this.vel.z), speed = vh.length();
@@ -549,6 +603,9 @@ export class Mover {
       hang: md === "hang" ? { edge: H.edge, n: H.n, top: H.top, move: H.move, phase: H.phase, grab: clamp(H.t / 0.16, 0, 1), swing: H.swing, t: H.t, v0: H.v0, feetFree: H.feetFree, id: H.id } : null,
       impactK: md === "impact" ? 1 : 0, breakVel: this.breakVel,
       jumpId: this.jumpId, jumpBoth: this.jumpBoth, brush: this.brush, grounded: this.grounded,
+      // Gelände für die Beine: Treppe hoch/runter, unruhiger Boden, Mini-Hüpfer, letzte Stufe
+      up: Math.max(0, this.upT) / 0.75, down: Math.max(0, this.downT) / 0.75, rough: Math.max(0, this.roughT) / 0.9, hop: this.hop ? { h: this.hop.h, t: this.hop.t } : null,
+      stepH: this.stepH, stepId: this.stepId, lmb: !!(inp && inp.lmb), lag: -this.smooth.y,
       climbUp: md === "climb" ? { t: this.climbT, step: Math.max(0, this.climbStep), steps: this.climbSteps, n: this.wallN } : null };
   }
 }

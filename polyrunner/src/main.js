@@ -7,6 +7,7 @@ import { Editor } from "pru/editor.js";
 import { Play } from "pru/play.js";
 import { CharEd } from "pru/chared.js";
 import { KleidEd } from "pru/kleided.js";
+import { AnimEd } from "pru/animed.js";
 
 const CSS = `
 .pru-root{position:fixed;inset:0;z-index:30;background:#111214;color:#ECEAE4;font:500 13px var(--f-body,system-ui,sans-serif);overflow:hidden;user-select:none;-webkit-user-select:none}
@@ -81,7 +82,7 @@ export function mount(host, lang, stamp) {
   app.go = (name, opts) => {
     if (app.mode) app.mode.dispose();
     app.modeName = name; ui.setAttribute("data-mode", name);
-    app.mode = name === "editor" ? new Editor(app) : name === "test" ? new Play(app, opts) : name === "char" ? new CharEd(app) : name === "kleid" ? new KleidEd(app) : new Menu(app);
+    app.mode = name === "editor" ? new Editor(app) : name === "test" ? new Play(app, opts) : name === "char" ? new CharEd(app) : name === "kleid" ? new KleidEd(app) : name === "anim" ? new AnimEd(app) : new Menu(app);
   };
   app.toast = (msg) => { const tEl = el("div", "pru-toast"); tEl.textContent = msg; ui.appendChild(tEl); setTimeout(() => tEl.remove(), 2400); };
   app.onKey = (e) => { if (app.mode && app.mode.key && app.mode.key(e)) e.preventDefault(); };

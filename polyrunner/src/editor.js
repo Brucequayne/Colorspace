@@ -3,13 +3,15 @@ import * as THREE from "three";
 import { t, addTexts, L2, el, esc, store, KEYS, PRU, clamp, r3, uid, download, DEG } from "pru/core.js";
 import { concrete } from "pru/engine.js";
 import { Prism, ccw, area, DEFAULT_COLOR, MAP_FORMAT, MARK } from "pru/world.js";
+import { TESTMAPS } from "pru/testmaps.js";
 
 addTexts({
   tBuild: L2("Bauen", "Build"), tStart: L2("Start", "Start"), tFinish: L2("Ziel", "Finish"), tTest: L2("Test-Start", "Test start"), tPaint: L2("Farbe", "Paint"), tErase: L2("Löschen", "Erase"),
   sRect: L2("Viereck", "Rectangle"), sTri: L2("Dreieck", "Triangle"), sCircle: L2("Kreis", "Circle"), sHex: L2("Hexagon", "Hexagon"),
   eTestS: L2("Testen", "Test"), eTestFrom: L2("ab Test-Start", "from test start"), eTestStart: L2("ab Start", "from start"),
-  eSky: L2("Himmel", "Sky"), eChar: L2("Charakter", "Character"), eFile: L2("Datei", "File"), eMenu: L2("Menü", "Menu"),
+  eSky: L2("Himmel", "Sky"), eChar: L2("Charakter", "Character"), eAnim: L2("Animationen", "Animations"), eFile: L2("Datei", "File"), eMenu: L2("Menü", "Menu"),
   eTime: L2("Tageszeit", "Time of day"), eCycle: L2("Tageszyklus läuft", "Day cycle running"), eSpeed: L2("Tempo", "Speed"),
+  eTestMaps: L2("Testgelände laden", "Load test course"), eTestQ: L2("Testgelände laden? Die aktuelle Map wird ersetzt (Strg+Z macht es rückgängig, vorher exportieren schadet nicht).", "Load the test course? The current map is replaced (Ctrl+Z undoes it; exporting first doesn't hurt)."),
   eName: L2("Name der Map", "Map name"), eNew: L2("Neue Map", "New map"), eOpen: L2("Öffnen …", "Open …"), eExport: L2("Exportieren", "Export"),
   eNewQ: L2("Neue, leere Map anfangen? Die aktuelle Map wird verworfen (vorher exportieren!).", "Start a new, empty map? The current map will be discarded (export it first!)."),
   eBadFile: L2("Das ist keine PolyRunner-Map.", "This is not a PolyRunner map."), eLoaded: L2("Map geladen", "Map loaded"), eExported: L2("Map exportiert", "Map exported"),
@@ -73,6 +75,7 @@ export class Editor {
         '<button class="pru-ib" data-pop="sky" title="' + T("eSky") + '">' + svg("sky") + "</button>" +
         '<button class="pru-ib" data-pop="file" title="' + T("eFile") + '">' + svg("file") + "</button>" +
         '<button class="pru-tb" data-a="char" title="' + T("eChar") + '">' + T("eChar") + "</button>" +
+        '<button class="pru-tb" data-a="anim" title="' + T("eAnim") + '">' + T("eAnim") + "</button>" +
         '<button class="pru-tb" data-a="test0" id="pru-test0" title="Shift+Enter" hidden>' + svg("play") + "<span>" + T("eTestStart") + "</span></button>" +
         '<button class="pru-tb pru-pri" data-a="test" title="Enter">' + svg("play") + "<span>" + T("eTestS") + '</span><small id="pru-tfrom"></small></button>' +
         '<button class="pru-tb" data-a="menu">' + T("eMenu") + "</button></div>" +
@@ -81,6 +84,7 @@ export class Editor {
         '<label>' + T("eSpeed") + '</label><div class="pru-seg" id="pru-speed">' + [[1, "1×"], [5, "5×"], [30, "30×"]].map((o) => '<button data-sp="' + o[0] + '">' + o[1] + "</button>").join("") + "</div></div>" +
       '<div class="pru-pop" id="pru-pop-file" hidden><label>' + T("eName") + '</label><input type="text" id="pru-name" maxlength="40">' +
         '<div class="pru-col"><button data-a="new">' + T("eNew") + '</button><button data-a="open">' + T("eOpen") + '</button><button data-a="export" class="pru-pri">' + T("eExport") + "</button></div>" +
+        "<label>" + T("eTestMaps") + '</label><div class="pru-col">' + TESTMAPS.map((m, i) => '<button data-tm="' + i + '" title="' + esc(PRU.lang === "en" ? m.note.en : m.note.de) + '">' + esc(PRU.lang === "en" ? m.en : m.de) + "</button>").join("") + "</div>" +
         '<p id="pru-count"></p><input type="file" id="pru-file" accept=".json,.txt,application/json" hidden></div>' +
       '<div class="pru-ctx" id="pru-ctx-build">' + shp("rect", "sRect", 1) + shp("tri", "sTri", 2) + shp("circle", "sCircle", 3) + shp("hex", "sHex", 4) + '<span class="pru-rot" id="pru-rot"></span></div>' +
       '<div class="pru-ctx" id="pru-ctx-paint">' + PALETTE.map((c) => '<button class="pru-sw" data-col="' + c + '" style="background:' + c + '"></button>').join("") +
@@ -106,12 +110,14 @@ export class Editor {
     if (b.hasAttribute("data-shape")) { this.shape = b.getAttribute("data-shape"); this.setTool("build"); return; }
     if (b.hasAttribute("data-col")) { this.color = b.getAttribute("data-col"); this.refreshPalette(); this.saveUI(); return; }
     if (b.hasAttribute("data-sp")) { this.engine.setEnv({ speed: +b.getAttribute("data-sp") }); this.markSpeed(); this.saveSky(); return; }
+    if (b.hasAttribute("data-tm")) { const m = TESTMAPS[+b.getAttribute("data-tm")]; if (m && confirm(t("eTestQ"))) { this.commit(() => { this.world.load(JSON.parse(JSON.stringify(m.map))); }); this.world.setShowTest(true); this.refreshInfo(); } return; }
     if (b.hasAttribute("data-pop")) { const id = b.getAttribute("data-pop"); ["sky", "file"].forEach((k) => { const p = this.$("#pru-pop-" + k); p.hidden = k !== id ? true : !p.hidden; }); this.refreshInfo(); return; }
     const a = b.getAttribute("data-a");
     if (a === "test") this.test(this.world.map.test && !e.shiftKey ? "test" : "start");
     else if (a === "test0") this.test("start");
     else if (a === "menu") { this.save(); this.app.go("menu"); }
     else if (a === "char") { this.save(); this.app.editorCam = this.cam; this.app.go("char"); }
+    else if (a === "anim") { this.save(); this.app.editorCam = this.cam; this.app.animFrom = "editor"; this.app.go("anim"); }
     else if (a === "undo") this.doUndo(); else if (a === "redo") this.doRedo();
     else if (a === "new") { if (confirm(t("eNewQ"))) { this.commit(() => { this.world.load(null); }); this.world.map.name = "Neue Map"; this.refreshInfo(); } }
     else if (a === "open") this.$("#pru-file").click();

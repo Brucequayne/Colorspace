@@ -9,8 +9,27 @@ import * as THREE from "three";
 import { damp, clamp, lerp } from "pru/core.js";
 
 // Stellschrauben der Animation (Faktoren, 1 = Standard), im Tweaker des Testlaufs einstellbar
-export const ANIM = { stride: 1, lift: 1, bob: 1, lean: 1, roll: 1, arms: 1, elbow: 1, sway: 1, twist: 1, spring: 1, damp: 1 };
+// Standard = Noahs Tweaker-Werte vom 28.11.2026
+export const ANIM = { stride: 1.09, lift: 0.37, bob: 1.58, lean: 1, roll: 1.16, arms: 1.61, elbow: 0.71, sway: 2.17, twist: 1.55, spring: 0.68, damp: 0.76 };
 export const ANIM_DEF = Object.assign({}, ANIM);
+// Haltungen je Animation (seit v0.22, Animations-Editor): zusätzliche Drehung je Körperteil in Grad [vor/zurück, drehen, seitlich],
+// Vorneigung des ganzen Körpers (Grad) und Hüfthöhe (cm). Gewichtet damit, wie stark die Animation gerade läuft.
+// Paare (Schultern, Arme, Hände, Beine, Füße) gelten für links, rechts gespiegelt. Standard = POSE_DEF, Noahs Werte aus PolyRunner_Animationen.json hier eintragen.
+export const POSE_PARTS = [["hips", "Hips"], ["spine", "Spine"], ["chest", "Chest"], ["neck", "Neck"], ["head", "Head"], ["shoulder", "Shoulder", 1], ["uarm", "UpperArm", 1], ["larm", "LowerArm", 1], ["hand", "Hand", 1], ["uleg", "UpperLeg", 1], ["lleg", "LowerLeg", 1], ["foot", "Foot", 1]];
+export const ANIM_KEYS = ["idle", "walk", "run", "sprint", "crouch", "rough", "stairsUp", "stairsDown", "hop", "swing", "jump", "fall", "land", "roll", "slide", "getup", "wallrun", "climb", "hang", "pullup", "vaultHands", "vaultStep", "stun"];
+export const POSE_DEF = {
+  // Sprint: mehr nach vorne (Noah: „beim Sprinten ist der Körper zu gerade“), Kopf bleibt oben
+  sprint: { lean: 5, hip: -1, parts: { spine: [5, 0, 0], chest: [4, 0, 0], neck: [-6, 0, 0], head: [-3, 0, 0] } }
+};
+export function clonePose(o) {
+  const r = {}; ANIM_KEYS.forEach((k) => { const a = o && o[k]; if (!a) return; const q = { lean: +a.lean || 0, hip: +a.hip || 0, parts: {} };
+    POSE_PARTS.forEach(([p]) => { const v = a.parts && a.parts[p]; if (Array.isArray(v) && v.some((x) => +x)) q.parts[p] = [+v[0] || 0, +v[1] || 0, +v[2] || 0]; });
+    if (q.lean || q.hip || Object.keys(q.parts).length) r[k] = q; });
+  return r;
+}
+export const POSE = clonePose(POSE_DEF);
+export function setPose(o) { for (const k in POSE) delete POSE[k]; Object.assign(POSE, clonePose(o)); }
+const DEG = Math.PI / 180;
 export const HIP_H = 0.9, L_THIGH = 0.415, L_SHIN = 0.415, ANKLE = 0.07, L_UARM = 0.28, L_LARM = 0.3;
 // [Name, Elternknochen, Position relativ zum Eltern]
 export const BONES = [
@@ -53,7 +72,8 @@ export class Runner {
     this.scene = scene; this.world = null; this.ws = 1;   // ws = Weltmaßstab (Runner rechnet in 1,8-m-Einheiten, hängt dann in einer skalierten Gruppe)
     this.cur = {}; this.jv = {}; this.sp = {};    // Gelenkwinkel und -geschwindigkeiten (Federn)
     this.t = 0; this.phase = 0; this.lean = 0; this.roll = 0; this.flip = 0; this.hipY = 0; this.armPh = 0; this.airPh = 0;
-    this.pelOff = 0; this.foot = { Left: { o: 0, p: 0 }, Right: { o: 0, p: 0 } }; this.ikW = 0; this.rag = null;
+    this.pelOff = 0; this.foot = { Left: { o: 0, p: 0, dx: 0, w: 1 }, Right: { o: 0, p: 0, dx: 0, w: 1 } }; this.ikW = 0; this.rag = null;
+    this.terr = { up: 0, dn: 0, rough: 0 };   // Gelände: Treppe hoch/runter, Hindernisse (geglättet)
     this.lastMode = "idle"; this.blend = 0; this.jump = null; this.lastJumpId = 0; this.gaitBeta = 0.3; this.pend = null; this.pivZ = 0; this.brushW = 0; this.hipPrev = 0;
   }
   buildBody(hex) {
@@ -91,21 +111,21 @@ export class Runner {
     for (let k = 0; k < n; k++) { S.v += (w * w * (target - S.x) - 2 * zeta * w * S.v) * h; S.x += S.v * h; }
     return S.x;
   }
-  // Untergrund unter einem Fuß: Höhenunterschied zur Figur und Neigung in Laufrichtung
-  ground(side, f, lat) {
-    const F = this.foot[side];
-    if (!this.world) return F;
+  // Untergrund an einer Stelle (lokal: f vor, lat seitlich vom Hüftgelenk): Höhe relativ zur Figur und Neigung in Laufrichtung
+  probeG(side, f, lat) {
+    if (!this.world) return { o: 0, p: 0 };
     const y = this.root.rotation.y, px = (side === "Left" ? 0.1 : -0.1) + lat, c = Math.cos(y), s = Math.sin(y);
     const x = this.root.position.x + px * c + f * s, z = this.root.position.z - px * s + f * c, by = this.root.position.y;
     const hit = this.world.ray(_v.set(x, by + 0.62, z), DOWN, 1.25, false);
     let o = -0.5, p = 0;
     if (hit) {
-      o = clamp(hit.point.y - by, -0.5, 0.48);
+      o = clamp(hit.point.y - by, -0.5, 0.6);
       if (hit.face) { const n = hit.face.normal.clone().transformDirection(hit.object.matrixWorld); p = clamp(Math.atan2(n.x * s + n.z * c, n.y), -0.6, 0.6); }
     }
-    F.tgt = o; F.pt = p;
-    return F;
+    return { o: o, p: p };
   }
+  // Untergrund unter einem Fuß (für Ducken, Stolpern): Ziel merken, geglättet wird in leg()
+  ground(side, f, lat) { const F = this.foot[side], g = this.probeG(side, f, lat); F.tgt = g.o; F.pt = g.p; return F; }
   // Zwei-Knochen-IK (Arm oder Bein): Ende an Weltpunkt, Ellbogen/Knie zeigt Richtung pole
   limbIK(upper, lower, l1, l2, target, pole, w) {
     if (w <= 0.001) return;
@@ -129,7 +149,7 @@ export class Runner {
     if (this.rag) this.rag = null;
     const sp = s.speed, mode = s.mode, loco = mode === "run" || mode === "idle";
     // Modus gewechselt: kurz weicher überblenden
-    if (mode !== this.lastMode) { this.blend = 1; this.lastMode = mode; }
+    if (mode !== this.lastMode) { this.blend = 1; this.lastMode = mode; if (mode === "vault" && s.climb && s.climb.kind === "swing") this.swingSide = -(this.swingSide || -1); }
     this.blend = Math.max(0, this.blend - dt / 0.28);
     // Absprung erkannt: welches Bein steht gerade am Boden bzw. ist vorne?
     if (s.jumpId !== this.lastJumpId) {
@@ -146,14 +166,18 @@ export class Runner {
       vault: [22, 0.8], pullup: [19, 0.82], slide: [24, 0.8], getup: [26, 0.78], roll: [34, 1], impact: [28, 0.7], stun: [22, 0.7] }[mode] || [22, 0.8];
     const W = MP[0] * (1 - 0.4 * this.blend) * ANIM.spring, Z = Math.min(1.3, MP[1] * ANIM.damp);
     const P = {};   // Ziel-Pose: Name → [x, y, z]
+    // Haltungen aus dem Animations-Editor: wie stark läuft welche Animation gerade?
+    const PW = this.pw = this.poseWeights(s, mode, sp); let poseLean = 0, poseHip = 0;
+    for (const k in PW) { const A = POSE[k], w = PW[k]; if (!A || w < 0.002) continue; poseLean += A.lean * DEG * w; poseHip += A.hip * 0.01 * w; }
     let lean = 0, roll = 0, hipY = 0, flip = 0, comp = 0, grounded = false, terrain = false, hands = null, spineBend = 0, bob = 0, pivZ = 0;
     let leanW = 13, leanZ = 0.6, rollW = 13, rollZ = 0.65, hipW = 26, hipZ = 0.5, legIKs = null;
     // Bein per IK: Fuß f vor / d unter der Hüfte, lat seitlich (+ = links), wp = Fußneigung in der Welt (+ = Zehen runter).
     // Die Neigung des Körpers wird herausgerechnet, bei Bodenkontakt auch Hüftsenkung und Untergrund.
-    const leg = (side, f, d, lat, wp) => {
+    const leg = (side, f, d, lat, wp, own) => {
       if (grounded) {
-        d += hipY + bob + this.pelOff;
-        if (terrain) { const F = this.ground(side, f, lat || 0); F.o = damp(F.o, F.tgt, 22, dt); F.p = damp(F.p, F.pt, 14, dt); d -= F.o; if (wp != null) wp += F.p; else wp = F.p; }
+        d += hipY + bob + this.pelOff + poseHip;
+        if (own) { const F = this.foot[side]; d -= F.o; if (wp != null) wp += F.p; else wp = F.p; }
+        else if (terrain) { const F = this.ground(side, f, lat || 0); F.o = damp(F.o, F.tgt, 22, dt); F.p = damp(F.p, F.pt, 14, dt); d -= F.o; if (wp != null) wp += F.p; else wp = F.p; }
       }
       const c = Math.cos(comp), sn = Math.sin(comp), a = legIK(f * c + d * sn, d * c - f * sn);
       P[side + "UpperLeg"] = [a[0], 0, lat ? Math.atan2(lat, Math.max(0.3, d)) : 0]; P[side + "LowerLeg"] = [a[1], 0, 0];
@@ -165,33 +189,37 @@ export class Runner {
 
     if (loco) {
       // ---- Gehen, Laufen, Sprinten, Stehen: ein durchgehender Gangzyklus ----
+      // Gelände (seit v0.22): Treppe hoch/runter und unruhiger Boden (Korrekturschritte) ändern Schrittlänge, Knieheben, Haltung und Fußsetzen
+      const T3 = this.terr;
+      T3.up = damp(T3.up, s.up > 0 ? 1 : 0, s.up > 0 ? 6 : 2.2, dt); T3.dn = damp(T3.dn, s.down > 0 && !(s.rough > 0) ? 1 : 0, s.down > 0 ? 6 : 2.2, dt); T3.rough = damp(T3.rough, s.rough > 0 ? 1 : 0, s.rough > 0 ? 5 : 1.5, dt);
+      const tU = T3.up * (1 - T3.rough), tD = T3.dn * (1 - T3.rough), tR = T3.rough;
       const v = s.turning ? Math.max(sp, 0.9) : sp;
       const rf = smoothK((v - 1.9) / 1.1), mv = clamp(v / 0.9, 0, 1), kv = clamp(v / 9.6, 0, 1);
-      const cad = lerp(0.62 + 0.27 * v, 1.28 + 0.1 * Math.max(0, v - 3), rf) / ANIM.stride;
+      const cad = lerp(0.62 + 0.27 * v, 1.28 + 0.1 * Math.max(0, v - 3), rf) / ANIM.stride * (1 + 0.2 * tR + 0.1 * tU + 0.14 * tD);   // kürzere, schnellere Schritte im Gelände
       const bMax = lerp(0.6, clamp(0.44 - 0.02 * v, 0.26, 0.44), rf), SLmax = lerp(0.72, 0.86, rf);
       const beta = clamp(Math.min(bMax, SLmax * cad / Math.max(v, 0.05)), 0.18, 0.62); this.gaitBeta = beta;
       const SL = s.turning && sp < 0.3 ? 0.14 : v * beta / cad;
       if (v > 0.04) this.phase = (this.phase + dt * cad) % 1;
-      const H = lerp(0.05 + 0.03 * v, 0.03 + 0.012 * v + 0.028 * kv * kv * 9.6, rf) * mv * ANIM.lift, Lf = SL * 0.4, Lb = SL * 0.6;
+      const H = (lerp(0.05 + 0.03 * v, 0.03 + 0.012 * v + 0.028 * kv * kv * 9.6, rf) * ANIM.lift + 0.08 * tU + 0.07 * tR + 0.025 * tD) * mv, Lf = SL * 0.4, Lb = SL * 0.6;
       const ga = s.back ? wrapA((s.moveRel || 0) - Math.PI) : (s.moveRel || 0), cg = Math.cos(ga), sg = Math.sin(ga);
       const pL = this.phase, br = Math.sin(this.t * 1.7), still = 1 - mv;
-      const bobA = (0.016 * (1 - rf) - (0.018 + 0.0028 * v) * rf) * mv * ANIM.bob;
+      const bobA = (0.016 * (1 - rf) - (0.018 + 0.0028 * v) * rf) * mv * ANIM.bob * (1 - 0.5 * Math.max(tU, tD, tR));
       bob = bobA * Math.cos(4 * Math.PI * (pL - beta / 2));
-      hipY = -(0.012 + 0.0022 * v) * rf * mv - clamp(-s.acc * 0.007, 0, 0.06) * mv - s.land * 0.24 + (br * 0.005 - 0.006) * still;
-      lean = ((s.back ? -0.07 : lerp(0.02, 0.06, rf) + 0.12 * kv * kv) * mv + clamp(s.acc * 0.05, -0.34, 0.36)) * ANIM.lean + s.land * 0.2;
+      hipY = -(0.012 + 0.0022 * v) * rf * mv - clamp(-s.acc * 0.007, 0, 0.06) * mv - s.land * 0.24 + (br * 0.005 - 0.006) * still - (0.04 * tD + 0.03 * tR) * mv + clamp(s.lag || 0, 0, 0.3) * 0.65 * tU;   // Treppe hoch: Becken folgt schon der nächsten Stufe (sonst hinkt es hinterher)
+      lean = ((s.back ? -0.07 : lerp(0.02, 0.06, rf) + 0.12 * kv * kv) * mv + clamp(s.acc * 0.05, -0.34, 0.36)) * ANIM.lean + s.land * 0.2 + (0.12 * tU - 0.08 * tD + 0.05 * tR) * mv;
       // die Neigung verteilt sich: gut die Hälfte kippt das Becken, der Rest biegt die Wirbelsäule (kein steifes Brett)
       grounded = true; terrain = true;
-      roll = clamp(-s.lat / 9.81, -0.42, 0.42) * 0.9 * ANIM.roll + Math.sin(this.t * 0.5) * 0.012 * still;
+      roll = clamp(-s.lat / 9.81, -0.42, 0.42) * 0.9 * ANIM.roll + Math.sin(this.t * 0.5) * 0.012 * still + Math.sin(this.t * 3.3) * 0.055 * tR * mv;   // Balance über Hindernisse
       const leanNow = this.sp.lean ? this.sp.lean.x : lean; comp = leanNow * 0.6; spineBend = leanNow * 0.4;
       const xs = [];
       ["Left", "Right"].forEach((side, i) => {
-        const p = (pL + i * 0.5) % 1; let x, h, wp;
-        if (p < beta) {
-          const k = p / beta; x = Lf - (Lf + Lb) * k;
+        const p = (pL + i * 0.5) % 1, F = this.foot[side], stanceNow = p < beta; let x, h, wp, q = 0, k = 0;
+        if (stanceNow) {
+          k = p / beta; x = Lf - (Lf + Lb) * k;
           const ho = Math.max(0, -x - 0.06); h = ho * lerp(0.12, 0.3, rf); wp = Math.min(0.9, ho * 2.4);
           if (rf < 1 && k < 0.18) wp -= (1 - rf) * 0.22 * (1 - k / 0.18);
         } else {
-          const q = (p - beta) / (1 - beta), sharp = rf * kv;
+          q = (p - beta) / (1 - beta); const sharp = rf * kv;
           const xq = lerp((1 - Math.cos(Math.PI * q)) / 2, 1 - Math.pow(1 - q, 1.9), sharp);
           x = -Lb + (Lf + Lb) * xq;
           h = H * Math.sin(Math.PI * Math.pow(q, lerp(0.85, 0.62, sharp))); wp = (0.7 * Math.pow(1 - q, 1.5) - (1 - rf) * 0.22 * Math.pow(q, 4)) * mv;
@@ -199,18 +227,39 @@ export class Runner {
         if (s.back) x = -x;
         xs.push(x);
         const out = i === 0 ? 1 : -1;
-        const lat = x * sg + out * (lerp(0.03, -0.01, rf) * mv + 0.035 * still);
-        leg(side, x * cg + still * (i === 0 ? 0.04 : -0.03), stand - h, lat, wp);
+        // Korrekturschritte: jeder Schritt etwas anders gesetzt (breiter, mal mehr, mal weniger), Fußspitzen leicht nach außen
+        if (!stanceNow && F.st) { F.st = false; F.n = (F.n || 0) + 1; F.y0 = F.o; }   // Abheben: neuer Schritt
+        if (stanceNow && !F.st) F.st = true;
+        F.lo = damp(F.lo || 0, tR * (0.04 + 0.035 * Math.sin((F.n || 0) * 2.7 + i * 1.3)), 9, dt);
+        const lat = x * sg + out * (lerp(0.03, -0.01, rf) * mv + 0.035 * still + F.lo);
+        const fx = x * cg + still * (i === 0 ? 0.04 : -0.03);
+        // Füße im Gelände: Standfuß bleibt auf seinem Untergrund, Schwungfuß hebt über Kanten und landet ganz auf der nächsten Stufe
+        if (this.world) {
+          if (stanceNow) { const g = this.probeG(side, fx + F.dx, lat); F.o = damp(F.o, g.o, 30, dt); F.p = damp(F.p, g.p, 14, dt); }
+          else {
+            const xl = Lf * cg;
+            if (q > 0.3) { const ga2 = this.probeG(side, xl - 0.07, lat), gb2 = this.probeG(side, xl + 0.07, lat); F.dx = damp(F.dx, Math.abs(ga2.o - gb2.o) > 0.035 ? 0.1 : 0, 9, dt); }
+            else F.dx = damp(F.dx, 0, 8, dt);
+            const gl = this.probeG(side, xl + F.dx, lat), gn = this.probeG(side, fx + F.dx, lat), y0 = F.y0 == null ? F.o : F.y0;
+            F.o = damp(F.o, Math.max(lerp(y0, gl.o, smoothK(q * 1.25)), gn.o), 22, dt); F.p = damp(F.p, gl.p * q, 10, dt);
+            if (Math.abs(gl.o - y0) > 0.03) h += Math.min(0.09, Math.abs(gl.o - y0) * 0.4 + 0.03) * Math.sin(Math.PI * q);   // Knie höher über die Kante
+          }
+        }
+        // wie stark dieser Fuß das Becken nach unten zieht: früh im Stand voll, am Ende kaum (Ferse hebt ab, Zehen drücken)
+        F.w = stanceNow ? 1 - 0.75 * k * k : 0.15;
+        leg(side, fx + F.dx, stand - h, lat, wp, !!this.world);
+        if (tR > 0.01) add(side + "Foot", 0, -out * 0.3 * tR, 0);
       });
       // Becken dreht mit dem vorderen Bein, Schultern dagegen, die Wirbelsäule biegt sich mit jedem Schritt etwas zur Standseite
       const pr = -0.22 * (xs[0] - xs[1]) * (0.35 + 0.65 * rf), nR = clamp((xs[1] - xs[0]) / Math.max(Lf + Lb, 0.25), -1, 1);
-      const A = lerp(0.24, 0.36 + 0.05 * v, rf) * mv * ANIM.arms, eb = (lerp(0.3, 1.2 + 0.03 * v, rf) * mv + 0.18 * still) * ANIM.elbow;
-      arm("Left", -A * nR + 0.05 * still + br * 0.015 * still, -(eb + 0.3 * Math.max(0, nR) * rf), lerp(0.09, 0.14, rf));
-      arm("Right", A * nR + 0.05 * still + br * 0.015 * still, -(eb + 0.3 * Math.max(0, -nR) * rf), lerp(0.09, 0.14, rf));
+      const A = lerp(0.24, 0.36 + 0.05 * v, rf) * mv * ANIM.arms * (1 - 0.45 * tR), eb = (lerp(0.3, 1.2 + 0.03 * v, rf) * mv + 0.18 * still) * ANIM.elbow;
+      const ao = lerp(0.09, 0.14, rf) + 0.32 * tR + 0.1 * tD;   // Arme zur Balance etwas raus
+      arm("Left", -A * nR + 0.05 * still + br * 0.015 * still, -(eb + 0.3 * Math.max(0, nR) * rf), ao);
+      arm("Right", A * nR + 0.05 * still + br * 0.015 * still, -(eb + 0.3 * Math.max(0, -nR) * rf), ao);
       const sway = Math.sin(Math.PI * 2 * pL) * 0.045 * mv * (0.4 + 0.6 * rf) * ANIM.sway;
       P.Hips = [0, pr, -sway * 0.4];
       P.Spine = [spineBend * 0.45 + br * 0.012 * still, -pr * 0.55, sway]; P.Chest = [spineBend * 0.55 + 0.03 - br * 0.008 * still, -pr * 0.9, sway * 0.6];
-      P.Neck = [-leanNow * 0.75, -pr * 0.25, -roll * 0.5 - sway * 1.2]; P.Head = [-0.03, 0, 0];
+      P.Neck = [-leanNow * 0.75 + 0.1 * tD, -pr * 0.25, -roll * 0.5 - sway * 1.2]; P.Head = [-0.03 + 0.12 * tD + 0.06 * tR, 0, 0];   // runter: auf die Stufen schauen
       // an der Wand entlang: Hand stützt sich ab, Körper lehnt leicht weg
       if (s.brush) {
         this.brushW = damp(this.brushW, 1, 10, dt);
@@ -296,6 +345,15 @@ export class Runner {
         const ah = lerp(-2.6, 0.15, p2), ae = lerp(-0.6, -0.25, p2); arm("Left", ah, ae, 0.3); arm("Right", ah, ae, 0.3);
         P.Neck = [lerp(-0.3, -0.6, p2) * (1 - p3), 0, 0]; P.Spine = [0.15 * p2 * (1 - p3), 0, 0]; hipY = lerp(0, -0.12, p2) * (1 - p3);
         hw = k < 0.7 ? 1 : 1 - smoothK((k - 0.7) / 0.25);
+      } else if (C.kind === "swing") {
+        // Schwung-Klettern (bis Hüfthöhe, linke Maus): Hände kurz auf die Kante, Beine angezogen und leicht zur Seite geschwungen, oben im Lauf weiter
+        const sd = this.swingSide || 1, p1 = smoothK(k / 0.35), p2 = smoothK((k - 0.12) / 0.45), p3 = smoothK((k - 0.62) / 0.38), tk = p2 * (1 - p3);
+        lean = lerp(0.18, 0.5, p1) * (1 - p3) + 0.12 * p3; comp = lean * 0.8; hipY = -0.08 * tk; roll = -sd * 0.32 * tk; rollW = 18;
+        leg("Left", lerp(0.05, 0.4, tk) + 0.1 * p3, lerp(stand - 0.05, 0.3, tk) + 0.05 * p3, 0.04 + sd * 0.2 * tk);
+        leg("Right", lerp(-0.12, 0.3, tk) - 0.05 * p3, lerp(stand - 0.02, 0.38, tk), -0.04 + sd * 0.2 * tk);
+        const ah = lerp(-1.25, -0.2, p3); arm("Left", ah, -0.35, 0.22 + 0.2 * p3); arm("Right", ah, -0.35, 0.22 + 0.2 * p3);
+        P.Spine = [0.15 * tk, sd * 0.18 * tk, 0]; P.Chest = [0.1 * tk, sd * 0.14 * tk, 0]; P.Neck = [-0.35 * (1 - p3), -sd * 0.12 * tk, 0];
+        hw = k < 0.5 ? smoothK(k / 0.12) : 1 - smoothK((k - 0.5) / 0.22);
       } else if (C.kind === "hands") {
         const p1 = smoothK(k / 0.5), p2 = smoothK((k - 0.42) / 0.58);
         lean = lerp(0.45, 0.65, p1) * (1 - p2) + 0.12 * p2; comp = lean; hipY = lerp(-0.05, -0.28, p1) * (1 - p2);
@@ -336,8 +394,17 @@ export class Runner {
       arm("Left", lerp(ar - 0.4, -1.4 + Math.sin(b) * 1.25, wm), lerp(-0.5, -0.35, wm), lerp(0.35 + (1 - tuck) * 0.4, 0.45 + drop * 0.4 + Math.cos(b) * 0.25, wm));
       arm("Right", lerp(ar + 0.3, -1.4 + Math.sin(b + Math.PI) * 1.25, wm), lerp(-0.7, -0.35, wm), lerp(0.35 + (1 - tuck) * 0.4, 0.45 + drop * 0.4 + Math.cos(b + Math.PI) * 0.25, wm));
       P.Neck = [-0.1 + drop * 0.2, 0, 0];
+      // Mini-Hüpfer (linke Maus, bis Kniehöhe): kurzer Hupf, Knie hoch, vorderer Fuß greift nach der Oberkante
+      if (s.hop) {
+        const hk = clamp(s.hop.t / 0.42, 0, 1), tk = Math.sin(Math.PI * Math.min(1, hk * 1.15)), hh = clamp(s.hop.h / 0.6, 0.3, 1);
+        const J = this.jump, Ld = J && J.leg === "Left" ? "Right" : "Left", Tk = Ld === "Left" ? "Right" : "Left", sl = Ld === "Left" ? 1 : -1;
+        leg(Ld, 0.18 + 0.12 * tk, stand - (0.12 + 0.36 * hh) * tk, sl * 0.05);
+        leg(Tk, -0.12 + 0.2 * tk, stand - (0.06 + 0.26 * hh) * tk, -sl * 0.05);
+        arm(Ld, 0.25 - 0.5 * tk, -0.7, 0.22); arm(Tk, -0.55 - 0.45 * tk, -0.9, 0.25);
+        lean = 0.14 + 0.1 * tk; comp = lean; P.Neck = [-0.12, 0, 0]; P.Spine = [0.06 * tk, sl * 0.06, 0];
+      }
       // Absprung-Pose: Sprungbein streckt nach hinten, Schwungbein zieht das Knie hoch, Gegenarm schwingt nach vorne
-      if (this.jump && !s.wallJump) {
+      if (this.jump && !s.wallJump && !s.hop) {
         const J = this.jump, jk = (1 - smoothK((J.t - 0.08) / 0.45)) * (s.vy > -3 ? 1 : 0.4);
         const mix = (n, v) => { const p = P[n] || (P[n] = [0, 0, 0]); for (let i = 0; i < 3; i++) p[i] = lerp(p[i], v[i], jk); };
         if (J.leg === "Both") {
@@ -355,6 +422,13 @@ export class Runner {
           mix("Spine", [0.1, sg * 0.14, 0]); mix("Chest", [0.06, sg * 0.12, 0]); lean = lerp(lean, 0.2, jk);
         }
       }
+    }
+    // Haltungen aus dem Animations-Editor addieren
+    lean += poseLean; hipY += poseHip;
+    for (const k in PW) {
+      const A = POSE[k], w = PW[k]; if (!A || w < 0.002) continue;
+      POSE_PARTS.forEach(([pk, bn, pair]) => { const v = A.parts[pk]; if (!v) return; const x = v[0] * DEG * w, y = v[1] * DEG * w, z = v[2] * DEG * w;
+        if (pair) { add("Left" + bn, x, y, z); add("Right" + bn, x, -y, -z); } else add(bn, x, y, z); });
     }
     // Oberkörper zur Blickrichtung drehen (Hüfte zeigt in Laufrichtung)
     const tw = (s.twist || 0) * ANIM.twist;
@@ -376,7 +450,7 @@ export class Runner {
       this.j(n, p[0], p[1], p[2], /Leg|Foot/.test(n) && loco ? Math.max(W, 30) : W, z, dt);
     }
     this.flip = mode === "roll" ? flip : damp(this.flip, 0, 30, dt);
-    if (terrain) this.pelOff = damp(this.pelOff, clamp(Math.min(0, this.foot.Left.o, this.foot.Right.o), -0.4, 0), 12, dt);
+    if (terrain) { const FL = this.foot.Left, FR = this.foot.Right, lw = loco ? FL.w : 1, rw = loco ? FR.w : 1; this.pelOff = damp(this.pelOff, clamp(Math.min(0, FL.o * lw, FR.o * rw), -0.4, 0), 12, dt); }
     else { this.pelOff = damp(this.pelOff, 0, 10, dt); this.foot.Left.o = damp(this.foot.Left.o, 0, 10, dt); this.foot.Right.o = damp(this.foot.Right.o, 0, 10, dt); }
     this.pivZ = damp(this.pivZ, pivZ, 10, dt);
     const leanPiv = loco || mode === "crouch" || mode === "impact" || mode === "stun" ? comp : this.lean;
@@ -394,6 +468,20 @@ export class Runner {
     }
     if (legIKs) { this.legW = damp(this.legW || 0, 1, 12, dt); legIKs.forEach((L) => this.limbIK(L.side + "UpperLeg", L.side + "LowerLeg", L_THIGH, L_SHIN, L.target, L.pole, this.legW)); }
     else this.legW = 0;
+  }
+  // Gewicht je Animation (0…1) für die Haltungen aus dem Animations-Editor
+  poseWeights(s, mode, sp) {
+    const W = {}, loco = mode === "run" || mode === "idle";
+    if (loco) {
+      const rf = smoothK((sp - 1.9) / 1.1), mv = clamp(sp / 0.9, 0, 1), sw = smoothK((sp - 6.6) / 2.4), T3 = this.terr, r = T3.rough, g = 1 - Math.max(r, T3.up * (1 - r), T3.dn * (1 - r)) * 0.5;
+      W.idle = 1 - mv; W.walk = mv * (1 - rf); W.run = mv * rf * (1 - sw); W.sprint = mv * rf * sw;
+      W.rough = r * mv; W.stairsUp = T3.up * (1 - r) * mv; W.stairsDown = T3.dn * (1 - r) * mv; W.land = s.land || 0;
+      W.walk *= g; W.run *= g; W.sprint *= g;
+    } else if (mode === "air") { if (s.hop) W.hop = 1; else if (s.vy > 0) W.jump = 1; else W.fall = 1; }
+    else if (mode === "vault") { const kd = s.climb && s.climb.kind; W[kd === "swing" ? "swing" : kd === "hands" ? "vaultHands" : "vaultStep"] = 1; }
+    else if (mode === "impact" || mode === "stun") W.stun = 1;
+    else if (ANIM_KEYS.indexOf(mode) >= 0) W[mode] = 1;
+    return W;
   }
   // Pendel: Winkel th (zur Wand hin/weg) und ph (seitlich) um die Hände; Anfangsschwung aus der Geschwindigkeit beim Greifen
   pendulum(dt, H) {

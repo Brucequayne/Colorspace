@@ -31,7 +31,7 @@ addTexts({
   ht_glatt: L2("Glatt", "Straight"), ht_wellen: L2("Wellen", "Waves"), ht_locken: L2("Locken", "Curls"), ht_wild: L2("Wild", "Wild"), ht_braids: L2("Braids", "Braids"), ht_dreads: L2("Dreads dünn", "Dreads thin"), ht_dreadsdick: L2("Dreads dick", "Dreads thick"),
   cAnim: L2("Vorschau", "Preview"), aIdle: L2("Stehen", "Stand"), aWalk: L2("Gehen", "Walk"), aRun: L2("Laufen", "Run"), aSprint: L2("Sprinten", "Sprint"),
   cView: L2("Ansicht", "View"), vBody: L2("Ganz", "Full"), vFace: L2("Gesicht", "Face"), cSpin: L2("Drehen", "Turn"),
-  cExport: L2("Exportieren", "Export"), cImport: L2("Importieren …", "Import …"), cReset: L2("Zurücksetzen", "Reset"), cBack: L2("Zum Editor", "To the editor"),
+  cAnim2: L2("Animationen", "Animations"), cExport: L2("Exportieren", "Export"), cImport: L2("Importieren …", "Import …"), cReset: L2("Zurücksetzen", "Reset"), cBack: L2("Zum Editor", "To the editor"),
   cResetQ: L2("Aussehen auf den Standard zurücksetzen?", "Reset the look to the default?"), cBad: L2("Das ist keine PolyRunner-Figur.", "This is not a PolyRunner character."), cLoaded: L2("Figur geladen", "Character loaded"),
   cHint: L2("Linke Maus: drehen · Rechte Maus: hoch/runter · Rad: zoomen · Esc: zurück", "Left mouse: orbit · right mouse: up/down · wheel: zoom · Esc: back")
 });
@@ -89,7 +89,7 @@ export class CharEd {
       '<div class="pru-brand">POLY<b>RUNNER</b><span>' + t("cTitle") + "</span></div>" +
       '<div class="pru-chint">' + esc(t("cHint")) + "</div>" +
       '<div class="pru-right"><button class="pru-tb" data-c="export">' + t("cExport") + '</button><button class="pru-tb" data-c="import">' + t("cImport") + '</button>' +
-        '<button class="pru-tb" data-c="reset">' + t("cReset") + '</button><button class="pru-tb pru-pri" data-c="back">' + t("cBack") + "</button></div>" +
+        '<button class="pru-tb" data-c="reset">' + t("cReset") + '</button><button class="pru-tb" data-c="anim">' + t("cAnim2") + '</button><button class="pru-tb pru-pri" data-c="back">' + t("cBack") + "</button></div>" +
       '<div class="pru-cp"><div class="pru-ctab">' + ["skin", "eyes", "brows", "clothes", "hair", "rig"].map((k) => '<button data-tab="' + k + '">' + t("c" + k[0].toUpperCase() + k.slice(1)) + "</button>").join("") + '</div><div class="pru-cbody" id="pru-cbody"></div></div>' +
       '<div class="pru-cbl"><b>' + t("cAnim") + '</b><div class="pru-seg" id="pru-anim">' + Object.keys(ANIMS).map((k) => '<button data-anim="' + k + '">' + t("a" + k[0].toUpperCase() + k.slice(1)) + "</button>").join("") + "</div>" +
         '<b>' + t("cView") + '</b><div class="pru-seg"><button data-view="body">' + t("vBody") + '</button><button data-view="face">' + t("vFace") + '</button><button data-spin="1">' + t("cSpin") + "</button></div></div>" +
@@ -294,6 +294,7 @@ export class CharEd {
   action(a) {
     if (a === "back") this.app.go("editor");
     else if (a === "kleid") { store.set(KEYS.char, this.look); this.app.go("kleid"); }
+    else if (a === "anim") { store.set(KEYS.char, this.look); this.app.animFrom = "char"; this.app.go("anim"); }
     else if (a === "reset") { if (confirm(t("cResetQ"))) { this.look = cloneLook(LOOK_DEFAULT); if (this.fig) this.fig.setLook(this.figLook()); store.set(KEYS.char, this.look); this.renderTab(); } }
     else if (a === "export") download("PolyRunner_Figur.json", JSON.stringify(Object.assign({ format: "polyrunner-look" }, this.look), null, 1));
     else if (a === "import") this.$("#pru-cfile").click();

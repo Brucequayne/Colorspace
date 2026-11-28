@@ -6,18 +6,19 @@
 import * as THREE from "three";
 import { BONES } from "pru/runner.js";
 
-// Standard = Werte aus figur_bauen.js (v0.14). Neues Rig von Noah → hier eintragen (und figur.bin neu bauen).
+// Standard = Noahs Rig vom 28.11.2026 (PolyRunner_Rig.json, v0.22). Neues Rig von Noah → hier eintragen und figur.bin neu bauen
+// (werkzeuge/rig_einbauen.js rechnet die Gewichte mit derselben Rechnung wie unten und schreibt sie in figur.bin).
 export const RIG_DEFAULT = {
   format: "polyrunner-rig", v: 1,
   joints: {
-    _HipsLow: [0, 0.62, -0.03], Hips: [0, 0.69, -0.03], Spine: [0, 0.78, -0.03], Chest: [0, 0.92, -0.035], Neck: [0, 1.1, -0.035], Head: [0, 1.165, -0.02], _HeadEnd: [0, 1.4, -0.02],
-    LeftShoulder: [0.025, 1.05, -0.035], LeftUpperArm: [0.125, 1.045, -0.04], LeftLowerArm: [0.216, 0.93, -0.028], LeftHand: [0.311, 0.811, 0.0], _LeftHandEnd: [0.36, 0.712, 0.03],
-    LeftUpperLeg: [0.075, 0.69, -0.03], LeftLowerLeg: [0.078, 0.375, -0.045], LeftFoot: [0.08, 0.065, -0.065], LeftToes: [0.08, 0.015, 0.03], _LeftToesEnd: [0.08, 0.01, 0.07]
+    _HipsLow: [0, 0.7133, -0.0311], Hips: [0, 0.7712, -0.0263], Spine: [0, 0.907, 0.0011], Chest: [0, 1.07, -0.0248], Neck: [0, 1.1437, -0.0217], Head: [0, 1.165, -0.02], _HeadEnd: [0, 1.4, -0.02],
+    LeftShoulder: [0.0528, 1.1208, -0.0053], LeftUpperArm: [0.1097, 1.1064, -0.0403], LeftLowerArm: [0.2068, 0.9246, -0.0518], LeftHand: [0.3185, 0.8066, -0.0003], _LeftHandEnd: [0.36, 0.712, 0.03],
+    LeftUpperLeg: [0.0783, 0.7674, -0.0335], LeftLowerLeg: [0.0925, 0.4288, -0.0458], LeftFoot: [0.08, 0.065, -0.065], LeftToes: [0.0804, 0.0159, 0.0431], _LeftToesEnd: [0.0797, 0.01, 0.0659]
   },
-  soft: 14,        // Glättungs-Runden der Gewichte (weichere Übergänge an den Gelenken)
-  armY: 0.66,      // Arme/Hände/Schultern bekommen nur Punkte oberhalb dieser Höhe
-  legY: 0.76,      // Beine/Füße bekommen nur Punkte unterhalb dieser Höhe
-  spread: 0.12     // Arme im Spiel etwas vom Körper weg (Bogenmaß), sonst streifen die Hände die Oberschenkel
+  soft: 32,        // Glättungs-Runden der Gewichte (weichere Übergänge an den Gelenken)
+  armY: 0.625,      // Arme/Hände/Schultern bekommen nur Punkte oberhalb dieser Höhe
+  legY: 0.765,      // Beine/Füße bekommen nur Punkte unterhalb dieser Höhe
+  spread: 0.09     // Arme im Spiel etwas vom Körper weg (Bogenmaß), sonst streifen die Hände die Oberschenkel
 };
 // Reihenfolge und Namen fürs Editor-Feld
 export const RIG_JOINTS = [

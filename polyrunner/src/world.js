@@ -227,11 +227,16 @@ export class World {
     }
     return hit;
   }
-  // Strahl gegen Boden + Strukturen
+  // Strahl gegen Boden + Strukturen. Senkrechte Strahlen (Füße, seit v0.22 sehr viele) prüfen nur Strukturen, deren Box darunter liegt.
   ray(origin, dir, far, ignoreGround) {
     if (!this._rc) this._rc = new THREE.Raycaster();
     const rc = this._rc; rc.set(origin, dir); rc.far = far || 100;
-    const objs = ignoreGround ? this.meshes() : this.meshes().concat([this.engine.ground]);
+    let objs;
+    if (Math.abs(dir.y) > 0.999) {
+      objs = this._ro || (this._ro = []); objs.length = 0; const x = origin.x, z = origin.z, e = 0.01;
+      for (let i = 0; i < this.items.length; i++) { const b = this.items[i].prism.box; if (x >= b.min.x - e && x <= b.max.x + e && z >= b.min.z - e && z <= b.max.z + e) objs.push(this.items[i].mesh); }
+      if (!ignoreGround) objs.push(this.engine.ground);
+    } else objs = ignoreGround ? this.meshes() : this.meshes().concat([this.engine.ground]);
     const h = rc.intersectObjects(objs, false); return h.length ? h[0] : null;
   }
   dispose() {

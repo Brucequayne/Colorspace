@@ -18,6 +18,7 @@ Neue Module: in `MODULES` in `polyrunner.js` eintragen. Modul-Präfix: `pru/`.
 | `move.js` | Bewegung und Parkour (feste 120 Schritte/s), alle Zahlen in `TUNE` |
 | `tweak.js` | Tweaker im Testlauf (T): Regler-Liste `P` (Bewegung `TUNE`, Animation `ANIM`, Größe `TW.size`), Presets, Export `polyrunner-tune`, Messanzeige |
 | `play.js` | Testlauf: Verfolgerkamera mit Pointer-Lock, Zeitfahren, Bestzeiten, Pause |
+| `testmaps.js` | Feste Testgelände (`TESTMAPS`): Noahs Map-.json als Eintrag, im Map Editor unter Datei → „Testgelände laden“ |
 | `editor.js` | Map Editor: Bauen, Start/Ziel/Test-Start, Farbe, Löschen, Himmel, Datei, Rückgängig |
 | `haare.js` | Haare: Strähnen aus Wurzeln (Look `hair`), Ruheform am Kopf entlang, Federkette mit Kollision, Malen (`pick`) |
 | `kleidung.js` | Kleidung: Entwurf aus Ringen (`newDesign`, `cloneDesign`), Netz bauen (`buildGarment`), Stoff mit Dicke, Physik und Greifen (`Cloth`) |
@@ -30,6 +31,7 @@ Neue Module: in `MODULES` in `polyrunner.js` eintragen. Modul-Präfix: `pru/`.
 | `figur.js` | Spielfigur: lädt `model/figur.bin`, SkinnedMesh auf dem Runner-Skelett, Shader für Haut, Augen, Brauen, enge Kleidung (Speedo), `follow(runner)` |
 | `chared.js` | Charakter-Editor (Modus `char`, Knopf „Charakter“ im Map Editor): Haut, Augen, Brauen, Kleidung, Vorschau-Animation |
 | `menu.js` | Hauptmenü (Spielen noch gesperrt), Code-Abfrage, Einstellungen |
+| `animed.js` | Animations-Editor (Modus `anim`, Knopf „Animationen“ im Map Editor und Charakter-Editor): Laufband + Prüfstrecke (eigene `World`), Bot je Animation (`DEMO`), Haltungen `POSE`, Export `PolyRunner_Animationen.json` |
 | `main.js` | Hülle: Zustände `menu`, `editor`, `test`, Schleife, CSS |
 
 ## Map-Format (.json)
@@ -203,4 +205,27 @@ automatisch hochziehen, niedrige Hindernisse bis 1,25 m im Lauf überklettern.
 - Gewichte: Port aus figur_bauen.js (nächstes Segment, eigene Körperseite, Höhengrenzen, Hand/Fuß-Bonus, dann `soft` Runden Glättung – ab Runde 2 an Ort und Stelle wie im Original).
   Mit dem Standard-Rig weichen ~2 % der Punkte (Hals/Kopf) leicht von figur.bin ab: figur.bin wurde aus den ungerundeten FBX-Punkten gerechnet. Neues Standard-Rig → `RIG_DEFAULT` + figur.bin mit derselben Rechnung neu bauen.
 - Figur-Shader: `uWB`/`uWB2` färbt die Gewichte eines Knochens (+ Spiegel), `Figur.xray(on)`. Im Rig-Reiter ohne Haare/Kleidung (`CharEd.figLook`). Posen: A-Pose (`bindPose`), Animation, Beugetest (`RigEd.frame`).
+
+## Bewegungs-Patch, Animations-Editor (seit v0.22)
+
+- **Boden über Strahlen:** In den Modi normal/slide/roll/getup/stun/impact beginnt die Kapsel erst `TUNE.step` über den Füßen (`Mover.liftNow`, `offs`).
+  Darunter trägt `support(up, down)`: 9 senkrechte Strahlen (Mitte, 4 auf 0,5 R, 4 auf 0,9 R) suchen den höchsten begehbaren Punkt (Normale y ≥ 0,3).
+  `ground(wasG, jumped)` stellt die Figur nach `resolve()` darauf: am Boden hoch bis `step` und runter bis `step` (Treppe), in der Luft Landung (nur bei vy ≤ 0,3).
+  Stufen ab 5 cm (intern) setzen `upT`/`downT` (0,75 s), beides kurz hintereinander `roughT` → Tempo-Grenzen in `groundMove` (`roughK`, `upK`, `downK`, mit Shift eigene Grenzen).
+  Optisch: `smooth.y` gleicht jede Stufe aus, Abklingrate `stepSmooth()` hängt vom Tempo ab (sonst hinkt der Körper auf Treppen hinterher). Das alte `stepUp`/`snap` gibt es nicht mehr.
+- **Linke Maus gehalten** (`inp.lmb`, play.js: `this.lmb`): `obstacle(dir, sp)` sucht voraus (`probe` mit eigenen Abständen) eine Kante zwischen `step` und `swing` innerhalb `R + 0,1 + sp·0,075`.
+  Bis `hop`: Mini-Hüpfer (vy für Höhe + 12 cm, Tempo reicht bis auf die Oberseite, `hop`-Zustand für die Animation, `jumpId++`). Bis `swing`: `startVault("swing", …)` mit Schwung (`keep` ≥ 85 % Tempo).
+- **Kanten-Fixes:** `probe` nimmt nur uns zugewandte Wandnormalen (sonst −Laufrichtung). `startVault(…, dir)` merkt die Laufrichtung (`C.dir`), danach geht es in diese Richtung weiter, nie zurück.
+  Wand hochlaufen aus der Luft nur bis 0,5 s nach einem echten Sprung (`jumpAge`).
+- `TUNE`/`ANIM` = Noahs Tweaker-Werte vom 28.11.2026. Tune-Speicher hat jetzt `v: 2`; ältere Speicher/Exporte verlieren `step` (war die alte Stufenhöhe bis Knie).
+- **Animation (runner.js):** `probeG(side, f, lat)` = Untergrund ohne Seiteneffekt. Im Gangzyklus: Standfuß auf seinem Untergrund, Schwungfuß von der Abhebe-Höhe (`F.y0`) zum Landepunkt (`Lf`)
+  und über Kanten gehoben; liegt am Landepunkt eine Kante (±7 cm, > 3,5 cm Höhenunterschied), rückt der Fuß 10 cm weiter (`F.dx`). Becken senkt sich nur für Füße früh im Stand (`F.w`).
+  Gelände-Gewichte `terr.up/dn/rough` ändern Takt, Knieheben, Neigung, Hüfte, Armabstand, Fußdrehung (Korrekturschritte), Treppe hoch: Becken folgt `s.lag` (Glättungsrest der Bewegung).
+  Mini-Hüpfer im Luft-Zweig (`s.hop`), Schwung-Klettern im Vault-Zweig (`kind === "swing"`, Seite wechselt je Sprung, `swingSide`).
+- **Haltungen:** `POSE` (Speicher `polyrunner-pose-v1`, `KEYS.pose`, geladen in `loadTune`), Standard `POSE_DEF`. Je Animation `{ lean (Grad), hip (cm), parts: { teil: [x, y, z] Grad } }`,
+  Teile `POSE_PARTS` (Paare gespiegelt: y und z für rechts negativ). Gewichte je Animation aus `poseWeights()` (`runner.pw`), Hüfte geht in `leg()` ein (Füße bleiben am Boden).
+  Neue Animationen: in `ANIM_KEYS` + `poseWeights` + `DEMO`/`GROUPS` in animed.js eintragen. Noahs Export `PolyRunner_Animationen.json` → `pose` als `POSE_DEF`, `faktoren` als `ANIM`.
+- **Prüfstrecke** (animed.js `course()`): Bahn A Stämme/Stufen/Kasten 0,38/0,74/Treppe hoch und runter (je 0,17 m), Bahn B Sprung + Blöcke 3,6/1,6 m, Bahn C Wand (Wallrun) + Wand frontal, Bahn D Kante 2 m + Kasten 1 m.
+- **Rig:** `RIG_DEFAULT` = Noahs Rig, fest in figur.bin über `werkzeuge/rig_einbauen.js` (Node + Playwright, rechnet mit `computeWeights` aus rig.js – identisch zum Rig-Reiter).
+- Testgelände: Bot-Lauf (Playwright, `P.botLmb`) über `TESTMAPS[0]` in Luftlinie/Zickzack, mit/ohne Sprint: keine Hänger, keine Sprünge > 11,5 m/s, keine Rückwürfe.
 

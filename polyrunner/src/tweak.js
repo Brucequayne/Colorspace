@@ -4,7 +4,7 @@
 // Gespeichert (roh, intern) unter KEYS.tune; Presets unter KEYS.tunePre. Export: polyrunner-tune (echte Werte + roh).
 import { t, addTexts, L2, el, esc, store, KEYS, download, PRU } from "pru/core.js";
 import { TUNE, TUNE_DEF } from "pru/move.js";
-import { ANIM, ANIM_DEF } from "pru/runner.js";
+import { ANIM, ANIM_DEF, POSE_DEF, setPose } from "pru/runner.js";
 
 export const SIZE_DEF = 1.4;
 export const TW = { size: SIZE_DEF };
@@ -44,7 +44,12 @@ const P = [
   ["wall", "wallStepV", "T", "m/s", 1, 10, 0.05, "Schub je Wandschritt", "Push per wall step", "Grund-Schub nach oben je Schritt.", "Base upward push per step."],
   ["wall", "wallStepK", "T", "x", 0, 1, 0.01, "Schub aus Anlauf", "Push from run-up", "Zusätzlicher Schub je m/s Anlauf.", "Extra push per m/s of run-up."],
   ["wall", "wallStepT", "T", "s", 0.1, 0.6, 0.01, "Dauer je Wandschritt", "Time per wall step", "Takt der Schritte an der Wand.", "Rhythm of the steps on the wall."],
-  ["ledge", "step", "T", "m", 0.1, 0.9, 0.01, "Stufenhöhe", "Step height", "So hohe Stufen nimmt er im Lauf.", "Steps up to this height are taken in stride."],
+  ["ground", "step", "T", "m", 0.05, 0.5, 0.01, "Korrekturschritt bis", "Correction step up to", "So hohe Stufen und Hindernisse überläuft er immer, ohne Maus (Treppen, Wurzeln, Baumstämme).", "Steps and obstacles up to this height are always walked over, no mouse needed (stairs, roots, logs)."],
+  ["ground", "hop", "T", "m", 0.1, 0.8, 0.01, "Mini-Hüpfer bis", "Mini hop up to", "Mit gehaltener linker Maus springt er über Hindernisse bis zu dieser Höhe von selbst kurz hoch.", "With the left mouse held he hops onto obstacles up to this height by himself."],
+  ["ground", "swing", "T", "m", 0.3, 1.2, 0.01, "Schwung-Klettern bis", "Swing vault up to", "Mit gehaltener linker Maus klettert er bis zu dieser Höhe mit Schwung drauf (Hände kurz auf die Kante).", "With the left mouse held he vaults onto obstacles up to this height with momentum (hands briefly on the edge)."],
+  ["ground", "roughK", "T", "x", 0.3, 1, 0.01, "Tempo über Hindernisse", "Speed over obstacles", "Anteil vom Lauftempo, wenn es abwechselnd hoch und runter geht (Baumstämme, Geröll).", "Share of run speed when it goes up and down in turns (logs, rubble)."],
+  ["ground", "upK", "T", "x", 0.3, 1, 0.01, "Tempo Treppe hoch", "Speed up stairs", "Anteil vom Lauftempo auf Treppen nach oben (mit Shift etwas mehr).", "Share of run speed going up stairs (a bit more with Shift)."],
+  ["ground", "downK", "T", "x", 0.3, 1, 0.01, "Tempo Treppe runter", "Speed down stairs", "Anteil vom Lauftempo auf Treppen nach unten ohne Shift (vorsichtig).", "Share of run speed going down stairs without Shift (careful)."],
   ["ledge", "vaultHands", "T", "m", 0.6, 2, 0.01, "Überklettern bis", "Vault up to", "Kanten bis zu dieser Höhe überklettert er mit den Händen, darüber hängt er.", "Edges up to this height are vaulted with the hands, above that he hangs."],
   ["ledge", "reach", "T", "m", 1.5, 3.5, 0.01, "Greifhöhe", "Reach", "Höchste Kante, die er im Sprung noch greift.", "Highest edge he can still grab in a jump."],
   ["ledge", "hangDrop", "T", "m", 1, 2.4, 0.01, "Hängetiefe", "Hang depth", "Wie tief der Körper beim Hängen unter der Kante hängt.", "How far the body hangs below the edge."],
@@ -66,10 +71,10 @@ const P = [
   ["anim", "spring", "A", "x", 0.3, 2, 0.01, "Gelenk-Tempo", "Joint speed", "Wie schnell die Gelenke ihrer Pose folgen (höher = zackiger).", "How fast the joints follow their pose (higher = snappier)."],
   ["anim", "damp", "A", "x", 0.3, 1.5, 0.01, "Gelenk-Dämpfung", "Joint damping", "Weniger = mehr Nachschwingen, mehr = ruhiger.", "Less = more overshoot, more = calmer."]
 ];
-const GROUPS = ["size", "run", "sprint", "jump", "slide", "wall", "ledge", "fall", "anim"];
+const GROUPS = ["size", "run", "sprint", "ground", "jump", "slide", "wall", "ledge", "fall", "anim"];
 addTexts({
   twTitle: L2("Tweaker", "Tweaker"), twHint: L2("T: schließen · Werte wirken sofort · Klick ins Bild: weiterspielen", "T: close · values apply instantly · click the view: keep playing"),
-  g_size: L2("Größe", "Size"), g_run: L2("Laufen", "Running"), g_sprint: L2("Sprint", "Sprint"), g_jump: L2("Sprung", "Jump"), g_slide: L2("Slide", "Slide"), g_wall: L2("Wand", "Walls"), g_ledge: L2("Kanten", "Ledges"), g_fall: L2("Fallen", "Falling"), g_anim: L2("Animation", "Animation"),
+  g_size: L2("Größe", "Size"), g_run: L2("Laufen", "Running"), g_sprint: L2("Sprint", "Sprint"), g_jump: L2("Sprung", "Jump"), g_slide: L2("Slide", "Slide"), g_ground: L2("Gelände und Hindernisse", "Terrain and obstacles"), g_wall: L2("Wand", "Walls"), g_ledge: L2("Kanten", "Ledges"), g_fall: L2("Fallen", "Falling"), g_anim: L2("Animation", "Animation"),
   twSlow: L2("Zeitlupe", "Slow motion"), twFig: L2("Figur", "Character"), twDummy: L2("Test-Dummy", "Test dummy"), twChar: L2("Charakter", "Character"),
   twReset: L2("Alles auf Standard", "Everything to default"), twResetQ: L2("Alle Werte auf Standard zurücksetzen?", "Reset all values to default?"), twDef: L2("Standard", "Default"),
   twPresets: L2("Presets", "Presets"), twSave: L2("Speichern als …", "Save as …"), twSaveQ: L2("Name für das Preset:", "Name for the preset:"), twDel: L2("löschen", "delete"),
@@ -87,16 +92,19 @@ function defOf(p) { return p[2] === "T" ? TUNE_DEF[p[1]] : p[2] === "A" ? ANIM_D
 function shown(p) { const v = srcObj(p[2])[p[1]]; return p[2] === "T" && sc(p[3]) ? v * kOf() : v; }
 function setShown(p, v) { srcObj(p[2])[p[1]] = p[2] === "T" && sc(p[3]) ? v / kOf() : v; }
 export function loadTune() {
+  setPose(store.get(KEYS.pose, null) || POSE_DEF);   // Haltungen aus dem Animations-Editor
   const o = store.get(KEYS.tune, null);
   Object.assign(TUNE, TUNE_DEF); Object.assign(ANIM, ANIM_DEF); TW.size = SIZE_DEF;
+  // Speicher vor v0.22 (ohne v): „step“ war die alte Stufenhöhe (bis Kniehöhe) – heißt jetzt Korrekturschritt, alter Wert gilt nicht mehr
+  if (o && !(o.v >= 2) && o.T) delete o.T.step;
   if (o) { if (o.T) Object.keys(o.T).forEach((k) => { if (k in TUNE && isFinite(o.T[k])) TUNE[k] = o.T[k]; }); if (o.A) Object.keys(o.A).forEach((k) => { if (k in ANIM && isFinite(o.A[k])) ANIM[k] = o.A[k]; }); if (isFinite(o.size)) TW.size = o.size; }
 }
-function saveTune() { store.set(KEYS.tune, { size: TW.size, T: Object.assign({}, TUNE), A: Object.assign({}, ANIM) }); }
+export function saveTune() { store.set(KEYS.tune, { v: 2, size: TW.size, T: Object.assign({}, TUNE), A: Object.assign({}, ANIM) }); }
 function snapshot(name) {
   const real = {}; P.forEach((p) => { real[p[1]] = Math.round(shown(p) * 10000) / 10000; });
-  return { format: "polyrunner-tune", v: 1, name: name || "", size: TW.size, werte: real, raw: { T: Object.assign({}, TUNE), A: Object.assign({}, ANIM) } };
+  return { format: "polyrunner-tune", v: 2, name: name || "", size: TW.size, werte: real, raw: { T: Object.assign({}, TUNE), A: Object.assign({}, ANIM) } };
 }
-function applySnap(o) { if (!o || o.format !== "polyrunner-tune") return false; if (isFinite(o.size)) TW.size = o.size; const r = o.raw || {}; if (r.T) Object.keys(r.T).forEach((k) => { if (k in TUNE) TUNE[k] = r.T[k]; }); if (r.A) Object.keys(r.A).forEach((k) => { if (k in ANIM) ANIM[k] = r.A[k]; }); saveTune(); return true; }
+function applySnap(o) { if (!o || o.format !== "polyrunner-tune") return false; if (isFinite(o.size)) TW.size = o.size; const r = o.raw || {}; if (!(o.v >= 2) && r.T) { r.T = Object.assign({}, r.T); delete r.T.step; } if (r.T) Object.keys(r.T).forEach((k) => { if (k in TUNE) TUNE[k] = r.T[k]; }); if (r.A) Object.keys(r.A).forEach((k) => { if (k in ANIM) ANIM[k] = r.A[k]; }); saveTune(); return true; }
 const fmt = (p, v) => { const d = p[6] >= 1 ? 0 : p[6] >= 0.1 ? 1 : p[6] >= 0.01 ? 2 : 3; return (p[3] === "x" ? "×" : "") + v.toFixed(d).replace(".", ",") + (p[3] && p[3] !== "x" ? " " + p[3] : ""); };
 
 const CSS = `

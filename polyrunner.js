@@ -11,6 +11,7 @@
     "move.js",    // Bewegung und Parkour
     "tweak.js",   // Tweaker: Bewegung, Größe, Animation live einstellen, Presets, Export
     "play.js",    // Testlauf: Kamera, Zeitfahren, Bestzeiten
+    "testmaps.js",// feste Testgelände (Noahs Testläufe)
     "editor.js",  // Map Editor
     "menu.js",    // Hauptmenü, Einstellungen
     "haare.js",   // Haare: Anime-Strähnen mit Physik, Malen auf der Kopfhaut
@@ -23,6 +24,7 @@
     "punkte.js",  // Punkt-Editor für Kleidung (Netz Punkt für Punkt)
     "malen.js",   // Stoffpinsel: Formen, Linien, Pinsel auf dem Stoff
     "kleided.js", // Kleidungs-Editor
+    "animed.js",  // Animations-Editor: alle Animationen ansehen, Haltung je Animation, Prüfstrecke
     "main.js"     // Hülle: Start, Zustände, Schleife, Gestaltung
   ];
   var stamp = "";
