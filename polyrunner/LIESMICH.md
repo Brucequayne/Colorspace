@@ -229,3 +229,18 @@ automatisch hochziehen, niedrige Hindernisse bis 1,25 m im Lauf überklettern.
 - **Rig:** `RIG_DEFAULT` = Noahs Rig, fest in figur.bin über `werkzeuge/rig_einbauen.js` (Node + Playwright, rechnet mit `computeWeights` aus rig.js – identisch zum Rig-Reiter).
 - Testgelände: Bot-Lauf (Playwright, `P.botLmb`) über `TESTMAPS[0]` in Luftlinie/Zickzack, mit/ohne Sprint: keine Hänger, keine Sprünge > 11,5 m/s, keine Rückwürfe.
 
+
+## Mauern (seit v0.23)
+
+- **Mauer** = Oberfläche, die hinter der Kante nach höchstens `TUNE.wallD` (0,9 intern ≈ 70 cm) endet: `Mover.wallDepth(L)` tastet mit senkrechten Strahlen in 4-cm-Schritten entlang −n.
+- `probe` sucht zuerst die Wandfläche mit einem waagrechten Strahl (Höhe `minUp` + 4 cm) und misst knapp dahinter – sonst fallen dünne Mauern zwischen die Messpunkte.
+- **Mauer-Flanke** (`obstacle`, linke Maus): dünne Mauer über `hop` bis `TUNE.flank` (1,55 intern ≈ 1,20 m) → `startOver("over", …)`. Dicke Hindernisse wie bisher (Hüpfer/Schwung).
+  Aus der Luft (`grabLedge`) an einer dünnen Mauer bis `vaultHands` über der Figur ebenfalls `over`; ist die Kante > 1,2 über der Figur, erst hochstemmen (`pre`-Phase, `lift`).
+  Aus dem Hängen (Leertaste, `stepHang`) an einer dünnen Mauer → `startOver("pullover", …)`: hochziehen, Beine seitlich drüber, hinten in die Luft (Fall/Landung normal).
+  Kein Platz hinter der Mauer → altes Verhalten.
+- **Bahn** (`stepOver`): optional `pre` (hoch an die Kante bis `s0`), dann waagrecht gleichmäßig `s0 → b` (b = hinter der Mauer, Boden per Strahl), Höhe im Bogen mit Gipfel `peak` bei `cu` (Anteil bis Mauermitte).
+  Landet auf dem Boden, wenn er kaum tiefer als der Absprung liegt (`land`), sonst Ausstieg in der Luft mit passender Fallgeschwindigkeit. Tempo danach `keep` (≈ Bahntempo × 1,15).
+- **Hand** (`C.side`): Bewegung quer zur Mauer nach links (kommt von rechts) → rechte Hand (+1), nach rechts → linke (−1), gerade → abwechselnd (`overSide`). Handpunkt `C.hand` auf der Mauermitte neben der Bahn.
+- **Animation** (runner.js, Vault-Zweig `over`/`pullover`): Stützhand per IK (`hands.only`), Körper rollt über den Stützarm (`roll = side · 0,85`), Beine weit vor und zur anderen Seite, freier Arm hoch.
+  Haltungen im Animations-Editor: `flank` und `pullover`. Prüfstrecke Bahn E (z 28): Mauer 0,84 m × 8 cm, Mauer 2,0 m × 18 cm.
+- Test: Bot auf Noahs Mauer-Map (W + linke Maus, Sprung vor hohen Wänden, Leertaste beim Hängen): Flanke über 0,84 m, Hochstemmen über 1,47 m, Hochziehen + drüber an 2,43 m (zwei Mauern), keine Hänger/Sprünge/Rückwürfe.

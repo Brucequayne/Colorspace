@@ -24,10 +24,10 @@ addTexts({
   aNote: L2("Exportierte Animationen (.json) an Claude schicken, dann werden sie der Standard im Spiel. Im Testlauf gelten sie sofort.", "Send exported animations (.json) to Claude, then they become the game's default. They apply in the test run right away."),
   ag_loco: L2("Laufen", "Locomotion"), ag_terrain: L2("Gelände", "Terrain"), ag_air: L2("Luft", "Air"), ag_parkour: L2("Parkour", "Parkour"),
   an_idle: L2("Stehen", "Stand"), an_walk: L2("Gehen", "Walk"), an_run: L2("Laufen", "Run"), an_sprint: L2("Sprinten", "Sprint"), an_crouch: L2("Ducken", "Crouch"),
-  an_rough: L2("Korrekturschritte", "Correction steps"), an_stairsUp: L2("Treppe hoch", "Stairs up"), an_stairsDown: L2("Treppe runter", "Stairs down"), an_hop: L2("Mini-Hüpfer", "Mini hop"), an_swing: L2("Schwung-Klettern", "Swing vault"),
+  an_rough: L2("Korrekturschritte", "Correction steps"), an_stairsUp: L2("Treppe hoch", "Stairs up"), an_stairsDown: L2("Treppe runter", "Stairs down"), an_hop: L2("Mini-Hüpfer", "Mini hop"), an_swing: L2("Schwung-Klettern", "Swing vault"), an_flank: L2("Mauer-Flanke", "Wall side vault"),
   an_jump: L2("Sprung", "Jump"), an_fall: L2("Fallen", "Fall"), an_land: L2("Landen", "Landing"), an_roll: L2("Abrollen", "Roll"), an_stun: L2("Stolpern", "Stumble"),
   an_slide: L2("Slide", "Slide"), an_getup: L2("Aufstehen", "Get up"), an_wallrun: L2("Wallrun", "Wallrun"), an_climb: L2("Wand hoch", "Wall climb"), an_hang: L2("Hängen", "Hang"),
-  an_pullup: L2("Hochziehen", "Pull up"), an_vaultHands: L2("Überklettern (Hände)", "Vault (hands)"), an_vaultStep: L2("Aufsteigen (Fuß)", "Step up (foot)"),
+  an_pullup: L2("Hochziehen", "Pull up"), an_pullover: L2("Hochziehen über Mauer", "Pull over wall"), an_vaultHands: L2("Überklettern (Hände)", "Vault (hands)"), an_vaultStep: L2("Aufsteigen (Fuß)", "Step up (foot)"),
   ap_hips: L2("Becken", "Pelvis"), ap_spine: L2("Bauch", "Belly"), ap_chest: L2("Brust", "Chest"), ap_neck: L2("Hals", "Neck"), ap_head: L2("Kopf", "Head"),
   ap_shoulder: L2("Schultern", "Shoulders"), ap_uarm: L2("Oberarme", "Upper arms"), ap_larm: L2("Unterarme", "Forearms"), ap_hand: L2("Hände", "Hands"),
   ap_uleg: L2("Oberschenkel", "Thighs"), ap_lleg: L2("Unterschenkel", "Shins"), ap_foot: L2("Füße", "Feet"),
@@ -35,7 +35,7 @@ addTexts({
   af_arms: L2("Armschwung", "Arm swing"), af_elbow: L2("Ellbogen beugen", "Elbow bend"), af_sway: L2("Hüftschwung", "Hip sway"), af_twist: L2("Oberkörper zum Blick", "Torso to view"), af_spring: L2("Gelenk-Tempo", "Joint speed"), af_damp: L2("Gelenk-Dämpfung", "Joint damping")
 });
 
-const GROUPS = { loco: ["idle", "walk", "run", "sprint", "crouch"], terrain: ["rough", "stairsUp", "stairsDown", "hop", "swing"], air: ["jump", "fall", "land", "roll", "stun"], parkour: ["slide", "getup", "wallrun", "climb", "hang", "pullup", "vaultHands"] };
+const GROUPS = { loco: ["idle", "walk", "run", "sprint", "crouch"], terrain: ["rough", "stairsUp", "stairsDown", "hop", "swing", "flank"], air: ["jump", "fall", "land", "roll", "stun"], parkour: ["slide", "getup", "wallrun", "climb", "hang", "pullup", "pullover", "vaultHands"] };
 const FACT = [["stride", 0.6, 1.6], ["lift", 0, 2.5], ["bob", 0, 3], ["lean", 0, 3], ["roll", 0, 2.5], ["arms", 0, 2.5], ["elbow", 0, 2], ["sway", 0, 3], ["twist", 0, 2], ["spring", 0.3, 2], ["damp", 0.3, 1.5]];
 
 // ---------- Prüfstrecke (echte Meter): Bahnen entlang +x ----------
@@ -55,6 +55,8 @@ function course() {
   A(box(4, 22, 15.2, 15.6, 0, 3.2), "#A3A7AB"); A(box(30, 31, 12.4, 15.6, 0, 3.4), "#A3A7AB");
   // Bahn D (z 21): Kante zum Greifen (2 m), Kasten 1 m (Hände)
   A(box(9, 11, 19.6, 22.4, 0, 2.0), "#A3A7AB"); A(box(19, 20.4, 19.6, 22.4, 0, 1.0), "#B0A59A");
+  // Bahn E (z 28, seit v0.23): dünne Mauern – niedrig (Flanke) und hoch (hängen, drüberziehen)
+  A(box(12, 12.08, 26.6, 29.4, 0, 0.84), "#9EA1A5"); A(box(24, 24.18, 26.6, 29.4, 0, 2.0), "#9EA1A5");
   return { format: "polyrunner-map", v: 1, id: "pruefstrecke", name: "Prüfstrecke", sky: { time: 15.2, cycle: false, speed: 1 }, start: null, finish: null, test: null, structs: S };
 }
 // Vorführung je Animation: Laufband (tm = Tempo in 1,8-m-Einheiten) oder Bahn (z), Start (x, y), Ende x, Tasten
@@ -67,7 +69,8 @@ const DEMO = {
   slide: { z: 7, x: -8, end: 6, sprint: true, slideX: -1 }, getup: { z: 7, x: -8, end: 6, sprint: true, slideX: -1 },
   wallrun: { far: 1, z: 14.85, x: 0, end: 23, sprint: true, jumpX: 3.6 }, climb: { far: 1, z: 14, x: 22.5, end: 31, sprint: true, jumpX: 28.6 },
   hang: { far: 1, z: 21, x: 3, end: 12, sprint: false, jumpX: 7.9, pullT: 2.2 }, pullup: { far: 1, z: 21, x: 3, end: 12, jumpX: 7.9, pullT: 0.9 },
-  vaultHands: { far: 1, z: 21, x: 13.5, end: 22, jumpX: 18.1 }
+  vaultHands: { far: 1, z: 21, x: 13.5, end: 22, jumpX: 18.1 },
+  flank: { z: 28.2, x: 6, end: 16.5, lmb: true }, pullover: { far: 1, z: 28, x: 18, end: 28, jumpX: 22.9, pullT: 0.9 }
 };
 
 export class AnimEd {
@@ -205,7 +208,7 @@ export class AnimEd {
         // geradeaus, dabei die Spur halten
         const dz = D.z - mv.pos.z * K; inp.wish.set(1, 0, clamp(dz * 0.8, -0.5, 0.5)).normalize();
         inp.aim = Math.PI / 2; inp.sprint = !!D.sprint; inp.lmb = !!D.lmb; inp.crouchHeld = false;
-        if (this.sel === "hang" || this.sel === "pullup") { if (mv.mode === "hang") { inp.wish.set(0, 0, 0); this.pullAt = this.pullAt == null ? 0 : this.pullAt + step; if (this.pullAt > D.pullT) { inp.jump = true; this.pullAt = -9; } } }
+        if (this.sel === "hang" || this.sel === "pullup" || this.sel === "pullover") { if (mv.mode === "hang") { inp.wish.set(0, 0, 0); this.pullAt = this.pullAt == null ? 0 : this.pullAt + step; if (this.pullAt > D.pullT) { inp.jump = true; this.pullAt = -9; } } }
         if (D.jumpX != null && !this.didJump && x > D.jumpX) { inp.jump = true; this.didJump = true; }
         if (D.slideX != null && !this.didSlide && x > D.slideX) { inp.slide = "L"; this.didSlide = true; }
         inp.slideHeld = this.didSlide && x < D.slideX + 2.2;

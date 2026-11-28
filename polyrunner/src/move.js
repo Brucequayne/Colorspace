@@ -3,7 +3,7 @@
 // Hüft-Slide (Q links, E rechts), Abrollen (Leertaste kurz vor/bei der Landung), Fallhöhen bis zum Beinbruch.
 // Feste Physik-Schritte (120 pro Sekunde). Figur = Kapsel aus Kugeln (Radius R) gegen Boden und Prismen (world.collideSphere).
 import * as THREE from "three";
-import { clamp, lerp, dampAngle, damp } from "pru/core.js";
+import { clamp, lerp, dampAngle, damp, smooth } from "pru/core.js";
 
 export const TUNE = {
   // Standard = Noahs Tweaker-Werte vom 28.11.2026 (PolyRunner_Einstellungen.json), intern in 1,8-m-Einheiten (echte Meter = Wert × Größe / 1,8)
@@ -20,6 +20,8 @@ export const TUNE = {
   // Hindernisse im Lauf (seit v0.22, Höhe über den Füßen): bis step Korrekturschritt (immer), mit gehaltener linker Maus
   // bis hop Mini-Hüpfer und bis swing Schwung-Klettern. Tempo-Anteile: über Hindernisse (rough), Treppe hoch (up), Treppe runter ohne Sprint (down)
   step: 0.3, hop: 0.6, swing: 1.1, roughK: 0.62, upK: 0.78, downK: 0.72,
+  // Mauern (seit v0.23): bis wallD dick zählt als Mauer (man geht drüber statt oben stehen zu bleiben), mit linker Maus Flanke bis flank hoch
+  flank: 1.55, wallD: 0.9,
   // Klettern (Höhen über den Füßen)
   vaultHands: 1.5643, reach: 3.1457, hangDrop: 1.78, shimmy: 1.3,
   // Fallhöhen in Metern: bis safe nichts, bis stumble Stolpern ohne Abrollen, darüber Beinbruch ohne Abrollen, ab deadly hilft auch Abrollen nicht
@@ -122,7 +124,11 @@ export class Mover {
   fwd() { return new THREE.Vector3(Math.sin(this.yaw), 0, Math.cos(this.yaw)); }
   // Kante vor der Figur: Oberfläche zwischen minUp und maxUp über den Füßen, dazu die Wandkante und ihre Normale
   probe(dir, minUp, maxUp, dists) {
-    for (const d of dists || [R + 0.16, R + 0.36]) {
+    dists = (dists || [R + 0.16, R + 0.36]).slice();
+    // dünne Mauern fallen sonst zwischen die Messpunkte: Wandfläche waagrecht suchen und knapp dahinter messen
+    const fo = new THREE.Vector3(this.pos.x, this.pos.y + minUp + 0.04, this.pos.z), fh = this.world.ray(fo, dir, dists[dists.length - 1] + 0.05, true);
+    if (fh && fh.face) dists.unshift(fh.distance + 0.035);
+    for (const d of dists) {
       const o = new THREE.Vector3(this.pos.x + dir.x * d, this.pos.y + maxUp + 0.25, this.pos.z + dir.z * d);
       const hit = this.world.ray(o, DOWN, maxUp + 0.25 - minUp + 0.02, true);
       if (!hit || !hit.face) continue;
@@ -252,7 +258,7 @@ export class Mover {
       }
     }
 
-    // --- Hindernisse mit gehaltener linker Maus: Mini-Hüpfer (bis hop) oder Schwung-Klettern (bis swing) ---
+    // --- Hindernisse mit gehaltener linker Maus: Mini-Hüpfer (bis hop), Schwung-Klettern (bis swing), Mauer-Flanke (dünne Mauer bis flank) ---
     if (this.mode === "normal" && wasG && inp.lmb && !this.low && this.hopCd <= 0 && this.jumpBuf <= 0 && wl > 0.1) {
       const vh2 = new THREE.Vector3(this.vel.x, 0, this.vel.z), sp2 = vh2.length(), wn = wish.clone().normalize(), dir = sp2 > 0.4 ? vh2.multiplyScalar(1 / sp2) : wn.clone();
       // erst in Laufrichtung, dann (an einer Wand entlang rutschend) in Wunschrichtung
@@ -388,8 +394,14 @@ export class Mover {
   // Hindernis voraus (linke Maus gehalten): Höhe messen, rechtzeitig Mini-Hüpfer oder Schwung-Klettern starten
   obstacle(dir, sp) {
     const T = TUNE, reach = R + 0.1 + clamp(sp, 1.5, 10) * 0.075;
-    const L = this.probe(dir, T.step - 0.02, T.swing, [R + 0.12, R + 0.3, reach]); if (!L) return false;
+    const L = this.probe(dir, T.step - 0.02, Math.max(T.swing, T.flank), [R + 0.12, R + 0.3, reach]); if (!L) return false;
     const dist = L.edge.clone().sub(this.pos).dot(dir); if (dist > reach || dist < 0) return false;
+    // Mauer (dünn): ab Hüpfhöhe seitlich mit einer Hand drüber (Flanke)
+    if (L.up > T.hop || L.up > T.swing) {
+      const dp = this.wallDepth(L);
+      if (dp <= T.wallD) { if (L.up <= T.flank && this.startOver("over", L, dp, dir, sp)) { this.hopCd = 0.4; return true; } return false; }
+      if (L.up > T.swing) return false;
+    }
     const onTop = L.edge.clone().addScaledVector(dir, 0.42); onTop.y = L.top + 0.01;
     if (L.up <= T.hop) {
       // Mini-Hüpfer: so hoch, dass die Füße die Kante knapp frei haben, so weit, dass er oben landet
@@ -414,6 +426,11 @@ export class Mover {
     const yaw = Math.atan2(-L.n.x, -L.n.z);
     // Höhe der Kante über dem Absprungboden entscheidet: bis Kniehöhe Füße, bis Brusthöhe Hände, darüber richtig hochziehen
     const rel = Math.max(L.up, L.top - this.groundY);
+    // dünne Mauer: mit einer Hand stützen und seitlich drüber (statt oben stehen zu bleiben)
+    if (L.up <= T.vaultHands && !(L.up <= 0.55 && this.vel.y > 1.5)) {
+      const dp = this.wallDepth(L), hv = new THREE.Vector3(this.vel.x, 0, this.vel.z), hs = hv.length();
+      if (dp <= T.wallD && this.startOver("over", L, dp, hs > 0.5 ? hv.multiplyScalar(1 / hs) : dir, Math.max(hs, 2.5))) return true;
+    }
     if (rel <= T.vaultHands && L.up <= T.vaultHands) {
       if (L.up <= 0.55 && this.vel.y > 1.5) return false;   // steigt noch: einfach weiterfliegen und landen
       if (!this.free(onTop, H_LOW)) return false;
@@ -439,8 +456,74 @@ export class Mover {
     this.climbing = { kind: kind, t: 0, dur: dur, a: this.pos.clone(), b: target, edge: L.edge.clone(), n: L.n.clone(), top: L.top, dir: d, keep: clamp(keep, kind === "pullup" ? 0 : 1.5, kind === "swing" ? TUNE.sprint : TUNE.run) };
     this.vel.set(0, 0, 0); this.events.push(kind);
   }
+  // Tiefe der Mauer hinter der Kante (entlang -n); 9 = keine Mauer (Oberfläche geht weiter)
+  wallDepth(L) {
+    const mx = -L.n.x, mz = -L.n.z, lim = TUNE.wallD + 0.05;
+    for (let d = 0.04; d <= lim; d += 0.04) {
+      const h = this.world.ray(new THREE.Vector3(L.edge.x + mx * d, L.top + 0.25, L.edge.z + mz * d), DOWN, 0.5, true);
+      if (!h || h.point.y < L.top - 0.2) return d - 0.02;
+    }
+    return 9;
+  }
+  // Über eine Mauer (seit v0.23): "over" = Flanke (eine Hand stützt, Beine schwingen seitlich drüber), "pullover" = aus dem Hängen hochziehen
+  // und oben die Beine zur Seite drüberschwingen. Bahn: waagrecht gleichmäßig von a über die Mauer nach b, Höhe im Bogen (Gipfel über der Mauer).
+  startOver(kind, L, depth, dir, sp) {
+    const T = TUNE, m = new THREE.Vector3(-L.n.x, 0, -L.n.z).normalize(), right = new THREE.Vector3(L.n.z, 0, -L.n.x);
+    let d = dir.clone().setY(0); if (d.lengthSq() < 1e-4) d.copy(m); d.normalize();
+    let lat = d.dot(right);
+    if (d.dot(m) < 0.5) { const l = Math.sign(lat) || 1; d.copy(m).multiplyScalar(0.5).addScaledVector(right, l * 0.866); }
+    lat = d.dot(right);
+    const a = this.pos.clone(), pull = kind === "pullover", lift = pull || L.top - a.y > 1.2;
+    // Start der Schwungbahn: beim Hochziehen (oder aus dem Sprung an eine hohe Mauer) erst an der Wand hoch, Hüfte etwa auf Kantenhöhe
+    const s0 = lift ? L.edge.clone().addScaledVector(L.n, R * 0.7) : a.clone(); if (lift) s0.y = L.top - 0.75;
+    const w0 = L.edge.clone().sub(s0).dot(m), dc = Math.max(0.05, w0) / d.dot(m), cross = (Math.max(0.05, w0) + depth + R + 0.2) / d.dot(m);
+    const b = s0.clone().addScaledVector(d, cross); b.y = L.top + 0.01;
+    // Boden hinter der Mauer
+    const g = this.world.ray(new THREE.Vector3(b.x, L.top + 0.3, b.z), DOWN, 12, false), gy = g ? g.point.y : -1e9;
+    if (g && gy > L.top - 0.15) return false;                      // dahinter gleich hoch: keine Mauer
+    const startY = lift ? this.groundY : a.y, land = !pull && gy >= startY - 0.55;
+    b.y = land ? gy + 0.01 : Math.max(gy + 0.05, L.top - 1.1);
+    if (!this.free(b, H_LOW)) return false;
+    const peak = lift ? L.top - 0.42 : Math.max(s0.y + 0.15, L.top - 0.6);
+    const hs0 = pull ? 2.2 : Math.max(sp * 0.72, 3.0), tOver = clamp(cross / hs0, pull ? 0.5 : 0.46, 0.72), hs = cross / tOver, keep = pull ? 1.6 : clamp(hs * 1.15, 3.0, T.sprint), tPre = pull ? 0.55 + Math.max(0, L.top - a.y - 1.6) * 0.12 : lift ? 0.2 + Math.max(0, s0.y - a.y) * 0.15 : 0;
+    // Hand: leicht von rechts (Bewegung nach links) → rechte Hand, sonst linke; gerade drauf abwechselnd
+    let side = lat < -0.12 ? 1 : lat > 0.12 ? -1 : (this.overSide = -(this.overSide || 1));
+    // Handpunkt auf der Mauer: neben dem Körper, wo die Bahn die Mauer kreuzt
+    const c = s0.clone().addScaledVector(d, dc + depth * 0.5 / d.dot(m)), rd = new THREE.Vector3(d.z, 0, -d.x);
+    const hand = c.addScaledVector(rd, side * 0.2); hand.addScaledVector(m, (L.edge.clone().sub(hand).dot(m)) + depth * 0.5); hand.y = L.top + 0.035;
+    this.mode = "vault"; this.vel.copy(d).multiplyScalar(lift ? 0 : hs); this.yaw = Math.atan2(d.x, d.z);
+    this.climbing = { kind: kind, t: 0, dur: tPre + tOver, pre: tPre / (tPre + tOver), a: a, s0: s0, b: b, edge: L.edge.clone(), n: L.n.clone(), top: L.top, dir: d, keep: keep,
+      depth: depth, pull: pull, side: side, hand: hand, peak: peak, cu: clamp(dc / cross, 0.15, 0.85), land: land, vEnd: 0 };
+    this.events.push(kind);
+    return true;
+  }
+  stepOver(dt) {
+    const C = this.climbing; C.t += dt; const k = clamp(C.t / C.dur, 0, 1), p0 = C.pre, px = this.pos.x, py = this.pos.y, pz = this.pos.z;
+    if (k < p0) {
+      // hochziehen: erst hoch, dann an die Kante
+      const u = k / p0, ku = smooth(clamp(u / 0.85, 0, 1)), kf = smooth(clamp((u - 0.35) / 0.65, 0, 1));
+      this.pos.set(lerp(C.a.x, C.s0.x, kf), lerp(C.a.y, C.s0.y, ku), lerp(C.a.z, C.s0.z, kf));
+    } else {
+      const u = (k - p0) / (1 - p0), cu = C.cu;
+      let y;
+      if (u < cu) { const v = u / cu; y = C.s0.y + (C.peak - C.s0.y) * (1 - (1 - v) * (1 - v)); }
+      else { const v = (u - cu) / (1 - cu); y = C.peak + (C.b.y - C.peak) * v * v; }
+      this.pos.set(lerp(C.s0.x, C.b.x, u), y, lerp(C.s0.z, C.b.z, u));
+    }
+    // Tempo der Bahn (für Kamera und Animation)
+    this.vel.set((this.pos.x - px) / dt, (this.pos.y - py) / dt, (this.pos.z - pz) / dt);
+    if (k >= 1) {
+      this.mode = "normal"; this.low = false;
+      this.vel.copy(C.dir).multiplyScalar(C.keep);
+      if (C.land) { this.grounded = true; this.coyote = TUNE.coyote; this.resolve(); this.ground(true, false); }
+      else { const tO = C.dur * (1 - p0) * (1 - C.cu); this.vel.y = tO > 0 ? 2 * (C.b.y - C.peak) / tO : 0; this.grounded = false; this.coyote = 0; this.resolve(); this.jumpAge = 9; this.regrab = 0.3; }
+      this.apex = this.pos.y;
+    }
+  }
   stepVault(dt) {
-    const C = this.climbing; C.t += dt; const k = clamp(C.t / C.dur, 0, 1);
+    const C = this.climbing;
+    if (C.kind === "over" || C.kind === "pullover") return this.stepOver(dt);
+    C.t += dt; const k = clamp(C.t / C.dur, 0, 1);
     // erst hoch (Körper an der Wand), dann nach vorne auf die Kante
     const up = C.kind === "pullup" ? 0.62 : C.kind === "hands" ? 0.55 : C.kind === "swing" ? 0.5 : 0.45;
     const ku = clamp(k / up, 0, 1), kf = clamp((k - up * 0.7) / (1 - up * 0.7), 0, 1);
@@ -481,7 +564,9 @@ export class Mover {
       // Rücksprung von der Wand
       this.mode = "normal"; this.vel.set(H.n.x * 5.2, 6.4, H.n.z * 5.2); this.yaw = Math.atan2(H.n.x, H.n.z); this.regrab = 0.5; this.jumpBuf = 0; this.wallJump = 0.3; this.events.push("walljump");
     } else if (this.jumpBuf > 0 && H.t > 0.25) {
-      if (this.free(onTop, H_LOW)) { this.jumpBuf = 0; this.startVault("pullup", onTop, { edge: H.edge, n: H.n, top: H.top }, 0.95 + Math.max(0, H.top - this.pos.y - 1.6) * 0.15, 0); }
+      const HL = { edge: H.edge, n: H.n, top: H.top }, dp = this.wallDepth(HL);
+      if (dp <= T.wallD && this.startOver("pullover", HL, dp, H.n.clone().negate().addScaledVector(right, side * 0.3), 0)) this.jumpBuf = 0;
+      else if (this.free(onTop, H_LOW)) { this.jumpBuf = 0; this.startVault("pullup", onTop, { edge: H.edge, n: H.n, top: H.top }, 0.95 + Math.max(0, H.top - this.pos.y - 1.6) * 0.15, 0); }
     } else if (inp.crouchHeld || toWall < -0.6) {
       this.mode = "normal"; this.vel.set(H.n.x * 1.0, 0, H.n.z * 1.0); this.regrab = 0.45; this.events.push("drop");
     }
@@ -599,7 +684,7 @@ export class Mover {
       rollK: this.roll ? clamp(this.roll.t / this.roll.dur, 0, 1) : 0,
       slideSide: this.slideSide || 1, slideT: this.slideT || 0,
       getup: md === "getup" ? { k: clamp(this.getup.t / this.getup.dur, 0, 1), side: this.getup.side, fast: this.getup.fast } : null,
-      climb: md === "vault" ? { kind: C.kind, k: clamp(C.t / C.dur, 0, 1), edge: C.edge, n: C.n, top: C.top } : null,
+      climb: md === "vault" ? { kind: C.kind, k: clamp(C.t / C.dur, 0, 1), edge: C.edge, n: C.n, top: C.top, side: C.side || 0, hand: C.hand || null, pull: !!C.pull, cu: C.cu || 0, pre: C.pre || 0, depth: C.depth || 0, dir: C.dir } : null,
       hang: md === "hang" ? { edge: H.edge, n: H.n, top: H.top, move: H.move, phase: H.phase, grab: clamp(H.t / 0.16, 0, 1), swing: H.swing, t: H.t, v0: H.v0, feetFree: H.feetFree, id: H.id } : null,
       impactK: md === "impact" ? 1 : 0, breakVel: this.breakVel,
       jumpId: this.jumpId, jumpBoth: this.jumpBoth, brush: this.brush, grounded: this.grounded,

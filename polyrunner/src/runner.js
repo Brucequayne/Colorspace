@@ -16,7 +16,7 @@ export const ANIM_DEF = Object.assign({}, ANIM);
 // Vorneigung des ganzen Körpers (Grad) und Hüfthöhe (cm). Gewichtet damit, wie stark die Animation gerade läuft.
 // Paare (Schultern, Arme, Hände, Beine, Füße) gelten für links, rechts gespiegelt. Standard = POSE_DEF, Noahs Werte aus PolyRunner_Animationen.json hier eintragen.
 export const POSE_PARTS = [["hips", "Hips"], ["spine", "Spine"], ["chest", "Chest"], ["neck", "Neck"], ["head", "Head"], ["shoulder", "Shoulder", 1], ["uarm", "UpperArm", 1], ["larm", "LowerArm", 1], ["hand", "Hand", 1], ["uleg", "UpperLeg", 1], ["lleg", "LowerLeg", 1], ["foot", "Foot", 1]];
-export const ANIM_KEYS = ["idle", "walk", "run", "sprint", "crouch", "rough", "stairsUp", "stairsDown", "hop", "swing", "jump", "fall", "land", "roll", "slide", "getup", "wallrun", "climb", "hang", "pullup", "vaultHands", "vaultStep", "stun"];
+export const ANIM_KEYS = ["idle", "walk", "run", "sprint", "crouch", "rough", "stairsUp", "stairsDown", "hop", "swing", "flank", "jump", "fall", "land", "roll", "slide", "getup", "wallrun", "climb", "hang", "pullup", "pullover", "vaultHands", "vaultStep", "stun"];
 export const POSE_DEF = {
   // Sprint: mehr nach vorne (Noah: „beim Sprinten ist der Körper zu gerade“), Kopf bleibt oben
   sprint: { lean: 5, hip: -1, parts: { spine: [5, 0, 0], chest: [4, 0, 0], neck: [-6, 0, 0], head: [-3, 0, 0] } }
@@ -334,7 +334,33 @@ export class Runner {
     } else if (mode === "vault" || mode === "pullup") {
       const C = s.climb, k = C.k, right = new THREE.Vector3(C.n.z, 0, -C.n.x), base = C.edge.clone().addScaledVector(C.n, -0.06); base.y = C.top + 0.035;
       let hw = 0;
-      if (mode === "pullup") {
+      if (C.kind === "over" || C.kind === "pullover") {
+        // Flanke (seit v0.23): eine Hand stützt auf der Mauer, Oberkörper kippt über den Stützarm, Beine schwingen seitlich drüber.
+        // side +1 = rechte Hand (kommt von rechts), Beine schwingen dann nach links (lat +).
+        const sdL = C.side || 1, Hs = sdL > 0 ? "Right" : "Left", Fs = sdL > 0 ? "Left" : "Right", p0 = C.pre, cu = C.cu;
+        const u = p0 > 0 ? clamp((k - p0) / (1 - p0), 0, 1) : k;
+        if (k < p0) {
+          // aus dem Hängen (oder dem Sprung) hochstemmen, bis die Brust über der Kante ist
+          const q = k / p0, p1 = smoothK(q / 0.6), p2 = smoothK((q - 0.45) / 0.55);
+          pivZ = 0.2 * (1 - p2); lean = lerp(lerp(-0.05, 0.4, p1), 0.6, p2); comp = lean;
+          leg("Left", lerp(0.18, -0.02, p2), lerp(0.74, 0.62, p1), 0.05); leg("Right", lerp(0.14, 0.05, p2), lerp(0.76, 0.55, p1), -0.05);
+          const ah = lerp(C.pull ? -2.6 : -1.7, 0.1, p2), ae = lerp(-0.6, -0.3, p2); arm("Left", ah, ae, 0.3); arm("Right", ah, ae, 0.3);
+          P.Neck = [lerp(-0.3, -0.5, p2), 0, 0]; P.Spine = [0.15 * p2, 0, 0];
+          hands = { L: base.clone().addScaledVector(right, -0.22), R: base.clone().addScaledVector(right, 0.22), n: C.n, right: right, w: 1 };
+        } else {
+          const pre = p0 > 0 ? 1 : 0, a0 = pre ? 0 : smoothK(u / Math.max(0.08, cu - 0.12));
+          const tk = Math.max(pre * 0.6, smoothK(u / Math.max(0.12, cu * 0.85))) * (1 - smoothK((u - (cu + 0.14)) / 0.4));
+          lean = lerp(0.22, 0.32, tk) + (pre ? 0.3 * (1 - smoothK(u / 0.3)) : 0); comp = lean * 0.8; hipY = -0.06 * tk; roll = sdL * 0.85 * tk; rollW = 26; rollZ = 0.8; leanW = 20; hipW = 30;
+          // vorderes Bein (Schwungseite) weit raus und vor, hinteres folgt
+          leg(Fs, lerp(0.12, 0.55, tk), lerp(stand - 0.04, 0.2, tk), sdL * (0.05 + 0.5 * tk));
+          leg(Hs, lerp(-0.04, 0.42, tk), lerp(stand - 0.02, 0.3, tk), sdL * (-0.05 + 0.42 * tk));
+          // Stützarm (vor dem IK) nach unten-vorne, freier Arm zum Ausbalancieren hoch und raus
+          arm(Hs, lerp(-0.6, -0.4, tk), -0.25, 0.15); arm(Fs, lerp(-0.5, -1.7, tk) * (0.5 + 0.5 * Math.max(a0, tk)), lerp(-0.5, -0.3, tk), 0.25 + 0.7 * tk);
+          P.Spine = [0.08 * tk, -sdL * 0.15 * tk, sdL * 0.1 * tk]; P.Chest = [0.06 * tk, -sdL * 0.12 * tk, 0]; P.Neck = [-0.25 * tk, sdL * 0.1 * tk, sdL * 0.25 * tk];
+          const hp = C.hand || base, hwk = pre ? 1 - smoothK((u - (cu + 0.15)) / 0.22) : smoothK(u / Math.max(0.1, cu * 0.6)) * (1 - smoothK((u - (cu + 0.16)) / 0.22));
+          hands = { only: Hs, L: hp, R: hp, n: C.n, right: right, w: hwk };
+        }
+      } else if (mode === "pullup") {
         // Hochziehen: Arme ziehen bis zur Brust über die Kante, stützen, ein Knie auf die Kante, aufstehen – weich ineinander
         const p1 = smoothK(k / 0.5), p2 = smoothK((k - 0.35) / 0.4), p3 = smoothK((k - 0.68) / 0.32);
         pivZ = 0.2 * (1 - p2);
@@ -367,7 +393,7 @@ export class Runner {
         leg("Right", lerp(0.4, 0.02, p), lerp(0.42, stand, p)); leg("Left", lerp(-0.25, -0.02, p), lerp(0.7, stand, p));
         arm("Left", -0.7 * (1 - p), -0.6, 0.15); arm("Right", 0.4 * (1 - p), -0.5, 0.15);
       }
-      hands = { L: base.clone().addScaledVector(right, -0.22), R: base.clone().addScaledVector(right, 0.22), n: C.n, right: right, w: hw };
+      if (!hands) hands = { L: base.clone().addScaledVector(right, -0.22), R: base.clone().addScaledVector(right, 0.22), n: C.n, right: right, w: hw };
     } else if (mode === "roll") {
       const k = s.rollK;
       leg("Left", 0.35, 0.28); leg("Right", 0.3, 0.3); arm("Left", -1.2, -1.5, 0.35); arm("Right", -1.2, -1.5, 0.35);
@@ -478,7 +504,7 @@ export class Runner {
       W.rough = r * mv; W.stairsUp = T3.up * (1 - r) * mv; W.stairsDown = T3.dn * (1 - r) * mv; W.land = s.land || 0;
       W.walk *= g; W.run *= g; W.sprint *= g;
     } else if (mode === "air") { if (s.hop) W.hop = 1; else if (s.vy > 0) W.jump = 1; else W.fall = 1; }
-    else if (mode === "vault") { const kd = s.climb && s.climb.kind; W[kd === "swing" ? "swing" : kd === "hands" ? "vaultHands" : "vaultStep"] = 1; }
+    else if (mode === "vault") { const kd = s.climb && s.climb.kind; W[kd === "swing" ? "swing" : kd === "over" ? "flank" : kd === "pullover" ? "pullover" : kd === "hands" ? "vaultHands" : "vaultStep"] = 1; }
     else if (mode === "impact" || mode === "stun") W.stun = 1;
     else if (ANIM_KEYS.indexOf(mode) >= 0) W[mode] = 1;
     return W;

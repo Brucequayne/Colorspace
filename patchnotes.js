@@ -3,6 +3,21 @@
    Die Versionsnummer auf den Kacheln kommt aus dem obersten Eintrag. */
 window.PATCHNOTES = {
   polyrunner: [
+    { v: "0.23", t: "2026-11-28T17:35:00+01:00",
+      de: ["Neu: Mauer-Flanke. Mit gehaltener linker Maus schwingt er sich über dünne Mauern bis ca. 1,20 m seitlich rüber: eine Hand stützt auf der Mauer, der Oberkörper kippt über den Stützarm, die Beine schwingen zur anderen Seite drüber, der freie Arm balanciert. Danach läuft er auf der anderen Seite weiter.",
+        "Die Hand richtet sich nach dem Anlaufwinkel: Kommst du leicht von rechts, stützt die rechte Hand, kommst du von links, die linke. Läufst du gerade drauf zu, wechseln sich die Seiten ab.",
+        "Die linke Maustaste ist damit generell die Taste für „leichtes, niedriges Gelände überwinden“: Mini-Hüpfer (bis Knie), Schwung-Klettern auf Kästen (bis Hüfte), Mauer-Flanke (dünne Mauer bis ca. 1,20 m).",
+        "Hochklettern an Mauern: Springst du eine höhere dünne Mauer an (z. B. 1,47 m), stemmt er sich mit den Händen hoch und schwingt die Beine oben zur Seite drüber. Hängt er an einer hohen Mauer und du ziehst dich hoch (Leertaste), zieht er sich hoch, schwingt die Beine seitlich über die Mauer und lässt sich auf der anderen Seite runter, statt oben stehen zu bleiben.",
+        "Was als Mauer zählt: alles bis ca. 70 cm Dicke (Tweaker: „Mauer bis Dicke“). Dickere Blöcke und Kästen verhalten sich wie bisher (oben draufklettern). Die Höhe für die Flanke steht im Tweaker unter „Mauer-Flanke bis“.",
+        "Dünne Mauern werden jetzt sicher erkannt (vorher konnten sehr dünne Wände wie deine 7-cm-Mauer zwischen den Messpunkten durchrutschen).",
+        "Animations-Editor: zwei neue Animationen „Mauer-Flanke“ und „Hochziehen über Mauer“ zum Anpassen, dazu eine neue Bahn auf der Prüfstrecke mit einer niedrigen und einer hohen dünnen Mauer."],
+      en: ["New: wall side vault. With the left mouse held he swings sideways over thin walls up to about 1.20 m: one hand on the wall, the upper body tilts over the supporting arm, the legs swing over to the other side, the free arm balances. Then he keeps running on the other side.",
+        "The hand follows the approach angle: coming slightly from the right, the right hand supports; from the left, the left hand. Running straight at it, the sides alternate.",
+        "The left mouse button is now generally the key for getting over light, low terrain: mini hop (up to the knee), swing vault onto boxes (up to the hip), wall side vault (thin wall up to about 1.20 m).",
+        "Climbing walls: jump at a higher thin wall (e.g. 1.47 m) and he pushes himself up with his hands and swings his legs over to the side at the top. Hanging on a high wall and pulling up (space), he pulls up, swings his legs sideways over the wall and drops down on the other side instead of stopping on top.",
+        "What counts as a wall: anything up to about 70 cm thick (tweaker: “Wall up to thickness”). Thicker blocks and boxes behave as before (climb on top). The height for the side vault is in the tweaker under “Wall side vault up to”.",
+        "Thin walls are now detected reliably (before, very thin walls like your 7 cm wall could slip between the measuring points).",
+        "Animation editor: two new animations, “Wall side vault” and “Pull over wall”, to adjust, plus a new lane on the test course with a low and a high thin wall."] },
     { v: "0.22", t: "2026-11-28T08:35:00+01:00",
       de: ["Großer Bewegungs-Patch: Der Boden trägt jetzt über Strahlen unter den Füßen, die Kapsel beginnt erst über Schienbeinhöhe. Kleine Stufen, Wurzeln, Baumstämme und Treppen werden dadurch einfach überlaufen, statt dass er daran hängen bleibt.",
         "Drei Hindernis-Stufen: Bis ca. 23 cm (halbe Kniehöhe) macht er immer Korrekturschritte – langsamer, Knie höher, Füße etwas breiter und schräg gesetzt, Arme raus zur Balance. Mit gehaltener linker Maus springt er bis ca. 47 cm (Knie) von selbst mit einem Mini-Hüpfer hoch und klettert bis ca. 86 cm (Hüfte) mit Schwung drauf (Hände kurz auf die Kante, Beine angezogen, oben weiterlaufen). Alle drei Höhen im Tweaker unter „Gelände und Hindernisse“.",
