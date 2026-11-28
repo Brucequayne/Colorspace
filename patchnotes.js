@@ -394,6 +394,11 @@ window.PATCHNOTES = {
         "House editor (separate from the map editor) with floors, walls in plaster, brick and wood with windows and doors, a roof with slopes and gables, and furniture. Houses are exported as .txt."] }
   ],
   monstersarc: [
+    { v: "0.29", t: "2026-11-28T03:00:00+01:00",
+      de: ["Dein Arbeitsstand vom 28.11. ist jetzt fest im Spiel: die Start-Map (800 × 600 Kacheln mit Dorf, Feldern und Küste), 6 Monster (Liplea, Lipos, Mirux, Sniebel, Snorbet, Borregan) und 2 Attacken (Hydro Burst, Hochdruck Wäsche).",
+        "Dadurch sehen alle Spieler diese Karte, Monster und Attacken, auch ohne eigenen Browser-Stand. Dein eigener Stand im Browser hat im Dev-Kit weiter Vorrang."],
+      en: ["Your work state from 28 Nov is now built into the game: the start map (800 × 600 tiles with village, fields and coast), 6 monsters (Liplea, Lipos, Mirux, Sniebel, Snorbet, Borregan) and 2 attacks (Hydro Burst, Hochdruck Wäsche).",
+        "So every player sees this map, these monsters and attacks, even without their own browser state. Your own state in the browser still takes priority in the dev kit."] },
     { v: "0.28.2", t: "2026-11-28T02:30:00+01:00",
       de: ["Neuer Knopf im Map-Editor: „GESAMTEN ARBEITSSTAND EXPORTIEREN“. Eine einzige Datei enthält die Map, die ganze Monsterliste, alle Attacken und den Gebäude-Stand. Diese Datei reicht, damit dein Stand ins Spiel eingebaut werden kann.",
         "„Import“ im Map-Editor erkennt diese Datei und spielt alles wieder zurück (zum Beispiel auf einem anderen Rechner oder nach dem Leeren des Browsers). Die vorherigen Listen bleiben als Sicherung im Browser.",
