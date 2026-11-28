@@ -7,6 +7,7 @@ import { Runner } from "pru/runner.js";
 import { Figur, loadFigur, cloneLook } from "pru/figur.js";
 import { newDesign, cloneDesign, CLOTHC } from "pru/kleidung.js";
 import { charCSS } from "pru/chared.js";
+import { PunktEd } from "pru/punkte.js";
 
 addTexts({
   kTitle: L2("Kleidungs-Editor", "Clothing editor"), kBack: L2("Zum Charakter", "To the character"), kExport: L2("Exportieren", "Export"), kImport: L2("Importieren …", "Import …"),
@@ -48,19 +49,20 @@ export class KleidEd {
     const ui = store.get(KEYS.ui, {});
     this.designs = (store.get(KEYS.kleider, []) || []).map(cloneDesign);
     this.cur = this.designs.find((d) => d.id === ui.kid) || this.designs[0] || null;
-    this.sel = null; this.anim = "idle"; this.view = "top"; this.opt = Object.assign({ other: true, hair: true, rings: true }, ui.kopt || {});
+    this.mode = "ringe"; this.sel = null; this.anim = "idle"; this.view = "top"; this.opt = Object.assign({ other: true, hair: true, rings: true }, ui.kopt || {});
     this.cam = Object.assign({ yaw: 0.45 }, VIEWS.top); this.camT = Object.assign({}, this.cam);
     this.look = cloneLook(store.get(KEYS.char, null));
     this.runner = new Runner(this.engine.scene); this.runner.setVisible(false); this.runner.world = FAKEWORLD;
     this.state = { mode: "idle", speed: 0, acc: 0, lat: 0, land: 0, moveRel: 0, turning: false, back: false, jumpId: 0, jumpBoth: false, twist: 0, vy: 0, airT: 0 };
     this.wind = new THREE.Vector3(); this.rings = new THREE.Group(); this.engine.scene.add(this.rings); this.ringObjs = [];
+    this.pe = new PunktEd(this);
     this.buildUI(); this.bind();
     loadFigur().then((d) => { if (this.dead) return; this.fig = new Figur(this.engine.scene, d, this.figLook()); this.$("#pru-cload").hidden = true; }).catch((e) => { this.$("#pru-cload").textContent = String(e && e.message); });
   }
   // Figur trägt den aktuellen Entwurf (+ auf Wunsch das andere getragene Teil), Haare auf Wunsch
   figLook() {
-    const L = cloneLook(this.look); if (!this.opt.hair) L.hair = { groups: L.hair.groups, roots: [] };
-    const w = { top: this.opt.other ? L.wear.top : null, bottom: this.opt.other ? L.wear.bottom : null };
+    const pm = this.mode === "punkte", L = cloneLook(this.look); if (!this.opt.hair || pm) L.hair = { groups: L.hair.groups, roots: [] };
+    const w = { top: this.opt.other && !pm ? L.wear.top : null, bottom: this.opt.other && !pm ? L.wear.bottom : null };
     if (this.cur) w[this.cur.kind === "bottom" ? "bottom" : "top"] = this.cur;
     L.wear = w; return L;
   }
@@ -101,7 +103,10 @@ export class KleidEd {
       rng("thick", t("kThick"), 0.3, 8, 0.1, D.thick, (v) => v.toFixed(1) + " mm") +
       rng("stiff", t("kStiff"), 0, 1, 0.01, D.stiff, (v) => pct(v) + " %") + '<div class="pru-lr"><span>' + t("kStiffLo") + "</span><span>" + t("kStiffHi") + "</span></div>";
     if (D.kind !== "bottom") h += rng("arm", t("kArm"), 0, 0.06, 0.001, D.arm, (v) => Math.round(v * 1000) + " mm");
-    h += "<h4>" + t("kRings") + '</h4><div class="pru-rl">' + this.ringList().map((r) => '<button data-kr="' + r.k + "|" + (r.i || 0) + '" aria-pressed="' + this.same(r, this.sel) + '">' + r.lab + "</button>").join("") + "</div>";
+    h += '<h4>' + t("kRings") + " / " + t("pTitle") + '</h4><div class="pru-seg"><button data-km="ringe" aria-pressed="' + (this.mode !== "punkte") + '">' + t("pRings") + '</button><button data-km="punkte" aria-pressed="' + (this.mode === "punkte") + '">' + t("pTitle") + "</button></div>";
+    if (this.mode === "punkte") { this.$("#pru-kbody").innerHTML = h + this.pe.html(); return; }
+    if (D.mesh) { this.$("#pru-kbody").innerHTML = h + "<p>" + t("pOwn") + '</p><div class="pru-col"><button data-pe="discard">' + t("pDiscard") + "</button></div>"; return; }
+    h += '<div class="pru-rl" style="margin-top:6px">' + this.ringList().map((r) => '<button data-kr="' + r.k + "|" + (r.i || 0) + '" aria-pressed="' + this.same(r, this.sel) + '">' + r.lab + "</button>").join("") + "</div>";
     const S = this.sel && this.ringRef(this.sel);
     if (S) {
       h += "<h4>" + t("kSel") + "</h4>";
@@ -139,7 +144,7 @@ export class KleidEd {
   }
   save() { store.set(KEYS.kleider, this.designs); const u = store.get(KEYS.ui, {}); u.kid = this.cur && this.cur.id; u.kopt = this.opt; store.set(KEYS.ui, u); }
   apply() { if (this.fig) { this.fig.setLook(this.figLook()); } this.dirty = false; this.lastApply = performance.now(); }
-  select(d) { this.cur = d; this.sel = null; this.save(); this.render(); if (this.fig) this.fig.setLook(this.figLook()); if (d) { this.view = d.kind === "bottom" ? "legs" : "top"; Object.assign(this.camT, VIEWS[this.view]); this.syncButtons(); } }
+  select(d) { this.cur = d; this.sel = null; this.mode = "ringe"; this.pe.sel.clear(); this.pe.undo = []; this.pe.g.visible = false; this.save(); this.render(); if (this.fig) this.fig.setLook(this.figLook()); if (d) { this.view = d.kind === "bottom" ? "legs" : "top"; Object.assign(this.camT, VIEWS[this.view]); this.syncButtons(); } }
   addRing() {
     const D = this.cur, s = this.sel; if (!s || s.k === "neck" || s.k === "waist") return;
     const L = D[s.k], key = this.coordKey(s), i = s.i, r = L[i];
@@ -159,9 +164,12 @@ export class KleidEd {
       else if (b.dataset.kc) { this.cur.color = b.dataset.kc; this.changed(true); }
       else if (b.dataset.kr) { const [k, i] = b.dataset.kr.split("|"); this.sel = { k: k, i: +i }; this.render(); }
       else if (b.dataset.k) this.action(b.dataset.k);
+      else if (b.dataset.km) this.setMode(b.dataset.km);
+      else if (b.dataset.pe) this.pe.cmd(b.dataset.pe);
     });
     this.root.addEventListener("input", (e) => {
       const i = e.target, D = this.cur; if (!D) return;
+      if (i.dataset.po || i.dataset.pi) { if (i.dataset.pi && e.type === "input") return; this.pe.input(i); return; }
       if (i.dataset.kn) { D.name = i.value || "?"; clearTimeout(this.saveT); this.saveT = setTimeout(() => { this.save(); this.render(); }, 600); return; }
       if (i.dataset.kci) { D.color = i.value; this.changed(false); return; }
       if (i.dataset.ko) { this.opt[i.dataset.ko] = i.checked; this.save(); this.apply(); return; }
@@ -172,11 +180,12 @@ export class KleidEd {
         this.changed(false);
       }
     });
-    this.root.addEventListener("change", (e) => { if (e.target.id === "pru-kfile") this.importFile(e.target.files[0]); if (e.target.dataset && e.target.dataset.ks) this.render(); });
+    this.root.addEventListener("change", (e) => { if (e.target.id === "pru-kfile") this.importFile(e.target.files[0]); if (e.target.dataset && e.target.dataset.ks) this.render(); if (e.target.dataset && e.target.dataset.pi) this.pe.input(e.target); });
     const rc = new THREE.Raycaster();
     this.h = {
       down: (e) => {
         e.preventDefault(); const ray = this.ray(e);
+        if (this.mode === "punkte") { if (this.pe.down(e)) return; this.drag = { b: e.button, x: e.clientX, y: e.clientY }; return; }
         if (e.button === 0 && this.cur && this.fig) {
           // 1. Ring getroffen? → Ring ziehen
           if (this.opt.rings && this.ringObjs.length) { rc.ray.copy(ray); rc.params.Line.threshold = 0.012 * (this.cam.dist / 1.2); const h = rc.intersectObjects(this.ringObjs, false)[0]; if (h) { this.sel = h.object.userData.ref; this.render(); this.ringDrag = { x: e.clientX, y: e.clientY, dist: h.distance }; return; } }
@@ -187,6 +196,7 @@ export class KleidEd {
         this.drag = { b: e.button, x: e.clientX, y: e.clientY };
       },
       move: (e) => {
+        if (this.mode === "punkte" && this.pe.move(e)) return;
         if (this.ringDrag) {
           const dx = e.clientX - this.ringDrag.x, dy = e.clientY - this.ringDrag.y; this.ringDrag.x = e.clientX; this.ringDrag.y = e.clientY;
           const cam = this.engine.camera, wpp = 2 * this.ringDrag.dist * Math.tan(cam.fov * Math.PI / 360) / Math.max(1, this.cv.clientHeight);
@@ -203,7 +213,7 @@ export class KleidEd {
         if (this.drag.b === 0) { this.camT.yaw -= dx * 0.008; this.camT.pitch = clamp(this.camT.pitch + dy * 0.006, -0.6, 1.2); }
         else this.camT.ty = clamp(this.camT.ty + dy * 0.002 * this.camT.dist, 0.1, 1.6);
       },
-      up: () => { this.drag = null; if (this.ringDrag) { this.ringDrag = null; this.render(); } if (this.grab) { this.grab.C.release(); this.grab = null; this.$("#pru-kinfo").hidden = true; } },
+      up: () => { if (this.mode === "punkte" && this.pe.up()) { this.drag = null; return; } this.drag = null; if (this.ringDrag) { this.ringDrag = null; this.render(); } if (this.grab) { this.grab.C.release(); this.grab = null; this.$("#pru-kinfo").hidden = true; } },
       wheel: (e) => { e.preventDefault(); this.camT.dist = clamp(this.camT.dist * Math.exp(e.deltaY * 0.0012), 0.35, 6); },
       ctx: (e) => e.preventDefault()
     };
@@ -235,6 +245,7 @@ export class KleidEd {
   }
   key(e) {
     if (e.target && /INPUT|TEXTAREA/.test(e.target.tagName) && e.target.type !== "range" && e.target.type !== "checkbox") return false;
+    if (this.mode === "punkte" && this.pe.key(e)) return true;
     if (e.key === "Escape") { this.app.go("char"); return true; }
     if ((e.key === "+" || e.code === "NumpadAdd") && this.sel) { this.addRing(); return true; }
     if ((e.key === "Delete" || e.key === "Backspace") && this.sel) { this.remRing(); return true; }
@@ -243,7 +254,7 @@ export class KleidEd {
   // ---------- Ringe im Bild: Öffnungen = Ränder des Stoffs, Zwischenringe = Stoffpunkte auf dieser Höhe ----------
   drawRings() {
     const C = this.cloth(); this.ringObjs.forEach((o) => { this.rings.remove(o); o.geometry.dispose(); }); this.ringObjs = [];
-    this.rings.visible = this.opt.rings && !!C; if (!C || !this.opt.rings) return;
+    this.rings.visible = this.opt.rings && !!C && !this.cur.mesh; if (!C || !this.opt.rings || this.cur.mesh) return;
     if (!this.ringMat) { this.ringMat = new THREE.LineBasicMaterial({ color: 0xECEAE4, transparent: true, opacity: 0.9 }); this.ringSel = new THREE.LineBasicMaterial({ color: 0xE2621B }); }
     const B = C.B, K = C.fig.data.kinfo, P = C.p, D = this.cur, rest = B.pos;
     const add = (ids, ref) => {
@@ -282,7 +293,8 @@ export class KleidEd {
     S.speed = damp(S.speed, v, 3.5, dt); S.mode = S.speed > 0.05 || v > 0 ? "run" : "idle";
     this.runner.place(new THREE.Vector3(0, 0, 0), 0); this.runner.update(dt, S);
     if (this.dirty && (!this.lastApply || performance.now() - this.lastApply > 110)) this.apply();
-    if (this.fig) {
+    if (this.fig && this.mode === "punkte") { this.ringObjs.forEach((o) => { this.rings.remove(o); o.geometry.dispose(); }); this.ringObjs = []; this.pe.frame(); }
+    else if (this.fig) {
       this.fig.follow(this.runner); this.wind.set(0, 0, -S.speed); this.fig.simulate(dt, this.wind);
       // Ringe neu (Ruhezustand: Schleifen folgen dem Stoff)
       this.ringT = (this.ringT || 0) + dt; if (this.ringT > 0.06 || this.ringDrag) { this.ringT = 0; this.drawRings(); }
@@ -295,8 +307,15 @@ export class KleidEd {
     cam.position.set(Math.sin(c.yaw) * cp * c.dist + ox, c.ty + Math.sin(c.pitch) * c.dist, Math.cos(c.yaw) * cp * c.dist + oz); cam.lookAt(ox, c.ty, oz);
     this.engine.focus(new THREE.Vector3(0, 0.7, 0));
   }
+  // Ringe ↔ Punkte
+  setMode(m) {
+    if (m === "punkte" && this.cur && !this.cur.mesh && this.fig) { this.mode = "punkte"; if (!this.pe.take()) { this.mode = "ringe"; this.render(); return; } }
+    this.mode = m === "punkte" && this.cur ? "punkte" : "ringe";
+    if (this.mode === "punkte") { this.pe.prep(); this.anim = "idle"; this.syncButtons(); this.pe.commit(false); } else { this.pe.g.visible = false; if (this.fig) this.fig.setLook(this.figLook()); }
+    this.render();
+  }
   dispose() {
-    this.dead = true; clearTimeout(this.saveT); this.save();
+    this.dead = true; this.pe.dispose(); clearTimeout(this.saveT); this.save();
     this.cv.removeEventListener("mousedown", this.h.down); window.removeEventListener("mousemove", this.h.move); window.removeEventListener("mouseup", this.h.up);
     this.cv.removeEventListener("wheel", this.h.wheel); this.cv.removeEventListener("contextmenu", this.h.ctx);
     this.ringObjs.forEach((o) => o.geometry.dispose()); this.engine.scene.remove(this.rings); if (this.ringMat) { this.ringMat.dispose(); this.ringSel.dispose(); }

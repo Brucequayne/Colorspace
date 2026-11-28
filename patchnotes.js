@@ -3,6 +3,19 @@
    Die Versionsnummer auf den Kacheln kommt aus dem obersten Eintrag. */
 window.PATCHNOTES = {
   polyrunner: [
+    { v: "0.19", t: "2026-11-28T05:45:00+01:00",
+      de: ["Neu im Kleidungs-Editor: Punkt-Editor. Umschalter „Ringe / Punkte“: Das Kleidungsstück wird als eigenes Netz übernommen, alle Punkte und Kanten sind sichtbar und lassen sich einzeln bearbeiten.",
+        "Auswählen: Klick wählt einen Punkt, Shift+Klick fügt hinzu oder nimmt weg, Shift+Ziehen zieht einen Rahmen. Dazu „Alles wählen“, „Alles abwählen“ und „Auswahl erweitern“.",
+        "Verschieben mit den Pfeilen am Punkt (rot X, grün Y, blau Z) oder genau per Zahl in Millimetern. Symmetrie links = rechts an/aus.",
+        "„Auf die Haut legen“: Punkte gleiten beim Verschieben über die Körperoberfläche und halten ihren Stoffabstand, so lässt sich eine Kante genau in die Leiste legen.",
+        "Weiche Auswahl (Radius): umliegende Punkte gehen abgeschwächt mit. Löschen (Entf) nimmt Stoff weg, Unterteilen macht die Kanten zwischen gewählten Punkten feiner. Rückgängig mit Strg+Z.",
+        "Das eigene Netz wird mit dem Kleidungsstück gespeichert und exportiert und ist die Grundlage im Spiel: Bewegung, Stoffdicke und Physik laufen darauf weiter. „Netz verwerfen“ geht zurück zu den Ringen."],
+      en: ["New in the clothing editor: point editor. Switch “Rings / Points”: the garment becomes its own mesh, all points and edges are visible and can be edited one by one.",
+        "Selecting: click selects a point, Shift+click adds or removes, Shift+drag draws a box. Plus “Select all”, “Select none” and “Grow selection”.",
+        "Move with the arrows on the point (red X, green Y, blue Z) or precisely by number in millimetres. Symmetry left = right on/off.",
+        "“Stick to the skin”: points glide over the body surface while moving and keep their fabric distance, so an edge can be laid exactly into the groin.",
+        "Soft selection (radius): nearby points follow with less strength. Delete (Del) removes fabric, Subdivide makes the edges between selected points finer. Undo with Ctrl+Z.",
+        "The own mesh is saved and exported with the garment and is the basis in the game: movement, fabric thickness and physics keep working on it. “Discard mesh” goes back to the rings."] },
     { v: "0.18", t: "2026-11-28T05:10:00+01:00",
       de: ["Testlauf mit deinem Charakter: Mit F (oder im Tweaker) wechselst du zwischen Test-Dummy und Charakter. Der Charakter läuft mit Frisur und getragener Kleidung, Haare und Stoff schwingen bei jeder Bewegung echt mit.",
         "Beide Figuren sind jetzt 1,40 m groß: Dummy, Skelett und alle Bewegungen (Sprunghöhe, Stufen, Kanten, Hängen, Fallhöhen, Kamera) sind gemeinsam auf die Größe des Charakters skaliert.",

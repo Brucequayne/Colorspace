@@ -79,7 +79,45 @@ function binA(dx, dz, N) { return Math.min(N - 1, Math.floor((Math.atan2(dx, dz)
 function fillBins(A, N, R) { for (let it = 0; it < 8; it++) for (let r = 0; r < R; r++) for (let a = 0; a < N; a++) if (!A[r * N + a]) { const l = A[r * N + (a + N - 1) % N], rr = A[r * N + (a + 1) % N]; A[r * N + a] = Math.max(l, rr); } }
 
 // ---------- Netz eines Entwurfs bauen (Ruhe-Koordinaten) ----------
+// ---------- eigenes Punktnetz (seit v0.19, Punkt-Editor): mesh = { rev, pos: [x,y,z…], tris: [a,b,c…], src: [Hautpunkt…], pin: […], extra: [Index…] } ----------
+const r5 = (v) => Math.round(v * 1e5) / 1e5;
+export function bakeMesh(data, D) {
+  const B = buildGarment(data, Object.assign({}, D, { mesh: null }));
+  return { rev: 1, pos: Array.from(B.pos, r5), tris: B.tris.slice(), src: Array.from(B.src), pin: Array.from(B.pin, (v) => Math.round(v * 1000) / 1000), extra: Array.from(B.extra) };
+}
+function meshGarment(M) {
+  const n = M.pos.length / 3;
+  return { pos: Float32Array.from(M.pos), src: Int32Array.from(M.src), pin: Float32Array.from(M.pin), tris: M.tris.slice(), extra: new Set(M.extra || []), m0: n, ease: new Float32Array(n), own: true };
+}
+// Suche auf der Haut: nächster Hautpunkt (Raster) und nächster Punkt auf der Hautoberfläche (+ Normale)
+export function bodySearch(data) {
+  if (data.ksearch) return data.ksearch;
+  const g = data.geo, P = g.attributes.position.array, N = g.attributes.normal.array, part = g.attributes.aPart.array, idx = g.index.array, n = P.length / 3, C = 0.02, grid = new Map();
+  const key = (x, y, z) => Math.floor(x / C) + "," + Math.floor(y / C) + "," + Math.floor(z / C);
+  for (let i = 0; i < n; i++) { if (part[i] > 1.5) continue; const kk = key(P[i * 3], P[i * 3 + 1], P[i * 3 + 2]); let L = grid.get(kk); if (!L) grid.set(kk, (L = [])); L.push(i); }
+  const vt = Array.from({ length: n }, () => []); for (let t = 0; t < idx.length; t += 3) for (let q = 0; q < 3; q++) vt[idx[t + q]].push(t);
+  const nearest = (x, y, z) => {
+    let best = -1, bd = 1e9;
+    for (let r = 1; r <= 4 && best < 0; r++) for (let a = -r; a <= r; a++) for (let b = -r; b <= r; b++) for (let c = -r; c <= r; c++) {
+      const L = grid.get((Math.floor(x / C) + a) + "," + (Math.floor(y / C) + b) + "," + (Math.floor(z / C) + c)); if (!L) continue;
+      for (const i of L) { const d = (P[i * 3] - x) ** 2 + (P[i * 3 + 1] - y) ** 2 + (P[i * 3 + 2] - z) ** 2; if (d < bd) { bd = d; best = i; } }
+    }
+    return best;
+  };
+  const A = new THREE.Vector3(), Bv = new THREE.Vector3(), Cv = new THREE.Vector3(), q = new THREE.Vector3(), tri = new THREE.Triangle(), out = new THREE.Vector3();
+  // Punkt auf die Hautoberfläche legen, mit Abstand off entlang der Hautnormale
+  const project = (p, off) => {
+    const i = nearest(p.x, p.y, p.z); if (i < 0) return null;
+    let bd = 1e9, bp = null, bt = -1;
+    for (const t of vt[i]) { A.fromArray(P, idx[t] * 3); Bv.fromArray(P, idx[t + 1] * 3); Cv.fromArray(P, idx[t + 2] * 3); tri.set(A, Bv, Cv); tri.closestPointToPoint(p, q); const d = q.distanceToSquared(p); if (d < bd) { bd = d; bp = q.clone(); bt = t; } }
+    const nn = new THREE.Vector3(); for (let k = 0; k < 3; k++) nn.add(out.fromArray(N, idx[bt + k] * 3)); nn.normalize();
+    return { p: bp.clone().addScaledVector(nn, off), n: nn, i: i, skin: bp };
+  };
+  return data.ksearch = { nearest: nearest, project: project };
+}
+
 export function buildGarment(data, D) {
+  if (D.mesh && D.mesh.pos && D.mesh.pos.length) return meshGarment(D.mesh);
   const K = bodyInfo(data), g = data.geo, P = g.attributes.position.array, Nn = g.attributes.normal.array, part = g.attributes.aPart.array, n = P.length / 3, idx = g.index.array;
   const top = D.kind !== "bottom", th = Math.max(0.3, D.thick) / 1000, base = th * 0.5 + 0.0015;
   const f = new Float32Array(n).fill(-1);
@@ -211,7 +249,7 @@ export class Cloth {
     this.setDesign(design);
   }
   setDesign(d) {
-    const D = cloneDesign(d), k = JSON.stringify([D.kind, D.waist, D.leg, D.neck, D.arm, D.torso, D.sleeve, D.thick]);
+    const D = d.mesh ? Object.assign({}, d, { mesh: d.mesh }) : cloneDesign(d), k = JSON.stringify([D.kind, D.waist, D.leg, D.neck, D.arm, D.torso, D.sleeve, D.thick, D.mesh ? D.mesh.rev + "/" + D.mesh.pos.length : 0]);
     this.D = D; this.mat.color.set(D.color);
     if (k === this.key) return; this.key = k;
     const data = this.fig.data, B = this.B = buildGarment(data, D), m = this.m = B.pos.length / 3;
@@ -306,6 +344,8 @@ export class Cloth {
     this.write();
   }
   // Außen- und Innenhaut schreiben (innen = außen − Normale × Dicke)
+  // Ruheform zeigen (Punkt-Editor: Figur steht in der Bind-Pose, keine Physik)
+  showRest() { this.p.set(this.B.pos); this.q.set(this.B.pos); this.first = false; this.write(); }
   write() {
     const m = this.m, g = this.mesh.geometry, gp = g.attributes.position.array, p = this.p;
     this.outer.attributes.position.needsUpdate = true; this.outer.computeVertexNormals();

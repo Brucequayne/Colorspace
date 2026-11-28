@@ -219,6 +219,7 @@ export class Figur {
     this.root.updateMatrixWorld(true);
     this.skeleton = new THREE.Skeleton(BONES.map(([n]) => this.b[n]));
     this.mesh.bind(this.skeleton);
+    this.bindQ = {}; for (const n in this.b) this.bindQ[n] = this.b[n].quaternion.clone(); this.hipY = J.Hips[1];
     this.rest();
     scene.add(this.root);
     this.hair = new Hair(this); this.cloth = { top: null, bottom: null };
@@ -226,6 +227,8 @@ export class Figur {
   }
   // Ruhe wie der Runner: alle Drehungen 0 → Arme und Beine gerade nach unten
   rest() { for (const n in this.b) this.b[n].quaternion.identity(); this.pivot.position.set(0, HIP_H * this.k, 0); this.pivot.rotation.set(0, 0, 0); }
+  // Bind-Pose (A-Pose, wie das Modell gebaut ist) – für den Punkt-Editor
+  bindPose() { this.root.position.set(0, 0, 0); this.root.quaternion.identity(); this.pivot.position.set(0, this.hipY, 0); this.pivot.quaternion.identity(); for (const n in this.b) this.b[n].quaternion.copy(this.bindQ[n]); }
   setLook(look) {
     const L = this.look = cloneLook(look), U = this.mat.userData.U;
     U.uSkin.value.set(L.skin);

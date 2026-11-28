@@ -21,6 +21,7 @@ Neue Module: in `MODULES` in `polyrunner.js` eintragen. Modul-Präfix: `pru/`.
 | `editor.js` | Map Editor: Bauen, Start/Ziel/Test-Start, Farbe, Löschen, Himmel, Datei, Rückgängig |
 | `haare.js` | Haare: Strähnen aus Wurzeln (Look `hair`), Ruheform am Kopf entlang, Federkette mit Kollision, Malen (`pick`) |
 | `kleidung.js` | Kleidung: Entwurf aus Ringen (`newDesign`, `cloneDesign`), Netz bauen (`buildGarment`), Stoff mit Dicke, Physik und Greifen (`Cloth`) |
+| `punkte.js` | Punkt-Editor im Kleidungs-Editor: eigenes Netz Punkt für Punkt (Auswahl, Pfeile, Symmetrie, auf die Haut legen, weiche Auswahl, löschen, unterteilen) |
 | `kleided.js` | Kleidungs-Editor (Modus `kleid`, aus dem Charakter-Editor): Entwürfe, Ringe ziehen, Stoff, Dehnen, Export |
 | `figur.js` | Spielfigur: lädt `model/figur.bin`, SkinnedMesh auf dem Runner-Skelett, Shader für Haut, Augen, Brauen, enge Kleidung (Speedo), `follow(runner)` |
 | `chared.js` | Charakter-Editor (Modus `char`, Knopf „Charakter“ im Map Editor): Haut, Augen, Brauen, Kleidung, Vorschau-Animation |
@@ -164,3 +165,12 @@ automatisch hochziehen, niedrige Hindernisse bis 1,25 m im Lauf überklettern.
   Export `PolyRunner_Einstellungen.json` (`format: "polyrunner-tune"`, `werte` echt, `raw` roh) → Claude übernimmt sie als Standard in `TUNE`/`ANIM`/`SIZE_DEF`.
 - Animations-Faktoren `ANIM` in runner.js (Gangzyklus, Federn der Gelenke); neue Stellschrauben dort ergänzen und in `P` (tweak.js) eintragen.
 - Kleidung: Ärmellänge ab der Achsel (`kinfo.t0`), Badehosen-Beinöffnung als schräge Ebene je Bein durch den Steg (`legField`, `GUSSET`).
+
+## Punkt-Editor (seit v0.19)
+
+- Entwurf mit `mesh = { rev, pos, tris, src, pin, extra }` (Ruhe-Koordinaten, `src` = Hautpunkt für die Knochengewichte): `buildGarment` nimmt dann dieses Netz statt der Ringe.
+  `bakeMesh` übernimmt das Ringe-Ergebnis als Startnetz. `Cloth.setDesign` baut neu, wenn sich `mesh.rev` ändert.
+- `bodySearch(data)`: Raster der Hautpunkte (`nearest`), `project(p, off)` = nächster Punkt auf der Hautoberfläche + Normale × off (für „auf die Haut legen“).
+- Bearbeitet wird in der Bind-Pose (`Figur.bindPose()`, nicht `skeleton.pose()` – das verschiebt die Hüfte), Stoff in Ruheform (`Cloth.showRest`), keine Haare/andere Kleidung.
+- Spiegelpartner `mir` (x ↔ −x, 3 mm), Hautabstand `off` je Punkt beim Übernehmen. Verschieben: Gewichte bei Start (`beginMove`), Summe der Bewegung, Spiegelpartner gespiegelt, Mittelpunkte bleiben auf x = 0; neuer `src` = nächster Hautpunkt.
+- Unterteilen: Kanten zwischen zwei gewählten Punkten bekommen einen Mittelpunkt, Dreiecke werden in 2/3/4 geteilt (keine Lücken).

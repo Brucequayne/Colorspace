@@ -17,6 +17,7 @@
     "kleidung.js",// Kleidung: Entwürfe aus Ringen → Stoffnetz mit Dicke und Physik
     "figur.js",   // Spielfigur: Modell (model/figur.bin) auf dem Skelett, Haut, Augen, Brauen, enge Kleidung
     "chared.js",  // Charakter-Editor
+    "punkte.js",  // Punkt-Editor für Kleidung (Netz Punkt für Punkt)
     "kleided.js", // Kleidungs-Editor
     "main.js"     // Hülle: Start, Zustände, Schleife, Gestaltung
   ];
