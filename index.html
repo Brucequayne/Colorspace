@@ -347,28 +347,28 @@ body:not(.home) .vkey{display:none}
   <footer class="foot"><a id="plink" href="#datenschutz">Datenschutz</a></footer>
 </div>
 
-<script src="patchnotes.js?v=20261128-0345"></script>
-<script src="flughafen.js?v=20261128-0345"></script>
-<script src="gigachess.js?v=20261128-0345"></script>
-<script src="colorspin.js?v=20261128-0345"></script>
-<script src="pixellab.js?v=20261128-0345"></script>
-<script src="ezcrop.js?v=20261128-0345"></script>
-<script src="framepaint.js?v=20261128-0345"></script>
-<script src="wefx.js?v=20261128-0345"></script>
-<script src="drawspace.js?v=20261128-0345"></script>
-<script src="citygen.js?v=20261128-0345"></script>
-<script src="spacerogue.js?v=20261128-0345"></script>
-<script src="channels.js?v=20261128-0345"></script>
-<script src="noaim.js?v=20261128-0345"></script>
-<script src="weltmacht.js?v=20261128-0345"></script>
-<script src="shizuku.js?v=20261128-0345"></script>
-<script src="rapstreets.js?v=20261128-0345"></script>
-<script src="skapeform.js?v=20261128-0345"></script>
-<script src="anarchyfrankfurt.js?v=20261128-0345"></script>
-<script src="polyracer.js?v=20261128-0345"></script>
-<script src="leaarn.js?v=20261128-0345"></script>
-<script src="monstersarc.js?v=20261128-0345"></script>
-<script src="polyrunner.js?v=20261128-0345"></script>
+<script src="patchnotes.js?v=20261128-0400"></script>
+<script src="flughafen.js?v=20261128-0400"></script>
+<script src="gigachess.js?v=20261128-0400"></script>
+<script src="colorspin.js?v=20261128-0400"></script>
+<script src="pixellab.js?v=20261128-0400"></script>
+<script src="ezcrop.js?v=20261128-0400"></script>
+<script src="framepaint.js?v=20261128-0400"></script>
+<script src="wefx.js?v=20261128-0400"></script>
+<script src="drawspace.js?v=20261128-0400"></script>
+<script src="citygen.js?v=20261128-0400"></script>
+<script src="spacerogue.js?v=20261128-0400"></script>
+<script src="channels.js?v=20261128-0400"></script>
+<script src="noaim.js?v=20261128-0400"></script>
+<script src="weltmacht.js?v=20261128-0400"></script>
+<script src="shizuku.js?v=20261128-0400"></script>
+<script src="rapstreets.js?v=20261128-0400"></script>
+<script src="skapeform.js?v=20261128-0400"></script>
+<script src="anarchyfrankfurt.js?v=20261128-0400"></script>
+<script src="polyracer.js?v=20261128-0400"></script>
+<script src="leaarn.js?v=20261128-0400"></script>
+<script src="monstersarc.js?v=20261128-0400"></script>
+<script src="polyrunner.js?v=20261128-0400"></script>
 <script>
 (function () {
   var T = {
@@ -389,7 +389,7 @@ body:not(.home) .vkey{display:none}
     pnNew: { de: "Aktuell", en: "Current" }, pnLast: { de: "Letztes Update {a}", en: "Last update {a}" },
     privacy: { de: "Datenschutz", en: "Privacy" },
     vTitle: { de: "Intern", en: "Private" }, vCode: { de: "Code eingeben", en: "Enter code" }, vOk: { de: "Öffnen", en: "Open" }, vNo: { de: "Abbrechen", en: "Cancel" },
-    vSub: { de: "Geschützter Bereich. Nur mit Code erreichbar.", en: "Protected area. Reachable with a code only." }, vEmpty: { de: "Hier liegen noch keine Anwendungen.", en: "No apps in here yet." }, vLock: { de: "Sperren", en: "Lock" },
+    vSub: { de: "Geschützter Bereich. Nur mit Code erreichbar.", en: "Protected area. Reachable with a code only." }, vEmpty: { de: "Hier liegen noch keine Anwendungen.", en: "No apps in here yet." }, vBack: { de: "← Intern", en: "← Private" }, vLock: { de: "Sperren", en: "Lock" },
     flughafen: { de: "Flughafen", en: "Airport" },
     gigachess: { de: "Gigachess", en: "Gigachess" },
     channels: { de: "Channel Exporter", en: "Channel Exporter" },
@@ -477,7 +477,7 @@ body:not(.home) .vkey{display:none}
 
   // Kategorien: Spiele und Werkzeuge
   // Anwendungen nur im geschützten Bereich: ID hier eintragen (die App steht trotzdem in APPS und braucht einen Eintrag in setView/render)
-  var SECRET = [];
+  var SECRET = ["polyrunner", "monstersarc", "polyracer", "anarchyfrankfurt", "noaim"];
   var VCODE = "199682";
   function unlocked() { try { return sessionStorage.getItem("cs-vault") === "1"; } catch (e) { return false; } }
   var GAMES = ["polyrunner", "leaarn", "monstersarc", "polyracer", "anarchyfrankfurt", "rapstreets", "shizuku", "spacerogue", "weltmacht", "gigachess", "flughafen", "noaim", "citygen"];
@@ -848,7 +848,7 @@ body:not(.home) .vkey{display:none}
     document.body.classList.toggle("home", v === "home" || v === "privacy" || v === "vault");
     if (v === "flughafen" || v === "gigachess" || v === "colorspin" || v === "pixellab" || v === "ezcrop" || v === "framepaint" || v === "wefx" || v === "drawspace" || v === "citygen" || v === "spacerogue" || v === "channels" || v === "noaim" || v === "weltmacht" || v === "shizuku" || v === "rapstreets" || v === "skapeform" || v === "anarchyfrankfurt" || v === "polyracer" || v === "monstersarc" || v === "leaarn" || v === "polyrunner") {
       var full = FULL.indexOf(v) >= 0;
-      app.innerHTML = '<div class="appbar"><a class="back" href="#">' + U("back") + '</a>' + (full ? "" : '<div class="abr">' + pnButton(v) + '<div class="rate" id="rate" hidden></div></div>') + '</div><div id="approot"></div>';
+      app.innerHTML = '<div class="appbar"><a class="back" href="' + (SECRET.indexOf(v) >= 0 ? "#intern" : "#") + '">' + (SECRET.indexOf(v) >= 0 ? U("vBack") : U("back")) + '</a>' + (full ? "" : '<div class="abr">' + pnButton(v) + '<div class="rate" id="rate" hidden></div></div>') + '</div><div id="approot"></div>';
       if (full) { var d = document.createElement("div"); d.className = "fbar"; d.innerHTML = pnButton(v) + '<div class="rate" id="rate" hidden></div>'; document.body.appendChild(d); }
       var mod = { flughafen: window.Flughafen, gigachess: window.Gigachess, colorspin: window.Colorspin, pixellab: window.Pixellab, ezcrop: window.EzCrop, framepaint: window.FramePainter, wefx: window.WeFX, drawspace: window.DrawSpace, citygen: window.CityGen, spacerogue: window.SpaceRogue, channels: window.Channels, noaim: window.NoAim, weltmacht: window.Weltmacht, shizuku: window.Shizuku, rapstreets: window.RapStreets, skapeform: window.SkapeForm, anarchyfrankfurt: window.AnarchyFrankfurt, polyracer: window.PolyRacer, monstersarc: window.MonstersArc, leaarn: window.Leaarn, polyrunner: window.PolyRunner }[v];
       if (mod) mod.mount(document.getElementById("approot"), S.lang);
@@ -873,7 +873,7 @@ body:not(.home) .vkey{display:none}
   function setView() {
     var id = location.hash.replace("#", "");
     if (id === "fotoprojekt") { id = "channels"; history.replaceState(null, "", "#channels"); }
-    if (id === "intern" && !unlocked()) { id = ""; history.replaceState(null, "", location.pathname + location.search); }
+    if ((id === "intern" || SECRET.indexOf(id) >= 0) && !unlocked()) { id = ""; history.replaceState(null, "", location.pathname + location.search); }
     S.view = id === "intern" ? "vault" : id === "datenschutz" ? "privacy" : ["flughafen", "gigachess", "pixellab", "colorspin", "ezcrop", "framepaint", "wefx", "drawspace", "citygen", "spacerogue", "channels", "noaim", "weltmacht", "shizuku", "rapstreets", "skapeform", "anarchyfrankfurt", "polyracer", "monstersarc", "leaarn", "polyrunner"].indexOf(id) >= 0 ? id : "home";
   }
   function route() { setView(); render(); window.scrollTo(0, 0); }
