@@ -12,6 +12,8 @@
     "play.js",    // Testlauf: Kamera, Zeitfahren, Bestzeiten
     "editor.js",  // Map Editor
     "menu.js",    // Hauptmenü, Einstellungen
+    "figur.js",   // Spielfigur: Modell (model/figur.bin) auf dem Skelett, Haut, Augen, Brauen, enge Kleidung
+    "chared.js",  // Charakter-Editor
     "main.js"     // Hülle: Start, Zustände, Schleife, Gestaltung
   ];
   var stamp = "";

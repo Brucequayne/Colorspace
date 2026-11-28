@@ -3,6 +3,19 @@
    Die Versionsnummer auf den Kacheln kommt aus dem obersten Eintrag. */
 window.PATCHNOTES = {
   polyrunner: [
+    { v: "0.14", t: "2026-11-28T03:35:00+01:00",
+      de: ["Neu: Charakter-Editor (vorerst im Map Editor, Knopf „Charakter“). Die echte Spielfigur ist da: dein Modell, automatisch auf das Runner-Skelett geriggt, mit Vorschau Stehen, Gehen, Laufen und Sprinten.",
+        "Haut: sieben Hautfarben und eine eigene Farbe.",
+        "Augen im Anime-Stil: sieben Pupillen-Arten (Anime, Rund, Schlitz, Stern, Ring, Raute, Ohne), Augenfarbe, Iris- und Pupillen-Größe, Glanzpunkte an/aus.",
+        "Augenbrauen: sieben Formen, Farbe, Länge, Dicke, Höhe, Abstand und Winkel.",
+        "Standard-Kleidung: blaue Badehose nach Noahs Skizze, liegt exakt auf der Haut und bewegt sich mit.",
+        "Aussehen wird gespeichert und lässt sich als .json exportieren und importieren. Haare folgen in v0.15, weitere Kleidung mit Stoffphysik in v0.16."],
+      en: ["New: character editor (for now in the map editor, button “Character”). The real player character is here: your model, automatically rigged to the runner skeleton, with a stand, walk, run and sprint preview.",
+        "Skin: seven skin colours and a custom colour.",
+        "Anime-style eyes: seven pupil styles (anime, round, slit, star, ring, diamond, none), eye colour, iris and pupil size, highlights on/off.",
+        "Eyebrows: seven shapes, colour, length, thickness, height, spacing and angle.",
+        "Default clothing: blue swim briefs from Noah's sketch, sitting exactly on the skin and moving with it.",
+        "The look is saved and can be exported and imported as .json. Hair follows in v0.15, more clothes with cloth physics in v0.16."] },
     { v: "0.13", t: "2026-11-28T01:00:00+01:00",
       de: ["Kanten: Die Hände greifen jetzt wirklich auf die Kante. Der Körper hing vorher zu tief und zu weit weg (die Hände blieben rund 35 cm darunter), jetzt hängt er dicht an der Wand und die Arme erreichen die Kante.",
         "Pendeln beim Hängen: Wer mit Schwung an eine Kante springt, schlägt mit den Füßen an die Wand, schwingt nach außen und pendelt aus, auch seitlich. Die Beine schlenkern hinterher. Stehen die Füße auf dem Boden, pendelt nichts.",

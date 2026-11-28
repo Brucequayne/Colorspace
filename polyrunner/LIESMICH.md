@@ -18,6 +18,8 @@ Neue Module: in `MODULES` in `polyrunner.js` eintragen. Modul-Präfix: `pru/`.
 | `move.js` | Bewegung und Parkour (feste 120 Schritte/s), alle Zahlen in `TUNE` |
 | `play.js` | Testlauf: Verfolgerkamera mit Pointer-Lock, Zeitfahren, Bestzeiten, Pause |
 | `editor.js` | Map Editor: Bauen, Start/Ziel/Test-Start, Farbe, Löschen, Himmel, Datei, Rückgängig |
+| `figur.js` | Spielfigur: lädt `model/figur.bin`, SkinnedMesh auf dem Runner-Skelett, Shader für Haut, Augen, Brauen, enge Kleidung (Speedo), `follow(runner)` |
+| `chared.js` | Charakter-Editor (Modus `char`, Knopf „Charakter“ im Map Editor): Haut, Augen, Brauen, Kleidung, Vorschau-Animation |
 | `menu.js` | Hauptmenü (Spielen noch gesperrt), Code-Abfrage, Einstellungen |
 | `main.js` | Hülle: Zustände `menu`, `editor`, `test`, Schleife, CSS |
 
@@ -35,7 +37,7 @@ Neue Module: in `MODULES` in `polyrunner.js` eintragen. Modul-Präfix: `pru/`.
   Auf dem Boden ist `n` = oben, auf Dächern auch, an Wänden zeigt `n` waagerecht aus der Wand.
 - Maße in Metern, auf mm gerundet. `id` der Map ist der Schlüssel für Bestzeiten (`polyrunner-best-v1`).
 - Ziel: Zylinder mit Radius `FINISH_R` (1,4 m), 4 m hoch.
-- Speicher im Browser: `polyrunner-map-v1` (Arbeits-Map), `polyrunner-settings-v1`, `polyrunner-ui-v1`, `polyrunner-dev`.
+- Speicher im Browser: `polyrunner-map-v1` (Arbeits-Map), `polyrunner-char-v1` (Aussehen der Figur), `polyrunner-settings-v1`, `polyrunner-ui-v1`, `polyrunner-dev`.
 
 Ablauf Level: Noah baut im Editor, exportiert `PolyRunner_<Name>.json` und schickt die Dateien mit Nummer.
 Für „Spielen“ kommen sie später als Level-Liste ins Spiel (noch nicht gebaut).
@@ -100,3 +102,22 @@ kurz vor der Landung nach hohem Fall: abrollen (sonst ab ~4,9 m stolpern). In de
 Leertaste stößt ab. Frontal an der Wand in der Luft: Wandsprung (nicht zweimal hintereinander an derselben Wand, zwischen
 zwei Wänden hin und her geht). Am Boden frontal an der Wand + Sprung: Wand hochlaufen. Kanten bis 2,15 m über den Füßen:
 automatisch hochziehen, niedrige Hindernisse bis 1,25 m im Lauf überklettern.
+
+## Spielfigur und Charakter-Editor (seit v0.14)
+
+- Quelle: `model/quelle/Charakter_Polyrunner.fbx` (Noahs Modell, ohne Skelett, ohne UVs; Augäpfel, Zähne und Zunge sind eigene Teile).
+  `werkzeuge/figur_bauen.js` macht daraus `model/figur.bin`: `node polyrunner/werkzeuge/figur_bauen.js dump` (lädt das FBX per Playwright im Browser,
+  schreibt `werkzeuge/figur_roh.json`, nicht hochladen), danach ohne Argument (Auto-Rig, schreibt die .bin). Das Modell wird nicht verändert,
+  nur auf **1,40 m** skaliert (Kindgröße, Noahs Wahl), Füße auf y = 0, Blick +Z, gleiche Punkte zusammengelegt.
+- `figur.bin`: `PRF1`, Länge + JSON-Kopf (Gelenke `joints`, Augäpfel `eyes` mit Mittelpunkt/Radius/Lidöffnung, Knochenliste), dann Positionen (Uint16, quantisiert),
+  Indizes (Uint16), je Punkt 4 Knochen + 4 Gewichte (Uint8) und Teil `aPart` (0 Haut, 1 Haut Hände/Füße, 2/3 Auge links/rechts, 4 Zähne, 5 Zunge).
+- Auto-Rig: Gelenke von Hand aus Schnitten durchs Modell bestimmt (`J` im Werkzeug), Gewichte = nächstes Knochensegment der eigenen Körperseite,
+  dann 14× über die Oberfläche geglättet. Knochen-Ruhe in `Figur`: Arme/Beine zeigen mit −Y aufs nächste Gelenk (A-Pose = Bind-Pose),
+  deshalb kann `follow(runner)` die lokalen Drehungen des Runners 1:1 übernehmen; Becken × `k` (Beckenhöhe 0,69 / 0,9). Arme +0,12 rad weiter abgespreizt.
+- Aussehen nur im Shader auf der Ruhe-Position (`position` vor dem Skinning), dadurch liegt alles exakt auf der Haut:
+  Augen = Leinwand-Textur in Blickrichtung projiziert (`eyeCanvas`), Brauen = Leinwand von vorne aufs Gesicht (`browCanvas`, Ausschnitt `FACE`),
+  Speedo = Felder in `pruSpeedo()` (Bund oben, Beinausschnitt je Bein über Winkel um die Beinachse, Seitenstreifen über Winkel um den Körper).
+  Enge Kleidung später genauso (eigene Felder), weite Kleidung als eigene Netze mit Stoffphysik (v0.16), Haare v0.15.
+- Look (`LOOK_DEFAULT`): `{ v, skin, eyes: { type, iris, size, pupil, shine }, brows: { type, color, size, thick, y, gap, tilt }, bottom }`.
+  Export `PolyRunner_Figur.json` mit `format: "polyrunner-look"`.
+- Vorschau im Editor: Runner läuft unsichtbar auf der Stelle (Laufband), Boden-Strahlen über eine Ersatz-Welt (`FAKEWORLD`).

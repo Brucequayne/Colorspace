@@ -8,7 +8,7 @@ addTexts({
   tBuild: L2("Bauen", "Build"), tStart: L2("Start", "Start"), tFinish: L2("Ziel", "Finish"), tTest: L2("Test-Start", "Test start"), tPaint: L2("Farbe", "Paint"), tErase: L2("Löschen", "Erase"),
   sRect: L2("Viereck", "Rectangle"), sTri: L2("Dreieck", "Triangle"), sCircle: L2("Kreis", "Circle"), sHex: L2("Hexagon", "Hexagon"),
   eTestS: L2("Testen", "Test"), eTestFrom: L2("ab Test-Start", "from test start"), eTestStart: L2("ab Start", "from start"),
-  eSky: L2("Himmel", "Sky"), eFile: L2("Datei", "File"), eMenu: L2("Menü", "Menu"),
+  eSky: L2("Himmel", "Sky"), eChar: L2("Charakter", "Character"), eFile: L2("Datei", "File"), eMenu: L2("Menü", "Menu"),
   eTime: L2("Tageszeit", "Time of day"), eCycle: L2("Tageszyklus läuft", "Day cycle running"), eSpeed: L2("Tempo", "Speed"),
   eName: L2("Name der Map", "Map name"), eNew: L2("Neue Map", "New map"), eOpen: L2("Öffnen …", "Open …"), eExport: L2("Exportieren", "Export"),
   eNewQ: L2("Neue, leere Map anfangen? Die aktuelle Map wird verworfen (vorher exportieren!).", "Start a new, empty map? The current map will be discarded (export it first!)."),
@@ -72,6 +72,7 @@ export class Editor {
       '<div class="pru-right">' +
         '<button class="pru-ib" data-pop="sky" title="' + T("eSky") + '">' + svg("sky") + "</button>" +
         '<button class="pru-ib" data-pop="file" title="' + T("eFile") + '">' + svg("file") + "</button>" +
+        '<button class="pru-tb" data-a="char" title="' + T("eChar") + '">' + T("eChar") + "</button>" +
         '<button class="pru-tb" data-a="test0" id="pru-test0" title="Shift+Enter" hidden>' + svg("play") + "<span>" + T("eTestStart") + "</span></button>" +
         '<button class="pru-tb pru-pri" data-a="test" title="Enter">' + svg("play") + "<span>" + T("eTestS") + '</span><small id="pru-tfrom"></small></button>' +
         '<button class="pru-tb" data-a="menu">' + T("eMenu") + "</button></div>" +
@@ -110,6 +111,7 @@ export class Editor {
     if (a === "test") this.test(this.world.map.test && !e.shiftKey ? "test" : "start");
     else if (a === "test0") this.test("start");
     else if (a === "menu") { this.save(); this.app.go("menu"); }
+    else if (a === "char") { this.save(); this.app.editorCam = this.cam; this.app.go("char"); }
     else if (a === "undo") this.doUndo(); else if (a === "redo") this.doRedo();
     else if (a === "new") { if (confirm(t("eNewQ"))) { this.commit(() => { this.world.load(null); }); this.world.map.name = "Neue Map"; this.refreshInfo(); } }
     else if (a === "open") this.$("#pru-file").click();
