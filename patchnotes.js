@@ -3,6 +3,17 @@
    Die Versionsnummer auf den Kacheln kommt aus dem obersten Eintrag. */
 window.PATCHNOTES = {
   polyrunner: [
+    { v: "0.16", t: "2026-11-28T03:55:00+01:00",
+      de: ["Badehose neu gelegt: Sie sitzt jetzt richtig hoch in T-Form, läuft vorne spitz zwischen den Beinen zusammen und geht an den Seiten hoch über die Hüfte. Hinten bedeckt sie mehr, der Bund verläuft gerade.",
+        "Neu im Charakter-Editor, Reiter „Kleidung“: Oberteile Tanktop (eng), Crop Top (eng), Shirt (locker) und Shirt lang (locker, lange Ärmel, bis über den Po), Hosen Baggy-Hose lang, Baggy-Shorts und Leggings kurz (eng). Jedes Teil in 16 Farben.",
+        "Enge Kleidung liegt exakt auf der Haut und bewegt sich mit, nichts dringt durch.",
+        "Weite Kleidung hat Stoffphysik: Shirts fallen ab der Brust locker herunter, Hosenbeine weit ab dem Oberschenkel. Beim Laufen und Sprinten schwingen Saum, Ärmel und Hosenbeine, die Beine schieben den Stoff weg, und der Stoff geht nie unter die Haut.",
+        "Die Badehose bleibt immer drunter. Die Kleidung wird mit dem Aussehen gespeichert und exportiert."],
+      en: ["Swim briefs redone: they now sit properly high in a T shape, narrow to a point between the legs at the front and rise up over the hips at the sides. At the back they cover more, the waistband runs straight.",
+        "New in the character editor, “Clothes” tab: tops tank top (tight), crop top (tight), shirt (loose) and long shirt (loose, long sleeves, down past the hips), bottoms baggy trousers, baggy shorts and short leggings (tight). Every item in 16 colours.",
+        "Tight clothes sit exactly on the skin and move with it, nothing pokes through.",
+        "Loose clothes have cloth physics: shirts hang loosely from the chest down, trouser legs are wide from the thigh. When running and sprinting, hems, sleeves and trouser legs swing, the legs push the fabric aside, and the fabric never goes under the skin.",
+        "The swim briefs always stay underneath. The clothes are saved and exported with the look."] },
     { v: "0.15", t: "2026-11-28T04:15:00+01:00",
       de: ["Neu im Charakter-Editor: Haare. Im Reiter „Haare“ malst du mit der linken Maus direkt auf den Kopf. Jeder Tupfer setzt Strähnen im Anime-Stil: breite, spitz zulaufende Strähnen statt vieler einzelner Haare.",
         "Gruppen: Jede Gruppe hat ihre eigene Haarlänge (2–70 cm), Strähnen-Breite, Haartyp und Haarfarbe. Gemalt wird immer in die gewählte Gruppe, so lassen sich z. B. kurzer Pony und lange Haare hinten trennen.",

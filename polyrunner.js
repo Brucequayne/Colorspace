@@ -13,6 +13,7 @@
     "editor.js",  // Map Editor
     "menu.js",    // Hauptmenü, Einstellungen
     "haare.js",   // Haare: Anime-Strähnen mit Physik, Malen auf der Kopfhaut
+    "kleidung.js",// Kleidung: enge Teile im Shader, weite als Stoffnetz mit Physik
     "figur.js",   // Spielfigur: Modell (model/figur.bin) auf dem Skelett, Haut, Augen, Brauen, enge Kleidung
     "chared.js",  // Charakter-Editor
     "main.js"     // Hülle: Start, Zustände, Schleife, Gestaltung

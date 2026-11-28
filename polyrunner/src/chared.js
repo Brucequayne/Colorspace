@@ -6,6 +6,7 @@ import { t, addTexts, L2, el, esc, store, KEYS, clamp, damp, download } from "pr
 import { Runner } from "pru/runner.js";
 import { Figur, loadFigur, cloneLook, LOOK_DEFAULT, SKINS, IRIS, BROWC, EYE_TYPES, BROW_TYPES } from "pru/figur.js";
 import { HAIR_TYPES, HAIRC, newGroup } from "pru/haare.js";
+import { TOPS, LEGS, CLOTHC } from "pru/kleidung.js";
 
 addTexts({
   cTitle: L2("Charakter", "Character"), cLoading: L2("Figur wird geladen …", "Loading the character …"), cFail: L2("Figur konnte nicht geladen werden", "Could not load the character"),
@@ -16,7 +17,10 @@ addTexts({
   cBShape: L2("Form", "Shape"), cBCol: L2("Farbe", "Colour"), cBSize: L2("Länge", "Length"), cBThick: L2("Dicke", "Thickness"), cBY: L2("Höhe", "Height"), cBGap: L2("Abstand", "Spacing"), cBTilt: L2("Winkel", "Angle"),
   b_bogen: L2("Bogen", "Arched"), b_gerade: L2("Gerade", "Straight"), b_duenn: L2("Dünn", "Thin"), b_kraeftig: L2("Kräftig", "Bold"), b_wuetend: L2("Wütend", "Angry"), b_besorgt: L2("Besorgt", "Worried"), b_kurz: L2("Kurz", "Short"),
   cBottom: L2("Unten", "Bottom"), cSpeedo: L2("Badehose (Standard)", "Swim briefs (default)"),
-  cClothNote: L2("Weitere Kleidung (Tanktop, Shirts, Crop Top, Baggy-Hose, Shorts, Leggings) mit Stoffphysik folgt in v0.16.", "More clothes (tank top, shirts, crop top, baggy trousers, shorts, leggings) with cloth physics follow in v0.16."),
+  cClothNote: L2("Die Badehose ist immer drunter. Enge Teile liegen direkt auf der Haut, weite Teile (locker) haben Stoffphysik: Probier „Laufen“ und „Sprinten“ unten links.", "The swim briefs are always underneath. Tight items sit directly on the skin, loose items have cloth physics: try “Run” and “Sprint” at the bottom left."),
+  cTop: L2("Oberteil", "Top"), cLegs: L2("Hose", "Bottoms"), cCol: L2("Farbe", "Colour"),
+  k_none: L2("Keins", "None"), k_tanktop: L2("Tanktop · eng", "Tank top · tight"), k_croptop: L2("Crop Top · eng", "Crop top · tight"), k_shirt: L2("Shirt · locker", "Shirt · loose"), k_longshirt: L2("Shirt lang · locker", "Long shirt · loose"),
+  l_none: L2("Keine (nur Badehose)", "None (swim briefs only)"), l_baggy: L2("Baggy-Hose lang", "Baggy trousers"), l_shorts: L2("Baggy-Shorts", "Baggy shorts"), l_leggings: L2("Leggings kurz · eng", "Short leggings · tight"),
   hTool: L2("Werkzeug", "Tool"), hBrush: L2("Pinsel", "Brush"), hErase: L2("Radierer", "Eraser"), hSize: L2("Pinselgröße", "Brush size"), hGap: L2("Abstand der Strähnen", "Strand spacing"),
   hSym: L2("Symmetrie (links = rechts)", "Symmetry (left = right)"), hGroups: L2("Gruppen", "Groups"), hGroup: L2("Gruppe {n}", "Group {n}"), hAdd: L2("+ Gruppe", "+ Group"), hDel: L2("Gruppe löschen", "Delete group"),
   hStrands: L2("{n} Strähnen", "{n} strands"), hLen: L2("Haarlänge", "Hair length"), hThick: L2("Strähnen-Breite", "Strand width"), hType: L2("Haartyp", "Hair type"), hCol: L2("Haarfarbe", "Hair colour"),
@@ -110,7 +114,11 @@ export class CharEd {
     else if (this.tab === "brows") h = "<h4>" + t("cBShape") + "</h4>" + opts("brows.type", BROW_TYPES, L.brows.type, "b_", false) + "<h4>" + t("cBCol") + "</h4>" + sw(BROWC, L.brows.color, "brows.color") +
       rng("brows.size", "cBSize", 0.7, 1.35, 0.01, L.brows.size, " %", pct) + rng("brows.thick", "cBThick", 0.5, 1.8, 0.01, L.brows.thick, " %", pct) +
       rng("brows.y", "cBY", -4, 6, 0.1, L.brows.y, " mm") + rng("brows.gap", "cBGap", -4, 6, 0.1, L.brows.gap, " mm") + rng("brows.tilt", "cBTilt", -18, 18, 0.5, L.brows.tilt, "°");
-    else if (this.tab === "clothes") h = "<h4>" + t("cBottom") + '</h4><div class="pru-col"><button aria-pressed="true">' + t("cSpeedo") + "</button></div><p>" + t("cClothNote") + "</p>";
+    else if (this.tab === "clothes") {
+      const C = L.clothes, list = (key, arr, cur, pre) => '<div class="pru-col">' + arr.map((k) => '<button data-set="clothes.' + key + '" data-v="' + k + '" aria-pressed="' + (k === cur) + '">' + t(pre + k) + "</button>").join("") + "</div>";
+      h = "<h4>" + t("cTop") + "</h4>" + list("top", TOPS, C.top, "k_") + (C.top !== "none" ? "<h4>" + t("cCol") + "</h4>" + sw(CLOTHC, C.topCol, "clothes.topCol") : "") +
+        "<h4>" + t("cLegs") + "</h4>" + list("legs", LEGS, C.legs, "l_") + (C.legs !== "none" ? "<h4>" + t("cCol") + "</h4>" + sw(CLOTHC, C.legsCol, "clothes.legsCol") : "") + "<p>" + t("cClothNote") + "</p>";
+    }
     else h = this.hairHTML(rng, sw, pct);
     this.$("#pru-cbody").innerHTML = h;
     if (this.tab === "eyes") this.drawIcons();
@@ -296,7 +304,7 @@ export class CharEd {
     if (this.fig) {
       this.fig.follow(this.runner);
       // Laufband: die Figur bleibt stehen, die Luft strömt mit dem Tempo von vorne
-      this.wind.set(0, 0, -S.speed); this.fig.hair.update(dt, this.wind);
+      this.wind.set(0, 0, -S.speed); this.fig.simulate(dt, this.wind);
     }
     // Kamera
     if (this.spin && !this.drag) this.camT.yaw += dt * 0.5;
